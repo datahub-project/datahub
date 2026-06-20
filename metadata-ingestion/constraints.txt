@@ -321,6 +321,10 @@ databricks-sdk==0.97.0
     #   acryl-datahub
     #   mlflow-skinny
 databricks-sql-connector==4.3.0
+    # via
+    #   acryl-datahub
+    #   databricks-sqlalchemy
+databricks-sqlalchemy==2.0.9
     # via acryl-datahub
 dataclasses-json==0.6.7
     # via
@@ -1078,6 +1082,7 @@ pyarrow==18.0.0
     # via
     #   acryl-datahub
     #   dask-expr
+    #   databricks-sqlalchemy
     #   db-dtypes
     #   deltalake
     #   feast
@@ -1511,6 +1516,7 @@ sqlalchemy==2.0.51
     #   acryl-datahub
     #   alembic
     #   clickhouse-sqlalchemy
+    #   databricks-sqlalchemy
     #   dataflows-tabulator
     #   feast
     #   geoalchemy2

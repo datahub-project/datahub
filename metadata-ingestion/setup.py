@@ -481,6 +481,9 @@ databricks_common = {
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "databricks-sql-connector>=4.1.2,<5.0.0",
+    # connector 4.x split the SQLAlchemy dialect into a separate package; required so
+    # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
+    "databricks-sqlalchemy>=2.0.0,<3.0.0",
 }
 
 databricks = {

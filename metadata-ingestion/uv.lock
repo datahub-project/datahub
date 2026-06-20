@@ -122,6 +122,7 @@ all = [
     { name = "databricks-dbapi" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "db-dtypes" },
     { name = "deepmerge" },
     { name = "defusedxml" },
@@ -395,6 +396,7 @@ databricks = [
     { name = "cachetools" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "greenlet" },
     { name = "numpy" },
     { name = "patchy" },
@@ -551,6 +553,7 @@ dev = [
     { name = "databricks-dbapi" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
@@ -746,6 +749,7 @@ docs = [
     { name = "databricks-dbapi" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
@@ -1009,6 +1013,7 @@ fivetran = [
     { name = "cryptography" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "google-cloud-bigquery" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-logging" },
@@ -1799,6 +1804,7 @@ unity-catalog = [
     { name = "cachetools" },
     { name = "databricks-sdk" },
     { name = "databricks-sql-connector" },
+    { name = "databricks-sqlalchemy" },
     { name = "greenlet" },
     { name = "numpy" },
     { name = "patchy" },
@@ -2137,6 +2143,12 @@ requires-dist = [
     { name = "databricks-sql-connector", marker = "extra == 'docs'", specifier = ">=4.1.2,<5.0.0" },
     { name = "databricks-sql-connector", marker = "extra == 'fivetran'", specifier = ">=4.1.2,<5.0.0" },
     { name = "databricks-sql-connector", marker = "extra == 'unity-catalog'", specifier = ">=4.1.2,<5.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'databricks'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'fivetran'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "databricks-sqlalchemy", marker = "extra == 'unity-catalog'", specifier = ">=2.0.0,<3.0.0" },
     { name = "db-dtypes", marker = "extra == 'all'" },
     { name = "db-dtypes", marker = "extra == 'dev'" },
     { name = "db-dtypes", marker = "extra == 'docs'" },
@@ -5338,6 +5350,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dd/e3/16d6f15f0456f6abd35406ddadd651b7579ed2f7c2ffda2722b263529427/databricks_sql_connector-4.3.0.tar.gz", hash = "sha256:047a56d31a61a04bd7eaa33a29e2c899b177f5b9089c127e9ae88c261e635cd1", size = 222828, upload-time = "2026-06-15T07:04:54.098Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d6/e5/4473f714f24d408a34c8a35f7b1e9b49d4e1c3fb2759166cee0ee23042c2/databricks_sql_connector-4.3.0-py3-none-any.whl", hash = "sha256:a48f33ab246e42950d12da0c12d7b82eae616f18e3103a4f5801ceeae8861f30", size = 251500, upload-time = "2026-06-15T07:04:52.628Z" },
+]
+
+[[package]]
+name = "databricks-sqlalchemy"
+version = "2.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "databricks-sql-connector" },
+    { name = "pyarrow" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/56/09d2b75e3cfa77e88f96dd832c6f4a2bacbd3134fc9af2b0b0a118c3272c/databricks_sqlalchemy-2.0.9.tar.gz", hash = "sha256:9975830df92541485c0560998ee90f1ac0f76d9d3de4940582e951c09b49b9ed", size = 26739, upload-time = "2026-02-20T11:27:13.051Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/bd/4bb509f482bd8f884b6d1eeeae56a6dc12ff587f745f80dead7761fb3df8/databricks_sqlalchemy-2.0.9-py3-none-any.whl", hash = "sha256:b2569084942591b91eff749ca3f5cdb101845245d36a665d70fc8ad12005dab9", size = 27585, upload-time = "2026-02-20T11:27:11.288Z" },
 ]
 
 [[package]]
