@@ -1,11 +1,12 @@
 import logging
 import re
 import warnings
-from typing import Any, Dict, List, Optional  # noqa: F401 (used in type comments)
+from typing import Any, List, Optional  # noqa: F401 (used in type comments)
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.engine import Connection, reflection
+from sqlalchemy.engine.interfaces import ReflectedColumn  # noqa: F401 (type comment)
 from sqlalchemy.exc import SAWarning, SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
@@ -94,7 +95,7 @@ class DorisDialect(MySQLDialect_pymysql):
 
     @reflection.cache  # type: ignore[call-arg]
     def get_columns(self, connection, table_name, schema=None, **kw):
-        # type: (Connection, str, Optional[str], Any) -> List[Dict[str, Any]]
+        # type: (Connection, str, Optional[str], Any) -> List[ReflectedColumn]
         """
         Override to preserve Doris-specific types via DESCRIBE queries.
 
@@ -133,7 +134,10 @@ class DorisDialect(MySQLDialect_pymysql):
             for col in columns:
                 if col["name"] in type_map:
                     doris_type_str = type_map[col["name"]]
-                    col["full_type"] = doris_type_str
+                    # "full_type" is a non-standard key consumed by SQLAlchemySource
+                    # to preserve the raw Doris type string; it is not part of the
+                    # ReflectedColumn TypedDict.
+                    col["full_type"] = doris_type_str  # type: ignore[typeddict-unknown-key]
 
                     parsed_type = _parse_doris_type(doris_type_str)
                     if parsed_type is not sqltypes.NULLTYPE:

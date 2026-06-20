@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -257,9 +257,9 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict[Any, Any],
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[Dict[Any, Any]] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -357,7 +357,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        partition_columns: List[dict] = inspector.get_indexes(
+        partition_columns: Sequence[Mapping[str, Any]] = inspector.get_indexes(
             table_name=table, schema=schema
         )
         for partition_column in partition_columns:

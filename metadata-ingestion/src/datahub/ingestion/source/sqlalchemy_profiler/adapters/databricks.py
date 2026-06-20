@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -90,7 +90,7 @@ class DatabricksAdapter(PlatformAdapter):
         quoted_column = self.quote_identifier(column)
         # Databricks: Similar to Athena/Trino but uses array() syntax
         array_str = f"array({', '.join(str(q) for q in quantiles)})"
-        databricks_expr = sa.literal_column(
+        databricks_expr: Label = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
         query = sa.select(databricks_expr).select_from(table)

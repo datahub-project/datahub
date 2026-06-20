@@ -16,6 +16,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Connection
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sql.hive.hive_metastore_config import HiveMetastore
@@ -264,7 +265,7 @@ class SQLAlchemyClient:
 
     def __init__(self, config: "HiveMetastore"):
         self.config = config
-        self._connection = None
+        self._connection: Optional[Connection] = None
 
     @property
     def connection(self) -> Any:

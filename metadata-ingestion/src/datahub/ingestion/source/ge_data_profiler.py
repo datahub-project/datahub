@@ -185,13 +185,9 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
     if self.engine.dialect.name.lower() == REDSHIFT:
         element_values = self.engine.execute(
             sa.select(
-                [
-                    # We use coalesce here to force SQL Alchemy to see this
-                    # as a column expression.
-                    sa.func.coalesce(
-                        sa.text(f'APPROXIMATE count(distinct "{column}")')
-                    ),
-                ]
+                # We use coalesce here to force SQL Alchemy to see this
+                # as a column expression.
+                sa.func.coalesce(sa.text(f'APPROXIMATE count(distinct "{column}")')),
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
@@ -226,7 +222,7 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
         )
     return convert_to_json_serializable(
         self.engine.execute(
-            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
+            sa.select(sa.func.count(sa.func.distinct(sa.column(column)))).select_from(
                 self._table
             )
         ).scalar()
@@ -662,7 +658,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
-                        sa.select([sa.func.median(sa.column(column))]).select_from(
+                        sa.select(sa.func.median(sa.column(column))).select_from(
                             self.dataset._table
                         )
                     ).scalar()
@@ -771,10 +767,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         try:
             results = self.dataset.engine.execute(
                 sa.select(
-                    [
-                        sa.column(column),
-                        sa.func.count(sa.column(column)),
-                    ]
+                    sa.column(column),
+                    sa.func.count(sa.column(column)),
                 )
                 .select_from(self.dataset._table)
                 .where(sa.column(column).is_not(None))
@@ -1180,7 +1174,9 @@ class DatahubGEProfiler:
             # is also always a single row. As such, we disable the linter here.
 
             # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
+            # SA 2.0 types compiler_linting as the Linting IntFlag; the
+            # bitwise-and narrows to int, which mypy rejects assigning back.
+            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined,assignment]
                 ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
             )
 
@@ -1337,7 +1333,7 @@ class DatahubGEProfiler:
         table_name = f'"{schema}"."{table}"' if schema else f'"{table}"'
         try:
             with self.base_engine.connect() as connection:
-                connection.execute(f"drop view if exists {table_name}")
+                connection.execute(sqlalchemy.text(f"drop view if exists {table_name}"))
                 logger.debug(f"View {table_name} was dropped.")
         except Exception:
             logger.warning(f"Unable to delete temporary table: {table_name}")

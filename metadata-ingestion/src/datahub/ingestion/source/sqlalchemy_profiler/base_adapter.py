@@ -5,9 +5,10 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
 import sqlalchemy as sa
+from sqlalchemy import Select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -360,7 +361,7 @@ class PlatformAdapter(ABC):
         Returns:
             Minimum value
         """
-        query = sa.select(sa.func.min(sa.column(column))).select_from(table)
+        query: Select = sa.select(sa.func.min(sa.column(column))).select_from(table)
         return conn.execute(query).scalar()
 
     def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
@@ -375,7 +376,7 @@ class PlatformAdapter(ABC):
         Returns:
             Maximum value
         """
-        query = sa.select(sa.func.max(sa.column(column))).select_from(table)
+        query: Select = sa.select(sa.func.max(sa.column(column))).select_from(table)
         return conn.execute(query).scalar()
 
     def get_column_mean(
@@ -497,7 +498,7 @@ class PlatformAdapter(ABC):
         if non_null_count == 0:
             return None
         offset = max(non_null_count // 2 - 1, 0)
-        middle_query = (
+        middle_query: Select = (
             sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).is_not(None))
@@ -565,10 +566,10 @@ class PlatformAdapter(ABC):
                 quoted_column = self.quote_identifier(column)
                 # Use literal_column with label() to preserve column metadata
                 # which is needed for the query combiner to work correctly.
-                percentile_expr = sa.literal_column(
+                percentile_expr: Label = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
-                query = sa.select(percentile_expr).select_from(table)
+                query: Select = sa.select(percentile_expr).select_from(table)
                 result = conn.execute(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
@@ -691,7 +692,7 @@ class PlatformAdapter(ABC):
             List of (value, count) tuples, sorted by count descending
         """
         count_expr = sa.func.count().label("count")
-        query = (
+        query: Select = (
             sa.select(sa.column(column), count_expr)
             .select_from(table)
             .group_by(sa.column(column))
@@ -733,7 +734,7 @@ class PlatformAdapter(ABC):
             (Trino/Athena JSON) are orderable in SQL.
         """
         count_expr = sa.func.count(sa.column(column)).label("count")
-        query = (
+        query: Select = (
             sa.select(sa.column(column), count_expr)
             .select_from(table)
             .where(sa.column(column).is_not(None))
@@ -781,7 +782,7 @@ class PlatformAdapter(ABC):
         Returns:
             List of sample values (may contain duplicates)
         """
-        query = (
+        query: Select = (
             sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).isnot(None))

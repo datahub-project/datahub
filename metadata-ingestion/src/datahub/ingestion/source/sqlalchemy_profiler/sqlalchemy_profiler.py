@@ -451,7 +451,10 @@ class SQLAlchemyProfiler:
             # is also always a single row. As such, we disable the linter here.
 
             # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
+            # SA 2.0 types compiler_linting as the Linting IntFlag; the
+            # in-place &= with the negated flag is an int to mypy, hence the
+            # extra assignment ignore.
+            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined,assignment]
                 ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
             )
 

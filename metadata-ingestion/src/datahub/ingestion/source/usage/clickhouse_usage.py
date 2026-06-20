@@ -155,11 +155,13 @@ class ClickHouseUsageSource(Source):
                 if isinstance(v, str):
                     event_dict[k] = v.strip()
 
-            if not self.config.database_pattern.allowed(
-                event_dict.get("database")
-            ) or not (
-                self.config.table_pattern.allowed(event_dict.get("full_table_name"))
-                or self.config.view_pattern.allowed(event_dict.get("full_table_name"))
+            # These reflected columns are strings at runtime; coerce for mypy
+            # so the str-typed AllowDenyPattern.allowed() signature is satisfied.
+            database = str(event_dict.get("database") or "")
+            full_table_name = str(event_dict.get("full_table_name") or "")
+            if not self.config.database_pattern.allowed(database) or not (
+                self.config.table_pattern.allowed(full_table_name)
+                or self.config.view_pattern.allowed(full_table_name)
             ):
                 logger.debug(
                     f"Dropping usage event for {event_dict.get('full_table_name')}"
@@ -171,10 +173,9 @@ class ClickHouseUsageSource(Source):
             if event_dict.get("endtime", None):
                 event_dict["endtime"] = event_dict.get("endtime").__str__()
             # when the http protocol is used, the columns field is returned as a string
-            if isinstance(event_dict.get("columns"), str):
-                event_dict["columns"] = (
-                    event_dict.get("columns").replace("'", "").strip("][").split(",")
-                )
+            columns = event_dict.get("columns")
+            if isinstance(columns, str):
+                event_dict["columns"] = columns.replace("'", "").strip("][").split(",")
 
             logger.debug(f"event_dict: {event_dict}")
             events.append(event_dict)

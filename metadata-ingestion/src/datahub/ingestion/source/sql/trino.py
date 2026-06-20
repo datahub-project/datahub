@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
 
 import sqlalchemy
 import trino
@@ -492,9 +492,9 @@ class TrinoSource(SQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:

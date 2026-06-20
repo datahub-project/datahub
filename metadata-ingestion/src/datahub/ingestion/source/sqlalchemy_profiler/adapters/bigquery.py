@@ -9,7 +9,7 @@ from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -416,13 +416,13 @@ class BigQueryAdapter(PlatformAdapter):
 
         # BigQuery: approx_quantiles(col, 100) returns 101 values
         indices = [int(q * 100) for q in quantiles]
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"approx_quantiles(`{column}`, 100)[OFFSET({idx})]"
             ).label(f"q_{int(q * 100)}")
             for q, idx in zip(quantiles, indices, strict=False)
         ]
-        query = sa.select(selects).select_from(table)
+        query = sa.select(*selects).select_from(table)
         result = conn.execute(query).fetchone()
         if result is None:
             return [None] * len(quantiles)

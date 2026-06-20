@@ -1,7 +1,19 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
@@ -557,8 +569,12 @@ class SQLServerSource(SQLAlchemySource):
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
-        columns: List[Dict] = super()._get_columns(
-            dataset_name, inspector, schema, table
+        # The base method returns Sequence[Mapping[str, Any]] (SA-2.0 reflected
+        # TypedDicts), but the reflected columns are concrete mutable dicts at
+        # runtime and we mutate them below to attach extended descriptions.
+        columns: List[Dict] = cast(
+            List[Dict],
+            super()._get_columns(dataset_name, inspector, schema, table),
         )
         db_name: str = self.get_db_name(inspector)
         for column in columns:
@@ -572,9 +588,9 @@ class SQLServerSource(SQLAlchemySource):
     def get_schema_fields(
         self,
         dataset_name: str,
-        columns: List[dict],
+        columns: Sequence[Mapping[str, Any]],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1300,16 +1316,17 @@ class SQLServerSource(SQLAlchemySource):
         self,
         dataset_urn: str,
         schema: str,
-        fk_dict: Dict[str, Any],
+        fk_dict: Mapping[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
         if self.config.convert_column_urns_to_lowercase:
-            fk_dict["constrained_columns"] = [
-                f.lower() for f in fk_dict["constrained_columns"]
-            ]
-            fk_dict["referred_columns"] = [
-                f.lower() for f in fk_dict["referred_columns"]
-            ]
+            fk_dict = {
+                **fk_dict,
+                "constrained_columns": [
+                    f.lower() for f in fk_dict["constrained_columns"]
+                ],
+                "referred_columns": [f.lower() for f in fk_dict["referred_columns"]],
+            }
         return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
 
     def get_inspectors(self) -> Iterable[Inspector]:

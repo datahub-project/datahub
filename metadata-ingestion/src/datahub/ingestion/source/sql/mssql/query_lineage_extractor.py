@@ -79,7 +79,7 @@ class MSSQLLineageExtractor:
     ) -> bool:
         """Execute query and check boolean field, logging the result."""
         result = self.connection.execute(query)
-        row = result.fetchone()
+        row = result.mappings().fetchone()
 
         if row and row[field_name]:
             logger.info(success_msg)
@@ -94,7 +94,7 @@ class MSSQLLineageExtractor:
     def _check_version(self) -> Optional[int]:
         """Check SQL Server version and return major version number."""
         result = self.connection.execute(MSSQLQuery.get_mssql_version())
-        row = result.fetchone()
+        row = result.mappings().fetchone()
 
         if row:
             major_version = row["major_version"] if row["major_version"] else 0
@@ -230,7 +230,7 @@ class MSSQLLineageExtractor:
                 result = self.connection.execute(query, params)
 
                 queries = []
-                for row in result:
+                for row in result.mappings():
                     self.queries_extracted += 1
 
                     queries.append(

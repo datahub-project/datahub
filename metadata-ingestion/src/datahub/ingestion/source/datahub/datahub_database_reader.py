@@ -175,7 +175,10 @@ class DataHubDatabaseReader:
     ) -> List[Dict[str, Any]]:
         """Execute query with proper parameter binding that works with your database"""
         with self.engine.connect() as conn:
-            result = conn.execute(query, params or {})
+            # SA 2.0 no longer accepts a plain SQL string here; the queries use
+            # %(name)s pyformat params, so the text()/named-bind migration is
+            # tracked separately. Keep the string form for now.
+            result = conn.execute(query, params or {})  # type: ignore[call-overload]
             return [dict(row) for row in result.fetchall()]
 
     def execute_server_cursor(
@@ -209,8 +212,11 @@ class DataHubDatabaseReader:
                     )
 
                     # Execute query - using native parameterization without text()
-                    # to maintain compatibility with your original code
-                    result = conn.execute(query, params)
+                    # to maintain compatibility with your original code.
+                    # SA 2.0 no longer accepts a plain SQL string here; the
+                    # %(name)s pyformat params mean the text()/named-bind
+                    # migration is tracked separately.
+                    result = conn.execute(query, params)  # type: ignore[call-overload]
                     for row in result:
                         yield dict(row)
 
