@@ -72,23 +72,28 @@ def test_is_discovered_table(mssql_source):
 def test_detect_rds_environment_on_premises(mssql_source):
     """Test environment detection for on-premises SQL Server"""
     mock_conn = MagicMock()
-    # Mock server name query result (on-premises)
+    # SA-2.0: source calls conn.execute(text(...)).mappings().fetchone()
     mock_result = MagicMock()
-    mock_result.fetchone.return_value = {"server_name": "SQLSERVER01"}
+    mock_result.mappings.return_value.fetchone.return_value = {
+        "server_name": "SQLSERVER01"
+    }
     mock_conn.execute.return_value = mock_result
 
     result = mssql_source._detect_rds_environment(mock_conn)
 
     assert result is False
-    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+    mock_conn.execute.assert_called_once()
+    assert (
+        str(mock_conn.execute.call_args[0][0]) == "SELECT @@servername AS server_name"
+    )
 
 
 def test_detect_rds_environment_rds(mssql_source):
     """Test environment detection for RDS/managed SQL Server"""
     mock_conn = MagicMock()
-    # Mock server name query result (RDS) - use realistic RDS endpoint pattern
+    # SA-2.0: source calls conn.execute(text(...)).mappings().fetchone()
     mock_result = MagicMock()
-    mock_result.fetchone.return_value = {
+    mock_result.mappings.return_value.fetchone.return_value = {
         "server_name": "mydb.abc123.us-east-1.rds.amazonaws.com"
     }
     mock_conn.execute.return_value = mock_result
@@ -131,20 +136,27 @@ def test_detect_rds_environment_query_failure(mssql_source):
     result = mssql_source._detect_rds_environment(mock_conn)
 
     assert result is False
-    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+    mock_conn.execute.assert_called_once()
+    assert (
+        str(mock_conn.execute.call_args[0][0]) == "SELECT @@servername AS server_name"
+    )
 
 
 def test_detect_rds_environment_no_result(mssql_source):
     """Test environment detection when server name query returns no result"""
     mock_conn = MagicMock()
+    # SA-2.0: source calls conn.execute(text(...)).mappings().fetchone()
     mock_result = MagicMock()
-    mock_result.fetchone.return_value = None
+    mock_result.mappings.return_value.fetchone.return_value = None
     mock_conn.execute.return_value = mock_result
 
     result = mssql_source._detect_rds_environment(mock_conn)
 
     assert result is False
-    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+    mock_conn.execute.assert_called_once()
+    assert (
+        str(mock_conn.execute.call_args[0][0]) == "SELECT @@servername AS server_name"
+    )
 
 
 @pytest.mark.parametrize(
@@ -170,8 +182,11 @@ def test_detect_rds_environment_various_aws_indicators(
 ):
     """Test environment detection with various AWS server name patterns"""
     mock_conn = MagicMock()
+    # SA-2.0: source calls conn.execute(text(...)).mappings().fetchone()
     mock_result = MagicMock()
-    mock_result.fetchone.return_value = {"server_name": server_name}
+    mock_result.mappings.return_value.fetchone.return_value = {
+        "server_name": server_name
+    }
     mock_conn.execute.return_value = mock_result
 
     result = mssql_source._detect_rds_environment(mock_conn)
@@ -234,7 +249,9 @@ def test_get_jobs_managed_fallback_success(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_stored_procedures",
-            side_effect=ProgrammingError("SP failed", None, None),  # Database exception
+            side_effect=ProgrammingError(
+                "SP failed", None, Exception("SP failed")
+            ),  # Database exception
         ),
         patch.object(
             mssql_source, "_get_jobs_via_direct_query", return_value=mock_jobs
@@ -258,7 +275,9 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_direct_query",
-            side_effect=ProgrammingError("Direct query failed", None, None),
+            side_effect=ProgrammingError(
+                "Direct query failed", None, Exception("Direct query failed")
+            ),
         ),
         patch.object(
             mssql_source, "_get_jobs_via_stored_procedures", return_value=mock_jobs
@@ -286,12 +305,14 @@ def test_get_jobs_managed_both_methods_fail(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_stored_procedures",
-            side_effect=ProgrammingError("SP failed", None, None),
+            side_effect=ProgrammingError("SP failed", None, Exception("SP failed")),
         ),
         patch.object(
             mssql_source,
             "_get_jobs_via_direct_query",
-            side_effect=ProgrammingError("Direct failed", None, None),
+            side_effect=ProgrammingError(
+                "Direct failed", None, Exception("Direct failed")
+            ),
         ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
@@ -318,12 +339,14 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
         patch.object(
             mssql_source,
             "_get_jobs_via_direct_query",
-            side_effect=ProgrammingError("Direct failed", None, None),
+            side_effect=ProgrammingError(
+                "Direct failed", None, Exception("Direct failed")
+            ),
         ),
         patch.object(
             mssql_source,
             "_get_jobs_via_stored_procedures",
-            side_effect=ProgrammingError("SP failed", None, None),
+            side_effect=ProgrammingError("SP failed", None, Exception("SP failed")),
         ),
     ):
         result = mssql_source._get_jobs(mock_conn, "test_db")
@@ -378,8 +401,11 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
 
     # Test direct query method
     with patch.object(mock_conn, "execute") as mock_execute:
+        # SA-2.0: source iterates over conn.execute(text(...)).mappings()
         mock_query_result = MagicMock()
-        mock_query_result.__iter__.return_value = [mock_job_data]
+        mock_query_mappings = MagicMock()
+        mock_query_mappings.__iter__.return_value = [mock_job_data]
+        mock_query_result.mappings.return_value = mock_query_mappings
         mock_execute.return_value = mock_query_result
 
         direct_result = mssql_source._get_jobs_via_direct_query(mock_conn, "test_db")

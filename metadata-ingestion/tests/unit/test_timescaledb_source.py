@@ -706,7 +706,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for table pg_extension", None, None
+            "permission denied for table pg_extension",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -737,7 +739,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for schema information_schema", None, None
+            "permission denied for schema information_schema",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -757,7 +761,9 @@ class TestTimescaleDBErrorScenarios:
         mock_conn.execute.side_effect = [
             env_result,
             DatabaseError(
-                "permission denied for schema timescaledb_information", None, None
+                "permission denied for schema timescaledb_information",
+                None,
+                Exception("permission denied"),
             ),
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
@@ -856,7 +862,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for table timescaledb_information.job_stats", None, None
+            "permission denied for table timescaledb_information.job_stats",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 

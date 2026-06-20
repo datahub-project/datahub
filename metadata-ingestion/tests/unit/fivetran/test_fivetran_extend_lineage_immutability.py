@@ -60,9 +60,15 @@ def source_with_postgres_override():
     # Patch `create_engine` (not `FivetranLogDbReader`) so the real
     # `FivetranLogDbReader` class is preserved — the source's
     # `isinstance(self.log_reader, FivetranLogDbReader)` check needs the
-    # log_reader to be an actual instance, not a MagicMock.
-    with patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    # log_reader to be an actual instance, not a MagicMock. Also patch
+    # `event.listens_for`: SA 2.0 registers a connect-listener on the
+    # engine, which rejects the MagicMock that the patched `create_engine`
+    # returns.
+    with (
+        patch("datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"),
+        patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for"
+        ),
     ):
         source = FivetranSource(config, ctx)
         source.api_client = None  # DB-only mode for this test

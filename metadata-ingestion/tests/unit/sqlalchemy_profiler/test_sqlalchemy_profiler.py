@@ -272,7 +272,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -312,7 +312,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 

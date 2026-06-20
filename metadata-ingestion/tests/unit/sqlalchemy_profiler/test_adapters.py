@@ -143,10 +143,10 @@ def mock_trino_engine() -> Any:
 @pytest.fixture
 def mock_athena_engine() -> Any:
     """Mock Athena engine with correct dialect."""
-    from pyathena import sqlalchemy_athena
+    from pyathena.sqlalchemy.rest import AthenaRestDialect
 
     engine = MagicMock()
-    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    engine.dialect = AthenaRestDialect()
     return engine
 
 
@@ -1039,7 +1039,7 @@ class TestClickHouseAdapter:
         assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"score"\s*\)')
         # Verify the label renders inside a SELECT — query combiner extracts by name.
         select_sql = compile_expr_to_sql(
-            sa.select([expr]), mock_clickhouse_engine.dialect
+            sa.select(expr), mock_clickhouse_engine.dialect
         )
         assert_sql_matches_pattern(select_sql, r"\bAS\s+median\b")
 

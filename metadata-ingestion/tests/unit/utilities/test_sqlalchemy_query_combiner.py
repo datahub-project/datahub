@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
 
 
-def _single_row(query) -> bool:
+def _single_row(query: object) -> bool:
     return True
 
 
