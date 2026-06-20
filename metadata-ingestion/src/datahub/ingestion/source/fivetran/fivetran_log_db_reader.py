@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import sqlglot
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -108,7 +108,18 @@ class FivetranLogDbReader:
         logger.info(
             f"Using snowflake database: {resolved_database} (original: {cfg.database})"
         )
-        engine.execute(fivetran_log_query.use_database(resolved_database))
+        # SA 2.0 removed Engine.execute(). Run USE DATABASE on every pooled
+        # connection via a connect-event listener so the active database persists
+        # for all queries (the prior one-shot call relied on pool connection reuse).
+        use_database_sql = fivetran_log_query.use_database(resolved_database)
+
+        @event.listens_for(engine, "connect")
+        def _set_active_database(dbapi_connection: Any, connection_record: Any) -> None:
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(use_database_sql)
+            finally:
+                cursor.close()
 
         logger.info(
             f"Using snowflake schema: {resolved_schema} (original: {cfg.log_schema})"
@@ -166,7 +177,8 @@ class FivetranLogDbReader:
             fivetran_log_query.set_schema(bigquery_destination_config.dataset)
 
             # The "database" should be the BigQuery project name.
-            result = engine.execute("SELECT @@project_id").fetchone()
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT @@project_id")).fetchone()
             if result is None:
                 raise ValueError("Failed to retrieve BigQuery project ID")
             fivetran_log_database = result[0]
@@ -212,10 +224,11 @@ class FivetranLogDbReader:
                 dialect=self.fivetran_log_config.destination_platform, pretty=True
             )
         logger.info(f"Executing query: {query}")
-        resp = self.engine.execute(query)
-        # Convert SQLAlchemy Row objects to plain dicts at the boundary so
-        # downstream consumers can treat results as dict-like uniformly.
-        return [dict(row) for row in resp]
+        with self.engine.connect() as conn:
+            resp = conn.execute(text(query))
+            # Convert SQLAlchemy Row objects to plain dicts at the boundary so
+            # downstream consumers can treat results as dict-like uniformly.
+            return [dict(row._mapping) for row in resp]
 
     def _get_column_lineage_metadata(
         self, connector_ids: List[str]
