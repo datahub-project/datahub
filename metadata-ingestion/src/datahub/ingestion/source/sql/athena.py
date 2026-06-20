@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, c
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
-from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pyathena.sqlalchemy.rest import AthenaRestDialect
 from pydantic import model_validator
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
