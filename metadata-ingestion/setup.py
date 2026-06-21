@@ -835,6 +835,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlalchemy_lib
     | sqlglot_lib,
     "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
+    "cube": {"requests<3.0.0"} | sqlglot_lib,
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -977,6 +978,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
+            "cube",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -1164,6 +1166,7 @@ entry_points = {
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
         "tidb = datahub.ingestion.source.sql.tidb:TiDBSource",
         "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
+        "cube = datahub.ingestion.source.cube.cube:CubeSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",

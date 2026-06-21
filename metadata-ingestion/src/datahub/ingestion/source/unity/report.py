@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unity.platform_resource_repository import (
@@ -34,7 +35,26 @@ class UnityCatalogReport(SQLSourceReport):
 
     num_queries: int = 0
     num_queries_dropped: int = 0
+    num_queries_preparsed_from_lineage: int = 0
+    num_queries_observed_sqlglot: int = 0
+    num_queries_without_system_table_lineage: int = 0
+    num_queries_skipped_without_system_table_lineage: int = 0
+    num_queries_preparsed_fallback_to_sqlglot: int = 0
+    num_queries_preparsed_fingerprint_fallback: int = 0
+    num_lineage_tables_unresolvable: int = 0
+    lineage_tables_unresolvable_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_lineage_row_field_read_errors: int = 0
     num_usage_query_fetch_failures: int = 0
+
+    # Usage step timers. fetch = draining query history off the warehouse cursor
+    # (released as soon as the generator is consumed); parsing = sqlglot/preparsed
+    # processing of the buffered queries. Splitting them makes the drain-before-parse
+    # behavior measurable and surfaces eviction-risk (fetch time creeping toward
+    # parse time) — mirroring BigQuery's query_log_fetch_timer / sql_parsing_sec.
+    usage_query_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
 
     profile_table_timeouts: LossyList[str] = field(default_factory=LossyList)
     profile_table_empty: LossyList[str] = field(default_factory=LossyList)

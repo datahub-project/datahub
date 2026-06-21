@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Union
 
@@ -384,6 +385,57 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description=(
+            "If enabled, pushes down catalog pattern filtering to system.access.table_lineage "
+            "for improved performance during usage extraction. This filters on source and target "
+            "catalogs in table_lineage. Maps to Snowflake's database_pattern semantics via "
+            "catalog_pattern (Unity catalog = Snowflake database). Only applies when usage is "
+            "fetched via system tables (usage_data_source AUTO with warehouse or SYSTEM_TABLES). "
+            "Also adds a statement_id semi-join against table_lineage, so only queries that "
+            "have at least one lineage row in the configured time window are fetched; queries "
+            "without system.access.table_lineage rows are omitted entirely (not sqlglot-fallbacked)."
+        ),
+    )
+
+    skip_sqlglot_when_system_table_lineage_missing: bool = Field(
+        default=False,
+        description=(
+            "If enabled on the system-tables usage path, queries with no matching rows "
+            "in system.access.table_lineage (for their statement_id within the configured "
+            "time window) are skipped instead of parsed with sqlglot. Only applies when "
+            "usage is fetched via system.query.history joined with system.access.table_lineage. "
+            "Queries that have lineage but unresolvable dataset URNs still fall back to sqlglot."
+        ),
+    )
+
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description=(
+            "If enabled, force full sqlglot parsing of usage queries so column-level "
+            "usage statistics (fieldCounts) are produced. This bypasses the faster "
+            "system-table preparsed lineage path, so usage extraction is slower. Only "
+            "changes behavior on the system-tables usage path (the REST API path already "
+            "parses every query). Takes precedence over "
+            "push_down_database_pattern_access_history and "
+            "skip_sqlglot_when_system_table_lineage_missing, which are ignored when set."
+        ),
+    )
+
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
+        default=None,
+        description=(
+            "Advanced/dev only. Local directory in which to persist the drained "
+            "query-history audit log (SQLite). When set, the audit log is kept across "
+            "runs so the next run over the same time window reloads it and skips "
+            "re-fetching (including after a crash). The file name is keyed by the usage "
+            "source and time window so it never serves a stale window; files for other "
+            "windows are not pruned automatically. When unset, an ephemeral, "
+            "self-cleaning buffer is used and no caching occurs."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
@@ -523,6 +575,17 @@ class UnityCatalogSourceConfig(
             )
         return workspace_url
 
+    @field_validator("local_temp_path", mode="after")
+    @classmethod
+    def local_temp_path_must_be_dir(
+        cls, v: Optional[pathlib.Path]
+    ) -> Optional[pathlib.Path]:
+        # Fail fast with a clear message instead of a confusing extraction error when
+        # the audit-log cache directory doesn't exist (matches Snowflake/BigQuery).
+        if v is not None and not v.is_dir():
+            raise ValueError(f"local_temp_path must be an existing directory, got: {v}")
+        return v
+
     @field_validator("include_metastore", mode="after")
     @classmethod
     def include_metastore_warning(cls, v: bool) -> bool:
@@ -586,6 +649,70 @@ class UnityCatalogSourceConfig(
                 f"usage_data_source='{UsageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def warn_system_table_usage_flags_without_system_tables(self):
+        # These flags only affect the system.query.history + table_lineage path.
+        # warehouse_id is already resolved here (set_warehouse_id_from_profiling runs
+        # first), so we can tell whether usage will actually use system tables and
+        # warn — rather than fail — when the flags would be silent no-ops.
+        if self.usage_uses_system_tables(self.warehouse_id):
+            return self
+
+        set_flags = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if set_flags:
+            msg = (
+                f"{', '.join(set_flags)} only affect the system-tables usage path "
+                "but usage is not configured to use system tables "
+                f"(usage_data_source={self.usage_data_source.value}, "
+                f"warehouse_id={'set' if self.warehouse_id else 'unset'}). "
+                "These options will have no effect."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return self
+
+    @model_validator(mode="after")
+    def warn_column_usage_stats_overrides_system_table_flags(self):
+        if not self.include_column_usage_stats:
+            return self
+
+        overridden = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if overridden:
+            msg = (
+                f"{', '.join(overridden)} are ignored because include_column_usage_stats "
+                "is enabled: usage queries are fully sqlglot-parsed for column-level "
+                "statistics."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
         return self
 
     @field_validator("schema_pattern", mode="after")
