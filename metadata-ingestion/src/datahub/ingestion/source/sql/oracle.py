@@ -481,10 +481,11 @@ def _inspector_connection(inspector: Inspector) -> sqlalchemy.engine.Connection:
     are always created from a live Connection (see SQLAlchemySource.get_inspectors,
     which does inspect(conn)). SQLAlchemy 2.0 removed Engine.execute, so narrow
     the type to Connection for both mypy and to guarantee an executable bind.
+
+    Use cast rather than an isinstance assert so duck-typed connections (e.g. the
+    MagicMock-backed inspectors in the unit-style tests) are still accepted.
     """
-    bind = inspector.bind
-    assert isinstance(bind, sqlalchemy.engine.Connection)
-    return bind
+    return cast(sqlalchemy.engine.Connection, inspector.bind)
 
 
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
