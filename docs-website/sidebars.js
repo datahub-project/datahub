@@ -489,11 +489,6 @@ module.exports = {
           },
           items: [
             {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/overview",
-            },
-            {
               label: "Centralized Management",
               type: "doc",
               id: "docs/features/feature-guides/logical-models/centralized-management",
