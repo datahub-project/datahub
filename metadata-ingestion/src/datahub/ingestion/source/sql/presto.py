@@ -3,7 +3,6 @@ from textwrap import dedent
 from typing import Dict, Optional
 
 from pydantic.fields import Field
-from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Engine
@@ -18,6 +17,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+# pyhive is SQLAlchemy-1.4-era; _pyhive_compat applies the SA 2.0 shim then re-exports.
+from datahub.ingestion.source.sql._pyhive_compat import PrestoDialect
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
     TrinoSource,
