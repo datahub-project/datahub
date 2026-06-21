@@ -382,6 +382,9 @@ iceberg_common = {
     #   expected by the connector
     # - v0.11.0 dropped the `zstandard` extra (now a core dependency).
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
+    # iceberg_common.py imports SortedList directly. This was pulled in transitively
+    # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
+    "sortedcontainers",
     *cachetools_lib,
 }
 
