@@ -280,6 +280,12 @@ confluence = [
     "urllib3>=1.26,<3.0",
 ]
 
+cube = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
+]
+
 databricks = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
@@ -540,7 +546,7 @@ feast = [
 fivetran = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "google-cloud-bigquery<4.0.0",
@@ -678,8 +684,8 @@ hive-metastore = [
 
 iceberg = [
     "cachetools<6.0.0",
-    "pydantic<2.12",
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
+    "sortedcontainers>=2.4.0,<3.0.0",
 ]
 
 iceberg-catalog = [
@@ -1097,7 +1103,7 @@ snaplogic = []
 snowflake = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "numpy<2",
@@ -1116,7 +1122,7 @@ snowflake = [
 snowflake-queries = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "numpy<2",
@@ -1135,7 +1141,7 @@ snowflake-queries = [
 snowflake-slim = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
@@ -1149,7 +1155,7 @@ snowflake-slim = [
 snowflake-summary = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "numpy<2",
@@ -1376,7 +1382,7 @@ all = [
     "cassandra-driver>=3.28.0,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
@@ -1440,10 +1446,9 @@ all = [
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-    "pydantic<2.12",
     "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
@@ -1468,6 +1473,7 @@ all = [
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1525,7 +1531,7 @@ dev = [
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1600,10 +1606,10 @@ dev = [
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-    "pydantic>=2.4.0,<2.12",
+    "pydantic>=2.4.0,<3.0.0",
     "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
@@ -1640,6 +1646,7 @@ dev = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1716,7 +1723,7 @@ docs = [
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
-    "cryptography>=46.0.7,<47.0.0",
+    "cryptography>=48.0.1,<49.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1791,10 +1798,10 @@ docs = [
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-    "pydantic>=2.4.0,<2.12",
+    "pydantic>=2.4.0,<3.0.0",
     "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
@@ -1831,6 +1838,7 @@ docs = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1932,10 +1940,9 @@ integration-tests = [
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-    "pydantic<2.12",
     "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodbc>=4.0,<6.0.0",
@@ -1951,6 +1958,7 @@ integration-tests = [
     "schwifty<2026.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
+    "sortedcontainers>=2.4.0,<3.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
@@ -2038,6 +2046,7 @@ mysql = "datahub.ingestion.source.sql.mysql:MySQLSource"
 mariadb = "datahub.ingestion.source.sql.mariadb:MariaDBSource"
 tidb = "datahub.ingestion.source.sql.tidb:TiDBSource"
 matillion-dpc = "datahub.ingestion.source.matillion_dpc.matillion:MatillionSource"
+cube = "datahub.ingestion.source.cube.cube:CubeSource"
 doris = "datahub.ingestion.source.sql.doris.doris_source:DorisSource"
 okta = "datahub.ingestion.source.identity.okta:OktaSource"
 oracle = "datahub.ingestion.source.sql.oracle:OracleSource"

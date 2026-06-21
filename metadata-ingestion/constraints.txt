@@ -301,7 +301,7 @@ cramjam==2.11.0
     #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==46.0.7
+cryptography==48.0.1
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -1222,7 +1222,7 @@ pygments==2.19.2
     #   readme-renderer
     #   rich
     #   textual
-pyiceberg==0.10.0
+pyiceberg==0.11.1
     # via acryl-datahub
 pyiceberg-core==0.6.0
     # via pyiceberg
@@ -1244,7 +1244,7 @@ pymysql==1.1.2
     #   starrocks
 pyodbc==5.3.0
     # via acryl-datahub
-pyopenssl==26.0.0
+pyopenssl==26.2.0
     # via
     #   acryl-datahub
     #   snowflake-connector-python
@@ -1589,7 +1589,7 @@ snowflake-sqlalchemy==1.9.0
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via
-    #   pyiceberg
+    #   acryl-datahub
     #   snowflake-connector-python
 soupsieve==2.8.3
     # via beautifulsoup4

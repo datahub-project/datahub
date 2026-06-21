@@ -2,7 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, TABLE_LOAD_DELAY, LOAD_STATES } from '../utils/constants';
-import { writeFile, deleteFileIfExists } from '../helpers/file-utils';
+import { writeFile, deleteFileIfExists } from '../utils/file-utils';
 
 // Page object for entity description editor interactions
 export default class DescriptionEditorPage extends BasePage {
