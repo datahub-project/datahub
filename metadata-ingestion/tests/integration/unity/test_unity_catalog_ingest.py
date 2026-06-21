@@ -327,8 +327,8 @@ def register_mock_data(workspace_client):
         ),
     ]
 
-    workspace_client.tables.get = (
-        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+    workspace_client.tables.get = lambda *args, **kwargs: (
+        databricks.sdk.service.catalog.TableInfo.from_dict(
             {
                 "name": "quickstart_table",
                 "catalog_name": "quickstart_catalog",
@@ -930,10 +930,8 @@ def register_metric_view_mock_data(workspace_client):
         databricks.sdk.service.catalog.TableInfo.from_dict(orders_dict),
         databricks.sdk.service.catalog.TableInfo.from_dict(revenue_metrics_dict),
     ]
-    workspace_client.tables.get = (
-        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
-            revenue_metrics_dict
-        )
+    workspace_client.tables.get = lambda *args, **kwargs: (
+        databricks.sdk.service.catalog.TableInfo.from_dict(revenue_metrics_dict)
     )
 
     workspace_client.service_principals.list.return_value = []
@@ -1111,8 +1109,8 @@ def register_mock_data_with_constraints(workspace_client):
     ]
 
     # Override tables.get to return PK + FK table_constraints
-    workspace_client.tables.get = (
-        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+    workspace_client.tables.get = lambda *args, **kwargs: (
+        databricks.sdk.service.catalog.TableInfo.from_dict(
             {
                 "name": "quickstart_table",
                 "catalog_name": "quickstart_catalog",
