@@ -189,7 +189,7 @@ def test_oracle_test_connection(oracle_runner):
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):
     def get_data(self, *args: Any, **kwargs: Any) -> Any:
         if isinstance(args[0], str) and "sys_context" in args[0]:
-            raise exc.DatabaseError("statement", [], "Mock DB Error")
+            raise exc.DatabaseError("statement", [], Exception("Mock DB Error"))
         return super().get_data(*args, **kwargs)
 
 
@@ -235,7 +235,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
     def test_get_db_name_error_handling(self):
         inspector = MagicMock()
         inspector.bind.execute.side_effect = exc.DatabaseError(
-            "statement", [], "Mock DB Error"
+            "statement", [], Exception("Mock DB Error")
         )
         inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 

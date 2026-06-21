@@ -677,7 +677,9 @@ class TestMSSQLLineageIntegration:
                 return qs_result
             else:
                 # Simulate connection loss during actual query extraction
-                raise OperationalError("connection lost", None, None)
+                raise OperationalError(
+                    "connection lost", None, Exception("connection lost")
+                )
 
         mock_conn.execute.side_effect = execute_side_effect
 
