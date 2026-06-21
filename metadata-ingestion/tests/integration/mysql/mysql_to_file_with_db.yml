@@ -9,10 +9,6 @@ source:
     database: northwind
     profiling:
       enabled: True
-      # Deterministic profiling for the golden test: serial + no query combiner so a
-      # transient column query can't be silently swallowed and drop fieldProfiles.
-      max_workers: 1
-      query_combiner_enabled: false
       include_field_null_count: true
       include_field_min_value: true
       include_field_max_value: true

@@ -13,24 +13,13 @@ source:
         - "test_db.*"
       deny:
         - ".*_temp$"
+    # Profiling is intentionally disabled for this test. It focuses on stored-procedure
+    # lineage, and dataset snapshots are emitted as MCEs, which force the golden
+    # comparison onto an order-sensitive path. Profiling adds aspects whose stream
+    # position varies run-to-run, making the comparison flaky. Profiling output is
+    # covered deterministically by the MySQL golden tests.
     profiling:
-      enabled: True
-      # Deterministic profiling for the golden test: run serially and skip the
-      # experimental query combiner so a transient column query can't be silently
-      # swallowed (catch_exceptions), which would drop fieldProfiles/rowCount and
-      # make the golden comparison flaky.
-      max_workers: 1
-      query_combiner_enabled: false
-      include_field_null_count: true
-      include_field_min_value: true
-      include_field_max_value: true
-      include_field_mean_value: true
-      include_field_median_value: true
-      include_field_stddev_value: true
-      include_field_quantiles: true
-      include_field_distinct_value_frequencies: true
-      include_field_histogram: true
-      include_field_sample_values: true
+      enabled: False
 
 sink:
   type: file

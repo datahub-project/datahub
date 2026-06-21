@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400668,
+        "lastObserved": 1713074400472,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400668,
+        "lastObserved": 1713074400473,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400668,
+        "lastObserved": 1713074400473,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400668,
+        "lastObserved": 1713074400473,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400668,
+        "lastObserved": 1713074400473,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400670,
+        "lastObserved": 1713074400475,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -231,7 +231,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400671,
+        "lastObserved": 1713074400476,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -249,7 +249,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400672,
+        "lastObserved": 1713074400476,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -270,7 +270,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400672,
+        "lastObserved": 1713074400476,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -286,7 +286,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400673,
+        "lastObserved": 1713074400478,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -407,7 +407,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400674,
+        "lastObserved": 1713074400478,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -425,7 +425,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400674,
+        "lastObserved": 1713074400479,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400674,
+        "lastObserved": 1713074400479,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -462,7 +462,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400676,
+        "lastObserved": 1713074400481,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -559,7 +559,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400677,
+        "lastObserved": 1713074400482,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -577,7 +577,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400677,
+        "lastObserved": 1713074400482,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -598,7 +598,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400677,
+        "lastObserved": 1713074400483,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -614,7 +614,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400684,
+        "lastObserved": 1713074400493,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -723,7 +723,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400685,
+        "lastObserved": 1713074400494,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -741,7 +741,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400685,
+        "lastObserved": 1713074400494,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -762,7 +762,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400685,
+        "lastObserved": 1713074400495,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -779,7 +779,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400686,
+        "lastObserved": 1713074400495,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -797,7 +797,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400686,
+        "lastObserved": 1713074400495,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -813,7 +813,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400686,
+        "lastObserved": 1713074400495,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -834,7 +834,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400686,
+        "lastObserved": 1713074400495,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -854,7 +854,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400733,
+        "lastObserved": 1713074400694,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -872,7 +872,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400733,
+        "lastObserved": 1713074400694,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -888,7 +888,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400733,
+        "lastObserved": 1713074400694,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -911,7 +911,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400733,
+        "lastObserved": 1713074400694,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -983,7 +983,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400733,
+        "lastObserved": 1713074400695,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1004,7 +1004,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400734,
+        "lastObserved": 1713074400695,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1024,7 +1024,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400744,
+        "lastObserved": 1713074400701,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1042,7 +1042,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400744,
+        "lastObserved": 1713074400701,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1058,7 +1058,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400744,
+        "lastObserved": 1713074400701,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1081,7 +1081,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400744,
+        "lastObserved": 1713074400701,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1140,7 +1140,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400744,
+        "lastObserved": 1713074400701,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1161,7 +1161,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400745,
+        "lastObserved": 1713074400702,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1181,7 +1181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400750,
+        "lastObserved": 1713074400704,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1199,7 +1199,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400750,
+        "lastObserved": 1713074400704,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1215,7 +1215,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400750,
+        "lastObserved": 1713074400704,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1238,7 +1238,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400750,
+        "lastObserved": 1713074400704,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1253,13 +1253,12 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
                 "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400750,
+        "lastObserved": 1713074400704,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1280,7 +1279,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400751,
+        "lastObserved": 1713074400705,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1296,7 +1295,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400751,
+        "lastObserved": 1713074400705,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1312,7 +1311,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400751,
+        "lastObserved": 1713074400705,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1328,7 +1327,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400751,
+        "lastObserved": 1713074400705,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1344,376 +1343,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400751,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1713074403190,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 0,
-            "columnCount": 6,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "customer_id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "total_orders",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "total_spent",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "last_order_date",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "processed_at",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074403460,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1713074403438,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 0,
-            "columnCount": 5,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "customer_id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "full_name",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "email_domain",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "processed_at",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074403758,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1713074403694,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 3,
-            "columnCount": 4,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "id",
-                    "uniqueCount": 3,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "1",
-                    "max": "3",
-                    "mean": "2.0",
-                    "median": "2",
-                    "stdev": "1.0",
-                    "sampleValues": [
-                        "1",
-                        "2",
-                        "3"
-                    ]
-                },
-                {
-                    "fieldPath": "name",
-                    "uniqueCount": 3,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "sampleValues": [
-                        "John Doe",
-                        "Jane Smith",
-                        "Bob Wilson"
-                    ]
-                },
-                {
-                    "fieldPath": "email",
-                    "uniqueCount": 3,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "sampleValues": [
-                        "john@example.com",
-                        "jane@test.com",
-                        "bob@domain.com"
-                    ]
-                },
-                {
-                    "fieldPath": "created_at",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.3333333333333333,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "2026-05-15T16:08:09",
-                    "max": "2026-05-15T16:08:09",
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "2026-05-15 16:08:09",
-                            "frequency": 3
-                        }
-                    ],
-                    "sampleValues": [
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09"
-                    ]
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404173,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1713074403950,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 5,
-            "columnCount": 4,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "id",
-                    "uniqueCount": 5,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "1",
-                    "max": "5",
-                    "mean": "3.0",
-                    "median": "3",
-                    "stdev": "1.5811",
-                    "sampleValues": [
-                        "1",
-                        "2",
-                        "3",
-                        "5",
-                        "4"
-                    ]
-                },
-                {
-                    "fieldPath": "customer_id",
-                    "uniqueCount": 3,
-                    "uniqueProportion": 0.6,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "1",
-                    "max": "3",
-                    "mean": "1.8",
-                    "median": "2",
-                    "stdev": "0.8367",
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "1",
-                            "frequency": 2
-                        },
-                        {
-                            "value": "2",
-                            "frequency": 2
-                        },
-                        {
-                            "value": "3",
-                            "frequency": 1
-                        }
-                    ],
-                    "sampleValues": [
-                        "1",
-                        "1",
-                        "2",
-                        "2",
-                        "3"
-                    ]
-                },
-                {
-                    "fieldPath": "order_total",
-                    "uniqueCount": 5,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "100.5",
-                    "max": "300.0",
-                    "mean": "185.4",
-                    "median": "175.5",
-                    "stdev": "74.010683",
-                    "sampleValues": [
-                        "100.50",
-                        "200.75",
-                        "150.25",
-                        "300.00",
-                        "175.50"
-                    ]
-                },
-                {
-                    "fieldPath": "created_at",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.2,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "min": "2026-05-15T16:08:09",
-                    "max": "2026-05-15T16:08:09",
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "2026-05-15 16:08:09",
-                            "frequency": 5
-                        }
-                    ],
-                    "sampleValues": [
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09",
-                        "2026-05-15 16:08:09"
-                    ]
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404175,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404175,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404175,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404175,
-        "runId": "mariadb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713074404175,
+        "lastObserved": 1713074400705,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
