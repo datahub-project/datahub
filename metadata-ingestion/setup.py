@@ -384,7 +384,7 @@ iceberg_common = {
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     # iceberg_common.py imports SortedList directly. This was pulled in transitively
     # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
-    "sortedcontainers",
+    "sortedcontainers>=2.4.0,<3.0.0",
     *cachetools_lib,
 }
 
