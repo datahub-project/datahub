@@ -15,6 +15,12 @@ source:
         - ".*_temp$"
     profiling:
       enabled: True
+      # Deterministic profiling for the golden test: run serially and skip the
+      # experimental query combiner so a transient column query can't be silently
+      # swallowed (catch_exceptions), which would drop fieldProfiles/rowCount and
+      # make the golden comparison flaky.
+      max_workers: 1
+      query_combiner_enabled: false
       include_field_null_count: true
       include_field_min_value: true
       include_field_max_value: true
