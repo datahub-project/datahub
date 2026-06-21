@@ -138,13 +138,49 @@ def _wait_for_dag_finish(
         raise NotReadyError("No DAG runs found")
 
     dag_run = dag_runs[0]
-    if dag_run["state"] == "failed":
-        if require_success:
-            raise ValueError("DAG failed")
-        # else - success is not required, so we're done.
+    state = dag_run["state"]
 
-    elif dag_run["state"] != "success":
-        raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
+    if state == "success":
+        return
+
+    if state == "failed":
+        if not require_success:
+            # success is not required, so we're done.
+            return
+
+        # On Airflow 3 the scheduler runs tasks out-of-process and learns their
+        # final state asynchronously via the execution API. Under load this opens
+        # a window where it finalizes the DagRun as "failed" even though every
+        # task instance actually succeeded. Before treating a failed DagRun as a
+        # real failure, inspect the individual task states and only raise if a
+        # task genuinely failed; otherwise the DagRun-level "failed" is spurious.
+        failed_tasks = _get_failed_task_ids(
+            airflow_instance, dag_id, dag_run["dag_run_id"]
+        )
+        if failed_tasks:
+            raise ValueError(f"DAG failed; failed tasks: {failed_tasks}")
+        print(
+            f"DAG {dag_id} reported state=failed but no task instance failed; "
+            "treating as success (spurious Airflow 3 DagRun-state race)."
+        )
+        return
+
+    raise NotReadyError(f"DAG has not finished yet: {state}")
+
+
+def _get_failed_task_ids(
+    airflow_instance: AirflowInstance, dag_id: str, dag_run_id: str
+) -> list[str]:
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+    )
+    task_instances = res.json()["task_instances"]
+    return [
+        ti["task_id"]
+        for ti in task_instances
+        if ti["state"] in ("failed", "upstream_failed")
+    ]
 
 
 @tenacity.retry(
