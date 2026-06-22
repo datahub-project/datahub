@@ -10,7 +10,9 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -21,7 +23,7 @@ from typing import (
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.row import LegacyRow
+from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
@@ -56,9 +58,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
-)
-from datahub.ingestion.source.profiling.common import (
-    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -125,7 +124,6 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.profiling.common import (
         ProfilerRequest as GEProfilerRequest,
     )
@@ -244,8 +242,8 @@ def get_schema_metadata(
     sql_report: SQLSourceReport,
     dataset_name: str,
     platform: str,
-    columns: List[dict],
-    pk_constraints: Optional[dict] = None,
+    columns: Sequence[Mapping[str, Any]],
+    pk_constraints: Optional[Mapping[str, Any]] = None,
     foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None,
     canonical_schema: Optional[List[SchemaFieldClass]] = None,
     simplify_nested_field_paths: bool = False,
@@ -673,7 +671,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         schema: str,
-        fk_dict: Dict[str, str],
+        fk_dict: Mapping[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
         referred_schema: Optional[str] = fk_dict.get("referred_schema")
@@ -816,7 +814,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_properties)
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        pk_constraints: Mapping[str, Any] = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(
@@ -973,7 +971,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if isinstance(description, LegacyRow):
+        if isinstance(description, Row):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 
@@ -1000,8 +998,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
+    ) -> Sequence[Mapping[str, Any]]:
+        columns: Sequence[Mapping[str, Any]] = []
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
@@ -1070,9 +1068,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields(
         self,
         dataset_name: str,
-        columns: List[dict],
+        columns: Sequence[Mapping[str, Any]],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1095,9 +1093,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1331,36 +1329,21 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
-    def get_profiler_instance(
-        self, inspector: Inspector
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
-        # Import custom profiler first (no GE dependency)
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
         from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     def get_profile_args(self) -> Dict:
         """Passed down to GE profiler"""
@@ -1504,7 +1487,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
-        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
+        profiler: "SQLAlchemyProfiler",
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(

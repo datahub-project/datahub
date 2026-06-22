@@ -165,7 +165,7 @@ class PostgresLineageExtractor:
                 result = self.connection.execute(query, params)
 
                 queries = []
-                for row in result:
+                for row in result.mappings():
                     self.queries_extracted += 1
 
                     queries.append(

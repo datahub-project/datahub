@@ -40,3 +40,9 @@ def test_profiling_method_defaults_to_sqlalchemy() -> None:
     """The default profiler is SQLAlchemy, not Great Expectations."""
     config = ProfilingMethodConfig()
     assert config.method == "sqlalchemy"
+
+
+def test_profiling_method_ge_is_rejected() -> None:
+    """An explicit `method: ge` recipe fails with actionable guidance (GE was removed)."""
+    with pytest.raises(ValueError, match="no longer supported"):
+        GEProfilingConfig.model_validate({"enabled": True, "method": "ge"})

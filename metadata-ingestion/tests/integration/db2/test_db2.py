@@ -79,7 +79,7 @@ def db2_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         with engine.begin() as conn:
             for statement in statements:
                 logger.info("Executing SQL: " + statement)
-                conn.execute(statement)
+                conn.execute(sqlalchemy.text(statement))
 
         yield docker_services
 

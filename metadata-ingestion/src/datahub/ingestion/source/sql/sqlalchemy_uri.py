@@ -55,14 +55,15 @@ def make_sqlalchemy_uri(
     if uri_opts:
         uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
 
-    return str(
-        URL.create(
-            drivername=scheme,
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=db,
-            query=uri_opts or {},
-        )
-    )
+    # str(URL) masks the password as "***" on SQLAlchemy 2.0 (its __str__ defaults
+    # to hide_password=True). Since this string is fed straight to create_engine(),
+    # we must render the real password — otherwise the engine connects with "***".
+    return URL.create(
+        drivername=scheme,
+        username=username,
+        password=password,
+        host=host,
+        port=port,
+        database=db,
+        query=uri_opts or {},
+    ).render_as_string(hide_password=False)

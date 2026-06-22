@@ -159,11 +159,12 @@ class TestDorisDialect:
         ):
             columns = dialect.get_columns(mock_connection, "customers", schema="testdb")
 
-        # Verify full_type was set
-        assert columns[0]["full_type"] == "INT"
-        assert columns[2]["full_type"] == "ARRAY<VARCHAR(50)>"
-        assert columns[3]["full_type"] == "JSONB"
-        assert columns[4]["full_type"] == "HLL"
+        # Verify full_type was set. "full_type" is a non-standard key the Doris
+        # dialect adds to ReflectedColumn for SQLAlchemySource, so mypy rejects it.
+        assert columns[0]["full_type"] == "INT"  # type: ignore[typeddict-item]
+        assert columns[2]["full_type"] == "ARRAY<VARCHAR(50)>"  # type: ignore[typeddict-item]
+        assert columns[3]["full_type"] == "JSONB"  # type: ignore[typeddict-item]
+        assert columns[4]["full_type"] == "HLL"  # type: ignore[typeddict-item]
 
         # Verify custom types were parsed
         assert isinstance(columns[2]["type"], DORIS_ARRAY)

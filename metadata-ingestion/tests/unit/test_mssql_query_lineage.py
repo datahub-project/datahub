@@ -231,7 +231,7 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         )
 
         connection_mock.execute.side_effect = DatabaseError(
-            "statement", "params", "orig"
+            "statement", "params", Exception("orig")
         )
 
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
@@ -255,7 +255,7 @@ def test_mssql_lineage_extractor_version_check(mssql_extractor_setup):
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
@@ -271,7 +271,7 @@ def test_mssql_lineage_extractor_version_check_old_version(mssql_extractor_setup
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2014 (SP2) - 12.0.5000.0",
         "major_version": 12,
     }
@@ -287,7 +287,9 @@ def test_mssql_lineage_extractor_query_store_enabled(mssql_extractor_setup):
     extractor = mssql_extractor_setup["extractor"]
     conn_mock = mssql_extractor_setup["conn_mock"]
 
-    conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 1}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "is_enabled": 1
+    }
 
     is_enabled = extractor._check_query_store_available()
 
@@ -305,7 +307,9 @@ def test_mssql_lineage_extractor_query_store_disabled():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"is_enabled": 0}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "is_enabled": 0
+    }
 
     is_enabled = extractor._check_query_store_available()
 
@@ -323,7 +327,9 @@ def test_mssql_lineage_extractor_dmv_permissions_granted():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 1}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     has_permission = extractor._check_dmv_permissions()
 
@@ -341,7 +347,9 @@ def test_mssql_lineage_extractor_dmv_permissions_denied():
         config, conn_mock, report, sql_aggregator_mock, "dbo"
     )
 
-    conn_mock.execute.return_value.fetchone.return_value = {"has_view_server_state": 0}
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 0
+    }
 
     has_permission = extractor._check_dmv_permissions()
 
@@ -360,13 +368,13 @@ def test_mssql_lineage_extractor_check_prerequisites_query_store():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     conn_mock.execute.side_effect = [version_result, qs_result]
 
@@ -388,16 +396,18 @@ def test_mssql_lineage_extractor_check_prerequisites_dmv_fallback():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 0}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 0}
 
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
 
@@ -420,16 +430,18 @@ def test_mssql_lineage_extractor_check_prerequisites_fails():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 0}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 0}
 
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 0}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 0
+    }
 
     conn_mock.execute.side_effect = [version_result, qs_result, dmv_result]
 
@@ -474,7 +486,7 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     # Mock prerequisites check
@@ -523,7 +535,7 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -574,7 +586,7 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -604,7 +616,9 @@ def test_mssql_lineage_extractor_handles_extraction_failure():
     )
 
     # Mock database error during extraction
-    conn_mock.execute.side_effect = DatabaseError("statement", "params", "orig")
+    conn_mock.execute.side_effect = DatabaseError(
+        "statement", "params", Exception("orig")
+    )
 
     with patch.object(
         extractor,
@@ -779,7 +793,7 @@ def test_mssql_lineage_extractor_version_check_fails():
     )
 
     # Mock no version result
-    conn_mock.execute.return_value.fetchone.return_value = None
+    conn_mock.execute.return_value.mappings.return_value.fetchone.return_value = None
 
     version = extractor._check_version()
 
@@ -798,7 +812,9 @@ def test_mssql_lineage_extractor_query_store_check_fails():
     )
 
     # Mock database error (e.g., sys.database_query_store_options doesn't exist)
-    conn_mock.execute.side_effect = ProgrammingError("statement", "params", "orig")
+    conn_mock.execute.side_effect = ProgrammingError(
+        "statement", "params", Exception("orig")
+    )
 
     # Should raise the exception (handled by caller)
     with pytest.raises(ProgrammingError):
@@ -838,7 +854,7 @@ def test_mssql_lineage_extractor_malformed_query_text():
 
     # Mock the result to support iteration
     mock_result = Mock()
-    mock_result.__iter__ = Mock(return_value=iter(mock_results))
+    mock_result.mappings.return_value = mock_results
     conn_mock.execute.return_value = mock_result
 
     with patch.object(
@@ -867,7 +883,7 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
 
     # Mock version check to succeed, but Query Store and DMV checks to fail
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
@@ -879,7 +895,7 @@ def test_mssql_lineage_extractor_connection_failure_during_prerequisite():
         if call_count[0] == 1:
             return version_result
         else:
-            raise OperationalError("statement", "params", "orig")
+            raise OperationalError("statement", "params", Exception("orig"))
 
     conn_mock.execute.side_effect = execute_side_effect
 
@@ -902,17 +918,19 @@ def test_mssql_lineage_extractor_fallback_to_dmv():
     )
 
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     # Mock Query Store check fails (not available on this database)
-    qs_error = ProgrammingError("statement", "params", "orig")
+    qs_error = ProgrammingError("statement", "params", Exception("orig"))
 
     # Mock DMV check succeeds
     dmv_result = Mock()
-    dmv_result.fetchone.return_value = {"has_view_server_state": 1}
+    dmv_result.mappings.return_value.fetchone.return_value = {
+        "has_view_server_state": 1
+    }
 
     call_count = [0]
 
@@ -1263,19 +1281,21 @@ def test_mssql_query_store_disabled_mid_ingestion(create_engine_mock):
 
     # Mock version check
     version_result = MagicMock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     # Mock Query Store initially enabled, then disabled
     result_enabled = MagicMock()
-    result_enabled.fetchone.return_value = {"is_enabled": True}
+    result_enabled.mappings.return_value.fetchone.return_value = {"is_enabled": True}
 
     connection_mock.execute.side_effect = [
         version_result,
         result_enabled,
-        ProgrammingError("Query Store is not enabled", None, None),
+        ProgrammingError(
+            "Query Store is not enabled", None, Exception("Query Store is not enabled")
+        ),
     ]
 
     sql_aggregator_mock = MagicMock()
@@ -1309,13 +1329,13 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
 
     # Mock version check to succeed
     version_result = MagicMock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = MagicMock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     call_count = [0]
 
@@ -1326,7 +1346,9 @@ def test_mssql_connection_timeout_during_extraction(create_engine_mock):
         elif call_count[0] == 2:
             return qs_result
         else:
-            raise OperationalError("Timeout expired", None, None)
+            raise OperationalError(
+                "Timeout expired", None, Exception("Timeout expired")
+            )
 
     connection_mock.execute.side_effect = execute_side_effect
 
@@ -1367,30 +1389,26 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     # Mock query results
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": query_with_unicode,
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                    "user_name": None,
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": query_with_unicode,
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+            "user_name": None,
+        }
+    ]
 
     call_count = [0]
 
@@ -1455,30 +1473,26 @@ def test_mssql_very_long_query_text_handling():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     # Mock row with very long query text
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": long_query,
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                    "user_name": "testuser",
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": long_query,
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+            "user_name": "testuser",
+        }
+    ]
 
     call_count = [0]
 
@@ -1552,28 +1566,24 @@ def test_mssql_user_attribution_not_supported():
 
     # Mock version check
     version_result = Mock()
-    version_result.fetchone.return_value = {
+    version_result.mappings.return_value.fetchone.return_value = {
         "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
         "major_version": 15,
     }
 
     qs_result = Mock()
-    qs_result.fetchone.return_value = {"is_enabled": 1}
+    qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
     query_result = Mock()
-    query_result.__iter__ = Mock(
-        return_value=iter(
-            [
-                {
-                    "query_id": "1",
-                    "query_text": "SELECT * FROM test",
-                    "execution_count": 10,
-                    "total_exec_time_ms": 100.0,
-                    "database_name": "TestDB",
-                }
-            ]
-        )
-    )
+    query_result.mappings.return_value = [
+        {
+            "query_id": "1",
+            "query_text": "SELECT * FROM test",
+            "execution_count": 10,
+            "total_exec_time_ms": 100.0,
+            "database_name": "TestDB",
+        }
+    ]
 
     call_count = [0]
 

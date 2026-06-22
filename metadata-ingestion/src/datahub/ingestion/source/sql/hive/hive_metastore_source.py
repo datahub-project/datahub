@@ -218,8 +218,7 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                     SQLAlchemyDataFetcher,
                 )
 
-                fetcher = SQLAlchemyDataFetcher(config)
-                try:
+                with SQLAlchemyDataFetcher(config) as fetcher:
                     schemas = list(fetcher.fetch_schema_rows())
                     test_report.basic_connectivity = CapabilityReport(
                         capable=True,
@@ -231,8 +230,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                             mitigation_message=f"Found {len(schemas)} schemas",
                         )
                     }
-                finally:
-                    fetcher.close()
 
         except Exception as e:
             error_msg = str(e)

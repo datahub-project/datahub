@@ -616,7 +616,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_columns.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -628,7 +628,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_columns_non_retryable_error_propagates(self):
         """A non-retryable error (syntax error) propagates immediately."""
         get_schema_columns.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_columns(None, mock_conn, "columnsV", "db1")
@@ -639,7 +641,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_pk_constraints.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -651,7 +653,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_pk_constraints_non_retryable_error_propagates(self):
         """A non-retryable error propagates immediately."""
         get_schema_pk_constraints.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_pk_constraints(None, mock_conn, "db1")
@@ -662,7 +666,7 @@ class TestSchemaFunctionRetry:
         """A single transient failure is retried and the successful result is returned."""
         get_schema_foreign_keys.cache_clear()
         mock_conn = self._make_conn(
-            [DatabaseError("transaction aborted", None, None), None]
+            [DatabaseError("transaction aborted", None, Exception("orig")), None]
         )
 
         with patch("time.sleep"):
@@ -674,7 +678,9 @@ class TestSchemaFunctionRetry:
     def test_get_schema_foreign_keys_non_retryable_error_propagates(self):
         """A non-retryable error propagates immediately."""
         get_schema_foreign_keys.cache_clear()
-        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+        mock_conn = self._make_conn(
+            [DatabaseError("syntax error", None, Exception("orig"))]
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             get_schema_foreign_keys(None, mock_conn, "db1")
@@ -2961,30 +2967,63 @@ class TestShouldRetry:
         assert _should_retry(PoolTimeoutError("pool exhausted")) is True
 
     def test_operational_error_with_retryable_message(self):
-        assert _should_retry(OperationalError("connect timed out", None, None)) is True
+        assert (
+            _should_retry(
+                OperationalError("connect timed out", None, Exception("orig"))
+            )
+            is True
+        )
 
     def test_operational_error_with_retryable_error_code(self):
         # Error codes 2631, 3111, 3120, 3598, 3897, 3603 are explicitly retryable.
-        assert _should_retry(OperationalError("[Error 3598]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 3897]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 3603]", None, None)) is True
-        assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
+        assert (
+            _should_retry(OperationalError("[Error 3598]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 3897]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 3603]", None, Exception("orig")))
+            is True
+        )
+        assert (
+            _should_retry(OperationalError("[Error 2631]", None, Exception("orig")))
+            is True
+        )
 
     def test_operational_error_non_retryable_auth_failure(self):
         """Auth failures and config errors embedded in OperationalError must NOT be retried."""
         assert (
-            _should_retry(OperationalError("authentication failed", None, None))
+            _should_retry(
+                OperationalError("authentication failed", None, Exception("orig"))
+            )
             is False
         )
-        assert _should_retry(OperationalError("permission denied", None, None)) is False
+        assert (
+            _should_retry(
+                OperationalError("permission denied", None, Exception("orig"))
+            )
+            is False
+        )
         # Teradata error 3807 = "Object does not exist" — non-transient config error.
-        assert _should_retry(OperationalError("[Error 3807]", None, None)) is False
+        assert (
+            _should_retry(OperationalError("[Error 3807]", None, Exception("orig")))
+            is False
+        )
 
     def test_database_error_with_retryable_message(self):
-        assert _should_retry(DatabaseError("connect timed out", None, None)) is True
+        assert (
+            _should_retry(DatabaseError("connect timed out", None, Exception("orig")))
+            is True
+        )
 
     def test_database_error_non_retryable(self):
-        assert _should_retry(DatabaseError("syntax error", None, None)) is False
+        assert (
+            _should_retry(DatabaseError("syntax error", None, Exception("orig")))
+            is False
+        )
 
     def test_generic_exception_not_retryable(self):
         assert _should_retry(ValueError("something went wrong")) is False
@@ -2998,26 +3037,32 @@ class TestShouldRetry:
             "i/o timeout",
         ]
         for msg in retryable_messages:
-            assert _should_retry(DatabaseError(msg, None, None)) is True, (
+            assert _should_retry(DatabaseError(msg, None, Exception("orig"))) is True, (
                 f"Expected {msg!r} to be retryable"
             )
             # Also retryable when mixed-case (check is lowercased)
-            assert _should_retry(DatabaseError(msg.upper(), None, None)) is True, (
-                f"Expected upper-case {msg!r} to be retryable"
-            )
+            assert (
+                _should_retry(DatabaseError(msg.upper(), None, Exception("orig")))
+                is True
+            ), f"Expected upper-case {msg!r} to be retryable"
 
     def test_all_retryable_error_codes_match(self):
         """Every numeric error code in _RETRYABLE_ERROR_CODE_RE is recognised as retryable."""
         retryable_codes = [2631, 2639, 3111, 3120, 3598, 3897, 3603]
         for code in retryable_codes:
             assert (
-                _should_retry(OperationalError(f"[Error {code}]", None, None)) is True
+                _should_retry(
+                    OperationalError(f"[Error {code}]", None, Exception("orig"))
+                )
+                is True
             ), f"Expected error code {code} to be retryable"
 
     def test_dead_socket_substrings_not_retryable_on_execute(self):
         """Dead-socket errors must not be retried on an existing connection."""
         for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
-            assert _should_retry(OperationalError(msg, None, None)) is False, msg
+            assert (
+                _should_retry(OperationalError(msg, None, Exception("orig"))) is False
+            ), msg
 
 
 class TestShouldRetryConnect:
@@ -3027,34 +3072,50 @@ class TestShouldRetryConnect:
         """Everything retryable at execute time is also retryable at connect time."""
         assert _should_retry_connect(PoolTimeoutError("pool exhausted")) is True
         assert (
-            _should_retry_connect(OperationalError("connect timed out", None, None))
+            _should_retry_connect(
+                OperationalError("connect timed out", None, Exception("orig"))
+            )
             is True
         )
         assert (
-            _should_retry_connect(OperationalError("[Error 3598]", None, None)) is True
+            _should_retry_connect(
+                OperationalError("[Error 3598]", None, Exception("orig"))
+            )
+            is True
         )
         assert (
-            _should_retry_connect(DatabaseError("transaction aborted", None, None))
+            _should_retry_connect(
+                DatabaseError("transaction aborted", None, Exception("orig"))
+            )
             is True
         )
 
     def test_dead_socket_errors_retryable_at_connect_time(self):
         """Dead-socket errors are retryable at connect time since a fresh socket is opened."""
         for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
-            assert _should_retry_connect(OperationalError(msg, None, None)) is True, (
-                f"Expected {msg!r} to be retryable at connect time"
-            )
-            assert _should_retry_connect(DatabaseError(msg, None, None)) is True, (
-                f"Expected DatabaseError({msg!r}) to be retryable at connect time"
-            )
+            assert (
+                _should_retry_connect(OperationalError(msg, None, Exception("orig")))
+                is True
+            ), f"Expected {msg!r} to be retryable at connect time"
+            assert (
+                _should_retry_connect(DatabaseError(msg, None, Exception("orig")))
+                is True
+            ), f"Expected DatabaseError({msg!r}) to be retryable at connect time"
 
     def test_non_retryable_errors_still_rejected(self):
         """Permanent errors (auth failure, syntax error) are not retried even at connect time."""
         assert (
-            _should_retry_connect(OperationalError("authentication failed", None, None))
+            _should_retry_connect(
+                OperationalError("authentication failed", None, Exception("orig"))
+            )
             is False
         )
-        assert _should_retry_connect(DatabaseError("syntax error", None, None)) is False
+        assert (
+            _should_retry_connect(
+                DatabaseError("syntax error", None, Exception("orig"))
+            )
+            is False
+        )
         assert _should_retry_connect(ValueError("something went wrong")) is False
 
     def test_engine_connect_retries_dead_socket(self):
@@ -3062,7 +3123,7 @@ class TestShouldRetryConnect:
         good_conn = MagicMock()
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [
-            OperationalError("connection reset", None, None),
+            OperationalError("connection reset", None, Exception("orig")),
             good_conn,
         ]
         report = TeradataReport()
@@ -3354,7 +3415,7 @@ class TestExecuteWithRetry:
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             sentinel,
         ]
         report = TeradataReport()
@@ -3370,7 +3431,7 @@ class TestExecuteWithRetry:
 
     def test_exhausts_all_attempts_and_reraises(self):
         """When every attempt raises a retryable error the last exception propagates."""
-        exc = DatabaseError("transaction aborted", None, None)
+        exc = DatabaseError("transaction aborted", None, Exception("orig"))
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = exc
 
@@ -3382,7 +3443,9 @@ class TestExecuteWithRetry:
     def test_dead_socket_error_not_retried(self):
         """Dead-socket errors (connection reset) propagate immediately without retry."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = OperationalError("connection reset", None, None)
+        mock_conn.execute.side_effect = OperationalError(
+            "connection reset", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(OperationalError):
             _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
@@ -3395,7 +3458,7 @@ class TestExecuteWithRetry:
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("[Error 2631] deadlock", None, None),
+            DatabaseError("[Error 2631] deadlock", None, Exception("orig")),
             sentinel,
         ]
         report = TeradataReport()
@@ -3411,7 +3474,9 @@ class TestExecuteWithRetry:
     def test_permanent_error_not_retried(self):
         """A non-retryable error (syntax error) propagates on the first attempt."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = DatabaseError("syntax error", None, None)
+        mock_conn.execute.side_effect = DatabaseError(
+            "syntax error", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
@@ -3438,7 +3503,7 @@ class TestExecuteWithRetry:
         a breadcrumb in the ingestion report."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = OperationalError(
-            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3455,7 +3520,7 @@ class TestExecuteWithRetry:
         themselves (e.g. _check_historical_table_exists) receive no report entry."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = OperationalError(
-            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3475,7 +3540,7 @@ class TestExecuteWithRetry:
         warning: if we actually slept and retried, a report entry is always warranted."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "[Error 2631] transaction aborted", None, None
+            "[Error 2631] transaction aborted", None, Exception("orig")
         )
         report = TeradataReport()
 
@@ -3503,7 +3568,7 @@ class TestFetchmanyWithRetry:
         batch = [object(), object()]
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             batch,
         ]
         report = TeradataReport()
@@ -3521,7 +3586,7 @@ class TestFetchmanyWithRetry:
         """When every attempt raises a retryable error the last exception propagates."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = DatabaseError(
-            "transaction aborted", None, None
+            "transaction aborted", None, Exception("orig")
         )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
@@ -3532,7 +3597,9 @@ class TestFetchmanyWithRetry:
     def test_non_retryable_error_propagates_immediately(self):
         """A non-retryable error propagates on the first attempt without retry."""
         mock_result = MagicMock()
-        mock_result.fetchmany.side_effect = DatabaseError("syntax error", None, None)
+        mock_result.fetchmany.side_effect = DatabaseError(
+            "syntax error", None, Exception("orig")
+        )
 
         with patch("time.sleep"), pytest.raises(DatabaseError):
             _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
@@ -3552,8 +3619,8 @@ class TestFetchmanyWithRetry:
         """num_db_retries is incremented exactly once per retry attempt."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             [],
         ]
         report = TeradataReport()
@@ -3580,7 +3647,7 @@ class TestBackoffTiming:
         """_execute_with_retry passes the value from _jittered_backoff to time.sleep."""
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             "ok",
         ]
         fixed_backoff = 0.42
@@ -3601,7 +3668,7 @@ class TestBackoffTiming:
         batch: List[Any] = []
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, Exception("orig")),
             batch,
         ]
         fixed_backoff = 0.77
@@ -3622,7 +3689,7 @@ class TestBackoffTiming:
         mock_conn = MagicMock()
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [
-            OperationalError("connect timed out", None, None),
+            OperationalError("connect timed out", None, Exception("orig")),
             mock_conn,
         ]
         fixed_backoff = 1.23
@@ -3749,7 +3816,7 @@ class TestGetInspectorsPerDbConnectionFailure:
         source = _create_source_patched({"databases": ["db1", "db2", "db3"]})
 
         ok_conn = MagicMock()
-        auth_error = OperationalError("authentication failed", None, None)
+        auth_error = OperationalError("authentication failed", None, Exception("orig"))
 
         mock_engine = MagicMock()
         # db1 succeeds, db2 fails with a permanent auth error, db3 succeeds.
@@ -3832,7 +3899,7 @@ class TestSchemaNameRetry:
 
         # First connect raises a transient error; second succeeds.
         mock_engine = self._make_engine(
-            [OperationalError("connect timed out", None, None), good_conn]
+            [OperationalError("connect timed out", None, Exception("orig")), good_conn]
         )
 
         with (
@@ -3871,7 +3938,7 @@ class TestSchemaNameRetry:
         """When every attempt fails transiently the last exception is re-raised."""
         source = _create_source_patched({"retry_max_attempts": 2})
 
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception("orig"))
         mock_engine = self._make_engine([transient, transient])
 
         with (
@@ -3896,7 +3963,9 @@ class TestSchemaNameRetry:
         # "connection reset" is in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS but NOT in
         # _RETRYABLE_ERROR_SUBSTRINGS, so _should_retry() would return False while
         # _should_retry_connect() returns True.
-        dead_socket = OperationalError("connection reset by peer", None, None)
+        dead_socket = OperationalError(
+            "connection reset by peer", None, Exception("orig")
+        )
         mock_engine = self._make_engine([dead_socket, good_conn])
 
         with (
@@ -3923,7 +3992,7 @@ class TestHistoricalTableCheckLogging:
         source = _create_source_patched()
 
         # Simulate a transient error that survives all retry attempts.
-        transient_exc = OperationalError("connect timed out", None, None)
+        transient_exc = OperationalError("connect timed out", None, Exception("orig"))
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = transient_exc
 
@@ -4034,7 +4103,7 @@ class TestExecuteWithCursorFallback:
         source = self._make_source()
         conn = self._mock_conn()
         fallback_result = MagicMock()
-        exc = OperationalError(msg, None, None)
+        exc = OperationalError(msg, None, Exception("orig"))
 
         with patch.object(
             source,
@@ -4081,7 +4150,7 @@ class TestExecuteWithCursorFallback:
         """
         source = self._make_source()
         conn = self._mock_conn()
-        exc = OperationalError(msg, None, None)
+        exc = OperationalError(msg, None, Exception("orig"))
 
         with (
             patch.object(

@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -72,7 +72,7 @@ class MSSQLAdapter(PlatformAdapter):
         the base adapter: single value → None, multiple-equal rows → 0.0,
         all-null → adapter-specific `get_stdev_null_value()` hook.
         """
-        query = sa.select([sa.func.stdev(sa.column(column))]).select_from(table)
+        query = sa.select(sa.func.stdev(sa.column(column))).select_from(table)
         result = conn.execute(query).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
@@ -108,7 +108,7 @@ class MSSQLAdapter(PlatformAdapter):
                 )
 
         quoted_column = self.quote_identifier(column)
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column} ASC) OVER ()"
             ).label(f"q_{i}")
@@ -116,7 +116,7 @@ class MSSQLAdapter(PlatformAdapter):
         ]
         # DISTINCT is required because the windowed PERCENTILE_DISC would
         # otherwise return one identical row per input row.
-        query = sa.select(selects).select_from(table).distinct()
+        query = sa.select(*selects).select_from(table).distinct()
 
         try:
             row = conn.execute(query).fetchone()

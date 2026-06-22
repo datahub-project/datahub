@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 from pydantic import field_validator
-from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -40,6 +39,7 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
+from datahub.ingestion.source.sql.vertica_inspector import VerticaInspector
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -142,6 +142,14 @@ class VerticaSource(SQLAlchemySource):
         config = VerticaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def get_inspectors(self) -> Iterable[VerticaInspector]:
+        # The base dialect (sqlalchemy-vertica-python) only provides standard
+        # reflection. Wrap each standard inspector in our VerticaInspector so the
+        # Vertica-specific methods (projections, models, owners, lineage, ...)
+        # are available downstream.
+        for inspector in super().get_inspectors():
+            yield VerticaInspector(inspector)
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
         sql_config = self.config
@@ -186,7 +194,7 @@ class VerticaSource(SQLAlchemySource):
                     profile_requests, profiler, platform=self.platform
                 )
 
-    def get_identifier(
+    def get_identifier(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, *, schema: str, entity: str, inspector: VerticaInspector, **kwargs: Any
     ) -> str:
         regular = f"{schema}.{entity}"
@@ -195,7 +203,7 @@ class VerticaSource(SQLAlchemySource):
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"
 
-    def get_database_properties(
+    def get_database_properties(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, inspector: VerticaInspector, database: str
     ) -> Optional[Dict[str, str]]:
         try:
@@ -208,7 +216,7 @@ class VerticaSource(SQLAlchemySource):
             )
         return None
 
-    def get_schema_properties(
+    def get_schema_properties(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self, inspector: VerticaInspector, database: str, schema: str
     ) -> Optional[Dict[str, str]]:
         try:
@@ -220,7 +228,7 @@ class VerticaSource(SQLAlchemySource):
             )
         return None
 
-    def _process_table(
+    def _process_table(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         dataset_name: str,
         inspector: VerticaInspector,
@@ -245,7 +253,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name, inspector, schema, table, sql_config, data_reader
         )
 
-    def loop_views(
+    def loop_views(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         inspector: VerticaInspector,
         schema: str,
@@ -315,7 +323,7 @@ class VerticaSource(SQLAlchemySource):
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
-    def _process_view(
+    def _process_view(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         dataset_name: str,
         inspector: VerticaInspector,
@@ -476,7 +484,7 @@ class VerticaSource(SQLAlchemySource):
             owner_urn=f"urn:li:corpuser:{projection_owner}",
         )
         # extra_tags = self.get_extra_tags(inspector, schema, projection)
-        pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
+        pk_constraints: dict = dict(inspector.get_pk_constraint(projection, schema))
         foreign_keys = self._get_foreign_keys(
             dataset_urn, inspector, schema, projection
         )
@@ -517,7 +525,7 @@ class VerticaSource(SQLAlchemySource):
                 domain_registry=self.domain_registry,
             )
 
-    def loop_profiler_requests(
+    def loop_profiler_requests(  # type: ignore[override]  # VerticaSource only uses VerticaInspector
         self,
         inspector: VerticaInspector,
         schema: str,

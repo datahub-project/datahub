@@ -258,7 +258,9 @@ class ClickHouseConfig(
         if self.sqlalchemy_uri and current_db:
             url = url.set(database=current_db)
 
-        return str(url)
+        # render_as_string(hide_password=False): str(URL) masks the password as "***"
+        # on SQLAlchemy 2.0, which would break the create_engine() connection.
+        return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
@@ -745,8 +747,9 @@ ORDER BY event_time ASC
         logger.info("Fetching query log from ClickHouse")
 
         try:
-            result = engine.execute(text(query))
-            rows = list(result)
+            with engine.connect() as conn:
+                result = conn.execute(text(query))
+                rows = list(result)
         except Exception as e:
             self.report.report_failure(
                 "query_log_extraction",
@@ -840,8 +843,9 @@ ORDER BY event_time ASC
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        for db_row in engine.execute(text(all_tables_query)):
-            all_tables_set.add(f"{db_row['database']}.{db_row['table_name']}")
+        with engine.connect() as conn:
+            for db_row in conn.execute(text(all_tables_query)).mappings():
+                all_tables_set.add(f"{db_row['database']}.{db_row['table_name']}")
 
         return all_tables_set
 
@@ -869,7 +873,9 @@ ORDER BY event_time ASC
         engine = create_engine(url, **self.config.options)
 
         try:
-            for db_row in engine.execute(text(query)):
+            with engine.connect() as conn:
+                rows = conn.execute(text(query)).mappings().fetchall()
+            for db_row in rows:
                 dataset_name = f"{db_row['target_schema']}.{db_row['target_table']}"
                 if not self.config.database_pattern.allowed(
                     db_row["target_schema"]

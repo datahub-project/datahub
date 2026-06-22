@@ -73,60 +73,20 @@ def test_source_module_imports_without_great_expectations(module_path: str) -> N
     _assert_module_imports_without_great_expectations(module_path)
 
 
-def test_ge_method_raises_helpful_error_when_ge_missing() -> None:
-    """When profiling.method=ge but great_expectations is not installed, a clear ConfigurationError must point at the fix."""
-    script = textwrap.dedent(
-        """
-        import sys
+def test_ge_method_is_rejected_at_config_validation() -> None:
+    """The Great Expectations profiler was removed; `sqlalchemy` is now the only
+    supported profiling method. Selecting `method: ge` must be rejected during
+    pydantic config validation rather than failing later with a GE import error.
+    """
+    import pydantic
 
+    from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 
-        class GreatExpectationsBlocker:
-            def find_spec(self, name, path=None, target=None):
-                if name == "great_expectations" or name.startswith("great_expectations."):
-                    raise ImportError(f"GE blocked by test: {name}")
-                return None
+    with pytest.raises(pydantic.ValidationError):
+        GEProfilingConfig.model_validate({"enabled": True, "method": "ge"})
 
-
-        sys.meta_path.insert(0, GreatExpectationsBlocker())
-
-        # Replicates the lazy-import-and-raise flow used by sql_generic_profiler.get_profiler_instance()
-        # when profiling.method=ge. Confirms ConfigurationError carries the expected guidance.
-        from datahub.configuration.common import ConfigurationError
-
-        try:
-            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler  # noqa: F401
-        except ImportError as e:
-            from datahub.ingestion.source.profiling.common import (
-                GE_PROFILER_MISSING_MESSAGE,
-            )
-            try:
-                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
-            except ConfigurationError as ce:
-                print(f"CAUGHT:{ce}")
-                sys.exit(0)
-
-        sys.exit(2)
-        """
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, (
-        f"Expected the lazy GE import to fail and ConfigurationError to be raised.\n"
-        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
-    )
-    assert "CAUGHT:" in result.stdout, (
-        f"ConfigurationError not raised. stdout: {result.stdout}"
-    )
-    assert "acryl-datahub[profiling-ge]" in result.stdout, (
-        f"Error message missing install hint. stdout: {result.stdout}"
-    )
-    assert "profiling.method: sqlalchemy" in result.stdout, (
-        f"Error message missing method-switch hint. stdout: {result.stdout}"
-    )
+    config = GEProfilingConfig.model_validate({"enabled": True, "method": "sqlalchemy"})
+    assert config.method == "sqlalchemy"
 
 
 def test_sql_common_lazy_imports_are_ge_free() -> None:

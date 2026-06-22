@@ -108,6 +108,14 @@ Requirements:
 
 - #17443 **(Ingestion / MongoDB)** AWS DocumentDB can now be ingested as its own data platform. The MongoDB source has a new opt-in config field `platform` (default `mongodb`). Set `platform: documentdb` together with `hostingEnvironment: AWS_DOCUMENTDB` to emit entities under the new `documentdb` data platform URN instead of `mongodb`; setting `platform: documentdb` with any other hosting environment is rejected at config validation time. The default is unchanged, so existing recipes continue to emit `mongodb` URNs even when pointed at AWS DocumentDB. If enabled on an existing recipe, both the dataset URNs and the database-level container URNs will change, and the stale `mongodb` entities will need to be cleaned up via stateful ingestion (if enabled) or manual soft-delete.
 
+- #17982: **(Ingestion framework)** `acryl-datahub` now requires **SQLAlchemy 2.0** (`sqlalchemy>=2.0,<2.1`). The migration is all-or-nothing: SQLAlchemy resolves to a single version per environment, and some dialect drivers pin `SQLAlchemy<2`, so a mixed 1.4/2.0 install is not possible. **Action:** if you install `acryl-datahub` into a shared environment, make sure nothing else pins `SQLAlchemy<2`; if you maintain a custom ingestion source or transformer that uses SQLAlchemy directly, migrate it to the 2.0 API (wrap raw SQL in `text()`, pass bind parameters as a dict rather than keyword arguments, replace `Engine.execute()` with `engine.connect()`, and access result rows via `.mappings()` instead of `row["col"]`). The following sub-items are the user-visible consequences:
+
+  - **Great Expectations profiler removed.** The legacy GE-based profiler (`profiling.method: ge`) has been removed across all SQL sources; `acryl-great-expectations` pins `SQLAlchemy<2` and is uninstallable on the cutover. The generic SQLAlchemy profiler (`profiling.method: sqlalchemy`, already the default) is the only profiler. **Migration:** remove `method: ge` from any source's `profiling` block (or set `method: sqlalchemy`) — `ge` is no longer a valid value and will fail config validation with a message pointing at the fix. The `profiling_ge` / `great-expectations` install extras have been removed.
+
+  - **Vertica driver changed.** The `vertica` source now uses the maintained `sqlalchemy-vertica-python` dialect (the previous dialect pinned `SQLAlchemy<=1.4.44`). **Action:** reinstall the `vertica` extra (`pip install 'acryl-datahub[vertica]'`) so the new driver is present.
+
+  - **Unity Catalog / Databricks profiling** now requires the `databricks-sqlalchemy` dialect, which is pulled in automatically by the `databricks`/`unity-catalog` extras. No recipe change is required; just reinstall the extra.
+
 ### Known Issues
 
 ### Potential Downtime

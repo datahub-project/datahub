@@ -24,16 +24,27 @@ logger = logging.getLogger(__name__)
 class ProfilingMethodConfig(ConfigModel):
     """Base class for profiling configs that support method selection."""
 
-    method: Literal["ge", "sqlalchemy"] = Field(
+    method: Literal["sqlalchemy"] = Field(
         default="sqlalchemy",
         description=(
-            "Profiling method to use. "
-            "`sqlalchemy` (default) runs profiling queries directly against your "
-            "source's existing SQLAlchemy connection. "
-            "`ge` selects the legacy Great Expectations profiler, which is "
-            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
+            "Profiling method to use. `sqlalchemy` runs profiling queries "
+            "directly against your source's existing SQLAlchemy connection."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_ge_method(cls, values: Any) -> Any:
+        # The Great Expectations profiler (method="ge") has been removed. Fail loudly
+        # with actionable guidance when a recipe still sets it explicitly, instead of
+        # the opaque Literal validation error the field would otherwise produce.
+        if isinstance(values, dict) and values.get("method") == "ge":
+            raise ValueError(
+                "profiling.method 'ge' is no longer supported: the Great Expectations "
+                "profiler has been removed. Please update your recipe — either remove "
+                "the 'method' line from your profiling config or set it to 'sqlalchemy'."
+            )
+        return values
 
 
 class GEProfilingBaseConfig(ProfilingMethodConfig):

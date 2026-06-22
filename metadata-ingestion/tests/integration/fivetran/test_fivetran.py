@@ -38,6 +38,7 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranTable,
 )
 from datahub.testing import mce_helpers
+from tests.integration.fivetran._mock_engine import wire_sa2_engine_mock
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
@@ -610,7 +611,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
         ),
     ):
         connection_magic_mock = MagicMock()
-        connection_magic_mock.execute.side_effect = default_query_results
+        wire_sa2_engine_mock(connection_magic_mock, default_query_results)
 
         mock_create_engine.return_value = connection_magic_mock
 
@@ -722,8 +723,12 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
             },
         ]
 
-        connection_magic_mock.execute.side_effect = partial(
-            default_query_results, connector_query_results=connector_query_results
+        wire_sa2_engine_mock(
+            connection_magic_mock,
+            partial(
+                default_query_results,
+                connector_query_results=connector_query_results,
+            ),
         )
 
         mock_create_engine.return_value = connection_magic_mock
@@ -865,9 +870,12 @@ def test_fivetran_with_hybrid_destination_discovery(pytestconfig, tmp_path):
         ),
     ):
         connection_magic_mock = MagicMock()
-        connection_magic_mock.execute.side_effect = partial(
-            default_query_results,
-            connector_query_results=connector_query_results,
+        wire_sa2_engine_mock(
+            connection_magic_mock,
+            partial(
+                default_query_results,
+                connector_query_results=connector_query_results,
+            ),
         )
         mock_create_engine.return_value = connection_magic_mock
 

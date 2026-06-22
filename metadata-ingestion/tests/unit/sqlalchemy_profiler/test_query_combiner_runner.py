@@ -1,5 +1,6 @@
 """Unit tests for QueryCombinerRunner - focuses on query combining behavior."""
 
+import logging
 import math
 from unittest.mock import MagicMock
 
@@ -363,6 +364,7 @@ class TestQueryCombinerRunner:
         This test prevents regression where each query was flushed individually,
         defeating the purpose of query batching.
         """
+        caplog.set_level(logging.DEBUG)
         with (
             sqlite_engine.connect() as conn,
             SQLAlchemyQueryCombiner(

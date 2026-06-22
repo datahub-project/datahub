@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, util
+from sqlalchemy import create_engine, event, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -204,7 +204,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return
         with inspector.engine.connect() as conn:
             for row in conn.execute(
-                "SELECT table_schema, table_name, data_length from information_schema.tables"
+                text(
+                    "SELECT table_schema, table_name, data_length from information_schema.tables"
+                )
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
                     f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"
@@ -219,15 +221,17 @@ class MySQLSource(TwoTierSQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                """
-                SELECT ROUTINE_NAME AS name, 
-                    ROUTINE_DEFINITION AS definition, 
-                    EXTERNAL_LANGUAGE AS language
-                FROM information_schema.ROUTINES
-                WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = %s
-                """,
-                (schema,),
+                text(
+                    """
+                    SELECT ROUTINE_NAME AS name,
+                        ROUTINE_DEFINITION AS definition,
+                        EXTERNAL_LANGUAGE AS language
+                    FROM information_schema.ROUTINES
+                    WHERE ROUTINE_TYPE = 'PROCEDURE'
+                    AND ROUTINE_SCHEMA = :schema
+                    """
+                ),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)

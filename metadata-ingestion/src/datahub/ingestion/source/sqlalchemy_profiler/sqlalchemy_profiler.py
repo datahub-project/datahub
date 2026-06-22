@@ -69,7 +69,6 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
-    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
 )
 
@@ -441,19 +440,16 @@ class SQLAlchemyProfiler:
         # got an engine here.
         self.base_engine = conn.engine
 
-        if IS_SQLALCHEMY_1_4:
-            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
-            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
-            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
-            #
-            # The query combiner does indeed produce queries with cartesian products, but they are
-            # safe because each "FROM" clause only returns one row, so the cartesian product
-            # is also always a single row. As such, we disable the linter here.
-
-            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
-                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
-            )
+        # SQLAlchemy's statement "linter" issues warnings about cartesian products in
+        # SELECT statements. The query combiner intentionally produces cartesian
+        # products, but they are safe because each "FROM" clause returns a single row,
+        # so the product is also a single row. Disable the linter here.
+        # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
+        # SA 2.0 types compiler_linting as the Linting IntFlag; the in-place &= with
+        # the negated flag is an int to mypy, hence the extra assignment ignore.
+        self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined,assignment]
+            ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
+        )
 
         self.platform = platform.lower()
 

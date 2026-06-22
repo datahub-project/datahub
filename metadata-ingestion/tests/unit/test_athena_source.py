@@ -847,8 +847,9 @@ def test_get_column_type_simple_types():
     assert isinstance(
         CustomAthenaRestDialect()._get_column_type(type_="long"), types.BIGINT
     )
+    # pyathena's AthenaRestDialect maps "double" to SQLAlchemy DOUBLE (a Float subclass).
     assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="double"), types.FLOAT
+        CustomAthenaRestDialect()._get_column_type(type_="double"), types.Float
     )
 
 

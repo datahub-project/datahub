@@ -13,18 +13,12 @@ import greenlet
 import sqlalchemy
 import sqlalchemy.engine
 import sqlalchemy.sql
-from packaging import version
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from datahub.ingestion.api.report import Report
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-# The type annotations for SA 1.3.x don't have the __version__ attribute,
-# so we need to ignore the error here.
-SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
-IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
 
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
@@ -121,12 +115,12 @@ class _QueryFuture:
 
 
 def get_query_columns(query: Any) -> List[Any]:
-    try:
-        # inner_columns will be more accurate if the column names are unnamed,
-        # since .columns will remove the "duplicates".
-        return list(query.inner_columns)
-    except AttributeError:
-        return list(query.columns)
+    # On SQLAlchemy 2.0 a Select exposes `selected_columns`; a CTE/subquery
+    # exposes its columns via `.columns`.
+    cols = getattr(query, "selected_columns", None)
+    if cols is not None:
+        return list(cols)
+    return list(query.columns)
 
 
 @dataclasses.dataclass
@@ -326,18 +320,16 @@ class SQLAlchemyQueryCombiner:
                 for k, query_future in pending_queue.items()
             }
 
-            combined_cols = itertools.chain(
-                *[
-                    [
-                        col  # .label(self._generate_sql_safe_identifier())
-                        for col in get_query_columns(cte)
-                    ]
-                    for _, cte in ctes.items()
-                ]
+            combined_cols = list(
+                itertools.chain.from_iterable(
+                    get_query_columns(cte) for cte in ctes.values()
+                )
             )
-            combined_query = sqlalchemy.select(combined_cols)
+            # SA 2.0 removed the list form of select() and Select.append_from().
+            # select(*cols) + generative select_from() works on both 1.4 and 2.0.
+            combined_query = sqlalchemy.select(*combined_cols)
             for cte in ctes.values():
-                combined_query.append_from(cte)
+                combined_query = combined_query.select_from(cte)
 
             logger.debug(f"Executing combined query: {str(combined_query)}")
             self.report.combined_queries_issued += 1
@@ -349,22 +341,20 @@ class SQLAlchemyQueryCombiner:
             row = results[0]
 
             # Extract the results into a result for each query.
+            # We use the CTE's columns here (not the original query's columns)
+            # because the combined select was built from CTE columns, and on SA 2.0
+            # the original query may contain unlabeled BindParameter objects without
+            # a .name attribute. CTE columns always have stable string names.
             index = 0
-            for _, query_future in pending_queue.items():
-                query = query_future.query
-                if IS_SQLALCHEMY_1_4:
-                    # On 1.4, it prints a warning if we don't call subquery.
-                    query = query.subquery()  # type: ignore
-                cols = query.columns
+            for k, query_future in pending_queue.items():
+                cols = get_query_columns(ctes[k])
 
                 data = {}
                 for col in cols:
                     data[col.name] = row[index]
                     index += 1
 
-                res = _ResultProxyFake([_RowProxyFake(data)])
-
-                query_future.res = res
+                query_future.res = _ResultProxyFake([_RowProxyFake(data)])
                 query_future.done = True
 
             # Verify that we consumed all the columns.
@@ -379,6 +369,17 @@ class SQLAlchemyQueryCombiner:
 
             logger.debug(f"Executing query via fallback: {str(query_future.query)}")
             self.report.uncombined_queries_issued += 1
+            # The failed combined query (or a preceding fallback query) may have
+            # left the connection's transaction in an aborted state — on SA 2.0
+            # autocommit is gone, so e.g. Postgres/Redshift return 25P02 ("current
+            # transaction is aborted") for every subsequent statement until a
+            # rollback. Roll back first so each fallback query runs in a clean
+            # transaction instead of cascade-failing. These are read-only profiling
+            # SELECTs whose results are already materialized, so rollback is safe.
+            try:
+                query_future.conn.rollback()
+            except Exception as rollback_err:
+                logger.debug(f"Rollback before fallback query failed: {rollback_err}")
             try:
                 res = _sa_execute_underlying_method(
                     query_future.conn,

@@ -195,20 +195,24 @@ class Db2Source(SQLAlchemySource):
 def _db2_get_view_qualifier(
     inspector: Inspector, schema: str, view: str
 ) -> Optional[str]:
+    # Queries use the DBAPI's qmark (`?`) paramstyle, so execute them via
+    # exec_driver_sql to pass the statement and positional params straight to the
+    # driver without SQLAlchemy attempting to compile the `?` placeholders.
     if inspector.has_table("VIEWS", schema="SYSCAT"):
         # Db2 LUW
-        result = inspector.bind.execute(
-            """
-            select QUALIFIER
-            from SYSCAT.VIEWS
-            where VIEWSCHEMA = ?
-            and VIEWNAME = ?
-        """,
-            (
-                schema,
-                view,
-            ),
-        ).scalar()
+        with inspector.engine.connect() as conn:
+            result = conn.exec_driver_sql(
+                """
+                select QUALIFIER
+                from SYSCAT.VIEWS
+                where VIEWSCHEMA = ?
+                and VIEWNAME = ?
+            """,
+                (
+                    schema,
+                    view,
+                ),
+            ).scalar()
         if not result:
             return None
 
@@ -216,18 +220,19 @@ def _db2_get_view_qualifier(
 
     elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
         # Db2 z/OS
-        result = inspector.bind.execute(
-            """
-                select PATHSCHEMAS
-                from SYSIBM.SYSVIEWS
-                where CREATOR = ?
-                and NAME = ?
-            """,
-            (
-                schema,
-                view,
-            ),
-        ).scalar()
+        with inspector.engine.connect() as conn:
+            result = conn.exec_driver_sql(
+                """
+                    select PATHSCHEMAS
+                    from SYSIBM.SYSVIEWS
+                    where CREATOR = ?
+                    and NAME = ?
+                """,
+                (
+                    schema,
+                    view,
+                ),
+            ).scalar()
         if not result:
             return None
 
@@ -268,63 +273,71 @@ def _db2_get_view_qualifier(
 
 def _db2_get_procedures(
     inspector: Inspector, schema: str
-) -> Iterable[sqlalchemy.engine.Row]:
+) -> Iterable[sqlalchemy.engine.RowMapping]:
+    # Queries use the DBAPI's qmark (`?`) paramstyle, so execute them via
+    # exec_driver_sql to pass the statement and positional params straight to the
+    # driver without SQLAlchemy attempting to compile the `?` placeholders.
+    # `.mappings()` yields dict-like RowMapping objects so callers can use string
+    # column access (Row string subscripting was removed in SQLAlchemy 2.0).
     if inspector.has_table("ROUTINES", schema="SYSCAT"):
         # Db2 LUW
-        yield from inspector.bind.execute(
-            """
-            select
-                ROUTINENAME,
-                LANGUAGE,
-                CREATE_TIME,
-                ALTER_TIME,
-                QUALIFIER,
-                TEXT,
-                REMARKS
-            from SYSCAT.ROUTINES
-            where ROUTINESCHEMA = ?
-            and ROUTINETYPE = 'P'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    ROUTINENAME,
+                    LANGUAGE,
+                    CREATE_TIME,
+                    ALTER_TIME,
+                    QUALIFIER,
+                    TEXT,
+                    REMARKS
+                from SYSCAT.ROUTINES
+                where ROUTINESCHEMA = ?
+                and ROUTINETYPE = 'P'
+            """,
+                (schema,),
+            ).mappings()
 
     elif inspector.has_table("SYSROUTINES", schema="SYSIBM"):
         # Db2 z/OS
-        yield from inspector.bind.execute(
-            """
-            select
-                NAME as ROUTINENAME,
-                LANGUAGE,
-                CREATEDTS as CREATE_TIME,
-                ALTEREDTS as ALTER_TIME,
-                cast(NULL as varchar(1)) as QUALIFIER,
-                TEXT,
-                REMARKS
-            from SYSIBM.SYSROUTINES
-            where SCHEMA = ?
-            and ROUTINETYPE = 'P'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    NAME as ROUTINENAME,
+                    LANGUAGE,
+                    CREATEDTS as CREATE_TIME,
+                    ALTEREDTS as ALTER_TIME,
+                    cast(NULL as varchar(1)) as QUALIFIER,
+                    TEXT,
+                    REMARKS
+                from SYSIBM.SYSROUTINES
+                where SCHEMA = ?
+                and ROUTINETYPE = 'P'
+            """,
+                (schema,),
+            ).mappings()
 
     elif inspector.has_table("SYSROUTINES", schema="QSYS2"):
         # Db2 i/AS400
-        yield from inspector.bind.execute(
-            """
-            select
-                ROUTINE_NAME as ROUTINENAME,
-                ROUTINE_BODY as LANGUAGE,
-                ROUTINE_CREATED as CREATE_TIME,
-                LAST_ALTERED as ALTER_TIME,
-                SQL_PATH as QUALIFIER,
-                ROUTINE_DEFINITION as TEXT,
-                LONG_COMMENT as REMARKS
-            from QSYS2.SYSROUTINES
-            where ROUTINE_SCHEMA = ?
-            and ROUTINE_TYPE = 'PROCEDURE'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    ROUTINE_NAME as ROUTINENAME,
+                    ROUTINE_BODY as LANGUAGE,
+                    ROUTINE_CREATED as CREATE_TIME,
+                    LAST_ALTERED as ALTER_TIME,
+                    SQL_PATH as QUALIFIER,
+                    ROUTINE_DEFINITION as TEXT,
+                    LONG_COMMENT as REMARKS
+                from QSYS2.SYSROUTINES
+                where ROUTINE_SCHEMA = ?
+                and ROUTINE_TYPE = 'PROCEDURE'
+            """,
+                (schema,),
+            ).mappings()
 
     else:
         raise NotImplementedError(

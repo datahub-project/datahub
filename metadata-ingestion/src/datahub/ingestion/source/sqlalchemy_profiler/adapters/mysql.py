@@ -102,7 +102,7 @@ class MySQLAdapter(PlatformAdapter):
                 schema="information_schema",
             )
             query = (
-                sa.select([info_schema_tables.c.table_rows])
+                sa.select(info_schema_tables.c.table_rows)
                 .where(info_schema_tables.c.table_schema == schema)
                 .where(info_schema_tables.c.table_name == table_name)
             )

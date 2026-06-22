@@ -1,9 +1,6 @@
 import dataclasses
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, Optional
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from typing import Any, Dict, Optional
 
 
 class Cardinality(Enum):
@@ -58,32 +55,7 @@ def convert_to_cardinality(
 
 @dataclasses.dataclass
 class ProfilerRequest:
-    """Generic profiling request shared by SQLAlchemy and GE profilers."""
+    """Generic profiling request used by the SQLAlchemy profiler."""
 
     pretty_name: str
     batch_kwargs: Dict[str, Any]
-
-
-GE_PROFILER_MISSING_MESSAGE = (
-    "The Great Expectations profiler is not installed. Either install "
-    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
-    "or switch to the SQLAlchemy profiler by setting "
-    "`profiling.method: sqlalchemy` in your recipe."
-)
-
-
-def create_datahub_ge_profiler(**kwargs: Any) -> "DatahubGEProfiler":
-    """Lazily import and construct a `DatahubGEProfiler` instance.
-
-    Raises a `ConfigurationError` with install guidance if `great_expectations` is
-    not available. Callers pass profiler constructor kwargs verbatim:
-    `conn`, `report`, `config`, `platform`, and (optionally) `env`.
-    """
-    from datahub.configuration.common import ConfigurationError
-
-    try:
-        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-    except ImportError as e:
-        raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
-
-    return DatahubGEProfiler(**kwargs)

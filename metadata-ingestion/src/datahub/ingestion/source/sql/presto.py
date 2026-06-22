@@ -3,7 +3,6 @@ from textwrap import dedent
 from typing import Dict, Optional
 
 from pydantic.fields import Field
-from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Engine
@@ -18,6 +17,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+
+# pyhive is SQLAlchemy-1.4-era; _pyhive_compat applies the SA 2.0 shim then re-exports.
+from datahub.ingestion.source.sql._pyhive_compat import PrestoDialect
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
     TrinoSource,
@@ -40,7 +42,7 @@ def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
         WHERE "table_schema" = :schema and "table_type" = 'VIEW'
     """
     ).strip()
-    res = connection.execute(sql.text(query), schema=schema)
+    res = connection.execute(sql.text(query), {"schema": schema})
     return [row.table_name for row in res]
 
 
@@ -78,6 +80,18 @@ def _get_full_table(  # type: ignore
     return table_part
 
 
+# pyhive's PrestoDialect.get_schema_names runs a raw-string `SHOW SCHEMAS` through
+# connection.execute(), which SQLAlchemy 2.0 rejects (text() is now required). Unlike
+# the other reflection methods, PrestoDialect does not inherit this from HiveDialect
+# (both extend DefaultDialect), so hive_source.py's patch does not reach it — Presto
+# needs its own. Indexing row[0] also drops pyhive's reliance on the "Schema" column
+# label.
+@reflection.cache  # type: ignore
+def get_schema_names(self, connection, **kw):  # type: ignore
+    return [row[0] for row in connection.execute(sql.text("SHOW SCHEMAS"))]
+
+
+PrestoDialect.get_schema_names = get_schema_names
 PrestoDialect.get_table_names = get_table_names
 PrestoDialect.get_view_names = get_view_names
 PrestoDialect.get_view_definition = get_view_definition
@@ -130,5 +144,6 @@ def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
         FROM "system"."metadata"."catalogs"
         """
     ).strip()
-    res = engine.execute(sql.text(query))
-    return {row.catalog_name: "" for row in res}
+    with engine.connect() as conn:
+        res = conn.execute(sql.text(query))
+        return {row.catalog_name: "" for row in res}

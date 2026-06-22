@@ -135,7 +135,7 @@ class RedshiftAdapter(PlatformAdapter):
                 sa.Column("tbl_rows", sa.BigInteger),
             )
             query = (
-                sa.select([svv_table_info.c.tbl_rows])
+                sa.select(svv_table_info.c.tbl_rows)
                 .where(svv_table_info.c.schema == schema)
                 .where(svv_table_info.c.table == table_name)
             )

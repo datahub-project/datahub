@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from dateutil import parser
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
@@ -142,7 +142,10 @@ class ClickHouseUsageSource(Source):
     def _get_clickhouse_history(self):
         query = self._make_usage_query()
         engine = self._make_sql_engine()
-        results = engine.execute(query)
+        # SA 2.0 removed Engine.execute() and rejects bare SQL strings; run on a
+        # connection and materialize before it closes so the loop below is unchanged.
+        with engine.connect() as conn:
+            results = conn.execute(text(query)).fetchall()
         events = []
         for row in results:
             event_dict = row._asdict()
@@ -152,11 +155,13 @@ class ClickHouseUsageSource(Source):
                 if isinstance(v, str):
                     event_dict[k] = v.strip()
 
-            if not self.config.database_pattern.allowed(
-                event_dict.get("database")
-            ) or not (
-                self.config.table_pattern.allowed(event_dict.get("full_table_name"))
-                or self.config.view_pattern.allowed(event_dict.get("full_table_name"))
+            # These reflected columns are strings at runtime; coerce for mypy
+            # so the str-typed AllowDenyPattern.allowed() signature is satisfied.
+            database = str(event_dict.get("database") or "")
+            full_table_name = str(event_dict.get("full_table_name") or "")
+            if not self.config.database_pattern.allowed(database) or not (
+                self.config.table_pattern.allowed(full_table_name)
+                or self.config.view_pattern.allowed(full_table_name)
             ):
                 logger.debug(
                     f"Dropping usage event for {event_dict.get('full_table_name')}"
@@ -168,10 +173,9 @@ class ClickHouseUsageSource(Source):
             if event_dict.get("endtime", None):
                 event_dict["endtime"] = event_dict.get("endtime").__str__()
             # when the http protocol is used, the columns field is returned as a string
-            if isinstance(event_dict.get("columns"), str):
-                event_dict["columns"] = (
-                    event_dict.get("columns").replace("'", "").strip("][").split(",")
-                )
+            columns = event_dict.get("columns")
+            if isinstance(columns, str):
+                event_dict["columns"] = columns.replace("'", "").strip("][").split(",")
 
             logger.debug(f"event_dict: {event_dict}")
             events.append(event_dict)

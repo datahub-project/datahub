@@ -25,7 +25,10 @@ def test_initial_database(create_engine_mock):
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_get_inspectors_multiple_databases(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
+    execute_mock.return_value.mappings.return_value = [
+        {"datname": "db1"},
+        {"datname": "db2"},
+    ]
 
     config = PostgresConfig.model_validate(
         {**_base_config(), "initial_database": "db0"}

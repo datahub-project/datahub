@@ -9,7 +9,7 @@ from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -266,7 +266,7 @@ class BigQueryAdapter(PlatformAdapter):
         """
         try:
             if context.sql_table is not None:
-                query: Any = sa.select([sa.func.count()]).select_from(context.sql_table)
+                query: Any = sa.select(sa.func.count()).select_from(context.sql_table)
             else:
                 # Build quick count query using query builder
                 if not context.table:
@@ -277,7 +277,7 @@ class BigQueryAdapter(PlatformAdapter):
                     sa.MetaData(),
                     schema=context.schema,
                 )
-                query = sa.select([sa.func.count()]).select_from(table_obj)
+                query = sa.select(sa.func.count()).select_from(table_obj)
 
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
@@ -416,13 +416,13 @@ class BigQueryAdapter(PlatformAdapter):
 
         # BigQuery: approx_quantiles(col, 100) returns 101 values
         indices = [int(q * 100) for q in quantiles]
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"approx_quantiles(`{column}`, 100)[OFFSET({idx})]"
             ).label(f"q_{int(q * 100)}")
             for q, idx in zip(quantiles, indices, strict=False)
         ]
-        query = sa.select(selects).select_from(table)
+        query = sa.select(*selects).select_from(table)
         result = conn.execute(query).fetchone()
         if result is None:
             return [None] * len(quantiles)
