@@ -38,6 +38,8 @@ class EntityAspectSpecs:
     aspect_schema_versions: Dict[str, int] = field(default_factory=dict)
 
     def _all_aspects(self) -> Set[str]:
+        # Not aspect_schema_versions.keys(): older servers register aspects
+        # without advertising a schemaVersion, so that would be a strict subset.
         return (
             set().union(*self.entity_aspects.values()) if self.entity_aspects else set()
         )
@@ -58,7 +60,9 @@ class EntityAspectSpecs:
         return self.aspect_schema_versions.get(aspect_name)
 
     @classmethod
-    def from_registry_elements(cls, elements: Iterable[dict]) -> "EntityAspectSpecs":
+    def from_registry_api_elements(
+        cls, elements: Iterable[dict]
+    ) -> "EntityAspectSpecs":
         """Build specs from the ``elements`` of the registry specifications API."""
         specs = cls()
         for entity in elements:

@@ -5,8 +5,8 @@ import pytest
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 
-def test_from_registry_elements_collects_key_and_aspect_specs() -> None:
-    specs = EntityAspectSpecs.from_registry_elements(
+def test_from_registry_api_elements_collects_key_and_aspect_specs() -> None:
+    specs = EntityAspectSpecs.from_registry_api_elements(
         [
             {
                 "name": "dataset",

@@ -491,7 +491,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             )
             return None
 
-        specs = EntityAspectSpecs.from_registry_elements(elements)
+        specs = EntityAspectSpecs.from_registry_api_elements(elements)
         if commit_hash:
             _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
         self._entity_aspect_specs = (commit_hash, specs)
