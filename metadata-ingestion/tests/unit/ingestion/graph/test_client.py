@@ -77,6 +77,54 @@ class TestGetEntityAspectSpecs:
         # Memo stays unset so a later call can retry.
         assert graph._entity_aspect_specs is None
 
+    def test_memo_invalidated_on_commit_hash_change(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A long-running client must re-fetch specs when the server's commit
+        # hash changes (i.e. the server was upgraded), not keep serving the
+        # in-memory memo built against the old version.
+        import datahub.ingestion.graph.client as client_module
+
+        monkeypatch.setattr(client_module._ENTITY_SPECS_CACHE, "_dir", tmp_path)
+        hashes = iter(["commit-old", "commit-new"])
+        monkeypatch.setattr(
+            DataHubGraph,
+            "server_config",
+            property(lambda self: MagicMock(commit_hash=next(hashes))),
+        )
+        session = MagicMock()
+        session.request.side_effect = [
+            _page(
+                [
+                    {
+                        "name": "dataset",
+                        "aspectSpecs": [{"aspectAnnotation": {"name": "status"}}],
+                    }
+                ],
+                total=1,
+                count=1,
+            ),
+            _page(
+                [
+                    {
+                        "name": "dataset",
+                        "aspectSpecs": [{"aspectAnnotation": {"name": "domains"}}],
+                    }
+                ],
+                total=1,
+                count=1,
+            ),
+        ]
+        graph = _graph(session)
+
+        first = graph.get_entity_aspect_specs()
+        assert first is not None and first.supports("dataset", "status")
+
+        second = graph.get_entity_aspect_specs()
+        assert second is not None and second.supports("dataset", "domains")
+        assert second is not first
+        assert session.request.call_count == 2
+
     def test_disk_cache_shared_across_clients(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

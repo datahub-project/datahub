@@ -187,7 +187,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
         self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
-        self._entity_aspect_specs: Optional["EntityAspectSpecs"] = None
+        # The memoized specs paired with the commit hash they were built
+        # against, so the memo invalidates on a server upgrade.
+        self._entity_aspect_specs: Optional[
+            Tuple[Optional[str], "EntityAspectSpecs"]
+        ] = None
 
     def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
         if input_type not in self._graphql_input_fields_cache:
@@ -456,20 +460,26 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         commit hash so it survives across short-lived processes and invalidates
         on server upgrade. Returns ``None`` if the fetch fails.
         """
-        if self._entity_aspect_specs is not None:
-            return self._entity_aspect_specs
-
         commit_hash: Optional[str] = None
         try:
             commit_hash = self.server_config.commit_hash
         except Exception:
             logger.debug("Could not get commit hash for specs cache key", exc_info=True)
 
+        # Only serve the in-memory memo if it was built against the server's
+        # current commit hash; otherwise a long-running client would keep
+        # returning stale specs after a server upgrade.
+        if self._entity_aspect_specs is not None:
+            memo_hash, memo_specs = self._entity_aspect_specs
+            if memo_hash == commit_hash:
+                return memo_specs
+
         if commit_hash:
             cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
             if cached is not None:
-                self._entity_aspect_specs = EntityAspectSpecs.from_dict(cached)
-                return self._entity_aspect_specs
+                specs = EntityAspectSpecs.from_dict(cached)
+                self._entity_aspect_specs = (commit_hash, specs)
+                return specs
 
         url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
         try:
@@ -484,7 +494,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         specs = EntityAspectSpecs.from_registry_elements(elements)
         if commit_hash:
             _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
-        self._entity_aspect_specs = specs
+        self._entity_aspect_specs = (commit_hash, specs)
         return specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
