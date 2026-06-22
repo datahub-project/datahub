@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import (
 )
 from datahub.ingestion.source.sql.teradata import (
     LineageQuery,
+    LineageQueryLabel,
     TeradataConfig,
     TeradataReport,
     TeradataSource,
@@ -4852,7 +4853,7 @@ def _patch_lineage_fetch(
     source: TeradataSource,
     rows: list,
     query_sql: str = "SELECT 1",
-    query_kind: str = "current_only",
+    query_kind: LineageQueryLabel = "current_only",
     fake_db_elapsed: float = 0.0,
 ) -> Iterator[None]:
     """Context manager that patches the minimal set of methods so that
