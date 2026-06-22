@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 
 import pydantic
@@ -9,6 +9,10 @@ import time_machine
 from botocore.stub import Stubber
 
 import datahub.metadata.schema_classes as models
+from datahub.api.entities.external.lake_formation_external_entites import (
+    LakeFormationTag,
+)
+from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -96,6 +100,8 @@ def glue_source(
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
     extract_lakeformation_tags: bool = False,
+    incremental_properties: bool = False,
+    propagate_lakeformation_tags: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
     if mock_datahub_graph_instance:
@@ -113,6 +119,8 @@ def glue_source(
             emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
+            incremental_properties=incremental_properties,
+            propagate_lakeformation_tags=propagate_lakeformation_tags,
         ),
     )
 
@@ -1053,6 +1061,444 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
     )
 
 
+def _lf_dict(key: str, value: str) -> Dict[str, Any]:
+    return {"CatalogId": "123412341234", "TagKey": key, "TagValues": [value]}
+
+
+def _table_lf_response(
+    *,
+    database_tags: Optional[List[Dict[str, Any]]] = None,
+    table_tags: Optional[List[Dict[str, Any]]] = None,
+    column_tags: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+) -> Dict[str, Any]:
+    """Build a GetResourceLFTags response for a Table resource."""
+    response: Dict[str, Any] = {}
+    if database_tags is not None:
+        response["LFTagOnDatabase"] = database_tags
+    if table_tags is not None:
+        response["LFTagsOnTable"] = table_tags
+    if column_tags is not None:
+        response["LFTagsOnColumns"] = [
+            {"Name": name, "LFTags": tags} for name, tags in column_tags.items()
+        ]
+    return response
+
+
+def test_no_lakeformation_extraction_when_disabled() -> None:
+    # With extract_lakeformation_tags disabled (the default), no Lake Formation
+    # API calls are made and no LF tags are applied — even though column-tag
+    # extraction defaults to True. The master flag gates all LF behavior.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    assert source.source_config.extract_lakeformation_tags is False
+    source.lf_client = MagicMock()
+    table = {
+        "Name": "sales",
+        "DatabaseName": "datahub_test",
+        "CatalogId": "123412341234",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+    workunits = list(
+        source._extract_record(
+            "urn:li:dataset:(urn:li:dataPlatform:glue,datahub_test.sales,PROD)",
+            table,
+            "datahub_test.sales",
+        )
+    )
+
+    source.lf_client.get_resource_lf_tags.assert_not_called()
+    for wu in workunits:
+        mce = wu.metadata
+        if isinstance(mce, models.MetadataChangeEventClass):
+            for aspect in mce.proposedSnapshot.aspects:
+                assert not isinstance(aspect, models.GlobalTagsClass)
+                if isinstance(aspect, models.SchemaMetadataClass):
+                    assert all(f.globalTags is None for f in aspect.fields)
+
+
+def _resolved_table_tag_names(source: GlueSource, response: Dict[str, Any]) -> Set[str]:
+    with patch.object(source.lf_client, "get_resource_lf_tags", return_value=response):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "avro")
+    resolved = source._resolve_table_lf_tags(lf)
+    return {
+        tag.to_datahub_tag_urn().name
+        for tag in [*resolved.direct, *resolved.propagated]
+    }
+
+
+def test_database_lf_tags_propagate_to_tables() -> None:
+    # The database's tags arrive in the same table response (LFTagOnDatabase).
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    response = _table_lf_response(
+        database_tags=[
+            _lf_dict("Environment", "Production"),
+            _lf_dict("Owner", "DataTeam"),
+        ],
+        table_tags=[_lf_dict("DataClassification", "Sensitive")],
+    )
+    names = _resolved_table_tag_names(source, response)
+
+    # Directly-assigned table tag plus both inherited database tags.
+    assert names == {
+        "DataClassification:Sensitive",
+        "Environment:Production",
+        "Owner:DataTeam",
+    }
+
+
+def test_database_lf_tags_not_propagated_when_disabled() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    response = _table_lf_response(
+        database_tags=[_lf_dict("Environment", "Production")],
+        table_tags=[_lf_dict("DataClassification", "Sensitive")],
+    )
+    names = _resolved_table_tag_names(source, response)
+
+    assert names == {"DataClassification:Sensitive"}
+
+
+def test_database_lf_tags_propagation_dedupes_table_tags() -> None:
+    # The same tag is assigned to both the database and the table.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    response = _table_lf_response(
+        database_tags=[_lf_dict("Owner", "DataTeam")],
+        table_tags=[_lf_dict("Owner", "DataTeam")],
+    )
+    names = _resolved_table_tag_names(source, response)
+
+    assert names == {"Owner:DataTeam"}
+
+
+def test_table_lf_tag_value_overrides_database_value_for_same_key() -> None:
+    # Same key assigned at both levels with different values. In Lake Formation a
+    # tag key holds a single value per resource and the table-level assignment
+    # overrides the inherited database value.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    response = _table_lf_response(
+        database_tags=[_lf_dict("module", "Customers")],
+        table_tags=[_lf_dict("module", "Sales")],
+    )
+    names = _resolved_table_tag_names(source, response)
+
+    # Table value wins; the inherited database value is dropped.
+    assert names == {"module:Sales"}
+
+
+def test_column_lf_tags_parsed_from_table_response() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    response = _table_lf_response(
+        table_tags=[_lf_dict("DataClassification", "Sensitive")],
+        column_tags={"customer_id": [_lf_dict("pii", "true")]},
+    )
+    with patch.object(source.lf_client, "get_resource_lf_tags", return_value=response):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "sales")
+
+    assert {t.to_datahub_tag_urn().name for t in lf.column_tags["customer_id"]} == {
+        "pii:true"
+    }
+
+
+def test_column_lf_tags_attached_to_schema_field() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "customer_id", "Type": "string"},
+            ]
+        },
+    }
+    column_tags = {
+        "customer_id": [
+            LakeFormationTag(key="pii", value="true", catalog="123412341234")
+        ]
+    }
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags)
+    assert schema is not None
+    tagged = {
+        f.fieldPath: [t.tag for t in f.globalTags.tags]
+        for f in schema.fields
+        if f.globalTags
+    }
+    # Only the directly-tagged column carries the tag.
+    assert len(tagged) == 1
+    field_path, tags = next(iter(tagged.items()))
+    assert field_path.endswith("customer_id")
+    assert tags == [make_tag_urn("pii:true")]
+
+
+def _column_tag_names_by_field(schema: Any) -> Dict[str, Set[str]]:
+    return {
+        f.fieldPath.split(".")[-1]: {t.tag for t in f.globalTags.tags}
+        for f in schema.fields
+        if f.globalTags
+    }
+
+
+def test_lf_tag_parsing_expands_multi_value_tags() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    response = _table_lf_response(
+        table_tags=[
+            {
+                "CatalogId": "123412341234",
+                "TagKey": "Environment",
+                "TagValues": ["Production", "Test"],
+            }
+        ],
+    )
+    with patch.object(source.lf_client, "get_resource_lf_tags", return_value=response):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "avro")
+
+    assert {t.to_datahub_tag_urn().name for t in lf.table_tags} == {
+        "Environment:Production",
+        "Environment:Test",
+    }
+
+
+def test_lf_tag_parsing_skips_entries_without_tag_key() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    response = _table_lf_response(
+        table_tags=[
+            {"CatalogId": "123412341234", "TagValues": ["orphan"]},  # no TagKey
+            _lf_dict("Owner", "DataTeam"),
+        ],
+    )
+    with patch.object(source.lf_client, "get_resource_lf_tags", return_value=response):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "avro")
+
+    assert {t.to_datahub_tag_urn().name for t in lf.table_tags} == {"Owner:DataTeam"}
+
+
+def test_get_table_lf_tags_reports_warning_on_error() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    with patch.object(
+        source.lf_client,
+        "get_resource_lf_tags",
+        side_effect=Exception("AccessDenied"),
+    ):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "avro")
+
+    # Failure is surfaced, not swallowed, and degrades gracefully to no tags.
+    assert lf.table_tags == []
+    assert lf.database_tags == []
+    assert lf.column_tags == {}
+    assert len(list(source.report.warnings)) >= 1
+
+
+def test_column_lf_tags_inherit_parent_tags_when_propagating() -> None:
+    # Matches Snowflake's with_lineage behavior: table/database tags flow to
+    # every column when propagation is enabled.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "customer_id", "Type": "string"},
+            ]
+        },
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+        LakeFormationTag(key="Environment", value="Production", catalog="c"),
+    ]
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags, parent_tags)
+    by_col = _column_tag_names_by_field(schema)
+
+    # Every column inherits the table/database tags...
+    assert by_col["id"] == {
+        make_tag_urn("DataClassification:Sensitive"),
+        make_tag_urn("Environment:Production"),
+    }
+    # ...and the directly-tagged column also keeps its own tag.
+    assert by_col["customer_id"] == {
+        make_tag_urn("pii:true"),
+        make_tag_urn("DataClassification:Sensitive"),
+        make_tag_urn("Environment:Production"),
+    }
+
+
+def test_column_direct_tag_overrides_inherited_parent_for_same_key() -> None:
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+    # Same key assigned directly on the column and inherited from the parent.
+    column_tags = {
+        "id": [LakeFormationTag(key="DataClassification", value="Public", catalog="c")]
+    }
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    ]
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags, parent_tags)
+    by_col = _column_tag_names_by_field(schema)
+
+    # Column's own value wins; inherited value is dropped.
+    assert by_col["id"] == {make_tag_urn("DataClassification:Public")}
+
+
+def test_propagated_table_tag_is_marked_as_propagated() -> None:
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    response = _table_lf_response(
+        database_tags=[_lf_dict("Owner", "DataTeam")],
+        table_tags=[_lf_dict("DataClassification", "Sensitive")],
+    )
+    with patch.object(source.lf_client, "get_resource_lf_tags", return_value=response):
+        lf = source.get_table_lf_tags("123412341234", "flights-database", "sales")
+    resolved = source._resolve_table_lf_tags(lf)
+    global_tags = source._build_lf_global_tags(
+        resolved.direct, resolved.propagated, propagated_origin="urn:li:container:db"
+    )
+    assert global_tags is not None
+    by_urn = {a.tag: a for a in global_tags.tags}
+
+    # Directly-assigned table tag is not marked as propagated.
+    assert by_urn[make_tag_urn("DataClassification:Sensitive")].attribution is None
+    # Inherited database tag is marked as propagated, with origin + legacy context.
+    propagated = by_urn[make_tag_urn("Owner:DataTeam")]
+    assert propagated.attribution is not None
+    assert propagated.attribution.sourceDetail["propagated"] == "true"
+    assert propagated.attribution.sourceDetail["origin"] == "urn:li:container:db"
+    assert propagated.context is not None
+    assert json.loads(propagated.context)["propagated"] == "true"
+
+
+def test_propagated_column_tag_is_marked_as_propagated() -> None:
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "customer_id", "Type": "string"},
+            ]
+        },
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    ]
+    schema = source._get_glue_schema_metadata(
+        table,
+        "sales",
+        column_tags,
+        parent_tags,
+        "urn:li:dataset:(urn:li:dataPlatform:glue,datahub_test.sales,PROD)",
+    )
+    assert schema is not None
+    by_field = {
+        f.fieldPath.split(".")[-1]: {a.tag: a for a in f.globalTags.tags}
+        for f in schema.fields
+        if f.globalTags
+    }
+    # Inherited tag on customer_id is marked propagated; its own pii tag is not.
+    assert by_field["customer_id"][make_tag_urn("pii:true")].attribution is None
+    inherited = by_field["customer_id"][make_tag_urn("DataClassification:Sensitive")]
+    assert inherited.attribution is not None
+    assert inherited.attribution.sourceDetail["propagated"] == "true"
+    # A column with only inherited tags is also marked.
+    assert (
+        by_field["id"][make_tag_urn("DataClassification:Sensitive")].attribution
+        is not None
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lf_tags_propagated_and_column_tagged_end_to_end() -> None:
+    """One GetResourceLFTags call drives table propagation and column tagging."""
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_transforms=False,
+    )
+
+    def mock_get_resource_lf_tags(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        resource = kwargs.get("Resource", {})
+        if "Database" in resource:
+            return {"LFTagOnDatabase": [_lf_dict("Environment", "Production")]}
+        # Table resource: AWS returns DB, table, and column tags together.
+        return _table_lf_response(
+            database_tags=[_lf_dict("Environment", "Production")],
+            table_tags=[_lf_dict("DataClassification", "Sensitive")],
+            column_tags={"uniquecarrier": [_lf_dict("pii", "true")]},
+        )
+
+    with (
+        patch.object(
+            source.lf_client,
+            "get_resource_lf_tags",
+            side_effect=mock_get_resource_lf_tags,
+        ),
+        Stubber(source.glue_client) as glue_stubber,
+    ):
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables", get_tables_response_1, {"DatabaseName": "flights-database"}
+        )
+        glue_stubber.add_response(
+            "get_tables", get_tables_response_2, {"DatabaseName": "test-database"}
+        )
+        glue_stubber.add_response(
+            "get_tables", {"TableList": []}, {"DatabaseName": "empty-database"}
+        )
+
+        mce_objects = [wu.metadata for wu in source.get_workunits()]
+
+    table_tags = None
+    column_tag_fields = set()
+    for mce in mce_objects:
+        if not isinstance(mce, models.MetadataChangeEventClass):
+            continue
+        snapshot = mce.proposedSnapshot
+        if "flights-database.avro" not in snapshot.urn:
+            continue
+        for aspect in snapshot.aspects:
+            if isinstance(aspect, models.GlobalTagsClass):
+                table_tags = {assoc.tag for assoc in aspect.tags}
+            if isinstance(aspect, models.SchemaMetadataClass):
+                for f in aspect.fields:
+                    if f.globalTags and any(
+                        t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
+                    ):
+                        column_tag_fields.add(f.fieldPath)
+
+    assert table_tags is not None, "flights-database.avro had no GlobalTags aspect"
+    assert make_tag_urn("DataClassification:Sensitive") in table_tags
+    # The database tag was propagated down to the table.
+    assert make_tag_urn("Environment:Production") in table_tags
+    # The column tag landed on the matching schema field.
+    assert any(fp.endswith("uniquecarrier") for fp in column_tag_fields)
+
+
 def _make_jdbc_node(
     node_id: str,
     node_type: str,
@@ -1557,6 +2003,81 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
     )
+
+
+# ── incremental_properties (PATCH mode) ──────────────────────────────────────
+
+
+def test_incremental_properties_emits_patch_mcps(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None
+) -> None:
+    source = glue_source(
+        incremental_properties=True,
+        extract_transforms=False,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_1,
+            {"DatabaseName": "flights-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_2,
+            {"DatabaseName": "test-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
+        glue_stubber.add_response(
+            "get_jobs",
+            get_jobs_response_empty,
+            {},
+        )
+
+        workunits = list(source.get_workunits())
+
+    # Find patch MCPs for datasetProperties
+    patch_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+    ]
+    assert len(patch_wus) > 0, "Expected patch MCPs for datasetProperties"
+
+    # Verify patch MCPs are PATCH changeType with JSON Patch operations
+    for wu in patch_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        assert wu.metadata.changeType == "PATCH"
+        assert wu.metadata.aspect is not None
+        patch_ops = json.loads(wu.metadata.aspect.value)
+        assert isinstance(patch_ops, list)
+        assert all("op" in op and "path" in op for op in patch_ops)
+
+    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
+    mce_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeEventClass)
+        and wu.metadata.proposedSnapshot
+    ]
+    for wu in mce_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
+        snapshot = wu.metadata.proposedSnapshot
+        if snapshot and hasattr(snapshot, "aspects"):
+            for aspect in snapshot.aspects:
+                assert not isinstance(aspect, models.DatasetPropertiesClass), (
+                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
+                )
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────

@@ -7,6 +7,7 @@ import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectMigrationsDaoTest;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -51,7 +52,9 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
   private void configureComponents() {
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
 
-    CassandraAspectDao dao = new CassandraAspectDao(_currentSession, List.of(), null);
+    CassandraAspectDao dao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     dao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);

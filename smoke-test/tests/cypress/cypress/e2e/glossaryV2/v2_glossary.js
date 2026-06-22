@@ -30,7 +30,8 @@ const deleteGlossary = (message) => {
   cy.ensureTextNotPresent(message);
 };
 
-describe("glossary", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossary", () => {
   beforeEach(() => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });

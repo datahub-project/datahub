@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
-# The full variant has additional deps preinstalled, like a JRE and Oracle client.
+# The full variant has additional deps preinstalled, like a JRE, Oracle client, and MSSQL ODBC driver.
 ARG APP_ENV=full
 ARG PYTHON_VERSION=3.11
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
@@ -9,7 +9,7 @@ ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 # Stages:
 # - python-base: python, uv, venv, user datahub (UID 1000)
 # - ingestion-base-slim: LDAP/SASL/Kerberos, librdkafka, ODBC, etc.
-# - ingestion-base-full: JRE, build toolchain, Oracle Instant Client
+# - ingestion-base-full: JRE, build toolchain, Oracle Instant Client, MSSQL ODBC driver
 
 FROM ${BASE_IMAGE} AS python-base
 
@@ -36,7 +36,8 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     curl \
     zip \
     unzip \
-    bash
+    bash \
+    openssh-client
 
 # PAM's unix_chkpwd is setuid/setgid in many images for interactive logins. This container does
 # not rely on PAM password checks; clearing bits avoids ABC/DoD-style SUID-SGID file findings
@@ -72,11 +73,15 @@ RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
 FROM python-base AS ingestion-base-slim
 
 USER 0
+# cyrus-sasl-mit-* avoids Heimdal SASL (cyrus-sasl-libs resolves via provides:).
+# glibc-iconv: gconv modules required for msodbcsql18 iconv (without it, ODBC init fails with IM004).
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     apk add --no-cache --update-cache \
     openldap-2.6-dev \
-    cyrus-sasl-dev \
-    cyrus-sasl-libs \
+    cyrus-sasl-mit-dev \
+    cyrus-sasl-mit-libs \
+    glibc-iconv \
+    krb5 \
     krb5-dev \
     krb5-libs \
     libaio-dev \
@@ -104,6 +109,9 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
+
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
 
 USER datahub
 # INLINE-END

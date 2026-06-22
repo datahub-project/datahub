@@ -205,7 +205,7 @@ const DisplayPreferences = ({
                                         <Pill
                                             label={getDisplayName(badgeProperty)}
                                             size="sm"
-                                            color="violet"
+                                            color="primary"
                                             clickable={false}
                                         />
                                     ),

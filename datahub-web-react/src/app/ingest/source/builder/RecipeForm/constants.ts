@@ -67,6 +67,23 @@ import {
     CSV_WRITE_SEMANTICS,
 } from '@app/ingest/source/builder/RecipeForm/csv';
 import {
+    CUBE_ALLOW,
+    CUBE_API_TOKEN,
+    CUBE_API_URL,
+    CUBE_CLOUD_API_KEY,
+    CUBE_DENY,
+    CUBE_DEPLOYMENT_ID,
+    CUBE_DEPLOYMENT_TYPE,
+    CUBE_ENVIRONMENT_ID,
+    CUBE_INCLUDE_COLUMN_LINEAGE,
+    CUBE_INCLUDE_CUBES,
+    CUBE_INCLUDE_REPORTS,
+    CUBE_INCLUDE_WORKBOOKS,
+    CUBE_PARSE_SQL_FOR_LINEAGE,
+    CUBE_WAREHOUSE_DATABASE,
+    CUBE_WAREHOUSE_PLATFORM,
+} from '@app/ingest/source/builder/RecipeForm/cube';
+import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
     DBT_CLOUD_PROJECT_ID,
@@ -241,6 +258,13 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/tableau';
 import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/tidb';
+import {
     TRINO,
     TRINO_DATABASE,
     TRINO_HOST_PORT,
@@ -273,6 +297,7 @@ import {
     BIGQUERY_BETA,
     CONFLUENCE,
     CSV,
+    CUBE,
     DATABRICKS,
     DBT_CLOUD,
     MATILLION_DPC,
@@ -549,6 +574,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
     [MATILLION_DPC]: {
         fields: [
             MATILLION_CLIENT_ID,
@@ -707,6 +744,31 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [],
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+    },
+    [CUBE]: {
+        fields: [
+            CUBE_API_URL,
+            CUBE_DEPLOYMENT_TYPE,
+            CUBE_API_TOKEN,
+            CUBE_CLOUD_API_KEY,
+            CUBE_DEPLOYMENT_ID,
+            CUBE_ENVIRONMENT_ID,
+        ],
+        filterFields: [CUBE_ALLOW, CUBE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            CUBE_WAREHOUSE_PLATFORM,
+            CUBE_WAREHOUSE_DATABASE,
+            CUBE_INCLUDE_CUBES,
+            INCLUDE_VIEWS,
+            CUBE_INCLUDE_REPORTS,
+            CUBE_INCLUDE_WORKBOOKS,
+            CUBE_PARSE_SQL_FOR_LINEAGE,
+            CUBE_INCLUDE_COLUMN_LINEAGE,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        connectionSectionTooltip:
+            'For Cube Cloud, providing a Cloud API Key with the Deployment and Environment IDs unlocks warehouse lineage, reports, and workbooks.',
+        filterSectionTooltip: 'Include or exclude specific Cubes and Views from ingestion.',
     },
 };
 

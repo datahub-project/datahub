@@ -2,6 +2,7 @@ package io.datahubproject.test.search;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
@@ -32,7 +33,8 @@ public class BulkProcessorTestUtils {
     }
     waitForCompletion(searchClient);
     // some tasks might have refresh = false, so we need to refresh manually
-    searchClient.refreshIndex(new RefreshRequest(), RequestOptions.DEFAULT);
+    searchClient.refreshIndex(
+        OperationFingerprint.EMPTY, new RefreshRequest(), RequestOptions.DEFAULT);
     waitForCompletion(searchClient);
   }
 

@@ -160,9 +160,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
-              .filter(
-                  event ->
-                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
@@ -192,7 +190,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       // Process delete events
       List<MCLItem> deleteEvents =
           urnEvents.stream()
-              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
               .collect(Collectors.toList());
 
       for (MCLItem deleteEvent : deleteEvents) {
@@ -246,6 +244,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
+    // Coalesced branch: last-write-wins for non-timeseries aspects.
     MCLItem survivor = aspectEvents.get(aspectEvents.size() - 1);
     // Use the oldest predecessor's previousRecordTemplate as the diff baseline, since that is
     // what ES actually had before the batch began. Otherwise the diff would compare against the
@@ -480,7 +479,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
-      writeToSemanticIndex(entityName, finalDocument, docId);
+      writeToSemanticIndex(opContext, entityName, finalDocument, docId);
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
@@ -514,7 +513,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
       // Also delete from semantic index if enabled
       if (shouldWriteToSemanticIndex(opContext, entityName)) {
-        deleteFromSemanticIndex(entityName, docId);
+        deleteFromSemanticIndex(opContext, entityName, docId);
       }
       return;
     }
@@ -625,7 +624,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                           "Applying new V2 structured property {} to index {}",
                           newDefinition,
                           reindexState.name());
-                      elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
+                      elasticSearchService
+                          .getIndexBuilder()
+                          .applyMappings(opContext, reindexState, false);
                     } catch (IOException e) {
                       throw new RuntimeException(e);
                     }
@@ -703,7 +704,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     Boolean indexExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (indexExists == null) {
       // Check if the index exists and cache the result
-      indexExists = checkSemanticIndexExists(semanticIndexName);
+      indexExists = checkSemanticIndexExists(opContext, semanticIndexName);
       semanticIndexExistsCache.put(semanticIndexName, indexExists);
       log.debug(
           "Semantic dual-write check for '{}': index existence check for '{}' = {} (cached)",
@@ -733,9 +734,10 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    * @param semanticIndexName The semantic index name to check
    * @return true if the index exists
    */
-  private boolean checkSemanticIndexExists(@Nonnull String semanticIndexName) {
+  private boolean checkSemanticIndexExists(
+      @Nonnull OperationContext opContext, @Nonnull String semanticIndexName) {
     try {
-      return elasticSearchService.indexExists(semanticIndexName);
+      return elasticSearchService.indexExists(opContext, semanticIndexName);
     } catch (Exception e) {
       log.warn("Error checking if semantic index {} exists: {}", semanticIndexName, e.getMessage());
       return false;
@@ -750,7 +752,10 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    * @param docId Document ID
    */
   private void writeToSemanticIndex(
-      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
     log.info(
         "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
@@ -758,7 +763,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         entityName,
         docId,
         document.length());
-    elasticSearchService.upsertDocumentByIndexName(semanticIndexName, document, docId);
+    elasticSearchService.upsertDocumentByIndexName(opContext, semanticIndexName, document, docId);
   }
 
   /**
@@ -767,14 +772,15 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    * @param entityName Entity name
    * @param docId Document ID
    */
-  private void deleteFromSemanticIndex(@Nonnull String entityName, @Nonnull String docId) {
+  private void deleteFromSemanticIndex(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
     log.info(
         "Semantic dual-write: DELETE from '{}' for entity '{}', docId='{}'",
         semanticIndexName,
         entityName,
         docId);
-    elasticSearchService.deleteDocumentByIndexName(semanticIndexName, docId);
+    elasticSearchService.deleteDocumentByIndexName(opContext, semanticIndexName, docId);
   }
 
   // Package-level methods for testing

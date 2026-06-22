@@ -1,4 +1,3 @@
-import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -18,12 +17,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -60,9 +54,6 @@ from datahub.ingestion.source.state.profiling_state_handler import ProfilingHand
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -81,7 +72,6 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
-    KnownQueryLineageInfo,
     ObservedQuery,
     SqlParsingAggregator,
 )
@@ -228,6 +218,11 @@ class DremioSourceMapEntry:
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
 )
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default via stateful ingestion",
+    supported=True,
+)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.
@@ -275,7 +270,6 @@ class DremioSource(StatefulIngestionSourceBase):
             env=self.config.env,
             ui_url=api.ui_url,
         )
-        self.max_workers = config.max_workers
 
         # Custom resolver handles the "dremio." infix injected after platform_instance.
         self.dremio_schema_resolver = DremioSchemaResolver(
@@ -300,6 +294,7 @@ class DremioSource(StatefulIngestionSourceBase):
             usage_config=self.config.usage,
             # Gate SQL-discovered URNs through the catalog-walk filters.
             is_allowed_table=self._is_allowed_table,
+            format_queries=False,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
@@ -362,20 +357,6 @@ class DremioSource(StatefulIngestionSourceBase):
                     f"platform_instance configured. This may cause URN mismatches with the upstream "
                     f"connector. Consider adding platform_instance to source_mappings configuration.",
                 )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.source_map = self._build_source_map()
@@ -697,21 +678,15 @@ class DremioSource(StatefulIngestionSourceBase):
             start_time=effective_start, end_time=effective_end
         )
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_query = {
-                executor.submit(self.process_query, query): query for query in queries
-            }
-
-            for future in as_completed(future_to_query):
-                query = future_to_query[future]
-                try:
-                    future.result()
-                except Exception as exc:
-                    self.report.report_failure(
-                        message="Failed to process dremio query",
-                        context=f"{query.job_id}: {exc}",
-                        exc=exc,
-                    )
+        for query in queries:
+            try:
+                self.process_query(query)
+            except Exception as exc:
+                self.report.report_failure(
+                    message="Failed to process dremio query",
+                    context=f"{query.job_id}: {exc}",
+                    exc=exc,
+                )
 
         # Record the time window after successful processing so subsequent runs
         # can skip or advance past it.
@@ -754,67 +729,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_query(self, query: DremioQuery) -> None:
-        if query.query and query.affected_dataset:
-            # Validate query dataset format matches catalog format
-            self._validate_query_lineage_format(query)
+        self._validate_query_lineage_format(query)
 
-            # Pre-filter explicit upstreams/downstream; is_allowed_table
-            # is the second line of defence for URNs the SQL parser
-            # rediscovers inside add_observed_query.
-            downstream_name = query.affected_dataset.lower()
-            downstream_allowed = passes_dremio_filters(
-                name=downstream_name,
-                catalog_dataset_names=self.catalog_dataset_names,
-                dataset_pattern=self.config.dataset_pattern,
-                schema_pattern=self.config.schema_pattern,
-            )
-
-            upstream_urns: List[str] = []
-            for ds in query.queried_datasets:
-                ds_lower = ds.lower()
-                if not passes_dremio_filters(
-                    name=ds_lower,
-                    catalog_dataset_names=self.catalog_dataset_names,
-                    dataset_pattern=self.config.dataset_pattern,
-                    schema_pattern=self.config.schema_pattern,
-                ):
-                    self.report.lineage_dropped_filtered += 1
-                    continue
-                upstream_urns.append(
-                    make_dataset_urn_with_platform_instance(
-                        platform=make_data_platform_urn(self.get_platform()),
-                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
-                        env=self.config.env,
-                        platform_instance=self.config.platform_instance,
-                    )
-                )
-
-            if downstream_allowed and upstream_urns:
-                downstream_urn = make_dataset_urn_with_platform_instance(
-                    platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
-                )
-                self.sql_parsing_aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=query.query,
-                        upstreams=upstream_urns,
-                        downstream=downstream_urn,
-                    ),
-                    merge_lineage=True,
-                )
-            elif not downstream_allowed:
-                # One increment per query whose downstream is filtered.
-                # Per-upstream drops were already counted in the loop above;
-                # this is intentionally not multiplied by the upstream count
-                # — see lineage_dropped_filtered's docstring for the "lineage
-                # references, not edges" semantics.
-                self.report.lineage_dropped_filtered += 1
-
-        # Always register the observed query; usage stats aren't gated here.
-        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
-        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

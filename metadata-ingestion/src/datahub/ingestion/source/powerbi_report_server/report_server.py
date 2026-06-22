@@ -32,8 +32,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
     Constant,
@@ -47,7 +51,6 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     Report,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -417,10 +420,10 @@ class Mapper:
             user_urn = builder.make_user_urn(user.get_urn_part())
 
             user_info_instance = CorpUserInfoClass(
+                active=True,
                 displayName=user.properties.display_name,
                 email=user.properties.email,
                 title=user.properties.title,
-                active=True,
             )
 
             info_mcp = self.new_mcp(
@@ -428,6 +431,12 @@ class Mapper:
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
+
+            corp_user_status_mcp = self.new_mcp(
+                entity_urn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
+            user_mcps.append(corp_user_status_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
@@ -519,14 +528,6 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

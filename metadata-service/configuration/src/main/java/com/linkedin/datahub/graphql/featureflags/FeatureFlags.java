@@ -63,4 +63,5 @@ public class FeatureFlags {
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
   private boolean i18nEnabled = false;
+  private boolean timeseriesAspectBatchLoadEnabled = true;
 }

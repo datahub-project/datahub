@@ -475,9 +475,9 @@ def _execute_with_retry(
             )
 
     return _retry_loop(
-        op=lambda: conn.execute(stmt, params)
-        if params is not None
-        else conn.execute(stmt),
+        op=lambda: (
+            conn.execute(stmt, params) if params is not None else conn.execute(stmt)
+        ),
         classify=_should_retry,
         max_attempts=max_attempts,
         initial_backoff_seconds=initial_backoff_seconds,
@@ -1525,47 +1525,38 @@ ORDER by DataBaseName, TableName;
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
-                lambda self,
-                connection,
-                table_name,
-                schema=None,
-                use_qvci=_use_qvci,
-                use_dbc_columns_for_views=_use_dbc_columns_for_views,
-                tables_needing_extraction=_tables_needing_extraction,
-                **kw: optimized_get_columns(
-                    self,
-                    connection,
-                    table_name,
-                    schema,
-                    tables_cache=tables_cache,
-                    use_qvci=use_qvci,
-                    use_dbc_columns_for_views=use_dbc_columns_for_views,
-                    tables_needing_extraction=tables_needing_extraction,
-                    **kw,
+                lambda self, connection, table_name, schema=None, use_qvci=_use_qvci, use_dbc_columns_for_views=_use_dbc_columns_for_views, tables_needing_extraction=_tables_needing_extraction, **kw: (
+                    optimized_get_columns(
+                        self,
+                        connection,
+                        table_name,
+                        schema,
+                        tables_cache=tables_cache,
+                        use_qvci=use_qvci,
+                        use_dbc_columns_for_views=use_dbc_columns_for_views,
+                        tables_needing_extraction=tables_needing_extraction,
+                        **kw,
+                    )
                 ),
             )
 
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_pk_constraint",
-                lambda self,
-                connection,
-                table_name,
-                schema=None,
-                **kw: optimized_get_pk_constraint(
-                    self, connection, table_name, schema, **kw
+                lambda self, connection, table_name, schema=None, **kw: (
+                    optimized_get_pk_constraint(
+                        self, connection, table_name, schema, **kw
+                    )
                 ),
             )
 
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_foreign_keys",
-                lambda self,
-                connection,
-                table_name,
-                schema=None,
-                **kw: optimized_get_foreign_keys(
-                    self, connection, table_name, schema, **kw
+                lambda self, connection, table_name, schema=None, **kw: (
+                    optimized_get_foreign_keys(
+                        self, connection, table_name, schema, **kw
+                    )
                 ),
             )
 

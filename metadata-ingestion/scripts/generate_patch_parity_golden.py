@@ -13,6 +13,7 @@ from pathlib import Path
 
 from datahub.metadata.schema_classes import (
     DocumentationAssociationClass,
+    DomainAssociationClass,
     GlossaryTermAssociationClass,
     MetadataAttributionClass,
     OwnerClass,
@@ -24,16 +25,25 @@ from datahub.specific.dataset import DatasetPatchBuilder
 DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)"
 ATTRIBUTION_SOURCE = "urn:li:dataHubAction:testSource"
 TYPE_URN = "urn:li:ownershipType:__system__technical_owner"
+DOMAIN_URN = "urn:li:domain:testDomain"
 
 
-def extract_patch_payload(builder: DatasetPatchBuilder, aspect_name: str) -> dict:
-    """Build MCPs and return the parsed JSON payload for the given aspect."""
+def extract_patch_payload(
+    builder: DatasetPatchBuilder, aspect_name: str, index: int = 0
+) -> dict:
+    """Build MCPs and return the parsed JSON payload for the given aspect.
+
+    When multiple MCPs share the same aspect name (e.g. different APK orderings),
+    use ``index`` to select which one (0-based among matches).
+    """
     mcps = builder.build()
-    for mcp in mcps:
-        if mcp.aspectName == aspect_name:
-            raw = mcp.aspect.value
-            return json.loads(raw)
-    raise ValueError(f"No MCP found for aspect {aspect_name}")
+    matches = [mcp for mcp in mcps if mcp.aspectName == aspect_name]
+    if index >= len(matches):
+        raise ValueError(
+            f"No MCP at index {index} for aspect {aspect_name} "
+            f"(found {len(matches)} match(es))"
+        )
+    return json.loads(matches[index].aspect.value)
 
 
 def main() -> None:
@@ -268,6 +278,37 @@ def main() -> None:
     result["structuredProperties_remove_attributed"] = extract_patch_payload(
         builder, "structuredProperties"
     )
+
+    # =========================================================================
+    # Domains
+    # =========================================================================
+
+    # --- Domains: add (no context, no attribution) ---
+    builder = DatasetPatchBuilder(DATASET_URN)
+    builder.add_domain(DomainAssociationClass(domain=DOMAIN_URN))
+    result["domains_add"] = extract_patch_payload(builder, "domains")
+
+    # --- Domains: add with context ---
+    builder = DatasetPatchBuilder(DATASET_URN)
+    builder.add_domain(DomainAssociationClass(domain=DOMAIN_URN, context="testContext"))
+    result["domains_add_with_context"] = extract_patch_payload(builder, "domains")
+
+    # --- Domains: add with attribution ---
+    builder = DatasetPatchBuilder(DATASET_URN)
+    builder.add_domain(
+        DomainAssociationClass(domain=DOMAIN_URN, attribution=attribution)
+    )
+    result["domains_add_attributed"] = extract_patch_payload(builder, "domains")
+
+    # --- Domains: remove (wildcard — all sources for this domain) ---
+    builder = DatasetPatchBuilder(DATASET_URN)
+    builder.remove_domain(DOMAIN_URN)
+    result["domains_remove"] = extract_patch_payload(builder, "domains")
+
+    # --- Domains: remove with attribution source ---
+    builder = DatasetPatchBuilder(DATASET_URN)
+    builder.remove_domain(DOMAIN_URN, attribution_source=ATTRIBUTION_SOURCE)
+    result["domains_remove_attributed"] = extract_patch_payload(builder, "domains")
 
     out_path = (
         Path(__file__).resolve().parents[2]

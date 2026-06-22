@@ -16,6 +16,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Type,
     TypedDict,
     Union,
 )
@@ -58,7 +59,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
     convert_upstream_lineage_to_patch,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -74,7 +74,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -132,6 +131,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DashboardUrn, DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -149,10 +149,27 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
+
+
+class _TwoTierSchemaResolver(SchemaResolver):
+    """SchemaResolver for dbt with include_database_name=False.
+
+    With include_database_name=False all URNs are registered as schema.table
+    (2-part), but dbt compiled SQL running on Trino/Athena references tables as
+    catalog.schema.table (3-part). Since no 3-part URN is ever registered, the
+    catalog component is stripped before every lookup so the resolved URN always
+    matches the 2-part URN that dbt and target_platform_urn_to_dbt_name use.
+    """
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        # All URNs are 2-part — strip any catalog prefix before lookup.
+        return super().resolve_table(table.model_copy(update={"database": None}))
+
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
@@ -1425,16 +1442,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
         # Cached timestamp for Query entities (ensures reproducible output)
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
+
+    def get_excluded_workunit_processors(self):
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # dbt converts lineage to incremental patches internally (see dbt_common.py
+        # around the convert_upstream_lineage_to_patch call). Applying the generic
+        # AutoIncrementalLineageProcessor on top of that causes double-processing.
+        return [AutoIncrementalLineageProcessor]
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1816,12 +1839,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=GlobalTagsClass(tags=tag_associations),
                 )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
-
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
@@ -2019,7 +2036,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
-        return {column.fieldPath: column.nativeDataType for column in schema_fields}
+        # Build the bare-name -> type map the SQL parser matches on, reducing v2
+        # fieldPaths to bare names. Mirrors `_convert_schema_field_list_to_info`.
+        schema_info: SchemaInfo = {}
+        for column in schema_fields:
+            simple_field_path = get_simple_field_path_from_v2_field_path(
+                column.fieldPath
+            )
+            # Skip columns nested within structs -- CLL can't target them yet, and
+            # their dotted paths would otherwise pollute the schema info.
+            if "." in simple_field_path:
+                continue
+            schema_info[simple_field_path] = column.nativeDataType
+        return schema_info
 
     def _determine_cll_required_nodes(
         self, all_nodes_map: Dict[str, DBTNode]
@@ -2079,7 +2108,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        schema_resolver = SchemaResolver(
+        resolver_class: Type[SchemaResolver] = (
+            SchemaResolver
+            if self.config.include_database_name
+            else _TwoTierSchemaResolver
+        )
+        schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
             env=self.config.env,

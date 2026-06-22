@@ -35,8 +35,9 @@ import {
 } from '@types';
 
 const CUSTOM_SOURCE_NAME = 'custom';
-/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy */
-export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
+/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy.
+   Must match the displayName of the custom source in sources.json. */
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Other';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
