@@ -54,7 +54,8 @@ public class CleanIndicesStep implements UpgradeStep {
         IndexUtils.getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
             .forEach(
                 reindexConfig ->
-                    ESIndexBuilder.cleanOrphanedIndices(searchClient, esConfig, reindexConfig));
+                    ESIndexBuilder.cleanOrphanedIndices(
+                        searchClient, context.opContext(), esConfig, reindexConfig));
       } catch (Exception e) {
         log.error("CleanUpIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

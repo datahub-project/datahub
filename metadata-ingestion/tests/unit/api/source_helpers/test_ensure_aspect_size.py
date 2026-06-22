@@ -1,5 +1,6 @@
 import json
 import time
+import unittest
 from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
@@ -45,6 +46,7 @@ from datahub.metadata.schema_classes import (
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
+    RecordTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemalessClass,
@@ -112,6 +114,58 @@ def too_big_schema_metadata() -> SchemaMetadataClass:
     )
     return SchemaMetadataClass(
         schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="aaa"),
+        fields=fields,
+    )
+
+
+def nested_schema_metadata() -> SchemaMetadataClass:
+    fields = [
+        # ---- level 4: array of structs with a leaf inside ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=array].[type=struct].items.[type=struct].meta.[type=string].array_leaf",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 2: a struct field and its child ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=string].child_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 1: flat top-level fields ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+        # ---- level 3: struct -> struct -> leaf ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct.[type=int].deep_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    return SchemaMetadataClass(
+        schemaName="nested_example",
         version=1,
         platform="s3",
         hash="ABCDE1234567890",
@@ -395,7 +449,6 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
         "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
-    assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
@@ -410,6 +463,33 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
     assert len(field_drop_warnings) == 1
     assert len(field_drop_warnings[0].context) == 1
     assert "fields from schema" in field_drop_warnings[0].context[0]
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_schema_metadata_trims_deep_fields_first(processor):
+    processor.schema_size_constraint = 1000
+    schema = nested_schema_metadata()
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+    expected_fields = [
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    unittest.TestCase().assertCountEqual(schema.fields, expected_fields)
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
