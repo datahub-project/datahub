@@ -14,7 +14,7 @@ from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
     DuckDBProfiler,
 )
 from datahub.ingestion.source.data_lake_common.duckdb_secrets import build_s3_secret_sql
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import Folder, TableData
 from datahub.metadata.schema_classes import DatasetProfileClass
@@ -63,8 +63,8 @@ def _table_data(full_path: str, display_name: str = "data.parquet") -> TableData
     )
 
 
-def _profiling_config() -> GEProfilingConfig:
-    return GEProfilingConfig(enabled=True)
+def _profiling_config() -> DataLakeProfilerConfig:
+    return DataLakeProfilerConfig(enabled=True)
 
 
 def _extract_profile(wus):
@@ -107,7 +107,12 @@ def test_unsupported_format_is_reported_not_raised(tmp_path):
     )
     profiler.close()
     assert wus == []
-    assert len(report.warnings) >= 1
+    # Surfaced as the dedicated, actionable category rather than the generic
+    # "DuckDB profiling failed" bucket.
+    assert any(
+        "Unsupported file format for profiling" in (w.title or "")
+        for w in report.warnings
+    )
 
 
 def test_close_removes_tempdir():
@@ -239,8 +244,8 @@ def test_path_and_ext_partitioned_extensionless_returns_sample_and_warns(tmp_pat
     )
 
 
-def _sampling_config(**kw: object) -> GEProfilingConfig:
-    return GEProfilingConfig(enabled=True, **kw)
+def _sampling_config(**kw: object) -> DataLakeProfilerConfig:
+    return DataLakeProfilerConfig(enabled=True, **kw)
 
 
 def _warning_texts(report: DataLakeSourceReport) -> list:
@@ -511,11 +516,46 @@ def test_remote_s3_profiling_loads_httpfs_before_creating_secret():
     assert httpfs_idx < secret_idx
 
 
+def test_remote_gcs_profiling_loads_httpfs_but_no_s3_secret():
+    """A gs:// path (platform='gcs') is remote, so httpfs must load — but GCS
+    rides on DuckDB's S3-compat layer without our credentialed CREATE SECRET, so
+    no S3 secret may be issued for it."""
+    profiler = DuckDBProfiler(
+        aws_config=AwsConnectionConfig(aws_region="us-east-1"),
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
+        platform="gcs",
+    )
+    executed: list = []
+    conn = MagicMock()
+
+    def _record_execute(stmt, *a, **k):
+        executed.append(str(stmt))
+        return MagicMock()
+
+    conn.execute.side_effect = _record_execute
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = conn
+    engine.begin.return_value.__exit__.return_value = False
+    profiler._engine = engine
+
+    list(
+        profiler.get_table_profile(
+            _table_data("gs://bucket/data.parquet"),
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/data.parquet,PROD)",
+        )
+    )
+    profiler.close()
+
+    assert any("LOAD httpfs" in s for s in executed)
+    assert not any("CREATE OR REPLACE SECRET" in s for s in executed)
+
+
 def test_max_fields_truncation_reports_warning(tmp_path):
     """When a table has more columns than max_number_of_fields_to_profile, the
     drop must surface as a run-summary warning (not silently)."""
     parquet = _make_parquet(str(tmp_path))  # 2 columns: num, txt
-    cfg = GEProfilingConfig(enabled=True, max_number_of_fields_to_profile=1)
+    cfg = DataLakeProfilerConfig(enabled=True, max_number_of_fields_to_profile=1)
     report = DataLakeSourceReport()
     profiler = DuckDBProfiler(aws_config=None, report=report, profiling_config=cfg)
     list(
@@ -758,6 +798,32 @@ def test_extension_load_failure_is_reported_as_failure(tmp_path, monkeypatch):
         raise DuckDBExtensionError("avro extension unavailable; pre-stage it")
 
     monkeypatch.setattr(profiler, "_build_select_list", _raise_ext)
+    wus = list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert wus == []
+    assert any(f.title == "DuckDB profiling unavailable" for f in report.failures)
+    assert len(report.warnings) == 0
+
+
+def test_object_store_io_error_is_reported_as_failure(tmp_path, monkeypatch):
+    """An object-store access error (bad credentials / unreachable endpoint)
+    surfaces as a duckdb.IOException/HTTPException. Because it recurs for every
+    remote table, it must escalate to a report failure (deduped by title), not a
+    per-table warning that buries a systemic credential problem."""
+    parquet = _make_parquet(str(tmp_path))
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+
+    def _raise_io(*args, **kwargs):
+        raise duckdb.IOException("HTTP 403: SignatureDoesNotMatch")
+
+    monkeypatch.setattr(profiler, "_materialize_profile_table", _raise_io)
     wus = list(
         profiler.get_table_profile(
             _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"

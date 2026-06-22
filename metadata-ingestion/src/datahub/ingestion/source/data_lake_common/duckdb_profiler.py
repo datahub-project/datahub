@@ -12,6 +12,9 @@ import sqlalchemy as sa
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+    from datahub.ingestion.source.s3.datalake_profiler_config import (
+        DataLakeProfilerConfig,
+    )
     from datahub.ingestion.source.s3.source import TableData
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,7 +23,6 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.duckdb_secrets import (
     build_s3_secret_sql,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -40,6 +42,16 @@ class DuckDBExtensionError(RuntimeError):
     platform-wide failure that recurs for every table — not a per-table data
     issue like an unsupported format or an unresolvable path (which stay
     warnings).
+    """
+
+
+class UnsupportedDuckDBFormatError(ValueError):
+    """The file's format is not one DuckDB profiling can read.
+
+    A per-table data issue (this object's format is unsupported), not a
+    structural failure — so ``get_table_profile`` reports it as a deduped
+    warning rather than failing the run. Subclasses ``ValueError`` and is raised
+    by ``_open_relation`` for an unknown/empty extension.
     """
 
 
@@ -111,7 +123,7 @@ class DuckDBProfiler:
         self,
         aws_config: Optional[AwsConnectionConfig],
         report: _ProfilerReport,
-        profiling_config: GEProfilingConfig,
+        profiling_config: "DataLakeProfilerConfig",
         platform: str = "s3",
         times_taken: Optional[List[float]] = None,
     ) -> None:
@@ -150,7 +162,7 @@ class DuckDBProfiler:
         the `.duckdb_extension` binaries into this directory and DuckDB loads them
         without contacting its extension repository.
         """
-        ext_dir = getattr(self.profiling_config, "duckdb_extension_directory", None)
+        ext_dir = self.profiling_config.duckdb_extension_directory
         if ext_dir:
             escaped = ext_dir.replace("'", "''")
             conn.execute(sa.text(f"SET extension_directory = '{escaped}'"))
@@ -215,7 +227,15 @@ class DuckDBProfiler:
             self._load_extension(conn, extension)
 
     @staticmethod
-    def _resolve_ext(table_data: "TableData", path_spec: Optional["PathSpec"]) -> str:
+    def _filename_ext(table_data: "TableData") -> str:
+        """Lowercase file extension (no leading dot) of the sample object's path,
+        or ``""`` when the file has no extension."""
+        return os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
+
+    @classmethod
+    def _resolve_ext(
+        cls, table_data: "TableData", path_spec: Optional["PathSpec"]
+    ) -> str:
         """Resolve the file format the same way schema inference does
         (S3Source._get_inferrer): the S3 content-type takes precedence, then the
         filename extension, then the path_spec's ``default_extension``. This lets
@@ -223,13 +243,12 @@ class DuckDBProfiler:
         skipped, matching how their schema is already inferred.
         """
         from_content = _CONTENT_TYPE_EXT.get(table_data.content_type or "")
-        file_ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
         default_ext = (
             path_spec.default_extension.lower()
             if path_spec is not None and path_spec.default_extension
             else ""
         )
-        return from_content or file_ext or default_ext
+        return from_content or cls._filename_ext(table_data) or default_ext
 
     def _path_and_ext(
         self, table_data: "TableData", path_spec: Optional["PathSpec"] = None
@@ -250,34 +269,36 @@ class DuckDBProfiler:
         sample path is also returned (without a glob) when the prefix already
         ends with ``.<ext>`` or ``*``.
         """
-        partitions = table_data.partitions
         ext = self._resolve_ext(table_data, path_spec)
-        file_ext = os.path.splitext(table_data.full_path)[1].lstrip(".").lower()
         if not ext:
             # Unknown format (no extension, content-type, or default_extension) —
-            # return the concrete path; _open_relation reports it as unsupported.
+            # return the concrete path; _open_relation then raises
+            # UnsupportedDuckDBFormatError, surfaced as a per-table warning.
             return table_data.full_path, ext
+
+        partitions = table_data.partitions
+        file_ext = self._filename_ext(table_data)
         if partitions and file_ext:
             # Only build an extension glob when the files actually carry that
             # extension; for extension-less files a `*.ext` glob would match
             # nothing, so fall back to the concrete sample path.
-            path: str = table_data.table_path
+            path = table_data.table_path
             if not path.endswith(f".{ext}") and not path.endswith("*"):
                 path = f"{path.rstrip('/')}/**/*.{ext}"
-        else:
-            if partitions:
-                # Partitioned table whose files carry no extension (format known
-                # only via content-type/default). We cannot build a matching glob,
-                # so profiling covers just the sample object — surface that so the
-                # partial result is not mistaken for a full-table profile.
-                self.report.report_warning(
-                    f"Partitioned table {table_data.table_path} has extension-less "
-                    "files; profiled only the sample object, not the full table.",
-                    context=table_data.table_path,
-                    title="Partitioned table profiled on a single file",
-                )
-            path = table_data.full_path
-        return path, ext
+            return path, ext
+
+        if partitions:
+            # Partitioned table whose files carry no extension (format known
+            # only via content-type/default). We cannot build a matching glob,
+            # so profiling covers just the sample object — surface that so the
+            # partial result is not mistaken for a full-table profile.
+            self.report.report_warning(
+                f"Partitioned table {table_data.table_path} has extension-less "
+                "files; profiled only the sample object, not the full table.",
+                context=table_data.table_path,
+                title="Partitioned table profiled on a single file",
+            )
+        return table_data.full_path, ext
 
     def _estimate_row_count(
         self, conn: sa.engine.Connection, ext: str, path: str
@@ -360,7 +381,9 @@ class DuckDBProfiler:
             return raw.read_json(path)
         if ext == "avro":
             return raw.table_function("read_avro", [path])
-        raise ValueError(f"Unsupported format for DuckDB profiling: {ext!r}")
+        raise UnsupportedDuckDBFormatError(
+            f"Unsupported file format for DuckDB profiling: {ext!r}"
+        )
 
     def _create_profile_table(
         self,
@@ -409,6 +432,68 @@ class DuckDBProfiler:
         finally:
             raw.unregister("__datahub_profile_src")
 
+    def _materialize_profile_table(
+        self,
+        engine: sa.engine.Engine,
+        table_name: str,
+        ext: str,
+        path: str,
+        dataset_urn: str,
+    ) -> Optional[int]:
+        """Load the needed extensions/secret and materialize the source into
+        ``table_name`` in a single transaction.
+
+        Returns the table's true row count when it was sampled (so the caller can
+        restore ``rowCount`` on the resulting profile), else ``None``.
+        """
+        row_estimate: Optional[int] = None
+        with engine.begin() as conn:
+            # Drop any table left by a previous file up front, so a failure later
+            # in this call can never leave a stale `profile_target` to be
+            # reflected/profiled under the next file's URN.
+            conn.execute(sa.text("DROP TABLE IF EXISTS profile_target"))
+            self._apply_extension_directory(conn)
+            if self._is_remote(path):
+                self._load_extension(conn, "httpfs")
+                self._ensure_s3_secret(conn)
+            self._ensure_format_extension(conn, ext)
+            select_list = self._build_select_list(conn, ext, path)
+            limit = self.profiling_config.profile_table_row_limit
+            sample_rows: Optional[int] = None
+            if self.profiling_config.use_sampling and limit:
+                count = self._estimate_row_count(conn, ext, path)
+                if count > limit:
+                    row_estimate = count
+                    sample_rows = int(self.profiling_config.sample_size)
+                    self.report.report_warning(
+                        f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
+                        context=dataset_urn,
+                    )
+            self._create_profile_table(
+                conn, table_name, ext, path, select_list, sample_rows
+            )
+        # engine.begin() auto-commits on __exit__; the table is now persisted in
+        # the on-disk database and visible to any subsequent connection.
+        return row_estimate
+
+    def _forward_report_entries(self, profiler_report: SQLSourceReport) -> None:
+        """Fold a profiler-local report's entries into the main DataLake report so
+        operators see them in the run summary. Preserve the ``title`` (category)
+        and forward failures as failures, not warnings, so error-level entries are
+        not silently downgraded or dropped."""
+        for entry in profiler_report.warnings:
+            self.report.report_warning(
+                entry.message,
+                context=", ".join(entry.context) if entry.context else None,
+                title=entry.title,
+            )
+        for entry in profiler_report.failures:
+            self.report.report_failure(
+                entry.message,
+                context=", ".join(entry.context) if entry.context else None,
+                title=entry.title,
+            )
+
     def get_table_profile(
         self,
         table_data: "TableData",
@@ -421,16 +506,6 @@ class DuckDBProfiler:
         extension-less files resolve to a format, mirroring schema inference.
         """
         display_name: str = table_data.display_name
-        try:
-            path, ext = self._path_and_ext(table_data, path_spec)
-        except Exception as e:
-            self.report.report_warning(
-                f"DuckDB profiling failed to resolve path for {dataset_urn}",
-                context=display_name,
-                exc=e,
-            )
-            return
-
         table_name = "profile_target"
         engine = self._engine_lazy()
         # Fresh report per call so warnings from a previous table don't
@@ -440,33 +515,10 @@ class DuckDBProfiler:
         timer = PerfTimer()
         timer.start()
         try:
-            with engine.begin() as conn:
-                # Drop any table left by a previous file up front, so a failure
-                # later in this call can never leave a stale `profile_target` to
-                # be reflected/profiled under the next file's URN.
-                conn.execute(sa.text("DROP TABLE IF EXISTS profile_target"))
-                self._apply_extension_directory(conn)
-                if self._is_remote(path):
-                    self._load_extension(conn, "httpfs")
-                    self._ensure_s3_secret(conn)
-                self._ensure_format_extension(conn, ext)
-                select_list = self._build_select_list(conn, ext, path)
-                limit = self.profiling_config.profile_table_row_limit
-                sample_rows: Optional[int] = None
-                if self.profiling_config.use_sampling and limit:
-                    count = self._estimate_row_count(conn, ext, path)
-                    if count > limit:
-                        row_estimate = count
-                        sample_rows = int(self.profiling_config.sample_size)
-                        self.report.report_warning(
-                            f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
-                            context=dataset_urn,
-                        )
-                self._create_profile_table(
-                    conn, table_name, ext, path, select_list, sample_rows
-                )
-            # engine.begin() auto-commits on __exit__; the table is now persisted
-            # in the on-disk database and visible to any subsequent connection.
+            path, ext = self._path_and_ext(table_data, path_spec)
+            row_estimate = self._materialize_profile_table(
+                engine, table_name, ext, path, dataset_urn
+            )
 
             # Reflect the table to check if max_number_of_fields_to_profile will
             # silently drop columns, and surface a warning so operators see it in
@@ -536,6 +588,36 @@ class DuckDBProfiler:
                 title="DuckDB profiling unavailable",
                 exc=e,
             )
+        except (
+            duckdb.IOException,
+            duckdb.HTTPException,
+            duckdb.ConnectionException,
+        ) as e:
+            # Object-store access failed: bad/expired credentials, wrong
+            # region/endpoint, or an unreachable network. For remote data lakes
+            # this is structural — it recurs for every remote table — so surface
+            # it as a failure (deduped by title) instead of N identical per-table
+            # warnings. (These are NOT RuntimeError subclasses, so this arm is
+            # reachable after the RuntimeError arm above; data-specific DuckDB
+            # errors such as ConversionException/InvalidInputException are not
+            # listed here and fall through to the per-table warning below.)
+            self.report.report_failure(
+                "DuckDB profiling could not read from the object store; check the "
+                "credentials, region/endpoint, and network access.",
+                context=dataset_urn,
+                title="DuckDB profiling unavailable",
+                exc=e,
+            )
+        except UnsupportedDuckDBFormatError as e:
+            # This object's format is not readable by DuckDB profiling — a
+            # per-table data issue, not a platform failure. Deduped by title so a
+            # whole bucket of one unsupported format collapses to one entry.
+            self.report.report_warning(
+                "Unsupported file format for profiling; table skipped.",
+                context=dataset_urn,
+                title="Unsupported file format for profiling",
+                exc=e,
+            )
         except Exception as e:
             self.report.report_warning(
                 f"DuckDB profiling failed for {dataset_urn}",
@@ -547,22 +629,7 @@ class DuckDBProfiler:
             # the run summary + telemetry percentiles).
             if self._times_taken is not None:
                 self._times_taken.append(timer.elapsed_seconds())
-            # Fold the profiler-local report's entries into the main DataLake
-            # report so operators see them in the run summary. Preserve the
-            # `title` (category) and forward failures as failures, not warnings,
-            # so error-level entries are not silently downgraded or dropped.
-            for entry in profiler_report.warnings:
-                self.report.report_warning(
-                    entry.message,
-                    context=", ".join(entry.context) if entry.context else None,
-                    title=entry.title,
-                )
-            for entry in profiler_report.failures:
-                self.report.report_failure(
-                    entry.message,
-                    context=", ".join(entry.context) if entry.context else None,
-                    title=entry.title,
-                )
+            self._forward_report_entries(profiler_report)
 
     def close(self) -> None:
         """Dispose the SQLAlchemy engine and remove the temporary DuckDB file."""

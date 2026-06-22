@@ -282,7 +282,7 @@ DuckDB loads extensions at runtime: `httpfs` (for reading remote `s3://` objects
 
 :::note
 
-The `spark_driver_memory` and `spark_config` profiling options are deprecated and ignored. Profile metric values such as distinct counts, quantiles, and histograms may differ slightly from previous Spark/PyDeequ-based runs because DuckDB uses different (approximate) algorithms; row, column, and null counts are unchanged.
+The `spark_driver_memory` and `spark_config` profiling options have been removed (supplying either now emits a removed-field warning and is otherwise ignored). Profile metric values such as distinct counts, quantiles, and histograms may differ slightly from previous Spark/PyDeequ-based runs because DuckDB uses different (approximate) algorithms; row, column, and null counts are unchanged.
 
 :::
 

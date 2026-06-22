@@ -141,6 +141,19 @@ class DataLakeSourceConfig(
         return "abs" if is_abs_uri(include) else "file"
 
     @model_validator(mode="after")
+    def reject_unsupported_profiling(self) -> "DataLakeSourceConfig":
+        # Profiling is not implemented for the ABS source: no profiler is wired
+        # in ABSSource, and there is no Azure credential path for the DuckDB
+        # engine that backs the S3/GCS data-lake sources. Fail loudly instead of
+        # silently accepting `profiling.enabled: true` and emitting nothing.
+        if self.profiling.enabled:
+            raise ValueError(
+                "Profiling is not supported for the ABS (Azure Blob Storage) "
+                "source. Remove `profiling.enabled` or set it to false."
+            )
+        return self
+
+    @model_validator(mode="after")
     def ensure_profiling_pattern_is_passed_to_profiling(self) -> "DataLakeSourceConfig":
         profiling = self.profiling
         if profiling is not None and profiling.enabled:

@@ -35,3 +35,18 @@ def test_duckdb_extension_directory_defaults_from_env(monkeypatch):
         ).duckdb_extension_directory
         == "/explicit"
     )
+
+
+def test_duckdb_extension_directory_blank_is_none(monkeypatch):
+    """A set-but-empty env var (or blank recipe value) must coerce to None so it
+    is never passed to DuckDB's `SET extension_directory = ''` (which would point
+    at the cwd rather than meaning 'use the default')."""
+    monkeypatch.setenv("DATAHUB_DUCKDB_EXTENSION_DIRECTORY", "")
+    assert DataLakeProfilerConfig().duckdb_extension_directory is None
+    monkeypatch.delenv("DATAHUB_DUCKDB_EXTENSION_DIRECTORY")
+    assert (
+        DataLakeProfilerConfig(
+            duckdb_extension_directory="   "
+        ).duckdb_extension_directory
+        is None
+    )

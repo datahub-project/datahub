@@ -129,12 +129,20 @@ class DuckDBAdapter(PlatformAdapter):
         context = super().setup_profiling(context, conn)
         try:
             self._run_summarize(context, conn)
-        except Exception as e:
+        except (SQLAlchemyError, KeyError, ValueError, TypeError) as e:
             # Fall back to per-column SQL (still correct, just slower). Surface a
             # warning — deduped by title — so a systematic SUMMARIZE failure is
             # visible in the run summary instead of silently degrading on every
             # table. report.warning already logs with the exception attached, so
             # no separate logger call is needed here.
+            #
+            # Scoped to the failures SUMMARIZE can actually raise rather than a
+            # bare `except`: the DB error when SUMMARIZE is unsupported for the
+            # relation (SQLAlchemyError), a DuckDB version returning a different
+            # SUMMARIZE column set (KeyError on row._mapping), and stat parsing
+            # (ValueError/TypeError). A genuine programming error (e.g.
+            # AttributeError) is left to propagate instead of being masked as a
+            # routine fast-path miss.
             self.report.warning(
                 message="Falling back to per-column profiling queries.",
                 title="DuckDB SUMMARIZE fast-path unavailable",
@@ -341,7 +349,15 @@ class DuckDBAdapter(PlatformAdapter):
         return _round_if_float(super().get_column_stdev(table, column, conn))
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
-        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont on cache miss or when q50 is None."""
+        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont on cache miss or when q50 is None.
+
+        Note: SUMMARIZE's q50 is an *approximate* quantile (DuckDB computes it via
+        a T-Digest sketch), so on the fast path the median can differ slightly
+        from the exact ``quantile_cont(col, 0.5)`` used on the fallback path. This
+        is within the same approximation tolerance the connector already accepts
+        for distinct counts (HyperLogLog) and is deliberate — the per-column
+        exact median would cost an extra scan per column.
+        """
         s = self._summary.get(column)
         if s is not None and s.q50 is not None:
             return _round_if_float(s.q50)

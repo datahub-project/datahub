@@ -12,6 +12,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import (
     DuckDBAdapter,
     _convert_bound,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -85,6 +86,35 @@ def test_summarize_cache_miss_falls_back():
         assert adapter.get_column_min(table, "num", conn) is not None
 
 
+def test_summarize_none_stat_falls_back_to_sql():
+    """Cache *hit* but the stat itself is NULL (an all-NULL numeric column, for
+    which SUMMARIZE returns null std/q50) must fall through to the base SQL
+    implementation, not return the cached None."""
+    eng = _engine()
+    with eng.begin() as conn:
+        conn.execute(
+            "CREATE TABLE t AS SELECT * FROM (VALUES (CAST(NULL AS BIGINT)),(NULL),(NULL)) AS v(num)"
+        )
+    with eng.connect() as conn:
+        adapter = DuckDBAdapter(ProfilingConfig(), SQLSourceReport(), eng)
+        ctx = adapter.setup_profiling(
+            ProfilingContext(pretty_name="t", table="t"), conn
+        )
+        table = ctx.sql_table
+        assert table is not None
+        # The column is cached, but its std/q50 are NULL — the branch under test.
+        cached = adapter._summary.get("num")
+        assert cached is not None
+        assert cached.std is None
+        assert cached.q50 is None
+        # Sentinels from the base implementation prove the fallback ran (a cache
+        # short-circuit would return None instead).
+        with patch.object(PlatformAdapter, "get_column_stdev", return_value=1.5):
+            assert adapter.get_column_stdev(table, "num", conn) == 1.5
+        with patch.object(PlatformAdapter, "get_column_median", return_value=2.5):
+            assert adapter.get_column_median(table, "num", conn) == 2.5
+
+
 @pytest.mark.parametrize(
     "value,col_type,expected,expected_type",
     [
@@ -115,8 +145,14 @@ def test_summarize_failure_fallback():
     with eng.connect() as conn:
         report = SQLSourceReport()
         adapter = DuckDBAdapter(ProfilingConfig(), report, eng)
+        # Simulate a realistic SUMMARIZE failure: the DB rejects it (e.g. the
+        # relation doesn't support SUMMARIZE), which surfaces as a SQLAlchemyError.
+        # A bare RuntimeError is deliberately NOT caught by setup_profiling — that
+        # would mask a programming error rather than a fast-path miss.
         with patch.object(
-            DuckDBAdapter, "_run_summarize", side_effect=RuntimeError("forced fail")
+            DuckDBAdapter,
+            "_run_summarize",
+            side_effect=sa.exc.SQLAlchemyError("forced fail"),
         ):
             ctx = adapter.setup_profiling(
                 ProfilingContext(pretty_name="t", table="t"), conn
@@ -138,10 +174,6 @@ def test_summarize_failure_fallback():
 
 def test_summarize_cache_is_populated_and_served():
     """Proves setup_profiling populates _summary AND that the cache is served (not base SQL)."""
-    from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
-        PlatformAdapter,
-    )
-
     eng = _engine()
     with eng.begin() as conn:
         conn.execute(

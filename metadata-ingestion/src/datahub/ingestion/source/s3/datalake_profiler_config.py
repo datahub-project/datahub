@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -35,7 +36,7 @@ class DataLakeProfilerConfig(GEProfilingConfig):
     )
 
     duckdb_extension_directory: Optional[str] = Field(
-        default_factory=lambda: os.environ.get(DUCKDB_EXTENSION_DIRECTORY_ENV),
+        default_factory=lambda: os.environ.get(DUCKDB_EXTENSION_DIRECTORY_ENV) or None,
         description=(
             "Directory DuckDB loads extensions from. DuckDB profiling uses the "
             "`httpfs` extension for remote (s3/gcs/abs) reads, `avro` for Avro "
@@ -52,3 +53,14 @@ class DataLakeProfilerConfig(GEProfilingConfig):
             "datahub-ingestion image points at a build-time-baked location."
         ),
     )
+
+    @field_validator("duckdb_extension_directory")
+    @classmethod
+    def _blank_extension_directory_is_none(cls, v: Optional[str]) -> Optional[str]:
+        # Treat an explicit blank/whitespace value (e.g. a set-but-empty env var
+        # or `duckdb_extension_directory: ""`) the same as unset, so it is not
+        # passed to DuckDB's `SET extension_directory = ''` (which would point at
+        # the current working directory rather than meaning "use the default").
+        if v is not None and not v.strip():
+            return None
+        return v
