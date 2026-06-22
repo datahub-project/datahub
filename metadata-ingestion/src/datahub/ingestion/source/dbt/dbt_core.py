@@ -9,9 +9,8 @@ from urllib.parse import urlparse
 
 import requests
 from packaging import version
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from datahub.configuration.common import ConfigModel
 from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -30,6 +29,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
@@ -54,32 +54,6 @@ from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 logger = logging.getLogger(__name__)
 
 _GLOB_CHARACTERS = frozenset("*?[]")
-
-GCS_ENDPOINT_URL = "https://storage.googleapis.com"
-
-
-class GCSConnectionConfig(ConfigModel):
-    """GCS connection using HMAC keys, accessed via the S3-compatible XML API."""
-
-    hmac_access_id: str = Field(
-        description="GCS HMAC access ID. See https://cloud.google.com/storage/docs/authentication/hmackeys",
-    )
-    hmac_access_secret: SecretStr = Field(
-        description="GCS HMAC access secret.",
-    )
-    endpoint_url: Optional[str] = Field(
-        default=None,
-        description="Override the GCS S3-compatible endpoint URL. "
-        "Defaults to https://storage.googleapis.com. Useful for testing with local S3-compatible servers.",
-    )
-
-    def get_s3_compatible_connection(self) -> AwsConnectionConfig:
-        return AwsConnectionConfig(
-            aws_endpoint_url=self.endpoint_url or GCS_ENDPOINT_URL,
-            aws_access_key_id=self.hmac_access_id,
-            aws_secret_access_key=self.hmac_access_secret,
-            aws_region="auto",
-        )
 
 
 def _has_glob_characters(path: str) -> bool:
@@ -142,7 +116,7 @@ class DBTCoreConfig(DBTCommonConfig):
 
     gcs_connection: Optional[GCSConnectionConfig] = Field(
         default=None,
-        description="When fetching manifest files from gs://, configuration for GCS connection using HMAC keys. "
+        description="When fetching manifest files from gs://, GCS connection using HMAC credentials. "
         "See https://cloud.google.com/storage/docs/authentication/hmackeys",
     )
 
@@ -768,23 +742,32 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
         if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
+            resp = requests.get(uri, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
         elif is_s3_uri(uri):
             u = urlparse(uri)
             if not aws_connection:
                 raise ValueError(f"AWS connection required for S3 URI: {uri}")
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
+            try:
+                response = aws_connection.get_s3_client().get_object(
+                    Bucket=u.netloc, Key=u.path.lstrip("/")
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
             return json.loads(response["Body"].read().decode("utf-8"))
         elif is_gcs_uri(uri):
             u = urlparse(uri)
             if not gcs_connection:
                 raise ValueError(f"GCS connection required for GCS URI: {uri}")
-            s3_compat = gcs_connection.get_s3_compatible_connection()
-            response = s3_compat.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
+            try:
+                response = (
+                    gcs_connection.s3_compatible_connection.get_s3_client().get_object(
+                        Bucket=u.netloc, Key=u.path.lstrip("/")
+                    )
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
             with open(uri) as f:
@@ -831,6 +814,44 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         )
         return [f"{scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
 
+    def _expand_cloud_glob(
+        self,
+        path: str,
+        connection: Optional[AwsConnectionConfig],
+        scheme: str,
+        *,
+        store_label: str,
+        connection_field: str,
+    ) -> List[str]:
+        # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
+        # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
+        connection_label = connection_field.split("_")[0].upper()
+        if not connection:
+            self.report.failure(
+                title=f"Missing {connection_label} connection for {store_label} glob",
+                message=f"{connection_field} is required for {store_label} glob pattern: {path}",
+            )
+            return []
+        try:
+            matched_paths = self._expand_object_store_glob(path, connection, scheme)
+        except Exception as e:
+            self.report.failure(
+                title=f"{store_label} glob expansion failed",
+                message=f"Failed to expand {store_label} glob pattern '{path}': {e}",
+            )
+            return []
+        if not matched_paths:
+            self.report.warning(
+                title=f"{store_label} glob pattern matched no objects",
+                message=f"Pattern '{path}' did not match any {store_label} objects",
+            )
+        else:
+            logger.info(
+                f"{store_label} glob pattern '{path}' expanded to "
+                f"{len(matched_paths)} file(s)"
+            )
+        return matched_paths
+
     def _expand_run_results_paths(self) -> List[str]:
         expanded_paths: List[str] = []
 
@@ -840,61 +861,28 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 continue
 
             if is_s3_uri(path):
-                if not self.config.aws_connection:
-                    self.report.failure(
-                        title="Missing AWS connection for S3 glob",
-                        message=f"aws_connection is required for S3 glob pattern: {path}",
-                    )
-                    continue
-                try:
-                    s3_paths = self._expand_object_store_glob(
-                        path, self.config.aws_connection, "s3"
-                    )
-                except Exception as e:
-                    self.report.failure(
-                        title="S3 glob expansion failed",
-                        message=f"Failed to expand S3 glob pattern '{path}': {e}",
-                    )
-                    continue
-                if not s3_paths:
-                    self.report.warning(
-                        title="S3 glob pattern matched no objects",
-                        message=f"Pattern '{path}' did not match any S3 objects",
-                    )
-                else:
-                    logger.info(
-                        f"S3 glob pattern '{path}' expanded to {len(s3_paths)} file(s)"
-                    )
-                expanded_paths.extend(s3_paths)
-            elif is_gcs_uri(path):
-                if not self.config.gcs_connection:
-                    self.report.failure(
-                        title="Missing GCS connection for GCS glob",
-                        message=f"gcs_connection is required for GCS glob pattern: {path}",
-                    )
-                    continue
-                try:
-                    gcs_paths = self._expand_object_store_glob(
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
                         path,
-                        self.config.gcs_connection.get_s3_compatible_connection(),
+                        self.config.aws_connection,
+                        "s3",
+                        store_label="S3",
+                        connection_field="aws_connection",
+                    )
+                )
+            elif is_gcs_uri(path):
+                gcs_connection = self.config.gcs_connection
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        gcs_connection.s3_compatible_connection
+                        if gcs_connection
+                        else None,
                         "gs",
+                        store_label="GCS",
+                        connection_field="gcs_connection",
                     )
-                except Exception as e:
-                    self.report.failure(
-                        title="GCS glob expansion failed",
-                        message=f"Failed to expand GCS glob pattern '{path}': {e}",
-                    )
-                    continue
-                if not gcs_paths:
-                    self.report.warning(
-                        title="GCS glob pattern matched no objects",
-                        message=f"Pattern '{path}' did not match any GCS objects",
-                    )
-                else:
-                    logger.info(
-                        f"GCS glob pattern '{path}' expanded to {len(gcs_paths)} file(s)"
-                    )
-                expanded_paths.extend(gcs_paths)
+                )
             elif re.match("^https?://", path):
                 self.report.warning(
                     title="Glob patterns not supported for HTTP(S) URIs",

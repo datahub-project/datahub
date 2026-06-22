@@ -24,7 +24,8 @@ source:
 
     # For GCS file access (using HMAC keys):
     # gcs_connection:
-    #   hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
-    #   hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
+    #   credential:
+    #     hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
+    #     hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
 
 # sink configs

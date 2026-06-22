@@ -264,8 +264,9 @@ source:
     catalog_path: "gs://my-bucket/dbt/target/catalog.json"
     target_platform: bigquery
     gcs_connection:
-      hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
-      hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
+      credential:
+        hmac_access_id: "${GCS_HMAC_ACCESS_ID}"
+        hmac_access_secret: "${GCS_HMAC_ACCESS_SECRET}"
 ```
 
 To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.com/storage/docs/authentication/managing-hmackeys).
