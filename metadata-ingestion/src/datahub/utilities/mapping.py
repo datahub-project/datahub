@@ -609,6 +609,9 @@ class OperationProcessor:
             else:
                 raw_value = raw_props_value
 
+            # value_type is a coercion hint: `number` casts string -> float.
+            # string/date/urn/rich_text are all stored as strings and pass through;
+            # GMS validates the definition's real type server-side.
             value_type = operation_config.get(Constants.STRUCTURED_PROPERTY_VALUE_TYPE)
             if (
                 value_type == Constants.STRUCTURED_PROPERTY_VALUE_TYPE_NUMBER

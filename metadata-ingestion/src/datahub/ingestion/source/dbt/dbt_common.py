@@ -3183,7 +3183,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Emit a StructuredProperties MCP for each column with a matching
         column_meta_mapping `add_structured_property` rule. The aspect attaches
-        to the column's schemaField URN, not the dataset URN."""
+        to the column's schemaField URN, not the dataset URN.
+
+        Assigns values only; assumes the property definition exists (GMS's
+        StructuredPropertiesValidator enforces existence/type/cardinality at write
+        time). We don't pre-validate, as that would require a graph and break
+        graph-less dbt ingestion."""
         if not self.config.column_meta_mapping:
             return
         if column_meta_aspects is None:
