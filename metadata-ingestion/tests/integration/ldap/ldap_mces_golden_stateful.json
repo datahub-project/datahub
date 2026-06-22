@@ -12,7 +12,17 @@
                         "title": "Mr. Boss",
                         "firstName": "Bart",
                         "lastName": "Simpson",
-                        "fullName": "Bart Simpson"
+                        "fullName": "Bart Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1660478400000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -24,7 +34,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1660460400000,
+        "lastObserved": 1660478400000,
         "runId": "ldap-test",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "ldap-test-pipeline"
@@ -47,7 +57,17 @@
                         "departmentName": "1001",
                         "firstName": "Homer",
                         "lastName": "Simpson",
-                        "fullName": "Homer Simpson"
+                        "fullName": "Homer Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1660478400000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -59,7 +79,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1660460400000,
+        "lastObserved": 1660478400000,
         "runId": "ldap-test",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "ldap-test-pipeline"
@@ -76,7 +96,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1660460400000,
+        "lastObserved": 1660478400000,
         "runId": "ldap-test",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "ldap-test-pipeline"
@@ -93,7 +113,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1660460400000,
+        "lastObserved": 1660478400000,
         "runId": "ldap-test",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "ldap-test-pipeline"

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -32,7 +31,6 @@ public class DocumentResolvers {
   private final com.linkedin.metadata.graph.GraphClient graphClient;
   private final EntityRegistry entityRegistry;
   private final TimelineService timelineService;
-  private final GroupService groupService;
 
   public DocumentResolvers(
       @Nonnull DocumentService documentService,
@@ -44,8 +42,7 @@ public class DocumentResolvers {
       @Nonnull EntityService entityService,
       @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull TimelineService timelineService,
-      @Nonnull GroupService groupService) {
+      @Nonnull TimelineService timelineService) {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
     this.documentType = documentType;
@@ -56,7 +53,6 @@ public class DocumentResolvers {
     this.graphClient = graphClient;
     this.entityRegistry = entityRegistry;
     this.timelineService = timelineService;
-    this.groupService = groupService;
   }
 
   public void configureResolvers(final RuntimeWiring.Builder builder) {
@@ -72,7 +68,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService, entityClient, groupService)));
+                        documentService, entityClient)));
 
     // Mutation resolvers
     builder.type(

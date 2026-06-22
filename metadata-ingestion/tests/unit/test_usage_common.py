@@ -542,7 +542,9 @@ def test_usage_aggregator_non_str_resource_roundtrip():
     )
     wus = list(
         agg.generate_workunits(
-            resource_urn_builder=lambda r: f"urn:li:dataset:(urn:li:dataPlatform:test,{r.db}.{r.table},PROD)"
+            resource_urn_builder=lambda r: (
+                f"urn:li:dataset:(urn:li:dataPlatform:test,{r.db}.{r.table},PROD)"
+            )
         )
     )
     assert len(wus) == 1

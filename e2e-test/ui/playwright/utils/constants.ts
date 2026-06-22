@@ -44,6 +44,7 @@ export const LOAD_STATES = {
 export const KEYS = {
   CTRL_A: 'Control+A',
   ENTER: 'Enter',
+  ESCAPE: 'Escape',
 } as const;
 
 // TEST_CREDENTIALS removed — use data/users.ts (users) as the

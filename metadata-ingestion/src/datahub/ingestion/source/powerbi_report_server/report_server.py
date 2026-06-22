@@ -34,6 +34,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
     Constant,
@@ -416,10 +420,10 @@ class Mapper:
             user_urn = builder.make_user_urn(user.get_urn_part())
 
             user_info_instance = CorpUserInfoClass(
+                active=True,
                 displayName=user.properties.display_name,
                 email=user.properties.email,
                 title=user.properties.title,
-                active=True,
             )
 
             info_mcp = self.new_mcp(
@@ -427,6 +431,12 @@ class Mapper:
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
+
+            corp_user_status_mcp = self.new_mcp(
+                entity_urn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
+            user_mcps.append(corp_user_status_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
