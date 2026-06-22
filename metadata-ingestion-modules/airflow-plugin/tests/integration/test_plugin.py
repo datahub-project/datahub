@@ -704,45 +704,73 @@ def test_airflow_plugin(
 
     dag_id = test_case.dag_id
 
-    with _run_airflow(
-        tmp_path,
-        dags_folder=DAGS_FOLDER,
-        multiple_connections=test_case.multiple_connections,
-        platform_instance=test_case.platform_instance,
-        enable_datajob_lineage=test_case.enable_datajob_lineage,
-        cluster=test_case.cluster,
-    ) as airflow_instance:
-        print(f"Running DAG {dag_id}...")
-        _wait_for_dag_to_load(airflow_instance, dag_id)
-
-        trigger_cmd = [
-            str(airflow_instance.airflow_executable),
-            "dags",
-            "trigger",
-            "--logical-date",
-            "2023-09-27T21:34:38+00:00",
-            "-r",
-            "manual_run_test",
-            dag_id,
-        ]
-
-        subprocess.check_call(
-            trigger_cmd,
-            env=airflow_instance.env_vars,
-        )
-
-        print("Waiting for DAG to finish...")
-        _wait_for_dag_finish(
-            airflow_instance, dag_id, require_success=test_case.success
-        )
-
-        print("Sleeping for a few seconds to let the plugin finish...")
-        time.sleep(10)
-
+    # On Airflow 3.0 the scheduler learns task state out-of-process via the
+    # execution API, and under CI load it sometimes records a task instance that
+    # actually ran to completion as "failed" (apache/airflow#53797,
+    # apache/airflow#52813) -- the very same DAG then succeeds on an immediate
+    # re-run. For DAGs that are expected to succeed, run the whole thing in a
+    # fresh Airflow instance up to a few times so a spurious task-state failure
+    # does not fail the test; a genuine failure recurs on every attempt and is
+    # still surfaced. DAGs that are expected to fail are run exactly once.
+    max_attempts = 3 if test_case.success else 1
+    airflow_instance: Optional[AirflowInstance] = None
+    for attempt in range(1, max_attempts + 1):
         try:
-            _dump_dag_logs(airflow_instance, dag_id)
-        except Exception as e:
-            print(f"Failed to dump DAG logs: {e}")
+            with _run_airflow(
+                tmp_path,
+                dags_folder=DAGS_FOLDER,
+                multiple_connections=test_case.multiple_connections,
+                platform_instance=test_case.platform_instance,
+                enable_datajob_lineage=test_case.enable_datajob_lineage,
+                cluster=test_case.cluster,
+            ) as airflow_instance:
+                print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
+                _wait_for_dag_to_load(airflow_instance, dag_id)
+
+                # Clear any metadata emitted by a previous (failed) attempt so
+                # the golden comparison only sees this attempt's output.
+                airflow_instance.metadata_file.unlink(missing_ok=True)
+                airflow_instance.metadata_file2.unlink(missing_ok=True)
+
+                trigger_cmd = [
+                    str(airflow_instance.airflow_executable),
+                    "dags",
+                    "trigger",
+                    "--logical-date",
+                    "2023-09-27T21:34:38+00:00",
+                    "-r",
+                    "manual_run_test",
+                    dag_id,
+                ]
+
+                subprocess.check_call(
+                    trigger_cmd,
+                    env=airflow_instance.env_vars,
+                )
+
+                print("Waiting for DAG to finish...")
+                _wait_for_dag_finish(
+                    airflow_instance, dag_id, require_success=test_case.success
+                )
+
+                print("Sleeping for a few seconds to let the plugin finish...")
+                time.sleep(10)
+
+                try:
+                    _dump_dag_logs(airflow_instance, dag_id)
+                except Exception as e:
+                    print(f"Failed to dump DAG logs: {e}")
+            break
+        except (ValueError, NotReadyError) as e:
+            if attempt >= max_attempts:
+                raise
+            print(
+                f"DAG {dag_id} attempt {attempt}/{max_attempts} failed ({e}); "
+                "retrying with a fresh Airflow instance "
+                "(suspected Airflow 3 task-state race)."
+            )
+
+    assert airflow_instance is not None
 
     if dag_id == DAG_TO_SKIP_INGESTION:
         # Verify that no MCPs were generated.
