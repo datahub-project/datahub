@@ -2,9 +2,30 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, TypedDict, cast
 
 logger = logging.getLogger(__name__)
+
+
+# Shapes returned by the registry specifications API
+# (/openapi/v1/registry/models/entity/specifications). total=False because the
+# parser reads every key with .get() and tolerates its absence -- notably
+# older servers don't emit schemaVersion. Used only to document the contract
+# and let mypy catch key typos.
+class _AspectAnnotation(TypedDict, total=False):
+    name: str
+    schemaVersion: int
+
+
+class _AspectSpec(TypedDict, total=False):
+    aspectAnnotation: _AspectAnnotation
+
+
+class _EntityElement(TypedDict, total=False):
+    name: str
+    keyAspectName: str
+    keyAspectSpec: _AspectSpec
+    aspectSpecs: List[_AspectSpec]
 
 
 @dataclass
@@ -41,10 +62,11 @@ class EntityAspectSpecs:
         """Build specs from the ``elements`` of the registry specifications API."""
         specs = cls()
         for entity in elements:
-            specs._ingest_entity(entity)
+            # Narrow raw JSON to the documented contract at this boundary.
+            specs._ingest_entity(cast(_EntityElement, entity))
         return specs
 
-    def _ingest_entity(self, entity: dict) -> None:
+    def _ingest_entity(self, entity: _EntityElement) -> None:
         name = entity.get("name")
         if not name:
             return
@@ -62,7 +84,7 @@ class EntityAspectSpecs:
                 aspects.add(aspect_name)
             self._ingest_aspect_spec(aspect_spec)
 
-    def _ingest_aspect_spec(self, aspect_spec: Optional[dict]) -> None:
+    def _ingest_aspect_spec(self, aspect_spec: Optional[_AspectSpec]) -> None:
         if not aspect_spec:
             return
         annotation = aspect_spec.get("aspectAnnotation") or {}

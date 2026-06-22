@@ -31,7 +31,7 @@ from datahub.cli.datapack.loader import (
 )
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 
 class TestDatapackSinkConfig:

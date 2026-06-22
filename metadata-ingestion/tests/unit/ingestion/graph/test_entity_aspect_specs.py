@@ -2,7 +2,7 @@
 
 import pytest
 
-from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 
 def test_from_registry_elements_collects_key_and_aspect_specs() -> None:

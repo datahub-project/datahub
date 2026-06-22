@@ -22,7 +22,7 @@ from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.utilities.entity_aspect_specs import EntityAspectSpecs
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 logger = logging.getLogger(__name__)
 
