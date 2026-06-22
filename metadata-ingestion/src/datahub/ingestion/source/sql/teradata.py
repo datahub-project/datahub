@@ -2220,6 +2220,16 @@ ORDER by DataBaseName, TableName;
                 ``self.report.increment_view_error`` again if that raises,
                 so re-raising here would cause double-counting of
                 ``num_view_processing_failures`` and ``view_*_errors``.
+
+                OWNERSHIP after abandonment: when a view exceeds the per-view
+                timeout the caller abandons it (records num_view_processing_timeouts
+                + stalled_views) but cannot stop this already-running worker —
+                ``fut.cancel()`` returns False. This worker keeps running and
+                remains the sole owner of the error-category counters: if the
+                blocking call later raises, the ``except`` below counts it exactly
+                once. The abandon path deliberately does not touch
+                increment_view_error so the two counter families never double-count
+                the same view.
                 """
                 results: List[Union[MetadataWorkUnit, Any]] = []
 
@@ -2367,10 +2377,11 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except CancelledError:
-                            # The stall-timeout path already called
-                            # increment_view_error before cancelling this
-                            # future. Skip the increment here to avoid
-                            # double-counting.
+                            # A cancelled (never-started) view is owned by the
+                            # timeout counters via the abandon path above, which
+                            # already recorded num_view_processing_timeouts +
+                            # stalled_views. It has no error category to count
+                            # here, so skip increment_view_error.
                             pass
                         except Exception as e:
                             _error_category = _categorize_view_error(e)
@@ -2415,10 +2426,20 @@ ORDER by DataBaseName, TableName;
                                         f"{elapsed:.0f}s)"
                                     ),
                                 )
-                            # Count hung views in the same bucket as other timeouts
-                            # so num_view_processing_failures + view_timeout_errors
-                            # give a complete picture alongside num_view_processing_timeouts.
-                            self.report.increment_view_error(ViewErrorCategory.TIMEOUT)
+                            # OWNERSHIP RULE: an abandoned/hung view is owned
+                            # exclusively by the timeout counters
+                            # (num_view_processing_timeouts + stalled_views). We
+                            # deliberately do NOT call increment_view_error here.
+                            # fut.cancel() cannot stop an already-running worker
+                            # (it returns False), so the worker keeps executing
+                            # process_single_view; if its blocking I/O later
+                            # raises, the worker's own handler calls
+                            # increment_view_error exactly once. Counting TIMEOUT
+                            # here as well would double-count that
+                            # hung-then-failed view in num_view_processing_failures
+                            # and view_timeout_errors. Leaving the error-category
+                            # counters solely to the worker keeps every view
+                            # counted at most once across the two counter families.
                             fut.cancel()
                             started_at_by_future.pop(fut, None)
                             remaining_futures.discard(fut)

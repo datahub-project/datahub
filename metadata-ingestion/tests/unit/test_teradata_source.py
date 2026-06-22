@@ -5220,15 +5220,19 @@ class TestLineageWatchdog:
 
 
 class TestHungViewAbandonPath:
-    """The fut.cancel() abandon path keeps num_view_processing_timeouts and
-    view_timeout_errors consistent so operators cannot see one counter change
-    without the other."""
+    """Ownership rule for abandoned/hung views: the timeout counters
+    (num_view_processing_timeouts + stalled_views) own them exclusively, and
+    the abandon path does NOT touch the error-category counters. The worker
+    thread remains the sole owner of num_view_processing_failures /
+    view_*_errors, so a hung-then-failed view is counted once, not twice."""
 
-    def test_hung_view_increments_timeout_counters_consistently(self):
+    def test_hung_view_increments_only_timeout_counters(self):
         """When a view worker exceeds view_processing_timeout_seconds the
-        connector abandons it: num_view_processing_timeouts,
-        view_timeout_errors, and num_view_processing_failures must all be
-        incremented exactly once so the counters tell a consistent story.
+        connector abandons it: num_view_processing_timeouts and stalled_views
+        are recorded. Because the abandon path cannot stop the running worker,
+        it deliberately does NOT call increment_view_error, so a view whose
+        worker ultimately returns cleanly leaves num_view_processing_failures
+        and view_timeout_errors at zero.
 
         Uses event-based synchronization and mocked time/wait so the test
         never blocks on real wall-clock sleeps and is safe on loaded CI."""
@@ -5315,12 +5319,126 @@ class TestHungViewAbandonPath:
         assert not t.is_alive(), "view-processing thread did not terminate"
 
         assert source.report.num_view_processing_timeouts == 1
-        assert source.report.view_timeout_errors == 1
-        assert source.report.num_view_processing_failures == 1
+        assert source.report.stalled_views.get("testdb.stuck_view") is not None
+        # The abandon path must NOT touch the error-category counters; the
+        # worker returned cleanly here, so nothing is counted as a failure.
+        assert source.report.view_timeout_errors == 0
+        assert source.report.num_view_processing_failures == 0
         assert any(
             any("stuck_view" in ctx for ctx in w.context)
             for w in source.report.warnings
         )
+
+    def test_hung_then_failed_view_counted_once(self):
+        """A view that is abandoned for timing out and whose worker then fails
+        must be counted exactly once, not twice.
+
+        The worker blocks past the per-view timeout (so the control loop
+        abandons it and records num_view_processing_timeouts), then keeps
+        running — fut.cancel() cannot stop it — and finally raises. Its own
+        handler is the sole owner of the error-category counters, so
+        num_view_processing_failures must be 1 (from the worker), not 2 (worker
+        + a double-count from the abandon path)."""
+        worker_started = Event()
+        worker_can_raise = Event()
+        error_counted = Event()
+
+        def _blocking_then_failing(**kwargs):
+            worker_started.set()
+            # Stay blocked until the control loop has abandoned us, then fail
+            # the way a hung DB call would once its socket finally errors out.
+            worker_can_raise.wait(timeout=10)
+            raise TimeoutError("simulated hang then failure")
+
+        source = _create_source_patched(
+            {
+                "max_workers": 2,
+                "view_processing_timeout_seconds": 1,
+                "view_processing_heartbeat_seconds": 1,
+            }
+        )
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+        mock_engine = MagicMock()
+
+        # The abandon path no longer calls increment_view_error, so the worker
+        # is the only caller. Signal when it has counted so the assertions do
+        # not race the background worker thread.
+        original_increment = source.report.increment_view_error
+
+        def _counting_increment(category: ViewErrorCategory) -> None:
+            original_increment(category)
+            error_counted.set()
+
+        _control_calls = 0
+
+        def _fake_time() -> float:
+            nonlocal _control_calls
+            if current_thread().name == "test-hung-fail-control":
+                _control_calls += 1
+                return 0.0 if _control_calls <= 2 else 100.0
+            return 0.0
+
+        def _fake_wait(fs, timeout=None, return_when=None):
+            worker_started.wait(timeout=5.0)
+            return (set(), set())
+
+        def _run() -> None:
+            with (
+                patch.object(
+                    source, "_get_or_create_pooled_engine", return_value=mock_engine
+                ),
+                patch.object(
+                    source,
+                    "_retry_connect",
+                    side_effect=_mock_retry_connect(mock_conn),
+                ),
+                patch.object(source, "_retry_execute"),
+                patch.object(
+                    source.report,
+                    "increment_view_error",
+                    side_effect=_counting_increment,
+                ),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.inspect",
+                    return_value=mock_inspector,
+                ),
+                patch.object(
+                    source, "_process_view", side_effect=_blocking_then_failing
+                ),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.time.time",
+                    side_effect=_fake_time,
+                ),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.wait",
+                    side_effect=_fake_wait,
+                ),
+            ):
+                list(
+                    source._loop_views_with_connection_pool(
+                        ["stuck_view"], "testdb", source.config
+                    )
+                )
+                # Keep the patched increment_view_error active until the
+                # background worker has finished failing, otherwise the worker
+                # would call the unpatched real method after the with-block exits.
+                worker_can_raise.set()
+                assert error_counted.wait(timeout=5.0), (
+                    "worker did not count its failure"
+                )
+
+        t = Thread(target=_run, daemon=True, name="test-hung-fail-control")
+        t.start()
+        t.join(timeout=10.0)
+        assert not t.is_alive(), "view-processing thread did not terminate"
+
+        # Abandoned exactly once by the control loop.
+        assert source.report.num_view_processing_timeouts == 1
+        assert source.report.stalled_views.get("testdb.stuck_view") is not None
+        # Counted exactly once by the worker (TIMEOUT category) — not twice.
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_timeout_errors == 1
 
 
 class TestCharPaddingFixes:
