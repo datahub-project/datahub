@@ -109,6 +109,16 @@ dependencies {
   } // older version to allow older guava
 
   testImplementation(externalDependency.testContainersPostgresql)
+
+  // A real SparkSession for the @Tag("integration") smoke test (main declares spark-sql as
+  // compileOnly; the test JVM needs it on the runtime classpath to actually start Spark).
+  testImplementation("org.apache.spark:spark-sql_2.12:3.5.0") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
 }
 
 tasks.register('checkShadowJar', Exec) {
@@ -282,17 +292,43 @@ tasks.register('buildAllScalaVersions') {
   dependsOn scalaVersions.collect { "shadowJar_${it.replace('.', '_')}" }
 }
 
+// Spark needs these JDK 17+ module opens to run.
+ext.sparkJava21CompatibleJvmArgs = [
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+]
+
 test {
   forkEvery = 1
-  useJUnitPlatform()
+  // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
+  // "integration" and runs via the sparkRealSmokeTest task below.
+  useJUnitPlatform {
+    excludeTags 'integration'
+  }
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+}
 
-  def sparkJava21CompatibleJvmArgs = [
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "--add-opens=java.base/java.net=ALL-UNNAMED",
-          "--add-opens=java.base/java.nio=ALL-UNNAMED",
-          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-  ]
-  jvmArgs = sparkJava21CompatibleJvmArgs
+// Self-contained real-Spark smoke test (@Tag("integration")): starts a local SparkSession + the
+// DataHub listener and a Postgres testcontainer. Requires Docker. Not part of `test`/CI unit runs.
+tasks.register('sparkRealSmokeTest', Test) {
+  description = 'Runs the real-Spark + testcontainers smoke test (requires Docker).'
+  group = 'verification'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  // commons-collections 3.x is globally excluded for this module (the build prefers
+  // commons-collections4), but Spark's Hadoop needs the legacy 3.x classes at runtime. A detached
+  // configuration is outside the project's configuration container, so the project-wide exclude
+  // doesn't strip it.
+  def legacyCommonsCollections =
+      project.configurations.detachedConfiguration(
+          project.dependencies.create('commons-collections:commons-collections:3.2.2'))
+  classpath = sourceSets.test.runtimeClasspath + legacyCommonsCollections
+  forkEvery = 1
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
 }
 
 assemble {
