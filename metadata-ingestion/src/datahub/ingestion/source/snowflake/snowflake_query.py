@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
-# Snowflake rejects query text beyond ~1 MB. The composed allow/deny filter is the
-# dominant variable-length part of the object-listing queries.
+# Conservative ceiling for the composed allow/deny filter — the dominant
+# variable-length part of the object-listing queries. Snowflake documents a 1 MB
+# max statement size
+# (https://docs.snowflake.com/en/sql-reference/limits#general-limits), but empirically
+# it accepts far larger text (10 MB+ when tested in 2026-06), so this is not a hard
+# limit we're hugging — it's a deliberately low threshold past which we stop pushing
+# down and filter client-side, which at that scale is typically faster anyway (see
+# get_tables_for_schema). Decimal 1e6 (< 2^20) keeps headroom for the query
+# scaffolding the filter is embedded in.
 SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
 
 
@@ -94,23 +101,26 @@ def _compose_deny(
     """
     kept: List[str] = []
     skipped = 0
-
-    def _clause(wrapped: List[str]) -> Optional[str]:
-        if not wrapped:
-            return None
-        alternation = _escape_sql_string_literal("|".join(wrapped))
-        return f"{col_expr} NOT RLIKE '{alternation}'"
+    # Track the composed clause's byte size incrementally instead of re-joining and
+    # re-escaping the whole list each iteration (which would be O(n^2)). Escaping is
+    # a per-character expansion and '|' never expands, so the escaped alternation's
+    # length is exactly the sum of each pattern's escaped length plus one byte per
+    # '|' separator. clause_bytes starts at the fixed wrapper "<col> NOT RLIKE ''".
+    clause_bytes = len(f"{col_expr} NOT RLIKE ''".encode())
 
     for p in deny_patterns:
         wrapped = _make_composable(p.upper() if ignore_case else p)
         if wrapped is None:
             skipped += 1  # unparsable — handled client-side
             continue
-        candidate = _clause([*kept, wrapped])
-        if candidate is not None and len(candidate.encode()) > deny_budget:
+        added_bytes = len(_escape_sql_string_literal(wrapped).encode()) + (
+            1 if kept else 0  # '|' separator before all but the first pattern
+        )
+        if clause_bytes + added_bytes > deny_budget:
             skipped += 1  # past the byte budget — handled client-side
-        else:
-            kept.append(wrapped)
+            continue
+        kept.append(wrapped)
+        clause_bytes += added_bytes
 
     if skipped:
         logger.debug(
@@ -120,7 +130,10 @@ def _compose_deny(
             len(deny_patterns),
             deny_budget,
         )
-    return _clause(kept)
+    if not kept:
+        return None
+    alternation = _escape_sql_string_literal("|".join(kept))
+    return f"{col_expr} NOT RLIKE '{alternation}'"
 
 
 def create_deny_regex_sql_filter(
