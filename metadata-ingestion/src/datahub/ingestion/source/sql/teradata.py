@@ -22,6 +22,7 @@ from typing import (
     FrozenSet,
     Iterable,
     List,
+    Literal,
     MutableMapping,
     Optional,
     Set,
@@ -1429,12 +1430,17 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
 
+# The label flows into lineage_query_timings report keys, so it is constrained
+# to the known set to keep a typo from silently drifting into report output.
+LineageQueryLabel = Literal["current_only", "historical_union"]
+
+
 @dataclass
 class LineageQuery:
     """A SQL query together with a short human-readable label used for timing reports."""
 
     sql: str
-    label: str
+    label: LineageQueryLabel
 
 
 @platform_name("Teradata")
