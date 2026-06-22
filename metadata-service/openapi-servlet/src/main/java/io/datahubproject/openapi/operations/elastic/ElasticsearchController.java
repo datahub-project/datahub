@@ -164,7 +164,7 @@ public class ElasticsearchController {
     String nodeIdToQuery = task.split(":")[0];
     long taskIdToQuery = Long.parseLong(task.split(":")[1]);
     java.util.Optional<GetTaskResponse> res =
-        systemMetadataService.getTaskStatus(nodeIdToQuery, taskIdToQuery);
+        systemMetadataService.getTaskStatus(opContext, nodeIdToQuery, taskIdToQuery);
     if (res.isEmpty()) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(String.format("Could not get task status for %s:%d", nodeIdToQuery, taskIdToQuery));

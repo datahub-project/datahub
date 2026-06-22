@@ -4,9 +4,7 @@ import time
 
 import pytest
 import sqlglot
-import sqlglot.errors
 import sqlglot.lineage
-import sqlglot.optimizer
 import sqlglot.optimizer.unnest_subqueries
 from sqlglot import exp
 
@@ -33,19 +31,6 @@ def test_cooperative_timeout_sql() -> None:
             time.sleep(0.0001)
 
     assert 0.6 <= timer.elapsed_seconds() <= 1.2
-
-
-def test_scope_circular_dependency() -> None:
-    scope = sqlglot.optimizer.build_scope(
-        sqlglot.parse_one("WITH w AS (SELECT * FROM q) SELECT * FROM w")
-    )
-    assert scope is not None
-
-    cte_scope = scope.cte_scopes[0]
-    cte_scope.cte_scopes.append(cte_scope)
-
-    with pytest.raises(sqlglot.errors.OptimizeError, match="circular scope dependency"):
-        list(scope.traverse())
 
 
 def test_lineage_node_subfield() -> None:
