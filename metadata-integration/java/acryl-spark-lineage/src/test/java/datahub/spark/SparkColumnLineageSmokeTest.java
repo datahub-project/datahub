@@ -1,9 +1,9 @@
 package datahub.spark;
 
+import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.Map;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
@@ -22,7 +22,7 @@ public class SparkColumnLineageSmokeTest extends SparkSmokeTestBase {
 
     EmittedMetadata md =
         runJob(
-            Map.of("spark.datahub.metadata.dataset.captureColumnLevelLineage", "true"),
+            listener().emitToFile(tmp.resolve("mcps.json")).captureColumnLevelLineage(true),
             spark -> {
               Dataset<Row> df = spark.read().option("header", "true").csv(in.toString());
               df.selectExpr("a as x", "b as y")

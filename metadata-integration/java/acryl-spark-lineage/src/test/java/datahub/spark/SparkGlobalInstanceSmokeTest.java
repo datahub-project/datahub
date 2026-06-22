@@ -1,9 +1,9 @@
 package datahub.spark;
 
+import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -38,7 +38,7 @@ public class SparkGlobalInstanceSmokeTest extends SparkSmokeTestBase {
   public void stampsGlobalInstanceWhenNoConnectionMapping(@TempDir Path tmp) throws Exception {
     EmittedMetadata md =
         runJob(
-            Map.of("spark.datahub.metadata.dataset.platformInstance", "prod_a"),
+            listener().emitToFile(tmp.resolve("mcps.json")).platformInstance("prod_a"),
             spark -> jdbcReadToCsv(spark, pg, "orders", tmp.resolve("out")));
 
     assertTrue(

@@ -1,10 +1,9 @@
 package datahub.spark;
 
+import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
@@ -47,13 +46,12 @@ public class SparkMultiConnectionSmokeTest extends SparkSmokeTestBase {
 
   @Test
   public void eachConnectionResolvesOwnInstance(@TempDir Path tmp) throws Exception {
-    Map<String, String> conf = new LinkedHashMap<>();
-    conf.putAll(connectionConf(pgA, "warehouse_a"));
-    conf.putAll(connectionConf(pgB, "warehouse_b"));
-
     EmittedMetadata md =
         runJob(
-            conf,
+            listener()
+                .emitToFile(tmp.resolve("mcps.json"))
+                .connection(pgNamespace(pgA), "warehouse_a", "PROD")
+                .connection(pgNamespace(pgB), "warehouse_b", "PROD"),
             spark -> {
               Dataset<Row> a = spark.read().jdbc(pgA.getJdbcUrl(), "orders", jdbcProps(pgA));
               Dataset<Row> b = spark.read().jdbc(pgB.getJdbcUrl(), "customers", jdbcProps(pgB));

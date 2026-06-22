@@ -1,5 +1,6 @@
 package datahub.spark;
 
+import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -37,7 +38,9 @@ public class SparkConnectionInstanceSmokeTest extends SparkSmokeTestBase {
   public void stampsConnectionInstanceOnJdbcUpstream(@TempDir Path tmp) throws Exception {
     EmittedMetadata md =
         runJob(
-            connectionConf(pg, "warehouse_a"),
+            listener()
+                .emitToFile(tmp.resolve("mcps.json"))
+                .connection(pgNamespace(pg), "warehouse_a", "PROD"),
             spark -> jdbcReadToCsv(spark, pg, "orders", tmp.resolve("out")));
 
     assertTrue(

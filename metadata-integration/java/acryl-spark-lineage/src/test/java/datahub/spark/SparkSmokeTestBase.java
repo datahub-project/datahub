@@ -8,9 +8,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.apache.spark.sql.SaveMode;
@@ -34,21 +32,34 @@ abstract class SparkSmokeTestBase {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   /**
-   * Builds a real local SparkSession with the listener + file emitter, runs the job, parses MCPs.
+   * Builds a real local SparkSession with the listener, runs the job, parses MCPs from the file the
+   * test declared via {@link ListenerConf#emitToFile}.
+   *
+   * <p>The effective DataHub listener configuration is printed before the job runs (see {@link
+   * ListenerConf#describe}), so the test output shows exactly which knobs were on/off and how they
+   * were set. Spark-harness settings (master, listener attachment) are added here; everything under
+   * {@code spark.datahub.*} comes from the {@link ListenerConf} the test passes.
    */
-  protected EmittedMetadata runJob(Map<String, String> extraConf, Consumer<SparkSession> job)
-      throws Exception {
-    Path mcpFile = Files.createTempFile("spark-mcps", ".json");
+  protected EmittedMetadata runJob(ListenerConf conf, Consumer<SparkSession> job) throws Exception {
+    if (conf.emitFile() == null) {
+      throw new IllegalStateException(
+          "Test must declare an emitter, e.g. listener().emitToFile(tmp.resolve(\"mcps.json\"))");
+    }
+    System.out.println("\n" + conf.describe());
+
     SparkSession.Builder builder =
         SparkSession.builder()
             .appName("listener-smoke")
             .master("local[1]")
             .config("spark.ui.enabled", "false")
+            // Bind to loopback so stray hosts on the LAN can't connect to Spark's internal ports
+            // (an external connection to the 0.0.0.0-bound block manager surfaces as "Too large
+            // frame" and aborts SparkContext init).
+            .config("spark.driver.bindAddress", "127.0.0.1")
+            .config("spark.driver.host", "127.0.0.1")
             .config("spark.sql.shuffle.partitions", "1")
-            .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
-            .config("spark.datahub.emitter", "file")
-            .config("spark.datahub.file.filename", mcpFile.toString());
-    extraConf.forEach(builder::config);
+            .config("spark.extraListeners", "datahub.spark.DatahubSparkListener");
+    conf.toSparkConf().forEach(builder::config);
 
     SparkSession spark = builder.getOrCreate();
     try {
@@ -58,7 +69,7 @@ abstract class SparkSmokeTestBase {
       SparkSession.clearActiveSession();
       SparkSession.clearDefaultSession();
     }
-    return EmittedMetadata.parse(new String(Files.readAllBytes(mcpFile)));
+    return EmittedMetadata.parse(new String(Files.readAllBytes(conf.emitFile())));
   }
 
   protected static void jdbcReadToCsv(
@@ -80,16 +91,14 @@ abstract class SparkSmokeTestBase {
   }
 
   /**
-   * The {@code connections} entries keyed by the OpenLineage namespace for this Postgres source.
+   * The OpenLineage namespace DataHub derives for this Postgres source ({@code
+   * postgres://host:port}) — use it as the key in {@link ListenerConf#connection}.
    */
-  protected static Map<String, String> connectionConf(PostgreSQLContainer<?> pg, String instance) {
-    String key =
-        "postgres://" + pg.getHost() + ":" + pg.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT);
-    Map<String, String> conf = new LinkedHashMap<>();
-    conf.put(
-        "spark.datahub.metadata.dataset.connections.\"" + key + "\".platformInstance", instance);
-    conf.put("spark.datahub.metadata.dataset.connections.\"" + key + "\".env", "PROD");
-    return conf;
+  protected static String pgNamespace(PostgreSQLContainer<?> pg) {
+    return "postgres://"
+        + pg.getHost()
+        + ":"
+        + pg.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT);
   }
 
   protected static void seed(PostgreSQLContainer<?> pg, String... statements) throws Exception {
