@@ -13,6 +13,7 @@ import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
+import documentdbLogo from '@images/documentdblogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -86,6 +87,8 @@ const DAGSTER = 'dagster';
 const DAGSTER_URN = `urn:li:dataPlatform:${DAGSTER}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
+const DOCUMENTDB = 'documentdb';
+const DOCUMENTDB_URN = `urn:li:dataPlatform:${DOCUMENTDB}`;
 const DREMIO = 'dremio';
 const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
 const DRUID = 'druid';
@@ -231,6 +234,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DAGSTER_URN]: dagsterLogo,
     [DBT_URN]: dbtLogo,
     [DLT_URN]: dltLogo,
+    [DOCUMENTDB_URN]: documentdbLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,

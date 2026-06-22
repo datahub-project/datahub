@@ -66,7 +66,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         padding: 2px;
 
         :hover {
-            color: ${(p) => p.theme.styles['primary-color']};
+            color: ${(p) => p.theme.colors.textBrand};
         }
     }
 `;

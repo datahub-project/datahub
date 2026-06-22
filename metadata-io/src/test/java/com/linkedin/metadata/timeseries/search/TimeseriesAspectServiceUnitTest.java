@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.search;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static org.mockito.Mockito.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -103,7 +104,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testGetIndicesIntegerWrap() throws IOException {
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
     ObjectNode jsonNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indicesNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indexNode = JsonNodeFactory.instance.objectNode();
@@ -133,7 +135,7 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Search failed"));
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("Search failed"));
 
     Filter filter = QueryUtils.newFilter("field", "value");
 
@@ -164,7 +166,8 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Scroll search failed"));
+    when(searchClient.search(any(), any(), any()))
+        .thenThrow(new IOException("Scroll search failed"));
 
     Filter filter = QueryUtils.newFilter("field", "value");
     List<SortCriterion> sortCriteria =
@@ -217,7 +220,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -261,7 +264,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -290,7 +293,8 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Setup mock to throw IOException when reading JSON response
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
 
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
@@ -325,7 +329,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -378,7 +382,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute with count = 2 (same as number of hits)
     TimeseriesScrollResult result =
@@ -435,7 +439,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute with count = 10 but only 1 result returned
     TimeseriesScrollResult result =
@@ -471,7 +475,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -525,7 +529,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -567,7 +571,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -739,7 +743,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -803,7 +807,9 @@ public class TimeseriesAspectServiceUnitTest {
     SearchResponse mockResponse2 = mock(SearchResponse.class);
     when(mockResponse2.getHits()).thenReturn(mockHits2);
 
-    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+    when(searchClient.search(any(), any(), any()))
+        .thenReturn(mockResponse1)
+        .thenReturn(mockResponse2);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
@@ -839,7 +845,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -862,7 +868,7 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Mock search to throw IOException
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Search failed"));
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("Search failed"));
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -945,7 +951,9 @@ public class TimeseriesAspectServiceUnitTest {
     SearchResponse mockResponse2 = mock(SearchResponse.class);
     when(mockResponse2.getHits()).thenReturn(mockHits2);
 
-    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+    when(searchClient.search(any(), any(), any()))
+        .thenReturn(mockResponse1)
+        .thenReturn(mockResponse2);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString1, new HashSet<>(Arrays.asList(aspectName)));
@@ -982,7 +990,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     Assert.assertNotNull(result);
     Assert.assertTrue(result.isEmpty());
-    verify(searchClient, never()).search(any(), any());
+    verify(searchClient, never()).search(any(), any(), any());
   }
 
   @Test
@@ -1000,7 +1008,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse emptyResponse = mock(SearchResponse.class);
     when(emptyResponse.getHits()).thenReturn(emptyHits);
-    when(searchClient.search(any(), any())).thenReturn(emptyResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(emptyResponse);
 
     Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
     Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
@@ -1008,7 +1016,7 @@ public class TimeseriesAspectServiceUnitTest {
             opContext, urns, "dataset", "datasetProfile", null, null, 200, null, null);
 
     // The fallback issues one search per URN (here just one URN).
-    verify(searchClient, times(1)).search(any(), any());
+    verify(searchClient, times(1)).search(any(), any(), any());
     Assert.assertNotNull(result.get(urn));
     Assert.assertTrue(result.get(urn).isEmpty());
   }
@@ -1021,7 +1029,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
-    when(searchClient.search(any(), any())).thenThrow(new IOException("ES unavailable"));
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("ES unavailable"));
 
     Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
     Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
@@ -1072,7 +1080,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Set<Urn> urns = new HashSet<>(Arrays.asList(urn, urn2));
     Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
@@ -1104,7 +1112,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
     Set<String> aspectNames = new HashSet<>(Collections.singletonList(aspectName));
@@ -1114,7 +1122,7 @@ public class TimeseriesAspectServiceUnitTest {
             opContext, urns, aspectNames, null);
 
     // Exactly one aggregation search issued (batch path, not fan-out).
-    verify(searchClient, times(1)).search(any(), any());
+    verify(searchClient, times(1)).search(any(), any(), any());
     Assert.assertNotNull(result);
   }
 
@@ -1133,7 +1141,7 @@ public class TimeseriesAspectServiceUnitTest {
     _timeseriesAspectService.upsertDocument(opContext, entityName, aspectName, docId, document);
 
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(bulkProcessor).add(eq(docId), captor.capture());
+    verify(bulkProcessor).add(any(OperationContext.class), eq(docId), captor.capture());
     Assert.assertEquals(captor.getValue().id(), docId);
   }
 }
