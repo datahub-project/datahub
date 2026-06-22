@@ -5,8 +5,11 @@ These tests focus on performance optimizations, memory management,
 and efficiency improvements in the Teradata source.
 """
 
+from collections import defaultdict
 from datetime import datetime
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -17,6 +20,14 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Reset TeradataSource class-level caches before each test to prevent
+    cross-test state leakage."""
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config():
@@ -246,9 +257,7 @@ class TestMemoryOptimizations:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -407,8 +416,12 @@ class TestPerformanceReporting:
             ]
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_result = MagicMock()
+                mock_result.fetchmany.side_effect = [mock_entries, []]
+                mock_conn.execute.return_value = mock_result
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = mock_entries
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 source.cache_tables_and_views()
@@ -458,10 +471,11 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify report lock exists
-            assert hasattr(source, "_report_lock")
-            # Check that it's a lock object by checking its type name
-            assert source._report_lock.__class__.__name__ == "lock"
+            # Verify the public atomic() context manager is available and
+            # backed by a real lock (not a MagicMock).
+            assert hasattr(source.report, "atomic")
+            assert hasattr(source.report, "_lock")
+            assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
@@ -525,8 +539,7 @@ class TestQueryOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Test TABLES_AND_VIEWS_QUERY structure
-            query = source.TABLES_AND_VIEWS_QUERY
+            query = source._build_tables_and_views_query()
 
             # Should exclude system databases efficiently
             assert "NOT IN" in query
@@ -534,6 +547,40 @@ class TestQueryOptimizations:
 
             # Should only select necessary table types
             assert "t.TableKind in ('T', 'V', 'Q', 'O')" in query
+
+            # No allowlist clause when config.databases is not set
+            assert "AND DataBaseName IN" not in query
+
+    def test_tables_query_database_filter(self):
+        """When config.databases is set, the query must include an IN clause to avoid
+        loading the entire Teradata installation into memory (primary OOM driver)."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "databases": ["DB_A", "DB_B", "DB_C"]}
+        )
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        query = source._build_tables_and_views_query()
+
+        # (NOT CASESPECIFIC) on both sides keeps the IN-list matching even on
+        # installations whose session default is CASESPECIFIC.
+        assert (
+            "AND DataBaseName (NOT CASESPECIFIC) IN ("
+            "'DB_A' (NOT CASESPECIFIC),"
+            "'DB_B' (NOT CASESPECIFIC),"
+            "'DB_C' (NOT CASESPECIFIC))"
+        ) in query
+        # System database exclusion still present
+        assert "NOT IN" in query
 
     def test_usexviews_optimization(self):
         """Test that usexviews configuration optimizes queries."""

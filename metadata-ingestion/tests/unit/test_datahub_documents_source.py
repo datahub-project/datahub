@@ -3,7 +3,7 @@
 import hashlib
 import json
 import sys
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -18,7 +18,15 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
     DataHubDocumentsSource,
 )
+from datahub.ingestion.source.datahub_documents.document_chunking_state import (
+    DocumentChunkingCheckpointState,
+)
+from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
+    DocumentChunkingStatefulIngestionConfig,
+    DocumentChunkingStateHandler,
+)
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
@@ -668,6 +676,31 @@ class TestStateStorage:
         )
         return mock
 
+    @staticmethod
+    def _make_state_handler(
+        *,
+        stateful_ingestion: DocumentChunkingStatefulIngestionConfig,
+        is_configured: bool = True,
+        last_checkpoint: Optional[Checkpoint] = None,
+        current_checkpoint: Optional[Checkpoint] = None,
+    ) -> DocumentChunkingStateHandler:
+        state_provider = Mock()
+        state_provider.is_stateful_ingestion_configured.return_value = is_configured
+        state_provider.get_last_checkpoint.return_value = last_checkpoint
+        state_provider.get_current_checkpoint.return_value = current_checkpoint
+
+        source = Mock()
+        source.state_provider = state_provider
+        source_config = Mock()
+        source_config.stateful_ingestion = stateful_ingestion
+
+        return DocumentChunkingStateHandler(
+            source=source,
+            config=source_config,
+            pipeline_name="test-pipeline",
+            run_id="current-run",
+        )
+
     def test_batch_mode_stores_document_hashes(self, ctx, config, mock_graph):
         """Test that batch mode stores document hashes in state."""
         with mock_graph:
@@ -842,6 +875,140 @@ class TestStateStorage:
 
             assert doc_hash == "hash1"
             assert event_offset == "offset-123"
+
+    def test_new_checkpoint_starts_from_previous_state(self):
+        """Skipped documents must keep their hashes in the next committed checkpoint."""
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={
+                "urn:li:document:1": {
+                    "content_hash": "hash1",
+                    "last_processed": "2026-06-16T00:00:00",
+                }
+            },
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        last_checkpoint = Checkpoint(
+            job_name="document_chunking",
+            pipeline_name="test-pipeline",
+            run_id="previous-run",
+            state=previous_state,
+        )
+
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            last_checkpoint=last_checkpoint,
+        )
+
+        checkpoint = handler.create_checkpoint()
+
+        assert checkpoint is not None
+        assert checkpoint.state.document_state == previous_state.document_state
+        assert checkpoint.state.event_offsets == previous_state.event_offsets
+
+        checkpoint.state.document_state["urn:li:document:1"]["content_hash"] = "changed"
+        assert (
+            previous_state.document_state["urn:li:document:1"]["content_hash"]
+            == "hash1"
+        )
+
+    def test_new_checkpoint_without_previous_state_starts_empty(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True)
+        )
+
+        checkpoint = handler.create_checkpoint()
+
+        assert checkpoint is not None
+        assert checkpoint.state.document_state == {}
+        assert checkpoint.state.event_offsets == {}
+
+    def test_new_checkpoint_returns_none_when_disabled(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            is_configured=False,
+        )
+
+        assert handler.create_checkpoint() is None
+
+    def test_new_checkpoint_returns_none_when_ignoring_new_state(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                enabled=True,
+                ignore_new_state=True,
+            )
+        )
+
+        assert handler.create_checkpoint() is None
+
+    def test_state_handler_reads_and_updates_checkpoint_state(self):
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={
+                "urn:li:document:1": {
+                    "content_hash": "hash1",
+                    "last_processed": "2026-06-16T00:00:00",
+                }
+            },
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        current_state = DocumentChunkingCheckpointState()
+
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            last_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="previous-run",
+                state=previous_state,
+            ),
+            current_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="current-run",
+                state=current_state,
+            ),
+        )
+
+        assert handler.get_last_state() == previous_state
+        assert handler.get_document_hash("urn:li:document:1") == "hash1"
+        assert handler.get_document_hash("urn:li:document:missing") is None
+        assert (
+            handler.get_event_offset("MetadataChangeLog_Versioned_v1") == "offset-123"
+        )
+
+        handler.update_document_state(
+            "urn:li:document:2", "hash2", "2026-06-16T01:00:00"
+        )
+        handler.update_event_offset("MetadataChangeLog_Versioned_v2", "offset-456")
+
+        assert current_state.document_state["urn:li:document:2"] == {
+            "content_hash": "hash2",
+            "last_processed": "2026-06-16T01:00:00",
+        }
+        assert current_state.event_offsets["MetadataChangeLog_Versioned_v2"] == (
+            "offset-456"
+        )
+
+    def test_state_handler_can_ignore_old_state(self):
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={"urn:li:document:1": {"content_hash": "hash1"}},
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                enabled=True,
+                ignore_old_state=True,
+            ),
+            last_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="previous-run",
+                state=previous_state,
+            ),
+        )
+
+        assert handler.get_last_state() is None
+        assert handler.get_document_hash("urn:li:document:1") is None
+        assert handler.get_event_offset("MetadataChangeLog_Versioned_v1") is None
 
     def test_fallback_preserves_existing_offsets(self, ctx, config, mock_graph):
         """Test that fallback to batch mode preserves existing event offsets."""
@@ -1658,6 +1825,242 @@ class TestConfigFingerprintInHash:
                 # Should only return notion document (confluence filtered out)
                 assert len(documents) == 1
                 assert documents[0]["urn"] == "urn:li:document:notion1"
+
+
+class TestPartialEntityHandling:
+    """Test defensive handling of partial entities with null info/contents fields.
+
+    GraphQL returns null (Python None) for missing aspects, not absent keys.
+    dict.get("key", {}) returns None when key exists with value None, so we
+    must use `or {}` to handle both missing and null cases.
+    """
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        """Create test context."""
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        """Create mock DataHubGraph."""
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def test_fetch_documents_skips_entity_with_null_info(self, ctx, config, mock_graph):
+        """Test that entities with info: null are gracefully skipped."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_response = {
+                "search": {
+                    "searchResults": [
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:partial1",
+                                "info": None,
+                            }
+                        },
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:complete1",
+                                "info": {
+                                    "source": {"sourceType": "NATIVE"},
+                                    "contents": {
+                                        "text": "This is a complete document with enough content."
+                                    },
+                                },
+                            }
+                        },
+                    ]
+                }
+            }
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=mock_response
+            ):
+                documents = source._fetch_documents_graphql()
+
+                assert len(documents) == 1
+                assert documents[0]["urn"] == "urn:li:document:complete1"
+
+    def test_fetch_documents_skips_entity_with_null_contents(
+        self, ctx, config, mock_graph
+    ):
+        """Test that entities with contents: null inside info are gracefully skipped."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_response = {
+                "search": {
+                    "searchResults": [
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:no_contents",
+                                "info": {
+                                    "source": {"sourceType": "NATIVE"},
+                                    "contents": None,
+                                },
+                            }
+                        },
+                    ]
+                }
+            }
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=mock_response
+            ):
+                documents = source._fetch_documents_graphql()
+
+                assert len(documents) == 0
+
+    def test_fetch_documents_skips_entity_with_null_search(
+        self, ctx, config, mock_graph
+    ):
+        """Test that a null search response is handled gracefully."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_response: dict[str, Any] = {"search": None}
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=mock_response
+            ):
+                documents = source._fetch_documents_graphql()
+
+                assert len(documents) == 0
+
+    def test_should_process_by_source_type_with_null_source(
+        self, ctx, config, mock_graph
+    ):
+        """Test _should_process_by_source_type when source field is null."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            entity: dict[str, Any] = {"urn": "urn:li:document:test"}
+            info: dict[str, Any] = {"source": None, "contents": {"text": "some text"}}
+
+            should_process = source._should_process_by_source_type(entity, info)
+            # source=None → sourceType defaults to NATIVE → should process
+            assert should_process is True
+
+    def test_extract_platform_from_entity_with_null_platform_instance(
+        self, ctx, config, mock_graph
+    ):
+        """Test _extract_platform_from_entity when dataPlatformInstance is null."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            entity: dict[str, Any] = {"dataPlatformInstance": None}
+            platform = source._extract_platform_from_entity(entity)
+            assert platform is None
+
+    def test_extract_platform_from_entity_with_null_platform(
+        self, ctx, config, mock_graph
+    ):
+        """Test _extract_platform_from_entity when platform inside dataPlatformInstance is null."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            entity: dict[str, Any] = {"dataPlatformInstance": {"platform": None}}
+            platform = source._extract_platform_from_entity(entity)
+            assert platform is None
+
+    def test_extract_platform_from_aspect_with_null_platform_instance(
+        self, ctx, config, mock_graph
+    ):
+        """Test _extract_platform_from_aspect when dataPlatformInstance is null."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            aspect_dict: dict[str, Any] = {"dataPlatformInstance": None}
+            platform = source._extract_platform_from_aspect(aspect_dict)
+            assert platform is None
+
+    def test_process_single_event_with_null_contents(self, ctx, config, mock_graph):
+        """Test _process_single_event when MCL aspect has contents: null."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:partial1",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": None}),
+            }
+
+            workunits = list(source._process_single_event(event))
+            assert len(workunits) == 0
+
+    def test_fetch_documents_mixed_null_and_valid(self, ctx, config, mock_graph):
+        """Test batch mode with a mix of null-info, null-contents, and valid entities."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_response = {
+                "search": {
+                    "searchResults": [
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:null_info",
+                                "info": None,
+                            }
+                        },
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:null_contents",
+                                "info": {
+                                    "source": {"sourceType": "NATIVE"},
+                                    "contents": None,
+                                },
+                            }
+                        },
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:empty_text",
+                                "info": {
+                                    "source": {"sourceType": "NATIVE"},
+                                    "contents": {"text": ""},
+                                },
+                            }
+                        },
+                        {
+                            "entity": {
+                                "urn": "urn:li:document:valid",
+                                "info": {
+                                    "source": {"sourceType": "NATIVE"},
+                                    "contents": {
+                                        "text": "This document has valid content that is long enough."
+                                    },
+                                },
+                            }
+                        },
+                    ]
+                }
+            }
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=mock_response
+            ):
+                documents = source._fetch_documents_graphql()
+
+                assert len(documents) == 1
+                assert documents[0]["urn"] == "urn:li:document:valid"
 
 
 class TestMaxDocumentsLimit:

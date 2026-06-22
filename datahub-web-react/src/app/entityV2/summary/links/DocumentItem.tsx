@@ -1,6 +1,7 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
@@ -15,7 +16,7 @@ const DocumentContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
     cursor: pointer;
@@ -44,8 +45,9 @@ type Props = {
 };
 
 export default function DocumentItem({ document, onClick }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const entityRegistry = useEntityRegistryV2();
-    const title = document.info?.title || 'Untitled Document';
+    const title = document.info?.title || t('links.untitledDocument');
     const lastModified = document.info?.lastModified;
     const actor = lastModified?.actor;
 
@@ -77,11 +79,20 @@ export default function DocumentItem({ document, onClick }: Props) {
                 {lastModified?.time && (
                     <>
                         <Text color="gray" size="sm">
-                            Edited{' '}
-                            <Tooltip title={formatDateString(lastModified.time)}>
-                                <span>{toRelativeTimeString(lastModified.time) || 'recently'}</span>
-                            </Tooltip>
-                            {actor && ' by '}
+                            <Trans
+                                t={t}
+                                i18nKey={actor ? 'links.editedBy' : 'links.edited'}
+                                components={{
+                                    time: (
+                                        <Tooltip title={formatDateString(lastModified.time)}>
+                                            <span />
+                                        </Tooltip>
+                                    ),
+                                }}
+                                values={{
+                                    relativeTime: toRelativeTimeString(lastModified.time) || t('links.recently'),
+                                }}
+                            />
                         </Text>
                         {actor && <AvatarPillWithLinkAndHover user={actor} size="sm" entityRegistry={entityRegistry} />}
                     </>

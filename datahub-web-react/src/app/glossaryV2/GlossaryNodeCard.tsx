@@ -1,142 +1,60 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
-import { Tooltip, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
 
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { colors } from '@src/alchemy-components';
+import { Card, Tooltip } from '@src/alchemy-components';
 
 import { DisplayProperties } from '@types';
-
-interface GlossaryItemCardHeaderProps {
-    color: string;
-}
-
-// there may be a good constant for this but I couldn't find one --Gabe
-// feel free to replace this color at a later date
-// eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once disabled text color token is added
-const DISABLED_TEXT_COLOR = '#c5c6c9';
-
-const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
-    display: flex;
-    padding: 20px 20px 20px 30px;
-    justify-content: start;
-    border-radius: 12px 12px 0px 0px;
-    position: relative;
-    overflow: hidden;
-    gap: 5px;
-    background-color: ${(props) => props.color};
-
-    svg {
-        height: 22px;
-        width: 22px;
-        path {
-            fill: white;
-        }
-    }
-`;
-
-const GlossaryItemCardWrapper = styled.div`
-    padding: 12px;
-    border-radius: 13px;
-
-    &:hover {
-        transition: 0.15s;
-        background-color: ${colors.gray[100]};
-    }
-`;
-
-const GlossaryItemCard = styled.div`
-    display: flex;
-    flex-direction: column;
-    border-radius: 13px;
-    border: 1px solid ${REDESIGN_COLORS.LIGHT_GREY_BORDER};
-    background: ${ANTD_GRAY[1]};
-    transition: 0.15s;
-    height: 100%;
-    width: 100%;
-
-    &:hover {
-        transition: 0.15s;
-        border-color: ${(props) => props.theme.styles['primary-color']};
-    }
-
-    &:hover > ${GlossaryItemCardHeader} {
-        transition: 0.15s;
-        opacity: 0.9 !important;
-    }
-`;
 
 const GlossaryItemCount = styled.span<{ count: number }>`
     display: flex;
     align-items: center;
     gap: 5px;
     border-radius: 20px;
-    background: ${(props) => (props.count > 0 ? ANTD_GRAY_V2[14] : ANTD_GRAY_V2[14])};
-    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => (props.count > 0 ? props.theme.colors.textSecondary : props.theme.colors.textDisabled)};
     padding: 5px 10px;
     width: max-content;
     svg {
         height: 14px;
         width: 14px;
         path {
-            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+            fill: ${(props) => (props.count > 0 ? props.theme.colors.icon : props.theme.colors.iconDisabled)};
         }
     }
     border: 1px solid transparent;
     :hover {
-        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
+        border: 1px solid ${(props) => (props.count > 0 ? props.theme.colors.borderHover : 'transparent')};
     }
-`;
-
-const GlossaryItemBadge = styled.span`
-    position: absolute;
-    left: -35px;
-    top: 8px;
-    width: 100px;
-    transform: rotate(-45deg);
-    padding: 8px;
-    opacity: 1;
-    background-color: rgba(0, 0, 0, 0.17);
-`;
-
-const GlossaryItemCardDetails = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding: 13px 16px;
-    gap: 10px;
-`;
-
-const GlossaryCardHeader = styled(Typography)`
-    color: #f9fafc;
-    font-size: 16px;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-const GlossaryItemCardDescription = styled(Typography)`
-    color: ${REDESIGN_COLORS.SUB_TEXT};
-    font-size: 12px;
-    font-weight: 400;
-    margin-top: 1px;
-    width: 100%;
-    min-height: 30px;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
 `;
 
 const CountText = styled.span`
     font-size: 10px;
     font-weight: 400;
+`;
+
+const Icons = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+`;
+
+const CardDescription = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 `;
 
 interface Props {
@@ -149,65 +67,71 @@ interface Props {
     maxDepth?: number;
 }
 
-const Icons = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 5px;
-`;
-
 const MAX_DEPTH_QUERIED = 4;
 
 const GlossaryNodeCard = (props: Props) => {
+    const { t } = useTranslation('governance.glossary');
     const { name, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const glossaryColor = displayProperties?.colorHex || generateColor(urn);
+    const theme = useTheme();
 
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
 
     return (
-        <GlossaryItemCardWrapper>
-            <GlossaryItemCard>
-                <GlossaryItemCardHeader color={glossaryColor}>
-                    <BookmarksSimple style={{ flexShrink: 0 }} />
-                    <GlossaryCardHeader>{name}</GlossaryCardHeader>
-                    <GlossaryItemBadge />
-                </GlossaryItemCardHeader>
-                <GlossaryItemCardDetails>
-                    <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>
-                    <Icons>
-                        <Tooltip
-                            title={`Contains ${nodeCount} ${props.nodeCount === 1 ? 'term group' : 'term groups'}`}
-                            placement="top"
-                            showArrow={false}
-                        >
-                            <GlossaryItemCount count={nodeCount}>
-                                <BookmarksSimple />
-                                <CountText>
-                                    {' '}
-                                    {nodeCount}
-                                    {isExceedingMaxDepth && `+`}
-                                </CountText>
-                            </GlossaryItemCount>
-                        </Tooltip>
-                        <Tooltip
-                            title={`Contains ${termCount} ${props.termCount === 1 ? 'term' : 'terms'}`}
-                            placement="top"
-                            showArrow={false}
-                        >
-                            <GlossaryItemCount count={termCount}>
-                                <BookmarkSimple />
-                                <CountText>
-                                    {' '}
-                                    {termCount}
-                                    {isExceedingMaxDepth && `+`}
-                                </CountText>
-                            </GlossaryItemCount>
-                        </Tooltip>
-                    </Icons>
-                </GlossaryItemCardDetails>
-            </GlossaryItemCard>
-        </GlossaryItemCardWrapper>
+        <Card
+            title={name}
+            icon={<GlossaryColoredIcon color={glossaryColor} icon={BookmarksSimple} size={40} iconSize={22} />}
+            iconAlignment="horizontal"
+            onClick={() => {}}
+            style={{ overflow: 'hidden', width: '100%', height: '100%', minWidth: 0 }}
+        >
+            {description ? (
+                <Tooltip
+                    title={description}
+                    placement="top"
+                    showArrow={false}
+                    overlayStyle={{ maxWidth: 320, borderRadius: '12px' }}
+                    overlayInnerStyle={{
+                        color: theme.colors.textSecondary,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                    }}
+                >
+                    <CardDescription>{description}</CardDescription>
+                </Tooltip>
+            ) : (
+                /* eslint-disable i18next/no-literal-string -- (untranslated-text) placeholder dash, not translatable prose */
+                <CardDescription>--</CardDescription>
+                /* eslint-enable i18next/no-literal-string */
+            )}
+            <Icons>
+                <Tooltip
+                    title={t('card.nodeGroupCountTooltip', { count: nodeCount })}
+                    placement="top"
+                    showArrow={false}
+                >
+                    <GlossaryItemCount count={nodeCount}>
+                        <BookmarksSimple />
+                        <CountText>
+                            {' '}
+                            {nodeCount}
+                            {isExceedingMaxDepth && `+`}
+                        </CountText>
+                    </GlossaryItemCount>
+                </Tooltip>
+                <Tooltip title={t('card.termCountTooltip', { count: termCount })} placement="top" showArrow={false}>
+                    <GlossaryItemCount count={termCount}>
+                        <BookmarkSimple />
+                        <CountText>
+                            {' '}
+                            {termCount}
+                            {isExceedingMaxDepth && `+`}
+                        </CountText>
+                    </GlossaryItemCount>
+                </Tooltip>
+            </Icons>
+        </Card>
     );
 };
 

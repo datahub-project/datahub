@@ -1,6 +1,7 @@
 import { Button } from '@components';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -96,6 +97,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     onRemoveEntity,
     canEdit = true,
 }) => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
@@ -164,14 +166,14 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     return (
         <Section>
             <SectionHeader>
-                <SectionTitle>Related</SectionTitle>
+                <SectionTitle>{t('document.relatedTitle')}</SectionTitle>
                 {canEdit && (
                     <AddRelatedEntityDropdown
                         entityTypes={allowedEntityTypes}
                         existingUrns={existingUrns}
                         documentUrn={documentUrn}
                         onConfirm={handleConfirmAdd}
-                        placeholder="Find related assets and context..."
+                        placeholder={t('document.findRelatedPlaceholder')}
                         defaultFilters={defaultFilters}
                         viewUrn={viewUrn}
                         initialSelectedUrns={Array.from(existingUrns)}
@@ -206,7 +208,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                                             e.stopPropagation();
                                             onRemoveEntity(entity.urn);
                                         }}
-                                        aria-label="Remove related entity"
+                                        aria-label={t('document.removeRelatedEntity')}
                                         data-testid={`remove-related-entity-${entity.urn.split(':').pop()}`}
                                     />
                                 )}
@@ -214,7 +216,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                         );
                     })
                 ) : (
-                    <EmptyState>Add related assets or context</EmptyState>
+                    <EmptyState>{t('document.addRelatedEmpty')}</EmptyState>
                 )}
             </List>
         </Section>

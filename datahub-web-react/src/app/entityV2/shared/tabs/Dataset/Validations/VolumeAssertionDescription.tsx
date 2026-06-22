@@ -29,6 +29,8 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
         ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
         : 'rows';
 
+    /* eslint-disable i18next/no-literal-string -- (untranslated-text) Sentence assembled from type/operator/parameter/unit fragments in
+       English word order; cannot be split for translation */
     return (
         <div>
             <Typography.Text>
@@ -36,4 +38,5 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
             </Typography.Text>
         </div>
     );
+    /* eslint-enable i18next/no-literal-string */
 };

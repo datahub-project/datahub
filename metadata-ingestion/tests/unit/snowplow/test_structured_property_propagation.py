@@ -169,6 +169,8 @@ class TestEventSpecProcessorStructuredProperties:
         """Create mock dependencies for event spec processor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -179,7 +181,9 @@ class TestEventSpecProcessorStructuredProperties:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()

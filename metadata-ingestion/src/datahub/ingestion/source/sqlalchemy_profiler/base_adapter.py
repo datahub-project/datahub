@@ -226,8 +226,14 @@ class PlatformAdapter(ABC):
         """
         Get platform-specific mean (AVG) expression.
 
-        Default implementation returns AVG(column).
-        Some platforms (e.g., Redshift) need to cast columns for full precision.
+        Default implementation returns `AVG(column * 1.0)`. The `* 1.0` forces
+        float promotion before AVG, which:
+          - prevents integer truncation on MSSQL (`AVG(int_col)` returns int there);
+          - prevents precision loss on MySQL/Doris (which return DECIMAL(N,4) for
+            AVG over integer columns without the cast).
+
+        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Redshift adapter
+        overrides this with an explicit CAST for full precision.
 
         Args:
             column: Column name
@@ -235,20 +241,7 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for AVG
         """
-        return sa.func.avg(sa.column(column))
-
-    def get_stdev_null_value(self) -> Optional[float]:
-        """
-        Get value to return for standard deviation when all values are NULL.
-
-        Different platforms have different behaviors:
-        - Most platforms: return None (NULL)
-        - Redshift: return 0.0 (to match GE behavior)
-
-        Returns:
-            Value to use for all-NULL columns (None or 0.0)
-        """
-        return None
+        return sa.func.avg(sa.column(column) * 1.0)
 
     # =========================================================================
     # Row Count Estimation
@@ -418,36 +411,37 @@ class PlatformAdapter(ABC):
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting.
-        For all-null columns, behavior is database-specific (handled by adapter).
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Standard deviation
+        Returns the raw database result to preserve native type formatting. We use
+        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
+        population stddev). When the dialect returns NULL we disambiguate the cause:
+          - exactly one non-null value: stddev is mathematically undefined → return None
+          - multiple rows but all-equal: zero variance → return 0.0
+          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
         """
-        query = sa.select([sa.func.stddev(sa.column(column))]).select_from(table)
+        # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
+        # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
+        # explicitly keeps semantics consistent across dialects.
+        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
-        # Some databases return NULL for STDDEV when there's only one row
-        # For a single value, standard deviation is mathematically undefined (None)
-        # For multiple values with no variation, stdev is 0.0
         if result is None:
-            # Check if there's at least one non-null value
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
-                # Single value: stdev is undefined, return None (matches GE behavior)
+                # Single value: stddev is mathematically undefined.
                 return None
-            elif non_null_count > 1:
-                # Multiple values but database returned NULL (all same value): stdev is 0.0
+            if non_null_count > 1:
+                # Multiple values, all equal: zero variance.
                 return 0.0
-            # No non-null values: use adapter to get platform-specific behavior
-            # (e.g., Redshift returns 0.0, PostgreSQL returns None)
+            # No non-null values: defer to adapter-specific behavior.
             return self.get_stdev_null_value()
-        # Return raw result to preserve database-native formatting (like GE does)
         return result
+
+    def get_stdev_null_value(self) -> Optional[Any]:
+        """
+        Value to return when stddev_samp returns NULL and the column has no
+        non-null values. Most dialects return None (matches GE for all-null
+        columns); Redshift returns 0.0 (it returns 0.0 from STDDEV on all-null).
+        """
+        return None
 
     def get_column_unique_count(
         self, table: sa.Table, column: str, conn: Connection, use_approx: bool = True
@@ -475,26 +469,50 @@ class PlatformAdapter(ABC):
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """
-        Get median value for a column (database-specific).
+        Get median value for a column.
 
-        Returns raw database result to preserve native type formatting.
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Median value, or None if not supported
+        Adapters that target platforms without a native MEDIAN function should
+        return None from `get_median_expr` to engage the Python OFFSET/LIMIT
+        fallback below (the GenericAdapter does so by default). The execution
+        of the native expression is also wrapped in `try/except SQLAlchemyError`
+        as a safety net: if an adapter optimistically returns an expression that
+        turns out to fail on a specific column type, we still produce a median
+        value via the fallback rather than emitting nothing.
         """
         expr = self.get_median_expr(column)
-        if expr is None:
-            return None
+        if expr is not None:
+            try:
+                query = sa.select([expr]).select_from(table)
+                # Return raw result to preserve database-native formatting.
+                return conn.execute(query).scalar()
+            except SQLAlchemyError as e:
+                logger.debug(
+                    f"Native MEDIAN expression failed for column {column}; "
+                    f"falling back to OFFSET/LIMIT in Python: {e}"
+                )
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute(query).scalar()
-        # Return raw result to preserve database-native formatting (like GE does)
-        return result
+        # Python-side fallback (mirrors GE's get_column_median for dialects
+        # without a native MEDIAN function: MySQL, Doris, etc.).
+        non_null_count = self.get_column_non_null_count(table, column, conn)
+        if non_null_count == 0:
+            return None
+        offset = max(non_null_count // 2 - 1, 0)
+        middle_query = (
+            sa.select([sa.column(column)])
+            .select_from(table)
+            .where(sa.column(column).is_not(None))
+            .order_by(sa.column(column))
+            .offset(offset)
+            .limit(2)
+        )
+        rows = [row[0] for row in conn.execute(middle_query).fetchall()]
+        if not rows:
+            return None
+        if non_null_count % 2 == 0 and len(rows) == 2:
+            # Even count: average the two center values.
+            return (float(rows[0]) + float(rows[1])) / 2.0
+        # Odd count: second row of the [offset, offset+1] window is the true center.
+        return rows[-1]
 
     def get_column_quantiles(
         self,
@@ -596,8 +614,16 @@ class PlatformAdapter(ABC):
         if min_val is None or max_val is None:
             return []
 
+        # Constant column: GE's expect_column_kl_divergence_to_be_less_than fails when
+        # min == max (zero variance), and the surrounding try/except in
+        # ge_data_profiler.py results in no histogram being emitted. Match that:
+        # emit nothing rather than a degenerate 10-bucket histogram where bucket 0
+        # holds all rows and buckets 1-9 are empty.
+        if max_val == min_val:
+            return []
+
         # Calculate bucket size
-        bucket_size = (max_val - min_val) / num_buckets if max_val != min_val else 1.0
+        bucket_size = (max_val - min_val) / num_buckets
 
         # Generate SQL to count values in each bucket using CASE WHEN
         buckets = []
@@ -696,25 +722,36 @@ class PlatformAdapter(ABC):
         conn: Connection,
     ) -> List[Tuple[Any, int]]:
         """
-        Get all distinct values with their counts (sorted by value).
+        Get all distinct non-null values with their counts, sorted by value in Python.
 
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            List of (value, count) tuples, sorted by value
+        Mirrors the GE profiler's `_get_dataset_column_distinct_value_frequencies`
+        query structure intentionally:
+          - `WHERE col IS NOT NULL` filters nulls and (importantly) changes
+            predicate pushdown for the Trino JDBC connector so the GROUP BY runs
+            Trino-side, where Trino's JSON type supports GROUP BY. Without this
+            clause Trino pushes the whole query down to PostgreSQL, which fails
+            on `GROUP BY <json column>` because Postgres `json` has no equality
+            operator.
+          - `COUNT(<col>)` instead of `COUNT(*)` matches GE's projection exactly.
+          - Sorting is done in Python after fetch because not all column types
+            (Trino/Athena JSON) are orderable in SQL.
         """
-        count_expr = sa.func.count().label("count")
+        count_expr = sa.func.count(sa.column(column)).label("count")
         query = (
             sa.select([sa.column(column), count_expr])
             .select_from(table)
+            .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
-            .order_by(sa.column(column))
         )
 
-        result = conn.execute(query).fetchall()
+        rows = [(row[0], int(row[1])) for row in conn.execute(query).fetchall()]
+        try:
+            rows.sort(key=lambda r: (r[0] is None, r[0]))
+        except TypeError:
+            # Mixed/uncomparable values (e.g., dict vs str from JSON columns) —
+            # fall back to a stringified key so the output is still deterministic.
+            rows.sort(key=lambda r: (r[0] is None, str(r[0])))
+        result = rows
         logger.debug(
             f"get_column_distinct_value_frequencies for {column}: got {len(result)} rows"
         )

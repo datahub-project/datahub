@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
@@ -21,8 +20,8 @@ const LoadingWrapper = styled.div`
     border-radius: 12px;
     padding: 20px;
     margin: 4px;
-    background-color: #ffffff;
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 /**
@@ -39,21 +38,21 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     const document = data?.document;
     const sourceType = document?.info?.source?.sourceType;
     const isExternal = sourceType === DocumentSourceType.External;
-    const isNative = sourceType === DocumentSourceType.Native || (document && !sourceType);
 
-    // Control sidebar visibility based on document type
-    // Sidebar is hidden by default (set in ContextRoutes)
-    // Show for native documents, hide for external documents
+    // Sidebar is hidden by default (set in ContextRoutes). Show it for any
+    // document (native or external) once the document has loaded — the tree
+    // surfaces both native + ingested-platform docs, so we want it visible
+    // regardless of source type.
     useEffect(() => {
         if (document && contextLayout?.setSidebarHidden) {
-            contextLayout.setSidebarHidden(!isNative);
+            contextLayout.setSidebarHidden(false);
         }
-    }, [document, isNative, contextLayout]);
+    }, [document, contextLayout]);
 
     if (loading || !document) {
         return (
             <LoadingWrapper>
-                <LoadingOutlined style={{ fontSize: 36, color: colors.gray[200] }} />
+                <LoadingOutlined style={{ fontSize: 36 }} />
             </LoadingWrapper>
         );
     }

@@ -2,6 +2,7 @@ import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
 import _ from 'lodash';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -87,6 +88,7 @@ const getCacheIncident = ({
 };
 
 export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+    const { t } = useTranslation('entity.profile.incident');
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
@@ -139,11 +141,10 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
     };
 
     const handleSubmissionError = (error: any) => {
-        const action = isAddIncidentMode ? 'raise' : 'update';
         handleGraphQLError({
             error,
-            defaultMessage: `Failed to ${action} incident!`,
-            permissionMessage: `Unauthorized to ${action} incident.`,
+            defaultMessage: isAddIncidentMode ? t('toast.raiseFailed') : t('toast.updateFailed'),
+            permissionMessage: isAddIncidentMode ? t('toast.raiseUnauthorized') : t('toast.updateUnauthorized'),
         });
     };
 
@@ -168,7 +169,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
             if (isAddIncidentMode) {
                 const responseData: any = await handleAddIncident(input);
                 if (responseData) {
-                    showMessage('Incident Added');
+                    showMessage(t('toast.incidentAdded'));
                 }
                 const newIncident = getCacheIncident({
                     values: {
@@ -199,7 +200,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 });
             } else if (incidentUrn) {
                 await handleUpdateIncident(input, incidentUrn);
-                showMessage('Incident Updated');
+                showMessage(t('toast.incidentUpdated'));
             }
 
             finalizeSubmission();

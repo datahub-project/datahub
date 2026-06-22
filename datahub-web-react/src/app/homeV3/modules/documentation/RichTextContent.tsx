@@ -1,6 +1,6 @@
-import { colors } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -13,9 +13,11 @@ import { UploadDownloadScenario } from '@types';
 const EditorContainer = styled.div`
     height: 300px;
     overflow: auto;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
 `;
+
+const CONTENT_FIELD_NAME = 'content';
 
 type Props = {
     content: string | undefined;
@@ -23,6 +25,7 @@ type Props = {
 };
 
 const RichTextContent = ({ content, form }: Props) => {
+    const { t } = useTranslation('modules');
     const { urn: assetUrn } = useEntityData();
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -36,10 +39,10 @@ const RichTextContent = ({ content, form }: Props) => {
                 <EditorContainer>
                     <Editor
                         content={content}
-                        placeholder="Write some text here..."
+                        placeholder={t('documentation.contentPlaceholder')}
                         hideBorder
                         dataTestId="rich-text-documentation"
-                        onChange={(newContent) => form.setFieldValue('content', newContent)}
+                        onChange={(newContent) => form.setFieldValue(CONTENT_FIELD_NAME, newContent)}
                         uploadFileProps={
                             assetUrn // only support file upload on profile pages for now due to permissions
                                 ? {

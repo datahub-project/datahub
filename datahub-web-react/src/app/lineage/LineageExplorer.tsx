@@ -1,11 +1,11 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Drawer } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import LineageLoadingSection from '@app/lineage/LineageLoadingSection';
 import LineageViz from '@app/lineage/LineageViz';
@@ -34,7 +34,7 @@ const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
     z-index: 1;
     height: calc(100vh - ${(props) => props.distanceFromTop}px);
     .ant-drawer-content-wrapper {
-        border-right: 1px solid ${ANTD_GRAY[4.5]};
+        border-right: 1px solid ${(props) => props.theme.colors.border};
         box-shadow: none !important;
     }
 `;
@@ -55,6 +55,8 @@ type Props = {
 };
 
 export default function LineageExplorer({ urn, type }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
     const previousUrn = usePrevious(urn);
     const history = useHistory();
     const [fineGrainedMap] = useState<any>({ forward: {}, reverse: {} });
@@ -225,13 +227,13 @@ export default function LineageExplorer({ urn, type }: Props) {
                     selectedEntity && (
                         <FooterButtonGroup>
                             <Button onClick={handleClose} type="text">
-                                Close
+                                {tcAction('close')}
                             </Button>
                             {selectedEntity.type !== EntityType.Restricted && (
                                 <Button
                                     href={`${entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}`}
                                 >
-                                    <InfoCircleOutlined /> View details
+                                    <InfoCircleOutlined /> {t('explorer.viewDetails')}
                                 </Button>
                             )}
                         </FooterButtonGroup>

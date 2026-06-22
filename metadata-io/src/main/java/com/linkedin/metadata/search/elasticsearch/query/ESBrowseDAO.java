@@ -149,6 +149,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequest(
                           finalOpContext, entityName, indexName, path, requestMap),
                       RequestOptions.DEFAULT);
@@ -175,6 +176,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructEntitiesSearchRequest(
                           finalOpContext,
                           entityName,
@@ -448,7 +450,8 @@ public class ESBrowseDAO {
         new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
     final SearchHit[] searchHits;
     try {
-      searchHits = client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
+      searchHits =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT).getHits().getHits();
     } catch (Exception e) {
       log.error("Get paths from urn query failed: " + e.getMessage());
       throw new ESQueryException("Get paths from urn query failed: ", e);
@@ -487,6 +490,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequestV2(
                           finalOpContext, entityName, path, filter, input.isEmpty() ? "*" : input),
                       RequestOptions.DEFAULT);
@@ -536,6 +540,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequestBrowseAcrossEntities(
                           finalOpContext, entities, path, filter, input.isEmpty() ? "*" : input),
                       RequestOptions.DEFAULT);

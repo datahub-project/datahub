@@ -174,7 +174,7 @@ sink:
    ├─ Chunk elements → semantic chunks
    │   ├─ by_title: Preserves document structure
    │   └─ basic: Fixed-size chunks with overlap
-   ├─ Generate embeddings via LiteLLM
+   ├─ Generate embeddings
    │   └─ Batches of 25 (configurable)
    └─ Emit SemanticContent aspect → DataHub
 

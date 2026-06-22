@@ -2,7 +2,7 @@
 
 Apache NiFi is a streaming or integration platform. Learn more in the [official Apache NiFi documentation](https://nifi.apache.org/).
 
-The DataHub integration for Apache NiFi covers streaming/integration entities such as topics, connectors, pipelines, or jobs. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Apache NiFi covers streaming/integration entities such as topics, connectors, pipelines, or jobs. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

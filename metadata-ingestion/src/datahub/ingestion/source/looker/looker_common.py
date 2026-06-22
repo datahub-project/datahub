@@ -720,11 +720,14 @@ class LookerUtil:
         schema_name: str,
         view_fields: List[ViewField],
         reporter: SourceReport,
+        tag_measures_and_dimensions: bool = True,
     ) -> Optional[SchemaMetadataClass]:
         if not view_fields:
             return None
         fields, primary_keys = LookerUtil._get_fields_and_primary_keys(
-            view_fields=view_fields, reporter=reporter
+            view_fields=view_fields,
+            reporter=reporter,
+            tag_measures_and_dimensions=tag_measures_and_dimensions,
         )
         schema_metadata = SchemaMetadata(
             schemaName=schema_name,
@@ -1411,6 +1414,7 @@ class LookerExplore:
                 schema_name=self.name,
                 view_fields=self.fields,
                 reporter=reporter,
+                tag_measures_and_dimensions=config.tag_measures_and_dimensions,
             )
 
         extra_aspects: List[Union[GlobalTagsClass, EmbedClass]] = []

@@ -1,10 +1,10 @@
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Editor } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { useUpdateDocumentContentsMutation } from '@graphql/document.generated';
 
@@ -33,7 +33,7 @@ const StyledEditor = styled(Editor)`
         .remirror-editor.ProseMirror {
             font-size: 15px;
             line-height: 1.7;
-            color: ${colors.gray[1700]};
+            color: ${(props) => props.theme.colors.textSecondary};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -42,7 +42,7 @@ const StyledEditor = styled(Editor)`
 `;
 
 const EmptyContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-style: italic;
     padding: 20px;
 `;
@@ -52,7 +52,7 @@ const ModalFooter = styled.div`
     justify-content: flex-end;
     gap: 8px;
     padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface PreviousVersionModalProps {
@@ -68,6 +68,8 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
     previousContent,
     documentUrn,
 }) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const [updateDocumentContents, { loading: restoring }] = useUpdateDocumentContentsMutation();
     const [showConfirmRestore, setShowConfirmRestore] = useState(false);
 
@@ -87,21 +89,21 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                 awaitRefetchQueries: true,
             });
 
-            message.success('Document restored!');
+            message.success(t('document.documentRestoredSuccess'));
 
             // Close modals
             setShowConfirmRestore(false);
             onClose();
         } catch (error) {
             console.error('Failed to restore document content:', error);
-            message.error('Failed to restore document content');
+            message.error(t('document.documentRestoreError'));
         }
     };
 
     return (
         <>
             <Modal
-                title="Previous Version"
+                title={t('document.previousVersionTitle')}
                 open={open}
                 onCancel={onClose}
                 width={1200}
@@ -111,18 +113,23 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                 <ModalContent>
                     <ContentPreview>
                         {previousContent ? (
-                            <StyledEditor content={previousContent} readOnly placeholder="No content" hideBorder />
+                            <StyledEditor
+                                content={previousContent}
+                                readOnly
+                                placeholder={t('document.noContentPlaceholder')}
+                                hideBorder
+                            />
                         ) : (
-                            <EmptyContent>(Empty content)</EmptyContent>
+                            <EmptyContent>{t('document.emptyContent')}</EmptyContent>
                         )}
                     </ContentPreview>
 
                     <ModalFooter>
                         <Button variant="text" color="gray" onClick={onClose} disabled={restoring}>
-                            Cancel
+                            {tc('cancel')}
                         </Button>
                         <Button variant="filled" onClick={() => setShowConfirmRestore(true)} disabled={restoring}>
-                            Restore
+                            {tc('restore')}
                         </Button>
                     </ModalFooter>
                 </ModalContent>
@@ -132,9 +139,9 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                 isOpen={showConfirmRestore}
                 handleClose={() => setShowConfirmRestore(false)}
                 handleConfirm={handleRestore}
-                modalTitle="Restore this version?"
-                modalText="This will replace the current document content with this previous version."
-                confirmButtonText="Restore"
+                modalTitle={t('document.restoreVersionConfirmation')}
+                modalText={t('document.restoreVersionConfirmationBody')}
+                confirmButtonText={tc('restore')}
             />
         </>
     );

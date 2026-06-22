@@ -1,3 +1,7 @@
+---
+description: "Group related Tables, Dashboards, Charts, and Pipelines into Data Products in DataHub to support data mesh ownership and discovery."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -28,12 +32,35 @@ Data Products can be easily published to the DataHub catalog, allowing other tea
 
 ## Data Products Setup, Prerequisites, and Permissions
 
-What you need to create and add data products:
+Data Product operations use **two different privileges** depending on whether you are acting from the **asset** or from the **Data Product** itself.
 
-- **Manage Data Product** metadata privilege for Domains to create/delete Data Products at the entity level. If a user has this privilege for a given Domain, they will be able to create and delete Data Products underneath it.
-- **Edit Data Product** metadata privilege to add or remove the Data Product for a given entity.
+| What you're doing                                   | Where in the UI / API                                                                      | Required privilege       | Policy resource                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ | ------------------------------------------- |
+| Create, update, or delete a Data Product            | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products** | Each **Domain** associated with the product |
+| Add or remove assets from a Data Product page       | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products** | **At least one** Domain on the product      |
+| Link or unlink a Data Product from an asset profile | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**    | The **asset** being updated                 |
 
-You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
+Grant these via [Metadata Policies](./authorization/policies.md).
+
+:::note Domain-scoped manage privilege
+
+**Manage Data Products** is a **Domain** privilege, not a Data Product entity privilege. To change membership from the product side, the actor must hold **Manage Data Products** on at least one Domain associated with the Data Product. The product and assets do **not** need to share a Domain — product-side manage access is evaluated independently from asset-side **Edit Data Product** checks. If the product has no Domain associations, product-side manage operations are denied (fail-closed); asset-side authorization may still allow the change when the actor has **Edit Data Product** on every changed asset.
+
+In normal operation each Data Product belongs to a single Domain. The UI and `createDataProduct` enforce this. Authorization still evaluates the full set of unique Domains on the product's `domains` aspect (preferring `domainAssociations`, falling back to the legacy `domains` array) so misconfigured metadata cannot bypass checks.
+
+Renaming a Data Product via `updateName` additionally allows **Edit Entity** on the Data Product URN itself as an alternative to domain-level manage access.
+
+:::
+
+**Edit Data Product** on an asset controls whether someone can change which Data Product(s) that asset belongs to (including add and remove via `batchAddToDataProducts`, `batchRemoveFromDataProducts`, and unsetting via `batchSetDataProduct`). It does **not** authorize rewriting a Data Product's membership list from the product page — that requires **Manage Data Products** on at least one of the product's Domains.
+
+Direct metadata writes (MCP, ingestion) allow membership changes when **either** product-side manage **or** asset-side edit authorization succeeds.
+
+:::caution Known issue: domain drift
+
+Membership authorization runs only when `dataProductProperties.assets` changes. Re-domaining a Data Product or asset (**Edit Domains**) does not re-check or remove existing membership. Assets can remain linked after the product or asset moves to a different domain.
+
+:::
 
 ## Using Data Products
 
@@ -72,10 +99,7 @@ On an Asset's profile page, use the right sidebar to locate the Data Product sec
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-set.png"/>
 </p>
 
-To remove an asset from a Data Product, click the 'x' icon on the Data Product label.
-
-> Notice: Adding or removing an asset from a Data Product requires the `Edit Data Product` Metadata Privilege, which can be granted
-> by a [Policy](authorization/policies.md).
+To remove an asset from a Data Product, click the 'x' icon on the Data Product label on either the asset profile or the Data Product page (each path uses the privilege listed in the table above).
 
 #### Multiple Data Products per Asset
 
@@ -112,7 +136,7 @@ Here is an example of a Data Product named "Pet of the Week" which belongs to th
 
 :::note
 
-When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceed until the domain is provisioned on DataHub.
 
 This applies to other fields as well, such as owners, ownership types, tags, and terms.
 

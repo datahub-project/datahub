@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Bank } from '@phosphor-icons/react/dist/csr/Bank';
 import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
@@ -9,7 +8,8 @@ import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
-import React from 'react';
+import React, { Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
 
@@ -18,9 +18,10 @@ import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { SuspenseBlock } from '@app/shared/SuspenseBlock';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const PageContainer = styled.div`
     display: flex;
@@ -37,7 +38,7 @@ const NavBarContainer = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     align-items: start;
     overflow: auto;
     width: 20%;
@@ -60,7 +61,7 @@ const NavBarTitle = styled.div`
 
 const NavBarSubTitle = styled.div`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 8px;
 `;
 
@@ -75,10 +76,11 @@ const ContentContainer = styled.div`
     display: flex;
     overflow: auto;
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
-export const SettingsPage = () => {
+const SettingsPageContent = () => {
+    const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
@@ -113,12 +115,12 @@ export const SettingsPage = () => {
             // Personal Section
             {
                 type: NavBarMenuItemTypes.Group,
-                title: 'Personal',
+                title: t('nav.personal'),
                 key: 'personal',
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Views',
+                        title: t('nav.views'),
                         key: 'views',
                         link: `${url}/views`,
                         isHidden: !showViews,
@@ -126,7 +128,7 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'My Notifications',
+                        title: t('nav.myNotifications'),
                         key: 'personal-notifications',
                         link: `${url}/personal-notifications`,
                         isHidden: !subscriptionsEnabled,
@@ -134,7 +136,7 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'My Subscriptions',
+                        title: t('nav.mySubscriptions'),
                         key: 'personal-subscriptions',
                         link: `${url}/personal-subscriptions`,
                         isHidden: !subscriptionsEnabled,
@@ -145,12 +147,12 @@ export const SettingsPage = () => {
             // Developer Section
             {
                 type: NavBarMenuItemTypes.Group,
-                title: 'Developer',
+                title: t('nav.developer'),
                 key: 'developer',
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Access Tokens',
+                        title: t('nav.accessTokens'),
                         key: 'tokens',
                         link: `${url}/tokens`,
                         isHidden: !showAccessTokens,
@@ -161,12 +163,12 @@ export const SettingsPage = () => {
             // Access Section
             {
                 type: NavBarMenuItemTypes.Group,
-                title: 'Access',
+                title: t('nav.access'),
                 key: 'access',
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Users & Groups',
+                        title: t('nav.usersGroups'),
                         key: 'identities',
                         link: `${url}/identities`,
                         isHidden: !showUsersGroups,
@@ -174,7 +176,7 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Permissions',
+                        title: t('nav.permissions'),
                         key: 'permissions',
                         link: `${url}/permissions`,
                         isHidden: !showPolicies,
@@ -185,12 +187,12 @@ export const SettingsPage = () => {
             // Manage Section
             {
                 type: NavBarMenuItemTypes.Group,
-                title: 'Manage',
+                title: t('nav.manage'),
                 key: 'manage',
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Features',
+                        title: t('nav.features'),
                         key: 'features',
                         link: `${url}/features`,
                         isHidden: !showFeatures,
@@ -198,7 +200,7 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Home Page',
+                        title: t('nav.homePage'),
                         key: 'posts',
                         link: `${url}/posts`,
                         isHidden: !showHomePagePosts,
@@ -206,7 +208,7 @@ export const SettingsPage = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Ownership Types',
+                        title: t('nav.ownershipTypes'),
                         key: 'ownership',
                         link: `${url}/ownership`,
                         isHidden: !showOwnershipTypes,
@@ -217,12 +219,12 @@ export const SettingsPage = () => {
             // Preferences Section
             {
                 type: NavBarMenuItemTypes.Group,
-                title: 'Preferences',
+                title: t('nav.preferences'),
                 key: 'preferences',
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Appearance',
+                        title: t('nav.appearance'),
                         key: 'preferences',
                         link: `${url}/preferences`,
                         icon: <Wrench />,
@@ -240,8 +242,8 @@ export const SettingsPage = () => {
             <NavBarContainer>
                 <NavBarHeader>
                     <div>
-                        <NavBarTitle>Settings</NavBarTitle>
-                        <NavBarSubTitle>Manage your settings</NavBarSubTitle>
+                        <NavBarTitle>{t('title')}</NavBarTitle>
+                        <NavBarSubTitle>{t('subTitle')}</NavBarSubTitle>
                     </div>
                     {!isShowNavBarRedesign && (
                         <a href="/logOut">
@@ -251,7 +253,7 @@ export const SettingsPage = () => {
                                 onClick={handleLogout}
                                 data-testid="log-out-menu-item"
                             >
-                                Log Out
+                                {t('logOut')}
                             </Button>
                         </a>
                     )}
@@ -273,10 +275,22 @@ export const SettingsPage = () => {
                         <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
                     </Route>
                     {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
+                        <Route
+                            path={`${path}/${p.path}`}
+                            key={p.path}
+                            render={() => <Suspense fallback={<SuspenseBlock />}>{p.content}</Suspense>}
+                        />
                     ))}
                 </Switch>
             </ContentContainer>
         </PageContainer>
+    );
+};
+
+export const SettingsPage = () => {
+    return (
+        <Suspense fallback={<SuspenseBlock />}>
+            <SettingsPageContent />
+        </Suspense>
     );
 };

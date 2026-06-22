@@ -101,17 +101,27 @@ class RedshiftConfig(
         description="",
     )
 
-    _database_alias_removed = pydantic_removed_field("database_alias")
-    _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
+    _database_alias_removed = pydantic_removed_field(
+        "database_alias", month="November", year=2023
+    )
+    _use_lineage_v2_removed = pydantic_removed_field(
+        "use_lineage_v2", month="August", year=2025
+    )
     _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
         pydantic_renamed_field(
             "lineage_v2_generate_queries", "lineage_generate_queries"
         )
     )
 
-    default_schema: str = Field(
+    default_schema: Optional[str] = Field(
         default="public",
-        description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+        description=(
+            "The default schema to use if the SQL parser fails to parse the "
+            "schema with the `sql_based` lineage collector. Set to `None` "
+            "(or override at runtime) to leave unqualified table references "
+            "without a schema qualifier in the resulting URN, instead of "
+            "forcing them under the default schema."
+        ),
     )
 
     is_serverless: bool = Field(
@@ -180,6 +190,17 @@ class RedshiftConfig(
     skip_external_tables: bool = Field(
         default=False,
         description="Whether to skip EXTERNAL tables.",
+    )
+
+    extract_ownership: bool = Field(
+        default=False,
+        description=(
+            "When enabled, extracts table and view owners from the Redshift catalog "
+            "(pg_catalog.pg_user) and emits them as TECHNICAL_OWNER in DataHub. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced."
+        ),
     )
 
     @model_validator(mode="before")

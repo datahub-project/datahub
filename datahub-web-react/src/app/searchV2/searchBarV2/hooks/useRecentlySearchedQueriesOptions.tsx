@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import RecentSearch from '@app/searchV2/searchBarV2/components/RecentSearch';
 import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
@@ -7,13 +8,14 @@ import useRecentlySearchedQueries from '@app/searchV2/searchBarV2/hooks/useRecen
 import { SectionOption } from '@app/searchV2/searchBarV2/types';
 
 export default function useRecentlySearchedQueriesOptions(): SectionOption[] {
+    const { t } = useTranslation('search');
     const { recentlySearchedQueries } = useRecentlySearchedQueries();
     const recentlySearchedQueriesOptions = useMemo(() => {
         if (recentlySearchedQueries === undefined || recentlySearchedQueries.length === 0) return [];
 
         return [
             {
-                label: <SectionHeader text="You Recently Searched" />,
+                label: <SectionHeader text={t('searchBar.sections.recentlySearched')} />,
                 options: recentlySearchedQueries.map((content) => ({
                     value: content.value,
                     label: <RecentSearch text={content.value} />,
@@ -21,7 +23,7 @@ export default function useRecentlySearchedQueriesOptions(): SectionOption[] {
                 })),
             },
         ];
-    }, [recentlySearchedQueries]);
+    }, [recentlySearchedQueries, t]);
 
     return recentlySearchedQueriesOptions;
 }

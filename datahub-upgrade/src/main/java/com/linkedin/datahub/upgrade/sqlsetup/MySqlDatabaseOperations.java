@@ -1,9 +1,13 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -78,13 +82,14 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema) {
     // MySQL - comprehensive CDC privileges (matching original init-cdc.sql)
     // Return as separate statements since JDBC doesn't support multiple statements in one execution
     String escapedUser = escapeMysqlStringLiteral(cdcUser);
     String escapedDatabase = escapeMysqlIdentifier(databaseName);
 
-    return java.util.Arrays.asList(
+    return Arrays.asList(
         String.format("GRANT SELECT ON %s.* TO %s@'%%'", escapedDatabase, escapedUser),
         String.format("GRANT RELOAD ON *.* TO %s@'%%'", escapedUser),
         String.format("GRANT REPLICATION CLIENT ON *.* TO %s@'%%'", escapedUser),
@@ -93,8 +98,12 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements() {
-    return java.util.Arrays.asList(
+  public List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+    // schemaVersionIndex is intentionally not created for MySQL: MySQL's query optimizer typically
+    // uses only one index per table scan, so an additional index on schemaVersion rarely helps and
+    // adds write overhead. This query only helps during the upgrade process during background
+    // migration.
+    return Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
           urn                           varchar(500) not null,
@@ -107,11 +116,60 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           createdfor                    varchar(255),
           CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version),
           INDEX timeIndex (createdon),
-          INDEX urnIndex (urn),
-          INDEX aspectIndex (aspect),
-          INDEX versionIndex (version)
+          INDEX idx_version_urn_aspect (version, urn, aspect)
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
         """);
+  }
+
+  @Override
+  public void dropLegacyAspectTableIndexes(Connection connection) throws SQLException {
+    String checkSql =
+        "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'metadata_aspect_v2' AND index_name = ?";
+    String[] legacyIndexNames = {"urnIndex", "aspectIndex", "versionIndex"};
+    for (String indexName : legacyIndexNames) {
+      try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+        stmt.setString(1, indexName);
+        try (ResultSet rs = stmt.executeQuery()) {
+          if (rs.next() && rs.getInt(1) > 0) {
+            log.info("Dropping legacy index {} on metadata_aspect_v2", indexName);
+            try (Statement alterStmt = connection.createStatement()) {
+              alterStmt.execute(
+                  "ALTER TABLE metadata_aspect_v2 DROP INDEX " + escapeMysqlIdentifier(indexName));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Override
+  public void ensureAspectIndexes(Connection connection) throws SQLException {
+    // CREATE TABLE IF NOT EXISTS does not add new indexes to an already-existing table; align
+    // upgraded databases with current DDL for secondary indexes not covered by the primary key.
+    ensureMysqlIndexIfAbsent(connection, "timeIndex", "(createdon)");
+    ensureMysqlIndexIfAbsent(connection, "idx_version_urn_aspect", "(version, urn, aspect)");
+  }
+
+  private void ensureMysqlIndexIfAbsent(
+      Connection connection, String indexName, String indexColumnListWithParens)
+      throws SQLException {
+    String checkSql =
+        "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'metadata_aspect_v2' AND index_name = ?";
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+      stmt.setString(1, indexName);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next() && rs.getInt(1) == 0) {
+          log.info("Adding index {} on metadata_aspect_v2", indexName);
+          try (Statement alterStmt = connection.createStatement()) {
+            alterStmt.execute(
+                "ALTER TABLE metadata_aspect_v2 ADD INDEX "
+                    + escapeMysqlIdentifier(indexName)
+                    + " "
+                    + indexColumnListWithParens);
+          }
+        }
+      }
+    }
   }
 
   @Override

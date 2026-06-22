@@ -148,7 +148,7 @@ datahub-frontend:
   enabled: true
   image:
     repository: acryldata/datahub-frontend-react
-    tag: "head"
+    tag: "v1.5.0.6"
   ingress:
     enabled: true
     annotations:
@@ -165,7 +165,7 @@ datahub-frontend:
           - /*
 ```
 
-Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. Please use 'head' or version-specific tags, like v0.8.40. For production, we recommend using version-specific tags, not 'head'.
+Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. For production and Kubernetes, use version-specific tags (like `v0.8.40`) or immutable commit tags (`sha-<short_sha>`). The `quickstart` tag is for local Docker Compose only, not cluster deployments.
 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
@@ -317,7 +317,7 @@ in datahub to point to the specific ES instance -
    quickstart files located [here](../../docker/quickstart/).
    1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
       file. Sample command for that is
-      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose.quickstart-profile.yml`
 2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
    env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 
@@ -445,7 +445,7 @@ the code has not been released yet. We will update version once a new release is
 ### IAM policies for UI-based ingestion
 
 This section details how to attach policies to the acryl-datahub-actions pod that powers UI-based ingestion. For some of
-the ingestion recipes, you sepecify login creds in the recipe itself, making it easy to set up auth to grab metadata
+the ingestion recipes, you specify login creds in the recipe itself, making it easy to set up auth to grab metadata
 from the data source. However, for AWS resources, the recommendation is to use IAM roles and policies to gate requests
 to access metadata on these resources.
 

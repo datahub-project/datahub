@@ -245,6 +245,10 @@ class BigQuerySchemaGenerator:
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
 
+        # Dataset locations seen during schema extraction; consumed downstream
+        # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
+        self.discovered_locations: Set[str] = set()
+
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps project -> snapshot_ref, so we can find all snapshots in a project
@@ -559,6 +563,14 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
 
+        if bigquery_dataset.location:
+            # BigLake/Omni locations (aws-*, azure-*) are not valid
+            # INFORMATION_SCHEMA region qualifiers, so skip auto-detection.
+            if bigquery_dataset.is_biglake_dataset():
+                self.report.num_biglake_datasets_skipped_for_region_autodetect += 1
+            else:
+                self.discovered_locations.add(bigquery_dataset.location)
+
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
                 dataset=dataset_name,
@@ -697,7 +709,6 @@ class BigQuerySchemaGenerator:
                     dataset_name,
                     self.config.is_profiling_enabled(),
                     self.report,
-                    location=bigquery_dataset.location,
                 )
             )
 
@@ -717,7 +728,6 @@ class BigQuerySchemaGenerator:
                     dataset_name,
                     self.config.is_profiling_enabled(),
                     self.report,
-                    location=bigquery_dataset.location,
                 )
             )
 
@@ -1375,7 +1385,6 @@ class BigQuerySchemaGenerator:
                         items_to_get,
                         with_partitions=with_partitions,
                         report=self.report,
-                        location=dataset.location,
                     )
                     items_to_get.clear()
 
@@ -1386,7 +1395,6 @@ class BigQuerySchemaGenerator:
                     items_to_get,
                     with_partitions=with_partitions,
                     report=self.report,
-                    location=dataset.location,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (

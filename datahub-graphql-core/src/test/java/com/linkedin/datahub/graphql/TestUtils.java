@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
@@ -11,6 +12,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,8 +22,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -37,7 +41,24 @@ public class TestUtils {
   }
 
   public static QueryContext getMockAllowContext(String actorUrn) {
-    return getMockAllowContext(actorUrn, null);
+    return getMockAllowContext(actorUrn, (AuthorizationRequest) null);
+  }
+
+  public static QueryContext getMockAllowContext(
+      @Nonnull String actorUrn, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionGroupMembership(getMockAllowContext(actorUrn), sessionGroupMembership);
+  }
+
+  /** Stubs session group membership on an existing mock context. */
+  public static QueryContext withSessionGroupMembership(
+      @Nonnull QueryContext context, @Nonnull Collection<Urn> sessionGroupMembership) {
+    OperationContext operationContext = spy(context.getOperationContext());
+    io.datahubproject.metadata.context.ActorContext actorContext =
+        mock(io.datahubproject.metadata.context.ActorContext.class);
+    when(operationContext.getSessionActorContext()).thenReturn(actorContext);
+    when(actorContext.getGroupMembership()).thenReturn(sessionGroupMembership);
+    when(context.getOperationContext()).thenReturn(operationContext);
+    return context;
   }
 
   public static QueryContext getMockAllowContext(String actorUrn, AuthorizationRequest request) {
@@ -118,6 +139,39 @@ public class TestUtils {
     return mockContext;
   }
 
+  /**
+   * Returns a deny {@link QueryContext} backed by a real {@link OperationContext} so authorization
+   * checks that route through {@code OperationContext.authorize(...)} (e.g. {@code
+   * AuthUtil.canViewEntity}) actually enforce the deny decision.
+   *
+   * <p>The plain {@link #getMockDenyContext()} only mocks {@code QueryContext.getAuthorizer()} and
+   * leaves {@code getOperationContext()} unset; that works for checks that resolve via {@code
+   * QueryContext.getAuthorizer()} but NPEs for checks that go through {@code OperationContext}.
+   */
+  public static QueryContext getMockDenyContextWithOperationContext() {
+    return getMockDenyContextWithOperationContext("urn:li:corpuser:test");
+  }
+
+  public static QueryContext getMockDenyContextWithOperationContext(
+      @Nonnull final String actorUrn) {
+    Authorizer denyAuthorizer = mock(Authorizer.class);
+    AuthorizationResult denyResult = mock(AuthorizationResult.class);
+    when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    when(denyAuthorizer.authorize(any())).thenReturn(denyResult);
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    OperationContext operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(denyAuthorizer, authentication);
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    return mockContext;
+  }
+
   public static void verifyIngestProposal(
       EntityService<?> mockService, int numberOfInvocations, MetadataChangeProposal proposal) {
     verifyIngestProposal(mockService, numberOfInvocations, List.of(proposal));
@@ -145,6 +199,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()),
@@ -153,6 +208,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()));
@@ -173,7 +229,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
@@ -209,7 +267,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 

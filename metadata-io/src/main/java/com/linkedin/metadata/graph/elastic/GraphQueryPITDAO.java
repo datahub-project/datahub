@@ -101,7 +101,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
    *     of throwing
    */
   @Override
-  protected List<LineageRelationship> searchWithSlices(
+  protected LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
       LineageGraphFilters lineageGraphFilters,
@@ -120,10 +120,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     // Create slice-based search requests
     String pitId = null;
     String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     try {
-      List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
       pitId =
           ESUtils.computePointInTime(
+              opContext,
               null,
               keepAlive,
               client,
@@ -162,8 +163,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // Reuse the common slice coordination logic
       return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
     } finally {
-      // Clean up PIT to prevent hitting the limit
-      ESUtils.cleanupPointInTime(client, pitId, "lineage search: " + entityUrns);
+      // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
+      // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
+      // blocked inside client.search() may still be executing against a deleted PIT.
+      cancelAndDrainSliceFutures(sliceFutures);
+      ESUtils.cleanupPointInTime(opContext, client, pitId, "lineage search: " + entityUrns);
     }
   }
 
@@ -195,6 +199,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     Object[] searchAfter = null;
+    long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
       // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
@@ -206,7 +211,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         }
 
         // Check timeout before processing
-        if (remainingTime <= 0) {
+        if (System.currentTimeMillis() >= deadline) {
           log.warn("Slice {} timed out, stopping PIT search", sliceId);
           break;
         }
@@ -237,7 +242,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.search(searchRequest, RequestOptions.DEFAULT);
+                    return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Search query failed", e);
                     throw new ESQueryException("Search query failed:", e);
@@ -294,9 +299,6 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         } else {
           break;
         }
-
-        // Update remaining time
-        remainingTime = System.currentTimeMillis() - (System.currentTimeMillis() - remainingTime);
       }
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);

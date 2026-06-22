@@ -10,6 +10,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     Union,
     get_args,
 )
@@ -43,6 +44,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
@@ -239,7 +241,7 @@ class SchemaFieldSpecification(StrictModel):
 
         TemporalType = Literal["date", "time", "timestamp"]
 
-        type_mapping = {
+        type_mapping: Dict[str, Type] = {
             "string": models.StringTypeClass,
             "number": models.NumberTypeClass,
             "int": models.NumberTypeClass,
@@ -895,7 +897,7 @@ class Dataset(StrictModel):
                 relationship_types=[
                     "DownstreamOf",
                 ],
-                direction=DataHubGraph.RelationshipDirection.INCOMING,
+                direction=RelationshipDirection.INCOMING,
             )
             downstreams = [r.urn for r in related_downstreams]
 

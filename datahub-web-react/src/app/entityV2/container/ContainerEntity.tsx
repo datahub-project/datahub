@@ -1,6 +1,7 @@
 import { AppstoreOutlined, FileOutlined, UnlockOutlined } from '@ant-design/icons';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
@@ -71,9 +72,9 @@ export class ContainerEntity implements Entity<Container> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Container';
+    getEntityName = () => i18next.t('entity.types:container.name');
 
-    getCollectionName = () => 'Containers';
+    getCollectionName = () => i18next.t('entity.types:container.namePlural');
 
     useEntityQuery = useGetContainerQuery;
 
@@ -89,7 +90,7 @@ export class ContainerEntity implements Entity<Container> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ContainerSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                     display: {
@@ -99,22 +100,22 @@ export class ContainerEntity implements Entity<Container> {
                     },
                 },
                 {
-                    name: 'Contents',
+                    name: i18next.t('entity.types:tab.contents'),
                     component: ContainerEntitiesTab,
                     icon: AppstoreOutlined,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Access',
+                    name: i18next.t('entity.types:shared.accessTab'),
                     component: AccessManagement,
                     icon: UnlockOutlined,
                     display: {
@@ -175,9 +176,9 @@ export class ContainerEntity implements Entity<Container> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

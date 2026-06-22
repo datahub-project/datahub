@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useMoveDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
@@ -6,7 +7,6 @@ import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Button, Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentSourceType, DocumentState } from '@types';
 
@@ -15,9 +15,9 @@ const PopoverContainer = styled.div`
     max-height: 300px; /* Fixed height to prevent popover jumping */
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SearchContainer = styled.div`
@@ -31,8 +31,8 @@ const TreeScrollContainer = styled.div`
 
     padding: 8px 4px;
 
-    border-top: 1px solid ${colors.gray[100]};
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -44,12 +44,12 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 `;
 
@@ -64,17 +64,12 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected
             ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
     `
             : `
         &:hover {
-            background-color: ${colors.gray[100]};
+            background-color: ${props.theme.colors.bgHover};
         }
     `}
 `;
@@ -82,7 +77,7 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
@@ -92,6 +87,8 @@ const ButtonContainer = styled.div`
     gap: 8px;
     padding: 8px;
 `;
+
+const BREADCRUMB_SEPARATOR = ' > ';
 
 interface MoveDocumentPopoverProps {
     documentUrn: string;
@@ -106,6 +103,8 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
     onClose,
     onMove,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
     const [movingDocument, setMovingDocument] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -164,16 +163,21 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
     return (
         <PopoverContainer data-testid="move-document-popover">
             <SearchContainer>
-                <Input label="" placeholder="Search context..." value={searchQuery} setValue={setSearchQuery} />
+                <Input
+                    label=""
+                    placeholder={t('documents.searchPlaceholder')}
+                    value={searchQuery}
+                    setValue={setSearchQuery}
+                />
             </SearchContainer>
 
             <TreeScrollContainer>
                 {/* Show search results when searching */}
                 {isSearching ? (
                     <>
-                        {searchLoading && <EmptyState>Searching...</EmptyState>}
+                        {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No results found</EmptyState>
+                            <EmptyState>{tc('noResults')}</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
@@ -185,7 +189,9 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
                                 let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse(); // Reverse to get root first
-                                    breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
+                                    breadcrumb = parents
+                                        .map((parent) => parent.info?.title || t('untitled'))
+                                        .join(BREADCRUMB_SEPARATOR);
                                 }
 
                                 return (
@@ -209,7 +215,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
                         {/* Only show "Move to Root" if document is not already at root */}
                         {currentParentUrn !== null && currentParentUrn !== undefined && (
                             <RootOption $isSelected={isRootSelected} onClick={handleSelectRoot}>
-                                Move to Root
+                                {t('documents.moveToRoot')}
                             </RootOption>
                         )}
 
@@ -231,7 +237,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
                     disabled={movingDocument}
                     data-testid="move-document-cancel-button"
                 >
-                    Cancel
+                    {tc('cancel')}
                 </Button>
                 <Button
                     data-testid="move-document-confirm-button"
@@ -239,7 +245,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
                     disabled={!hasSelectionChanged || movingDocument}
                     isLoading={movingDocument}
                 >
-                    Move
+                    {tc('move')}
                 </Button>
             </ButtonContainer>
         </PopoverContainer>

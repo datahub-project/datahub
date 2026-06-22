@@ -1,8 +1,8 @@
 import { Divider, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
 import ProfilingRunsChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
 import StatChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
@@ -20,9 +20,12 @@ import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
 import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 
+// Title for the hidden placeholder chart (visible={false}) — never rendered to users.
+const PLACEHOLDER_CHART_TITLE = 'Placeholder';
+
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
     margin-top: 12px;
 `;
@@ -39,7 +42,7 @@ const ChartRow = styled.div`
 `;
 
 const ChartDivider = styled(Divider)<{ height: number; width: number }>`
-    background-color: ${ANTD_GRAY[0]};
+    background-color: ${(props) => props.theme.colors.bg};
     height: ${(props) => props.height}px;
     width: ${(props) => props.width}px;
     margin: 20px;
@@ -55,6 +58,8 @@ type Props = {
 };
 
 export default function HistoricalStats({ urn, lookbackWindow }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tcf } = useTranslation('common.feedback');
     const [getDataProfiles, { data: profilesData, loading: profilesLoading }] = useGetDataProfilesLazyQuery();
 
     /**
@@ -97,7 +102,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
 
     const columnSelectView = (
         <PrefixedSelect
-            prefixText="Stats for column "
+            prefixText={t('historicalStats.statsForColumn')}
             values={allFieldPaths}
             value={selectedFieldPath}
             setValue={onChangeSelectedFieldPath}
@@ -142,7 +147,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
 
     const placeholderChart = (
         <StatChart
-            title="Placeholder"
+            title={PLACEHOLDER_CHART_TITLE}
             tickInterval={graphTickInterval}
             dateRange={{ start: '', end: '' }}
             values={[]}
@@ -159,25 +164,25 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
 
     return (
         <>
-            {profilesLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+            {profilesLoading && <Message type="loading" content={tcf('loading')} style={{ marginTop: '10%' }} />}
             <StatSection>
-                <Typography.Title level={5}>Profiling Runs</Typography.Title>
+                <Typography.Title level={5}>{t('historicalStats.profilingRunsTitle')}</Typography.Title>
                 <ProfilingRunsChart profiles={profiles} areAllProfilesPartitioned={areAllProfilesPartitioned} />
             </StatSection>
             <StatSection>
                 <Typography.Title level={5}>
-                    {areAllProfilesPartitioned ? 'Partition Stats' : 'Table Stats'}
+                    {areAllProfilesPartitioned ? t('historicalStats.partitionStats') : t('historicalStats.tableStats')}
                 </Typography.Title>
                 <ChartRow>
                     <StatChart
-                        title="Row Count Over Time"
+                        title={t('historicalStats.rowCountOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={rowCountChartValues}
                     />
                     <ChartDivider type="vertical" height={360} width={1} />
                     <StatChart
-                        title="Column Count Over Time"
+                        title={t('historicalStats.columnCountOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={columnCountChartValues}
@@ -186,7 +191,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
                 <ChartDivider type="horizontal" height={1} width={400} />
                 <ChartRow>
                     <StatChart
-                        title="Size Over Time"
+                        title={t('historicalStats.sizeOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={sizeChartValues}
@@ -198,19 +203,19 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
             </StatSection>
             <StatSection>
                 <ColumnStatsHeader>
-                    <Typography.Title level={5}>Column Stats</Typography.Title>
+                    <Typography.Title level={5}>{t('historicalStats.columnStats')}</Typography.Title>
                     {columnSelectView}
                 </ColumnStatsHeader>
                 <ChartRow>
                     <StatChart
-                        title="Null Count Over Time"
+                        title={t('historicalStats.nullCountOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={nullCountChartValues}
                     />
                     <ChartDivider type="vertical" height={360} width={1} />
                     <StatChart
-                        title="Null Percentage Over Time"
+                        title={t('historicalStats.nullPercentageOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={nullPercentageChartValues}
@@ -219,14 +224,14 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
                 <ChartDivider type="horizontal" height={1} width={400} />
                 <ChartRow>
                     <StatChart
-                        title="Distinct Count Over Time"
+                        title={t('historicalStats.distinctCountOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={distinctCountChartValues}
                     />
                     <ChartDivider type="vertical" height={360} width={1} />
                     <StatChart
-                        title="Distinct Percentage Over Time"
+                        title={t('historicalStats.distinctPercentageOverTime')}
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={distinctPercentageChartValues}

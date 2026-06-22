@@ -113,9 +113,17 @@ public class ConfigEntitySpecTest {
     assertEquals(annotation.getSearchGroup(), "primary");
   }
 
+  @Test
+  public void testAspectSpecGetAspectAnnotation() {
+    AspectSpec aspectSpec = createMockAspectSpec("domains");
+
+    assertEquals(aspectSpec.getAspectAnnotation().getName(), "domains");
+    assertEquals(aspectSpec.getAspectAnnotation().getSchemaVersion(), 1L);
+  }
+
   private AspectSpec createMockAspectSpec(String name) {
     return new AspectSpec(
-        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null),
+        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null, 1L),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),

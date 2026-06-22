@@ -27,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_filter import (
@@ -36,7 +36,6 @@ from datahub.ingestion.source.common.gcp_project_filter import (
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -80,9 +79,11 @@ from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    create_vertex_retry_without_429,
     format_api_error_message,
     get_project_container,
     get_resource_category_container,
+    patch_vertex_sdk_retry,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -131,7 +132,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         # Initialize state handler for incremental ingestion
         self.state_handler = VertexAIStateHandler(
             source=self,
-            stateful_ingestion_config=config.stateful_ingestion or config,
+            stateful_ingestion_config=config.stateful_ingestion,
         )
 
         self._credentials = self._setup_credentials()
@@ -150,6 +151,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             if config.rate_limit
             else nullcontext()
         )
+
+        self._custom_retry = create_vertex_retry_without_429()
+        patch_vertex_sdk_retry(self._custom_retry)
 
         self._initialize_builders_and_extractors()
 
@@ -184,7 +188,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             for project_id in self._projects:
                 regions = self._discover_regions_for_project(project_id)
                 project_to_regions[project_id] = (
-                    regions if regions else [self.config.region]
+                    regions
+                    if regions
+                    else ([self.config.region] if self.config.region else [])
                 )
         else:
             if self.config.regions:
@@ -281,14 +287,6 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _yield_common_aspects(
         self,
@@ -527,7 +525,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         raise RuntimeError("No project ID configured")
 
     def _get_region(self) -> str:
-        return self._current_region or self.config.region
+        return self._current_region or self.config.region or ""
 
     def _discover_regions_for_project(self, project_id: str) -> List[str]:
         """Discover available Vertex AI regions for a project using Locations API."""

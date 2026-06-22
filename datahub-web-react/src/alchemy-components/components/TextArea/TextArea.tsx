@@ -1,7 +1,7 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     ErrorMessage,
@@ -30,7 +30,7 @@ export const textAreaDefaults: TextAreaProps = {
 
 export const TextArea = ({
     label = textAreaDefaults.label,
-    placeholder = textAreaDefaults.placeholder,
+    placeholder: placeholderProp,
     icon, // default undefined
     error = textAreaDefaults.error,
     warning = textAreaDefaults.warning,
@@ -39,8 +39,11 @@ export const TextArea = ({
     isInvalid = textAreaDefaults.isInvalid,
     isReadOnly = textAreaDefaults.isReadOnly,
     isRequired = textAreaDefaults.isRequired,
+    inputTestId,
     ...props
 }: TextAreaProps) => {
+    const { t } = useTranslation('alchemy');
+    const placeholder = placeholderProp ?? t('textArea.placeholder');
     // Invalid state is always true if error is present
     let invalid = isInvalid;
     if (error) invalid = true;
@@ -71,6 +74,7 @@ export const TextArea = ({
                     readOnly={isReadOnly}
                     disabled={isDisabled}
                     required={isRequired}
+                    data-testid={inputTestId}
                     {...props}
                 />
                 {isSuccess && <StyledStatusIcon icon={Check} color="green" size="lg" />}

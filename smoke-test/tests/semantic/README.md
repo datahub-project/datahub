@@ -19,7 +19,7 @@ See [Semantic Search Configuration](../../../docs/dev-guides/semantic-search/CON
 
 ### Environment Variables
 
-The test uses [LiteLLM](https://github.com/BerriAI/litellm) which reads API keys from environment variables:
+The DataHub embedding providers read API keys from environment variables:
 
 | Provider    | Environment Variable                                         | Required |
 | ----------- | ------------------------------------------------------------ | -------- |

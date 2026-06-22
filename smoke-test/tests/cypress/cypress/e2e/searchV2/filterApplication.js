@@ -5,7 +5,8 @@ const SAMPLE_ENTITY_NAME = "SampleCypressKafkaDataset";
 const SAMPLE_ENTITY_URN =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 
-describe("searchBarV2 - Filter Application", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("searchBarV2 - Filter Application", () => {
   const helper = new SearchV2Helper();
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {

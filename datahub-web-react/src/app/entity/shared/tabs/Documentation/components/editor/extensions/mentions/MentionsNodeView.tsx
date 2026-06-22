@@ -1,6 +1,7 @@
 import { NodeViewComponentProps } from '@remirror/react';
 import { Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
@@ -57,6 +58,7 @@ const IconWrapper = styled.span`
 `;
 
 export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
+    const { t } = useTranslation('entity.profile.editor');
     const { urn, name } = node.attrs;
 
     const registry = useEntityRegistry();
@@ -70,7 +72,7 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
 
     if (!data || !data.entity) {
         return (
-            <Tooltip title="Failed to find entity">
+            <Tooltip title={t('mentions.failedToFindEntity')}>
                 <InvalidEntityText>{name}</InvalidEntityText>
             </Tooltip>
         );

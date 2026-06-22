@@ -25,11 +25,15 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_azure_ad,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -134,7 +138,9 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
+    _remove_filtered_tracking = pydantic_removed_field(
+        "filtered_tracking", month="January", year=2025
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(
@@ -231,14 +237,6 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.report.report_failure("get_token", error_str)
             click.echo("Error: Token response invalid")
             exit()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -476,22 +474,37 @@ class AzureADSource(StatefulIngestionSourceBase):
                 self.report.report_failure("azure_ad_group", str(e))
 
     def _map_azure_ad_group(self, azure_ad_group):
-        corp_group_urn, error_str = self._map_identity_to_urn(
-            self._map_azure_ad_group_to_urn,
-            azure_ad_group,
-            "azure_ad_group_mapping",
-            "group",
-        )
-        if error_str is not None:
+        # Resolve group name and apply filters before building the URN.
+        # This avoids false report_failure entries for groups that are
+        # intentionally excluded by the user's configuration.
+        #
+        # Pre-check for missing attribute so we can distinguish misconfiguration
+        # from intentional regex filtering without changing the shared helper's
+        # exception contract (which other callers rely on).
+        raw_name = azure_ad_group.get(self.config.azure_ad_response_to_groupname_attr)
+        if raw_name is None:
+            self.report.report_failure(
+                "azure_ad_group_mapping",
+                f"Attribute '{self.config.azure_ad_response_to_groupname_attr}' not found in group response. "
+                f"Check azure_ad_response_to_groupname_attr in your config.",
+            )
             return
-        group_name = self._extract_regex_match_from_dict_value(
-            azure_ad_group,
-            self.config.azure_ad_response_to_groupname_attr,
-            self.config.azure_ad_response_to_groupname_regex,
-        )
+        try:
+            group_name = self._extract_regex_match_from_dict_value(
+                azure_ad_group,
+                self.config.azure_ad_response_to_groupname_attr,
+                self.config.azure_ad_response_to_groupname_regex,
+            )
+        except ValueError:
+            # Attribute exists but regex didn't match — group is intentionally
+            # excluded by azure_ad_response_to_groupname_regex, not an error.
+            self.report.report_filtered(f"group:{raw_name}")
+            return
         if not self.config.groups_pattern.allowed(group_name):
-            self.report.report_filtered(f"{corp_group_urn}")
+            self.report.report_filtered(f"group:{group_name}")
             return
+        # URN construction is safe here: group_name is already validated above.
+        corp_group_urn = make_group_urn(urllib.parse.quote(group_name))
         self.selected_azure_ad_groups.append(azure_ad_group)
         corp_group_snapshot = CorpGroupSnapshot(
             urn=corp_group_urn,
@@ -544,6 +557,8 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
             corp_user_info = self._map_azure_ad_user_to_corp_user(user)
             corp_user_snapshot.aspects.append(corp_user_info)
+            user_status = derive_corp_user_status_from_azure_ad(user)
+            corp_user_snapshot.aspects.append(make_corp_user_status_aspect(user_status))
             yield corp_user_snapshot
 
     def _map_azure_ad_user_to_user_name(self, azure_ad_user):
@@ -566,8 +581,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             + " "
             + str(azure_ad_user.get("surname", ""))
         )
+        user_status = derive_corp_user_status_from_azure_ad(azure_ad_user)
         return CorpUserInfoClass(
-            active=True,
+            active=corp_user_info_active_from_status(user_status),
             displayName=azure_ad_user.get("displayName", full_name),
             firstName=azure_ad_user.get("givenName", None),
             lastName=azure_ad_user.get("surname", None),

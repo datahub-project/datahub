@@ -1,4 +1,5 @@
-describe("experiment", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("experiment", () => {
   beforeEach(() => {
     cy.visit("/");
     cy.login();

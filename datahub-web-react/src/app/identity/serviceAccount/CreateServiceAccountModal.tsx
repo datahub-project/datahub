@@ -1,12 +1,12 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { addServiceAccountToListCache } from '@app/identity/serviceAccount/cacheUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Input, Modal, Text, TextArea } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useCreateServiceAccountMutation } from '@graphql/auth.generated';
 
@@ -23,11 +23,11 @@ const FormGroup = styled.div`
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -37,6 +37,8 @@ type Props = {
 };
 
 export default function CreateServiceAccountModal({ visible, onClose, onCreateServiceAccount }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const apolloClient = useApolloClient();
     const [createServiceAccount] = useCreateServiceAccountMutation();
     const [displayName, setDisplayName] = useState('');
@@ -61,17 +63,15 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
     const validateForm = (): boolean => {
         let isValid = true;
 
-        // Validate display name
         if (displayName && displayName.length > 200) {
-            setDisplayNameError('Name must be 200 characters or less');
+            setDisplayNameError(t('serviceAccounts.createModal.name.validationError'));
             isValid = false;
         } else {
             setDisplayNameError('');
         }
 
-        // Validate description
         if (description && description.length > 500) {
-            setDescriptionError('Description must be 500 characters or less');
+            setDescriptionError(t('serviceAccounts.createModal.description.validationError'));
             isValid = false;
         } else {
             setDescriptionError('');
@@ -97,7 +97,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                 if (!errors && data?.createServiceAccount) {
                     addServiceAccountToListCache(apolloClient, data.createServiceAccount);
 
-                    message.success('Service account created successfully!');
+                    message.success(t('serviceAccounts.createSuccess'));
                     const createdAccount = data.createServiceAccount;
                     onCreateServiceAccount(
                         createdAccount.urn,
@@ -111,7 +111,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to create service account: ${e.message || ''}`,
+                    content: t('serviceAccounts.createError', { error: e.message || '' }),
                     duration: 3,
                 });
             })
@@ -132,20 +132,20 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
 
     return (
         <Modal
-            title="Create Service Account"
-            subtitle="Service accounts are used for programmatic access to DataHub APIs."
+            title={t('serviceAccounts.createModal.title')}
+            subtitle={t('serviceAccounts.createModal.subtitle')}
             onCancel={handleClose}
             dataTestId="create-service-account-modal"
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     onClick: handleClose,
                     variant: 'text',
                     color: 'gray',
                     buttonDataTestId: 'create-service-account-cancel-button',
                 },
                 {
-                    text: 'Create',
+                    text: tc('create'),
                     onClick: handleCreate,
                     disabled: hasValidationErrors || isSubmitting,
                     id: 'createServiceAccountButton',
@@ -156,15 +156,13 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
             <FormContainer>
                 <FormGroup>
                     <FormLabel size="md" weight="semiBold">
-                        Name
+                        {t('serviceAccounts.createModal.name.label')}
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        A name for the service account
-                    </FormDescription>
+                    <FormDescription size="sm">{t('serviceAccounts.createModal.name.description')}</FormDescription>
                     <Input
                         value={displayName}
                         setValue={setDisplayName}
-                        placeholder="Ingestion Pipeline Service Account"
+                        placeholder={t('serviceAccounts.createModal.name.placeholder')}
                         error={displayNameError}
                         maxLength={200}
                         inputTestId="service-account-display-name-input"
@@ -172,15 +170,15 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                 </FormGroup>
                 <FormGroup>
                     <FormLabel size="md" weight="semiBold">
-                        Description
+                        {t('serviceAccounts.createModal.description.label')}
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        An optional description for the service account
+                    <FormDescription size="sm">
+                        {t('serviceAccounts.createModal.description.description')}
                     </FormDescription>
                     <TextArea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Used for automated data ingestion from our data warehouse"
+                        placeholder={t('serviceAccounts.createModal.description.placeholder')}
                         error={descriptionError}
                         rows={3}
                         data-testid="service-account-description-input"

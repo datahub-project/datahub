@@ -2,11 +2,11 @@ import { CloseOutlined, NotificationOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Announcement } from '@app/homeV2/action/announcement/Announcement';
 import { useGetUnseenAnnouncements } from '@app/homeV2/action/announcement/useGetUnseenAnnouncements';
 import AnnouncementsSkeleton from '@app/homeV2/content/tabs/announcements/AnnouncementsSkeleton';
@@ -14,9 +14,9 @@ import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLa
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const Card = styled.div`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     overflow: hidden;
     padding: 16px 20px 8px 20px;
     width: 380px;
@@ -31,7 +31,7 @@ const Header = styled.div`
 const Title = styled.div`
     font-weight: 600;
     font-size: 14px;
-    color: #434863;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     justify-content: start;
@@ -39,12 +39,12 @@ const Title = styled.div`
 
 const Icon = styled(NotificationOutlined)`
     margin-right: 8px;
-    color: #3cb47a;
+    color: ${(props) => props.theme.colors.textSuccess};
     font-size: 16px;
 `;
 
 const StyledCloseOutlined = styled(CloseOutlined)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
 
@@ -55,11 +55,11 @@ const StyledCarousel = styled(Carousel)`
     overflow: hidden;
 
     > .slick-dots li button {
-        background-color: #d9d9d9;
+        background-color: ${(props) => props.theme.colors.iconDisabled};
     }
 
     > .slick-dots li.slick-active button {
-        background-color: #5c3fd1;
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 
@@ -73,6 +73,7 @@ type Props = {
 };
 
 export const Announcements = ({ setHasAnnouncements }: Props) => {
+    const { t } = useTranslation('home.v2');
     const { user } = useUserContext();
     const { announcements, loading } = useGetUnseenAnnouncements();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
@@ -113,12 +114,12 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
     }
 
     return (
-        <Card>
+        <Card data-testid="v2-home-page-announcements">
             <Header>
                 <Title>
-                    <Icon /> Announcements
+                    <Icon /> {t('announcements.title')}
                 </Title>
-                <Tooltip placement="left" showArrow={false} title="Hide announcements">
+                <Tooltip placement="left" showArrow={false} title={t('announcements.hideTooltip')}>
                     <CloseButton type="text" onClick={hideAnnouncements}>
                         <StyledCloseOutlined />
                     </CloseButton>

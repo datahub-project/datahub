@@ -1,14 +1,32 @@
 source:
   type: dataplex
   config:
-    # Required: GCP project ID(s) where Dataplex resources are located
+    # GCP project selection — set at least one of project_ids, project_id_pattern,
+    # or project_labels. project_ids takes precedence and skips Resource Manager
+    # API calls; the pattern/labels options auto-discover projects (require
+    # roles/browser or any role granting resourcemanager.projects.get on the
+    # candidate projects).
     project_ids:
       - "my-gcp-project"
 
-    # Optional: GCP location for entries (Universal Catalog)
+    # Optional: regex allow/deny patterns to filter auto-discovered projects.
+    # Ignored when project_ids is set explicitly.
+    # project_id_pattern:
+    #   allow:
+    #     - "^prod-.*"
+    #   deny:
+    #     - "-sandbox$"
+
+    # Optional: filter discovered projects by GCP labels in `key:value` form.
+    # Ignored when project_ids is set explicitly.
+    # project_labels:
+    #   - "env:prod"
+
+    # Optional: GCP location(s) for entries (Universal Catalog)
     # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
-    # Default: "us"
-    entries_location: "us"
+    # Default: ["us", "eu", "asia", "global"]
+    entries_locations:
+      - "us"
 
     # Optional: Environment (default: PROD)
     env: "PROD"
@@ -32,7 +50,7 @@ source:
     # Optional: Filtering patterns for entries
     # filter_config:
     #   entries:
-    #     dataset_pattern:
+    #     pattern:
     #       allow:
     #         - "bq_.*"      # Allow BigQuery entries
     #         - "pubsub_.*"  # Allow Pub/Sub entries

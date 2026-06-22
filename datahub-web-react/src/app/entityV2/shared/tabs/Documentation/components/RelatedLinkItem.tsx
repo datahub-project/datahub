@@ -2,15 +2,15 @@ import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { List } from 'antd';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
@@ -31,7 +31,7 @@ const LinkListItem = styled(List.Item)`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${LinkButtonsContainer} {
             ${StyledButton} {
                 opacity: 1;
@@ -75,7 +75,7 @@ const TitleLink = styled.a`
 
 const Description = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     line-height: 20px;
 `;
 
@@ -114,14 +114,23 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                     <LinkIcon url={link.url} />
                 </IconContainer>
                 <ContentContainer>
-                    <TitleLink href={link.url} target="_blank" rel="noreferrer">
+                    <TitleLink href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                         {link.description || link.label}
                     </TitleLink>
                     <Description>
-                        Added {formatDateString(link.created.time)} by{' '}
-                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
-                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
-                        </Link>
+                        <Trans
+                            i18nKey="addedByUser"
+                            ns="entity.profile.documentation"
+                            values={{
+                                date: formatDateString(link.created.time),
+                                name: entityRegistry.getDisplayName(link.actor.type, link.actor),
+                            }}
+                            components={{
+                                actorLink: (
+                                    <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`} />
+                                ),
+                            }}
+                        />
                     </Description>
                 </ContentContainer>
             </MetaContainer>

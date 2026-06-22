@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
@@ -6,6 +5,7 @@ import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
@@ -24,6 +24,9 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
+
+// Placeholder token for the unsorted state inside React row keys (programmatic, not user-facing).
+const NO_SORT_KEY = 'none';
 
 export const CellHoverWrapper = styled.div`
     width: 100%;
@@ -66,6 +69,7 @@ export const Table = <T,>({
     renderScrollObserver,
     ...props
 }: TableProps<T>) => {
+    const { t } = useTranslation('alchemy');
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
     const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
@@ -91,7 +95,7 @@ export const Table = <T,>({
         return (
             <LoadingContainer>
                 <LoadingOutlined />
-                <Text color="gray">Loading data...</Text>
+                <Text>{t('table.loading')}</Text>
             </LoadingContainer>
         );
     }
@@ -198,7 +202,7 @@ export const Table = <T,>({
                     {sortedData.map((row: any, index) => {
                         const isExpanded = expandable?.expandedGroupIds?.includes(row?.name); // Check if row is expanded
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
-                        const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
+                        const key = `row-${index}-${sortColumn ?? NO_SORT_KEY}-${sortOrder ?? NO_SORT_KEY}`;
                         return (
                             <React.Fragment key={key}>
                                 {/* Render the main row */}

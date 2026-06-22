@@ -1,5 +1,6 @@
 import { Button, Modal, Select } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,6 +16,8 @@ type Props = {
 const { Option } = Select;
 
 export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title }: Props) => {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const entityTypes = entityRegistry.getSearchEntityTypes();
 
@@ -37,10 +40,10 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button disabled={stagedValues.length === 0} onClick={() => onOk?.(stagedValues)}>
-                        Done
+                        {tc('done')}
                     </Button>
                 </>
             }
@@ -48,7 +51,7 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
             <Select
                 mode="multiple"
                 style={{ width: '100%' }}
-                placeholder="Datasets, Dashboards, Charts, and more..."
+                placeholder={t('chooseEntityType.placeholder')}
                 onSelect={(newValue) => addEntityType(newValue)}
                 onDeselect={(newValue) => removeEntityType(newValue)}
                 value={stagedValues.map((stagedEntityType) => ({

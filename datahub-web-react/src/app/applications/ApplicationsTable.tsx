@@ -2,6 +2,7 @@ import { NetworkStatus } from '@apollo/client';
 import { Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     ApplicationActionsColumn,
@@ -26,6 +27,9 @@ interface Props {
 }
 
 const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, networkStatus, refetch }: Props) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const [deleteApplicationMutation] = useDeleteApplicationMutation();
 
@@ -63,7 +67,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
             // Find the application entity from applicationsData
             const applicationData = applicationsData.find((result) => result.entity.urn === applicationUrn);
             if (!applicationData) {
-                message.error('Failed to find application information');
+                message.error(t('applications.findInfoError'));
                 return;
             }
 
@@ -73,7 +77,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
             setApplicationDisplayName(fullDisplayName);
             setShowDeleteModal(true);
         },
-        [entityRegistry, applicationsData],
+        [entityRegistry, applicationsData, t],
     );
 
     // Function to handle the actual application deletion
@@ -84,17 +88,17 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
             },
         })
             .then(() => {
-                message.success(`Application "${applicationDisplayName}" has been deleted`);
+                message.success(t('applications.deleteSuccess', { name: applicationDisplayName }));
                 refetch(); // Refresh the application list
             })
             .catch((e: any) => {
-                message.error(`Failed to delete application: ${e.message}`);
+                message.error(t('applications.deleteError', { error: e.message }));
             });
 
         setShowDeleteModal(false);
         setApplicationUrnToDelete('');
         setApplicationDisplayName('');
-    }, [deleteApplicationMutation, refetch, applicationUrnToDelete, applicationDisplayName]);
+    }, [deleteApplicationMutation, refetch, applicationUrnToDelete, applicationDisplayName, t]);
 
     const handleDeleteClose = useCallback(() => {
         setShowDeleteModal(false);
@@ -105,7 +109,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
     const columns = useMemo(
         () => [
             {
-                title: 'Application',
+                title: t('applications.columnApplication'),
                 key: 'application',
                 render: (record) => {
                     const application = record.entity;
@@ -120,7 +124,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 },
             },
             {
-                title: 'Description',
+                title: tl('description'),
                 key: 'description',
                 render: (record) => {
                     return (
@@ -133,7 +137,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 },
             },
             {
-                title: 'Owners',
+                title: t('applications.columnOwners'),
                 key: 'owners',
                 render: (record) => {
                     return (
@@ -157,7 +161,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 },
             },
         ],
-        [entityRegistry, searchQuery, showDeleteConfirmation],
+        [entityRegistry, searchQuery, showDeleteConfirmation, t, tl],
     );
 
     // Generate table data once with memoization
@@ -175,10 +179,10 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
                 isOpen={showDeleteModal}
                 handleClose={handleDeleteClose}
                 handleConfirm={handleDeleteApplication}
-                modalTitle="Delete Application"
-                modalText={`Are you sure you want to delete the application "${applicationDisplayName}"? This action cannot be undone.`}
-                closeButtonText="Cancel"
-                confirmButtonText="Delete"
+                modalTitle={t('applications.deleteModalTitle')}
+                modalText={t('applications.deleteConfirmation', { name: applicationDisplayName })}
+                closeButtonText={tc('cancel')}
+                confirmButtonText={tc('delete')}
             />
         </>
     );

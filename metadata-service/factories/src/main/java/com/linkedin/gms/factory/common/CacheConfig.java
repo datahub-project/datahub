@@ -13,6 +13,8 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
+import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,6 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -45,6 +48,9 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
+  @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
+  private String rateLimitEndpointHazelcastMapName;
+
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
@@ -62,7 +68,7 @@ public class CacheConfig {
   }
 
   @Bean("hazelcastInstance")
-  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
   public HazelcastInstance hazelcastInstance(
       List<MapConfig> hazelcastMapConfigs,
       List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs) {
@@ -71,10 +77,7 @@ public class CacheConfig {
     hazelcastMapConfigs.forEach(config::addMapConfig);
     hazelcastReplicatedMapConfigs.forEach(config::addReplicatedMapConfig);
 
-    // Force classloader to load from application code
     config.setClassLoader(this.getClass().getClassLoader());
-
-    // Route Hazelcast logs through SLF4J/logback instead of JUL
     config.setProperty("hazelcast.logging.type", "slf4j");
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
@@ -82,10 +85,8 @@ public class CacheConfig {
     var kubernetesConfig =
         config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
 
-    // Configure Kubernetes discovery
     kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
 
-    // Set additional Kubernetes dns resolution properties.
     if (!kubernetesApiRetries.isEmpty()) {
       kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
     }
@@ -109,6 +110,7 @@ public class CacheConfig {
     return new HazelcastCacheManager(hazelcastInstance);
   }
 
+  /** Search cache map defaults — only when search uses Hazelcast as {@link CacheManager}. */
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public MapConfig defaultMapConfig() {
@@ -125,7 +127,7 @@ public class CacheConfig {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
   public ReplicatedMapConfig distributedThrottleMapConfig() {
     ReplicatedMapConfig mapConfig = new ReplicatedMapConfig();
     mapConfig
@@ -134,6 +136,14 @@ public class CacheConfig {
         .setMergePolicyConfig(
             new MergePolicyConfig().setPolicy(LatestUpdateMergePolicy.class.getName()));
 
+    return mapConfig;
+  }
+
+  @Bean
+  @Conditional(RateLimitEndpointEnabledCondition.class)
+  public MapConfig rateLimitEndpointBucketsMapConfig() {
+    MapConfig mapConfig = new MapConfig();
+    mapConfig.setName(rateLimitEndpointHazelcastMapName).setBackupCount(1).setAsyncBackupCount(0);
     return mapConfig;
   }
 }

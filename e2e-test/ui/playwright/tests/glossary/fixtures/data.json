@@ -1,0 +1,344 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightGlossaryDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used for glossary term tests",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/SamplePlaywrightGlossaryDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossaryBatchAddDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright glossary batch-add test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightGlossaryBatchAddDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightNavPropsTest",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Node for Properties-tab-persistence navigation test",
+              "name": "PlaywrightNavPropsTest"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightNavPropsTest.PlaywrightNavTerm1",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "First term for Properties-tab-persistence navigation test",
+              "name": "PlaywrightNavTerm1",
+              "parentNode": "urn:li:glossaryNode:PlaywrightNavPropsTest",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightNavPropsTest.PlaywrightNavTerm2",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Second term for Properties-tab-persistence navigation test",
+              "name": "PlaywrightNavTerm2",
+              "parentNode": "urn:li:glossaryNode:PlaywrightNavPropsTest",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightNode",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Playwright test parent node",
+              "name": "PlaywrightNode"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightGlossarySearchTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightGlossarySearchTag",
+              "description": "Tag used in Playwright glossary search-by-query test"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossarySearchDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright glossary search-by-query test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:PlaywrightGlossarySearchTag"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+              "terms": [
+                {
+                  "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightSearchRelated"
+                }
+              ],
+              "auditStamp": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightGlossaryFilterTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightGlossaryFilterTag",
+              "description": "Tag used in Playwright glossary facet-filter test"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossaryFilterDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright glossary facet-filter test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:PlaywrightGlossaryFilterTag"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+              "terms": [
+                {
+                  "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightFilterRelated"
+                }
+              ],
+              "auditStamp": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightGlossaryTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightGlossaryTag",
+              "description": "Tag used in Playwright glossary advanced-search tests"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossaryTaggedDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright glossary advanced-search tests",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:PlaywrightGlossaryTag"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+              "terms": [
+                {
+                  "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightTaggedRelated"
+                }
+              ],
+              "auditStamp": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightGlossaryTermTests",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Parent node for Playwright glossary term entity tests",
+              "name": "PlaywrightGlossaryTermTests"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightSearchRelated",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Term for glossary search-by-query test",
+              "name": "PlaywrightSearchRelated",
+              "parentNode": "urn:li:glossaryNode:PlaywrightGlossaryTermTests",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightFilterRelated",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Term for glossary facet-filter test",
+              "name": "PlaywrightFilterRelated",
+              "parentNode": "urn:li:glossaryNode:PlaywrightGlossaryTermTests",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightTaggedRelated",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Term for glossary advanced tag-filter test",
+              "name": "PlaywrightTaggedRelated",
+              "parentNode": "urn:li:glossaryNode:PlaywrightGlossaryTermTests",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  }
+]

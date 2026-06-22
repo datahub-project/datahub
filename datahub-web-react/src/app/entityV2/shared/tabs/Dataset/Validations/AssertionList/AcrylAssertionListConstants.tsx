@@ -1,8 +1,10 @@
 import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
 import { NO_RUNNING_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import ColorTheme from '@conf/theme/colorThemes/types';
 import { AssertionResultType, AssertionType } from '@src/types.generated';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
@@ -18,62 +20,76 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
 `;
 
 export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
-    [AssertionType.Freshness]: 'Verifies when this dataset should be updated.',
-    [AssertionType.Volume]: 'Verifies the row count of this dataset.',
-    [AssertionType.Field]: 'Verifies the validity of a column.',
-    [AssertionType.DataSchema]: 'Verifies the schema of this dataset.',
-    [AssertionType.Custom]: 'A custom externally reported assertion.',
-    [AssertionType.Sql]: 'Verifies using custom SQL rules.',
-    [AssertionType.Dataset]: 'An external assertion.',
+    get [AssertionType.Freshness]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.freshness');
+    },
+    get [AssertionType.Volume]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.volume');
+    },
+    get [AssertionType.Field]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.field');
+    },
+    get [AssertionType.DataSchema]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataSchema');
+    },
+    get [AssertionType.Custom]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.custom');
+    },
+    get [AssertionType.Sql]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.sql');
+    },
+    get [AssertionType.Dataset]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataset');
+    },
 };
 
-export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
+export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
     passing: {
-        color: '#548239',
-        backgroundColor: '#F1F8EE',
+        color: colors.textSuccess,
+        backgroundColor: colors.bgSurfaceSuccess,
         resultType: AssertionResultType.Success,
         icon: <CheckOutlined />,
-        text: 'Passing',
+        text: i18next.t('entity.profile.validations:status.passing'),
         headerComponent: (
-            <StyledCardTitle background="#F1F8EE" color="#548239">
-                <CheckOutlined /> Passing
+            <StyledCardTitle background={colors.bgSurfaceSuccess} color={colors.textSuccess}>
+                <CheckOutlined /> {i18next.t('entity.profile.validations:status.passing')}
             </StyledCardTitle>
         ),
     },
     failing: {
-        color: '#D23939',
-        backgroundColor: '#FCF2F2',
+        color: colors.textError,
+        backgroundColor: colors.bgSurfaceError,
         resultType: AssertionResultType.Failure,
         icon: <CloseOutlined />,
-        text: 'Failing',
+        text: i18next.t('entity.profile.validations:status.failing'),
         headerComponent: (
-            <StyledCardTitle background="#FCF2F2" color="#D23939">
-                <CloseOutlined /> Failing
+            <StyledCardTitle background={colors.bgSurfaceError} color={colors.textError}>
+                <CloseOutlined /> {i18next.t('entity.profile.validations:status.failing')}
             </StyledCardTitle>
         ),
     },
     erroring: {
-        color: '#EEAE09',
-        backgroundColor: '#FEF9ED',
+        color: colors.textWarning,
+        backgroundColor: colors.bgSurfaceWarning,
         resultType: AssertionResultType.Error,
         icon: <InfoCircleOutlined />,
-        text: 'Errors',
+        text: i18next.t('entity.profile.validations:status.errors'),
         headerComponent: (
-            <StyledCardTitle background="#FEF9ED" color="#EEAE09">
-                <InfoCircleOutlined /> Error
+            <StyledCardTitle background={colors.bgSurfaceWarning} color={colors.textWarning}>
+                <InfoCircleOutlined /> {i18next.t('entity.profile.validations:status.error')}
             </StyledCardTitle>
         ),
     },
     [NO_RUNNING_STATE]: {
-        color: '#8D95B1',
-        backgroundColor: '#e0e0e0',
+        color: colors.textTertiary,
+        backgroundColor: colors.bgSurface,
         resultType: null,
         icon: <InfoCircleOutlined />,
-        text: '0 Running',
+        text: i18next.t('entity.profile.validations:status.zeroRunning'),
         headerComponent: (
-            <StyledCardTitle background="#F6F6F6" color="#8D95B1">
-                <InfoCircleOutlined /> No runs
+            <StyledCardTitle background={colors.bgSurface} color={colors.textTertiary}>
+                <InfoCircleOutlined /> {i18next.t('entity.profile.validations:status.noRuns')}
             </StyledCardTitle>
         ),
     },
-};
+});

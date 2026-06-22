@@ -1,7 +1,8 @@
 import styled from 'styled-components';
 
 import { HeadingStyleProps } from '@components/components/Heading/types';
-import { colors, typography } from '@components/theme';
+import { typography } from '@components/theme';
+import { ColorOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
 const headingStyles = {
@@ -40,28 +41,19 @@ const semanticHeadingColors: Record<string, 'text'> = {
     H6: 'text',
 };
 
-// Default styles
 const baseStyles = {
     fontFamily: typography.fonts.heading,
     margin: 0,
-
-    '& a': {
-        color: colors.violet[400],
-        textDecoration: 'none',
-        transition: 'color 0.15s ease',
-
-        '&:hover': {
-            color: colors.violet[500],
-        },
-    },
 };
 
 // Prop Driven Styles
 const propStyles = (props: HeadingStyleProps & { theme?: any }, isText = false, headingLevel?: string) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color && props.color !== 'inherit') {
-        styles.color = getColor(props.color, props.colorLevel);
+    if (props.color) {
+        const semantic = props.theme.colors[props.color];
+        styles.color =
+            typeof semantic === 'string' ? semantic : getColor(props.color as ColorOptions, props.colorLevel);
     } else if (headingLevel && props.theme?.colors) {
         const tokenKey = semanticHeadingColors[headingLevel];
         styles.color = props.theme.colors[tokenKey];
@@ -76,12 +68,17 @@ const headings = {} as any;
 
 ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].forEach((heading) => {
     const component = styled[heading.toLowerCase()];
-    headings[heading] = component(
-        { ...baseStyles, ...headingStyles[heading] },
-        (props: HeadingStyleProps & { theme?: any }) => ({
-            ...propStyles(props, false, heading),
-        }),
-    );
+    headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingStyleProps) => ({
+        ...propStyles(props),
+        '& a': {
+            color: props.theme.colors.hyperlinks,
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+            '&:hover': {
+                color: props.theme.colors.textBrand,
+            },
+        },
+    }));
 });
 
 export const { H1, H2, H3, H4, H5, H6 } = headings;

@@ -4,7 +4,6 @@ import json
 import logging
 import textwrap
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
 from typing import (
@@ -28,7 +27,6 @@ from pydantic import BaseModel
 from requests.models import HTTPError
 from typing_extensions import deprecated
 
-from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
@@ -55,6 +53,7 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
+from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -87,7 +86,6 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -111,17 +109,9 @@ logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
-
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
-
-
-@dataclass
-class RelatedEntity:
-    urn: str
-    relationship_type: str
-    via: Optional[str] = None
 
 
 def entity_type_to_graphql(entity_type: str) -> str:
@@ -161,7 +151,10 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
     return entity_type_to_graphql(entity_type)
 
 
-class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
+class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
+    # Redefine for backwards compatibility
+    RelationshipDirection = RelationshipDirection
+
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
@@ -171,14 +164,18 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
             retry_max_times=self.config.retry_max_times,
+            pool_connections=self.config.pool_connections,
+            pool_maxsize=self.config.pool_maxsize,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
+            client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
@@ -253,9 +250,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_key_path=session_config.client_key_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
+                tcp_keepalive=session_config.tcp_keepalive,
             )
         )
 
@@ -279,8 +278,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
         return self._send_restli_request("GET", url, params=params)
 
-    def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
-        return self._send_restli_request("POST", url, json=payload_dict)
+    def _post_generic(
+        self, url: str, payload_dict: Dict, params: Optional[Dict] = None
+    ) -> Dict:
+        return self._send_restli_request("POST", url, json=payload_dict, params=params)
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
@@ -675,10 +676,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     @property
     def _search_endpoint(self):
         return f"{self._gms_server}/entities?action=search"
-
-    @property
-    def _relationships_endpoint(self):
-        return f"{self._gms_server}/openapi/relationships/v1/"
 
     @property
     def _aspect_count_endpoint(self):
@@ -1263,6 +1260,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 root-anchored (``searchAcrossEntities``). See
                 :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
         """
+        # Whether the query was already minified by adapt_query() above —
+        # avoids a redundant parse+print round-trip on the happy path.
+        already_minified = False
+
         if strip_unsupported_fields:
             try:
                 if self._query_projector is None:
@@ -1272,6 +1273,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 query, removed = self._query_projector.adapt_query(
                     query, self, required_fields=required_fields
                 )
+                already_minified = True
                 if removed:
                     logger.info(f"Stripped unsupported fields from query: {removed}")
             except Exception as e:
@@ -1290,6 +1292,21 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     f"Failed to adapt query for schema compatibility, "
                     f"falling back to original query: {e}"
                 )
+
+        # Always minify before sending — covers strip=False, the projection
+        # fallback path, and any caller that hands us a pretty-printed query.
+        # The projector's output is already minified; skip the redundant
+        # parse+print there. Falls back silently to the original query if
+        # minification raises (e.g. unparseable input from a caller).
+        if not already_minified:
+            try:
+                from datahub.utilities.graphql_query_adapter import (
+                    minify_graphql_query,
+                )
+
+                query = minify_graphql_query(query)
+            except Exception:
+                pass
 
         url = f"{self._gms_server}/api/graphql"
 
@@ -1312,40 +1329,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 raise GraphError(result["errors"])
 
         return result["data"]
-
-    class RelationshipDirection(StrEnum):
-        INCOMING = "INCOMING"
-        OUTGOING = "OUTGOING"
-
-    def get_related_entities(
-        self,
-        entity_urn: str,
-        relationship_types: List[str],
-        direction: RelationshipDirection,
-    ) -> Iterable[RelatedEntity]:
-        relationship_endpoint = self._relationships_endpoint
-        done = False
-        start = 0
-        while not done:
-            response = self._get_generic(
-                url=relationship_endpoint,
-                params={
-                    "urn": entity_urn,
-                    "direction": direction.value,
-                    "relationshipTypes": relationship_types,
-                    "start": start,
-                },
-            )
-            for related_entity in response.get("entities", []):
-                yield RelatedEntity(
-                    urn=related_entity["urn"],
-                    relationship_type=related_entity["relationshipType"],
-                    via=related_entity.get("via"),
-                )
-            done = response.get("count", 0) == 0 or response.get("count", 0) < len(
-                response.get("entities", [])
-            )
-            start = start + response.get("count", 0)
 
     def exists(self, entity_urn: str) -> bool:
         entity_urn_parsed: Urn = Urn.from_string(entity_urn)
@@ -1516,31 +1499,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    def get_kafka_consumer_offsets(
-        self,
-    ) -> dict:
-        """
-        Get Kafka consumer offsets from the DataHub API.
-
-        Args:
-            graph (DataHubGraph): The DataHub graph client
-
-        """
-        urls = {
-            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
-            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
-            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
-        }
-
-        params = {"skipCache": "true", "detailed": "true"}
-        results = {}
-        for key, url in urls.items():
-            response = self._get_generic(url=url, params=params)
-            results[key] = response
-            if "errors" in response:
-                logger.error(f"Error: {response['errors']}")
-        return results
-
     def _restore_index_call(self, payload_obj: dict) -> None:
         result = self._post_generic(
             f"{self._gms_server}/operations?action=restoreIndices", payload_obj
@@ -1678,6 +1636,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1894,148 +1853,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
         return res["runAssertionsForAsset"]
 
-    @deprecated("Use get_entities instead which returns typed aspects")
-    def get_entities_v2(
-        self,
-        entity_name: str,
-        urns: List[str],
-        aspects: Optional[List[str]] = None,
-        with_system_metadata: bool = False,
-    ) -> Dict[str, Any]:
-        aspects = aspects or []
-        payload = {
-            "urns": urns,
-            "aspectNames": aspects,
-            "withSystemMetadata": with_system_metadata,
-        }
-        headers: Dict[str, Any] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        url = f"{self._gms_server}/openapi/v2/entity/batch/{entity_name}"
-        response = self._session.post(url, data=json.dumps(payload), headers=headers)
-        response.raise_for_status()
-
-        json_resp = response.json()
-        entities = json_resp.get("entities", [])
-        aspects_set = set(aspects)
-        retval: Dict[str, Any] = {}
-
-        for entity in entities:
-            entity_aspects = entity.get("aspects", {})
-            entity_urn = entity.get("urn", None)
-
-            if entity_urn is None:
-                continue
-            for aspect_key, aspect_value in entity_aspects.items():
-                # Include all aspects if aspect filter is empty
-                if len(aspects) == 0 or aspect_key in aspects_set:
-                    retval.setdefault(entity_urn, {})
-                    retval[entity_urn][aspect_key] = aspect_value
-        return retval
-
-    def get_entities(
-        self,
-        entity_name: str,
-        urns: List[str],
-        aspects: Optional[List[str]] = None,
-        with_system_metadata: bool = False,
-    ) -> Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]]:
-        """
-        Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
-
-        Args:
-            entity_name: The entity type name
-            urns: List of entity URNs to fetch
-            aspects: Optional list of aspect names to fetch. If None, all aspects will be fetched.
-            with_system_metadata: If True, return system metadata along with each aspect.
-
-        Returns:
-            A dictionary mapping URNs to a dictionary of aspect name to tuples of
-            (typed aspect object, system metadata). If with_system_metadata is False,
-            the system metadata in the tuple will be None.
-        """
-        aspects = aspects or []
-
-        request_payload = []
-        for urn in urns:
-            entity_request: Dict[str, Any] = {"urn": urn}
-            for aspect_name in aspects:
-                entity_request[aspect_name] = {}
-            request_payload.append(entity_request)
-
-        headers: Dict[str, Any] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-        url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/batchGet"
-        if with_system_metadata:
-            url += "?systemMetadata=true"
-
-        response = self._session.post(
-            url, data=json.dumps(request_payload), headers=headers
-        )
-        response.raise_for_status()
-        entities = response.json()
-
-        result: Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]] = {}
-
-        for entity in entities:
-            entity_urn = entity.get("urn")
-            if entity_urn is None:
-                logger.warning(
-                    f"Missing URN in entity response: {entity}, skipping deserialization"
-                )
-                continue
-
-            entity_aspects: Dict[
-                str, Tuple[_Aspect, Optional[SystemMetadataClass]]
-            ] = {}
-
-            for aspect_name, aspect_obj in entity.items():
-                if aspect_name == "urn":
-                    continue
-
-                aspect_class = ASPECT_NAME_MAP.get(aspect_name)
-                if aspect_class is None:
-                    logger.warning(
-                        f"Unknown aspect type {aspect_name}, skipping deserialization"
-                    )
-                    continue
-
-                aspect_value = aspect_obj.get("value")
-                if aspect_value is None:
-                    logger.warning(
-                        f"Unknown aspect value for aspect {aspect_name}, skipping deserialization"
-                    )
-                    continue
-
-                try:
-                    post_json_obj = post_json_transform(aspect_value)
-                    typed_aspect = aspect_class.from_obj(post_json_obj)
-                    assert isinstance(typed_aspect, aspect_class) and isinstance(
-                        typed_aspect, _Aspect
-                    )
-
-                    system_metadata = None
-                    if with_system_metadata:
-                        system_metadata_obj = aspect_obj.get("systemMetadata")
-                        if system_metadata_obj:
-                            system_metadata = SystemMetadataClass.from_obj(
-                                system_metadata_obj
-                            )
-
-                    entity_aspects[aspect_name] = (typed_aspect, system_metadata)
-                except Exception as e:
-                    logger.error(f"Error deserializing aspect {aspect_name}: {e}")
-                    raise
-
-            if entity_aspects:
-                result[entity_urn] = entity_aspects
-
-        return result
-
     def upsert_custom_assertion(
         self,
         urn: Optional[str],
@@ -2105,6 +1922,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
     ) -> bool:
         graph_query: str = """
             mutation reportAssertionResult(
@@ -2114,6 +1932,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
+                $severity: AssertionResultSeverity,
             ) {
                 reportAssertionResult(urn: $assertionUrn, result: {
                     timestampMillis: $timestampMillis
@@ -2121,6 +1940,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
+                    severity: $severity
                 })
             }
         """
@@ -2134,6 +1954,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
 
         res = self.execute_graphql(

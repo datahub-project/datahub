@@ -1,8 +1,8 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Icon, Tooltip, colors } from '@components';
+import { Icon, Tooltip } from '@components';
 import { List } from '@phosphor-icons/react/dist/csr/List';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -36,13 +36,12 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     padding: 16px 0px 8px 0px;
-    border: 1px solid ${colors.gray[100]};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['box-shadow-navbar-redesign'] : '0px 4px 10px 0px #a8a8a840'};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
 
 const FiltersContainerTop = styled.div`
@@ -55,7 +54,7 @@ const FiltersContainerTop = styled.div`
 `;
 
 const CustomSwitch = styled.div`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 30px;
     display: flex;
     gap: 2px;
@@ -71,14 +70,14 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     display: flex;
     padding: 4px;
     transition: left 0.5s ease;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     ${(props) =>
         props.isActive &&
         `
- background: ${colors.gray[100]};
+background: ${props.theme.colors.bgSurface};
  border-radius: 100%;
- color: ${colors.gray[1700]};
+color: ${props.theme.colors.textSecondary};
  `}
 `;
 
@@ -112,7 +111,7 @@ const ControlsContainer = styled.div`
 `;
 
 const RecommendedFiltersContainer = styled.div`
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 16px 8px 16px;
 `;
 
@@ -147,6 +146,7 @@ export default function SearchFilters({
     setShowSelectMode,
     downloadSearchResults,
 }: Props) {
+    const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { isFullViewCard, setIsFullViewCard, selectedSortOption, setSelectedSortOption } = useSearchContext();
     // Filter out the available filters if `basicFilters` is true
@@ -179,12 +179,12 @@ export default function SearchFilters({
                     />
                     <CustomSwitch>
                         <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
-                            <Tooltip showArrow={false} title="Full Card View">
+                            <Tooltip showArrow={false} title={t('filters.fullCardView')}>
                                 <Icon icon={Rows} size="md" />
                             </Tooltip>
                         </IconContainer>
                         <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
-                            <Tooltip showArrow={false} title="Compact Card View">
+                            <Tooltip showArrow={false} title={t('filters.compactCardView')}>
                                 <Icon icon={List} size="md" />
                             </Tooltip>
                         </IconContainer>
