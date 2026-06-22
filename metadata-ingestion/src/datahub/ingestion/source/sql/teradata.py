@@ -47,7 +47,7 @@ from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
-from typing_extensions import ClassVar
+from typing_extensions import ClassVar, LiteralString
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -1615,7 +1615,7 @@ AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
 
-    WARNING_VIEW_ERROR_MAP: ClassVar[Dict[ViewErrorCategory, str]] = {
+    WARNING_VIEW_ERROR_MAP: ClassVar[Dict[ViewErrorCategory, LiteralString]] = {
         ViewErrorCategory.TIMEOUT: "View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
         ViewErrorCategory.PERMISSION: "Permission denied processing view — check database access rights for the ingestion user.",
         ViewErrorCategory.PARSE: "SQL parse error in view definition — check the view SQL for syntax issues.",
@@ -2503,7 +2503,7 @@ ORDER by DataBaseName, TableName;
         with self.report.atomic():
             self.report.warning(
                 title="View processing error",
-                message=message,  # type: ignore[arg-type]  # all dict values are compile-time literals
+                message=message,
                 context=f"{schema}.{view_name}",
                 exc=exc,
             )
