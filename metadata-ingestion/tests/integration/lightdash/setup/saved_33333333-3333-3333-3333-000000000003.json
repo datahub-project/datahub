@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "results": {
+    "uuid": "33333333-3333-3333-3333-000000000003",
+    "name": "Quarterly Revenue with Bins",
+    "description": "Uses customDimension bin and customSqlDimension",
+    "projectUuid": "11111111-1111-1111-1111-000000000001",
+    "organizationUuid": "00000000-0000-0000-0000-000000000001",
+    "spaceUuid": "22222222-2222-2222-2222-00000000000b",
+    "spaceName": "Analytics",
+    "chartType": "table",
+    "chartKind": "table",
+    "slug": "quarterly-revenue-with-bins",
+    "tableName": "orders_enriched",
+    "updatedAt": "2025-04-13T12:00:00.000Z",
+    "updatedByUser": {
+      "userUuid": "55555555-5555-5555-5555-000000000001",
+      "firstName": "Stan",
+      "lastName": "Dmitriev",
+      "email": "stan.dmitriev@example.com"
+    },
+    "metricQuery": {
+      "exploreName": "orders_enriched",
+      "dimensions": ["orders_enriched_order_region"],
+      "metrics": ["orders_enriched_revenue_total"],
+      "tableCalculations": [],
+      "additionalMetrics": [],
+      "customDimensions": [
+        {
+          "name": "discount_bucket",
+          "id": "discount_bucket",
+          "type": "bin",
+          "table": "orders_enriched",
+          "dimensionId": "orders_enriched_discount_pct",
+          "binType": "fixed_width"
+        },
+        {
+          "name": "is_high_discount",
+          "id": "is_high_discount",
+          "type": "sql",
+          "table": "orders_enriched",
+          "sql": "${TABLE}.discount_pct > 0.2"
+        }
+      ]
+    }
+  }
+}
