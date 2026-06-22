@@ -52,9 +52,6 @@ class DremioQuery:
         self.query = self._get_query(query)
         self.queried_datasets = self._get_queried_datasets(queried_datasets)
 
-    def get(self, attr):
-        return getattr(self, attr, None)
-
     def _get_submitted_ts(self, timestamp: str) -> datetime:
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
