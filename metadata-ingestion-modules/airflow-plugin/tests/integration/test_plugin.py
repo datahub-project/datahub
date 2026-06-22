@@ -159,8 +159,10 @@ def _wait_for_dag_finish(
         #     finished, so retry instead of declaring a spurious success;
         #   - only when every task is terminal and none failed do we treat the
         #     DagRun-level "failed" as the spurious scheduler race it is.
-        # Same "task succeeded but marked failed" scheduler-race symptom:
-        # https://github.com/apache/airflow/issues/34339
+        # Airflow 3.0 scheduler/execution-API state-mismatch (does not occur on
+        # Airflow 2's in-process execution):
+        # https://github.com/apache/airflow/issues/53797
+        # https://github.com/apache/airflow/discussions/52813
         task_instances = _get_task_instances(
             airflow_instance, dag_id, dag_run["dag_run_id"]
         )
