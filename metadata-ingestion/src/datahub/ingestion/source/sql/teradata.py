@@ -3033,16 +3033,17 @@ ORDER by DataBaseName, TableName;
                 _mark_phase("completed")
 
         except Exception as e:
-            self.report.warning(
-                title="Lineage fetch failed",
-                message=(
-                    "Failed to fetch lineage entries from Teradata audit logs. "
-                    "Lineage data for this run will be incomplete. "
-                    "Check Teradata connectivity and DBC.QryLogV access."
-                ),
-                context=f"time_range={self.config.start_time}–{self.config.end_time}",
-                exc=e,
-            )
+            with self.report.atomic():
+                self.report.warning(
+                    title="Lineage fetch failed",
+                    message=(
+                        "Failed to fetch lineage entries from Teradata audit logs. "
+                        "Lineage data for this run will be incomplete. "
+                        "Check Teradata connectivity and DBC.QryLogV access."
+                    ),
+                    context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                    exc=e,
+                )
             raise
         finally:
             watchdog_stop.set()
