@@ -179,6 +179,40 @@ class TestDataLakeLineageProviderConfigSchemeDispatch:
         )
         assert urn == "urn:li:dataset:(urn:li:dataPlatform:gcs,lake/events,PROD)"
 
+    def test_canonical_gs_url_routes_to_gcs_platform(self) -> None:
+        config = DataLakeLineageProviderConfig()
+        urn = config.get_urn_for_lineage(
+            "gs://my-bucket/events/year=2024/", ENV, mode=PathMode.DIRECTORY
+        )
+        assert urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/year=2024,PROD)"
+        )
+
+    def test_abs_https_url_routes_to_abs_platform(self) -> None:
+        config = DataLakeLineageProviderConfig()
+        urn = config.get_urn_for_lineage(
+            "https://account.blob.core.windows.net/container/events/",
+            ENV,
+            mode=PathMode.DIRECTORY,
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:abs,container/events,PROD)"
+
+    def test_azure_path_spec_folds_directory(self) -> None:
+        config = DataLakeLineageProviderConfig(
+            path_specs=[
+                PathSpec(
+                    include="azure://account.blob.core.windows.net/container/{table}/*.csv"
+                )
+            ],
+            ignore_non_path_spec_path=True,
+        )
+        urn = config.get_urn_for_lineage(
+            "azure://account.blob.core.windows.net/container/events/year=2024/",
+            ENV,
+            mode=PathMode.DIRECTORY,
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:abs,container/events,PROD)"
+
 
 class TestPathSpecFoldDirToTable:
     def test_returns_none_when_spec_has_no_table_token(self) -> None:
