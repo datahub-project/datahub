@@ -438,8 +438,8 @@ def test_cycle_detection_prevents_infinite_loop(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
-        mock_client.get_page_by_id.side_effect = (
-            lambda page_id, expand=None: mock_pages.get(page_id)
+        mock_client.get_page_by_id.side_effect = lambda page_id, expand=None: (
+            mock_pages.get(page_id)
         )
         mock_client.get_child_pages.side_effect = lambda page_id: iter(
             mock_children.get(page_id, [])

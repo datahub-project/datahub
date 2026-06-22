@@ -106,8 +106,8 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
 
     def __init__(self, config: SimpleDatasetDataProductConfig, ctx: PipelineContext):
         generic_config = AddDatasetDataProductConfig(
-            get_data_product_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
-                dataset_urn
+            get_data_product_to_add=lambda dataset_urn: (
+                config.dataset_to_data_product_urns.get(dataset_urn)
             ),
         )
         super().__init__(generic_config, ctx)
