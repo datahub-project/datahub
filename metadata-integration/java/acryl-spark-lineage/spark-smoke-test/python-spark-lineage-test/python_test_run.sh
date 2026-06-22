@@ -27,4 +27,21 @@ spark-submit --properties-file $2 HdfsIn2HiveCreateInsertTable.py
 saluation "HiveInHiveOut.py" $2
 spark-submit --properties-file $2 HiveInHiveOut.py
 
+# Iceberg-on-Glue connection-instance scenario. Iceberg comes via --packages; the connection mapping
+# (Glue catalog ARN -> platform_instance) is passed as --conf because the ARN's colons would be
+# misparsed in a Spark properties file. moto's default account is 123456789012 / region us-east-1.
+# This job uses the FILE emitter (overriding the REST emitter from the properties file) so the test
+# can assert the emitted lineage edge directly; the output lands on a host-mounted dir. Spark lineage
+# output carries per-run volatility (dataProcessInstance UUIDs, timestamps, temp paths), so a full
+# golden is brittle here — test_e2e.py asserts the one stable signal: the glue,<instance> edge.
+saluation "GlueIcebergConnectionInstance.py" $2
+GLUE_ARN='arn:aws:glue:us-east-1:123456789012'
+spark-submit --properties-file $2 \
+  --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1,org.apache.iceberg:iceberg-aws-bundle:1.6.1 \
+  --conf "spark.datahub.emitter=file" \
+  --conf "spark.datahub.file.filename=/opt/workspace/glue-output/glue_mcps.json" \
+  --conf "spark.datahub.metadata.dataset.connections.\"${GLUE_ARN}\".platformInstance=domain_a" \
+  --conf "spark.datahub.metadata.dataset.connections.\"${GLUE_ARN}\".env=PROD" \
+  GlueIcebergConnectionInstance.py
+
 

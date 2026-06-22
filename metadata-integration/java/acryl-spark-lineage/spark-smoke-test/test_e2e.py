@@ -78,3 +78,39 @@ def test_ingestion_via_rest(json_file):
         if diff != NO_DIFF:
             print("Expected: {} Actual: {}".format(value, data))
         assert diff == NO_DIFF
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_glue_iceberg_connection_instance():
+    """The Iceberg-on-Glue job's lineage edge must resolve to the platform_instance mapped for its
+    catalog ARN (arn:aws:glue:us-east-1:123456789012 -> domain_a). The platform_instance is encoded
+    in the dataset URN, so finding it on a dataJobInputOutput edge proves the connection-instance
+    mapping was applied end-to-end.
+
+    This scenario lives in the spark-submit harness (not the in-JVM unit suite) because OpenLineage
+    only emits the Glue catalog symlink under a real spark-submit execution. The job uses the file
+    emitter (output bind-mounted from the spark-submit container); we assert the edge directly rather
+    than golden the full output, because Spark lineage MCPs carry per-run volatility (dataProcessInstance
+    UUID URNs, timestamps embedded in stringified aspects, temp paths) that a full golden can't stably
+    capture — the edge is the one stable signal that proves the fix."""
+    output_path = "./spark-smoke-test/glue-output/glue_mcps.json"
+    assert os.path.isfile(output_path), f"Glue job emitted no MCPs to {output_path}"
+    with open(output_path) as f:
+        mcps = json.load(f)
+
+    expected = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "domain_a.my_glue_database.my_glue_table,PROD)"
+    )
+    edge_urns = set()
+    for mcp in mcps:
+        if mcp.get("aspectName") == "dataJobInputOutput":
+            aspect = json.loads(mcp["aspect"]["value"])
+            for edge_key in ("inputDatasetEdges", "outputDatasetEdges"):
+                for edge in aspect.get(edge_key, []):
+                    edge_urns.add(edge.get("destinationUrn"))
+
+    assert expected in edge_urns, (
+        "Glue upstream missing platform_instance 'domain_a' (connection mapping not applied). "
+        f"Edges found: {sorted(edge_urns)}"
+    )
