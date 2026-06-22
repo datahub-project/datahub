@@ -4,6 +4,7 @@ import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
+import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.system_telemetry.GraphQLTimingInstrumentation;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -23,8 +24,11 @@ import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -94,6 +98,17 @@ public class GraphQLEngine {
               graphQLConfiguration.getShapeLogging()));
     }
 
+    if (graphQLConfiguration.getOtel() != null
+        && graphQLConfiguration.getOtel().isEnableOtelGraphqlTraces()) {
+      // Order matters: GraphQLTelemetry must be registered before OtelContextCaptureInstrumentation
+      // so that, when ChainedInstrumentation invokes beginExecution in registration order,
+      // GraphQLTelemetry has already made the operation span current by the time the capture
+      // instrumentation samples Context.current().
+      instrumentations.add(
+          GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
+      instrumentations.add(OtelContextCaptureInstrumentation.INSTANCE);
+    }
+
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
@@ -115,6 +130,20 @@ public class GraphQLEngine {
     /*
      * Construct execution input
      */
+    // Build graphQLContext as a mutable map so OtelContextCaptureInstrumentation can look up the
+    // registry by class key and call setOtelContext once the operation span is active.
+    Map<Object, Object> graphqlContextMap = new LinkedHashMap<>();
+    // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
+    graphqlContextMap.put(InputInterceptor.class, LegacyCoercingInputInterceptor.migratesValues());
+    graphqlContextMap.put(QueryContext.class, context);
+    // need this to log actor in logging/instrumentation layer.
+    // QueryContext and SpringQueryContext exist in packages which cause circular deps added to the
+    // instrumentation package.
+    graphqlContextMap.put(
+        GraphQLTimingInstrumentation.GRAPHQL_CONTEXT_ACTOR_KEY,
+        context != null && context.getActor() != null ? context.getActor() : "no_actor_present");
+    graphqlContextMap.put(LazyDataLoaderRegistry.class, register);
+
     ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
             .query(query)
@@ -122,20 +151,7 @@ public class GraphQLEngine {
             .variables(variables)
             .dataLoaderRegistry(register)
             .context(context)
-            .graphQLContext(
-                Map.of(
-                    // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
-                    InputInterceptor.class,
-                    LegacyCoercingInputInterceptor.migratesValues(),
-                    QueryContext.class,
-                    context,
-                    GraphQLTimingInstrumentation.GRAPHQL_CONTEXT_ACTOR_KEY,
-                    context != null && context.getActor() != null
-                        ? context.getActor()
-                        : "no_actor_present")) // need this to log actor in logging/instrumentation
-            // layer.
-            // QueryContext and SpringQueryContext exist in packages which
-            // cause circular deps added to the instrumentation package.
+            .graphQLContext(graphqlContextMap)
             .build();
 
     /*

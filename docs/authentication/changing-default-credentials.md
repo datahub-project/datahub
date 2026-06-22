@@ -109,7 +109,7 @@ datahub:newpassword
 
 #### 2. Mount the updated config file
 
-Change the [docker-compose.yaml](https://github.com/datahub-project/datahub/blob/master/docker/docker-compose.yml) to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:`/datahub-frontend/conf/user.props`
+Change the [docker-compose file](https://github.com/datahub-project/datahub/blob/master/docker/profiles/docker-compose.frontend.yml) to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:`/datahub-frontend/conf/user.props`
 
 ```yaml
   datahub-frontend-react:
@@ -139,8 +139,8 @@ datahub:newpassword
 
 #### 2. Mount the updated config file
 
-In [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml).
-Modify the [datahub-frontend-react block](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml#L116) to contain the extra volume mount.
+In [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart-profile.yml).
+Modify the [datahub-frontend-react block](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart-profile.yml#L189) to contain the extra volume mount.
 
 ```yaml
   datahub-frontend-react:

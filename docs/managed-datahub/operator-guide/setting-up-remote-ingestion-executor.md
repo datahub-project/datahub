@@ -50,7 +50,7 @@ Before deploying a Remote Executor, ensure you have the following:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
    - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
-   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
 4. **Registry Access**

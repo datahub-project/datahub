@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -16,6 +17,7 @@ const DEFAULT_MAX_ENTITIES_TO_SHOW = 10;
 
 // TODO: Add group ownership into this.
 export const TagsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -35,8 +37,8 @@ export const TagsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectio
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your tags"
-                tip="Tags that you created"
+                title={t('yourTags.title')}
+                tip={t('yourTags.tip')}
                 showMore={entities.length > entityCount}
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={() => setShowModal(true)}
@@ -51,7 +53,7 @@ export const TagsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectio
             />
             {showModal && (
                 <EmbeddedListSearchModal
-                    title="Your tags"
+                    title={t('yourTags.title')}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [
@@ -60,7 +62,7 @@ export const TagsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectio
                         ],
                     }}
                     onClose={() => setShowModal(false)}
-                    placeholderText="Filter tags you own..."
+                    placeholderText={t('yourTags.filterPlaceholder')}
                 />
             )}
         </ReferenceSection>

@@ -116,17 +116,17 @@ export const getExecutionRequestSummaryText = (status: string) => {
 
 export const getExecutionRequestStatusDisplayColor = (theme: DefaultTheme, status?: string) => {
     return (
-        (status === RUNNING && theme.colors.chartsInformationHigh) ||
+        (status === RUNNING && theme.colors.iconInformation) ||
         (status === SUCCESS && theme.colors.iconSuccess) ||
         (status === SUCCEEDED_WITH_WARNINGS && theme.colors.iconWarning) ||
         (status === FAILURE && theme.colors.iconError) ||
-        (status === UP_FOR_RETRY && theme.colors.chartsBrandHigh) ||
-        (status === CANCELLED && theme.colors.textTertiary) ||
+        (status === UP_FOR_RETRY && theme.colors.iconBrand) ||
+        (status === CANCELLED && theme.colors.icon) ||
         (status === ROLLED_BACK && theme.colors.iconWarning) ||
         (status === ROLLING_BACK && theme.colors.iconWarning) ||
         (status === ROLLBACK_FAILED && theme.colors.iconError) ||
         (status === ABORTED && theme.colors.iconError) ||
-        theme.colors.textTertiary
+        theme.colors.icon
     );
 };
 

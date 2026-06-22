@@ -1,5 +1,6 @@
 import json
 import logging
+import socket
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,6 +17,7 @@ from requests.structures import CaseInsensitiveDict
 from datahub.cli import cli_utils, env_utils
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities import env_vars
 
@@ -101,17 +103,51 @@ def get_kafka_schema_registry():
     )
 
 
+def _metadata_db_tcp_reachable(host_port: str, default_port: int) -> bool:
+    """Return True if ``host[:port]`` accepts a TCP connection (short timeout)."""
+    host, port = parse_host_port(host_port, default_port)
+    if port is None:
+        port = default_port
+    try:
+        with socket.create_connection((host, int(port)), timeout=0.75):
+            return True
+    except OSError:
+        return False
+
+
 def get_db_type():
     db_type = env_vars.get_db_type()
     if db_type:
         return db_type
-    else:
-        # infer from profile
-        profile_name = env_vars.get_profile_name()
-        if profile_name and "postgres" in profile_name:
-            return "postgres"
-        else:
-            return "mysql"
+    profile_name = env_vars.get_profile_name()
+    if profile_name and "postgres" in profile_name:
+        return "postgres"
+
+    pg_url = env_vars.get_postgres_url()
+    mysql_url = env_vars.get_mysql_url()
+    pg_ok = _metadata_db_tcp_reachable(pg_url, 5432)
+    mysql_ok = _metadata_db_tcp_reachable(mysql_url, 3306)
+
+    if pg_ok and not mysql_ok:
+        return "postgres"
+    if mysql_ok and not pg_ok:
+        return "mysql"
+    if pg_ok and mysql_ok:
+        logger.warning(
+            "Both postgres (%s) and mysql (%s) ports accept connections; "
+            "using postgres. Set DB_TYPE=mysql or DB_TYPE=postgres to override.",
+            pg_url,
+            mysql_url,
+        )
+        return "postgres"
+
+    logger.warning(
+        "Neither postgres (%s) nor mysql (%s) responded to a TCP probe; "
+        "defaulting to mysql. Set DB_TYPE=postgres for PostgreSQL-only quickstart.",
+        pg_url,
+        mysql_url,
+    )
+    return "mysql"
 
 
 def get_db_url():

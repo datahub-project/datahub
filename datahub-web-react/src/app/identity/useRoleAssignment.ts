@@ -1,4 +1,5 @@
 import { ApolloClient } from '@apollo/client';
+import i18next from 'i18next';
 import { useCallback, useState } from 'react';
 
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
@@ -69,8 +70,17 @@ export function useRoleAssignment({
 
         const isRemoval = newRoleUrn === NO_ROLE_URN;
         const successMsg = isRemoval
-            ? `Removed role from ${entityLabel} ${roleAssignmentState.actorName}!`
-            : `Assigned role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}!`;
+            ? i18next.t('roleAssignment.removeSuccess', {
+                  ns: 'entity.identity',
+                  entityLabel,
+                  name: roleAssignmentState.actorName,
+              })
+            : i18next.t('roleAssignment.assignSuccess', {
+                  ns: 'entity.identity',
+                  role: roleToAssign?.name,
+                  entityLabel,
+                  name: roleAssignmentState.actorName,
+              });
 
         batchAssignRoleMutation({
             variables: {
@@ -99,8 +109,19 @@ export function useRoleAssignment({
             .catch((e) => {
                 onError?.(roleAssignmentState.actorUrn, roleAssignmentState.originalRoleUrn);
                 const failureMsg = isRemoval
-                    ? `Failed to remove role from ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`
-                    : `Failed to assign role ${roleToAssign?.name} to ${entityLabel} ${roleAssignmentState.actorName}: ${e.message || ''}`;
+                    ? i18next.t('roleAssignment.removeError', {
+                          ns: 'entity.identity',
+                          entityLabel,
+                          name: roleAssignmentState.actorName,
+                          error: e.message || '',
+                      })
+                    : i18next.t('roleAssignment.assignError', {
+                          ns: 'entity.identity',
+                          role: roleToAssign?.name,
+                          entityLabel,
+                          name: roleAssignmentState.actorName,
+                          error: e.message || '',
+                      });
                 toast.error(failureMsg);
             });
     }, [
@@ -119,8 +140,15 @@ export function useRoleAssignment({
         if (!roleAssignmentState) return '';
         const roleToAssign = selectRoleOptions.find((role) => role.urn === roleAssignmentState.currentRoleUrn);
         return roleToAssign?.urn === NO_ROLE_URN || !roleToAssign
-            ? `Would you like to remove ${roleAssignmentState.actorName}'s existing role?`
-            : `Would you like to assign the role ${roleToAssign?.name} to ${roleAssignmentState.actorName}?`;
+            ? i18next.t('roleAssignment.removeMessage', {
+                  ns: 'entity.identity',
+                  name: roleAssignmentState.actorName,
+              })
+            : i18next.t('roleAssignment.assignMessage', {
+                  ns: 'entity.identity',
+                  role: roleToAssign?.name,
+                  name: roleAssignmentState.actorName,
+              });
     }, [roleAssignmentState, selectRoleOptions]);
 
     return {

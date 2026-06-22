@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.kubernetes.KubernetesScaleDownConfiguration;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
@@ -296,26 +297,34 @@ public class KubernetesApiAccessor {
                   || dep.getSpec().getTemplate().getSpec().getContainers().isEmpty()) {
                 return dep;
               }
-              List<EnvVar> env =
-                  dep.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
+              // Mutate the env list in place rather than rebuild it. fabric8's JSON Patch diff is
+              // index-based: any reordering of the array (e.g. via a HashMap-backed rebuild) is
+              // emitted as in-place "replace name / remove valueFrom / add value" operations,
+              // which the API server applies — destroying secret/configmap bindings on every
+              // shifted EnvVar. By keeping existing entries at their original positions and
+              // editing only the targeted keys, fabric8 emits a minimal diff that touches only
+              // the keys we intend to change.
+              Container container = dep.getSpec().getTemplate().getSpec().getContainers().get(0);
+              List<EnvVar> env = container.getEnv();
               if (env == null) {
                 env = new ArrayList<>();
+                container.setEnv(env);
               }
-              Map<String, EnvVar> byName = new HashMap<>();
+              Map<String, EnvVar> existing = new HashMap<>();
               for (EnvVar e : env) {
                 if (e.getName() != null) {
-                  byName.put(e.getName(), e);
+                  existing.put(e.getName(), e);
                 }
               }
               for (Map.Entry<String, String> e : envVars.entrySet()) {
-                byName.put(e.getKey(), new EnvVar(e.getKey(), e.getValue(), null));
+                EnvVar current = existing.get(e.getKey());
+                if (current != null) {
+                  current.setValue(e.getValue());
+                  current.setValueFrom(null);
+                } else {
+                  env.add(new EnvVar(e.getKey(), e.getValue(), null));
+                }
               }
-              dep.getSpec()
-                  .getTemplate()
-                  .getSpec()
-                  .getContainers()
-                  .get(0)
-                  .setEnv(new ArrayList<>(byName.values()));
               return dep;
             });
   }

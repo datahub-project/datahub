@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { ColorValues } from '@components/theme/config';
 
 import { CorpUser, CorpUserStatus, FacetFilterInput } from '@types';
@@ -19,7 +21,7 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     }
 
     // If no status, default to Inactive
-    return 'Inactive';
+    return i18next.t('users.statusInactive', { ns: 'entity.identity' });
 };
 
 type StatusFilterOption = {

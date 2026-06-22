@@ -1,0 +1,1801 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "informatica",
+                "instance": "idmc_test",
+                "env": "PROD",
+                "project_name": "Sales"
+            },
+            "name": "Sales",
+            "description": "Sales analytics project",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "informatica",
+                "instance": "idmc_test",
+                "env": "PROD",
+                "project_name": "Marketing"
+            },
+            "name": "Marketing",
+            "description": "Marketing analytics project",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:bob@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "informatica",
+                "instance": "idmc_test",
+                "env": "PROD",
+                "project_name": "Sales",
+                "folder_name": "Mappings"
+            },
+            "name": "Mappings",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "informatica",
+                "instance": "idmc_test",
+                "env": "PROD",
+                "project_name": "Sales",
+                "folder_name": "Taskflows"
+            },
+            "name": "Taskflows",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "informatica",
+                "instance": "idmc_test",
+                "env": "PROD",
+                "project_name": "Sales",
+                "folder_name": "MappingTasks"
+            },
+            "name": "MappingTasks",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "mttask-1",
+                "objectType": "MTT",
+                "path": "/Explore/Sales/MappingTasks/nightly_copy_orders",
+                "mappingId": "v2-map-1",
+                "mappingName": "copy_orders_to_dw",
+                "mappingV3Id": "map-orders-copy",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "alice@acme.com"
+            },
+            "name": "nightly_copy_orders",
+            "description": "Scheduled runner for copy_orders_to_dw",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Mapping Task"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+                    "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "mttask-1",
+                "objectType": "MTT",
+                "path": "/Explore/Sales/MappingTasks/nightly_copy_orders",
+                "mappingId": "v2-map-1",
+                "mappingName": "copy_orders_to_dw",
+                "mappingV3Id": "map-orders-copy",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "alice@acme.com"
+            },
+            "name": "nightly_copy_orders.transform",
+            "description": "Scheduled runner for copy_orders_to_dw",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Task Logic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+                    "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+                },
+                {
+                    "id": "nightly_copy_orders",
+                    "urn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "mttask-2",
+                "objectType": "MTT",
+                "path": "/Explore/Sales/MappingTasks/nightly_enrich_customers",
+                "mappingId": "v2-map-2",
+                "mappingName": "enrich_customers",
+                "mappingV3Id": "map-customers-enrich",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "alice@acme.com"
+            },
+            "name": "nightly_enrich_customers",
+            "description": "Scheduled runner for enrich_customers",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Mapping Task"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+                    "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "mttask-2",
+                "objectType": "MTT",
+                "path": "/Explore/Sales/MappingTasks/nightly_enrich_customers",
+                "mappingId": "v2-map-2",
+                "mappingName": "enrich_customers",
+                "mappingV3Id": "map-customers-enrich",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "alice@acme.com"
+            },
+            "name": "nightly_enrich_customers.transform",
+            "description": "Scheduled runner for enrich_customers",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Task Logic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+                    "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
+                },
+                {
+                    "id": "nightly_enrich_customers",
+                    "urn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "tf-daily-refresh",
+                "objectType": "TASKFLOW",
+                "path": "/Explore/Sales/Taskflows/daily_refresh",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "bob@acme.com"
+            },
+            "name": "daily_refresh",
+            "description": "Runs sales pipelines nightly",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Taskflow"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@acme.com",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:bob@acme.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+                    "urn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mappingTaskCount": "2",
+                "stepOrder": "step-copy \u2192 step-enrich",
+                "stepSummary": "Copy orders \u2192 nightly_copy_orders | Enrich customers \u2192 nightly_enrich_customers"
+            },
+            "name": "daily_refresh.orchestrate",
+            "description": "Runs 2 Mapping Task(s) in order: Copy orders \u2192 nightly_copy_orders \u2192 Enrich customers \u2192 nightly_enrich_customers",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Taskflow Orchestration"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+                },
+                {
+                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
+                },
+                {
+                    "id": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+                    "urn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2"
+                },
+                {
+                    "id": "idmc_test.daily_refresh",
+                    "urn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.customers_enriched,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.customers,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.customers_enriched,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.customers_enriched,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.customers_enriched,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1d9989d6618ede92b27dee5f9fa0f209",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD),orchestrate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-g1ji3d",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+}
+]

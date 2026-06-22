@@ -1,4 +1,5 @@
-describe("tags - search not exists", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("tags - search not exists", () => {
   beforeEach(() => {
     cy.login();
   });

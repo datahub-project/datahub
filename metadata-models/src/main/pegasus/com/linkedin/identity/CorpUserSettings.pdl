@@ -6,7 +6,8 @@ import com.linkedin.event.notification.settings.NotificationSettings
  * Settings that a user can customize through the datahub ui
  */
 @Aspect = {
-  "name": "corpUserSettings"
+  "name": "corpUserSettings",
+  "schemaVersion": 2
 }
 record CorpUserSettings {
   /**
@@ -28,4 +29,9 @@ record CorpUserSettings {
    * Settings related to the home page for a user
    */
   homePage: optional CorpUserHomePageSettings
+
+  /**
+   * Locale and language preferences for a user
+   */
+  locale: optional CorpUserLocaleSettings
 }

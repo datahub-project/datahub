@@ -36,4 +36,9 @@ record FieldMetricAssertion {
     * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
     */
     parameters: optional AssertionStdParameters
+
+    /**
+    * Optional configuration for assigning severities to failed field metric assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
 }

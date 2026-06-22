@@ -41,6 +41,26 @@ module.exports = {
     },
     {
       type: "category",
+      label: "Core Capabilities",
+      link: {
+        type: "generated-index",
+        title: "Core Capabilities",
+        description:
+          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
+      },
+      items: [
+        {
+          label: "Data Quality & Observability",
+          type: "doc",
+          id: "docs/features/feature-guides/observe",
+          customProps: {
+            icon: "🔍",
+          },
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "Features",
       link: {
         type: "generated-index",
@@ -246,21 +266,15 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              label: "Anomaly Detection ⚡",
               type: "doc",
-              id: "docs/managed-datahub/observe/smart-assertions",
+              id: "docs/managed-datahub/observe/anomaly-detection",
               className: "saasOnly",
             },
             {
               label: "Backfill Assertion History",
               type: "doc",
               id: "docs/managed-datahub/observe/assertion-backfill",
-              className: "saasOnly",
-            },
-            {
-              label: "Data Health Dashboard",
-              type: "doc",
-              id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
             {
@@ -326,15 +340,21 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Databricks Metadata Sync",
               type: "doc",
               id: "docs/automations/databricks-metadata-sync",
               className: "saasOnly",
             },
             {
-              label: "Snowflake Tag Sync",
+              label: "Snowflake Metadata Sync",
               type: "doc",
-              id: "docs/automations/snowflake-tag-propagation",
+              id: "docs/automations/snowflake-metadata-sync",
               className: "saasOnly",
             },
             {
@@ -398,6 +418,12 @@ module.exports = {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Data Health Dashboard",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-health-dashboard",
+          className: "saasOnly",
         },
         {
           label: "Data Products",
@@ -548,6 +574,12 @@ module.exports = {
           id: "docs/features/feature-guides/service-accounts",
         },
         {
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -613,6 +645,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/remote-executor/monitoring",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
           className: "saasOnly",
         },
       ],
@@ -688,12 +725,8 @@ module.exports = {
       id: "docs/managed-datahub/chrome-extension",
     },
     {
-      type: "doc",
-      id: "docs/managed-datahub/subscription-and-notification",
-      className: "saasOnly",
-    },
-    {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
@@ -1307,6 +1340,8 @@ module.exports = {
       label: "Advanced Guides",
       items: [
         "docs/deploy/confluent-cloud",
+        "docs/deploy/gms-rate-limiting",
+        "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
       ],
@@ -1371,6 +1406,7 @@ module.exports = {
         // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
         "docs/docker/bundled-ingestion-venvs",
+        "docs/docker/ingestion-executor-security",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",

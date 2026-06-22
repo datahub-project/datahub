@@ -6,6 +6,7 @@ This test suite validates that events sent to the /openapi/v1/tracking/track end
 2. Correctly delivered to configured tracking destinations:
    - Mixpanel: Verifies events are sent to Mixpanel's JQL API
    - Kafka: Verifies events are published to the DataHubUsageEvent_v1 topic
+   - pgQueue: Verifies events are indexed after pgQueue publication (postgres profiles)
    - Elasticsearch: Verifies events are indexed and searchable
 
 Each test creates a unique event with a custom identifier to ensure test isolation and uses appropriate
@@ -25,6 +26,7 @@ from confluent_kafka import Consumer, KafkaError
 from dotenv import load_dotenv
 
 from tests.utilities import env_vars
+from tests.utilities.messaging_transport import is_pgqueue_transport
 from tests.utils import get_kafka_broker_url
 
 logger = logging.getLogger(__name__)
@@ -178,8 +180,47 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
     raise Exception("Failed to verify event in Mixpanel")
 
 
+def _build_tracking_test_event(unique_id: str) -> dict:
+    now = datetime.now(timezone.utc)
+    return {
+        "type": EVENT_NAME,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)",
+        "actorUrn": "urn:li:corpuser:test_user",
+        "timestamp": int(now.timestamp() * 1000),
+        "customField": unique_id,
+    }
+
+
+def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
+    es_url = env_vars.get_elasticsearch_url()
+    es_index = env_vars.get_elasticsearch_index()
+    es_query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"customField": unique_id}},
+                    {"term": {"type": EVENT_NAME}},
+                ]
+            }
+        }
+    }
+    es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
+    assert es_response.status_code == 200, (
+        f"Failed to query Elasticsearch: {es_response.text}"
+    )
+    hits = es_response.json().get("hits", {}).get("hits", [])
+    assert len(hits) > 0, "No matching tracking events found in Elasticsearch"
+    event = hits[0].get("_source", {})
+    assert event.get("type") == EVENT_NAME
+    assert event.get("actorUrn") == "urn:li:corpuser:test_user"
+    assert event.get("customField") == unique_id
+
+
 def test_tracking_api_kafka(auth_session):
     """Test that we can post events to the tracking endpoint and verify they are sent to Kafka (DUE)."""
+    if is_pgqueue_transport(auth_session):
+        pytest.skip("Kafka is not the active messaging transport (pgQueue is enabled)")
 
     # Test configuration
     base_url = auth_session.gms_url()  # Use the authenticated GMS URL
@@ -188,18 +229,9 @@ def test_tracking_api_kafka(auth_session):
     )  # Use port 9092
     due_topic = "DataHubUsageEvent_v1"  # The DUE topic we'll read from
 
-    # Create a test event with a unique identifier
     unique_id = f"test_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     logger.info(f"\nLooking for test event with customField: {unique_id}")
-    now = datetime.now(timezone.utc)
-    test_event = {
-        "type": EVENT_NAME,
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,example_dataset,PROD)",
-        "actorUrn": "urn:li:corpuser:test_user",
-        "timestamp": int(now.timestamp() * 1000),  # Unix epoch milliseconds
-        "customField": unique_id,  # Use unique ID to identify our test event
-    }
+    test_event = _build_tracking_test_event(unique_id)
 
     # Create a Kafka consumer for DUE events BEFORE sending the event
     group_id = f"test_tracking_consumer_{unique_id}"
@@ -309,6 +341,26 @@ def test_tracking_api_kafka(auth_session):
                 break
 
     assert found_event, "Test event not found in Kafka messages"
+
+
+def test_tracking_api_pgqueue(auth_session):
+    """Verify tracking events published via pgQueue are indexed for search."""
+    if not is_pgqueue_transport(auth_session):
+        pytest.skip("pgQueue is not the active messaging transport")
+
+    unique_id = f"test_pgqueue_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    logger.info("Posting tracking event for pgQueue verification: %s", unique_id)
+    test_event = _build_tracking_test_event(unique_id)
+
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/openapi/v1/tracking/track", json=test_event
+    )
+    assert response.status_code == 200, f"Failed to post event: {response.text}"
+
+    logger.info("Waiting for pgQueue publication and Elasticsearch indexing...")
+    time.sleep(10)
+
+    _assert_tracking_event_in_elasticsearch(unique_id)
 
 
 def test_tracking_api_elasticsearch(auth_session):

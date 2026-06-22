@@ -27,10 +27,10 @@ import java.util.UUID;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 @Import(
@@ -40,23 +40,28 @@ import org.springframework.context.annotation.Primary;
     })
 public class UpgradeCliApplicationTestConfiguration {
 
-  // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
-  // to instantiate
-  //       see: https://github.com/spring-projects/spring-framework/issues/33934
-  @MockBean public UpgradeCli upgradeCli;
+  // TODO: Convert to @Bean @Primary (like configEntityRegistry below) to avoid Spring Framework
+  // issue #33934 where @MockitoBean still triggers real factory bean initialization.
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @MockitoBean public UpgradeCli upgradeCli;
 
-  @MockBean public SearchService searchService;
+  @MockitoBean public SearchService searchService;
 
-  @MockBean public GraphService graphService;
+  @MockitoBean public GraphService graphService;
 
-  @MockBean public ConfigEntityRegistry configEntityRegistry;
+  // Use @Bean instead of @MockitoBean to prevent ConfigEntityRegistryFactory from
+  // attempting to load entity-registry.yml (Spring Framework 7.0 issue #33934)
+  @Bean
+  public ConfigEntityRegistry configEntityRegistry() {
+    return Mockito.mock(ConfigEntityRegistry.class);
+  }
 
   // Mock semantic search factories to avoid needing full configuration
-  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   /**
    * Provide a pre-stubbed SearchClientShim so getEngineType() is non-null before any bean (e.g.
@@ -99,9 +104,20 @@ public class UpgradeCliApplicationTestConfiguration {
   @Bean
   @Primary
   public Database ebeanServer() {
-    // Create a real H2 in-memory database for testing with a unique name to avoid conflicts
     String instanceId = "upgradecli_" + UUID.randomUUID().toString().replace("-", "");
     String serverName = "upgradecli_test_" + UUID.randomUUID().toString().replace("-", "");
+    return EbeanTestUtils.createNamedTestServer(instanceId, serverName);
+  }
+
+  /**
+   * Override the pgQueue Ebean pool with an in-memory H2 database so pgQueue-transport tests don't
+   * need a real Postgres instance. Harmless in Kafka-transport tests since no bean references
+   * pgQueueEbeanServer when PgQueueEbeanConfigFactory is inactive.
+   */
+  @Bean(name = "pgQueueEbeanServer")
+  public Database pgQueueEbeanServer() {
+    String instanceId = "pgqueue_" + UUID.randomUUID().toString().replace("-", "");
+    String serverName = "pgqueue_test_" + UUID.randomUUID().toString().replace("-", "");
     return EbeanTestUtils.createNamedTestServer(instanceId, serverName);
   }
 

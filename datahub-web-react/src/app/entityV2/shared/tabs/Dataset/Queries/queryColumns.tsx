@@ -3,6 +3,7 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -35,6 +36,7 @@ interface DescriptionProps {
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
+    const { t: tc } = useTranslation('common.actions');
     const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
 
     if (!description) return null;
@@ -48,14 +50,14 @@ export const QueryDescription = ({ description }: DescriptionProps) => {
                     <TruncatedTextWrapper>
                         <MarkdownViewer source={`${truncatedDescription}...`} />
                     </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
+                    <StyledLink onClick={() => setIsTruncated(false)}>{tc('readMore')}</StyledLink>
                 </>
             )}
             {!isTruncated && (
                 <>
                     <MarkdownViewer source={description} ignoreLimit />
                     {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
+                        <StyledLink onClick={() => setIsTruncated(true)}>{tc('readLess')}</StyledLink>
                     )}
                 </>
             )}
@@ -108,6 +110,7 @@ interface EditDeleteProps {
 }
 
 export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }: EditDeleteProps) => {
+    const { t } = useTranslation('entity.profile.queries');
     const [editingQuery, setEditingQuery] = useState<Query | null>(null);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [deleteQueryMutation] = useDeleteQueryMutation();
@@ -118,7 +121,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Deleted Query!`,
+                        content: t('queryCard.deleteSuccess'),
                         duration: 3,
                     });
                     onDeleted?.(query);
@@ -126,7 +129,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to delete Query! An unexpected error occurred' });
+                message.error({ content: t('queryCard.deleteError') });
             });
     };
 
@@ -161,8 +164,8 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModal(false)}
                 handleConfirm={deleteQuery}
-                modalTitle="Delete Query"
-                modalText="Are you sure you want to delete this query?"
+                modalTitle={t('queryCard.deleteConfirmTitle')}
+                modalText={t('queryCard.deleteConfirmBody')}
             />
         </>
     );

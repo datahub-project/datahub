@@ -206,7 +206,8 @@ public class DeleteEntityServiceTest {
     dbValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
 
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries = Map.of(dbKey, dbValue);
-    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.anyBoolean())).thenReturn(dbEntries);
+    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.any(), Mockito.anyBoolean()))
+        .thenReturn(dbEntries);
 
     RollbackResult result =
         new RollbackResult(
@@ -221,7 +222,8 @@ public class DeleteEntityServiceTest {
             false,
             1);
 
-    Mockito.when(_aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.anyInt()))
+    Mockito.when(
+            _aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.any(), Mockito.anyInt()))
         .thenReturn(Optional.of(result));
 
     final DeleteReferencesResponse response =

@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +40,10 @@ public class HealthCheckController {
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
+
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   @Autowired
   @Qualifier("bootstrapManager")
@@ -217,7 +222,10 @@ public class HealthCheckController {
     String responseString = null;
     try {
       ClusterHealthRequest request = new ClusterHealthRequest();
-      ClusterHealthResponse response = elasticClient.clusterHealth(request, RequestOptions.DEFAULT);
+      // TODO(opcontext-pr6): cannot use per-event opContext — health probe has no per-event
+      // identity
+      ClusterHealthResponse response =
+          elasticClient.clusterHealth(systemOperationContext, request, RequestOptions.DEFAULT);
 
       boolean isHealthy = !response.isTimedOut() && response.getStatus() != ClusterHealthStatus.RED;
       responseString = response.toString();

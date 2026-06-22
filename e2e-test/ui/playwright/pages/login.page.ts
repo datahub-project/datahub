@@ -9,9 +9,9 @@ export class LoginPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.usernameInput = page.locator('[data-testid="username"]');
-    this.passwordInput = page.locator('[data-testid="password"]');
-    this.loginButton = page.locator('[data-testid="sign-in"]');
+    this.usernameInput = page.getByTestId('username');
+    this.passwordInput = page.getByTestId('password');
+    this.loginButton = page.getByTestId('sign-in');
   }
 
   async login(username: string, password: string): Promise<void> {
