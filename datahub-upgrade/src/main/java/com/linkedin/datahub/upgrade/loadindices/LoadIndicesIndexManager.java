@@ -7,10 +7,12 @@ import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
@@ -53,10 +55,12 @@ public class LoadIndicesIndexManager {
    * stored in SQL and will be modified by load indices operations. Timeseries indices are excluded
    * since they are not stored in SQL.
    *
+   * @param opContext the operation context
    * @return List of ReindexConfig objects for managed indices
    * @throws IOException if there's an error communicating with Elasticsearch
    */
-  public List<ReindexConfig> discoverDataHubIndexConfigs() throws IOException {
+  public List<ReindexConfig> discoverDataHubIndexConfigs(@Nonnull OperationContext opContext)
+      throws IOException {
     List<ReindexConfig> configs = new ArrayList<>();
 
     // Get entity indices using IndexConvention patterns
@@ -66,12 +70,14 @@ public class LoadIndicesIndexManager {
     for (String entityPattern : entityPatterns) {
       GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
       GetIndexResponse entityResponse =
-          searchClient.getIndex(entityRequest, RequestOptions.DEFAULT);
+          searchClient.getIndex(opContext, entityRequest, RequestOptions.DEFAULT);
       String[] entityIndices = entityResponse.getIndices();
 
       for (String indexName : entityIndices) {
         try {
-          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          ReindexConfig config =
+              indexBuilder.buildReindexState(
+                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added entity index config: {}", indexName);
         } catch (IOException e) {
@@ -86,11 +92,14 @@ public class LoadIndicesIndexManager {
     log.debug("Querying graph service index: {}", graphIndexName);
     GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
     try {
-      GetIndexResponse graphResponse = searchClient.getIndex(graphRequest, RequestOptions.DEFAULT);
+      GetIndexResponse graphResponse =
+          searchClient.getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
       String[] graphIndices = graphResponse.getIndices();
       for (String indexName : graphIndices) {
         try {
-          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          ReindexConfig config =
+              indexBuilder.buildReindexState(
+                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added graph service index config: {}", indexName);
         } catch (IOException e) {
@@ -112,11 +121,13 @@ public class LoadIndicesIndexManager {
     GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
     try {
       GetIndexResponse systemMetadataResponse =
-          searchClient.getIndex(systemMetadataRequest, RequestOptions.DEFAULT);
+          searchClient.getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
       String[] systemMetadataIndices = systemMetadataResponse.getIndices();
       for (String indexName : systemMetadataIndices) {
         try {
-          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          ReindexConfig config =
+              indexBuilder.buildReindexState(
+                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added system metadata index config: {}", indexName);
         } catch (IOException e) {
@@ -139,7 +150,7 @@ public class LoadIndicesIndexManager {
   /**
    * Optimizes index settings for bulk operations by disabling refresh and setting replicas to zero.
    */
-  public void optimizeForBulkOperations() throws IOException {
+  public void optimizeForBulkOperations(@Nonnull OperationContext opContext) throws IOException {
     if (settingsOptimized) {
       log.warn("Index settings are already optimized for bulk operations");
       return;
@@ -148,7 +159,7 @@ public class LoadIndicesIndexManager {
     // Discover indices lazily on first use (after BuildIndicesStep has run)
     if (!indicesDiscovered) {
       log.info("Discovering DataHub indices for settings optimization...");
-      this.managedIndexConfigs = discoverDataHubIndexConfigs();
+      this.managedIndexConfigs = discoverDataHubIndexConfigs(opContext);
       this.indicesDiscovered = true;
     }
 
@@ -157,9 +168,9 @@ public class LoadIndicesIndexManager {
     for (ReindexConfig config : managedIndexConfigs) {
       try {
         // Disable refresh interval for bulk operations
-        indexBuilder.setIndexRefreshInterval(config.name(), DISABLED_REFRESH_INTERVAL);
+        indexBuilder.setIndexRefreshInterval(opContext, config.name(), DISABLED_REFRESH_INTERVAL);
 
-        indexBuilder.tweakReplicas(config, false);
+        indexBuilder.tweakReplicas(opContext, config, false);
 
         log.debug("Optimized settings for index: {}", config.name());
       } catch (IOException e) {
@@ -173,7 +184,7 @@ public class LoadIndicesIndexManager {
   }
 
   /** Restores index settings to configured values for all managed indices. */
-  public void restoreFromConfiguration() throws IOException {
+  public void restoreFromConfiguration(@Nonnull OperationContext opContext) throws IOException {
     if (!settingsOptimized) {
       log.warn("Index settings are not currently optimized");
       return;
@@ -192,10 +203,10 @@ public class LoadIndicesIndexManager {
         Integer targetReplicaCount = (Integer) indexSettings.get(ESIndexBuilder.NUMBER_OF_REPLICAS);
 
         // Restore refresh interval to target value (includes per-index overrides)
-        indexBuilder.setIndexRefreshInterval(config.name(), targetRefreshInterval);
+        indexBuilder.setIndexRefreshInterval(opContext, config.name(), targetRefreshInterval);
 
         // Restore replica count to target value (includes per-index overrides)
-        indexBuilder.setIndexReplicaCount(config.name(), targetReplicaCount);
+        indexBuilder.setIndexReplicaCount(opContext, config.name(), targetReplicaCount);
 
         log.debug(
             "Restored settings for index: {} to refresh: {}, replicas: {}",

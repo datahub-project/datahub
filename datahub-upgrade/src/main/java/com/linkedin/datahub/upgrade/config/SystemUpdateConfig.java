@@ -12,14 +12,10 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupSte
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
-import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
-import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -35,7 +31,6 @@ import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.TopicConvention;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -44,14 +39,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Producer;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -142,50 +132,11 @@ public class SystemUpdateConfig {
 
   @Bean
   public DataHubStartupStep dataHubStartupStep(
-      @Qualifier("duheKafkaEventProducer") final KafkaEventProducer kafkaEventProducer,
+      @Qualifier("duheKafkaEventProducer") final EventProducer kafkaEventProducer,
       final GitVersion gitVersion,
       @Qualifier("revision") String revision) {
     return new DataHubStartupStep(
         kafkaEventProducer, String.format("%s-%s", gitVersion.getVersion(), revision));
-  }
-
-  @Autowired
-  @Qualifier(TopicConventionFactory.TOPIC_CONVENTION_BEAN)
-  private TopicConvention topicConvention;
-
-  @Autowired private KafkaHealthChecker kafkaHealthChecker;
-
-  @Bean(name = "duheKafkaEventProducer")
-  protected KafkaEventProducer duheKafkaEventProducer(
-      @Qualifier("configurationProvider") ConfigurationProvider provider,
-      KafkaProperties properties,
-      @Qualifier("duheSchemaRegistryConfig")
-          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig,
-      MetricUtils metricUtils) {
-    KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    Producer<String, IndexedRecord> producer =
-        new KafkaProducer<>(
-            DataHubKafkaProducerFactory.buildProducerProperties(
-                duheSchemaRegistryConfig, kafkaConfiguration, properties));
-    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
-  }
-
-  /**
-   * The ReindexDataJobViaNodesCLLConfig step requires publishing to MCL. Overriding the default
-   * producer with this special producer which doesn't require an active registry.
-   *
-   * <p>Use when INTERNAL registry and is SYSTEM_UPDATE
-   *
-   * <p>This forces this producer into the EntityService
-   */
-  @Primary
-  @Bean(name = "kafkaEventProducer")
-  @ConditionalOnProperty(
-      name = "kafka.schemaRegistry.type",
-      havingValue = InternalSchemaRegistryFactory.TYPE)
-  protected KafkaEventProducer kafkaEventProducer(
-      @Qualifier("duheKafkaEventProducer") KafkaEventProducer kafkaEventProducer) {
-    return kafkaEventProducer;
   }
 
   @Primary
@@ -208,7 +159,7 @@ public class SystemUpdateConfig {
   @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
   @Nonnull
   protected EntityService<ChangeItemImpl> createEntityServiceWithSystemUpdateCDCMode(
-      @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
+      @Qualifier("kafkaEventProducer") final EventProducer eventProducer,
       @Qualifier("entityAspectDao") final AspectDao aspectDao,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,

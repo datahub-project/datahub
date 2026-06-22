@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
@@ -37,8 +38,9 @@ interface Props {
 }
 
 export const BackButton = ({ onGoBack }: Props) => {
+    const { t } = useTranslation('shared.misc');
     return (
-        <Tooltip title="Go back" showArrow={false} placement="bottom">
+        <Tooltip title={t('backButton.tooltip')} showArrow={false} placement="bottom">
             <StyledButton onClick={onGoBack}>
                 <StyledLeftOutlined />
             </StyledButton>

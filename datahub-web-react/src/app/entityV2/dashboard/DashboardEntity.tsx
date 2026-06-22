@@ -10,6 +10,7 @@ import {
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -93,9 +94,9 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getPathName = () => 'dashboard';
 
-    getEntityName = () => 'Dashboard';
+    getEntityName = () => i18next.t('entity.types:dashboard.name');
 
-    getCollectionName = () => 'Dashboards';
+    getCollectionName = () => i18next.t('entity.types:dashboard.namePlural');
 
     useEntityQuery = useGetDashboardQuery;
 
@@ -112,12 +113,12 @@ export class DashboardEntity implements Entity<Dashboard> {
             }}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: DashboardSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                 },
                 {
-                    name: 'Contents',
+                    name: i18next.t('entity.types:tab.contents'),
                     component: DashboardChartsTab,
                     icon: AppstoreOutlined,
                     display: {
@@ -128,7 +129,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Datasets',
+                    name: i18next.t('entity.types:dataset.namePlural'),
                     component: DashboardDatasetsTab,
                     icon: TableOutlined,
                     display: {
@@ -137,12 +138,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Preview',
+                    name: i18next.t('common.actions:preview'),
                     component: EmbedTab,
                     icon: EyeOutlined,
                     display: {
@@ -155,7 +156,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: PartitionOutlined,
                     properties: {
@@ -164,12 +165,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getCount: (_, dashboard) => {
@@ -226,9 +227,9 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 defaultDirection: LineageDirection.Upstream,
@@ -236,9 +237,9 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -288,6 +289,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         const data = result.entity as Dashboard;
         const genericProperties = this.getGenericEntityProperties(data);
 
+        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
+           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
+           the sentence across keys */
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -324,16 +328,21 @@ export class DashboardEntity implements Entity<Dashboard> {
                 previewType={PreviewType.SEARCH}
             />
         );
+        /* eslint-enable i18next/no-literal-string */
     };
 
     renderSearchMatches = (result: SearchResult) => {
         const data = result.entity as Dashboard;
+        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
+           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
+           the sentence across keys */
         return (
             <MatchedFieldList
                 customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
                 matchSuffix="on a contained chart"
             />
         );
+        /* eslint-enable i18next/no-literal-string */
     };
 
     getLineageVizConfig = (entity: Dashboard) => {

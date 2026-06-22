@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaderWriter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -90,9 +91,9 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       APIThrottleException e) {
 
     HttpHeaders headers = new HttpHeaders();
-    if (e.getDurationMs() >= 0) {
-      headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getDurationSeconds()));
-    }
+    ThrottleResponseHeaderWriter.createDenialHeaders(
+            e.getRuleId(), e.getMechanismType(), e.getSource(), e.getDurationMs())
+        .forEach(headers::add);
 
     return new ResponseEntity<>(
         Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);

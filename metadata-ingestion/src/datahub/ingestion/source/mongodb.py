@@ -1,12 +1,22 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    ValuesView,
+)
 
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -34,7 +44,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -45,7 +54,6 @@ from datahub.ingestion.source.schema_inference.object import (
     construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -133,6 +141,15 @@ class MongoDBConfig(
         description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
     )
 
+    platform: Literal["mongodb", "documentdb"] = Field(
+        default="mongodb",
+        description=(
+            "Data platform to emit entities under. Use `documentdb` to surface "
+            "AWS DocumentDB clusters as their own platform instead of `mongodb`. "
+            "Requires `hostingEnvironment` to be `AWS_DOCUMENTDB`."
+        ),
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -161,6 +178,17 @@ class MongoDBConfig(
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
         return doc_size_filter_value
+
+    @model_validator(mode="after")
+    def check_documentdb_requires_aws_hosting(self) -> "MongoDBConfig":
+        if (
+            self.platform == "documentdb"
+            and self.hostingEnvironment != HostingEnvironment.AWS_DOCUMENTDB
+        ):
+            raise ValueError(
+                "platform='documentdb' requires hostingEnvironment='AWS_DOCUMENTDB'."
+            )
+        return self
 
 
 @dataclass
@@ -292,12 +320,13 @@ class MongoDBSource(StatefulIngestionSourceBase):
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str = "mongodb"
+    platform: Literal["mongodb", "documentdb"]
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
+        self.platform = config.platform
 
         options = {}
         if self.config.username is not None:
@@ -326,14 +355,6 @@ class MongoDBSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_pymongo_type_string(
         self, field_type: Union[Type, str], collection_name: str

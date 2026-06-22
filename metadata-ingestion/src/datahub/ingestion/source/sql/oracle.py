@@ -82,6 +82,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
 )
 from datahub.metadata.schema_classes import (
+    QueryLanguageClass,
     SubTypesClass,
     ViewPropertiesClass,
 )
@@ -1713,7 +1714,7 @@ class OracleSource(SQLAlchemySource):
                     base_procedures.append(
                         BaseProcedure(
                             name=row.name,
-                            language="SQL",
+                            language=QueryLanguageClass.SQL,
                             argument_signature=arguments,
                             return_type=None,
                             procedure_definition=source_code,

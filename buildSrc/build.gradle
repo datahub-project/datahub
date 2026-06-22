@@ -7,7 +7,7 @@ plugins {
 }
 
 // Same jacksonVersion as root build.gradle ext.jacksonVersion (sync when bumping Jackson).
-ext.jacksonVersion = '2.21.1'
+ext.jacksonVersion = '2.21.3'
 
 dependencies {
   /**

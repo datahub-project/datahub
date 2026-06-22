@@ -85,6 +85,7 @@ public class SparkConfigParser {
       "metadata.dataset.enableEnhancedMergeIntoExtraction";
 
   public static final String CAPTURE_COLUMN_LEVEL_LINEAGE = "captureColumnLevelLineage";
+  public static final String COLUMN_LINEAGE_INCLUDE_INDIRECT = "columnLineage.includeIndirect";
 
   public static final String TAGS_KEY = "tags";
 
@@ -183,6 +184,8 @@ public class SparkConfigParser {
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
+    builder.includeIndirectColumnLineage(
+        SparkConfigParser.isIncludeIndirectColumnLineage(sparkConfig));
     builder.enhancedMergeIntoExtraction(
         SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
     try {
@@ -411,6 +414,14 @@ public class SparkConfigParser {
   public static boolean isCaptureColumnLevelLineage(Config datahubConfig) {
     if (datahubConfig.hasPath(CAPTURE_COLUMN_LEVEL_LINEAGE)) {
       return datahubConfig.getBoolean(CAPTURE_COLUMN_LEVEL_LINEAGE);
+    }
+
+    return true;
+  }
+
+  public static boolean isIncludeIndirectColumnLineage(Config datahubConfig) {
+    if (datahubConfig.hasPath(COLUMN_LINEAGE_INCLUDE_INDIRECT)) {
+      return datahubConfig.getBoolean(COLUMN_LINEAGE_INCLUDE_INDIRECT);
     }
 
     return true;

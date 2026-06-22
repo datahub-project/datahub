@@ -120,9 +120,6 @@ public class EntityAssertionsResolverTest {
                     .setUrn(assertionUrn)
                     .setAspects(new EnvelopedAspectMap(assertionAspects))));
 
-    Mockito.when(mockClient.exists(any(), Mockito.any(Urn.class), Mockito.eq(false)))
-        .thenReturn(true);
-
     EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
 
     // Execute resolver
@@ -154,8 +151,10 @@ public class EntityAssertionsResolverTest {
     Mockito.verify(mockClient, Mockito.times(1))
         .batchGetV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .exists(Mockito.any(), Mockito.any(), Mockito.any());
+    // Regression guard: the per-URN exists() call was the N+1 source. The resolver must now read
+    // soft-delete state from the already-loaded status aspect instead.
+    Mockito.verify(mockClient, Mockito.never())
+        .exists(Mockito.any(), Mockito.any(Urn.class), Mockito.any());
 
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getStart(), 0);
@@ -185,5 +184,250 @@ public class EntityAssertionsResolverTest {
         com.linkedin.datahub.graphql.generated.AssertionStdParameterType.NUMBER);
     assertEquals(
         assertion.getInfo().getDatasetAssertion().getParameters().getValue().getValue(), "10");
+  }
+
+  /**
+   * Two assertions are returned by the graph store. One has {@code status.removed = true}. With
+   * {@code includeSoftDeleted=false} (the default), it must be filtered out and only the
+   * non-removed assertion should appear in the result. Critically, no per-URN {@code exists} call
+   * is made — the soft-delete state is read from the {@code status} aspect already returned by the
+   * single {@code batchGetV2} call.
+   */
+  @Test
+  public void testSoftDeletedAssertionFilteredOut() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Urn liveAssertionUrn = Urn.createFromString("urn:li:assertion:live");
+    Urn removedAssertionUrn = Urn.createFromString("urn:li:assertion:removed");
+
+    Mockito.when(
+            graphClient.getRelatedEntities(
+                Mockito.eq(datasetUrn.toString()),
+                Mockito.eq(ImmutableSet.of("Asserts")),
+                Mockito.eq(RelationshipDirection.INCOMING),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setStart(0)
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(
+                            new EntityRelationship().setEntity(liveAssertionUrn).setType("Asserts"),
+                            new EntityRelationship()
+                                .setEntity(removedAssertionUrn)
+                                .setType("Asserts")))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(liveAssertionUrn, removedAssertionUrn)),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableMap.of(
+                liveAssertionUrn,
+                assertionResponse(liveAssertionUrn, datasetUrn, "live-guid", false),
+                removedAssertionUrn,
+                assertionResponse(removedAssertionUrn, datasetUrn, "removed-guid", true)));
+
+    EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
+
+    EntityAssertionsResult result =
+        resolver.get(mockEnv(datasetUrn, false /* includeSoftDeleted */)).get();
+
+    // The removed assertion must be excluded.
+    assertEquals(result.getAssertions().size(), 1);
+    assertEquals(result.getAssertions().get(0).getUrn(), liveAssertionUrn.toString());
+
+    // The N+1 source must remain gone.
+    Mockito.verify(mockClient, Mockito.never())
+        .exists(Mockito.any(), Mockito.any(Urn.class), Mockito.any());
+  }
+
+  /**
+   * When {@code includeSoftDeleted=true}, soft-deleted assertions must be retained alongside live
+   * ones, matching the legacy semantics of {@code exists(urn, true)}.
+   */
+  @Test
+  public void testIncludeSoftDeletedReturnsRemovedAssertions() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Urn liveUrn = Urn.createFromString("urn:li:assertion:live");
+    Urn removedUrn = Urn.createFromString("urn:li:assertion:removed");
+
+    Mockito.when(
+            graphClient.getRelatedEntities(
+                Mockito.eq(datasetUrn.toString()),
+                Mockito.eq(ImmutableSet.of("Asserts")),
+                Mockito.eq(RelationshipDirection.INCOMING),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setStart(0)
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(
+                            new EntityRelationship().setEntity(liveUrn).setType("Asserts"),
+                            new EntityRelationship().setEntity(removedUrn).setType("Asserts")))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(liveUrn, removedUrn)),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableMap.of(
+                liveUrn,
+                assertionResponse(liveUrn, datasetUrn, "live-guid", false),
+                removedUrn,
+                assertionResponse(removedUrn, datasetUrn, "removed-guid", true)));
+
+    EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
+
+    EntityAssertionsResult result =
+        resolver.get(mockEnv(datasetUrn, true /* includeSoftDeleted */)).get();
+
+    assertEquals(result.getAssertions().size(), 2);
+    Mockito.verify(mockClient, Mockito.never())
+        .exists(Mockito.any(), Mockito.any(Urn.class), Mockito.any());
+  }
+
+  /**
+   * When the {@code status} aspect is entirely absent (e.g. older entities ingested before the
+   * status aspect existed), the assertion must default to being included — matching the legacy
+   * {@code EntityServiceImpl.exists(urn, false)} behavior, which treats "no status aspect" as "not
+   * removed".
+   */
+  @Test
+  public void testAssertionWithoutStatusAspectDefaultsToIncluded() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Urn urn = Urn.createFromString("urn:li:assertion:no-status");
+
+    Mockito.when(
+            graphClient.getRelatedEntities(
+                Mockito.eq(datasetUrn.toString()),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setStart(0)
+                .setCount(1)
+                .setTotal(1)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(
+                            new EntityRelationship().setEntity(urn).setType("Asserts")))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(urn)),
+                Mockito.eq(null)))
+        .thenReturn(ImmutableMap.of(urn, buildResponseNoStatus(urn, datasetUrn, "guid")));
+
+    EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
+
+    EntityAssertionsResult result =
+        resolver.get(mockEnv(datasetUrn, false /* includeSoftDeleted */)).get();
+
+    assertEquals(result.getAssertions().size(), 1);
+    Mockito.verify(mockClient, Mockito.never())
+        .exists(Mockito.any(), Mockito.any(Urn.class), Mockito.any());
+  }
+
+  // ---------- Helpers ----------
+
+  private static DataFetchingEnvironment mockEnv(Urn datasetUrn, boolean includeSoftDeleted) {
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    DataFetchingEnvironment env = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(env.getArgumentOrDefault(Mockito.eq("start"), Mockito.eq(0))).thenReturn(0);
+    Mockito.when(env.getArgumentOrDefault(Mockito.eq("count"), Mockito.eq(200))).thenReturn(10);
+    Mockito.when(env.getArgumentOrDefault(Mockito.eq("includeSoftDeleted"), Mockito.eq(false)))
+        .thenReturn(includeSoftDeleted);
+    Mockito.when(env.getContext()).thenReturn(mockContext);
+    Dataset parent = new Dataset();
+    parent.setUrn(datasetUrn.toString());
+    Mockito.when(env.getSource()).thenReturn(parent);
+    return env;
+  }
+
+  private static EntityResponse assertionResponse(
+      Urn assertionUrn, Urn datasetUrn, String guid, boolean removed) throws Exception {
+    Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.ASSERTION_KEY_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new AssertionKey().setAssertionId(guid).data())));
+    aspects.put(
+        Constants.ASSERTION_INFO_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(
+                new Aspect(
+                    new AssertionInfo()
+                        .setType(AssertionType.DATASET)
+                        .setDatasetAssertion(
+                            new DatasetAssertionInfo()
+                                .setDataset(datasetUrn)
+                                .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                                .setAggregation(AssertionStdAggregation.MAX)
+                                .setOperator(AssertionStdOperator.EQUAL_TO))
+                        .data())));
+    aspects.put(
+        Constants.STATUS_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new com.linkedin.common.Status().setRemoved(removed).data())));
+    return new EntityResponse()
+        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+        .setUrn(assertionUrn)
+        .setAspects(new EnvelopedAspectMap(aspects));
+  }
+
+  private static EntityResponse buildResponseNoStatus(Urn assertionUrn, Urn datasetUrn, String guid)
+      throws Exception {
+    Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.ASSERTION_KEY_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new AssertionKey().setAssertionId(guid).data())));
+    aspects.put(
+        Constants.ASSERTION_INFO_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(
+                new Aspect(
+                    new AssertionInfo()
+                        .setType(AssertionType.DATASET)
+                        .setDatasetAssertion(
+                            new DatasetAssertionInfo()
+                                .setDataset(datasetUrn)
+                                .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                                .setAggregation(AssertionStdAggregation.MAX)
+                                .setOperator(AssertionStdOperator.EQUAL_TO))
+                        .data())));
+    // Intentionally no status aspect.
+    return new EntityResponse()
+        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+        .setUrn(assertionUrn)
+        .setAspects(new EnvelopedAspectMap(aspects));
   }
 }

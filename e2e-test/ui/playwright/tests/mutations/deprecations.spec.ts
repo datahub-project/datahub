@@ -22,27 +22,31 @@ test.describe.skip('dataset deprecation', () => {
     await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
 
     // Open three-dot dropdown and mark as deprecated
-    await page.locator('[data-testid="entity-header-dropdown"]').click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as deprecated').click();
 
     // Fill in the deprecation form modal
     await expect(page.getByText('Add Deprecation Details')).toBeVisible();
+    // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror focused state has no ARIA equivalent
     await page.locator('.ProseMirror-focused').type('test deprecation');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal footer button position selector; no data-testid on this button
     await page.locator('.ant-modal-footer > button:nth-child(2)').click();
     await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).toBeVisible();
 
     // Un-deprecate via the three-dot menu
-    await page.locator('[data-testid="entity-header-dropdown"]').click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as un-deprecated').click();
     await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).not.toBeVisible({ timeout: 10000 });
 
     // Mark as deprecated again
-    await page.locator('[data-testid="entity-header-dropdown"]').click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as deprecated').click();
     await expect(page.getByText('Add Deprecation Details')).toBeVisible();
+    // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror focused state has no ARIA equivalent
     await page.locator('.ProseMirror-focused').type('test deprecation');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal footer button position selector; no data-testid on this button
     await page.locator('.ant-modal-footer > button:nth-child(2)').click();
     await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).toBeVisible();

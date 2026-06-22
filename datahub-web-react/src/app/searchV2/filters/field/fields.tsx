@@ -16,6 +16,7 @@ import Icon from '@ant-design/icons/lib/components/Icon';
 import { TimerOutlined } from '@mui/icons-material';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
@@ -221,40 +222,42 @@ export const LAST_MODIFIED_FILTER: FilterField = {
     type: FieldType.BUCKETED_TIMESTAMP,
     icon: <TimerOutlined fontSize="inherit" color="inherit" />,
     useDatePicker: true,
-    options: [
-        {
-            label: 'Last 1 day',
-            startOffsetMillis: DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 days',
-            startOffsetMillis: 3 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last week',
-            startOffsetMillis: 7 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last two weeks',
-            startOffsetMillis: 14 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last month',
-            startOffsetMillis: 31 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 months',
-            startOffsetMillis: 92 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 6 months',
-            startOffsetMillis: 184 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last year',
-            startOffsetMillis: 365 * DAY_IN_MILLIS,
-        },
-    ],
+    get options() {
+        return [
+            {
+                label: i18next.t('search:filters.dateRange.last1Day'),
+                startOffsetMillis: DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last3Days'),
+                startOffsetMillis: 3 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastWeek'),
+                startOffsetMillis: 7 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastTwoWeeks'),
+                startOffsetMillis: 14 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastMonth'),
+                startOffsetMillis: 31 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last3Months'),
+                startOffsetMillis: 92 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last6Months'),
+                startOffsetMillis: 184 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastYear'),
+                startOffsetMillis: 365 * DAY_IN_MILLIS,
+            },
+        ];
+    },
 };
 
 const BROWSE_FILTER: FilterField = {

@@ -1,6 +1,7 @@
 import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -63,9 +64,9 @@ export class ApplicationEntity implements Entity<Application> {
 
     getPathName = () => 'application';
 
-    getEntityName = () => 'Application';
+    getEntityName = () => i18next.t('entity.types:application.name');
 
-    getCollectionName = () => 'Applications';
+    getCollectionName = () => i18next.t('entity.types:application.namePlural');
 
     useEntityQuery = useGetApplicationQuery;
 
@@ -82,17 +83,17 @@ export class ApplicationEntity implements Entity<Application> {
             tabs={[
                 {
                     id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ApplicationSummaryTab,
                     icon: ReadOutlined,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Assets',
+                    name: i18next.t('entity.types:tab.assets'),
                     getCount: (entityData, _, loading) => {
                         return !loading ? entityData?.children?.total : undefined;
                     },
@@ -100,7 +101,7 @@ export class ApplicationEntity implements Entity<Application> {
                     icon: AppstoreOutlined,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
                 },
@@ -145,9 +146,9 @@ export class ApplicationEntity implements Entity<Application> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

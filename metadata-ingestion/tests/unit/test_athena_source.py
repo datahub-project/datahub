@@ -23,6 +23,7 @@ from datahub.ingestion.source.sql.athena import (
     CustomAthenaRestDialect,
     Partitionitem,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -1673,3 +1674,273 @@ def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query
     )
     assert "contains unsafe characters" in log_record.message
     assert "Partition profiling disabled for this table" in log_record.message
+
+
+def _mock_table(name: str, table_type: str) -> mock.MagicMock:
+    t = mock.MagicMock()
+    t.name = name
+    t.table_type = table_type
+    return t
+
+
+def _base_athena_kwargs() -> dict:
+    return {
+        "aws_region": "us-east-1",
+        "work_group": "primary",
+        "query_result_location": "s3://bucket/results/",
+    }
+
+
+def test_get_column_type_list():
+    # Iceberg emits `list<T>` where Hive emits `array<T>`; the dialect must treat
+    # them identically or every Iceberg list column collapses to NullType.
+    result = CustomAthenaRestDialect()._get_column_type(type_="list<string>")
+    assert isinstance(result, types.ARRAY)
+    assert isinstance(result.item_type, types.String)
+
+
+def test_get_column_type_pandas_nullable_dtypes():
+    # great_expectations profiling leaks Pandas nullable dtype names through the
+    # dialect; map them back to SqlAlchemy types so the column survives reflection.
+    dialect = CustomAthenaRestDialect()
+    assert isinstance(dialect._get_column_type("Int64Dtype"), types.BIGINT)
+    assert isinstance(dialect._get_column_type("UInt64Dtype"), types.BIGINT)
+    assert isinstance(dialect._get_column_type("Int32Dtype"), types.INTEGER)
+    assert isinstance(dialect._get_column_type("UInt32Dtype"), types.INTEGER)
+    assert isinstance(dialect._get_column_type("Int16Dtype"), types.INTEGER)
+    assert isinstance(dialect._get_column_type("Int8Dtype"), types.INTEGER)
+    assert isinstance(dialect._get_column_type("Float64Dtype"), types.FLOAT)
+    assert isinstance(dialect._get_column_type("Float32Dtype"), types.FLOAT)
+    assert isinstance(dialect._get_column_type("BooleanDtype"), types.BOOLEAN)
+    assert isinstance(dialect._get_column_type("StringDtype"), types.String)
+    assert isinstance(dialect._get_column_type("ObjectDtype"), types.String)
+
+
+def test_get_table_names_includes_iceberg_table_type():
+    # PyAthena's base get_table_names filters out ICEBERG; S3 Tables report that
+    # type, so the override must allow it.
+    dialect = CustomAthenaRestDialect()
+    tables = [
+        _mock_table("regular", "EXTERNAL_TABLE"),
+        _mock_table("s3_table", "ICEBERG"),
+        _mock_table("my_view", "VIRTUAL_VIEW"),
+    ]
+    with mock.patch.object(dialect, "_get_tables", return_value=tables):
+        result = dialect.get_table_names(mock.MagicMock(), schema="scraped")
+    assert set(result) == {"regular", "s3_table"}
+
+
+def test_get_table_names_boto3_fallback_for_s3tables_catalog():
+    # S3 Tables catalogs aren't visible through ListDataCatalogs, so PyAthena's
+    # path can return empty. Fall back to list_table_metadata over boto3.
+    dialect = CustomAthenaRestDialect()
+    raw_conn = mock.MagicMock()
+    raw_conn.catalog_name = "s3tablescatalog/my-bucket"
+    raw_conn.schema_name = "scraped"
+    pages = [
+        {
+            "TableMetadataList": [
+                {"Name": "orders", "TableType": "ICEBERG"},
+                {"Name": "shipments", "TableType": "ICEBERG"},
+            ]
+        }
+    ]
+    raw_conn.client.get_paginator.return_value.paginate.return_value = pages
+
+    with (
+        mock.patch.object(dialect, "_get_tables", return_value=[]),
+        mock.patch.object(dialect, "_raw_connection", return_value=raw_conn),
+    ):
+        result = dialect.get_table_names(mock.MagicMock(), schema="scraped")
+
+    assert result == ["orders", "shipments"]
+
+
+def test_get_table_names_boto3_fallback_not_triggered_for_regular_catalog():
+    dialect = CustomAthenaRestDialect()
+    raw_conn = mock.MagicMock()
+    raw_conn.catalog_name = "awsdatacatalog"
+
+    with (
+        mock.patch.object(dialect, "_get_tables", return_value=[]),
+        mock.patch.object(dialect, "_raw_connection", return_value=raw_conn),
+        mock.patch.object(dialect, "_list_tables_via_boto3") as fallback,
+    ):
+        dialect.get_table_names(mock.MagicMock(), schema="mydb")
+
+    fallback.assert_not_called()
+
+
+def test_get_table_names_boto3_fallback_error_surfaces_via_report():
+    # Boto3 failures must hit report.warning so they show up in the UI, not
+    # vanish as a silently empty schema.
+    report = SQLSourceReport()
+    dialect = CustomAthenaRestDialect()
+    dialect._report = report
+
+    raw_conn = mock.MagicMock()
+    raw_conn.catalog_name = "s3tablescatalog/my-bucket"
+    raw_conn.schema_name = "scraped"
+    raw_conn.client.get_paginator.side_effect = Exception("AccessDenied")
+
+    with (
+        mock.patch.object(dialect, "_get_tables", return_value=[]),
+        mock.patch.object(dialect, "_raw_connection", return_value=raw_conn),
+    ):
+        result = dialect.get_table_names(mock.MagicMock(), schema="scraped")
+
+    assert result == []
+    assert any(
+        "Failed to list S3 Tables via boto3 fallback" in w.message
+        for w in report.warnings
+    )
+
+
+def test_get_table_names_boto3_fallback_error_without_report_still_returns_empty():
+    # No AttributeError when the dialect is used outside an AthenaSource (no report attached).
+    dialect = CustomAthenaRestDialect()
+    assert dialect._report is None
+
+    raw_conn = mock.MagicMock()
+    raw_conn.catalog_name = "s3tablescatalog/my-bucket"
+    raw_conn.schema_name = "scraped"
+    raw_conn.client.get_paginator.side_effect = Exception("boom")
+
+    with (
+        mock.patch.object(dialect, "_get_tables", return_value=[]),
+        mock.patch.object(dialect, "_raw_connection", return_value=raw_conn),
+    ):
+        assert dialect.get_table_names(mock.MagicMock(), schema="scraped") == []
+
+
+def test_s3_tables_catalog_derives_platform_instance():
+    cfg = AthenaConfig(
+        **_base_athena_kwargs(),
+        catalog_name="s3tablescatalog/my-bucket",
+    )
+    assert cfg.platform_instance == "s3tablescatalog/my-bucket"
+
+
+def test_s3_tables_catalog_derives_iceberg_platform_instance():
+    # Must default to catalog name so the upstream Iceberg URN stitches with
+    # the Athena dataset URN.
+    cfg = AthenaConfig(
+        **_base_athena_kwargs(),
+        catalog_name="s3tablescatalog/my-bucket",
+    )
+    assert cfg.iceberg_platform_instance == "s3tablescatalog/my-bucket"
+
+
+def test_default_catalog_keeps_platform_instance_unset():
+    cfg = AthenaConfig(**_base_athena_kwargs())
+    assert cfg.platform_instance is None
+    assert cfg.iceberg_platform_instance is None
+
+
+def test_custom_non_s3_catalog_keeps_platform_instance_unset():
+    cfg = AthenaConfig(**_base_athena_kwargs(), catalog_name="mycustomcatalog")
+    assert cfg.platform_instance is None
+    assert cfg.iceberg_platform_instance is None
+
+
+def test_explicit_platform_instance_not_overridden_for_s3_tables():
+    cfg = AthenaConfig(
+        **_base_athena_kwargs(),
+        catalog_name="s3tablescatalog/my-bucket",
+        platform_instance="explicit-instance",
+    )
+    assert cfg.platform_instance == "explicit-instance"
+
+
+def test_explicit_iceberg_platform_instance_not_overridden_for_s3_tables():
+    cfg = AthenaConfig(
+        **_base_athena_kwargs(),
+        catalog_name="s3tablescatalog/my-bucket",
+        iceberg_platform_instance="explicit-iceberg-instance",
+    )
+    assert cfg.iceberg_platform_instance == "explicit-iceberg-instance"
+    assert cfg.platform_instance == "s3tablescatalog/my-bucket"
+
+
+def test_s3_tables_table_emits_iceberg_upstream_url():
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://sample-staging-dir/",
+            "work_group": "test-workgroup",
+            "catalog_name": "s3tablescatalog/my-bucket",
+        }
+    )
+    table_metadata = {
+        "TableMetadata": {
+            "Name": "test_table",
+            "TableType": "customer",
+            "CreateTime": datetime.now(),
+            "LastAccessTime": datetime.now(),
+            "PartitionKeys": [],
+            "Parameters": {
+                "location": "s3://my-bucket/my-namespace/test_table/",
+            },
+        },
+    }
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    _, custom_properties, location = source.get_table_properties(
+        inspector=mock_inspector, table="test_table", schema="my-namespace"
+    )
+
+    assert custom_properties["location"] == "s3://my-bucket/my-namespace/test_table/"
+    assert location == make_dataset_urn_with_platform_instance(
+        platform="iceberg",
+        name="my-namespace.test_table",
+        platform_instance="s3tablescatalog/my-bucket",
+        env="PROD",
+    )
+
+
+def test_s3_tables_table_threads_iceberg_platform_instance():
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://sample-staging-dir/",
+            "work_group": "test-workgroup",
+            "catalog_name": "s3tablescatalog/my-bucket",
+            "iceberg_platform_instance": "my-warehouse",
+        }
+    )
+    table_metadata = {
+        "TableMetadata": {
+            "Name": "test_table",
+            "TableType": "customer",
+            "CreateTime": datetime.now(),
+            "LastAccessTime": datetime.now(),
+            "PartitionKeys": [],
+            "Parameters": {
+                "location": "s3://my-bucket/my-namespace/test_table/",
+            },
+        },
+    }
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table="test_table", schema="my-namespace"
+    )
+
+    assert (
+        location
+        == "urn:li:dataset:(urn:li:dataPlatform:iceberg,my-warehouse.my-namespace.test_table,PROD)"
+    )

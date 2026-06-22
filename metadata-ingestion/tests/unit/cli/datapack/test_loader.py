@@ -2,23 +2,401 @@
 
 import hashlib
 import json
+import os
 import pathlib
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import click
 import pytest
 
 from datahub.cli.datapack.loader import (
+    EMIT_MODE_ENV,
+    IndexFileEntry,
     _apply_schema_filter,
+    _build_datapack_sink_config,
     _cache_key,
+    _cached_path,
+    _datapack_emit_mode,
+    _run_pipeline_for_file,
     _sha256_file,
     check_trust,
     download_pack,
     get_load_record,
+    ingest_datapack_file_entries,
+    is_cached,
+    load_pack_into_datahub,
     remove_load_record,
     save_load_record,
 )
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
+from datahub.ingestion.graph.config import DatahubClientConfig
+
+
+class TestDatapackSinkConfig:
+    def test_build_datapack_sink_config_openapi_async_batch(self) -> None:
+        config = DatahubClientConfig(server="http://localhost:8080", token="tok")
+        sink = _build_datapack_sink_config(config)
+        assert sink == {
+            "server": "http://localhost:8080",
+            "token": "tok",
+            "endpoint": "openapi",
+            "mode": "async_batch",
+        }
+
+    def test_build_datapack_sink_config_no_token(self) -> None:
+        config = DatahubClientConfig(server="http://localhost:8080")
+        sink = _build_datapack_sink_config(config)
+        assert "token" not in sink
+        assert sink["endpoint"] == "openapi"
+        assert sink["mode"] == "async_batch"
+
+    def test_datapack_emit_mode_async_wait(self) -> None:
+        prior = os.environ.get(EMIT_MODE_ENV)
+        try:
+            with _datapack_emit_mode(True) as mode:
+                assert mode == "async_wait"
+                assert os.environ[EMIT_MODE_ENV] == "async_wait"
+            assert os.environ.get(EMIT_MODE_ENV) == prior
+        finally:
+            if prior is None:
+                os.environ.pop(EMIT_MODE_ENV, None)
+            else:
+                os.environ[EMIT_MODE_ENV] = prior
+
+    def test_datapack_emit_mode_async(self) -> None:
+        with _datapack_emit_mode(False) as mode:
+            assert mode == "async"
+            assert os.environ[EMIT_MODE_ENV] == "async"
+
+    def test_datapack_emit_mode_restores_prior_value(self) -> None:
+        os.environ[EMIT_MODE_ENV] = "sync"
+        try:
+            with _datapack_emit_mode(True) as mode:
+                assert mode == "async_wait"
+                assert os.environ[EMIT_MODE_ENV] == "async_wait"
+            assert os.environ[EMIT_MODE_ENV] == "sync"
+        finally:
+            os.environ.pop(EMIT_MODE_ENV, None)
+
+    @patch("datahub.ingestion.run.pipeline.Pipeline")
+    def test_run_pipeline_for_file_passes_wait_flag(
+        self, mock_pipeline_cls: MagicMock, tmp_path: pathlib.Path
+    ) -> None:
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_pipeline = MagicMock()
+        mock_pipeline_cls.create.return_value = mock_pipeline
+
+        sink_config = {
+            "server": "http://localhost:8080",
+            "endpoint": "openapi",
+            "mode": "async_batch",
+        }
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(EMIT_MODE_ENV, None)
+            _run_pipeline_for_file(
+                data_file, "run-1", sink_config, wait_for_completion=True
+            )
+            assert os.environ.get(EMIT_MODE_ENV) is None
+
+        mock_pipeline_cls.create.assert_called_once()
+        mock_pipeline.run.assert_called_once()
+        mock_pipeline.raise_from_status.assert_called_once()
+
+    @patch("datahub.ingestion.run.pipeline.Pipeline")
+    def test_run_pipeline_for_file_logs_emit_mode_when_waiting(
+        self,
+        mock_pipeline_cls: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_pipeline_cls.create.return_value = MagicMock()
+
+        sink_config = {
+            "server": "http://localhost:8080",
+            "endpoint": "openapi",
+            "mode": "async_batch",
+        }
+        _run_pipeline_for_file(
+            data_file, "run-1", sink_config, wait_for_completion=True
+        )
+        assert "async_wait" in capsys.readouterr().out
+
+
+class TestIngestDatapackFileEntries:
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_runs_pipeline_per_entry(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        mock_filter.side_effect = lambda path, **_: path
+        first = tmp_path / "defs.json"
+        second = tmp_path / "data.json"
+        first.write_text("[]")
+        second.write_text("[]")
+        pack = DataPackInfo(
+            name="test-pack",
+            description="test",
+            url="https://example.com/index.json",
+            trust=TrustTier.VERIFIED,
+        )
+        entries = [
+            IndexFileEntry(first, wait_for_completion=True),
+            IndexFileEntry(second),
+        ]
+        client_config = DatahubClientConfig(server="http://localhost:8080", token="tok")
+
+        ingest_datapack_file_entries(
+            pack,
+            entries,
+            "run-abc",
+            client_config=client_config,
+            log_progress=False,
+        )
+
+        assert mock_run.call_count == 2
+        mock_run.assert_any_call(
+            first,
+            "run-abc",
+            {
+                "server": "http://localhost:8080",
+                "token": "tok",
+                "endpoint": "openapi",
+                "mode": "async_batch",
+            },
+            wait_for_completion=True,
+        )
+        mock_ref.assert_called_once_with(second, client_config=client_config)
+
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    @patch("datahub.cli.datapack.loader.time_shift_file")
+    def test_ingest_time_shifts_with_as_of(
+        self,
+        mock_shift: MagicMock,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        shifted = tmp_path / "shifted.json"
+        shifted.write_text("[]")
+        mock_filter.side_effect = lambda path, **_: path
+        mock_shift.return_value = shifted
+
+        pack = DataPackInfo(
+            name="test-pack",
+            description="test",
+            url="https://example.com/data.json",
+            trust=TrustTier.VERIFIED,
+            reference_timestamp=1700000000000,
+        )
+        as_of = datetime(2024, 6, 1, 12, 0, tzinfo=timezone.utc)
+        client_config = DatahubClientConfig(server="http://localhost:8080")
+
+        ingest_datapack_file_entries(
+            pack,
+            [IndexFileEntry(data_file)],
+            "run-abc",
+            client_config=client_config,
+            no_time_shift=False,
+            as_of=as_of,
+            log_progress=False,
+        )
+
+        mock_shift.assert_called_once_with(
+            input_path=data_file,
+            reference_timestamp=1700000000000,
+            target_timestamp=int(as_of.timestamp() * 1000),
+        )
+        mock_run.assert_called_once_with(
+            shifted,
+            "run-abc",
+            {
+                "server": "http://localhost:8080",
+                "endpoint": "openapi",
+                "mode": "async_batch",
+            },
+            wait_for_completion=False,
+        )
+
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_logs_progress_when_enabled(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        client_config = DatahubClientConfig(server="http://localhost:8080")
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-abc",
+            client_config=client_config,
+            log_progress=True,
+        )
+
+        output = capsys.readouterr().out
+        assert "File 1/1" in output
+        assert "data.json" in output
+
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_loads_client_config_when_omitted(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.return_value = DatahubClientConfig(
+            server="http://gms:8080", token="secret"
+        )
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-xyz",
+            log_progress=False,
+        )
+
+        mock_load_config.assert_called_once()
+        mock_run.assert_called_once()
+        assert mock_run.call_args.args[2]["server"] == "http://gms:8080"
+
+
+class TestLoadPackIntoDatahub:
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_dry_run_skips_ingest(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        mock_load_config.return_value = DatahubClientConfig(
+            server="http://localhost:8080"
+        )
+
+        run_id = load_pack_into_datahub(pack, [IndexFileEntry(data_file)], dry_run=True)
+
+        assert run_id == "generated-run"
+        mock_ingest.assert_not_called()
+        output = capsys.readouterr().out
+        assert "Dry run" in output
+        assert "data.json" in output
+
+    @patch("datahub.cli.datapack.loader.save_load_record")
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_load_pack_ingests_and_records(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        mock_save: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        client_config = DatahubClientConfig(server="http://localhost:8080")
+        mock_load_config.return_value = client_config
+        entries = [IndexFileEntry(data_file)]
+
+        run_id = load_pack_into_datahub(pack, entries)
+
+        assert run_id == "generated-run"
+        mock_ingest.assert_called_once_with(
+            pack,
+            entries,
+            "generated-run",
+            client_config=client_config,
+            no_time_shift=False,
+            as_of=None,
+        )
+        mock_save.assert_called_once_with(pack, "generated-run")
+        assert "loaded successfully" in capsys.readouterr().out
+
+
+class TestIsCached:
+    def test_is_cached_when_pack_file_exists(self, tmp_path: pathlib.Path) -> None:
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            _cached_path(pack).write_text("[]")
+            assert is_cached(pack) is True
+            assert (
+                is_cached(
+                    DataPackInfo(
+                        name="other",
+                        description="test",
+                        url="https://example.com/other.json",
+                        trust=TrustTier.VERIFIED,
+                    )
+                )
+                is False
+            )
 
 
 class TestCacheKey:

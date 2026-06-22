@@ -1630,7 +1630,6 @@
                     "max": "2",
                     "mean": "2.0",
                     "median": "2",
-                    "stdev": "0.0",
                     "sampleValues": [
                         "2"
                     ]
@@ -1672,7 +1671,6 @@
                     "max": "2",
                     "mean": "2.0",
                     "median": "2",
-                    "stdev": "0.0",
                     "sampleValues": [
                         "2"
                     ]

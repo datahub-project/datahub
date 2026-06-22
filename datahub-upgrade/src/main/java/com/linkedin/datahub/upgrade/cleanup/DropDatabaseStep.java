@@ -4,14 +4,15 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.function.Function;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -19,15 +20,11 @@ import lombok.extern.slf4j.Slf4j;
  * admin connection from Ebean (which connects to the server-level database) to issue DDL.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class DropDatabaseStep implements UpgradeStep {
 
   private final Database server;
   private final SqlSetupArgs setupArgs;
-
-  public DropDatabaseStep(Database server, SqlSetupArgs setupArgs) {
-    this.server = server;
-    this.setupArgs = setupArgs;
-  }
 
   @Override
   public String id() {

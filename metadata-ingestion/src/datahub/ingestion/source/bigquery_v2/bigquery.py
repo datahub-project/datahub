@@ -1,6 +1,5 @@
-import functools
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -11,9 +10,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -51,9 +48,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -261,17 +255,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def _warn_deprecated_configs(self):
         if (
             self.config.match_fully_qualified_names is not None
@@ -345,6 +328,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         top_n_queries=self.config.usage.top_n_queries,
                         region_qualifiers=self.config.region_qualifiers,
+                        region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
@@ -352,6 +336,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
+                    discovered_locations=self.bq_schema_extractor.discovered_locations,
                 ) as queries_extractor,
             ):
                 self.report.queries_extractor = queries_extractor.report

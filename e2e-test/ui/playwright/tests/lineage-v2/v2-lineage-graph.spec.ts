@@ -18,6 +18,7 @@ import { LineageV2Page } from '../../pages/lineage-v2.page';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { gmsUrl } from '../../utils/constants';
 import { readGmsToken } from '../../fixtures/login';
+import { users } from '../../data/users';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ test.describe('lineage_graph', () => {
   test.beforeAll(async () => {
     const apiContext = await playwrightRequest.newContext({ baseURL: gmsUrl() });
     try {
-      const gmsToken = readGmsToken('datahub');
+      const gmsToken = readGmsToken(users.admin.username);
       await seedTimeRangeLineage(apiContext, gmsToken);
     } finally {
       await apiContext.dispose();
@@ -245,7 +246,8 @@ test.describe('lineage_graph', () => {
     await lineagePage.searchInLineageEditModal('playwright_health_test');
 
     // Wait for any entity checkbox on page 1 of results (data-testid="checkbox-urn:li:...")
-    const firstEntityCheckbox = page.locator('[role="dialog"] [data-testid^="checkbox-urn"]').first();
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix match ([^=]); getByTestId requires exact match
+    const firstEntityCheckbox = page.getByRole('dialog').locator('[data-testid^="checkbox-urn"]').first();
     await expect(firstEntityCheckbox).toBeVisible({ timeout: 30000 });
     await firstEntityCheckbox.click();
 

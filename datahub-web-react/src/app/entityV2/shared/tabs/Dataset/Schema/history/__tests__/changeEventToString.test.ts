@@ -110,7 +110,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set asset documentation to New asset description');
+            expect(result).toBe('Set asset documentation to New asset description.');
         });
 
         it('should handle setting field documentation', () => {
@@ -123,7 +123,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set field documentation for test.field to New field description');
+            expect(result).toBe('Set field documentation for test.field to New field description.');
         });
 
         it('should handle setting v2 field documentation', () => {
@@ -136,7 +136,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set field documentation for addresses.zip to New field description');
+            expect(result).toBe('Set field documentation for addresses.zip to New field description.');
         });
 
         it('should show column name for SchemaMetadata field description changes (no description param)', () => {

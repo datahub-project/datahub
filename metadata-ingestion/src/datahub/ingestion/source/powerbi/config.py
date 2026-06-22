@@ -44,6 +44,7 @@ class Constant:
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
+    REPORT_DATASOURCES = "REPORT_DATASOURCES"
     DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
@@ -274,14 +275,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_charts.append(view)
 
 
-def default_for_dataset_type_mapping() -> Dict[str, str]:
-    dict_: dict = {}
-    for item in SupportedDataPlatform:
-        dict_[item.value.powerbi_data_platform_name] = (
-            item.value.datahub_data_platform_name
-        )
+# Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
+POWERBI_TYPE_TO_DATA_PLATFORM_PAIR: Dict[str, DataPlatformPair] = {
+    item.value.powerbi_data_platform_name: item.value for item in SupportedDataPlatform
+}
 
-    return dict_
+
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    return {
+        powerbi_name: pair.datahub_data_platform_name
+        for powerbi_name, pair in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.items()
+    }
 
 
 class DataBricksPlatformDetail(PlatformDetail):
@@ -292,6 +296,35 @@ class DataBricksPlatformDetail(PlatformDetail):
     metastore: str = pydantic.Field(
         description="Databricks Unity Catalog metastore name.",
     )
+
+
+class OraclePlatformDetail(PlatformDetail):
+    """Oracle-specific platform detail. Adds ``default_schema`` for inline native SQL."""
+
+    # Required (not Optional) so a recipe entry containing ``default_schema=``
+    # unambiguously resolves to OraclePlatformDetail in the
+    # ``server_to_platform_instance`` Union below. ConfigModel sets
+    # ``extra='forbid'`` so a plain ``{platform_instance: ...}`` already cannot
+    # absorb into Oracle; the requirement defends against a recipe author
+    # leaving ``default_schema:`` blank and silently producing
+    # ``default_schema=None``.
+    default_schema: str = pydantic.Field(
+        description=(
+            "Default Oracle schema applied to unqualified table references found "
+            'inside ``Oracle.Database(…, Query="…")`` inline native SQL. Set to '
+            "whatever schema your Oracle ingestion uses as the URN prefix. Only "
+            "configure this on Oracle servers that need it; other platforms "
+            "should use plain PlatformDetail. Empty/whitespace values are rejected."
+        ),
+    )
+
+    @field_validator("default_schema")
+    @classmethod
+    def _strip_and_validate_default_schema(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("default_schema must not be empty or whitespace")
+        return stripped
 
 
 class OwnershipMapping(ConfigModel):
@@ -448,7 +481,7 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
@@ -700,6 +733,27 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
         return self
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        # Oracle TNS lookup is case-insensitive in the source system, and the
+        # resolver falls back to a case-insensitive key match. If a recipe
+        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+        # one silently by dict insertion order — a wrong-platform-instance
+        # outcome. Reject the ambiguity at config-load time.
+        seen: Dict[str, str] = {}
+        for key in value:
+            lower = key.lower()
+            if lower in seen:
+                raise ValueError(
+                    "server_to_platform_instance has case-insensitive duplicate keys: "
+                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                    "than just case (the resolver falls back to a case-insensitive "
+                    "match for Oracle TNS aliases)."
+                )
+            seen[lower] = key
+        return value
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod

@@ -82,7 +82,8 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
           "Malformed input provided: owners cannot be applied to subresources.");
     }
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn, _entityClient);
+    OwnerUtils.validateAuthorizedToUpdateOwners(
+        context, resourceUrn, _entityClient, _entityService);
     LabelUtils.validateResource(
         opContext,
         resourceUrn,

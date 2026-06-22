@@ -15,6 +15,8 @@ x-primary-datastore-postgres-env: &primary-datastore-postgres-env
   EBEAN_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/datahub'
   EBEAN_DATASOURCE_DRIVER: org.postgresql.Driver
   EBEAN_POSTGRES_USE_AWS_IAM_AUTH: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:-false}
+  DATAHUB_PGQUEUE_ENABLED: ${DATAHUB_PGQUEUE_ENABLED:-true}
+  DATAHUB_PGQUEUE_MAINTENANCE_CRON_ENABLED: ${DATAHUB_PGQUEUE_MAINTENANCE_CRON_ENABLED:-true}
 
 x-primary-datastore-cassandra-env: &primary-datastore-cassandra-env
   CASSANDRA_DATASOURCE_USERNAME: cassandra
@@ -73,7 +75,7 @@ x-datahub-token-authentication-env: &datahub-authentication-env
 #################################
 x-datahub-system-update-service: &datahub-system-update-service
   hostname: datahub-system-update
-  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_UPDATE_VERSION:-${DATAHUB_VERSION:-head}}
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_UPDATE_VERSION:-${DATAHUB_VERSION:-quickstart}}
   command:
     - -u
     - SystemUpdate
@@ -110,7 +112,6 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
   environment: &datahub-system-update-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-system-update-env]
-    SKIP_ELASTICSEARCH_CHECK: false
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -124,7 +125,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
 #################################
 x-datahub-gms-service: &datahub-gms-service
   hostname: datahub-gms
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_GMS_VERSION:-${DATAHUB_VERSION:-head}}
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_GMS_VERSION:-${DATAHUB_VERSION:-quickstart}}
   ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     - ${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319
@@ -174,7 +175,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
-    SKIP_ELASTICSEARCH_CHECK: false
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
     BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:-false}
     SEARCH_SERVICE_ENABLE_CACHE: false
@@ -207,9 +207,9 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
 #################################
 x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   hostname: datahub-mae-consumer
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-head}}
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-quickstart}}
   ports:
-    - 9091:9091
+    - ${DATAHUB_MAPPED_MAE_CONSUMER_PORT:-9091}:9091
   expose:
     - 4319
   env_file:
@@ -238,9 +238,9 @@ x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
 #################################
 x-datahub-mce-consumer-service: &datahub-mce-consumer-service
   hostname: datahub-mce-consumer
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-head}}
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-quickstart}}
   ports:
-    - 9090:9090
+    - ${DATAHUB_MAPPED_MCE_CONSUMER_PORT:-9090}:9090
   expose:
     - 4319
   env_file:
@@ -258,8 +258,8 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   ports:
-    - 9090:9090
-    - 5009:5009
+    - ${DATAHUB_MAPPED_MCE_CONSUMER_PORT:-9090}:9090
+    - ${DATAHUB_MAPPED_MCE_DEBUG_PORT:-5009}:5009
   environment: &datahub-mce-consumer-env-dev
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -329,6 +329,19 @@ services:
       - quickstart-postgres
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+  system-update-quickstart-postgres-consumers:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-postgres-consumers
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
         condition: service_healthy
@@ -347,6 +360,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       CDC_DB_TYPE: postgres
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
     depends_on:
       postgres:
         condition: service_healthy
@@ -419,6 +433,19 @@ services:
       - debug-postgres
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+  system-update-debug-postgres-consumers:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-postgres-consumers
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
         condition: service_healthy
@@ -485,8 +512,25 @@ services:
       - quickstart-postgres
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      SKIP_KAFKA_CHECK: true
     depends_on:
       system-update-quickstart-postgres:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-postgres-consumers:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-postgres-consumers
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+      DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      SKIP_KAFKA_CHECK: true
+    depends_on:
+      system-update-quickstart-postgres-consumers:
         condition: service_completed_successfully
   datahub-gms-quickstart-postgres-cdc:
     <<: *datahub-gms-service
@@ -494,12 +538,14 @@ services:
       - quickstart-postgres-cdc
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
       DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       CDC_DB_TYPE: postgres
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
     depends_on:
       system-update-quickstart-postgres-cdc:
         condition: service_completed_successfully
@@ -560,8 +606,23 @@ services:
       - debug-postgres
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      SKIP_KAFKA_CHECK: true
     depends_on:
       system-update-debug-postgres:
+        condition: service_completed_successfully
+  datahub-gms-debug-postgres-consumers:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-postgres-consumers
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      SKIP_KAFKA_CHECK: true
+    depends_on:
+      system-update-debug-postgres-consumers:
         condition: service_completed_successfully
   datahub-gms-debug-postgres-cdc:
     <<: *datahub-gms-service-dev
@@ -576,6 +637,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       CDC_DB_TYPE: postgres
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
     depends_on:
       system-update-debug-postgres-cdc:
         condition: service_completed_successfully
@@ -663,10 +725,25 @@ services:
       <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
     profiles:
       - quickstart-postgres-cdc
     depends_on:
       datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+  datahub-mae-consumer-quickstart-postgres-consumers:
+    <<: *datahub-mae-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
+      SKIP_KAFKA_CHECK: true
+      MAE_CONSUMER_ENABLED: true
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      datahub-gms-quickstart-postgres-consumers:
         condition: service_healthy
 
   datahub-mae-consumer-debug-consumers-cdc:
@@ -679,6 +756,20 @@ services:
       - debug-consumers-cdc
     depends_on:
       datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+  datahub-mae-consumer-debug-postgres-consumers:
+    <<: *datahub-mae-consumer-service-dev
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env]
+      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
+      SKIP_KAFKA_CHECK: true
+      MAE_CONSUMER_ENABLED: true
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      datahub-gms-debug-postgres-consumers:
         condition: service_healthy
 
   #################################
@@ -708,10 +799,27 @@ services:
       <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
     profiles:
       - quickstart-postgres-cdc
     depends_on:
       datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+  datahub-mce-consumer-quickstart-postgres-consumers:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
+      STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
+      SKIP_KAFKA_CHECK: true
+      MCE_CONSUMER_ENABLED: true
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      datahub-gms-quickstart-postgres-consumers:
         condition: service_healthy
 
   datahub-mce-consumer-debug-consumers:
@@ -731,4 +839,20 @@ services:
       CDC_CONFIGURE_SOURCE: true
     depends_on:
       datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+  datahub-mce-consumer-debug-postgres-consumers:
+    <<: *datahub-mce-consumer-service-dev
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
+      STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+      DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
+      MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
+      MCE_CONSUMER_ENABLED: true
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      datahub-gms-debug-postgres-consumers:
         condition: service_healthy

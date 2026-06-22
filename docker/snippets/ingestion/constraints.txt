@@ -5,6 +5,9 @@ cmdstanpy>=1.3.0,<2.0.0
 # override in CI to work around this. This constraint is safe for Docker images
 # which don't coexist with Airflow's pinned dependencies.
 jaraco.context>=6.1.0,<7
+# CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
+# Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
+idna>=3.15,<4.0.0
 # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in >=2.6.3.
 # Not pinned here: acryl-great-expectations (via acryl-datahub[snowflake]) requires urllib3<1.27.
 # PyJWT: CVE-2026-32597

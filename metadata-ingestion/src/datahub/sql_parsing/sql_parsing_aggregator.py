@@ -13,7 +13,11 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log, get_sql_agg_skip_joins
+from datahub.configuration.env_vars import (
+    get_report_info_sample_size,
+    get_sql_agg_query_log,
+    get_sql_agg_skip_joins,
+)
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -572,13 +576,16 @@ class SqlParsingAggregator(Closeable):
         self._exit_stack.push(self._table_swaps)
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
-        # TODO: Replace with FileBackedDict.
         # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
         # configs that won't be respected here. Using it is misleading.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
-            self._usage_aggregator = UsageAggregator(config=self.usage_config)
+            self._usage_aggregator = UsageAggregator(
+                config=self.usage_config,
+                shared_connection=self._shared_connection,
+            )
+            self._exit_stack.push(self._usage_aggregator)
 
         # Query usage aggregator.
         # Map of query ID -> { bucket -> count }
@@ -1856,7 +1863,9 @@ class SqlParsingAggregator(Closeable):
         composite_query_id = self._composite_query_id(
             [q.query_id for q in ordered_queries]
         )
-        composed_of_queries_truncated: LossyList[str] = LossyList()
+        composed_of_queries_truncated: LossyList[str] = LossyList(
+            max_elements=get_report_info_sample_size()
+        )
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
         self.report.queries_with_temp_upstreams[composite_query_id] = (

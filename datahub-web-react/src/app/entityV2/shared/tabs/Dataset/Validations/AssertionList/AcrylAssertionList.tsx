@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -33,6 +34,7 @@ const AssertionListContainer = styled.div`
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -98,7 +100,7 @@ export const AcrylAssertionList = () => {
                 />
             );
         }
-        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionList.noAssertionsRun')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

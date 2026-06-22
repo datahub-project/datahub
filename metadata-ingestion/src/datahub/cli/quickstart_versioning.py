@@ -2,7 +2,8 @@ import json
 import logging
 import os.path
 import re
-from typing import Dict, Optional
+import sys
+from typing import Dict, Optional, Tuple
 
 import click
 import packaging
@@ -21,6 +22,7 @@ DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.ya
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
 MINIMUM_SUPPORTED_VERSION = "v1.1.0"
+MAGIC_ALIASES = frozenset({"head", "quickstart", "stable"})
 
 
 def get_minimum_supported_version_message(version: str) -> str:
@@ -56,8 +58,122 @@ def _is_it_a_version(version: str) -> bool:
     return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
+def _is_passthrough_version(version: str) -> bool:
+    return _is_it_a_version(version) or version.startswith("sha-")
+
+
+def _is_magic_alias(version: str) -> bool:
+    return version in MAGIC_ALIASES
+
+
+def _master_quickstart_plan(mysql_tag: str = "8.2") -> QuickstartExecutionPlan:
+    return QuickstartExecutionPlan(
+        composefile_git_ref="master",
+        docker_tag="quickstart",
+        mysql_tag=mysql_tag,
+    )
+
+
+def _apply_head_tag_rewrite(result: QuickstartExecutionPlan) -> QuickstartExecutionPlan:
+    if result.docker_tag == "head":
+        return result.model_copy(update={"docker_tag": "quickstart"})
+    return result
+
+
+def _apply_compose_ref_rewrite(
+    result: QuickstartExecutionPlan,
+) -> QuickstartExecutionPlan:
+    if _is_it_a_version(result.composefile_git_ref):
+        if parse("v1.2.0") > parse(result.composefile_git_ref):
+            return result.model_copy(
+                update={
+                    "composefile_git_ref": "21726bc3341490f4182b904626c793091ac95edd"
+                }
+            )
+    return result
+
+
+def _confirm_quickstart_plan(
+    requested_version: str,
+    fallback_plan: QuickstartExecutionPlan,
+    reason: str,
+    accept_version_default: bool,
+) -> QuickstartExecutionPlan:
+    msg = (
+        f"{reason}\n"
+        "Use this configuration instead?\n"
+        f"  compose: {fallback_plan.composefile_git_ref}\n"
+        f"  images:  {fallback_plan.docker_tag}\n"
+        f"  mysql:   {fallback_plan.mysql_tag}\n"
+        "Continue?"
+    )
+
+    if accept_version_default:
+        click.secho(
+            f"Using alternate quickstart configuration for version '{requested_version}'.",
+            fg="yellow",
+        )
+        return fallback_plan
+
+    if not sys.stdin.isatty():
+        raise click.ClickException(
+            f"Version '{requested_version}' requires confirmation in a non-interactive environment. "
+            "Re-run with a valid --version, or pass --accept-version-default to use the suggested configuration."
+        )
+
+    if click.confirm(msg, default=False):
+        return fallback_plan
+
+    raise click.ClickException(
+        f"Aborted. Fix --version '{requested_version}', or use --version default, head, quickstart, or a release tag."
+    )
+
+
 class QuickstartVersionMappingConfig(BaseModel):
     quickstart_version_map: Dict[str, QuickstartExecutionPlan]
+
+    def _get_default_plan(self) -> QuickstartExecutionPlan:
+        return self.quickstart_version_map.get("default", _master_quickstart_plan())
+
+    def _resolve_magic_alias_plan(self, alias: str) -> QuickstartExecutionPlan:
+        for key in (alias, "quickstart", "head"):
+            if key in self.quickstart_version_map:
+                return _apply_head_tag_rewrite(self.quickstart_version_map[key])
+        return _master_quickstart_plan()
+
+    def _needs_confirmation(
+        self,
+        requested_version: str,
+        result: QuickstartExecutionPlan,
+        in_map: bool,
+    ) -> Optional[Tuple[str, QuickstartExecutionPlan]]:
+        if requested_version == "default":
+            return None
+
+        if in_map and result.docker_tag == "head":
+            fallback = result.model_copy(update={"docker_tag": "quickstart"})
+            return (
+                f"Version '{requested_version}' uses deprecated docker tag 'head' "
+                "(images will use 'quickstart' instead).",
+                fallback,
+            )
+
+        if _is_magic_alias(requested_version) and not in_map:
+            fallback = self._resolve_magic_alias_plan(requested_version)
+            return (
+                f"Version '{requested_version}' is not in the quickstart version mapping "
+                f"(will use compose from {fallback.composefile_git_ref} with image tag '{fallback.docker_tag}').",
+                fallback,
+            )
+
+        if not in_map and not _is_passthrough_version(requested_version):
+            fallback = _apply_head_tag_rewrite(self._get_default_plan())
+            return (
+                f"Version '{requested_version}' is not recognized in the quickstart version mapping.",
+                fallback,
+            )
+
+        return None
 
     @classmethod
     def _fetch_latest_version(cls) -> str:
@@ -105,7 +221,9 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head", mysql_tag="8.2"
+                        composefile_git_ref="master",
+                        docker_tag="quickstart",
+                        mysql_tag="8.2",
                     ),
                 }
             )
@@ -129,6 +247,7 @@ class QuickstartVersionMappingConfig(BaseModel):
     def get_quickstart_execution_plan(
         self,
         requested_version: Optional[str],
+        accept_version_default: bool = False,
     ) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
@@ -137,18 +256,39 @@ class QuickstartVersionMappingConfig(BaseModel):
         """
         if requested_version is None:
             requested_version = "default"
-        composefile_git_ref = requested_version
-        docker_tag = requested_version
-        # Default to 8.2 if not specified in version map
+
+        if requested_version == "default":
+            result = _apply_head_tag_rewrite(self._get_default_plan())
+            if not is_minimum_supported_version(requested_version):
+                click.secho(
+                    get_minimum_supported_version_message(version=requested_version),
+                    fg="red",
+                )
+                raise click.ClickException("Minimum supported version not met")
+            return _apply_compose_ref_rewrite(result)
+
         mysql_tag = "8.2"
-        result = self.quickstart_version_map.get(
-            requested_version,
-            QuickstartExecutionPlan(
-                composefile_git_ref=composefile_git_ref,
-                docker_tag=docker_tag,
+        in_map = requested_version in self.quickstart_version_map
+        if in_map:
+            result = self.quickstart_version_map[requested_version]
+        else:
+            result = QuickstartExecutionPlan(
+                composefile_git_ref=requested_version,
+                docker_tag=requested_version,
                 mysql_tag=str(mysql_tag),
-            ),
-        )
+            )
+
+        confirmation = self._needs_confirmation(requested_version, result, in_map)
+        if confirmation:
+            reason, fallback_plan = confirmation
+            result = _confirm_quickstart_plan(
+                requested_version,
+                fallback_plan,
+                reason,
+                accept_version_default,
+            )
+
+        result = _apply_head_tag_rewrite(result)
 
         if not is_minimum_supported_version(requested_version):
             click.secho(
@@ -157,17 +297,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             )
             raise click.ClickException("Minimum supported version not met")
 
-        # new CLI version is downloading the composefile corresponding to the requested version
-        # if the version is older than <MINIMUM_SUPPORTED_VERSION>, it doesn't contain the
-        # docker compose based resolved compose file. In those cases, we pick up the composefile from
-        # MINIMUM_SUPPORTED_VERSION which contains the compose file.
-        if _is_it_a_version(result.composefile_git_ref):
-            if parse("v1.2.0") > parse(result.composefile_git_ref):
-                # The merge commit where profiles based resolved compose file was added.
-                # https://github.com/datahub-project/datahub/pull/13566
-                result.composefile_git_ref = "21726bc3341490f4182b904626c793091ac95edd"
-
-        return result
+        return _apply_compose_ref_rewrite(result)
 
 
 def save_quickstart_config(

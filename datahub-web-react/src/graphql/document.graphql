@@ -100,6 +100,7 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         privileges {
             ...entityPrivileges
         }
+        lastIngested
         exists
         parentDocuments @include(if: $includeParentDocuments) {
             count
@@ -154,10 +155,16 @@ fragment documentSidebarFields on Document {
     urn
     type
     subType
+    platform {
+        ...platformFields
+    }
     info {
         title
         status {
             state
+        }
+        source {
+            sourceType
         }
         created {
             time
