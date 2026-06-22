@@ -760,22 +760,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
 
-        # Build search input with optional multi-platform filter
-        search_input: dict[str, Any] = {
-            "type": "DOCUMENT",
-            "query": "*",
-            "start": 0,
-            "count": 1000,  # Fetch in batches
-        }
+        page_size = 1000
 
-        # Only add platform filter if specific platforms are provided
-        # Empty list or wildcard ("*", "ALL") means no GraphQL filter (client-side filtering instead)
+        # Build optional platform filter
+        platform_filters = None
         if (
             self.config.platform_filter
             and "*" not in self.config.platform_filter
             and "ALL" not in self.config.platform_filter
         ):
-            search_input["filters"] = [
+            platform_filters = [
                 {
                     "field": "platform",
                     "values": [
@@ -785,47 +779,65 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
-        variables = {"input": search_input}
-
         try:
-            response = self.graph.execute_graphql(query, variables)
-            search_data = response.get("search") or {}
-            search_results = search_data.get("searchResults") or []
-
             documents = []
-            for result in search_results:
-                entity = result.get("entity") or {}
-                urn = entity.get("urn")
+            start = 0
 
-                if not urn:
-                    continue
+            while True:
+                search_input: dict[str, Any] = {
+                    "type": "DOCUMENT",
+                    "query": "*",
+                    "start": start,
+                    "count": page_size,
+                }
+                if platform_filters:
+                    search_input["filters"] = platform_filters
 
-                # Filter by specific URNs if provided
-                if self.config.document_urns and urn not in self.config.document_urns:
-                    continue
+                response = self.graph.execute_graphql(query, {"input": search_input})
+                search_data = response.get("search") or {}
+                search_results = search_data.get("searchResults") or []
+                total = search_data.get("total") or 0
 
-                # Extract text content (GraphQL returns null for missing aspects)
-                info = entity.get("info") or {}
-                contents = info.get("contents") or {}
-                text = contents.get("text") or ""
+                for result in search_results:
+                    entity = result.get("entity") or {}
+                    urn = entity.get("urn")
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                should_process = self._should_process_by_source_type(entity, info)
-                if not should_process:
-                    continue
+                    if not urn:
+                        continue
 
-                # Skip if no text or too short
-                if not text or (
-                    self.config.skip_empty_text
-                    and len(text) < self.config.min_text_length
-                ):
-                    logger.debug(
-                        f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                    )
-                    continue
+                    # Filter by specific URNs if provided
+                    if (
+                        self.config.document_urns
+                        and urn not in self.config.document_urns
+                    ):
+                        continue
 
-                documents.append({"urn": urn, "text": text})
-                self.report.report_document_fetched()
+                    # Extract text content (GraphQL returns null for missing aspects)
+                    info = entity.get("info") or {}
+                    contents = info.get("contents") or {}
+                    text = contents.get("text") or ""
+
+                    # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+                    should_process = self._should_process_by_source_type(entity, info)
+                    if not should_process:
+                        continue
+
+                    # Skip if no text or too short
+                    if not text or (
+                        self.config.skip_empty_text
+                        and len(text) < self.config.min_text_length
+                    ):
+                        logger.debug(
+                            f"Skipping document {urn} (empty or too short: {len(text)} chars)"
+                        )
+                        continue
+
+                    documents.append({"urn": urn, "text": text})
+                    self.report.report_document_fetched()
+
+                start += len(search_results)
+                if not search_results or start >= total:
+                    break
 
             logger.info(
                 f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
