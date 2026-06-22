@@ -1488,14 +1488,25 @@ class OracleSource(SQLAlchemySource):
                 yield inspector
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        logger.info(
+            f"Oracle get_db_schema called: dataset_identifier='{dataset_identifier}', "
+            f"add_database_name_to_urn={self.config.add_database_name_to_urn}"
+        )
+
         try:
             # dataset_identifier is either "db.schema.table" or "schema.table"
             # depending on add_database_name_to_urn. parts[-3], parts[-2], parts[-1]
             # are db, schema, table respectively.
             parts = dataset_identifier.split(".")
+            logger.info(f"Oracle get_db_schema: parts={parts}, len={len(parts)}")
+
             if self.config.add_database_name_to_urn:
                 if len(parts) >= 3:
-                    return parts[-3], parts[-2]  # db, schema
+                    result = (parts[-3], parts[-2])  # db, schema
+                    logger.info(
+                        f"Oracle get_db_schema: returning (3+ parts with db): {result}"
+                    )
+                    return result
                 elif len(parts) >= 2:
                     # Identifier is missing the db component — fall back to config.
                     # Using str(None) here would produce "None.schema.table" URNs.
@@ -1507,16 +1518,26 @@ class OracleSource(SQLAlchemySource):
                         else None
                     )
                     db_name = self.config.database or urn_db or None
-                    return db_name, parts[-2]  # db (or None), schema
+                    result = (db_name, parts[-2])  # db (or None), schema
+                    logger.info(
+                        f"Oracle get_db_schema: returning (2 parts with db): {result}"
+                    )
+                    return result
             else:
                 if len(parts) >= 2:
-                    return None, parts[-2]  # schema only; no db in URNs
+                    result = (None, parts[-2])  # schema only; no db in URNs
+                    logger.info(
+                        f"Oracle get_db_schema: returning (2 parts no db): {result}"
+                    )
+                    return result
         except Exception as e:
+            logger.info(f"Oracle get_db_schema: Exception caught: {e}")
             logger.warning(
                 f"Error extracting schema from identifier {dataset_identifier}: {e}"
             )
 
         # Reached only on a malformed identifier (e.g. no dots) or an exception above.
+        logger.info("Oracle get_db_schema: falling back to super().get_db_schema()")
         return super().get_db_schema(dataset_identifier)
 
     @property
