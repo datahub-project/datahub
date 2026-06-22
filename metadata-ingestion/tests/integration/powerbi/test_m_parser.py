@@ -1693,3 +1693,89 @@ def test_native_query_mssql_and_postgres_supported():
     assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
     assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
     assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
+
+
+@pytest.mark.integration
+def test_snowflake_parameterized_name_skips_gracefully():
+    """A three-step source whose database ``Name`` is a parameter/identifier
+    reference (e.g. ``Name=DataSource``) rather than a quoted literal must skip
+    lineage gracefully with a clear warning, not raise ``KeyError: 'Name'``
+    (which previously surfaced as a confusing "Unknown M-Query Pattern")."""
+    q = (
+        "let\n"
+        '    Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]),\n'
+        '    DB_Source = Source{[Name=DataSource,Kind="Database"]}[Data],\n'
+        '    Schema_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data],\n'
+        '    Table_Source = Schema_Source{[Name="TABLE_NAME",Kind="View"]}[Data],\n'
+        '    #"Filtered Rows" = Table.SelectRows(Table_Source, each ([COLUMN_NAME] = "value"))\n'
+        "in\n"
+        '    #"Filtered Rows"'
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="TABLE_NAME",
+        full_name="MyDataset.TABLE_NAME",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineages == []
+    assert reporter.m_query_resolver_errors == 0, (
+        "Parameterized Name must not be counted as a resolver error / "
+        "Unknown M-Query Pattern"
+    )
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert any("Unresolved data source name" in (t or "") for t in warning_titles), (
+        f"Expected an 'Unresolved data source name' warning; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_snowflake_parameterized_name_resolves_with_parameters():
+    """When the dataset's M parameters are available, the parameterized database
+    ``Name`` is substituted and full lineage is produced."""
+    q = (
+        "let\n"
+        '    Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]),\n'
+        '    DB_Source = Source{[Name=DataSource,Kind="Database"]}[Data],\n'
+        '    Schema_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data],\n'
+        '    Table_Source = Schema_Source{[Name="TABLE_NAME",Kind="View"]}[Data],\n'
+        '    #"Filtered Rows" = Table.SelectRows(Table_Source, each ([COLUMN_NAME] = "value"))\n'
+        "in\n"
+        '    #"Filtered Rows"'
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="TABLE_NAME",
+        full_name="MyDataset.TABLE_NAME",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"DataSource": "DATABASE_NAME"},
+    )
+
+    assert len(lineages) == 1
+    assert [u.urn for u in lineages[0].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_name.schema_name.table_name,PROD)"
+    ]
