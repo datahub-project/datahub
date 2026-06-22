@@ -1779,3 +1779,78 @@ def test_snowflake_parameterized_name_resolves_with_parameters():
     assert [u.urn for u in lineages[0].upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_name.schema_name.table_name,PROD)"
     ]
+
+
+@pytest.mark.integration
+def test_dax_expression_with_let_substring_is_not_warned():
+    """A DAX computed table that merely contains the letters ``let`` inside a
+    token (e.g. a column ``ORDER_NBR_TABLET``) must be classified as non-M-Query
+    (INFO-level skip), not raise an ``Unable to parse M-Query expression`` warning.
+    Regression for the substring ``"let" in expr`` false positive."""
+    # Pure DAX (no `let` keyword); the only "let" is inside ORDER_NBR_TABLET.
+    q = (
+        "{\n"
+        '    ("Order Number", NAMEOF(data[ORDER_NBR_TABLET]), 8),\n'
+        '    ("Market", NAMEOF(data[MARKET]), 9)\n'
+        "}"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="DaxComputedTable",
+        full_name="MyDataset.DaxComputedTable",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineages == []
+    assert reporter.m_query_non_mquery_expressions == 1
+    assert reporter.m_query_parse_unknown_errors == 0
+    assert [w.title for w in reporter.warnings] == [], (
+        f"DAX expression should not warn; got: {[w.title for w in reporter.warnings]}"
+    )
+
+
+@pytest.mark.integration
+def test_genuine_mquery_parse_failure_still_warns():
+    """A real ``let`` M-Query that fails to lex (here an unquoted ``[3. Value]``
+    generalized identifier, which Power Query M requires to be written
+    ``[#"3. Value"]``) must still emit the parse warning - the word-boundary
+    `let` check must not suppress genuine M-Query failures."""
+    q = 'let\n    Source = Table.AddColumn(t, "c", each [3. Value])\nin\n    Source'
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="MyTable",
+        full_name="MyDataset.MyTable",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert reporter.m_query_non_mquery_expressions == 0
+    assert any(
+        "Unable to parse M-Query expression" in (w.title or "")
+        for w in reporter.warnings
+    ), (
+        f"Genuine M-Query failure should warn; got: {[w.title for w in reporter.warnings]}"
+    )
