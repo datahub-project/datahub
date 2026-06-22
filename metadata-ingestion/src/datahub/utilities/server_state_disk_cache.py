@@ -50,6 +50,15 @@ class ServerStateDiskCache:
             return json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
+        except json.JSONDecodeError:
+            # Corrupt file (e.g. truncated by a crash before atomic writes
+            # landed) — drop it so we re-fetch instead of failing every get().
+            logger.debug("Removing corrupt disk cache file: %s", path, exc_info=True)
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            return None
         except Exception:
             logger.debug("Disk cache miss", exc_info=True)
             return None

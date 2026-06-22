@@ -477,9 +477,18 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         if commit_hash:
             cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
             if cached is not None:
-                specs = EntityAspectSpecs.from_dict(cached)
-                self._entity_aspect_specs = (commit_hash, specs)
-                return specs
+                try:
+                    specs = EntityAspectSpecs.from_dict(cached)
+                except Exception:
+                    # Valid JSON but not a usable specs payload (e.g. shape
+                    # changed across a code upgrade) — re-fetch.
+                    logger.debug(
+                        "Ignoring unusable cached entity aspect specs",
+                        exc_info=True,
+                    )
+                else:
+                    self._entity_aspect_specs = (commit_hash, specs)
+                    return specs
 
         url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
         try:

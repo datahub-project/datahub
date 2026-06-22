@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 # Shapes returned by the registry specifications API
 # (/openapi/v1/registry/models/entity/specifications). total=False because the
 # parser reads every key with .get() and tolerates its absence -- notably
-# older servers don't emit schemaVersion. Used only to document the contract
-# and let mypy catch key typos.
+# older servers don't emit schemaVersion. These type the contract at the
+# parsing boundary so mypy catches structural mismatches.
 class _AspectAnnotation(TypedDict, total=False):
     name: str
     schemaVersion: int
