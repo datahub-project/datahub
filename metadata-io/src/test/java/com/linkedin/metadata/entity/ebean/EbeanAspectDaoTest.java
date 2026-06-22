@@ -532,4 +532,14 @@ public class EbeanAspectDaoTest {
         testDao.getAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
   }
+
+  @Test
+  public void getVersionRangeReturnsSentinelWhenAspectMissing() {
+    com.linkedin.util.Pair<Long, Long> range =
+        testDao.getVersionRange(
+            opContext, "urn:li:container:missing-aspect-range-test", "containerKey");
+
+    assertEquals(range.getFirst(), Long.valueOf(-1L));
+    assertEquals(range.getSecond(), Long.valueOf(-1L));
+  }
 }

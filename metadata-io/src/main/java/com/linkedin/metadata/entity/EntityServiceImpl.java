@@ -3001,8 +3001,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
                   Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
-                  long minVersion = Math.max(0, versionRange.getFirst());
-                  long maxVersion = Math.max(0, versionRange.getSecond());
+                  if (versionRange.getFirst() == null
+                      || versionRange.getSecond() == null
+                      || versionRange.getFirst() < 0
+                      || versionRange.getSecond() < 0) {
+                    log.debug(
+                        "Delete skipped due to empty version range. urn {} aspect {}",
+                        urn,
+                        aspectName);
+                    return TransactionResult.rollback();
+                  }
+                  long minVersion = versionRange.getFirst();
+                  long maxVersion = versionRange.getSecond();
 
                   EntityAspect.EntitySystemAspect survivingAspect = null;
 
