@@ -424,14 +424,14 @@ stage_pattern:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
-**S3 lineage path specs for external stages**
+**Data lake lineage path specs for external stages**
 
-An external S3 stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
+An external stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
 
-Configure `s3_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary so the resulting URNs line up. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN. Set `ignore_non_path_spec_path: true` to skip emitting an S3 dataset URN for any stage whose location does not match a configured path spec.
+Configure `datalake_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary so the resulting URNs line up. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN. Path specs may use any supported scheme prefix (`s3://`, `gcs://`, or `azure://`) — the resolver dispatches to the matching cloud platform automatically. Set `ignore_non_path_spec_path: true` to skip emitting a dataset URN for any stage whose location does not match a configured path spec.
 
 ```yaml
-s3_lineage_config:
+datalake_lineage_config:
   path_specs:
     - include: "s3://my-bucket/{table}/*/*/*.csv"
   ignore_non_path_spec_path: true

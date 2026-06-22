@@ -5,11 +5,19 @@ from urllib.parse import urlparse
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn_for_lineage
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri, make_abs_urn
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX
 from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Snowflake-style cloud prefixes that diverge from the canonical schemes used
+# elsewhere in DataHub (``https://...blob.core.windows.net`` for ABS, ``gs://`` for GCS).
+_AZURE_SNOWFLAKE_PREFIX = "azure://"
+_GCS_SNOWFLAKE_PREFIX = "gcs://"
 
 
 class PathSpecsConfigMixin(ConfigModel):
@@ -18,16 +26,21 @@ class PathSpecsConfigMixin(ConfigModel):
     )
 
 
-class S3PathMode(StrEnum):
-    """How a path is interpreted by :meth:`S3LineageProviderConfig.get_s3_path`."""
+class PathMode(StrEnum):
+    """How a path is interpreted by :meth:`DataLakeLineageProviderConfig.get_path`."""
 
     FILE = "file"
     DIRECTORY = "directory"
 
 
-class S3LineageProviderConfig(ConfigModel):
+S3PathMode = PathMode
+
+
+class DataLakeLineageProviderConfig(ConfigModel):
     """
-    Any source that produces s3 lineage from/to Datasets should inherit this class.
+    Unified data lake lineage config. Applies ``path_specs`` to fold a path up to
+    its ``{table}`` boundary and dispatches URN generation by scheme
+    (``s3://``, ``gcs://``, Azure HTTPS / ``azure://``).
     """
 
     path_specs: List[PathSpec] = Field(
@@ -37,43 +50,67 @@ class S3LineageProviderConfig(ConfigModel):
 
     strip_urls: bool = Field(
         default=True,
-        description="Strip filename from s3 url. It only applies if path_specs are not specified.",
+        description="Strip filename from the URL. Only applies if no path_specs are configured.",
     )
 
     ignore_non_path_spec_path: bool = Field(
         default=False,
-        description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
+        description="Ignore paths that do not match any path_spec. Only applies if path_specs are configured.",
     )
 
-    def get_s3_path(
-        self, path: str, mode: S3PathMode = S3PathMode.FILE
-    ) -> Optional[str]:
+    def get_path(self, path: str, mode: PathMode = PathMode.FILE) -> Optional[str]:
         for path_spec in self.path_specs:
-            if mode is S3PathMode.FILE and path_spec.allowed(path):
+            if mode is PathMode.FILE and path_spec.allowed(path):
                 _, table_path = path_spec.extract_table_name_and_path(path)
                 return table_path
-            if mode is S3PathMode.DIRECTORY:
+            if mode is PathMode.DIRECTORY:
                 folded_path = path_spec.fold_dir_to_table(path)
                 if folded_path is not None:
                     return folded_path
 
         if self.ignore_non_path_spec_path and len(self.path_specs) > 0:
-            logger.debug(f"Skipping s3 path {path} as it does not match any path spec.")
+            logger.debug(f"Skipping path {path} as it does not match any path spec.")
             return None
 
-        if mode is S3PathMode.FILE and self.strip_urls:
+        if mode is PathMode.FILE and self.strip_urls:
             if "/" in urlparse(path).path:
                 return str(path.rsplit("/", 1)[0])
 
-        return path
+        # Match fold_dir_to_table's trailing-slash normalization so the fallback
+        # URN aligns with the folded one.
+        return path.rstrip("/") if mode is PathMode.DIRECTORY else path
 
-    def get_s3_urn_for_lineage(
-        self, path: str, env: str, mode: S3PathMode = S3PathMode.FILE
+    def get_urn_for_lineage(
+        self, url: str, env: str, mode: PathMode = PathMode.FILE
     ) -> Optional[str]:
-        s3_path = self.get_s3_path(path, mode=mode)
-        if s3_path is None:
+        path = self.get_path(url, mode=mode)
+        if path is None:
             return None
-        return make_s3_urn_for_lineage(s3_path, env)
+        if is_s3_uri(path):
+            return make_s3_urn_for_lineage(path, env)
+        gcs_prefix = next(
+            (p for p in (_GCS_SNOWFLAKE_PREFIX, GCS_PREFIX) if path.startswith(p)),
+            None,
+        )
+        if gcs_prefix is not None:
+            return make_dataset_urn_with_platform_instance(
+                platform="gcs",
+                name=path[len(gcs_prefix) :].rstrip("/"),
+                env=env,
+                platform_instance=None,
+            )
+        if path.startswith(_AZURE_SNOWFLAKE_PREFIX):
+            return make_abs_urn(
+                path.replace(_AZURE_SNOWFLAKE_PREFIX, "https://", 1), env
+            )
+        if is_abs_uri(path):
+            return make_abs_urn(path, env)
+        logger.debug(f"Unsupported URL scheme for lineage: {url}")
+        return None
+
+
+class S3LineageProviderConfig(DataLakeLineageProviderConfig):
+    """Alias of :class:`DataLakeLineageProviderConfig` kept for back-compat with sources (e.g. Redshift) that exposed ``s3_lineage_config``."""
 
 
 class S3DatasetLineageProviderConfigBase(ConfigModel):
@@ -82,4 +119,13 @@ class S3DatasetLineageProviderConfigBase(ConfigModel):
     s3_lineage_config: S3LineageProviderConfig = Field(
         default=S3LineageProviderConfig(),
         description="Common config for S3 lineage generation",
+    )
+
+
+class DataLakeLineageProviderConfigBase(ConfigModel):
+    """Groups all data lake lineage config under a single ``datalake_lineage_config`` property."""
+
+    datalake_lineage_config: DataLakeLineageProviderConfig = Field(
+        default=DataLakeLineageProviderConfig(),
+        description="Common config for data lake lineage generation (S3, GCS, ABS).",
     )
