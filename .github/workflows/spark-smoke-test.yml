@@ -53,6 +53,10 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - name: Disk Check
         run: df -h . && docker images
+      - name: Spark listener unit + real-Spark smoke tests
+        run: |
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
+                    :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest \
