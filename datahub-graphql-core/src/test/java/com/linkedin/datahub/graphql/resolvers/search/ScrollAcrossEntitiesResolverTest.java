@@ -209,6 +209,99 @@ public class ScrollAcrossEntitiesResolverTest {
   }
 
   @Test
+  public void testWithoutIncludeHiddenLifecycleStagesKeepsDocumentDefaultFilters()
+      throws Exception {
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setPageSize(0);
+    mockResult.setNumEntities(0);
+    mockResult.setMetadata(new SearchResultMetadata());
+    mockResult.setEntities(new SearchEntityArray());
+
+    // Document manager, but includeHiddenLifecycleStages is not set: defaults must still apply.
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setIncludeHiddenLifecycleStages(false);
+
+    ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DOCUMENT));
+    input.setQuery("*");
+    input.setCount(10);
+    input.setSearchFlags(searchFlags);
+
+    QueryContext context = getMockAllowContext();
+    Mockito.when(_env.getArgument("input")).thenReturn(input);
+    Mockito.when(_env.getContext()).thenReturn(context);
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(), any(), eq("*"), any(), eq(null), eq("5m"), any(), eq(10)))
+        .thenReturn(mockResult);
+
+    ScrollResults result = _resolver.get(_env).get();
+
+    assertNotNull(result);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("*"),
+            filterCaptor.capture(),
+            eq(null),
+            eq("5m"),
+            eq(Collections.emptyList()),
+            eq(10));
+    assertTrue(filterContainsField(filterCaptor.getValue(), "state"));
+    assertTrue(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
+  }
+
+  @Test
+  public void testIncludeHiddenLifecycleStagesDoesNotBypassDefaultsForNonDocumentEntities()
+      throws Exception {
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setPageSize(0);
+    mockResult.setNumEntities(0);
+    mockResult.setMetadata(new SearchResultMetadata());
+    mockResult.setEntities(new SearchEntityArray());
+
+    // Document manager with the hidden-stages flag, but searching a non-document entity:
+    // the bypass is document-scoped, so no document default filters are injected.
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setIncludeHiddenLifecycleStages(true);
+
+    ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DATASET));
+    input.setQuery("*");
+    input.setCount(10);
+    input.setSearchFlags(searchFlags);
+
+    QueryContext context = getMockAllowContext();
+    Mockito.when(_env.getArgument("input")).thenReturn(input);
+    Mockito.when(_env.getContext()).thenReturn(context);
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(), any(), eq("*"), any(), eq(null), eq("5m"), any(), eq(10)))
+        .thenReturn(mockResult);
+
+    ScrollResults result = _resolver.get(_env).get();
+
+    assertNotNull(result);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
+            eq("*"),
+            filterCaptor.capture(),
+            eq(null),
+            eq("5m"),
+            eq(Collections.emptyList()),
+            eq(10));
+    assertFalse(filterContainsField(filterCaptor.getValue(), "state"));
+    assertFalse(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
+  }
+
+  @Test
   public void testGetExceptionThrowsRuntimeException() throws Exception {
     ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DATASET));
