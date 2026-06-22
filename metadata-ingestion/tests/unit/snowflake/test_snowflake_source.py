@@ -31,6 +31,10 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
     create_deny_regex_sql_filter,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
@@ -1232,29 +1236,18 @@ class TestSnowflakeIdentifierQuoting:
         assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
 
 
-def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
-    """When the composed pushdown filter exceeds Snowflake's per-query byte limit,
-    get_tables_for_schema drops the server-side filter (empty) and relies on the
-    client-side pass instead of sending an oversized query."""
-    from datahub.ingestion.source.snowflake.snowflake_query import (
-        SNOWFLAKE_MAX_QUERY_BYTES,
-    )
-    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
-        SnowflakeSchemaGenerator,
-    )
-
+def _make_pushdown_gen(push_down: bool) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.model_validate(
         {
             "account_id": "test",
             "username": "u",
             "password": "p",
-            "push_down_metadata_patterns": True,
+            "push_down_metadata_patterns": push_down,
         }
     )
     aggregator = MagicMock()
     aggregator._schema_resolver = MagicMock()
-    gen = SnowflakeSchemaGenerator(
+    return SnowflakeSchemaGenerator(
         config=config,
         report=SnowflakeV2Report(),
         connection=MagicMock(),
@@ -1265,6 +1258,58 @@ def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
         aggregator=aggregator,
         snowsight_url_builder=None,
     )
+
+
+def test_fetch_tables_for_schema_pushdown_applies_client_side_deny_backstop():
+    """With pushdown, fetch_tables_for_schema re-applies the canonical filter
+    client-side (_is_table_allowed) as the deny backstop, dropping any table the
+    capped server-side deny let through."""
+    gen = _make_pushdown_gen(push_down=True)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    schema = MagicMock()
+    with (
+        patch.object(gen, "get_tables_for_schema", return_value=[t_keep, t_drop]),
+        patch.object(
+            gen, "_is_table_allowed", side_effect=[True, False]
+        ) as mock_allowed,
+    ):
+        result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
+    assert schema.tables == ["KEEP"]
+    assert mock_allowed.call_count == 2
+
+
+def test_fetch_tables_for_schema_no_pushdown_filters_on_table_pattern():
+    """Without pushdown, fetch_tables_for_schema is the only filter and uses
+    table_pattern.allowed directly."""
+    gen = _make_pushdown_gen(push_down=False)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    schema = MagicMock()
+    with (
+        patch.object(gen, "get_tables_for_schema", return_value=[t_keep, t_drop]),
+        patch.object(
+            gen.filters.filter_config.table_pattern,
+            "allowed",
+            side_effect=[True, False],
+        ),
+    ):
+        result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
+
+
+def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
+    """When the composed pushdown filter exceeds Snowflake's per-query byte limit,
+    get_tables_for_schema drops the server-side filter (empty) and relies on the
+    client-side pass instead of sending an oversized query."""
+    from datahub.ingestion.source.snowflake.snowflake_query import (
+        SNOWFLAKE_MAX_QUERY_BYTES,
+    )
+
+    gen = _make_pushdown_gen(push_down=True)
     gen.data_dictionary = MagicMock()
     gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
 
@@ -1278,32 +1323,7 @@ def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
 
 def test_get_tables_for_schema_pushes_down_when_filter_fits():
     """A normally-sized pushdown filter is sent to the server as-is."""
-    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
-        SnowflakeSchemaGenerator,
-    )
-
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test",
-            "username": "u",
-            "password": "p",
-            "push_down_metadata_patterns": True,
-        }
-    )
-    aggregator = MagicMock()
-    aggregator._schema_resolver = MagicMock()
-    gen = SnowflakeSchemaGenerator(
-        config=config,
-        report=SnowflakeV2Report(),
-        connection=MagicMock(),
-        filters=MagicMock(),
-        identifiers=MagicMock(),
-        domain_registry=None,
-        profiler=None,
-        aggregator=aggregator,
-        snowsight_url_builder=None,
-    )
+    gen = _make_pushdown_gen(push_down=True)
     gen.data_dictionary = MagicMock()
     gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
 
@@ -1313,71 +1333,3 @@ def test_get_tables_for_schema_pushes_down_when_filter_fits():
 
     _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
     assert kwargs["table_filter"] == fitting
-
-
-def _make_pushdown_gen(push_down: bool):
-    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
-        SnowflakeSchemaGenerator,
-    )
-
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test",
-            "username": "u",
-            "password": "p",
-            "push_down_metadata_patterns": push_down,
-        }
-    )
-    aggregator = MagicMock()
-    aggregator._schema_resolver = MagicMock()
-    gen = SnowflakeSchemaGenerator(
-        config=config,
-        report=SnowflakeV2Report(),
-        connection=MagicMock(),
-        filters=MagicMock(),
-        identifiers=MagicMock(),
-        domain_registry=None,
-        profiler=None,
-        aggregator=aggregator,
-        snowsight_url_builder=None,
-    )
-    gen.identifiers.get_dataset_identifier.side_effect = (
-        lambda name, schema, db: f"{db}.{schema}.{name}"
-    )
-    return gen
-
-
-def test_fetch_tables_for_schema_pushdown_applies_client_side_deny_backstop():
-    """With pushdown, fetch_tables_for_schema re-applies the canonical filter
-    client-side (_is_table_allowed) as the deny backstop, dropping any table the
-    capped server-side deny let through."""
-    gen = _make_pushdown_gen(push_down=True)
-    t_keep, t_drop = MagicMock(), MagicMock()
-    t_keep.name, t_drop.name = "KEEP", "DROP"
-    gen.get_tables_for_schema = MagicMock(return_value=[t_keep, t_drop])
-    gen._is_table_allowed = MagicMock(side_effect=[True, False])
-
-    schema = MagicMock()
-    result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
-
-    assert result == [t_keep]
-    assert schema.tables == ["KEEP"]
-    assert gen._is_table_allowed.call_count == 2
-
-
-def test_fetch_tables_for_schema_no_pushdown_filters_on_table_pattern():
-    """Without pushdown, fetch_tables_for_schema is the only filter and uses
-    table_pattern.allowed directly."""
-    gen = _make_pushdown_gen(push_down=False)
-    t_keep, t_drop = MagicMock(), MagicMock()
-    t_keep.name, t_drop.name = "KEEP", "DROP"
-    gen.get_tables_for_schema = MagicMock(return_value=[t_keep, t_drop])
-    gen.filters.filter_config.table_pattern.allowed = MagicMock(
-        side_effect=[True, False]
-    )
-
-    schema = MagicMock()
-    result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
-
-    assert result == [t_keep]
