@@ -35,6 +35,20 @@ class TestDremioQueryParsing:
         )
         assert "myspace.table" in q.queried_datasets
 
+    def test_smart_quotes_normalized_in_query(self):
+        # Curly single quotes (U+2018/U+2019) are normalized to straight
+        # apostrophes so sqlglot parsing downstream doesn't choke.
+        q = DremioQuery(
+            job_id="j1",
+            username="u",
+            submitted_ts=VALID_TS,
+            query="SELECT * FROM t WHERE name = \u2018a\u2019",
+            queried_datasets="[myspace.table]",
+        )
+        assert q.query == "SELECT * FROM t WHERE name = 'a'"
+        assert "\u2018" not in q.query
+        assert "\u2019" not in q.query
+
 
 class TestDremioCatalogIsValidQuery:
     """Tests for DremioCatalog.is_valid_query() required-fields check."""
