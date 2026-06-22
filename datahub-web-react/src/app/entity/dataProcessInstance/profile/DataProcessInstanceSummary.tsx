@@ -1,5 +1,6 @@
 import { Pill } from '@components';
 import { Space, Table, Typography } from 'antd';
+import type { ColumnType } from 'antd/es/table';
 import { capitalize } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
@@ -29,11 +30,25 @@ const InfoItemContent = styled.div`
     overflow-wrap: break-word;
 `;
 
-const propertyTableColumns = [
+const metricsColumns: ColumnType<MlMetric>[] = [
     {
         title: 'Name',
         dataIndex: 'name',
         width: 450,
+        render: (name) => <span data-testid={`mlmodel-metric-row-${name}`}>{name}</span>,
+    },
+    {
+        title: 'Value',
+        dataIndex: 'value',
+    },
+];
+
+const hyperparamsColumns: ColumnType<MlHyperParam>[] = [
+    {
+        title: 'Name',
+        dataIndex: 'name',
+        width: 450,
+        render: (name) => <span data-testid={`mlmodel-hyperparam-row-${name}`}>{name}</span>,
     },
     {
         title: 'Value',
@@ -84,17 +99,21 @@ export default function DataProcessInstanceSummary() {
                     </InfoItem>
                 </InfoItemContainer>
                 <Typography.Title level={3}>Training Metrics</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.trainingMetrics as MlMetric[]}
-                />
+                <div data-testid="mlmodel-training-metrics-table">
+                    <Table
+                        columns={metricsColumns}
+                        dataSource={dpi?.mlTrainingRunProperties?.trainingMetrics as MlMetric[] | undefined}
+                        pagination={false}
+                    />
+                </div>
                 <Typography.Title level={3}>Hyper Parameters</Typography.Title>
-                <Table
-                    pagination={false}
-                    columns={propertyTableColumns}
-                    dataSource={dpi?.mlTrainingRunProperties?.hyperParams as MlHyperParam[]}
-                />
+                <div data-testid="mlmodel-hyperparams-table">
+                    <Table
+                        columns={hyperparamsColumns}
+                        dataSource={dpi?.mlTrainingRunProperties?.hyperParams as MlHyperParam[] | undefined}
+                        pagination={false}
+                    />
+                </div>
             </Space>
         </TabContent>
     );

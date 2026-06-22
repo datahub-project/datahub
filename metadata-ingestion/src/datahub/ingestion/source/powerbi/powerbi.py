@@ -42,6 +42,10 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi.config import (
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
@@ -1131,15 +1135,19 @@ class Mapper:
         user_key = CorpUserKeyClass(username=user_id)
 
         user_info = CorpUserInfoClass(
+            active=True,
             displayName=user.displayName or user_id,  # Fallback to user_id if null
             email=user.emailAddress
             or None,  # PowerBI API may return "" for missing email
-            active=True,
         )
 
         return [
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_key),
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_info),
+            MetadataChangeProposalWrapper(
+                entityUrn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            ),
         ]
 
     def _get_qualified_owners(
