@@ -7,6 +7,7 @@ from typing import Counter, Dict, List, Optional
 import pydantic
 
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -86,6 +87,7 @@ class BigQueryQueriesExtractorReport(Report):
 class BigQueryV2Report(
     SQLSourceReport,
     BaseTimeWindowReport,
+    ClassificationReportMixin,
 ):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(

@@ -23,7 +23,9 @@ from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
-from datahub.ingestion.glossary.classifier import ClassificationSourceConfigMixin
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,

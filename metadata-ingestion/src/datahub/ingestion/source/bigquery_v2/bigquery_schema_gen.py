@@ -17,6 +17,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
+    ClassificationHandler,
+    classification_workunit_processor,
+)
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryShardPatternMatcher,
@@ -24,6 +29,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
@@ -228,6 +234,13 @@ class BigQuerySchemaGenerator:
         self.filters = filters
         self.shard_matcher = shard_matcher
         self.graph = graph
+
+        self.classification_handler = ClassificationHandler(self.config, self.report)
+        self.data_reader: Optional[BigQueryDataReader] = None
+        if self.classification_handler.is_classification_enabled():
+            self.data_reader = BigQueryDataReader.create(
+                self.config.get_bigquery_client()
+            )
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
@@ -673,7 +686,21 @@ class BigQuerySchemaGenerator:
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
-                yield from table_wu_generator
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    self.data_reader,
+                    [project_id, dataset_name, table.name],
+                    data_reader_kwargs=dict(
+                        sample_size_percent=(
+                            self.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER
+                            / table.rows_count
+                            if table.rows_count
+                            else None
+                        )
+                    ),
+                )
 
         if self.config.include_views:
             db_views[dataset_name] = list(

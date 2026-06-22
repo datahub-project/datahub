@@ -34,8 +34,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classifier import ClassificationSourceConfigMixin
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    ClassificationReportMixin,
+    ClassificationSourceConfigMixin,
+    classification_workunit_processor,
+)
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.dynamodb.data_reader import DynamoDBTableItemsReader
 from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -128,7 +134,7 @@ class DynamoDBConfig(
 
 
 @dataclass
-class DynamoDBSourceReport(StaleEntityRemovalSourceReport):
+class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
     filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
@@ -174,6 +180,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     "By default, platform_instance will use the AWS account id",
 )
 @capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+)
+@capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )
@@ -195,6 +205,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DynamoDBSourceReport()
         self.platform = platform
+        self.classification_handler = ClassificationHandler(self.config, self.report)
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -211,6 +222,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         dynamodb_client = self.config.dynamodb_client
         region = dynamodb_client.meta.region_name
 
+        data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
+
         for table_name in self._list_tables(dynamodb_client):
             dataset_name = f"{region}.{table_name}"
             if not self.config.table_pattern.allowed(dataset_name):
@@ -221,7 +234,12 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             table_wu_generator = self._process_table(
                 region, dynamodb_client, table_name, dataset_name
             )
-            yield from table_wu_generator
+            yield from classification_workunit_processor(
+                table_wu_generator,
+                self.classification_handler,
+                data_reader,
+                [region, table_name],
+            )
 
     def _process_table(
         self,

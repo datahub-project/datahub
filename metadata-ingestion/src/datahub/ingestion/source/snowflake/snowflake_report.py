@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, MutableSet, Optional
 
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -93,6 +94,7 @@ class SnowflakeV2Report(
     SnowflakeReport,
     SnowflakeUsageReport,
     StatefulIngestionReport,
+    ClassificationReportMixin,
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None

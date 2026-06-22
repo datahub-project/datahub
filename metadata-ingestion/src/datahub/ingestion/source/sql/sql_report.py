@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -37,6 +38,7 @@ class DetailedProfilerReportMixin:
 @dataclass
 class SQLSourceReport(
     StaleEntityRemovalSourceReport,
+    ClassificationReportMixin,
     DetailedProfilerReportMixin,
 ):
     tables_scanned: int = 0
