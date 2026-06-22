@@ -300,7 +300,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "GeoAlchemy2<0.19.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.8,<3.0.0",
     *path_spec_common,
 }
 
