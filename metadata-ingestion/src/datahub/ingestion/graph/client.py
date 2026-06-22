@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -179,6 +180,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
+        self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+
+    def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
+        if input_type not in self._graphql_input_fields_cache:
+            response = self.execute_graphql(
+                textwrap.dedent(
+                    """
+                    query inputTypeFields($name: String!) {
+                      __type(name: $name) {
+                        inputFields {
+                          name
+                        }
+                      }
+                    }
+                    """
+                ),
+                variables={"name": input_type},
+            )
+            input_fields = (response.get("__type") or {}).get("inputFields") or []
+            self._graphql_input_fields_cache[input_type] = {
+                field["name"] for field in input_fields if field.get("name")
+            }
+
+        return field_name in self._graphql_input_fields_cache[input_type]
+
+    def _ensure_search_flag_supported(self, field_name: str) -> None:
+        if not self._graphql_input_type_has_field("SearchFlags", field_name):
+            raise ValueError(
+                f"SearchFlags.{field_name} is not supported by this DataHub server. "
+                "Upgrade GMS or disable the corresponding option."
+            )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -924,6 +956,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         skip_cache: bool = False,
+        include_hidden_lifecycle_stages: bool = False,
+        include_draft: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -943,6 +977,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         :param skip_cache: Whether to bypass caching. Defaults to False.
+        :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
+        :param include_draft: Whether to include entities in DRAFT lifecycle state.
 
         :return: An iterable of urns that match the filters.
         """
@@ -963,6 +999,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             extra_or_filters=extra_or_filters,
         )
 
+        optional_variable_defs = ""
+        optional_search_flag_fields = ""
+        optional_variables: Dict[str, bool] = {}
+        if include_hidden_lifecycle_stages:
+            self._ensure_search_flag_supported("includeHiddenLifecycleStages")
+            optional_variable_defs += (
+                "\n                $includeHiddenLifecycleStages: Boolean!,"
+            )
+            optional_search_flag_fields += (
+                "\n                        includeHiddenLifecycleStages: "
+                "$includeHiddenLifecycleStages"
+            )
+            optional_variables["includeHiddenLifecycleStages"] = True
+        if include_draft:
+            self._ensure_search_flag_supported("includeDraft")
+            optional_variable_defs += "\n                $includeDraft: Boolean!,"
+            optional_search_flag_fields += (
+                "\n                        includeDraft: $includeDraft"
+            )
+            optional_variables["includeDraft"] = True
+
         graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
@@ -972,6 +1029,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+            """
+            + optional_variable_defs
+            + """
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -984,6 +1044,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+            """
+            + optional_search_flag_fields
+            + """
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -991,6 +1054,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
@@ -1010,6 +1077,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 else status != RemovedStatusFilter.NOT_SOFT_DELETED
             ),
         }
+        variables.update(optional_variables)
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
