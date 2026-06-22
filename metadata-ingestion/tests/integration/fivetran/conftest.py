@@ -13,6 +13,6 @@ def _noop_snowflake_connect_listener():
     # no-op passthrough for the duration of these tests.
     with mock.patch(
         "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for",
-        lambda *args, **kwargs: (lambda fn: fn),
+        lambda *args, **kwargs: lambda fn: fn,
     ):
         yield

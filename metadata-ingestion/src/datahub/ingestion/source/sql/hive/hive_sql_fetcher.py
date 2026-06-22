@@ -13,7 +13,8 @@ string concatenation - no user data is ever interpolated into SQL strings.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
@@ -301,6 +302,17 @@ class SQLAlchemyClient:
             self._connection.close()
             self._connection = None
 
+    def __enter__(self) -> "SQLAlchemyClient":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
+
 
 # =============================================================================
 # SQLAlchemy Data Fetcher Implementation
@@ -396,3 +408,14 @@ class SQLAlchemyDataFetcher:
     def close(self) -> None:
         """Close the database connection."""
         self._client.close()
+
+    def __enter__(self) -> "SQLAlchemyDataFetcher":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()

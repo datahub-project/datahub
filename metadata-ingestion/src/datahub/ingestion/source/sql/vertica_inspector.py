@@ -25,10 +25,12 @@ the original dialect's ``base.py``.
 import logging
 import re
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import sqlalchemy
 from sqlalchemy.dialects.postgresql import BYTEA, DOUBLE_PRECISION, INTERVAL
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.sqltypes import String
@@ -150,6 +152,24 @@ class VerticaInspector(Inspector):
     def __init__(self, inspector: Inspector) -> None:
         self.__dict__.update(inspector.__dict__)
 
+    @contextmanager
+    def _reflection_connection(self) -> Iterator[Connection]:
+        """Yield a connection for the Vertica-specific reflection queries.
+
+        ``get_inspectors()`` binds the inspector to a live ``Connection`` (via
+        ``inspect(conn)``) for its whole lifetime, so reuse that one connection —
+        as the original dialect did — instead of checking out a fresh connection
+        per query. The connection is owned by ``get_inspectors()``, so we must not
+        close it here. Fall back to a short-lived connection only if the inspector
+        was bound to an ``Engine`` instead of a ``Connection``.
+        """
+        bind = self.bind
+        if isinstance(bind, Connection):
+            yield bind
+        else:
+            with self.engine.connect() as conn:
+                yield conn
+
     # ------------------------------------------------------------------
     # Column type reconstruction (ported from the dialect's _get_column_info)
     # ------------------------------------------------------------------
@@ -164,33 +184,33 @@ class VerticaInspector(Inspector):
     ) -> Dict[str, Any]:
         attype: str = re.sub(r"\(.*\)", "", data_type)
 
-        charlen = re.search(r"\(([\d,]+)\)", data_type)
-        if charlen:
-            charlen = charlen.group(1)  # type: ignore
-        args = re.search(r"\((.*)\)", data_type)
-        if args and args.group(1):
-            args = tuple(re.split(r"\s*,\s*", args.group(1)))  # type: ignore
+        charlen_match = re.search(r"\(([\d,]+)\)", data_type)
+        charlen: Optional[str] = charlen_match.group(1) if charlen_match else None
+        args_match = re.search(r"\((.*)\)", data_type)
+        args: Tuple[Any, ...]
+        if args_match and args_match.group(1):
+            args = tuple(re.split(r"\s*,\s*", args_match.group(1)))
         else:
-            args = ()  # type: ignore
+            args = ()
         kwargs: Dict[str, Any] = {}
 
         if attype == "numeric":
             if charlen:
-                prec, scale = charlen.split(",")  # type: ignore
-                args = (int(prec), int(scale))  # type: ignore
+                prec, scale = charlen.split(",")
+                args = (int(prec), int(scale))
             else:
-                args = ()  # type: ignore
+                args = ()
         elif attype == "integer":
-            args = ()  # type: ignore
+            args = ()
         elif attype in ("timestamptz", "timetz"):
             kwargs["timezone"] = True
-            args = ()  # type: ignore
+            args = ()
         elif attype == "date":
-            args = ()  # type: ignore
+            args = ()
         elif charlen:
-            args = (int(charlen),)  # type: ignore
+            args = (int(charlen),)
 
-        coltype = ischema_names.get(attype.upper(), None)
+        coltype = ischema_names.get(attype.upper())
 
         if coltype:
             coltype = coltype(*args, **kwargs)
@@ -229,7 +249,7 @@ class VerticaInspector(Inspector):
     # Database / schema property bags
     # ------------------------------------------------------------------
     def _get_database_properties(self, database: str, **kw: Any) -> Dict[str, str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             cluster_type = ""
             communal_path = ""
             cluster_type_res = conn.execute(
@@ -283,7 +303,7 @@ class VerticaInspector(Inspector):
             }
 
     def _get_schema_properties(self, schema: str, **kw: Any) -> Dict[str, str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             projection_count: Optional[Any] = None
             projection_count_rows = conn.execute(
                 sqlalchemy.text(
@@ -331,7 +351,7 @@ class VerticaInspector(Inspector):
     def get_table_owner(
         self, table: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT table_name, owner_name FROM v_catalog.tables "
@@ -347,7 +367,7 @@ class VerticaInspector(Inspector):
     def get_view_owner(
         self, view: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT table_name, owner_name FROM v_catalog.views "
@@ -366,7 +386,7 @@ class VerticaInspector(Inspector):
     def get_projection_names(
         self, schema: Optional[str] = None, **kw: Any
     ) -> List[str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             if schema is not None:
                 stmt = sqlalchemy.text(
                     "SELECT projection_name from v_catalog.projections "
@@ -383,7 +403,7 @@ class VerticaInspector(Inspector):
     def get_projection_columns(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> List[Dict[str, Any]]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT projection_column_name, data_type, "
@@ -415,7 +435,7 @@ class VerticaInspector(Inspector):
     def get_projection_owner(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT projection_name as table_name, owner_name "
@@ -497,7 +517,7 @@ class VerticaInspector(Inspector):
         original behaviour exactly.
         """
         target = projection.lower()
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             comment: Dict[str, Any] = {"projection_name": target}
 
             ros_rows = conn.execute(
@@ -616,7 +636,7 @@ class VerticaInspector(Inspector):
     # ML Models
     # ------------------------------------------------------------------
     def get_models_names(self, schema: Optional[str] = None, **kw: Any) -> List[str]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "SELECT model_name FROM models "
@@ -629,7 +649,7 @@ class VerticaInspector(Inspector):
     def get_model_comment(
         self, model_name: str, schema: Optional[str] = None, **kw: Any
     ) -> Dict[str, Any]:
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             used_by = ""
             used_by_rows = conn.execute(
                 sqlalchemy.text(
@@ -708,7 +728,7 @@ class VerticaInspector(Inspector):
         self, view: str, schema: str, **kw: Any
     ) -> Dict[str, List[Tuple[str, str, str]]]:
         view_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(list)
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "select table_name, table_schema, reference_table_name, "
@@ -732,7 +752,7 @@ class VerticaInspector(Inspector):
         projection_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(
             list
         )
-        with self.engine.connect() as conn:
+        with self._reflection_connection() as conn:
             rows = conn.execute(
                 sqlalchemy.text(
                     "select basename, schemaname, name from vs_projections "

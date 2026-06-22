@@ -32,6 +32,20 @@ class ProfilingMethodConfig(ConfigModel):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_ge_method(cls, values: Any) -> Any:
+        # The Great Expectations profiler (method="ge") has been removed. Fail loudly
+        # with actionable guidance when a recipe still sets it explicitly, instead of
+        # the opaque Literal validation error the field would otherwise produce.
+        if isinstance(values, dict) and values.get("method") == "ge":
+            raise ValueError(
+                "profiling.method 'ge' is no longer supported: the Great Expectations "
+                "profiler has been removed. Please update your recipe — either remove "
+                "the 'method' line from your profiling config or set it to 'sqlalchemy'."
+            )
+        return values
+
 
 class GEProfilingBaseConfig(ProfilingMethodConfig):
     enabled: bool = Field(

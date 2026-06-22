@@ -80,6 +80,18 @@ def _get_full_table(  # type: ignore
     return table_part
 
 
+# pyhive's PrestoDialect.get_schema_names runs a raw-string `SHOW SCHEMAS` through
+# connection.execute(), which SQLAlchemy 2.0 rejects (text() is now required). Unlike
+# the other reflection methods, PrestoDialect does not inherit this from HiveDialect
+# (both extend DefaultDialect), so hive_source.py's patch does not reach it — Presto
+# needs its own. Indexing row[0] also drops pyhive's reliance on the "Schema" column
+# label.
+@reflection.cache  # type: ignore
+def get_schema_names(self, connection, **kw):  # type: ignore
+    return [row[0] for row in connection.execute(sql.text("SHOW SCHEMAS"))]
+
+
+PrestoDialect.get_schema_names = get_schema_names
 PrestoDialect.get_table_names = get_table_names
 PrestoDialect.get_view_names = get_view_names
 PrestoDialect.get_view_definition = get_view_definition
