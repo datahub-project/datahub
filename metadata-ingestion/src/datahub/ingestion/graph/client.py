@@ -125,6 +125,9 @@ def entity_type_to_graphql(entity_type: str) -> str:
         MlFeatureTableUrn.ENTITY_TYPE: "MLFEATURE_TABLE",
         MlFeatureUrn.ENTITY_TYPE: "MLFEATURE",
         MlPrimaryKeyUrn.ENTITY_TYPE: "MLPRIMARY_KEY",
+        # "dataProcess" (legacy entity) was never added to the GraphQL EntityType
+        # enum. Redirect to its searchable successor DATA_PROCESS_INSTANCE.
+        "dataProcess": "DATA_PROCESS_INSTANCE",
     }
     if entity_type in special_cases:
         return special_cases[entity_type]
