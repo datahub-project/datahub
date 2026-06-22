@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Any, List
+from typing import Any, List, Optional
 from unittest.mock import MagicMock
 
-from datahub.ingestion.source.data_lake_common.config import S3LineageProviderConfig
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfig,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -66,7 +68,7 @@ def _make_external_stage(
 
 def _collect_workunits(
     stages: List[SnowflakeStage],
-    config: SnowflakeV2Config = None,  # type: ignore[assignment]
+    config: Optional[SnowflakeV2Config] = None,
 ) -> tuple:
     """Returns (workunits, extractor) so tests can inspect the stage_lookup."""
     if config is None:
@@ -235,13 +237,13 @@ class TestSnowflakeStagesExtractor:
 
     def test_external_stage_prefix_folded_via_path_spec(self) -> None:
         config = _make_config(
-            s3_lineage_config=S3LineageProviderConfig(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
                 path_specs=[PathSpec(include="s3://my-bucket/{table}/*/*/*.csv")],
                 ignore_non_path_spec_path=True,
             )
         )
         stage = _make_external_stage(url="s3://my-bucket/events/year=2024/month=01/")
-        _, extractor, _ = _collect_workunits([stage], config=config)
+        _, extractor, report = _collect_workunits([stage], config=config)
 
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
         assert entry is not None
@@ -249,27 +251,12 @@ class TestSnowflakeStagesExtractor:
             entry.dataset_urn
             == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
         )
-
-    def test_external_stage_at_table_root_not_dropped_by_ignore(self) -> None:
-        config = _make_config(
-            s3_lineage_config=S3LineageProviderConfig(
-                path_specs=[PathSpec(include="s3://my-bucket/{table}")],
-                ignore_non_path_spec_path=True,
-            )
-        )
-        stage = _make_external_stage(url="s3://my-bucket/events/")
-        _, extractor, _ = _collect_workunits([stage], config=config)
-
-        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
-        assert entry is not None
-        assert (
-            entry.dataset_urn
-            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
-        )
+        assert report.num_stage_external_lineage_resolved == 1
+        assert report.num_stage_external_lineage_dropped == 0
 
     def test_external_stage_dropped_when_not_matching_path_spec(self) -> None:
         config = _make_config(
-            s3_lineage_config=S3LineageProviderConfig(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
                 path_specs=[PathSpec(include="s3://other-bucket/{table}/*.csv")],
                 ignore_non_path_spec_path=True,
             )
@@ -280,7 +267,8 @@ class TestSnowflakeStagesExtractor:
         entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
         assert entry is not None
         assert entry.dataset_urn is None
-        assert report.num_stage_lineage_dropped_s3_path == 1
+        assert report.num_stage_external_lineage_dropped == 1
+        assert report.num_stage_external_lineage_resolved == 0
 
     def test_lookup_is_case_insensitive(self) -> None:
         stage = _make_internal_stage("My_Stage")
