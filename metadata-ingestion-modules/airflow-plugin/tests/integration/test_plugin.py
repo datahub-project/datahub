@@ -151,36 +151,63 @@ def _wait_for_dag_finish(
         # On Airflow 3 the scheduler runs tasks out-of-process and learns their
         # final state asynchronously via the execution API. Under load this opens
         # a window where it finalizes the DagRun as "failed" even though every
-        # task instance actually succeeded. Before treating a failed DagRun as a
-        # real failure, inspect the individual task states and only raise if a
-        # task genuinely failed; otherwise the DagRun-level "failed" is spurious.
-        failed_tasks = _get_failed_task_ids(
+        # task instance actually succeeded (the harness's own task dump shows all
+        # tasks "success" while the DagRun is "failed"). Before trusting the
+        # DagRun-level "failed", inspect the individual task instances:
+        #   - if a task genuinely failed, it's a real failure -> raise;
+        #   - if any task is still settling (non-terminal), the run hasn't really
+        #     finished, so retry instead of declaring a spurious success;
+        #   - only when every task is terminal and none failed do we treat the
+        #     DagRun-level "failed" as the spurious scheduler race it is.
+        # Same "task succeeded but marked failed" scheduler-race symptom:
+        # https://github.com/apache/airflow/issues/34339
+        task_instances = _get_task_instances(
             airflow_instance, dag_id, dag_run["dag_run_id"]
         )
+        failed_tasks = [
+            ti["task_id"] for ti in task_instances if ti["state"] in _FAILED_TASK_STATES
+        ]
         if failed_tasks:
             raise ValueError(f"DAG failed; failed tasks: {failed_tasks}")
-        print(
-            f"DAG {dag_id} reported state=failed but no task instance failed; "
-            "treating as success (spurious Airflow 3 DagRun-state race)."
+
+        unfinished_tasks = [
+            ti["task_id"]
+            for ti in task_instances
+            if ti["state"] not in _TERMINAL_TASK_STATES
+        ]
+        if unfinished_tasks:
+            raise NotReadyError(
+                f"DAG reported state=failed but tasks have not settled yet: "
+                f"{unfinished_tasks}"
+            )
+
+        logger.warning(
+            "DAG %s reported state=failed but every task instance is terminal "
+            "and none failed; treating as success (spurious Airflow 3 "
+            "DagRun-state race).",
+            dag_id,
         )
         return
 
     raise NotReadyError(f"DAG has not finished yet: {state}")
 
 
-def _get_failed_task_ids(
+# Airflow task-instance states. A task in a terminal state will not transition
+# again on its own; the rest are still settling and warrant a retry.
+_FAILED_TASK_STATES = frozenset({"failed", "upstream_failed"})
+_TERMINAL_TASK_STATES = frozenset(
+    {"success", "failed", "upstream_failed", "skipped", "removed"}
+)
+
+
+def _get_task_instances(
     airflow_instance: AirflowInstance, dag_id: str, dag_run_id: str
-) -> list[str]:
+) -> list[dict[str, Any]]:
     res = _make_api_request(
         airflow_instance.session,
         f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
     )
-    task_instances = res.json()["task_instances"]
-    return [
-        ti["task_id"]
-        for ti in task_instances
-        if ti["state"] in ("failed", "upstream_failed")
-    ]
+    return res.json()["task_instances"]
 
 
 @tenacity.retry(
