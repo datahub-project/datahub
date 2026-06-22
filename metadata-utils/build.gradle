@@ -46,6 +46,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation project(':metadata-operation-context')
   testImplementation project(':entity-registry')
+  testImplementation externalDependency.archunit
 
   constraints {
       implementation(externalDependency.log4jCore) {

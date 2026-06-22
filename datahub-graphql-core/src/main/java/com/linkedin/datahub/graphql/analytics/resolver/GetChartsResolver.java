@@ -80,6 +80,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   }
 
   private TimeSeriesChart getActiveUsersTimeSeriesChart(
+      @Nonnull final OperationContext opContext,
       final DateTime beginning,
       final DateTime end,
       final String title,
@@ -90,6 +91,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
     final List<NamedLine> timeSeriesLines =
         _analyticsService.getTimeseriesChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             dateRange,
             interval,
@@ -116,6 +118,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final String topUsersTitle = "Top Users (Last 30 Days)";
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
+              opContext,
               _analyticsService.getUsageIndexName(),
               Optional.of(trailingMonthDateRange),
               "actorUrn.keyword",
@@ -217,6 +220,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // WAU
     charts.add(
         getActiveUsersTimeSeriesChart(
+            opContext,
             startOfNextWeek.minusWeeks(10),
             startOfNextWeek.minusMillis(1),
             "Weekly Active Users",
@@ -225,6 +229,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // MAU
     charts.add(
         getActiveUsersTimeSeriesChart(
+            opContext,
             startOfNextMonth.minusMonths(12),
             startOfThisMonth.minusMillis(1),
             "Monthly Active Users",
@@ -248,6 +253,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
     final List<NamedLine> searchesTimeseries =
         _analyticsService.getTimeseriesChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             trailingWeekDateRange,
             dailyInterval,
@@ -268,6 +274,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
     final List<Row> topSearchQueries =
         _analyticsService.getTopNTableChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(trailingWeekDateRange),
             "query.keyword",
@@ -287,6 +294,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns5 = ImmutableList.of("Name", "View Count");
     final List<Row> topViewedDatasets =
         _analyticsService.getTopNTableChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(trailingWeekDateRange),
             "entityUrn.keyword",
@@ -318,6 +326,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns6 = ImmutableList.of("Name", "View Count");
     final List<Row> topViewedDashboards =
         _analyticsService.getTopNTableChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(trailingWeekDateRange),
             "entityUrn.keyword",
@@ -347,6 +356,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final String sectionViewsTitle = "Tab Views By Entity Type (Past Week)";
     final List<NamedBar> sectionViewsPerEntityType =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "section.keyword"),
@@ -360,6 +370,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final String actionsByTypeTitle = "Actions By Entity Type (Past Week)";
     final List<NamedBar> eventsByEventType =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "actionType.keyword"),
@@ -378,6 +389,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 1: Entities per domain
     final List<NamedBar> entitiesPerDomain =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("domains.keyword", "platform.keyword"),
@@ -409,6 +421,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // platform
     final List<NamedBar> entitiesPerPlatform =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("platform.keyword"),
@@ -432,6 +445,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 3: Entities per term
     final List<NamedBar> entitiesPerTerm =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("glossaryTerms.keyword"),
@@ -455,6 +469,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 4: Entities per fabric type
     final List<NamedBar> entitiesPerEnv =
         _analyticsService.getBarChart(
+            opContext,
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("origin.keyword"),

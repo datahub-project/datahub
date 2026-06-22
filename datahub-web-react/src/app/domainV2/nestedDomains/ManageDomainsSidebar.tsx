@@ -37,7 +37,7 @@ const StyledEntitySidebarContainer = styled.div<{
         props.$isShowNavBarRedesign &&
         `
  margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
- box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ box-shadow: ${props.theme.colors.shadowNavbar};
  `}
 `;
 

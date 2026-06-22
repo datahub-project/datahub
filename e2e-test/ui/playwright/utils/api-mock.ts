@@ -51,50 +51,83 @@ export interface ApiMocker {
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export class PageApiMocker implements ApiMocker {
+  private mockMap: Map<string, unknown> = new Map();
+  private mockRouteRegistered = false;
+
   constructor(private readonly page: Page) {}
 
   async mockGraphQL(operationName: string, responseData: unknown): Promise<void> {
-    await this.page.route('**/api/v2/graphql', async (route) => {
-      const postData = route.request().postDataJSON() as { operationName?: string } | null;
-      if (postData?.operationName === operationName) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: responseData }),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
+    // Store the mock data
+    this.mockMap.set(operationName, responseData);
+
+    // Register a SINGLE route handler that checks all mocked operations
+    if (!this.mockRouteRegistered) {
+      await this.page.route('**/api/v2/graphql', async (route) => {
+        const postData = route.request().postDataJSON() as { operationName?: string } | null;
+        const op = postData?.operationName;
+
+        if (op && this.mockMap.has(op)) {
+          const responseData = this.mockMap.get(op);
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ data: responseData }),
+          });
+        } else {
+          await route.fallback();
+        }
+      });
+      this.mockRouteRegistered = true;
+    }
   }
 
   async interceptGraphQLResponse(operationName: string, transform: (json: unknown) => unknown): Promise<void> {
-    await this.page.route('**/api/v2/graphql', async (route) => {
-      const postData = route.request().postDataJSON() as { operationName?: string } | null;
-      if (postData?.operationName !== operationName) {
-        await route.fallback();
-        return;
-      }
-      const response = await route.fetch();
+    // Store the transform function
+    if (!this.interceptMap) {
+      this.interceptMap = new Map();
+    }
+    this.interceptMap.set(operationName, transform);
 
-      // Guard against non-JSON responses before attempting to parse.
-      const contentType = response.headers()['content-type'] ?? '';
-      if (!contentType.includes('application/json')) {
-        await route.fulfill({ response });
-        return;
-      }
+    // Register a SINGLE route handler that checks all intercepted operations
+    if (!this.interceptRouteRegistered) {
+      await this.page.route('**/api/v2/graphql', async (route) => {
+        const postData = route.request().postDataJSON() as { operationName?: string } | null;
+        const op = postData?.operationName;
 
-      let json: unknown;
-      try {
-        json = await response.json();
-      } catch {
-        await route.fulfill({ response });
-        return;
-      }
+        if (op && this.interceptMap?.has(op)) {
+          const transform = this.interceptMap?.get(op);
+          if (!transform) {
+            await route.fallback();
+            return;
+          }
+          const response = await route.fetch();
 
-      await route.fulfill({ response, json: transform(json) });
-    });
+          // Guard against non-JSON responses before attempting to parse.
+          const contentType = response.headers()['content-type'] ?? '';
+          if (!contentType.includes('application/json')) {
+            await route.fulfill({ response });
+            return;
+          }
+
+          let json: unknown;
+          try {
+            json = await response.json();
+          } catch {
+            await route.fulfill({ response });
+            return;
+          }
+
+          await route.fulfill({ response, json: transform(json) });
+        } else {
+          await route.fallback();
+        }
+      });
+      this.interceptRouteRegistered = true;
+    }
   }
+
+  private interceptMap?: Map<string, (json: unknown) => unknown>;
+  private interceptRouteRegistered = false;
 
   async mockRoute(urlPattern: string | RegExp, handler: (route: Route) => Promise<void> | void): Promise<void> {
     await this.page.route(urlPattern, handler);
