@@ -28,6 +28,7 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 from datahub.ingestion.source.snowflake.snowflake_query import (
     _PLAIN_LITERAL_PATTERN_RE,
     SnowflakeQuery,
+    _compose_deny,
     _make_composable,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
@@ -3621,3 +3622,18 @@ class TestDenyPatternInjection:
         _all_rlike_literals(result)  # raises on breakout
         assert result == "col NOT RLIKE '(GOOD.*)'"  # only the composable one
         assert "SECRET(" not in result
+
+
+def test_compose_deny_drops_patterns_past_byte_budget():
+    """Deny patterns that would push the composed clause past deny_budget are left
+    out of the server-side clause (caught by the client-side deny pass). With a tiny
+    budget only the first pattern fits."""
+    # overhead "col NOT RLIKE ''" = 16 bytes; "(AAAA)" = 6 -> 22 <= 25 fits;
+    # adding "|(BBBB)" = 7 -> 29 > 25, so BBBB and CCCC are dropped.
+    clause = _compose_deny(["AAAA", "BBBB", "CCCC"], "col", False, deny_budget=25)
+    assert clause == "col NOT RLIKE '(AAAA)'"
+
+
+def test_compose_deny_returns_none_when_nothing_fits():
+    # Even the first pattern exceeds the budget -> no server-side clause at all.
+    assert _compose_deny(["AAAA"], "col", False, deny_budget=5) is None

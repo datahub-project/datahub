@@ -670,26 +670,28 @@ def test_snowflake_object_access_entry_missing_object_id():
 
 def test_snowflake_query_create_deny_regex_sql():
     assert create_deny_regex_sql_filter([], ["col"]) == ""
+    # Deny patterns compose into a single NOT RLIKE alternation (each pattern
+    # wrapped in (...)), one clause per column.
     assert (
         create_deny_regex_sql_filter([".*tmp.*"], ["col"])
-        == "UPPER(col) NOT RLIKE '.*TMP.*'"
+        == "UPPER(col) NOT RLIKE '(.*TMP.*)'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
-        == "(UPPER(col) NOT RLIKE '.*TMP.*' AND UPPER(col) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
+        == "UPPER(col) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
-        == "(UPPER(col1) NOT RLIKE '.*TMP.*' AND UPPER(col1) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}') AND (UPPER(col2) NOT RLIKE '.*TMP.*' AND UPPER(col2) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
+        == "UPPER(col1) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})' AND UPPER(col2) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})'"
     )
 
     assert (
         create_deny_regex_sql_filter(
             DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
         )
-        == r"(UPPER(upstream_table_name) NOT RLIKE '.*\\.FIVETRAN_.*_STAGING\\..*' AND UPPER(upstream_table_name) NOT RLIKE '.*__DBT_TMP$' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SNOWPARK_TEMP_TABLE_.+')"
+        == r"UPPER(upstream_table_name) NOT RLIKE '(.*\\.FIVETRAN_.*_STAGING\\..*)|(.*__DBT_TMP$)|(.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})|(.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})|(.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8})|(.*\\.SNOWPARK_TEMP_TABLE_.+)'"
     )
 
 
@@ -1228,3 +1230,154 @@ class TestSnowflakeIdentifierQuoting:
 
     def test_escape_identifier_multiple_quotes(self):
         assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
+
+
+def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
+    """When the composed pushdown filter exceeds Snowflake's per-query byte limit,
+    get_tables_for_schema drops the server-side filter (empty) and relies on the
+    client-side pass instead of sending an oversized query."""
+    from datahub.ingestion.source.snowflake.snowflake_query import (
+        SNOWFLAKE_MAX_QUERY_BYTES,
+    )
+    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+        SnowflakeSchemaGenerator,
+    )
+
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test",
+            "username": "u",
+            "password": "p",
+            "push_down_metadata_patterns": True,
+        }
+    )
+    aggregator = MagicMock()
+    aggregator._schema_resolver = MagicMock()
+    gen = SnowflakeSchemaGenerator(
+        config=config,
+        report=SnowflakeV2Report(),
+        connection=MagicMock(),
+        filters=MagicMock(),
+        identifiers=MagicMock(),
+        domain_registry=None,
+        profiler=None,
+        aggregator=aggregator,
+        snowsight_url_builder=None,
+    )
+    gen.data_dictionary = MagicMock()
+    gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
+
+    oversized = "x" * (SNOWFLAKE_MAX_QUERY_BYTES + 1)
+    with patch.object(SnowflakeQuery, "build_table_filter", return_value=oversized):
+        gen.get_tables_for_schema("SCHEMA", "DB")
+
+    _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
+    assert kwargs["table_filter"] == ""  # oversized filter dropped
+
+
+def test_get_tables_for_schema_pushes_down_when_filter_fits():
+    """A normally-sized pushdown filter is sent to the server as-is."""
+    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+        SnowflakeSchemaGenerator,
+    )
+
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test",
+            "username": "u",
+            "password": "p",
+            "push_down_metadata_patterns": True,
+        }
+    )
+    aggregator = MagicMock()
+    aggregator._schema_resolver = MagicMock()
+    gen = SnowflakeSchemaGenerator(
+        config=config,
+        report=SnowflakeV2Report(),
+        connection=MagicMock(),
+        filters=MagicMock(),
+        identifiers=MagicMock(),
+        domain_registry=None,
+        profiler=None,
+        aggregator=aggregator,
+        snowsight_url_builder=None,
+    )
+    gen.data_dictionary = MagicMock()
+    gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
+
+    fitting = "table_name RLIKE '(A.*)'"
+    with patch.object(SnowflakeQuery, "build_table_filter", return_value=fitting):
+        gen.get_tables_for_schema("SCHEMA", "DB")
+
+    _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
+    assert kwargs["table_filter"] == fitting
+
+
+def _make_pushdown_gen(push_down: bool):
+    from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+    from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+        SnowflakeSchemaGenerator,
+    )
+
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test",
+            "username": "u",
+            "password": "p",
+            "push_down_metadata_patterns": push_down,
+        }
+    )
+    aggregator = MagicMock()
+    aggregator._schema_resolver = MagicMock()
+    gen = SnowflakeSchemaGenerator(
+        config=config,
+        report=SnowflakeV2Report(),
+        connection=MagicMock(),
+        filters=MagicMock(),
+        identifiers=MagicMock(),
+        domain_registry=None,
+        profiler=None,
+        aggregator=aggregator,
+        snowsight_url_builder=None,
+    )
+    gen.identifiers.get_dataset_identifier.side_effect = (
+        lambda name, schema, db: f"{db}.{schema}.{name}"
+    )
+    return gen
+
+
+def test_fetch_tables_for_schema_pushdown_applies_client_side_deny_backstop():
+    """With pushdown, fetch_tables_for_schema re-applies the canonical filter
+    client-side (_is_table_allowed) as the deny backstop, dropping any table the
+    capped server-side deny let through."""
+    gen = _make_pushdown_gen(push_down=True)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    gen.get_tables_for_schema = MagicMock(return_value=[t_keep, t_drop])
+    gen._is_table_allowed = MagicMock(side_effect=[True, False])
+
+    schema = MagicMock()
+    result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
+    assert schema.tables == ["KEEP"]
+    assert gen._is_table_allowed.call_count == 2
+
+
+def test_fetch_tables_for_schema_no_pushdown_filters_on_table_pattern():
+    """Without pushdown, fetch_tables_for_schema is the only filter and uses
+    table_pattern.allowed directly."""
+    gen = _make_pushdown_gen(push_down=False)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    gen.get_tables_for_schema = MagicMock(return_value=[t_keep, t_drop])
+    gen.filters.filter_config.table_pattern.allowed = MagicMock(
+        side_effect=[True, False]
+    )
+
+    schema = MagicMock()
+    result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
