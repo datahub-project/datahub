@@ -45,7 +45,10 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SNOWFLAKE_MAX_QUERY_BYTES,
+    SnowflakeQuery,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SCHEMA_PARALLELISM,
@@ -2615,6 +2618,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             table_filter = SnowflakeQuery.build_table_filter(
                 self.filters.filter_config.table_pattern
             )
+            # The composed filter must fit in a single query (we don't page it —
+            # paging would re-scan the whole schema's metadata per page). If the
+            # pattern list is so large the filter alone exceeds the per-query byte
+            # limit, drop the server-side filter and fall back to fetching every
+            # table and filtering client-side (the mandatory client-side pass in
+            # fetch_tables_for_schema already does this). Correct, just slower —
+            # and at that scale (a pattern list large enough to blow the query
+            # limit) client-side is typically faster than pushdown anyway, since
+            # information_schema cost is dominated by the metadata scan, not by how
+            # many rows the filter returns.
+            if len(table_filter.encode()) > SNOWFLAKE_MAX_QUERY_BYTES:
+                logger.warning(
+                    "Composed table_pattern filter for %s is %d bytes, over "
+                    "Snowflake's ~%d-byte query limit; falling back to fetching all "
+                    "tables and filtering client-side (slower). Narrow the "
+                    "schema_pattern or table_pattern to keep pushdown server-side.",
+                    db_name,
+                    len(table_filter.encode()),
+                    SNOWFLAKE_MAX_QUERY_BYTES,
+                )
+                table_filter = ""
 
         tables = self.data_dictionary.get_tables_for_database(
             db_name,
