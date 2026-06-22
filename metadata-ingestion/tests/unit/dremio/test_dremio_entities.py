@@ -36,8 +36,6 @@ class TestDremioQueryParsing:
         assert "myspace.table" in q.queried_datasets
 
     def test_smart_quotes_normalized_in_query(self):
-        # Curly single quotes (U+2018/U+2019) are normalized to straight
-        # apostrophes so sqlglot parsing downstream doesn't choke.
         q = DremioQuery(
             job_id="j1",
             username="u",

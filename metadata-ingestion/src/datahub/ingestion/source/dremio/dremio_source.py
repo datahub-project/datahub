@@ -729,16 +729,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_query(self, query: DremioQuery) -> None:
-        # Surface query/catalog naming mismatches (e.g. S3/HDFS paths or
-        # versioned refs that won't resolve against catalog metadata).
         self._validate_query_lineage_format(query)
 
-        # The SqlParsingAggregator parses the query itself: it extracts both the
-        # upstreams and the affected/downstream table (out_tables) via sqlglot
-        # and gates rediscovered URNs through is_allowed_table at emission time.
-        # This mirrors how the SQL-family connectors (mssql, oracle, postgres,
-        # teradata) derive lineage, so no connector-side downstream extraction
-        # is needed.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

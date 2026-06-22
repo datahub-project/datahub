@@ -56,9 +56,7 @@ class DremioQuery:
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
     def _get_query(self, query: str) -> str:
-        # Normalize curly/smart single quotes (often introduced by copy-pasted
-        # SQL or BI tools) to a straight apostrophe so downstream sqlglot
-        # parsing doesn't trip over them.
+        # Normalize smart single quotes so downstream sqlglot parsing doesn't fail.
         return str(query).replace("\u2018", "'").replace("\u2019", "'")
 
     def _get_queried_datasets(self, queried_datasets: str) -> List[str]:
