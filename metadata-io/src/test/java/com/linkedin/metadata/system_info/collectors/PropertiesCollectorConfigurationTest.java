@@ -215,6 +215,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "secretService.callerGuardMode",
           "kubernetes.serviceHost",
           "kubernetes.operationsApiEnabled",
           "tokenService",
