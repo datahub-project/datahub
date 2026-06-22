@@ -425,27 +425,28 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         return True
 
-    def _is_page_allowed(self, page_id: str) -> bool:
+    def _is_page_denied(self, page_id: str) -> bool:
         """
-        Check if page is allowed by pages.allow/pages.deny lists.
+        Check if a page is explicitly excluded by the pages.deny list.
+
+        pages.allow is intentionally NOT consulted here. It is a list of *root*
+        pages that seed the crawl (see _get_pages_from_page_allow); when
+        recursive=true the crawler walks the descendants of those roots, so
+        every page that reaches this point is in scope by construction.
+        Re-checking membership in pages.allow at emission time would drop those
+        legitimately-discovered child pages and silently defeat recursive
+        ingestion (only the seed/root pages would survive).
 
         Args:
             page_id: Confluence page ID
 
         Returns:
-            True if page should be ingested, False otherwise
+            True if the page is denied and should be skipped, False otherwise
         """
-        # If pages.allow is specified, page must be in the list
-        if self.config._parsed_page_allow is not None:
-            if page_id not in self.config._parsed_page_allow:
-                return False
-
-        # If pages.deny is specified, page must NOT be in the list
         if self.config._parsed_page_deny is not None:
-            if page_id in self.config._parsed_page_deny:
-                return False
+            return page_id in self.config._parsed_page_deny
 
-        return True
+        return False
 
     def _get_spaces(self) -> List[str]:
         """
@@ -792,8 +793,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning("Page missing ID, skipping")
             return
 
-        # Apply pages.deny filter
-        if not self._is_page_allowed(page_id):
+        # Apply pages.deny filter. pages.allow is a crawl seed list, not an
+        # emission whitelist, so it is deliberately not re-checked here -
+        # otherwise recursively-discovered child pages would be dropped.
+        if self._is_page_denied(page_id):
             logger.info(f"Page {page_id} filtered by pages.deny, skipping")
             self.report.report_page_skipped(page_id, "Filtered by pages.deny")
             return
