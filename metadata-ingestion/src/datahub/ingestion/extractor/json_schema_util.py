@@ -336,6 +336,10 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_type_from_schema(schema: Dict) -> str:
         """Returns a generic json type from a schema."""
+        # JSON Schema allows boolean schemas: `true` means accept anything,
+        # `false` means reject everything. Treat both as generic object.
+        if isinstance(schema, bool):
+            return "object"
         if Ellipsis in schema:
             return "object"
         if "oneOf" in schema or "anyOf" in schema or "allOf" in schema:
@@ -365,6 +369,8 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_discriminated_type_from_schema(schema: Dict) -> str:
         """Returns a discriminated (specific) type from a schema. Use this for constructing field paths."""
+        if isinstance(schema, bool):
+            return "object"
         generic_type = JsonSchemaTranslator._get_type_from_schema(schema)
         if generic_type == "object" and "javaType" in schema:
             return schema["javaType"].split(".")[-1]
@@ -410,6 +416,9 @@ class JsonSchemaTranslator:
         required: bool = False,
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
+        # Boolean schemas should have been caught by get_fields(), but guard here too.
+        if isinstance(schema, bool):
+            return
         discriminated_type = (
             specific_type
             or JsonSchemaTranslator._get_discriminated_type_from_schema(schema)
@@ -514,8 +523,16 @@ class JsonSchemaTranslator:
             )
 
             items_schema = schema.get("items", {"type": "string"})
+            # JSON Schema tuple validation allows items to be a list of schemas.
+            # Wrap it in a synthetic object so we can process the array uniformly.
+            if isinstance(items_schema, list):
+                items_schema = {"type": "object", "properties": {}, "title": "tuple"}
             items_type = JsonSchemaTranslator._get_type_from_schema(items_schema)
-            field_name = items_schema.get("title", None)
+            field_name = (
+                items_schema.get("title", None)
+                if isinstance(items_schema, dict)
+                else None
+            )
             if not field_name:
                 field_name = items_type
             inner_field_path = field_path.clone_plus(
@@ -624,8 +641,7 @@ class JsonSchemaTranslator:
         union_schema: Dict, parent_schema: Dict
     ) -> Dict:
         """Merge the "properties" and the "required" fields from the parent schema into the child union schema."""
-
-        union_schema = union_schema.copy()
+        union_schema = {} if isinstance(union_schema, bool) else union_schema.copy()
         if "properties" in parent_schema:
             union_schema["properties"] = {
                 **parent_schema["properties"],
@@ -669,6 +685,10 @@ class JsonSchemaTranslator:
         base_field_path: FieldPath = FieldPath(),
         specific_type: Optional[str] = None,
     ) -> Iterable[SchemaField]:
+        # Boolean schemas (true = accept anything, false = reject everything)
+        # cannot be traversed for fields — skip silently.
+        if isinstance(schema_dict, bool):
+            return
         datahub_type = JsonSchemaTranslator.get_type_mapping(json_type)
 
         if datahub_type:
