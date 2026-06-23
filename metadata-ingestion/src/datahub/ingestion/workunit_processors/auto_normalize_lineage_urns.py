@@ -12,6 +12,7 @@ from datahub.ingestion.api.workunit_processor import (
 from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     FineGrainedLineageClass,
+    LineageMatchTypeClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
@@ -38,6 +39,16 @@ class AutoNormalizeLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
     num_refs_unchanged: int = 0  # Left as-is (already canonical or no match)
     num_exceptions: int = 0  # Failed to process a workunit
+
+
+@dataclass
+class _Resolution:
+    """Outcome of resolving one dataset URN against the configured catalogs."""
+
+    urn: str  # The (possibly rewritten) URN to emit.
+    schema: Optional[SchemaInfo]  # Cached schema of the resolved entity, if known.
+    # EXACT / NORMALIZED / None (no reconciliation performed).
+    match_type: Optional[str]
 
 
 def _parent_dataset_urn(field_urn: str) -> Optional[str]:
@@ -127,28 +138,33 @@ class AutoNormalizeLineageUrnsProcessor(
             ]
         return self._resolvers_by_platform[platform]
 
-    def _resolve_dataset(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
+    def _resolve_dataset(self, urn: str) -> _Resolution:
         """Resolve `urn` to its existing casing in DataHub, with its schema info.
 
-        Returns (resolved_urn, schema_info). Prefers an exact match (don't merge
-        genuinely distinct case-sensitive entities); falls back to a unique
-        case-insensitive match; leaves the URN unchanged when there is no match or an
-        ambiguous collision across the configured catalogs.
+        Prefers an exact match (don't merge genuinely distinct case-sensitive
+        entities, and record it as EXACT); falls back to a unique case-insensitive
+        match (recorded as NORMALIZED); leaves the URN unchanged with no match type
+        when there is no match or an ambiguous collision across the configured
+        catalogs.
         """
         try:
             platform = DataPlatformUrn.from_string(
                 DatasetUrn.from_string(urn).platform
             ).platform_name
         except Exception:
-            return urn, None
+            return _Resolution(urn, None, None)
         resolvers = self._get_resolvers(platform)
         if not resolvers:
-            return urn, None
+            return _Resolution(urn, None, None)
 
         # Exact match anywhere wins (also gives us schema for column correction).
         for resolver in resolvers:
             if resolver.has_urn(urn):
-                return urn, resolver.get_cached_schema_info(urn)
+                return _Resolution(
+                    urn,
+                    resolver.get_cached_schema_info(urn),
+                    LineageMatchTypeClass.EXACT,
+                )
 
         # No exact match: try case-insensitive resolution across catalogs.
         candidates: Dict[str, Optional[SchemaInfo]] = {}
@@ -158,9 +174,9 @@ class AutoNormalizeLineageUrnsProcessor(
                 candidates[resolved] = resolver.get_cached_schema_info(resolved)
         if len(candidates) == 1:
             resolved, schema = next(iter(candidates.items()))
-            return resolved, schema
+            return _Resolution(resolved, schema, LineageMatchTypeClass.NORMALIZED)
         # No match, or ambiguous collision -> leave unchanged.
-        return urn, None
+        return _Resolution(urn, None, None)
 
     # --- aspect rewriters -------------------------------------------------------
 
@@ -169,9 +185,11 @@ class AutoNormalizeLineageUrnsProcessor(
             dataset = getattr(upstream, "dataset", None)
             if dataset is None or guess_entity_type(dataset) != "dataset":
                 continue
-            resolved, _schema = self._resolve_dataset(dataset)
-            if resolved != dataset:
-                upstream.dataset = resolved
+            res = self._resolve_dataset(dataset)
+            if res.match_type is not None:
+                upstream.matchType = res.match_type
+            if res.urn != dataset:
+                upstream.dataset = res.urn
                 self.report.num_dataset_urns_normalized += 1
             else:
                 self.report.num_refs_unchanged += 1
@@ -186,51 +204,61 @@ class AutoNormalizeLineageUrnsProcessor(
         # this aspect describes and must keep its casing.
         if not fine_grained.upstreams:
             return
-        fine_grained.upstreams = [
-            self._resolve_field_urn(field_urn) for field_urn in fine_grained.upstreams
-        ]
+        rewritten: List[str] = []
+        match_types: List[Optional[str]] = []
+        for field_urn in fine_grained.upstreams:
+            new_urn, match_type = self._resolve_field_urn(field_urn)
+            rewritten.append(new_urn)
+            match_types.append(match_type)
+        fine_grained.upstreams = rewritten
+        # Aggregate: surface NORMALIZED if any field was rewritten, else EXACT if any
+        # matched exactly, else leave unset.
+        if LineageMatchTypeClass.NORMALIZED in match_types:
+            fine_grained.matchType = LineageMatchTypeClass.NORMALIZED
+        elif LineageMatchTypeClass.EXACT in match_types:
+            fine_grained.matchType = LineageMatchTypeClass.EXACT
 
-    def _resolve_field_urn(self, field_urn: str) -> str:
+    def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[str]]:
         parent = _parent_dataset_urn(field_urn)
         field_path = _field_path(field_urn)
         if parent is None or field_path is None:
             self.report.num_refs_unchanged += 1
-            return field_urn
+            return field_urn, None
 
-        resolved_parent, schema = self._resolve_dataset(parent)
+        res = self._resolve_dataset(parent)
         # Correct the column casing against the warehouse schema, if known.
         new_field_path = field_path
-        if schema:
-            new_field_path = match_columns_to_schema(schema, [field_path])[0]
+        if res.schema:
+            new_field_path = match_columns_to_schema(res.schema, [field_path])[0]
 
-        if resolved_parent == parent and new_field_path == field_path:
+        if res.urn == parent and new_field_path == field_path:
             self.report.num_refs_unchanged += 1
-            return field_urn
+            return field_urn, res.match_type
         if new_field_path != field_path:
             self.report.num_column_urns_normalized += 1
         else:
             self.report.num_dataset_urns_normalized += 1
-        return make_schema_field_urn(resolved_parent, new_field_path)
+        return make_schema_field_urn(res.urn, new_field_path), res.match_type
 
     def _normalize_dashboard_info(self, aspect: DashboardInfoClass) -> None:
         if aspect.datasets:
             rewritten: List[str] = []
             for dataset in aspect.datasets:
-                resolved, _schema = self._resolve_dataset(dataset)
-                if resolved != dataset:
+                res = self._resolve_dataset(dataset)
+                if res.urn != dataset:
                     self.report.num_dataset_urns_normalized += 1
                 else:
                     self.report.num_refs_unchanged += 1
-                rewritten.append(resolved)
+                rewritten.append(res.urn)
             aspect.datasets = rewritten
 
         for edge in aspect.datasetEdges or []:
             destination = getattr(edge, "destinationUrn", None)
             if destination is None or guess_entity_type(destination) != "dataset":
                 continue
-            resolved, _schema = self._resolve_dataset(destination)
-            if resolved != destination:
-                edge.destinationUrn = resolved
+            res = self._resolve_dataset(destination)
+            if res.urn != destination:
+                edge.destinationUrn = res.urn
                 self.report.num_dataset_urns_normalized += 1
             else:
                 self.report.num_refs_unchanged += 1
