@@ -2603,8 +2603,8 @@ def test_expand_s3_glob():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": s3_objects}]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://my-bucket/results/*/run_results.json", mock_aws, "s3"
     )
 
     assert result == [
@@ -2628,8 +2628,8 @@ def test_expand_s3_glob_no_matches():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": []}]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws, "s3"
     )
 
     assert result == []
@@ -2644,7 +2644,9 @@ def test_expand_s3_glob_prefix_calculation():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": []}]
 
-    DBTCoreSource._expand_s3_glob("s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws)
+    DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws, "s3"
+    )
     mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="a/b/c/")
 
 
@@ -2782,8 +2784,8 @@ def test_expand_s3_glob_multiple_pages():
         {"Contents": [{"Key": "results/model_c/run_results.json"}]},
     ]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
     )
     assert result == [
         "s3://bucket/results/model_a/run_results.json",
@@ -2809,7 +2811,9 @@ def test_expand_s3_glob_wildcard_at_root():
         }
     ]
 
-    result = DBTCoreSource._expand_s3_glob("s3://bucket/run_results_*.json", mock_aws)
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/run_results_*.json", mock_aws, "s3"
+    )
     mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
     assert result == [
         "s3://bucket/run_results_a.json",
@@ -2832,8 +2836,8 @@ def test_expand_s3_glob_client_error():
     )
 
     with pytest.raises(ClientError, match="Access Denied"):
-        DBTCoreSource._expand_s3_glob(
-            "s3://bucket/results/*/run_results.json", mock_aws
+        DBTCoreSource._expand_object_store_glob(
+            "s3://bucket/results/*/run_results.json", mock_aws, "s3"
         )
 
 
@@ -2854,8 +2858,8 @@ def test_expand_s3_glob_no_cross_slash_matching():
         }
     ]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
     )
     assert result == ["s3://bucket/results/a/run_results.json"]
 
@@ -3119,6 +3123,208 @@ def test_load_file_as_json_s3():
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
     )
+
+
+def test_dbt_gcs_config():
+    config_dict: dict = {
+        "manifest_path": "gs://my-bucket/manifest.json",
+        "catalog_path": "gs://my-bucket/catalog.json",
+        "target_platform": "bigquery",
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+    config_dict_valid = {
+        **config_dict,
+        "gcs_connection": {
+            "credential": {
+                "hmac_access_id": "test_id",
+                "hmac_access_secret": "test_secret",
+            },
+        },
+    }
+    config = DBTCoreConfig.model_validate(config_dict_valid)
+    assert config.gcs_connection is not None
+
+
+def test_run_results_gcs_glob_requires_gcs_connection():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "bigquery",
+        "run_results_paths": ["gs://bucket/results/*/run_results.json"],
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+
+def test_load_file_as_json_gcs():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(hmac_access_id="test_id", hmac_access_secret="test_secret")
+    )
+
+    mock_s3_client = mock.MagicMock()
+    mock_s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(
+            read=mock.MagicMock(return_value=b'{"gcs_key": "gcs_value"}')
+        )
+    }
+
+    with mock.patch.object(
+        type(gcs_conn.s3_compatible_connection),
+        "get_s3_client",
+        return_value=mock_s3_client,
+    ):
+        result = DBTCoreSource.load_file_as_json(
+            "gs://my-gcs-bucket/path/to/manifest.json",
+            None,
+            gcs_conn,
+        )
+    assert result == {"gcs_key": "gcs_value"}
+    mock_s3_client.get_object.assert_called_once_with(
+        Bucket="my-gcs-bucket", Key="path/to/manifest.json"
+    )
+
+
+def test_expand_object_store_glob_gcs():
+    gcs_objects = [
+        {"Key": "dbt/model_a/run_results.json"},
+        {"Key": "dbt/model_b/run_results.json"},
+        {"Key": "dbt/model_b/manifest.json"},
+    ]
+
+    mock_conn = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_conn.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [{"Contents": gcs_objects}]
+
+    result = DBTCoreSource._expand_object_store_glob(
+        "gs://my-gcs-bucket/dbt/*/run_results.json", mock_conn, "gs"
+    )
+
+    assert result == [
+        "gs://my-gcs-bucket/dbt/model_a/run_results.json",
+        "gs://my-gcs-bucket/dbt/model_b/run_results.json",
+    ]
+    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
+    mock_paginator.paginate.assert_called_once_with(
+        Bucket="my-gcs-bucket", Prefix="dbt/"
+    )
+
+
+def test_expand_run_results_paths_gcs_glob():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "results/model_a/run_results.json"},
+                {"Key": "results/model_b/run_results.json"},
+            ]
+        }
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == [
+        "gs://bucket/results/model_a/run_results.json",
+        "gs://bucket/results/model_b/run_results.json",
+    ]
+
+
+def test_expand_run_results_paths_gcs_error_reports_failure():
+    from botocore.exceptions import ClientError
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "ListObjectsV2",
+    )
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("GCS glob expansion failed" in str(f) for f in source.report.failures)
+
+
+def test_expand_run_results_paths_missing_gcs_connection():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = None
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("Missing GCS connection" in str(f) for f in source.report.failures)
+
+
+def test_gcs_connection_config_builds_s3_compatible():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        )
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == GCS_ENDPOINT_URL
+    assert s3_compat.aws_access_key_id == "my_access_id"
+    assert s3_compat.aws_secret_access_key is not None
+    assert s3_compat.aws_secret_access_key.get_secret_value() == "my_secret"
+    assert s3_compat.aws_region == "auto"
+    assert gcs_conn.s3_compatible_connection is s3_compat
+
+
+def test_gcs_connection_config_endpoint_url_override():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        ),
+        endpoint_url="http://localhost:9100",
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == "http://localhost:9100"
+    assert s3_compat.aws_region == "auto"
 
 
 # =============================================================================
