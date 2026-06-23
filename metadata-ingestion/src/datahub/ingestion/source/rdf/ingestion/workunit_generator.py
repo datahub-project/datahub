@@ -22,16 +22,18 @@ class WorkUnitGenerator:
     Handles entity processing, MCP building, and work unit creation.
     """
 
-    def __init__(self, report: Any, config: Any = None):
+    def __init__(self, report: Any, config: Any = None, ctx: Any = None):
         """
         Initialize the generator.
 
         Args:
             report: Report object for tracking statistics and errors
             config: Optional RDF source configuration (for parent_glossary_node, etc.)
+            ctx: Optional pipeline context (for synchronous graph registration)
         """
         self.report = report
         self.config = config
+        self.ctx = ctx
 
     def generate(self, datahub_graph: DataHubGraph) -> Iterable[MetadataWorkUnit]:
         """
@@ -58,6 +60,7 @@ class WorkUnitGenerator:
                 "report": self.report,
                 "registry": registry,
                 "config": self.config,
+                "graph": self.ctx.graph if self.ctx else None,
             }
 
             logger.info("Processing DataHub AST with:")
@@ -278,18 +281,28 @@ class WorkUnitGenerator:
                     exc_info=True,
                 )
 
-        # Deferred: Structured property value assignments
-        structured_property_mcp_builder = registry.get_mcp_builder(
-            "structured_property"
-        )
-        if structured_property_mcp_builder and hasattr(
-            structured_property_mcp_builder, "build_post_processing_mcps"
-        ):
+        # Deferred: RDF extension structured property value assignments
+        sp_mcp_builder = registry.get_mcp_builder("rdf_structured_property")
+        if sp_mcp_builder and hasattr(sp_mcp_builder, "build_post_processing_mcps"):
             try:
-                logger.info(
-                    "Processing structured property value assignments (deferred until after all entities)"
+                from datahub.ingestion.source.rdf.entities.rdf_structured_property.mcp_builder import (
+                    collect_structured_property_definitions,
                 )
-                post_mcps = structured_property_mcp_builder.build_post_processing_mcps(
+
+                definitions = collect_structured_property_definitions(datahub_graph)
+                graph_client = build_context.get("graph")
+                if graph_client and definitions:
+                    logger.info(
+                        "Registering RDF extension structured property definitions "
+                        "synchronously before value assignments"
+                    )
+                    sp_mcp_builder.register_definitions_sync(graph_client, definitions)
+
+                logger.info(
+                    "Processing RDF extension structured property assignments "
+                    "(deferred until after glossary terms)"
+                )
+                post_mcps = sp_mcp_builder.build_post_processing_mcps(
                     datahub_graph, build_context
                 )
                 if post_mcps:
@@ -297,15 +310,17 @@ class WorkUnitGenerator:
                         self.report.report_entity_emitted()
                         yield mcp
                     logger.info(
-                        f"Created {len(post_mcps)} structured property value assignment MCPs"
+                        "Created %d RDF extension structured property assignment MCPs",
+                        len(post_mcps),
                     )
             except RuntimeError as e:
                 self.report.report_failure(
-                    "Failed to create structured property value assignment MCPs",
+                    "Failed to create RDF extension structured property assignment MCPs",
                     context="Post-processing hook",
                     exc=e,
                 )
                 logger.error(
-                    f"Failed to create structured property value assignment MCPs: {e}",
+                    "Failed to create RDF extension structured property assignment MCPs: %s",
+                    e,
                     exc_info=True,
                 )

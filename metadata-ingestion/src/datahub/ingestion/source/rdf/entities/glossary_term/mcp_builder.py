@@ -274,7 +274,8 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             for domain in datahub_graph.domains
             for term in domain.glossary_terms
         }
-        for term in datahub_graph.glossary_terms:
+        all_terms = list(datahub_graph.glossary_terms)
+        for term in all_terms:
             if term.urn in terms_in_domains:
                 continue
             try:

@@ -1,95 +1,59 @@
 """
 Relationship Extractor
 
-Extracts glossary term relationships from RDF graphs.
-Only extracts skos:broader and skos:narrower (per spec).
+Harvests and routes RDF relationship triples using the DataHub ontology TBox.
 """
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from rdflib import Graph, Namespace, URIRef
+from rdflib import Graph
 
 from datahub.ingestion.source.rdf.entities.base import EntityExtractor
-from datahub.ingestion.source.rdf.entities.relationship.ast import (
-    RDFRelationship,
-    RelationshipType,
+from datahub.ingestion.source.rdf.entities.relationship.ast import RDFStatement
+from datahub.ingestion.source.rdf.entities.relationship.router import RelationshipRouter
+from datahub.ingestion.source.rdf.entities.relationship.triple_harvester import (
+    TripleHarvester,
 )
+from datahub.ingestion.source.rdf.ontology.models import DataHubOntology
 
 logger = logging.getLogger(__name__)
 
-SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 
+class RelationshipExtractor(EntityExtractor[RDFStatement]):
+    """Harvests object-property triples from RDF graphs."""
 
-class RelationshipExtractor(EntityExtractor[RDFRelationship]):
-    """
-    Extracts term-to-term relationships from RDF graphs.
-
-    Only extracts:
-    - skos:broader (child → parent inheritance)
-    - skos:narrower (parent → child inheritance)
-
-    Does NOT extract (per specification):
-    - skos:related
-    - skos:exactMatch (only for field-to-term)
-    - skos:closeMatch
-    """
+    def __init__(self) -> None:
+        self._harvester = TripleHarvester()
 
     @property
     def entity_type(self) -> str:
         return "relationship"
 
-    def can_extract(self, graph: Graph, uri: URIRef) -> bool:
-        """Check if this URI has extractable relationships."""
-        for _ in graph.objects(uri, SKOS.broader):
-            return True
-        for _ in graph.objects(uri, SKOS.narrower):
-            return True
+    def can_extract(self, graph: Graph, uri: Any) -> bool:
         return False
 
     def extract(
-        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
-    ) -> Optional[RDFRelationship]:
-        """
-        Extract a single relationship. Not typically used directly.
-        Use extract_all instead.
-        """
-        return None  # Relationships are extracted in bulk
+        self, graph: Graph, uri: Any, context: Optional[Dict[str, Any]] = None
+    ) -> Optional[RDFStatement]:
+        return None
 
     def extract_all(
         self, graph: Graph, context: Optional[Dict[str, Any]] = None
-    ) -> List[RDFRelationship]:
-        """Extract all relationships from the RDF graph."""
-        relationships = []
-        seen = set()
+    ) -> List[RDFStatement]:
+        return self._harvester.harvest(graph)
 
-        # Extract broader relationships
-        for subject, _, obj in graph.triples((None, SKOS.broader, None)):
-            if isinstance(subject, URIRef) and isinstance(obj, URIRef):
-                rel_key = (str(subject), str(obj), "broader")
-                if rel_key not in seen:
-                    relationships.append(
-                        RDFRelationship(
-                            source_uri=str(subject),
-                            target_uri=str(obj),
-                            relationship_type=RelationshipType.BROADER,
-                        )
-                    )
-                    seen.add(rel_key)
-
-        # Extract narrower relationships
-        for subject, _, obj in graph.triples((None, SKOS.narrower, None)):
-            if isinstance(subject, URIRef) and isinstance(obj, URIRef):
-                rel_key = (str(subject), str(obj), "narrower")
-                if rel_key not in seen:
-                    relationships.append(
-                        RDFRelationship(
-                            source_uri=str(subject),
-                            target_uri=str(obj),
-                            relationship_type=RelationshipType.NARROWER,
-                        )
-                    )
-                    seen.add(rel_key)
-
-        logger.info(f"Extracted {len(relationships)} relationships")
-        return relationships
+    def extract_and_route(
+        self,
+        graph: Graph,
+        ontology: DataHubOntology,
+        skip_owl_axioms: bool = True,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> tuple[list, list, list]:
+        """Harvest triples and route them via the ontology."""
+        statements = self._harvester.harvest(graph)
+        router = RelationshipRouter(
+            ontology=ontology,
+            skip_owl_axioms=skip_owl_axioms,
+        )
+        return router.route(statements)
