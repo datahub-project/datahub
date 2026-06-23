@@ -1460,7 +1460,7 @@ SELECT TableName AS name
 FROM DBC.TableSizeV
 WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
 GROUP BY TableName
-HAVING SUM(CurrentPerm) >= :size_limit_bytes
+HAVING SUM(CurrentPerm) > :size_limit_bytes
 """.strip()
 
     def _build_tables_and_views_query(self) -> str:
@@ -3100,6 +3100,7 @@ HAVING SUM(CurrentPerm) >= :size_limit_bytes
                     conn,
                     text(self.PROFILE_OVERSIZED_TABLES_QUERY),
                     {"schema": schema, "size_limit_bytes": size_limit_bytes},
+                    warn_on_permanent_failure=False,
                 ).fetchall()
         except Exception as e:
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
