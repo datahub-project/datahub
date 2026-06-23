@@ -2195,6 +2195,10 @@ constraint-dependencies = [
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
     "idna>=3.15,<4.0.0",
+    # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
+    # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
+    # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
+    "PyJWT>=2.13.0,<3.0.0",
 ]
 
 [tool.ruff]
