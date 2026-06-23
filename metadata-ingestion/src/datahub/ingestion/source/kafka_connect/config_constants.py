@@ -75,6 +75,11 @@ class ConnectorConfigKeys:
     CLICKHOUSE_PASSWORD: Final[str] = "password"
     CLICKHOUSE_TOPIC2TABLE_MAP: Final[str] = "topic2TableMap"
 
+    # Iceberg configuration
+    ICEBERG_TABLES: Final[str] = "iceberg.tables"
+    ICEBERG_TABLES_DYNAMIC_ENABLED: Final[str] = "iceberg.tables.dynamic-enabled"
+    ICEBERG_CATALOG: Final[str] = "iceberg.catalog"
+
     # Transform configuration
     TRANSFORMS: Final[str] = "transforms"
 
