@@ -56,7 +56,19 @@ jobs:
       - name: Spark listener unit + real-Spark smoke tests
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
-                    :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest
+                    :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest \
+                    :metadata-integration:java:acryl-spark-lineage:jacocoTestReport
+      - name: Upload spark-lineage coverage to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/metadata-integration/java/acryl-spark-lineage/jacoco-acryl-spark-lineage.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: backend
+          name: spark-smoke-test
+          verbose: true
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest \
