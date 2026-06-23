@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Set
+from typing import Any, Dict, Iterator, List, Literal, Optional, Set
 
 import yaml
 
@@ -42,7 +42,6 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import auto_lowercase_urns
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.omni.omni_api import OmniClient
@@ -150,12 +149,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> OmniSourceReport:
         return self.report
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        stream: Iterable[MetadataWorkUnit] = self.get_workunits_internal()
-        if self.config.convert_urns_to_lowercase:
-            stream = auto_lowercase_urns(stream)
-        return stream
 
     # ------------------------------------------------------------------
     # TestableSource

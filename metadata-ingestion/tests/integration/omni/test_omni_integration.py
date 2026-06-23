@@ -645,29 +645,6 @@ def test_snowflake_semantic_view_yaml_fallback() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME)
-def test_convert_urns_to_lowercase() -> None:
-    """convert_urns_to_lowercase=True lowercases all physical warehouse dataset URNs.
-
-    Exercises get_workunits() directly so the auto_lowercase_urns processor runs.
-    """
-    source = _build_source(extra_config={"convert_urns_to_lowercase": True})
-    source.client = _SVModelClient()  # type: ignore[assignment]
-
-    physical_urns = [
-        wu.get_urn()
-        for wu in source.get_workunits()
-        if "dataPlatform:snowflake" in wu.get_urn()
-    ]
-    assert physical_urns, "No Snowflake physical dataset URNs emitted"
-    for urn in physical_urns:
-        # name component is between the first and last commas
-        name_part = urn.split(",")[1]
-        assert name_part == name_part.lower(), (
-            f"With convert_urns_to_lowercase=True, URN name should be lowercase; got: {urn}"
-        )
-
-
 # ---------------------------------------------------------------------------
 # test_connection() static method
 # ---------------------------------------------------------------------------

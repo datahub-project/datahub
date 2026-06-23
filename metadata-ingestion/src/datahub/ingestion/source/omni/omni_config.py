@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -20,6 +21,7 @@ class OmniSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     """Configuration for the Omni BI platform DataHub source."""
 
@@ -133,19 +135,8 @@ class OmniSourceConfig(
         default=True,
         description=(
             "Upper-case database, schema, and table name components in URNs when the "
-            "resolved platform is Snowflake. Superseded by convert_urns_to_lowercase: "
-            "if that flag is True, all URNs are lowercased after normalization regardless "
-            "of this setting. Set convert_urns_to_lowercase=True when your warehouse "
-            "connector uses lowercase URNs to ensure lineage stitches correctly."
-        ),
-    )
-    convert_urns_to_lowercase: bool = Field(
-        default=False,
-        description=(
-            "Convert all emitted dataset URNs to lowercase. Enable when the upstream "
-            "warehouse connector uses convert_urns_to_lowercase=True (the default for "
-            "Snowflake and other sources) so that Omni lineage edges resolve to the "
-            "correct entities in DataHub. Any warehouse source that uses this flag "
-            "requires Omni to set it too for lineage to stitch correctly."
+            "resolved platform is Snowflake. Set convert_urns_to_lowercase=True when "
+            "your warehouse connector uses lowercase URNs to ensure lineage stitches "
+            "correctly."
         ),
     )
