@@ -7,7 +7,6 @@ import {
     UnderlineOutlined,
 } from '@ant-design/icons';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
-import { Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { createMarkPositioner } from 'remirror/extensions';
 import styled from 'styled-components';
@@ -15,8 +14,7 @@ import styled from 'styled-components';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { CodeIcon } from '@components/components/Editor/toolbar/Icons';
 import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
-
-const { Text } = Typography;
+import { Text } from '@components/components/Text';
 
 export const ToolbarContainer = styled.span`
     display: flex;
@@ -53,7 +51,9 @@ export const FloatingToolbar = () => {
 
     const linkCommmands = (
         <ToolbarContainer>
-            <LinkText type="secondary">{href}</LinkText>
+            <LinkText type="span" color="textSecondary">
+                {href}
+            </LinkText>
             <CommandButton size="small" icon={<EditOutlined />} commandName="editLink" onClick={handleEditLink} />
             <CommandButton
                 size="small"

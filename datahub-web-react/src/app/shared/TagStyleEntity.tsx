@@ -1,6 +1,7 @@
 import { grey } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
+import { Text } from '@components';
 import { Button, Divider, Typography, message } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -427,10 +428,10 @@ export default function TagStyleEntity({
                             <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
                         {ownersEmpty && (
-                            <Typography.Paragraph type="secondary">
+                            <Text color="textSecondary">
                                 {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                                 {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
-                            </Typography.Paragraph>
+                            </Text>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />
