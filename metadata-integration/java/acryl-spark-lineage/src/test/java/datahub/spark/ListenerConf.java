@@ -93,6 +93,14 @@ final class ListenerConf {
   }
 
   /**
+   * Whether to coalesce all of the application's SQL executions into a single DataFlow/DataJob
+   * emitted at app end (the default), versus emitting one DataJob per execution when disabled.
+   */
+  ListenerConf coalesce(boolean enabled) {
+    return put("spark.datahub.coalesce_jobs", String.valueOf(enabled));
+  }
+
+  /**
    * A regex stripped (anchored at the end) from file dataset paths, e.g. {@code /dt=[^/]*} turns
    * {@code .../events/dt=2024-01-01} into {@code .../events}.
    */

@@ -60,6 +60,17 @@ final class EmittedMetadata {
     return mcps.stream().anyMatch(m -> entityType.equals(text(m, "entityType")));
   }
 
+  /** The distinct entity URNs emitted for the given entityType. */
+  Set<String> entityUrns(String entityType) {
+    Set<String> urns = new LinkedHashSet<>();
+    for (JsonNode m : mcps) {
+      if (entityType.equals(text(m, "entityType")) && m.hasNonNull("entityUrn")) {
+        urns.add(m.get("entityUrn").asText());
+      }
+    }
+    return urns;
+  }
+
   /** The parsed (de-stringified) value of the first MCP carrying {@code aspectName}. */
   Optional<JsonNode> aspect(String aspectName) {
     return mcps.stream()

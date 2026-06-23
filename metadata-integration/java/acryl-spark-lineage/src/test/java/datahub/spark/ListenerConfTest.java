@@ -84,6 +84,7 @@ class ListenerConfTest {
             .materialize(true)
             .filePartitionRegexp("/dt=[^/]*")
             .pathSpec("s3", "my_tables", "s3://bucket/{table}/*")
+            .coalesce(false)
             .toSparkConf();
 
     assertEquals("prod_pipelines", conf.get("spark.datahub.metadata.pipeline.platformInstance"));
@@ -93,5 +94,6 @@ class ListenerConfTest {
     assertEquals("true", conf.get("spark.datahub.metadata.dataset.materialize"));
     assertEquals("/dt=[^/]*", conf.get("spark.datahub.file_partition_regexp"));
     assertEquals("s3://bucket/{table}/*", conf.get("spark.datahub.s3.my_tables.path_spec_list"));
+    assertEquals("false", conf.get("spark.datahub.coalesce_jobs"));
   }
 }

@@ -78,6 +78,20 @@ class EmittedMetadataTest {
   }
 
   @Test
+  void countsDistinctEntityUrns() {
+    // Two aspects on the same dataJob entity -> one distinct URN.
+    String json =
+        "[{\"entityType\":\"dataJob\",\"entityUrn\":\"urn:li:dataJob:(x,a)\",\"aspectName\":\"status\","
+            + "\"aspect\":{\"value\":\"{}\"}},"
+            + "{\"entityType\":\"dataJob\",\"entityUrn\":\"urn:li:dataJob:(x,a)\",\"aspectName\":\"dataJobInfo\","
+            + "\"aspect\":{\"value\":\"{}\"}}]";
+    EmittedMetadata md = EmittedMetadata.parse(json);
+    assertEquals(1, md.entityUrns("dataJob").size());
+    assertTrue(md.entityUrns("dataJob").contains("urn:li:dataJob:(x,a)"));
+    assertTrue(md.entityUrns("dataset").isEmpty());
+  }
+
+  @Test
   void toleratesEmptyOrMalformed() {
     assertTrue(EmittedMetadata.parse("").inputDatasetUrns().isEmpty());
     assertTrue(EmittedMetadata.parse("not json").outputDatasetUrns().isEmpty());
