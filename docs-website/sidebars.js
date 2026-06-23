@@ -957,6 +957,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+        "metadata-ingestion/docs/dev_guides/lineage_urn_casing",
         "docs/iceberg-catalog",
       ],
     },
