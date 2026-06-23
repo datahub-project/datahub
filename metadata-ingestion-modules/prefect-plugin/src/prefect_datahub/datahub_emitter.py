@@ -25,7 +25,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     InstanceRunResult,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import BrowsePathsClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -104,6 +104,10 @@ class DatahubEmitter(Block):
     env: str = builder.DEFAULT_ENV
     platform_instance: Optional[str] = None
     token: Optional[SecretStr] = None
+    # Default to ASYNC so high-volume Prefect runs don't block GMS/MySQL on a
+    # synchronous commit per write. Set to SYNC_WAIT/SYNC_PRIMARY for
+    # read-after-write or raise-on-failure guarantees.
+    emit_mode: EmitMode = EmitMode.ASYNC
     _datajobs_to_emit: Dict[str, DataJob] = PrivateAttr(default_factory=dict)
 
     def __init__(self, *args: Any, **kwargs: Any):
@@ -118,6 +122,7 @@ class DatahubEmitter(Block):
             token=token,
             client_mode=ClientMode.INGESTION,
             datahub_component="prefect-plugin",
+            default_emit_mode=self.emit_mode,
         )
         self.emitter.test_connection()
 
