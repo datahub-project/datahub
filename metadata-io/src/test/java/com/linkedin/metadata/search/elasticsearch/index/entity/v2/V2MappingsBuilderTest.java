@@ -735,6 +735,90 @@ public class V2MappingsBuilderTest {
     }
   }
 
+  @Test
+  public void testUrnStructuredPropertyHasKeywordSubfield() throws URISyntaxException {
+    // URN-typed structured properties must have a .keyword subfield so that
+    // toStructuredPropertyFacetName() (which appends ".keyword") resolves correctly in
+    // aggregations.
+    // Without .keyword the facet returns no results and the filter never appears in the UI.
+    StructuredPropertyDefinition urnProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("steward")
+            .setDisplayName("Steward")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, urnProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a URN prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+
+    assertTrue(spFields.containsKey("steward"), "Should contain the steward field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stewardMapping = (Map<String, Object>) spFields.get("steward");
+    assertEquals(stewardMapping.get("type"), "keyword", "Top-level type should be keyword");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) stewardMapping.get("fields");
+    assertNotNull(subFields, "URN structured property must have subfields");
+    assertTrue(
+        subFields.containsKey("keyword"),
+        "URN structured property must have .keyword subfield for aggregation facets");
+    assertTrue(
+        subFields.containsKey("delimited"),
+        "URN structured property must have .delimited subfield for URN component search");
+  }
+
+  @Test
+  public void testStringStructuredPropertyHasKeywordSubfield() throws URISyntaxException {
+    // Baseline: STRING-typed structured properties already had .keyword — ensure we did not
+    // regress.
+    StructuredPropertyDefinition stringProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("category")
+            .setDisplayName("Category")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.string"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:category");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, stringProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a STRING prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> catMapping = (Map<String, Object>) spFields.get("category");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) catMapping.get("fields");
+    assertNotNull(subFields, "STRING structured property must have subfields");
+    assertTrue(
+        subFields.containsKey("keyword"),
+        "STRING structured property must still have .keyword subfield");
+  }
+
   private EntityRegistry getTestEntityRegistry() {
     return new ConfigEntityRegistry(
         TestSearchFieldConfig.class
