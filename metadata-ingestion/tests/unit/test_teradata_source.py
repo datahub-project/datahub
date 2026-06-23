@@ -4401,3 +4401,17 @@ class TestGenerateProfileCandidates:
         )
         assert source.report.profiling_skipped_table_profile_pattern["myschema"] == 1
         assert "myschema" not in source.report.profiling_skipped_size_limit
+
+    def test_none_candidates_keeps_table_eligible_without_size_skip(self):
+        """When sizing was skipped or failed, generate_profile_candidates returns
+        None; is_dataset_eligible_for_profiling must then keep every table eligible
+        and attribute nothing to the size-limit bucket (fail-open). Guards against a
+        regression where None is treated like an empty candidate list, which would
+        silently stop profiling every table on any DBC sizing failure."""
+        source = self._source_with_size_limit(2)
+        inspector = MagicMock()
+
+        assert source.is_dataset_eligible_for_profiling(
+            "myschema.any_table", "myschema", inspector, None
+        )
+        assert "myschema" not in source.report.profiling_skipped_size_limit

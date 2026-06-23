@@ -1150,7 +1150,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     @model_validator(mode="after")
     def _validate_profile_table_size_limit(self) -> "TeradataConfig":
-        # A value of 0 would make the DBC sizing query (SUM(CurrentPerm) >= 0) match
+        # A value of 0 would make the DBC sizing query (SUM(CurrentPerm) > 0) match
         # every table, silently excluding the whole instance from profiling. Reject
         # it so the misconfiguration fails fast; use null to disable size filtering.
         size_limit = self.profiling.profile_table_size_limit
