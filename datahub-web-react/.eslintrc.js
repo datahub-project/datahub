@@ -153,9 +153,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     '**/*.test.tsx',
     '**/__tests__/**',
     '**/*.stories.tsx',
-    // Deferred to a design-led pass: chart series palette + static style objects.
+    // Deferred to a design-led pass: chart series palette.
     'src/app/dataviz/**',
-    'src/alchemy-components/components/commonStyles.ts',
 ];
 
 module.exports = {

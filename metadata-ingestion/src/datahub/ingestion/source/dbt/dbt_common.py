@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import auto
+from functools import cached_property
 from typing import (
     Any,
     Dict,
@@ -1505,6 +1506,44 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.report.lineage_upstreams_skipped_missing += 1
         return self._upstream_exists_cache[urn]
 
+    @cached_property
+    def _column_meta_action_processor(self) -> OperationProcessor:
+        # Constructed once per run (its args are run-constant) rather than
+        # per-node, and shared across the schema and structured-property paths.
+        return OperationProcessor(
+            self.config.column_meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+
+    def _extract_column_meta_aspects(self, node: DBTNode) -> Dict[str, Dict[str, Any]]:
+        """Process each column's meta exactly once, returning meta_aspects keyed
+        by post-lowercasing field_name (matching get_schema_metadata's fieldPath)
+        so downstream callers don't re-run the processor on column.meta."""
+        if not (self.config.enable_meta_mapping and self.config.column_meta_mapping):
+            return {}
+        result: Dict[str, Dict[str, Any]] = {}
+        for column in node.columns:
+            if not column.meta:
+                continue
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+            try:
+                result[field_name] = self._column_meta_action_processor.process(
+                    column.meta
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process column meta_mapping",
+                    message="Column metadata derived from meta_mapping will be missing for this column.",
+                    context=f"{node.dbt_name}.{column.name}",
+                    exc=e,
+                )
+        return result
+
     def create_test_entity_mcps(
         self,
         test_nodes: List[DBTNode],
@@ -2452,8 +2491,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     action_processor_tag, meta_aspects, node
                 )  # mutates meta_aspects
 
+            # Process column.meta once and reuse across schema + structured props.
+            column_meta_aspects = self._extract_column_meta_aspects(node)
+
             aspects = self._generate_base_dbt_aspects(
-                node, additional_custom_props_filtered, DBT_PLATFORM, meta_aspects
+                node,
+                additional_custom_props_filtered,
+                DBT_PLATFORM,
+                meta_aspects,
+                column_meta_aspects=column_meta_aspects,
             )
 
             # Upstream lineage.
@@ -2526,6 +2572,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                )
+
+            # Column structured properties must be emitted as standalone MCPs
+            # because they attach to schemaField URNs, not the dataset URN.
+            if (
+                self.config.enable_meta_mapping
+                and self.config.entities_enabled.can_emit_node_type(node.node_type)
+            ):
+                yield from auto_workunit(
+                    self._create_column_structured_property_mcps(
+                        node,
+                        node_datahub_urn,
+                        column_meta_aspects=column_meta_aspects,
+                    )
                 )
 
             # Model performance.
@@ -2959,6 +3019,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         additional_custom_props_filtered: Dict[str, str],
         mce_platform: str,
         meta_aspects: Dict[str, Any],
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[Any]:
         """
         Some common aspects that get generated for dbt nodes.
@@ -3009,22 +3070,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if meta_links_aspect and self.config.enable_meta_mapping:
             aspects.append(meta_links_aspect)
 
+        # structuredProperties is not part of the DatasetSnapshot aspect union,
+        # but the create_*_platform_mces helpers automatically route any aspect
+        # not in the union into a standalone MCP.
+        meta_structured_properties_aspect = meta_aspects.get(
+            Constants.ADD_STRUCTURED_PROPERTY_OPERATION
+        )
+        if meta_structured_properties_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_structured_properties_aspect)
+
         # add schema metadata aspect
-        schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
+        schema_metadata = self.get_schema_metadata(
+            self.report, node, mce_platform, column_meta_aspects=column_meta_aspects
+        )
         aspects.append(schema_metadata)
 
         return aspects
 
     def get_schema_metadata(
-        self, report: DBTSourceReport, node: DBTNode, platform: str
+        self,
+        report: DBTSourceReport,
+        node: DBTNode,
+        platform: str,
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> SchemaMetadata:
-        action_processor = OperationProcessor(
-            self.config.column_meta_mapping,
-            self.config.tag_prefix,
-            "SOURCE_CONTROL",
-            self.config.strip_user_ids_from_email,
-            match_nested_props=True,
-        )
+        # Fall back to computing inline for direct callers/tests that don't
+        # thread the shared dict through.
+        if column_meta_aspects is None:
+            column_meta_aspects = self._extract_column_meta_aspects(node)
 
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
@@ -3041,9 +3114,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             elif column.description:
                 description = column.description
 
-            meta_aspects: Dict[str, Any] = {}
-            if self.config.enable_meta_mapping and column.meta:
-                meta_aspects = action_processor.process(column.meta)
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
+            meta_aspects = column_meta_aspects.get(field_name, {})
 
             if meta_aspects.get(Constants.ADD_OWNER_OPERATION):
                 logger.warning("The add_owner operation is not supported for columns.")
@@ -3065,10 +3140,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             glossaryTerms = None
             if meta_aspects.get(Constants.ADD_TERM_OPERATION):
                 glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-
-            field_name = column.name
-            if self.config.convert_column_urns_to_lowercase:
-                field_name = field_name.lower()
 
             field = SchemaField(
                 fieldPath=field_name,
@@ -3103,6 +3174,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             lastModified=last_modified,
             fields=canonical_schema,
         )
+
+    def _create_column_structured_property_mcps(
+        self,
+        node: DBTNode,
+        dataset_urn: str,
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Emit a StructuredProperties MCP for each column with a matching
+        column_meta_mapping `add_structured_property` rule. The aspect attaches
+        to the column's schemaField URN, not the dataset URN.
+
+        Assigns values only; assumes the property definition exists (GMS's
+        StructuredPropertiesValidator enforces existence/type/cardinality at write
+        time). We don't pre-validate, as that would require a graph and break
+        graph-less dbt ingestion."""
+        if not self.config.column_meta_mapping:
+            return
+        if column_meta_aspects is None:
+            column_meta_aspects = self._extract_column_meta_aspects(node)
+
+        for field_name, meta_aspects in column_meta_aspects.items():
+            sp_aspect = meta_aspects.get(Constants.ADD_STRUCTURED_PROPERTY_OPERATION)
+            if not sp_aspect:
+                continue
+            yield MetadataChangeProposalWrapper(
+                entityUrn=mce_builder.make_schema_field_urn(dataset_urn, field_name),
+                aspect=sp_aspect,
+            )
 
     def _aggregate_owners(
         self, node: DBTNode, meta_owner_aspects: Any

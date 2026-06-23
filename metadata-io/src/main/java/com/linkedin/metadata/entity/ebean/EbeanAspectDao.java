@@ -1008,7 +1008,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return Pair.of(-1L, -1L);
     }
 
-    return Pair.of(result.getLong("min_version"), result.getLong("max_version"));
+    Long minVersion = result.getLong("min_version");
+    Long maxVersion = result.getLong("max_version");
+    if (minVersion == null || maxVersion == null) {
+      // MySQL returns a row with NULL MIN/MAX when no versions exist for urn+aspect.
+      return Pair.of(-1L, -1L);
+    }
+
+    return Pair.of(minVersion, maxVersion);
   }
 
   @Override
