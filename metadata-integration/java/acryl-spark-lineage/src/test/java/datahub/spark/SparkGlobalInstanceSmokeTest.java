@@ -42,7 +42,7 @@ public class SparkGlobalInstanceSmokeTest extends SparkSmokeTestBase {
             spark -> jdbcReadToCsv(spark, pg, "orders", tmp.resolve("out")));
 
     assertTrue(
-        md.contains("urn:li:dataPlatform:postgres,prod_a."),
+        md.datasetUrnsOnPlatform("postgres").stream().anyMatch(u -> u.contains("postgres,prod_a.")),
         "postgres upstream URN should carry the global platform_instance 'prod_a':\n" + md.raw);
   }
 }

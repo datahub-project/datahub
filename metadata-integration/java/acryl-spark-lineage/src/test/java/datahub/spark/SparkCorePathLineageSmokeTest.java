@@ -30,12 +30,11 @@ public class SparkCorePathLineageSmokeTest extends SparkSmokeTestBase {
               df.write().mode(SaveMode.Overwrite).csv(out.toString());
             });
 
-    assertTrue(md.contains("urn:li:dataFlow:"), "no DataFlow emitted:\n" + md.raw);
-    assertTrue(md.contains("urn:li:dataJob:"), "no DataJob emitted:\n" + md.raw);
-    assertTrue(md.hasAspect("dataJobInputOutput"), "no dataJobInputOutput emitted:\n" + md.raw);
-    // The CSV input must appear as a file-platform dataset in the job's input edges.
+    assertTrue(md.hasAspect("dataFlowInfo"), "no DataFlow emitted:\n" + md.raw);
+    assertTrue(md.hasAspect("dataJobInputOutput"), "no DataJob lineage emitted:\n" + md.raw);
+    // The CSV input must appear as a file-platform dataset in the job's lineage edges.
     assertTrue(
-        md.contains("urn:li:dataPlatform:file") && md.contains("in.csv"),
-        "expected the CSV input as a file dataset in the lineage edges:\n" + md.raw);
+        md.datasetUrnsOnPlatform("file").stream().anyMatch(u -> u.contains("in.csv")),
+        "expected the CSV input as a file-dataset lineage edge:\n" + md.raw);
   }
 }

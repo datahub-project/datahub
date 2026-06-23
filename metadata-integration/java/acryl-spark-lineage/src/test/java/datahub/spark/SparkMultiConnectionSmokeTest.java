@@ -4,6 +4,7 @@ import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Set;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
@@ -58,11 +59,12 @@ public class SparkMultiConnectionSmokeTest extends SparkSmokeTestBase {
               a.union(b).write().mode(SaveMode.Overwrite).csv(tmp.resolve("out").toString());
             });
 
+    Set<String> pgUrns = md.datasetUrnsOnPlatform("postgres");
     assertTrue(
-        md.contains("urn:li:dataPlatform:postgres,warehouse_a."),
+        pgUrns.stream().anyMatch(u -> u.contains("postgres,warehouse_a.")),
         "pg A upstream should carry 'warehouse_a':\n" + md.raw);
     assertTrue(
-        md.contains("urn:li:dataPlatform:postgres,warehouse_b."),
+        pgUrns.stream().anyMatch(u -> u.contains("postgres,warehouse_b.")),
         "pg B upstream should carry 'warehouse_b':\n" + md.raw);
   }
 }

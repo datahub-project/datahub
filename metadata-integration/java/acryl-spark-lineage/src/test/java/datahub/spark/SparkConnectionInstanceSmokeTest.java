@@ -44,7 +44,8 @@ public class SparkConnectionInstanceSmokeTest extends SparkSmokeTestBase {
             spark -> jdbcReadToCsv(spark, pg, "orders", tmp.resolve("out")));
 
     assertTrue(
-        md.contains("urn:li:dataPlatform:postgres,warehouse_a."),
+        md.datasetUrnsOnPlatform("postgres").stream()
+            .anyMatch(u -> u.contains("postgres,warehouse_a.")),
         "postgres upstream URN should carry the per-connection instance 'warehouse_a':\n" + md.raw);
   }
 }

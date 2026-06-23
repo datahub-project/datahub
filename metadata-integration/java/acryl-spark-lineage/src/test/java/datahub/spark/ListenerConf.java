@@ -65,6 +65,50 @@ final class ListenerConf {
   }
 
   /**
+   * The platform_instance applied to the Spark pipeline's DataFlow/DataJob (not the datasets). It
+   * qualifies the flow name, e.g. {@code (spark,<instance>.<app>,…)}.
+   */
+  ListenerConf pipelinePlatformInstance(String instance) {
+    return put("spark.datahub.metadata.pipeline.platformInstance", instance);
+  }
+
+  /** Tags applied to the emitted DataFlow. */
+  ListenerConf tags(String... tags) {
+    return put("spark.datahub.tags", String.join(",", tags));
+  }
+
+  /** Domains applied to the emitted DataFlow. */
+  ListenerConf domains(String... domains) {
+    return put("spark.datahub.domains", String.join(",", domains));
+  }
+
+  /** Lower-case all emitted dataset URNs. */
+  ListenerConf lowerCaseUrns(boolean enabled) {
+    return put("spark.datahub.metadata.dataset.lowerCaseUrns", String.valueOf(enabled));
+  }
+
+  /** Emit standalone dataset entities (status/key) in addition to the lineage edges. */
+  ListenerConf materialize(boolean enabled) {
+    return put("spark.datahub.metadata.dataset.materialize", String.valueOf(enabled));
+  }
+
+  /**
+   * A regex stripped (anchored at the end) from file dataset paths, e.g. {@code /dt=[^/]*} turns
+   * {@code .../events/dt=2024-01-01} into {@code .../events}.
+   */
+  ListenerConf filePartitionRegexp(String regex) {
+    return put("spark.datahub.file_partition_regexp", regex);
+  }
+
+  /**
+   * Map matching file paths to a platform + dataset name via a path spec (e.g. platform {@code s3},
+   * alias {@code my_tables}, glob {@code s3://bucket/{table}/*}). See {@code path_spec_list}.
+   */
+  ListenerConf pathSpec(String platform, String alias, String glob) {
+    return put("spark.datahub." + platform + "." + alias + ".path_spec_list", glob);
+  }
+
+  /**
    * Map a connection (keyed by its OpenLineage namespace, e.g. {@code postgres://host:port}) to a
    * platform_instance and env. Repeatable for multi-source jobs.
    */

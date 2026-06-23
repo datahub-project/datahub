@@ -72,4 +72,26 @@ class ListenerConfTest {
   void unsetEmitFileIsNull() {
     assertNull(listener().emitFile());
   }
+
+  @Test
+  void typedFeatureKnobsMapToKeys() {
+    Map<String, String> conf =
+        listener()
+            .pipelinePlatformInstance("prod_pipelines")
+            .tags("pii", "gold")
+            .domains("urn:li:domain:finance")
+            .lowerCaseUrns(true)
+            .materialize(true)
+            .filePartitionRegexp("/dt=[^/]*")
+            .pathSpec("s3", "my_tables", "s3://bucket/{table}/*")
+            .toSparkConf();
+
+    assertEquals("prod_pipelines", conf.get("spark.datahub.metadata.pipeline.platformInstance"));
+    assertEquals("pii,gold", conf.get("spark.datahub.tags"));
+    assertEquals("urn:li:domain:finance", conf.get("spark.datahub.domains"));
+    assertEquals("true", conf.get("spark.datahub.metadata.dataset.lowerCaseUrns"));
+    assertEquals("true", conf.get("spark.datahub.metadata.dataset.materialize"));
+    assertEquals("/dt=[^/]*", conf.get("spark.datahub.file_partition_regexp"));
+    assertEquals("s3://bucket/{table}/*", conf.get("spark.datahub.s3.my_tables.path_spec_list"));
+  }
 }

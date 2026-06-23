@@ -32,7 +32,10 @@ public class SparkColumnLineageSmokeTest extends SparkSmokeTestBase {
             });
 
     assertTrue(
-        md.contains("fineGrainedLineages"),
+        md.aspect("dataJobInputOutput")
+            .map(io -> io.get("fineGrainedLineages"))
+            .filter(fg -> fg != null && fg.size() > 0)
+            .isPresent(),
         "expected column-level (fineGrained) lineage to be emitted:\n" + md.raw);
   }
 }

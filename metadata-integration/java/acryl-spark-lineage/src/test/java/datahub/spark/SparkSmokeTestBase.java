@@ -1,14 +1,10 @@
 package datahub.spark;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.apache.spark.sql.SaveMode;
@@ -28,8 +24,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * job, stops the session (flushing the emitter), and returns the parsed MCPs.
  */
 abstract class SparkSmokeTestBase {
-
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   /**
    * Builds a real local SparkSession with the listener, runs the job, parses MCPs from the file the
@@ -114,41 +108,5 @@ abstract class SparkSmokeTestBase {
   protected static Path writeCsv(Path file, String content) throws Exception {
     Files.write(file, content.getBytes());
     return file;
-  }
-
-  /** Parsed view of the file-emitter output (a JSON array of MCPs) with simple query helpers. */
-  protected static final class EmittedMetadata {
-    final String raw;
-    final List<JsonNode> mcps;
-
-    private EmittedMetadata(String raw, List<JsonNode> mcps) {
-      this.raw = raw;
-      this.mcps = mcps;
-    }
-
-    static EmittedMetadata parse(String raw) {
-      List<JsonNode> mcps = new ArrayList<>();
-      try {
-        if (raw != null && !raw.trim().isEmpty()) {
-          JsonNode arr = MAPPER.readTree(raw);
-          if (arr.isArray()) {
-            arr.forEach(mcps::add);
-          }
-        }
-      } catch (Exception e) {
-        // Fall back to raw-only assertions if the array isn't well-formed.
-      }
-      return new EmittedMetadata(raw, mcps);
-    }
-
-    boolean contains(String s) {
-      return raw != null && raw.contains(s);
-    }
-
-    boolean hasAspect(String aspectName) {
-      return mcps.stream()
-          .anyMatch(
-              m -> m.hasNonNull("aspectName") && aspectName.equals(m.get("aspectName").asText()));
-    }
   }
 }
