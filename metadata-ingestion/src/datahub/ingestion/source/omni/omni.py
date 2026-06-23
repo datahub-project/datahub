@@ -269,6 +269,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         db, sc, tb = database or "", schema or "", table or ""
         if self.config.normalize_snowflake_names and platform.lower() == "snowflake":
             db, sc, tb = db.upper(), sc.upper(), tb.upper()
+        if self.config.convert_urns_to_lowercase:
+            db, sc, tb = db.lower(), sc.lower(), tb.lower()
         full_name = ".".join(p for p in [db, sc, tb] if p)
         if platform_instance:
             return make_dataset_urn_with_platform_instance(
