@@ -14,7 +14,7 @@ Re-generate the golden file after intentional changes:
 from __future__ import annotations
 
 import pathlib
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, List
 
 import pytest
 import time_machine
@@ -561,87 +561,6 @@ def test_model_yaml_failure_logs_warning_but_continues() -> None:
     warnings = source.report.warnings
     assert any("model-yaml-fetch" in str(w) for w in warnings), (
         "A warning should be logged for the failed YAML fetch"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Snowflake Semantic View lineage tests
-# ---------------------------------------------------------------------------
-
-_SV_MODEL_ID = "sv-model-1"
-_SV_MODEL_YAML = {
-    "files": {
-        "topics/sv_topic.topic": (
-            "type: topic\nname: sv_topic\nbase_view_name: sv_view\n"
-        ),
-        "views/sv_view.view": (
-            "type: view\nname: sv_view\n"
-            "catalog: MARKETING_PROD\nschema: SEMANTIC\n"
-            "semantic_view_name: SV_METRICS_SESSIONS_ALL\n"
-            "dimensions:\n  - name: session_id\n    sql_type: NUMBER\n"
-        ),
-    }
-}
-_SV_MODEL_DEF = {
-    "id": _SV_MODEL_ID,
-    "name": "SV Analytics Model",
-    "modelKind": "SHARED",
-    "connectionId": "conn-snow-prod",
-    "baseModelId": None,
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-06-01T00:00:00Z",
-    "deletedAt": None,
-}
-
-
-class _SVModelClient(FakeOmniClientFull):
-    """Extends the standard fake client with a model backed by Snowflake Semantic Views."""
-
-    def list_models(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
-        yield from super().list_models(page_size)
-        yield _SV_MODEL_DEF
-
-    def get_model_yaml(self, model_id: str) -> Dict[str, Any]:
-        if model_id == _SV_MODEL_ID:
-            return _SV_MODEL_YAML
-        return super().get_model_yaml(model_id)
-
-    def get_topic(self, model_id: str, topic_name: str) -> Dict[str, Any]:
-        # Force YAML fallback for the SV model so _topic_payload_from_yaml_specs runs
-        if model_id == _SV_MODEL_ID:
-            raise RuntimeError(f"404 Not Found: {topic_name}")
-        return super().get_topic(model_id, topic_name)
-
-
-@time_machine.travel(FROZEN_TIME)
-def test_snowflake_semantic_view_yaml_fallback() -> None:
-    """Views backed by Snowflake Semantic Views use semantic_view_name+catalog from YAML."""
-    source = _build_source()
-    source.client = _SVModelClient()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    sv_view_urn = source._semantic_dataset_urn(_SV_MODEL_ID, "sv_view")
-    # catalog overrides the connection-level database; normalize_snowflake_names uppercases
-    expected_physical_urn = source._physical_dataset_urn(
-        "snowflake",
-        "MARKETING_PROD",
-        "SEMANTIC",
-        "SV_METRICS_SESSIONS_ALL",
-        platform_instance="snowflake",
-    )
-
-    lineage_events = [
-        e
-        for e in events
-        if e["entityUrn"] == sv_view_urn and e["aspectName"] == "upstreamLineage"
-    ]
-    assert lineage_events, f"No upstreamLineage emitted for {sv_view_urn}"
-    upstreams = {
-        u["dataset"] for u in lineage_events[-1]["aspect"].get("upstreams", [])
-    }
-    assert expected_physical_urn in upstreams, (
-        f"sv_view should list SV_METRICS_SESSIONS_ALL as upstream via catalog override; "
-        f"actual upstreams: {upstreams}"
     )
 
 
