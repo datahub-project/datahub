@@ -5537,3 +5537,213 @@ class TestCharPaddingFixes:
             library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
         )
         assert cols[0]["autoincrement"] is False
+
+
+class TestGenerateProfileCandidates:
+    """Size-based profiling candidate filtering (skips large tables)."""
+
+    @staticmethod
+    def _source_with_size_limit(size_limit_gb: Optional[int]) -> TeradataSource:
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "profiling": {"profile_table_size_limit": size_limit_gb},
+            }
+        )
+        with (
+            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+    @staticmethod
+    def _oversized_rows(*names: str) -> MagicMock:
+        rows = []
+        for name in names:
+            row = MagicMock()
+            row.name = name
+            rows.append(row)
+        result = MagicMock()
+        result.fetchall.return_value = rows
+        return result
+
+    def test_excludes_only_oversized_tables_and_converts_gb_to_bytes(self):
+        """Candidates are the full table list minus the oversized tables DBC
+        reports; the GB limit is converted to bytes for the query."""
+        source = self._source_with_size_limit(2)
+
+        # DBC reports one oversized table (CHAR-padded name must be stripped).
+        result = self._oversized_rows("big_table ")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["small_table", "big_table", "another"]
+
+        with patch.object(
+            source, "_retry_execute", return_value=result
+        ) as mock_execute:
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == ["myschema.small_table", "myschema.another"]
+        params = mock_execute.call_args.args[2]
+        assert params["schema"] == "myschema"
+        assert params["size_limit_bytes"] == 2 * 1024**3
+
+    def test_table_missing_from_dbc_is_eligible(self):
+        """A table absent from DBC.TableSizeV (no size row) stays a candidate
+        (fail-open), rather than being silently dropped."""
+        source = self._source_with_size_limit(2)
+
+        # DBC reports nothing oversized, and "new_table" has no size row at all.
+        result = self._oversized_rows()
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["new_table"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == ["myschema.new_table"]
+        assert "myschema" not in source.report.profiling_skipped_size_limit
+
+    def test_all_tables_oversized_returns_empty_list_not_none(self):
+        """When every table exceeds the limit, return an empty candidate list
+        (profile nothing) -- distinct from None, which means "no filtering"."""
+        source = self._source_with_size_limit(1)
+
+        result = self._oversized_rows("big")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["big"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == []
+        assert candidates is not None
+
+    def test_oversized_match_is_case_insensitive(self):
+        """DBC casing may differ from the dialect's table names, so an oversized
+        table is excluded even when the case differs; other tables stay eligible."""
+        source = self._source_with_size_limit(1)
+
+        # DBC reports the oversized table upper-cased; the dialect reports mixed case.
+        result = self._oversized_rows("BIGTABLE")
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = ["BigTable", "SmallTable"]
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates is not None
+        assert len(candidates) == 1
+        assert candidates[0].lower() == "myschema.smalltable"
+
+    def test_empty_schema_returns_empty_list_not_none(self):
+        """A schema with no tables yields [] (filtering applied, nothing to profile),
+        not None (which would mean "no filtering")."""
+        source = self._source_with_size_limit(2)
+
+        result = self._oversized_rows()
+        inspector = MagicMock()
+        inspector.get_table_names.return_value = []
+
+        with patch.object(source, "_retry_execute", return_value=result):
+            candidates = source.generate_profile_candidates(inspector, None, "myschema")
+
+        assert candidates == []
+        assert candidates is not None
+
+    def test_without_size_limit_returns_none(self):
+        """No size limit -> return None so base profiling treats all tables as
+        eligible (no filtering)."""
+        source = self._source_with_size_limit(None)
+        candidates = source.generate_profile_candidates(MagicMock(), None, "myschema")
+        assert candidates is None
+
+    def test_zero_size_limit_is_rejected_by_config(self):
+        """profile_table_size_limit: 0 would disable profiling for the whole
+        instance, so it must fail validation rather than silently do so."""
+        with pytest.raises(ValueError):
+            TeradataConfig.model_validate(
+                {
+                    **_base_config(),
+                    "profiling": {"profile_table_size_limit": 0},
+                }
+            )
+
+    def test_query_failure_falls_back_to_no_filtering(self):
+        """If sizing the tables fails (e.g. no SELECT on DBC.TableSizeV), return
+        None so profiling proceeds for all tables instead of failing the run."""
+        source = self._source_with_size_limit(2)
+
+        with patch.object(
+            source, "_retry_execute", side_effect=Exception("permission denied on DBC")
+        ):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        # The warning should point at the DBC view so operators know what to grant;
+        # match on a stable keyword rather than the full wording.
+        assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
+
+    def test_eligibility_counts_size_skip_once_not_double_counted(self):
+        """A table excluded by the size-filtered candidate list is counted in
+        profiling_skipped_size_limit and NOT also in profiling_skipped_other."""
+        source = self._source_with_size_limit(1)
+        inspector = MagicMock()
+        candidates = ["myschema.small_table"]
+
+        assert source.is_dataset_eligible_for_profiling(
+            "myschema.small_table", "myschema", inspector, candidates
+        )
+        assert not source.is_dataset_eligible_for_profiling(
+            "myschema.big_table", "myschema", inspector, candidates
+        )
+
+        assert source.report.profiling_skipped_size_limit["myschema"] == 1
+        assert "myschema" not in source.report.profiling_skipped_other
+
+    def test_pattern_denied_table_counts_as_pattern_skip_not_size_skip(self):
+        """A table denied by profile_pattern (but within the size-based candidate
+        list) must be attributed to profiling_skipped_table_profile_pattern, not
+        profiling_skipped_size_limit. This guards the profile_candidates=None pass
+        to super() that keeps the two buckets distinct."""
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "profile_pattern": {"deny": ["myschema.denied_table"]},
+                "profiling": {"profile_table_size_limit": 1},
+            }
+        )
+        with (
+            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+        ):
+            source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        inspector = MagicMock()
+        # Table is a size-candidate (not oversized) but denied by profile_pattern.
+        candidates = ["myschema.denied_table"]
+
+        assert not source.is_dataset_eligible_for_profiling(
+            "myschema.denied_table", "myschema", inspector, candidates
+        )
+        assert source.report.profiling_skipped_table_profile_pattern["myschema"] == 1
+        assert "myschema" not in source.report.profiling_skipped_size_limit
+
+    def test_none_candidates_keeps_table_eligible_without_size_skip(self):
+        """When sizing was skipped or failed, generate_profile_candidates returns
+        None; is_dataset_eligible_for_profiling must then keep every table eligible
+        and attribute nothing to the size-limit bucket (fail-open). Guards against a
+        regression where None is treated like an empty candidate list, which would
+        silently stop profiling every table on any DBC sizing failure."""
+        source = self._source_with_size_limit(2)
+        inspector = MagicMock()
+
+        assert source.is_dataset_eligible_for_profiling(
+            "myschema.any_table", "myschema", inspector, None
+        )
+        assert "myschema" not in source.report.profiling_skipped_size_limit

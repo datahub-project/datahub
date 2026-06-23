@@ -1303,6 +1303,19 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_profile_table_size_limit(self) -> "TeradataConfig":
+        # A value of 0 would make the DBC sizing query (SUM(CurrentPerm) > 0) match
+        # every table, silently excluding the whole instance from profiling. Reject
+        # it so the misconfiguration fails fast; use null to disable size filtering.
+        size_limit = self.profiling.profile_table_size_limit
+        if size_limit is not None and size_limit <= 0:
+            raise ValueError(
+                "profile_table_size_limit must be greater than 0 GB (or null to disable "
+                f"size-based filtering); got {size_limit}."
+            )
+        return self
+
     use_dbc_columns_for_views: bool = Field(
         default=False,
         description=(
@@ -1621,6 +1634,17 @@ AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
 
+    # Returns only the tables whose total size is at or above the limit. We then
+    # subtract these from the full table list, so any table missing from
+    # DBC.TableSizeV (new/zero-perm tables, permission asymmetry) remains a
+    # profiling candidate (fail-open)
+    PROFILE_OVERSIZED_TABLES_QUERY: str = """
+SELECT TableName AS name
+FROM DBC.TableSizeV
+WHERE DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC)
+GROUP BY TableName
+HAVING SUM(CurrentPerm) > :size_limit_bytes
+""".strip()
     WARNING_VIEW_ERROR_MAP: ClassVar[Dict[ViewErrorCategory, LiteralString]] = {
         ViewErrorCategory.TIMEOUT: "View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
         ViewErrorCategory.PERMISSION: "Permission denied processing view — check database access rights for the ingestion user.",
@@ -1696,6 +1720,32 @@ ORDER by DataBaseName, TableName;
             eager_graph_load=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+        # Surface the size-based profiling filter at startup. This default (5 GB)
+        # was previously ignored for Teradata, so log it to avoid surprising users
+        # whose large tables suddenly stop being profiled after upgrade.
+        if (
+            self.config.is_profiling_enabled()
+            and self.config.profiling.profile_table_size_limit is not None
+        ):
+            logger.info(
+                "Teradata profiling will skip tables larger than %d GB "
+                "(profile_table_size_limit). Set profile_table_size_limit: null to "
+                "profile all tables regardless of size.",
+                self.config.profiling.profile_table_size_limit,
+            )
+
+        # profile_if_updated_since_days has no effect on Teradata: candidate
+        # selection is size-based only (see generate_profile_candidates), so warn
+        # rather than let users assume freshness filtering is applied.
+        if (
+            self.config.is_profiling_enabled()
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
+            self.report.warning(
+                title="Teradata profiling does not support profile_if_updated_since_days",
+                message="This setting will be ignored. Tables are selected for profiling by size only (profile_table_size_limit).",
+            )
 
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
@@ -3352,3 +3402,99 @@ ORDER by DataBaseName, TableName;
 
         # Report failed views summary
         super().close()
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        """Return the tables in `schema` eligible to profile (fail-open).
+
+        Teradata can profile-scan a multi-GB table for a very long time, so we use
+        DBC space accounting to skip tables above `profile_table_size_limit` (GB)
+        before any profiling query is issued. Row-count filtering is not supported
+        because Teradata has no cheap, reliable DBC row count without COLLECT STATS.
+
+        We start from the full table list and remove only the tables DBC reports as
+        oversized. Any table absent from DBC.TableSizeV (new/zero-perm tables or
+        permission asymmetry) is therefore treated as eligible.
+
+        `threshold_time` (derived from `profile_if_updated_since_days`) is intentionally
+        ignored: this connector currently implements size-based filtering only. The SQL
+        base's `is_dataset_eligible_for_profiling` does not apply freshness either, so
+        time-based filtering is effectively a no-op for Teradata today. It could be added
+        later using `TeradataTable.last_alter_timestamp` from the table cache.
+        """
+        size_limit_gb = self.config.profiling.profile_table_size_limit
+        if size_limit_gb is None:
+            # Nothing we can filter on -> let the base treat all tables as eligible.
+            return None
+
+        size_limit_bytes = size_limit_gb * 1024**3
+
+        try:
+            with self._retry_connect(inspector.engine) as conn:
+                rows = self._retry_execute(
+                    conn,
+                    text(self.PROFILE_OVERSIZED_TABLES_QUERY),
+                    {"schema": schema, "size_limit_bytes": size_limit_bytes},
+                    warn_on_permanent_failure=False,
+                ).fetchall()
+        except Exception as e:
+            # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
+            # Teradata instances routinely withhold. Fall back to "no filtering"
+            # (return None) so profiling proceeds for all tables rather than
+            # failing the entire run.
+            self.report.warning(
+                title="Could not size tables for profiling",
+                message=(
+                    "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
+                    "Profiling will proceed without size-based filtering for this schema. "
+                    "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
+                ),
+                context=f"schema={schema}",
+                exc=e,
+            )
+            return None
+
+        # Teradata object names are case-insensitive, and DBC casing may differ
+        # from what the dialect returns, so match case-insensitively.
+        oversized = {row.name.strip().lower() for row in rows}
+        candidates = [
+            self.get_identifier(schema=schema, entity=table, inspector=inspector)
+            for table in inspector.get_table_names(schema)
+            if table.strip().lower() not in oversized
+        ]
+        # Per-table size skips are counted in is_dataset_eligible_for_profiling so
+        # the count reflects tables actually excluded (not raw DBC rows) and is not
+        # also double-counted into profiling_skipped_other by the base loop.
+        logger.info(
+            "Profiling %d tables in %s; DBC reports %d table(s) above the %d GB size limit.",
+            len(candidates),
+            schema,
+            len(oversized),
+            size_limit_gb,
+        )
+        return candidates
+
+    def is_dataset_eligible_for_profiling(
+        self,
+        dataset_name: str,
+        schema: str,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
+    ) -> bool:
+        # Let the base apply table/profile pattern checks, but pass
+        # profile_candidates=None so it does NOT count size-excluded tables into the
+        # generic profiling_skipped_other bucket (which would double-count). We then
+        # attribute candidate misses to profiling_skipped_size_limit, since the
+        # Teradata candidate list is filtered solely by size.
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, schema, inspector, profile_candidates=None
+        ):
+            return False
+        if profile_candidates is not None and dataset_name not in profile_candidates:
+            self.report.profiling_skipped_size_limit[schema] += 1
+            return False
+        return True
