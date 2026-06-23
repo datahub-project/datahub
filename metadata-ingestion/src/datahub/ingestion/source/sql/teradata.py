@@ -1553,10 +1553,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             self.config.is_profiling_enabled()
             and self.config.profiling.profile_if_updated_since_days is not None
         ):
-            logger.warning(
-                "Teradata profiling does not support profile_if_updated_since_days "
-                "(freshness filtering); this setting will be ignored. Tables are "
-                "selected for profiling by size only (profile_table_size_limit)."
+            self.report.warning(
+                title="Teradata profiling does not support profile_if_updated_since_days",
+                message="This setting will be ignored. Tables are selected for profiling by size only (profile_table_size_limit).",
             )
 
         if self.config.include_tables or self.config.include_views:
@@ -3090,7 +3089,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         size_limit_gb = self.config.profiling.profile_table_size_limit
         if size_limit_gb is None:
             # Nothing we can filter on -> let the base treat all tables as eligible.
-            raise NotImplementedError("Teradata only supports size-based candidates")
+            return None
 
         size_limit_bytes = size_limit_gb * 1024**3
 

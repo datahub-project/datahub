@@ -4320,11 +4320,12 @@ class TestGenerateProfileCandidates:
         assert candidates == []
         assert candidates is not None
 
-    def test_without_size_limit_raises_not_implemented(self):
-        """No size limit -> base profiling falls back to all tables."""
+    def test_without_size_limit_returns_none(self):
+        """No size limit -> return None so base profiling treats all tables as
+        eligible (no filtering)."""
         source = self._source_with_size_limit(None)
-        with pytest.raises(NotImplementedError):
-            source.generate_profile_candidates(MagicMock(), None, "myschema")
+        candidates = source.generate_profile_candidates(MagicMock(), None, "myschema")
+        assert candidates is None
 
     def test_zero_size_limit_is_rejected_by_config(self):
         """profile_table_size_limit: 0 would disable profiling for the whole
@@ -4370,3 +4371,33 @@ class TestGenerateProfileCandidates:
 
         assert source.report.profiling_skipped_size_limit["myschema"] == 1
         assert "myschema" not in source.report.profiling_skipped_other
+
+    def test_pattern_denied_table_counts_as_pattern_skip_not_size_skip(self):
+        """A table denied by profile_pattern (but within the size-based candidate
+        list) must be attributed to profiling_skipped_table_profile_pattern, not
+        profiling_skipped_size_limit. This guards the profile_candidates=None pass
+        to super() that keeps the two buckets distinct."""
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "profile_pattern": {"deny": ["myschema.denied_table"]},
+                "profiling": {"profile_table_size_limit": 1},
+            }
+        )
+        with (
+            patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+        ):
+            source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        inspector = MagicMock()
+        # Table is a size-candidate (not oversized) but denied by profile_pattern.
+        candidates = ["myschema.denied_table"]
+
+        assert not source.is_dataset_eligible_for_profiling(
+            "myschema.denied_table", "myschema", inspector, candidates
+        )
+        assert source.report.profiling_skipped_table_profile_pattern["myschema"] == 1
+        assert "myschema" not in source.report.profiling_skipped_size_limit
