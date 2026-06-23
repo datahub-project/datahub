@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
@@ -25,6 +26,7 @@ interface Props {
  * Version 2 uses the component library, has different styling of entities, and only supports single selection.
  */
 export const EntitySearchInputV2 = ({ entityTypes, placeholder, searchPlaceholder, orFilters, onUpdate }: Props) => {
+    const { t } = useTranslation('entity.shared.selectors');
     // Suggestions when user hasn't provided a search query
     const { data: searchResults } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -75,7 +77,7 @@ export const EntitySearchInputV2 = ({ entityTypes, placeholder, searchPlaceholde
             autoCompleteSuggestions={autoCompleteSuggestions}
             render={(entity) => <EntitySearchInputResultV2 entity={entity} />}
             placeholder={placeholder}
-            searchPlaceholder={searchPlaceholder || 'Search for entities...'}
+            searchPlaceholder={searchPlaceholder || t('entitySearch.placeholder')}
             onSearch={setSearchQuery}
             onUpdate={onUpdate}
             width="full"

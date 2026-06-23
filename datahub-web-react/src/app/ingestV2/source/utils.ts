@@ -18,7 +18,7 @@ import {
 } from '@app/ingestV2/executions/constants';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
-import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import dayjs from '@utils/dayjs';
 
 import {
@@ -35,8 +35,9 @@ import {
 } from '@types';
 
 const CUSTOM_SOURCE_NAME = 'custom';
-/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy */
-export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
+/* untranslated-text -- used programmatically as a source-type discriminator, not rendered as UI copy.
+   Must match the displayName of the custom source in sources.json. */
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Other';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -502,7 +503,10 @@ export const extractEntityTypeCountsFromFacets = (
             .forEach((agg) =>
                 finalCounts.push({
                     count: agg.count,
-                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+                    displayName: i18next.t('ingestion:source.entityTypeNameCount', {
+                        count: agg.count,
+                        type: capitalizeFirstLetterOnly(agg.value) || '',
+                    }),
                 }),
             );
         entityTypeFacets.aggregations

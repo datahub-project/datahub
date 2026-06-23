@@ -13,12 +13,11 @@ on:
         required: false
         default: "5"
         type: string
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
-
-env:
-  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
+      datahub_version:
+        description: "DataHub version to pull from registry. Defaults to 'quickstart' (latest pre-release)"
+        required: false
+        default: "quickstart"
+        type: string
 
 permissions:
   contents: read
@@ -28,8 +27,7 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
-      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
-      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+      playwright_timeout: ${{ steps.set-runner.outputs.playwright_timeout }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Check out the repo
@@ -80,261 +78,28 @@ jobs:
             echo "| playwright | $shard_count |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Compute Yarn Cache Key
-        id: yarn-cache-key
-        run: |
-          echo "yarn_cache_key=playwright-e2e-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}" >> "$GITHUB_OUTPUT"
-          echo "yarn_cache_key_prefix=playwright-e2e-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
-
   playwright_test:
-    name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    name: Playwright E2E Tests
     needs: [setup]
-    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
     if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '{"include":[]}' }}
-    steps:
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "zulu"
-          java-version: 21
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22"
-
-      - name: Run quickstart
-        env:
-          DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_REPO: acryldata
-          DATAHUB_VERSION: quickstart
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
-          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-        run: ./smoke-test/run-quickstart.sh
-
-      - name: Disable ES Disk Threshold
-        run: |
-          curl -XPUT "http://localhost:9200/_cluster/settings" \
-            -H 'Content-Type: application/json' -d'{
-              "persistent": {
-                "cluster": {
-                  "routing": {
-                    "allocation.disk.threshold_enabled": false
-                  }
-                }
-              }
-            }'
-
-      - name: Install Playwright dependencies
-        working-directory: e2e-test/ui/playwright
-        run: |
-          yarn install --frozen-lockfile
-          npx playwright install --with-deps chromium
-
-      - name: Run Playwright tests
-        working-directory: e2e-test/ui/playwright
-        env:
-          BASE_URL: "http://localhost:9002"
-          # Tells playwright.config.ts to reuse the DataHub instance started by
-          # run-quickstart.sh rather than launching via quickstartDebug.
-          # Safe in sharded CI: each shard runs on its own isolated VM with its
-          # own DataHub instance — no shared state between shards.
-          PLAYWRIGHT_REUSE_SERVER: "1"
-        run: |
-          npx playwright test \
-            --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
-
-      - name: Upload Playwright blob report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: playwright-blob-report-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/blob-report/
-          retention-days: 1
-
-      - name: Upload Playwright JUnit results
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: playwright-junit-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/test-results/junit.xml
-          retention-days: 5
-
-      - name: Store logs on failure
-        if: failure()
-        run: |
-          docker ps -a
-          TEST_STRATEGY="-playwright-${{ matrix.shard }}"
-          source .github/scripts/docker_logs.sh
-
-      - name: Upload Docker logs on failure
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: docker-logs-playwright-${{ matrix.shard }}
-          path: "docker_logs/*.log"
-          retention-days: 5
-
-      - name: Upload Playwright traces and screenshots on failure
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: playwright-traces-${{ matrix.shard }}
-          path: e2e-test/ui/playwright/test-results/
-          retention-days: 5
-
-      - name: Report test results
-        if: "!cancelled()"
-        uses: ./.github/actions/report-test-results
-        with:
-          artifact-name: "Test Results (playwright) shard-${{ matrix.shard }}"
-          test-results-paths: |
-            **/e2e-test/ui/playwright/test-results/junit.xml
-          junit-file-globs: |
-            **/e2e-test/ui/playwright/test-results/junit.xml
-
-      - name: Upload test results to Codecov
-        if: "!cancelled()"
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
+    uses: ./.github/workflows/resusable-playwright-tests.yml
+    with:
+      shard: ${{ matrix.shard }}
+      shard_count: ${{ matrix.shard_count }}
+      test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
+      datahub_version: ${{ inputs.datahub_version }}
+      profile_name: ${{ inputs.profileName }}
+    secrets: inherit
 
   playwright_report:
     name: Merge Playwright HTML report
-    runs-on: ubuntu-latest
     needs: [setup, playwright_test]
     if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
     permissions:
       contents: read
       id-token: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22"
-
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Install Playwright dependencies
-        working-directory: e2e-test/ui/playwright
-        run: yarn install --frozen-lockfile
-
-      - name: Download all Playwright blob reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: playwright-blob-report-*
-          path: playwright-blob-reports
-
-      - name: Merge blob reports into unified HTML report
-        run: |
-          # download-artifact v4+ places each artifact in its own subfolder under
-          # playwright-blob-reports/. Flatten all .zip files into a single dir so
-          # `playwright merge-reports` can find them.
-          mkdir -p playwright-blobs-flat
-          # Playwright blob filenames include the shard index, so cp overwrites are safe.
-          find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
-          if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
-            ./e2e-test/ui/playwright/node_modules/.bin/playwright merge-reports --reporter html ./playwright-blobs-flat
-          else
-            echo "No blob reports found — all shards may have been skipped or crashed"
-            exit 1
-          fi
-
-      - name: Upload merged Playwright HTML report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: playwright-html-report
-          path: playwright-report/
-          retention-days: 5
-
-      - name: Configure AWS credentials for S3 report upload
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
-        if: always()
-        continue-on-error: true
-        with:
-          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
-          aws-region: us-west-2
-
-      - name: Publish Playwright report to S3
-        id: publish-s3-report
-        if: always()
-        continue-on-error: true
-        env:
-          GH_WORKFLOW: ${{ github.workflow }}
-          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
-          GH_EVENT_NAME: ${{ github.event_name }}
-          GH_RUN_ID: ${{ github.run_id }}
-          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
-        run: |
-          if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
-            echo "No playwright-report directory — skipping S3 upload"
-            exit 0
-          fi
-
-          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
-
-          WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
-            | tr '[:upper:]' '[:lower:]' \
-            | sed 's/[^a-z0-9]/-/g' \
-            | sed -E 's/-+/-/g' \
-            | sed 's/^-//;s/-$//')
-          S3_PATH="${GH_REPOSITORY_OWNER}/${GH_EVENT_REPOSITORY_NAME}/workflows/${GH_EVENT_NAME}/${GH_RUN_ID}_${GH_RUN_ATTEMPT}/${WORKFLOW_NAME}/playwright-report"
-
-          aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
-            --cache-control "no-cache, no-store, must-revalidate" \
-            --sse AES256 \
-            --delete
-
-          REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
-          echo "report_url=${REPORT_URL}" >> "$GITHUB_OUTPUT"
-          echo "Published Playwright report to: ${REPORT_URL}"
-
-      - name: Add report link to GitHub Summary
-        if: ${{ always() && steps.publish-s3-report.outputs.report_url != '' }}
-        run: |
-          {
-            echo "## Playwright HTML Report"
-            echo ""
-            echo "| Resource | Link |"
-            echo "|----------|------|"
-            echo "| HTML Report (incl. Traces) | ${{ steps.publish-s3-report.outputs.report_url }} |"
-            echo ""
-            echo "> [!NOTE]"
-            echo "> Accessible from the DataHub VPN only."
-          } >> "$GITHUB_STEP_SUMMARY"
+    uses: ./.github/workflows/reusable-playwright-report.yml
+    secrets: inherit

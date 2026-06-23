@@ -7,11 +7,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -28,7 +26,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -140,7 +137,7 @@ public abstract class GenericRelationshipController {
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -267,7 +264,7 @@ public abstract class GenericRelationshipController {
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -302,124 +299,23 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
           String pitKeepAlive,
       @RequestBody @Nonnull ScrollRelationshipsRequestBody body) {
-
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    OperationContext opContext =
-        OperationContext.asSession(
-                systemOperationContext,
-                RequestContext.builder()
-                    .buildOpenapi(
-                        authentication.getActor().toUrnStr(),
-                        request,
-                        "scrollRelationships",
-                        List.of()),
-                authorizationChain,
-                authentication,
-                true)
-            .withSearchFlags(
-                f ->
-                    f.setIncludeSoftDeleted(includeSoftDelete)
-                        .setSliceOptions(
-                            sliceId != null && sliceMax != null
-                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                : null,
-                            SetMode.IGNORE_NULL));
-
-    if (!AuthUtil.isAPIAuthorized(opContext, RELATIONSHIP, READ)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " "
-              + RELATIONSHIP);
-    }
-
-    Set<String> sourceTypesSet =
-        sourceTypes != null && sourceTypes.length > 0
-            ? Arrays.stream(sourceTypes).collect(Collectors.toSet())
-            : null;
-    Set<String> destinationTypesSet =
-        destinationTypes != null && destinationTypes.length > 0
-            ? Arrays.stream(destinationTypes).collect(Collectors.toSet())
-            : null;
-
-    com.linkedin.metadata.query.filter.Filter sourceEntityFilter =
-        Optional.ofNullable(body.getSourceFilter())
-            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
-            .orElse(QueryUtils.EMPTY_FILTER);
-    com.linkedin.metadata.query.filter.Filter destinationEntityFilter =
-        Optional.ofNullable(body.getDestinationFilter())
-            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
-            .orElse(QueryUtils.EMPTY_FILTER);
-    com.linkedin.metadata.query.filter.Filter edgeFilter =
-        Optional.ofNullable(body.getEdgeFilter())
-            .map(io.datahubproject.openapi.v3.models.Filter::toRecordTemplate)
-            .orElse(QueryUtils.EMPTY_FILTER);
-
-    RelationshipDirection relationshipDirection;
-    try {
-      relationshipDirection = RelationshipDirection.valueOf(direction.toUpperCase());
-    } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException(
-          "Direction must be INCOMING, OUTGOING, or UNDIRECTED, got: " + direction);
-    }
-
-    RelatedEntitiesScrollResult result =
-        graphService.scrollRelatedEntities(
-            opContext,
-            sourceTypesSet,
-            sourceEntityFilter,
-            destinationTypesSet,
-            destinationEntityFilter,
-            relationshipTypes != null
-                ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
-                : Set.of(),
-            QueryUtils.newRelationshipFilter(edgeFilter, relationshipDirection),
-            Edge.EDGE_SORT_CRITERION,
-            scrollId,
-            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
-            count,
-            null,
-            null);
-
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        opContext,
-        RELATIONSHIP,
-        READ,
-        result.getEntities().stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getSourceUrn()),
-                        UrnUtils.getUrn(edge.getDestinationUrn())))
-            .collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " "
-              + RELATIONSHIP);
-    }
-
-    return ResponseEntity.ok(
-        GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
-            .scrollId(result.getScrollId())
-            .build());
-  }
-
-  private List<GenericRelationship> toGenericRelationships(List<RelatedEntities> relatedEntities) {
-    return relatedEntities.stream()
-        .map(
-            result -> {
-              Urn source = UrnUtils.getUrn(result.getSourceUrn());
-              Urn dest = UrnUtils.getUrn(result.getDestinationUrn());
-              return GenericRelationship.builder()
-                  .relationshipType(result.getRelationshipType())
-                  .source(GenericRelationship.GenericNode.fromUrn(source))
-                  .destination(GenericRelationship.GenericNode.fromUrn(dest))
-                  .build();
-            })
-        .collect(Collectors.toList());
+    return ScrollUtils.doScrollRelationships(
+        systemOperationContext,
+        authorizationChain,
+        graphService,
+        request,
+        "scrollRelationships",
+        relationshipTypes,
+        sourceTypes,
+        destinationTypes,
+        direction,
+        count,
+        scrollId,
+        includeSoftDelete,
+        sliceId,
+        sliceMax,
+        pitKeepAlive,
+        body,
+        null);
   }
 }

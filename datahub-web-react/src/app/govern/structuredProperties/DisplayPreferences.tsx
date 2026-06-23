@@ -198,13 +198,14 @@ const DisplayPreferences = ({
                     modalText={
                         <p>
                             <Trans
+                                t={t}
                                 i18nKey="display.replaceBadgeConfirmation"
                                 components={{
                                     pill: (
                                         <Pill
                                             label={getDisplayName(badgeProperty)}
                                             size="sm"
-                                            color="violet"
+                                            color="primary"
                                             clickable={false}
                                         />
                                     ),

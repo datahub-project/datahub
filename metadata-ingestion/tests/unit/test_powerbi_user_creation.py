@@ -10,7 +10,11 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import User
-from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
+from datahub.metadata.schema_classes import (
+    CorpUserInfoClass,
+    CorpUserKeyClass,
+    CorpUserStatusClass,
+)
 
 _NOT_SET = object()  # Sentinel for distinguishing None from "not provided"
 
@@ -409,7 +413,7 @@ class TestToDatahubUsersGate:
         assert mapper.to_datahub_users(users) == []
 
     def test_both_flags_true_emits_user_mcps(self) -> None:
-        """(extract_ownership, create_corp_user) both True: a User-type principal must produce at least one MCP."""
+        """(extract_ownership, create_corp_user) both True: emit key, info, and status."""
         mapper = _make_mapper(extract_ownership=True, create_corp_user=True)
         users = [make_test_user("u1", principal_type="User")]
 
@@ -418,6 +422,12 @@ class TestToDatahubUsersGate:
         assert mcps, (
             "expected user MCPs when both flags are on and a User principal is present"
         )
+        aspect_names = [mcp.aspectName for mcp in mcps]
+        assert "corpUserKey" in aspect_names
+        assert "corpUserInfo" in aspect_names
+        assert "corpUserStatus" in aspect_names
+        status_mcp = next(mcp for mcp in mcps if mcp.aspectName == "corpUserStatus")
+        assert isinstance(status_mcp.aspect, CorpUserStatusClass)
 
     def test_app_principal_filters_to_empty_without_raising(self) -> None:
         """Non-User principals (App, Group) filter to no MCPs even when both flags are on."""

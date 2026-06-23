@@ -14,6 +14,7 @@ import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    CATEGORY_I18N_KEYS,
     CUSTOM_SOURCE_NAME,
     EXTERNAL_SOURCE_REDIRECT_URL,
     computeRows,
@@ -73,13 +74,12 @@ const RightSection = styled.div`
 `;
 
 export function SelectSourceStep() {
-    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t } = useTranslation(['ingestion.sourceBuilder', 'ingest.sources']);
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
-
     const { ingestionSources } = useIngestionSources();
 
     const filteredSources = ingestionSources.filter((src) =>
@@ -140,7 +140,11 @@ export function SelectSourceStep() {
                         <>
                             <SectionHeader>
                                 <LeftSection>
-                                    {customSource.category}
+                                    {customSource.category
+                                        ? t(CATEGORY_I18N_KEYS[customSource.category] ?? customSource.category, {
+                                              defaultValue: customSource.category,
+                                          })
+                                        : customSource.category}
                                     <Badge count={1} size="xs" />
                                 </LeftSection>
                             </SectionHeader>
@@ -175,7 +179,9 @@ export function SelectSourceStep() {
                             <Section key={category}>
                                 <SectionHeader>
                                     <LeftSection>
-                                        {category}
+                                        {t(CATEGORY_I18N_KEYS[category] ?? category, {
+                                            defaultValue: category,
+                                        })}
                                         <Badge count={list.length} size="xs" />
                                     </LeftSection>
 

@@ -123,6 +123,8 @@
     "source.emptySearchSubtitle": "Try another search query with at least 3 characters...",
     "source.emptySearchTitle": "No search results!",
     "source.emptyTitle": "No {{sourceType}} yet!",
+    "source.entityTypeNameCount_one": "{{type}}",
+    "source.entityTypeNameCount_other": "{{type}}s",
     "source.execute": "Execute",
     "source.executeConfirmText": "Click 'Execute' to run this ingestion source.",
     "source.executeConfirmTitle": "Confirm Source Execution",

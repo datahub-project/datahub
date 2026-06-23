@@ -10,10 +10,13 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -697,7 +700,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     Urn structPropUrn = StructuredPropertyUtils.toURNFromFQN("under.scores.and.dots.make_a_mess");
     aspectResponse.put(structPropUrn, ImmutableMap.of(STATUS_ASPECT_NAME, status));
     when(aspectRetriever.getLatestAspectObjects(
-            Collections.singleton(structPropUrn), ImmutableSet.of(STATUS_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(Collections.singleton(structPropUrn)),
+            eq(ImmutableSet.of(STATUS_ASPECT_NAME))))
         .thenReturn(aspectResponse);
     OperationContext mockRetrieverContext =
         TestOperationContexts.systemContextNoSearchAuthorization(

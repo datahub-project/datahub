@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.loadindices;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
@@ -12,6 +13,7 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -34,7 +36,8 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
         createNoOpProducer(),
         new TopicConventionImpl(),
         new NoOpKafkaHealthChecker(),
-        MetricUtils.builder().registry(new SimpleMeterRegistry()).build());
+        MetricUtils.builder().registry(new SimpleMeterRegistry()).build(),
+        new OutboundContextResolver(List.of()));
   }
 
   @SuppressWarnings("unchecked")
@@ -131,7 +134,8 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
   }
 
   @Override
-  public Future<?> produceMetadataChangeLog(
+  public Future<?> produceMCL(
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nullable AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
@@ -146,7 +150,9 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
 
   @Override
   public Future<?> produceMetadataChangeProposal(
-      @Nonnull final Urn urn, @Nonnull MetadataChangeProposal metadataChangeProposal) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal) {
     log.debug("NoOpKafkaEventProducer: Skipping MCP production for urn: {}", urn);
     return CompletableFuture.completedFuture(null);
   }
@@ -168,7 +174,10 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
 
   @Override
   public Future<?> producePlatformEvent(
-      @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent payload) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull String name,
+      @Nullable String key,
+      @Nonnull PlatformEvent payload) {
     log.debug("NoOpKafkaEventProducer: Skipping platform event production: {}", name);
     return CompletableFuture.completedFuture(null);
   }
@@ -179,7 +188,8 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
   }
 
   @Override
-  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+  public void produceDataHubUpgradeHistoryEvent(
+      @Nonnull final OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {
     log.debug("NoOpKafkaEventProducer: Skipping DataHub upgrade history event production");
   }
 

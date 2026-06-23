@@ -3,6 +3,7 @@ import { Tooltip } from '@components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
 
@@ -291,6 +292,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
     } = props;
 
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
 
@@ -435,7 +437,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         </>
                     )}
                     {entity?.icon && !entity.lineageSiblingIcon && (
-                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
+                        <PlatformIcon
+                            src={entity.icon}
+                            alt={platformName || t('node.platformAlt')}
+                            title={platformName}
+                        />
                     )}
                     {!entity && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
                     {entity ? (
@@ -487,7 +493,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 defaultHeight={10}
                                 data-testid="expand-contract-columns"
                             >
-                                {numColumnsTotal} columns
+                                {t('node.columnsCount', { count: numColumnsTotal })}
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
@@ -530,9 +536,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        const ghostTitle = entity?.status?.removed ? t('node.ghost.deleted') : t('node.ghost.notFound');
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={ghostTitle} mouseEnterDelay={0.3}>
                 {contents}
             </Tooltip>
         );

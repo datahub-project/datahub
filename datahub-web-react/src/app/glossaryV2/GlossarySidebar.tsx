@@ -77,7 +77,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     <Tooltip title={t('page.createGlossary')} placement="left" showArrow={false}>
                         <StyledButton
                             variant="filled"
-                            color="violet"
+                            color="primary"
                             isCircle
                             icon={{ icon: Plus }}
                             onClick={() => setIsCreateNodeModalVisible(true)}

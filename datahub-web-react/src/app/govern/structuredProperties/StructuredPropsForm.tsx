@@ -91,7 +91,7 @@ const StructuredPropsForm = ({
                         {t('create.propertyType')}
                         <RequiredAsterisk />
                         <Tooltip title={t('create.propertyTypeTooltip')} showArrow={false}>
-                            <Icon icon={Info} color="violet" size="lg" />
+                            <Icon icon={Info} color="iconBrand" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>

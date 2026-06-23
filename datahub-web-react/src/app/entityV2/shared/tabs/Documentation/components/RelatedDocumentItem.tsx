@@ -103,7 +103,7 @@ export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ docume
                                             entityRegistry.getDisplayName(actor.type, actor),
                                     }}
                                     components={{
-                                        link: (
+                                        actorLink: (
                                             <Link
                                                 to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                                                 onClick={(e) => e.stopPropagation()}

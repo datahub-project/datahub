@@ -1,4 +1,5 @@
-describe("siblings", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("siblings", () => {
   it("will merge metadata to non-primary sibling", () => {
     cy.login();
     cy.visit("/");

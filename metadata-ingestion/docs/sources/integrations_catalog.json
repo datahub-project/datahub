@@ -67,6 +67,13 @@
       "Status Aspect"
     ]
   },
+  "cube": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "title": "Cube",
+    "description": "Import cubes, views, measures, and dimensions from the Cube semantic layer, including view-to-cube and warehouse lineage.",
+    "img_path": "img/logos/platforms/cube.png"
+  },
   "databricks": {
     "platform_type": "ETL/ELT",
     "connection_type": "Pull",
@@ -474,6 +481,15 @@
     "description": "Teradata is an enterprise data warehouse platform for storing, managing, and analyzing large volumes of structured data at scale.",
     "extra_features": [
       "Lower Casing",
+      "Status Aspect"
+    ]
+  },
+  "tidb": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "TiDB is an open-source, distributed SQL database compatible with the MySQL protocol and ecosystem.",
+    "img_path": "img/logos/platforms/tidb.svg",
+    "extra_features": [
       "Status Aspect"
     ]
   },
@@ -986,6 +1002,12 @@
     "connection_type": "Pull",
     "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
+  },
+  "github-documents": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "Import files from a GitHub repository as DataHub Documents on a schedule.",
+    "img_path": "img/logos/platforms/github.svg"
   },
   "excel": {
     "platform_type": "Metadata Systems",

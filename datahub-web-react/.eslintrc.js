@@ -1,43 +1,15 @@
-const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 // --------------------------------------------------------------------------
 // Semantic color token enforcement (dark mode initiative)
 //
-// These rules block hardcoded colors and deprecated color imports, but ONLY
-// in files changed on the current branch. This lets us gradually migrate
-// without breaking the entire codebase.
-//
-// Once migration is complete, move these rules into the top-level `rules`
-// block and remove the git-diff scoping.
+// These rules block hardcoded colors and deprecated color imports across the
+// whole codebase (all src/**, except COLOR_RULE_EXCLUDED_FILES) so color flows
+// through theme.colors.* tokens that repaint for theming / dark mode.
 // --------------------------------------------------------------------------
 const rulesDirPlugin = require('eslint-plugin-rulesdir');
 rulesDirPlugin.RULES_DIR = path.join(__dirname, 'eslint-rules');
-
-const repoRoot = path.resolve(__dirname, '..');
-let changedTsFiles = [];
-try {
-    let baseBranch;
-    try {
-        execSync('git rev-parse --verify origin/master', { encoding: 'utf-8', cwd: repoRoot, stdio: 'pipe' });
-        baseBranch = 'origin/master';
-    } catch {
-        baseBranch = 'origin/main';
-    }
-
-    const raw = execSync(
-        `git diff --diff-filter=d --name-only ${baseBranch}...HEAD -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
-        { encoding: 'utf-8', cwd: repoRoot, stdio: 'pipe' },
-    );
-    changedTsFiles = raw
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map((f) => f.replace(/^datahub-web-react\//, ''));
-} catch {
-    // If git is unavailable (e.g. shallow clone in CI), skip scoped rules
-}
 
 const COLOR_ENFORCEMENT_RULES = {
     'no-restricted-imports': [
@@ -98,8 +70,12 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'rel',
     'href',
     'name',
+    // Source/connector display names are proper nouns (Athena, BigQuery, Confluence, …) and
+    // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
+    '.*[Dd]isplayName$',
     'form',
     'entityTypeName',
+    'commandName',
     'autoComplete',
     'preload',
     'placement',
@@ -109,6 +85,20 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'justifyContent',
     'field',
     'tab',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
+    // SVG / format / placement presentation attributes — never user-visible text.
+    'optionFilterProp',
+    '.*[Aa]lign$',
+    'dy',
+    'fontFamily',
+    'format',
+    'pointerEvents',
+    'textAnchor',
+    'textDecoration',
+    'tooltipPlacement',
+    'viewBox',
     '.*Path$',
     '.*background$',
     '.*Background$',
@@ -143,12 +133,28 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Style$',
 ];
 
-// Files that legitimately need raw color values
+// Files that legitimately need raw color values, or where migration is deferred.
 const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/colorThemes/**',
     'src/conf/theme/*.ts',
     'src/conf/theme/*.json',
     'src/alchemy-components/theme/**',
+    // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
+    // Migration is deferred here because live and dead code interleave (no clean glob).
+    'src/app/entity/**',
+    'src/app/search/**',
+    'src/app/lineage/**',
+    'src/app/glossary/**',
+    'src/app/analyticsDashboard/**',
+    'src/app/ingest/**',
+    // Mock fixtures, tests, and Storybook demos — never production UI.
+    'src/graphql-mock/**',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/__tests__/**',
+    '**/*.stories.tsx',
+    // Deferred to a design-led pass: chart series palette.
+    'src/app/dataviz/**',
 ];
 
 module.exports = {
@@ -278,6 +284,12 @@ module.exports = {
             rules: { 'import/no-cycle': 'off' },
         },
         {
+            // Custom ESLint rules and their tests live outside src/, so the src path
+            // aliases don't apply and the rule modules are CommonJS (.js).
+            files: ['eslint-rules/**'],
+            rules: { 'import-alias/import-alias': 'off', 'import/extensions': 'off' },
+        },
+        {
             // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
             files: ['src/utils/dayjs.ts'],
             rules: { 'no-restricted-imports': 'off' },
@@ -286,22 +298,28 @@ module.exports = {
             files: ['src/alchemy-components/theme/**/*.ts'],
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
         },
-        // Semantic color enforcement — only on files changed in the current branch
-        ...(changedTsFiles.length > 0
-            ? [
-                  {
-                      files: changedTsFiles,
-                      excludedFiles: COLOR_RULE_EXCLUDED_FILES,
-                      rules: COLOR_ENFORCEMENT_RULES,
-                  },
-              ]
-            : []),
+        // Semantic color enforcement — global; everything except COLOR_RULE_EXCLUDED_FILES.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: COLOR_RULE_EXCLUDED_FILES,
+            rules: COLOR_ENFORCEMENT_RULES,
+        },
         // i18n enforcement — only on files listed in translated-files.txt
         ...(translatedFiles.size > 0
             ? [
                   {
                       files: [...translatedFiles],
-                      excludedFiles: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+                      excludedFiles: [
+                          '**/__tests__/**',
+                          '**/*.test.ts',
+                          '**/*.test.tsx',
+                          // Storybook demo files render only in Storybook, never in the production app — their
+                          // demo strings must not be enforced as translatable.
+                          '**/*.stories.tsx',
+                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
+                          '**/alchemy-components/components/Editor/**',
+                      ],
                       rules: {
                           'i18next/no-literal-string': [
                               'error',
@@ -328,6 +346,7 @@ module.exports = {
                                   },
                               },
                           ],
+                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
                       },
                   },
               ]
