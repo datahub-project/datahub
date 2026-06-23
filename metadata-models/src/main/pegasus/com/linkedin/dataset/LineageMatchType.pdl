@@ -1,0 +1,19 @@
+namespace com.linkedin.dataset
+
+/**
+ * How an upstream lineage reference's URN was resolved against the entities stored
+ * in DataHub. Populated by the lineage URN casing normalization processor; absent
+ * when no casing reconciliation was performed.
+ */
+enum LineageMatchType {
+  /**
+   * The reference matched an existing entity exactly, including URN casing.
+   */
+  EXACT
+
+  /**
+   * The reference was case-normalized to match an existing entity whose URN uses
+   * different casing (i.e. the reference was rewritten to heal a casing mismatch).
+   */
+  NORMALIZED
+}
