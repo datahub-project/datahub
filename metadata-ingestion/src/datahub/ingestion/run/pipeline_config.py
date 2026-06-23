@@ -47,6 +47,46 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
+class UpstreamPlatformCasing(ConfigModel):
+    """An upstream warehouse platform whose asset casing lineage references should
+    be reconciled against."""
+
+    platform: str = Field(
+        description="Upstream data platform whose assets are referenced by this "
+        "source's lineage (e.g. `snowflake`). References to this platform's assets "
+        "are reconciled against the casing stored in DataHub.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of the upstream platform, if any.",
+    )
+    env: str = Field(
+        default="PROD",
+        description="Environment (FabricType) of the upstream platform's assets.",
+    )
+
+
+class NormalizeLineageUrnCasingConfig(ConfigModel):
+    """Configuration for the lineage URN casing normalization work unit processor.
+
+    Intended to be enabled on BI-tool / cross-platform ingestions that reference
+    warehouse assets — NOT on the warehouse ingestion itself, whose reported casing
+    and identity must be respected.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Whether to reconcile the casing of upstream warehouse URN "
+        "references in lineage against the casing stored in DataHub.",
+    )
+    upstream_platforms: List[UpstreamPlatformCasing] = Field(
+        default_factory=list,
+        description="The upstream warehouse platform(s) to bulk-load and reconcile "
+        "lineage references against. References to platforms not listed here are "
+        "left unchanged.",
+    )
+
+
 class FlagsConfig(ConfigModel):
     """Experimental flags for the ingestion pipeline.
 
@@ -71,6 +111,20 @@ class FlagsConfig(ConfigModel):
         default=None,
         description=(
             "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
+    normalize_lineage_urn_casing: NormalizeLineageUrnCasingConfig = Field(
+        default_factory=NormalizeLineageUrnCasingConfig,
+        description=(
+            "Experimental: before emitting lineage, reconcile the casing of upstream "
+            "warehouse URN references (table- and column-level) against the casing "
+            "stored in DataHub, so casing mismatches between sources (e.g. an uppercase "
+            "Snowflake table referenced as lowercase by a BI tool, or vice versa) don't "
+            "produce two disconnected lineage nodes. Requires a DataHub backend "
+            "connection (no-op for offline/file-only ingestion) and the upstream "
+            "platform(s) to be configured. Enable on BI-tool ingestions, not on the "
+            "warehouse ingestion itself."
         ),
     )
 
