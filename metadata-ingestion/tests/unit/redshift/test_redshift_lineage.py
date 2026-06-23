@@ -14,6 +14,7 @@ from datahub.ingestion.source.redshift.lineage import (
     parse_alter_table_rename,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
@@ -474,3 +475,46 @@ def test_build():
 
     # Test build method doesn't raise exception
     lineage_extractor.build(connection, all_tables, db_schemas)
+
+
+def test_populate_lineage_agg_drains_cursor_before_processing(monkeypatch):
+    """The Redshift cursor must be fully drained before the (slow) SQL-parsing
+    processors run, so the live cursor isn't held open through aggregation and
+    timed out by Redshift on large query histories.
+
+    Pre-fix, fetch and process interleaved (fetch-0, process, fetch-1, ...),
+    keeping the cursor open for the whole parse. The fix drains into a local
+    FileBackedList first, so all fetches complete before any processing.
+    """
+    lineage_extractor = get_lineage_extractor()
+    events: List[str] = []
+
+    def fake_get_lineage_rows(conn, query):
+        for i in range(3):
+            events.append(f"fetch-{i}")
+            yield MagicMock()
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_lineage_rows",
+        staticmethod(fake_get_lineage_rows),
+    )
+
+    def processor(_row):
+        events.append("process")
+
+    lineage_extractor._populate_lineage_agg(
+        query="select 1",
+        lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
+        processor=processor,
+        connection=MagicMock(),
+    )
+
+    assert events == [
+        "fetch-0",
+        "fetch-1",
+        "fetch-2",
+        "process",
+        "process",
+        "process",
+    ]

@@ -45,6 +45,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     TableRename,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
+from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -494,21 +495,30 @@ class RedshiftSqlLineage(Closeable):
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
-            for temp_row in self.get_temp_tables(connection=connection):
-                self.aggregator.add_observed_query(
-                    ObservedQuery(
-                        query=temp_row.query_text,
-                        default_db=self.database,
-                        default_schema=self.config.default_schema,
-                        session_id=temp_row.session_id,
-                        timestamp=temp_row.start_time,
-                    ),
-                    # The "temp table" query actually returns all CREATE TABLE statements, even if they
-                    # aren't explicitly a temp table. As such, setting is_known_temp_table=True
-                    # would not be correct. We already have mechanisms to autodetect temp tables,
-                    # so we won't lose anything by not setting it.
-                    is_known_temp_table=False,
-                )
+            # Drain the temp-table rows into a local cache before feeding them to
+            # the aggregator: add_observed_query parses SQL (slow), and doing that
+            # inline while iterating the live Redshift cursor holds the cursor open
+            # for the whole aggregation, which Redshift can time out on large query
+            # histories. See _populate_lineage_agg for the same pattern.
+            with FileBackedList[TempTableRow]() as temp_rows:
+                for temp_row in self.get_temp_tables(connection=connection):
+                    temp_rows.append(temp_row)
+
+                for temp_row in temp_rows:
+                    self.aggregator.add_observed_query(
+                        ObservedQuery(
+                            query=temp_row.query_text,
+                            default_db=self.database,
+                            default_schema=self.config.default_schema,
+                            session_id=temp_row.session_id,
+                            timestamp=temp_row.start_time,
+                        ),
+                        # The "temp table" query actually returns all CREATE TABLE statements, even if they
+                        # aren't explicitly a temp table. As such, setting is_known_temp_table=True
+                        # would not be correct. We already have mechanisms to autodetect temp tables,
+                        # so we won't lose anything by not setting it.
+                        is_known_temp_table=False,
+                    )
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []
 
@@ -619,10 +629,21 @@ class RedshiftSqlLineage(Closeable):
                 lineage_type.name, PerfTimer()
             )
             with timer:
-                for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                    conn=connection, query=query
-                ):
-                    processor(lineage_row)
+                # Drain the cursor into a local cache first, then process. The
+                # processors call SqlParsingAggregator.add_observed_query, which
+                # parses SQL and is slow; running it inline while iterating the
+                # live Redshift cursor keeps the cursor open for the entire
+                # aggregation, which Redshift can time out on large query
+                # histories. Draining first releases the cursor quickly, and the
+                # FileBackedList keeps memory bounded for large result sets.
+                with FileBackedList[LineageRow]() as lineage_rows:
+                    for lineage_row in RedshiftDataDictionary.get_lineage_rows(
+                        conn=connection, query=query
+                    ):
+                        lineage_rows.append(lineage_row)
+
+                    for lineage_row in lineage_rows:
+                        processor(lineage_row)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
