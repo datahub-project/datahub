@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 
+import boto3
 import pydantic
 import pytest
 import time_machine
 from botocore.stub import Stubber
+from moto import mock_aws
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.external.lake_formation_external_entites import (
@@ -539,6 +541,142 @@ def test_extract_urns_from_query_applies_target_platform_instance():
     # The configured platform_instance must be part of the parsed upstream URN so it matches the
     # postgres connector's own URNs.
     assert any("pg_core" in urn for urn in urns)
+
+
+@mock_aws
+def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
+    """End-to-end ingestion against a moto-backed Glue catalog.
+
+    The Stubber-based golden test feeds the source hand-written API responses; this test runs the
+    real boto3 -> Glue path so it proves the *wiring* the fix depends on:
+      1. the ``CatalogId`` the Glue API returns on each table drives ``platform_instance`` stamping
+         (the configured mapping is consulted, not just the source's own ``platform_instance``);
+      2. a Lake Formation resource link (``TargetTable``) emits an upstream edge to the *owner's*
+         URN — stamped with the owner account's instance from the map; and
+      3. the resource link, which carries no columns, has its schema backfilled from the owner's
+         table via a ``glue:GetTable`` on the target.
+    """
+    region = "us-east-1"
+    # moto stamps every table it returns with its default account, regardless of CatalogId; that
+    # account therefore stands in for the ingesting (consumer) catalog here.
+    consumer_account = "123456789012"
+    owner_account = "222222222222"
+
+    glue = boto3.client("glue", region_name=region)
+
+    # The owner-account table the resource link points at. It lives in its own database so we can
+    # exclude it from ingestion via database_pattern while still letting get_table resolve its
+    # schema for the backfill (moto ignores the foreign CatalogId and finds it locally).
+    glue.create_database(DatabaseInput={"Name": "owner_db"})
+    glue.create_table(
+        DatabaseName="owner_db",
+        TableInput={
+            "Name": "events_source",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "event_id", "Type": "bigint"},
+                    {"Name": "amount", "Type": "double"},
+                ],
+                "Location": "s3://owner-bucket/events",
+            },
+        },
+    )
+
+    # Consumer database: a normal table plus a Lake Formation resource link (no columns of its own).
+    glue.create_database(DatabaseInput={"Name": "analytics_db"})
+    glue.create_table(
+        DatabaseName="analytics_db",
+        TableInput={
+            "Name": "events",
+            "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+        },
+    )
+    glue.create_table(
+        DatabaseName="analytics_db",
+        TableInput={
+            "Name": "shared_events",
+            "TargetTable": {
+                "CatalogId": owner_account,
+                "DatabaseName": "owner_db",
+                "Name": "events_source",
+            },
+        },
+    )
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-moto-test"),
+        config=GlueSourceConfig(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            aws_region=region,
+            platform_instance="ingestion_acct",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            database_pattern={"allow": ["analytics_db"]},
+            catalog_to_platform_instance={
+                f"arn:aws:glue:{region}:{consumer_account}": {
+                    "platform_instance": "consumer_inst"
+                },
+                f"arn:aws:glue:{region}:{owner_account}": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+
+    wus = list(source.get_workunits())
+
+    snapshot_urns = {
+        wu.metadata.proposedSnapshot.urn
+        for wu in wus
+        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+    }
+
+    events_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.analytics_db.events,PROD)"
+    )
+    shared_events_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.analytics_db.shared_events,PROD)"
+    )
+    owner_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "owner_inst.owner_db.events_source,PROD)"
+    )
+
+    # (1) The mapping is consulted for the table's own CatalogId: tables are stamped with the mapped
+    # "consumer_inst", not the source's own "ingestion_acct". owner_db is excluded by the pattern,
+    # so it is never emitted as a dataset (it exists only as the backfill target).
+    assert events_urn in snapshot_urns
+    assert shared_events_urn in snapshot_urns
+    assert all("ingestion_acct" not in urn for urn in snapshot_urns)
+    assert all("owner_db" not in urn for urn in snapshot_urns)
+
+    # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
+    upstreams = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == shared_events_urn
+        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
+        if aspect is not None
+    ]
+    assert len(upstreams) == 1
+    assert [u.dataset for u in upstreams[0].upstreams] == [owner_urn]
+
+    # (3) The link's schema is backfilled from the owner's table (it had no columns of its own).
+    schemas = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == shared_events_urn
+        for aspect in [wu.get_aspect_of_type(models.SchemaMetadataClass)]
+        if aspect is not None
+    ]
+    assert len(schemas) == 1
+    field_paths = " ".join(f.fieldPath for f in schemas[0].fields)
+    assert "event_id" in field_paths
+    assert "amount" in field_paths
 
 
 @pytest.mark.parametrize(
