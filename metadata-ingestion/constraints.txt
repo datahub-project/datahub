@@ -1227,7 +1227,7 @@ pyiceberg==0.10.0
     # via acryl-datahub
 pyiceberg-core==0.6.0
     # via pyiceberg
-pyjwt==2.11.0
+pyjwt==2.13.0
     # via
     #   feast
     #   msal
@@ -1863,6 +1863,7 @@ typing-extensions==4.15.0
     #   pydantic
     #   pydantic-core
     #   pydash
+    #   pyjwt
     #   pyopenssl
     #   pypdf
     #   pytest-asyncio

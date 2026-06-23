@@ -10,8 +10,8 @@ jaraco.context>=6.1.0,<7
 idna>=3.15,<4.0.0
 # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in >=2.6.3.
 # Not pinned here: acryl-great-expectations (via acryl-datahub[snowflake]) requires urllib3<1.27.
-# PyJWT: CVE-2026-32597
-PyJWT>=2.12.0
+# PyJWT: GHSA-xgmm-8j9v-c9wx (JWK-as-HMAC confusion); fixed in >=2.13.0
+PyJWT>=2.13.0
 # pyOpenSSL: CVE-2026-27459
 pyopenssl>=26.0.0
 # pyasn1: CVE-2026-30922
