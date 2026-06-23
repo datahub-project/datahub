@@ -151,9 +151,9 @@ public class LoadIndicesStepTest {
     assertNotNull(executable);
 
     // Mock successful index manager operations
-    doNothing().when(mockIndexManager).optimizeForBulkOperations();
+    doNothing().when(mockIndexManager).optimizeForBulkOperations(any(OperationContext.class));
     when(mockIndexManager.isSettingsOptimized()).thenReturn(true);
-    doNothing().when(mockIndexManager).restoreFromConfiguration();
+    doNothing().when(mockIndexManager).restoreFromConfiguration(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -163,8 +163,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.SUCCEEDED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, times(1)).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, times(1)).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test
@@ -175,7 +175,7 @@ public class LoadIndicesStepTest {
     // Mock index manager disable failure
     doThrow(new IOException("Failed to optimize settings"))
         .when(mockIndexManager)
-        .optimizeForBulkOperations();
+        .optimizeForBulkOperations(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -185,8 +185,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.FAILED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, never()).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, never()).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test
@@ -195,11 +195,11 @@ public class LoadIndicesStepTest {
     assertNotNull(executable);
 
     // Mock successful optimization but failed restore
-    doNothing().when(mockIndexManager).optimizeForBulkOperations();
+    doNothing().when(mockIndexManager).optimizeForBulkOperations(any(OperationContext.class));
     when(mockIndexManager.isSettingsOptimized()).thenReturn(true);
     doThrow(new IOException("Failed to restore settings"))
         .when(mockIndexManager)
-        .restoreFromConfiguration();
+        .restoreFromConfiguration(any(OperationContext.class));
 
     // Execute the step
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -211,8 +211,8 @@ public class LoadIndicesStepTest {
     assertTrue(result.result() == DataHubUpgradeState.SUCCEEDED);
 
     // Verify index manager was called
-    verify(mockIndexManager, times(1)).optimizeForBulkOperations();
-    verify(mockIndexManager, times(1)).restoreFromConfiguration();
+    verify(mockIndexManager, times(1)).optimizeForBulkOperations(any(OperationContext.class));
+    verify(mockIndexManager, times(1)).restoreFromConfiguration(any(OperationContext.class));
   }
 
   @Test

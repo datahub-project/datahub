@@ -14,8 +14,7 @@ def test_detect_offset_ahead_of_log_one_cell() -> None:
     cursor_ctx = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor_ctx
 
-    cursor_ctx.fetchall.return_value = [(0, 3)]
-    cursor_ctx.fetchone.side_effect = [(10,), (0,)]
+    cursor_ctx.fetchall.side_effect = [[(0, 3)], [(0, 10)]]
 
     skews = repo.detect_offset_ahead_of_log(
         conn, "cg", topic_id=1, partition_count=2, topic_name="t"

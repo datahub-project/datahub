@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -54,7 +53,6 @@ public class RelatedDocumentsResolver
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
-  private final GroupService _groupService;
 
   @Override
   public CompletableFuture<RelatedDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -82,7 +80,8 @@ public class RelatedDocumentsResolver
             // Get current user and their groups for ownership filtering
             final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
             final List<Urn> userGroupUrns =
-                _groupService.getGroupsForUser(context.getOperationContext(), currentUserUrn);
+                new ArrayList<>(
+                    context.getOperationContext().getSessionActorContext().getGroupMembership());
             final List<String> userAndGroupUrns = new ArrayList<>();
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));

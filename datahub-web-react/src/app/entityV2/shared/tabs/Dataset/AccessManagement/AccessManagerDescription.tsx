@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 type Props = {
@@ -16,6 +17,7 @@ const DescriptionContainer = styled.div`
 `;
 
 export default function AccessManagerDescription({ description }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const shouldTruncateDescription = description.length > 150;
     const [expanded, setIsExpanded] = useState(!shouldTruncateDescription);
     const finalDescription = expanded ? description : description.slice(0, 150);
@@ -31,7 +33,7 @@ export default function AccessManagerDescription({ description }: Props) {
                     toggleExpanded();
                 }}
             >
-                {(shouldTruncateDescription && (expanded ? ' Read Less' : '...Read More')) || undefined}
+                {(shouldTruncateDescription && (expanded ? ` ${tc('readLess')}` : `...${tc('readMore')}`)) || undefined}
             </Typography.Link>
         </DescriptionContainer>
     );

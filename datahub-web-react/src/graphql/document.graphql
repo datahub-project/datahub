@@ -155,10 +155,16 @@ fragment documentSidebarFields on Document {
     urn
     type
     subType
+    platform {
+        ...platformFields
+    }
     info {
         title
         status {
             state
+        }
+        source {
+            sourceType
         }
         created {
             time
@@ -384,5 +390,15 @@ query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
                 ...relatedDocumentsFields
             }
         }
+    }
+}
+
+mutation importDocumentsFromFiles($input: ImportDocumentsFromFilesInput!) {
+    importDocumentsFromFiles(input: $input) {
+        createdCount
+        updatedCount
+        failedCount
+        errors
+        documentUrns
     }
 }

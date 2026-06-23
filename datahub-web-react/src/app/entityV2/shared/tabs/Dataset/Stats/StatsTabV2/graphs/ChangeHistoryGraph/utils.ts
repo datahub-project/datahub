@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { DefaultTheme } from 'styled-components';
 
 import {
@@ -68,42 +69,42 @@ export function convertAggregationsToOperationsData(
                 key: OperationType.Insert,
                 group: AggregationGroup.Purple,
                 type: OperationType.Insert,
-                name: 'Insert',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.insert'),
             },
             updates: {
                 value: updates,
                 key: OperationType.Update,
                 group: AggregationGroup.Purple,
                 type: OperationType.Update,
-                name: 'Update',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.update'),
             },
             deletes: {
                 value: deletes,
                 key: OperationType.Delete,
                 group: AggregationGroup.Red,
                 type: OperationType.Delete,
-                name: 'Delete',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.delete'),
             },
             alters: {
                 value: alters,
                 key: OperationType.Alter,
                 group: AggregationGroup.Purple,
                 type: OperationType.Alter,
-                name: 'Alter',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.alter'),
             },
             creates: {
                 value: creates,
                 key: OperationType.Create,
                 group: AggregationGroup.Purple,
                 type: OperationType.Create,
-                name: 'Create',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.create'),
             },
             drops: {
                 value: drops,
                 key: OperationType.Drop,
                 group: AggregationGroup.Red,
                 type: OperationType.Drop,
-                name: 'Drop',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.drop'),
             },
             ...prefixedCustomOperations,
         },

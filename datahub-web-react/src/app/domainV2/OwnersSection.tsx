@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
@@ -33,16 +34,17 @@ interface Props {
  * The goal is to replace sharedV2/owners/OwnersSection.tsx with this component.
  */
 const OwnersSection = ({ selectedOwnerUrns, setSelectedOwnerUrns, entityUrn, isDisabled, isLoading }: Props) => {
+    const { t } = useTranslation('governance.domain');
     return (
         <SectionContainer>
             <SectionHeader>
-                <Text>Add Owners</Text>
+                <Text>{t('owners.title')}</Text>
             </SectionHeader>
             <FormSection>
                 <ActorsSearchSelect
                     selectedActorUrns={selectedOwnerUrns}
                     onUpdate={(selectedActors) => setSelectedOwnerUrns(selectedActors.map((actor) => actor.urn))}
-                    placeholder="Search for users or groups"
+                    placeholder={t('owners.searchPlaceholder')}
                     entityUrn={entityUrn}
                     isDisabled={isDisabled}
                     isLoading={isLoading}

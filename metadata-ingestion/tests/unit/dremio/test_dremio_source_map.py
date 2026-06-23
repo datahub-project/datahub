@@ -1,7 +1,13 @@
 from typing import List
 from unittest.mock import MagicMock
 
-from datahub.ingestion.source.dremio.dremio_config import DremioSourceMapping
+from datahub.ingestion.source.dremio.dremio_config import (
+    DremioSourceMapping,
+    DremioSourceTypeOverride,
+)
+from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
+    DremioToDataHubSourceTypeMapping,
+)
 from datahub.ingestion.source.dremio.dremio_entities import DremioSourceContainer
 from datahub.ingestion.source.dremio.dremio_source import (
     DremioSourceMapEntry,
@@ -138,3 +144,78 @@ def test_build_source_map_same_platform_multiple_sources():
             database_name="somedb",
         ),
     }
+
+
+def test_build_source_map_honors_recipe_overrides_end_to_end():
+    # Recipe override -> mapper -> source_map: pin end-to-end propagation.
+    overrides = {
+        "MYNEWCONNECTOR": DremioSourceTypeOverride(
+            platform="myplatform", category="database"
+        ),
+        "MYSTORE": DremioSourceTypeOverride(
+            platform="mystore", category="file_object_storage"
+        ),
+    }
+    mapper = DremioToDataHubSourceTypeMapping(extra_mappings=overrides)
+
+    sources: List[DremioSourceContainer] = [
+        DremioSourceContainer(
+            container_name="custom_db",
+            location_id="a",
+            path=[],
+            api_operations=MagicMock(),  # type:ignore
+            dremio_source_type="MYNEWCONNECTOR",
+            root_path="/",
+            database_name="custom",
+        ),
+        DremioSourceContainer(
+            container_name="custom_lake",
+            location_id="b",
+            path=[],
+            api_operations=MagicMock(),  # type:ignore
+            dremio_source_type="MYSTORE",
+            root_path="/lake",
+            database_name=None,
+        ),
+    ]
+
+    source_map = build_dremio_source_map(
+        sources, source_mappings_config=[], source_type_mapper=mapper
+    )
+
+    assert source_map == {
+        "custom_db": DremioSourceMapEntry(
+            source_name="custom_db",
+            platform="myplatform",
+            env=None,
+            dremio_source_category="database",
+            root_path="/",
+            database_name="custom",
+        ),
+        "custom_lake": DremioSourceMapEntry(
+            source_name="custom_lake",
+            platform="mystore",
+            env=None,
+            dremio_source_category="file_object_storage",
+            root_path="/lake",
+            database_name="",
+        ),
+    }
+
+
+def test_build_source_map_default_mapper_marks_unknown_arp_types():
+    # Negative control: unknown type falls through with category='unknown'.
+    sources: List[DremioSourceContainer] = [
+        DremioSourceContainer(
+            container_name="custom_db",
+            location_id="a",
+            path=[],
+            api_operations=MagicMock(),  # type:ignore
+            dremio_source_type="MYNEWCONNECTOR",
+            root_path="/",
+            database_name="custom",
+        ),
+    ]
+    source_map = build_dremio_source_map(sources, source_mappings_config=[])
+    assert source_map["custom_db"].dremio_source_category == "unknown"
+    assert source_map["custom_db"].platform == "mynewconnector"

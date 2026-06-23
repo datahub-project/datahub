@@ -1,6 +1,7 @@
 import { Modal, Text } from '@components';
 import { Image } from 'antd';
 import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -28,7 +29,10 @@ const ItalicsText = styled(Text)`
     font-style: italic;
 `;
 
+const BACKDROP_FILTER = 'blur(2px)';
+
 export default function CreateSourceEducationModal() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const theme = useTheme();
     const hasSeenStep = useHasSeenEducationStep(INGESTION_SELECT_SOURCE_ID);
     const { updateEducationStep } = useUpdateEducationStep();
@@ -55,38 +59,46 @@ export default function CreateSourceEducationModal() {
                     variant: 'filled',
                     onClick: handleClose,
                     buttonDataTestId: 'modal-confirm-button',
-                    text: `Let's Go!`,
+                    text: t('multiStep.education.cta'),
                     color: 'primary',
                 },
             ]}
-            title="Connect Your Data"
-            maskStyle={{ backgroundColor: theme.colors.overlayMedium, backdropFilter: 'blur(2px)' }}
+            title={t('multiStep.education.title')}
+            maskStyle={{ backgroundColor: theme.colors.overlayMedium, backdropFilter: BACKDROP_FILTER }}
             bodyStyle={{ padding: '16px' }}
         >
             <ContentContainer>
                 <Text size="lg" weight="bold" style={{ color: theme.colors.text }}>
-                    Set Up Your First Source in Minutes
+                    {t('multiStep.education.heading')}
                 </Text>
                 <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
-                    We&apos;ll guide you through each step - Ask DataHub is here to help with configuration and
-                    troubleshooting as you go.
+                    {t('multiStep.education.intro')}
                 </Text>
                 <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
-                    <Text weight="bold" type="span">
-                        Pro Tip:{' '}
-                    </Text>
-                    Start with your data warehouse (Snowflake, BigQuery, Databricks) as a strong foundation.
+                    <Trans
+                        t={t}
+                        i18nKey="multiStep.education.proTip"
+                        components={{
+                            label: <Text weight="bold" type="span" />,
+                        }}
+                    />
                 </Text>
                 <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
-                    Then, connect upstream platforms where data originates or downstream tools where it&apos;s consumed,
-                    and let DataHub automatically map lineage between them.
+                    {t('multiStep.education.lineage')}
                 </Text>
                 <StyledImage src={displayImage} preview={false} />
                 <ItalicsText size="sm" style={{ color: theme.colors.textSecondary }}>
-                    Prefer to keep credentials local? Get started with{' '}
-                    <a href={EXTERNAL_SOURCE_REDIRECT_URL} target="_blank" rel="noreferrer">
-                        DataHub&apos;s Ingestion CLI
-                    </a>
+                    <Trans
+                        t={t}
+                        i18nKey="multiStep.education.cli"
+                        components={{
+                            anchor: (
+                                <a href={EXTERNAL_SOURCE_REDIRECT_URL} target="_blank" rel="noreferrer">
+                                    {t('multiStep.education.cliLinkText')}
+                                </a>
+                            ),
+                        }}
+                    />
                 </ItalicsText>
             </ContentContainer>
         </Modal>

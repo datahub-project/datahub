@@ -426,6 +426,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                             <Button
                                 variant="text"
                                 isCircle
+                                data-testid="policy-row-menu-button"
                                 icon={{
                                     icon: DotsThreeVertical,
                                     weight: 'bold',
@@ -459,7 +460,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
 
     return (
         <>
-            <PageContainer>
+            <PageContainer data-testid="manage-permissions-page">
                 <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
                 <ToolbarContainer>
                     <SearchBar
@@ -500,6 +501,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                             isLoading={policiesLoading}
                             style={{ tableLayout: 'fixed' }}
                             onRowClick={(record: any) => onViewPolicy(record.policy)}
+                            data-testid="policies-table-body"
                         />
                     )}
                 </TableScrollContainer>

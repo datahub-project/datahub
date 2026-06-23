@@ -71,16 +71,14 @@ permissions:
 
 jobs:
   collect-metrics:
-    # For workflow_run: only collect metrics for PRs and pushes to the default/release/hotfix
-    # branches — skip feature branches, dependabot bumps, etc.
-    # workflow_dispatch is always allowed for ad-hoc testing.
+    # For push events: only collect metrics for default/release/hotfix branches.
+    # All other event types (pull_request, schedule, release, etc.) and workflow_dispatch pass through.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.event == 'pull_request' ||
-      (github.event.workflow_run.event == 'push' &&
-        (github.event.workflow_run.head_branch == github.event.repository.default_branch ||
-         startsWith(github.event.workflow_run.head_branch, 'release/') ||
-         startsWith(github.event.workflow_run.head_branch, 'hotfix/')))
+      github.event.workflow_run.event != 'push' ||
+      github.event.workflow_run.head_branch == github.event.repository.default_branch ||
+      startsWith(github.event.workflow_run.head_branch, 'releases/') ||
+      startsWith(github.event.workflow_run.head_branch, 'hotfixes/')
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository

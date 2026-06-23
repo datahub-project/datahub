@@ -1,5 +1,6 @@
 import { EditOutlined, FileOutlined } from '@ant-design/icons';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -10,6 +11,7 @@ import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/Lin
 import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
+const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;
@@ -46,6 +48,8 @@ const ExpandButton = styled(Button)`
 `;
 
 export default function SummaryAboutSection() {
+    const { t } = useTranslation('entity.shared.profile');
+    const { t: tc } = useTranslation('common.actions');
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
 
@@ -65,14 +69,14 @@ export default function SummaryAboutSection() {
 
     return (
         <SectionContainer>
-            <SummaryTabHeaderTitle title="Documentation" icon={<FileOutlined />} />
+            <SummaryTabHeaderTitle title={t('summary.documentationTitle')} icon={<FileOutlined />} />
             <DocumentationWrapper canExpand={canExpand ? true : undefined}>
                 {!!description && (
                     <>
                         <EditorWrapper ref={measuredRef} mask={canExpand ? true : undefined} maxHeight={maxHeight}>
                             <Editor content={description} readOnly />
                         </EditorWrapper>
-                        {canExpand && <ExpandButton onClick={() => setExpanded(true)}>Expand</ExpandButton>}
+                        {canExpand && <ExpandButton onClick={() => setExpanded(true)}>{tc('expand')}</ExpandButton>}
                     </>
                 )}
                 {!description && (
@@ -80,9 +84,11 @@ export default function SummaryAboutSection() {
                         <AddLinkModal />
                         <Button
                             data-testid="add-documentation"
-                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                            onClick={() =>
+                                routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                            }
                         >
-                            <EditOutlined /> Add Documentation
+                            <EditOutlined /> {t('summary.addDocumentation')}
                         </Button>
                     </EmptyTab>
                 )}

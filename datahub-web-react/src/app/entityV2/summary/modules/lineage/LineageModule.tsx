@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -9,6 +10,7 @@ import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 export default function LineageModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { urn, entityType } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -20,7 +22,7 @@ export default function LineageModule(props: ModuleProps) {
         <LargeModule
             {...props}
             onClickViewAll={navigateToLineageTab}
-            viewAllText="View in Lineage"
+            viewAllText={t('lineage.viewAll')}
             dataTestId="lineage-module"
         >
             <LineageGraphContext.Provider value={{ isDAGView: false, isModuleView: true }}>

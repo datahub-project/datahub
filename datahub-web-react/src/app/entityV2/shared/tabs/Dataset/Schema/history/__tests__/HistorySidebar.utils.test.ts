@@ -1,13 +1,25 @@
 import {
-    ALL_CATEGORY_OPTIONS,
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
+    CategoryOption,
     filterChangeEntries,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
+
+const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
+    { value: ChangeCategoryType.TechnicalSchema, label: 'Schema' },
+    { value: ChangeCategoryType.Documentation, label: 'Documentation' },
+    { value: ChangeCategoryType.Tag, label: 'Tags' },
+    { value: ChangeCategoryType.GlossaryTerm, label: 'Terms' },
+    { value: ChangeCategoryType.Ownership, label: 'Owners' },
+    { value: CATEGORY_DOMAIN, label: 'Domains' },
+    { value: CATEGORY_STRUCTURED_PROPERTY, label: 'Properties' },
+    { value: CATEGORY_APPLICATION, label: 'Applications' },
+    { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
+];
 
 describe('getCategoryOptions', () => {
     it('returns all 8 categories for datasets', () => {

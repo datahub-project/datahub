@@ -59,12 +59,16 @@ framework_common = {
     # avro has historically made breaking changes, so we have a cautious upper bound.
     "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0,<3.0.0",
-    "tabulate<0.10.0",
+    # Floor 0.10.0 is allowed so the package can be installed alongside Airflow
+    # 3.2+, whose constraints file pins tabulate==0.10.0. Our usage is limited to
+    # the stable tabulate(data, headers=..., tablefmt=...) call. 0.10.0 requires
+    # Python 3.10+, so 3.9 environments still resolve to 0.9.x.
+    "tabulate<0.11.0",
     "progressbar2<5.0.0",
     "psutil>=5.8.0,<8.0.0",
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
-    "packaging<26.0.0",
+    "packaging<27.0.0",
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
@@ -76,9 +80,12 @@ framework_common = {
     "requests_file<4.0.0",
     "jsonref<2.0.0",
     "jsonschema<5.0.0",
-    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
-    # which is not available as wheel.
-    "ruamel.yaml<0.19.0",
+    # ruamel.yaml 0.19.0 (Dec 31, 2025) made the compiled ruamel.yaml.clib a
+    # mandatory dependency. It was originally capped at <0.19.0 because clib
+    # wheels were unavailable at the time; clib now ships wheels for all
+    # supported Pythons/platforms, and Airflow 3.2's constraints pin
+    # ruamel.yaml==0.19.1, so allow 0.19.x.
+    "ruamel.yaml<0.20.0",
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
 }
@@ -328,7 +335,7 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=46.0.7,<47.0.0",  # >=46.0.7 for CVE-2026-26007
+    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -373,10 +380,11 @@ iceberg_common = {
     # 0.8.0.
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
-    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
-    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
-    "pydantic<2.12",
+    # - v0.11.0 dropped the `zstandard` extra (now a core dependency).
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
+    # iceberg_common.py imports SortedList directly. This was pulled in transitively
+    # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
+    "sortedcontainers>=2.4.0,<3.0.0",
     *cachetools_lib,
 }
 
@@ -489,7 +497,6 @@ mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
     "Authlib>=1.6.11,<2.0.0",
 }
@@ -698,6 +705,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
     },
+    "hex": {"requests<3.0.0"} | sqlglot_lib,
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "informatica": {
@@ -735,6 +743,7 @@ plugins: Dict[str, Set[str]] = {
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
     "mysql": mysql_common,
     "mariadb": mysql_common,
+    "tidb": mysql_common,
     "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
@@ -820,6 +829,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -827,6 +837,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlalchemy_lib
     | sqlglot_lib,
     "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
+    "cube": {"requests<3.0.0"} | sqlglot_lib,
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -901,7 +912,7 @@ mypy_stubs = {
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
     "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
-    "types-tabulate<0.10.0",
+    "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
     "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
@@ -933,8 +944,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
-    "mypy==1.17.1",
+    "ruff==0.15.18",
+    "mypy==2.1.0",
 }
 
 base_dev_requirements = {
@@ -969,6 +980,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
+            "cube",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -987,6 +999,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "tidb",
             "matillion-dpc",
             "okta",
             "oracle",
@@ -1018,6 +1031,7 @@ base_dev_requirements = {
             "unity-catalog",
             "nifi",
             "notion",
+            "github-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1079,6 +1093,7 @@ full_test_dev_requirements = {
             "mssql-odbc",
             "mysql",
             "mariadb",
+            "tidb",
             "rdf",
             "redash",
             "starrocks",
@@ -1152,7 +1167,9 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "tidb = datahub.ingestion.source.sql.tidb:TiDBSource",
         "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
+        "cube = datahub.ingestion.source.cube.cube:CubeSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
@@ -1189,6 +1206,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
+        "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",

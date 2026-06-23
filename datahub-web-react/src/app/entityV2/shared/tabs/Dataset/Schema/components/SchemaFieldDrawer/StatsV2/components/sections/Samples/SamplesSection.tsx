@@ -1,5 +1,6 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AllSamplesDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/components/AllSamplesDrawer';
@@ -18,6 +19,7 @@ const ButtonContainer = styled.div`
 const DEFAULT_MAX_SAMPLES_FOR_PREVIEW_TABLE = 3;
 
 export default function SamplesSection() {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
     const [showAllSamples, setShowAllSamples] = useState<boolean>(false);
     const [selectedSample, setSelectedSample] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export default function SamplesSection() {
                         icon={{ icon: ArrowRight }}
                         iconPosition="right"
                     >
-                        View {numberOfHiddenSampleValues} more
+                        {t('statsV2Samples.viewMore', { count: numberOfHiddenSampleValues })}
                     </Button>
                 </ButtonContainer>
             )}

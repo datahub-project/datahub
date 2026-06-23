@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Skeleton, Spin } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
@@ -233,6 +234,7 @@ export default function SchemaFieldNodeContents({
     setHoveredNode,
     ignoreSchemaFieldStatus,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistryV2();
     const theme = useTheme();
     const NODE_COLOR = theme.colors.chartsInformationLow;
@@ -316,7 +318,11 @@ export default function SchemaFieldNodeContents({
                 <CustomHandle type="source" position={Position.Right} isConnectable={false} />
                 <IconsWrapper>
                     {platformIcon ? (
-                        <PlatformIcon src={platformIcon} alt={platformName || 'platform'} title={platformName} />
+                        <PlatformIcon
+                            src={platformIcon}
+                            alt={platformName || t('node.platformAlt')}
+                            title={platformName}
+                        />
                     ) : (
                         <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
                     )}
@@ -344,7 +350,7 @@ export default function SchemaFieldNodeContents({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                        <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
                                             <LinkOut />
                                         </Tooltip>
                                     </ColumnLinkWrapper>
@@ -363,7 +369,7 @@ export default function SchemaFieldNodeContents({
                                     />
                                 </InvalidSchemaFieldLine>
                             ) : (
-                                <Tooltip title="Change home node" mouseEnterDelay={0.3}>
+                                <Tooltip title={t('node.changeHomeNodeTooltip')} mouseEnterDelay={0.3}>
                                     <SchemaFieldLine to={lineageUrl}>
                                         <OverflowTitle
                                             title={downgradeV2FieldPath(entity.name)}
@@ -382,12 +388,12 @@ export default function SchemaFieldNodeContents({
     );
 
     if (isGhost) {
-        const message =
+        const ghostTitle =
             entity?.status?.removed || entity?.parent?.status?.removed
-                ? 'has been deleted'
-                : 'does not exist in DataHub';
+                ? t('node.ghost.deleted')
+                : t('node.ghost.notFound');
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={ghostTitle} mouseEnterDelay={0.3}>
                 {contents}
             </Tooltip>
         );

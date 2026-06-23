@@ -13,6 +13,8 @@ from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
 
@@ -110,6 +112,107 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_view_and_query_history_merge_into_single_upstream_lineage(
+    create_engine_mock,
+):
+    """Regression for the double-emit bug fixed by this PR (originally introduced by #16084).
+
+    A view whose CREATE/ALTER DDL also shows up in Query Store gets lineage from
+    two sources: the view-definition path and the query-history path. When those
+    fed two separate aggregators, each emitted its own ``upstreamLineage`` MCP for
+    the view; the second SET-overwrote v0 with a partial payload (only
+    ``fineGrainedLineages``, empty ``upstreams``), wiping table-level lineage.
+
+    This drives the REAL shared aggregator with BOTH sources for the same view URN
+    and asserts the merged output is a single ``upstreamLineage`` aspect that still
+    carries table-level upstreams. With the pre-fix two-aggregator design this would
+    produce two aspects for the view; with the fix it produces exactly one.
+    """
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+
+    # mssql lowercases URNs by default (convert_urns_to_lowercase=True), so the
+    # parser resolves table refs to lowercase URNs — register/assert in lowercase.
+    view_urn = DatasetUrn("mssql", "testdb.dbo.my_view")
+    source_urn = DatasetUrn("mssql", "testdb.dbo.source_table")
+
+    # Schema info lets the parser resolve table- and column-level lineage.
+    for urn in (view_urn, source_urn):
+        source.aggregator._schema_resolver.add_raw_schema_info(
+            urn=urn.urn(), schema_info={"id": "int", "name": "varchar"}
+        )
+
+    view_definition = "create view my_view as select id, name from source_table"
+    # Source 1: view-definition lineage.
+    source.aggregator.add_view_definition(
+        view_urn=view_urn,
+        view_definition=view_definition,
+        default_db="TestDB",
+        default_schema="dbo",
+    )
+    # Source 2: the same view's DDL observed in Query Store.
+    source.aggregator.add_observed_query(
+        ObservedQuery(
+            query=view_definition,
+            default_db="TestDB",
+            default_schema="dbo",
+            override_dialect="mssql",
+        )
+    )
+
+    # Query history is fed manually above, so skip the DB round-trip.
+    with patch.object(source, "_populate_aggregator_with_query_history"):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstream_aspects = []
+    for wu in workunits:
+        if wu.get_urn() != view_urn.urn():
+            continue
+        aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+        if aspect is not None:
+            upstream_aspects.append(aspect)
+
+    assert len(upstream_aspects) == 1, (
+        f"Expected exactly one upstreamLineage aspect for {view_urn.urn()!r}, "
+        f"got {len(upstream_aspects)}. Two aspects mean the view received a "
+        "duplicate emit that SET-overwrites v0 with a partial payload."
+    )
+    # Table-level upstreams must survive the merge (the bug wiped them).
+    upstreams = {u.dataset for u in upstream_aspects[0].upstreams}
+    assert source_urn.urn() in upstreams
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_query_history_feeds_shared_aggregator(create_engine_mock):
+    """Query history must flow into the inherited ``self.aggregator``, not a second one.
+
+    The double-emit bug came from a separate ``self.sql_aggregator`` that also called
+    ``gen_metadata()``. This guards against reintroducing a second aggregator by
+    asserting the lineage extractor is wired to the single shared aggregator.
+    """
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+
+    inspector = Mock()
+    inspector.engine.connect.return_value.__enter__ = Mock(return_value=Mock())
+    inspector.engine.connect.return_value.__exit__ = Mock(return_value=False)
+
+    with (
+        patch.object(source, "get_inspectors", return_value=[inspector]),
+        patch(
+            "datahub.ingestion.source.sql.mssql.source.MSSQLLineageExtractor"
+        ) as extractor_cls,
+    ):
+        source._populate_aggregator_with_query_history()
+
+    assert extractor_cls.call_args.kwargs["sql_aggregator"] is source.aggregator
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
     """Test that query extraction failures are reported but don't stop ingestion."""
     config = SQLServerConfig.model_validate(
@@ -132,7 +235,7 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         )
 
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
-            list(source._get_query_based_lineage_workunits())
+            source._populate_aggregator_with_query_history()
 
     assert len(source.report.failures) > 0
     failure_messages = [f.message for f in source.report.failures]

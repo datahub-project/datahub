@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Alternativtext",
+    "addImage.imageUrl": "Bild-URL",
+    "addImage.title": "Bild hinzufügen",
+    "heading.heading1": "Überschrift 1",
+    "heading.heading2": "Überschrift 2",
+    "heading.heading3": "Überschrift 3",
+    "heading.heading4": "Überschrift 4",
+    "heading.heading5": "Überschrift 5",
+    "heading.normal": "Normal",
+    "link.linkUrl": "Link-URL",
+    "link.text": "Text",
+    "link.title": "Link hinzufügen",
+    "mentions.failedToFindEntity": "Entität konnte nicht gefunden werden",
+    "table.deleteColumn": "Spalte löschen",
+    "table.deleteRow": "Zeile löschen",
+    "table.deleteTable": "Tabelle löschen",
+    "table.insertColumnLeft": "Spalte links einfügen",
+    "table.insertColumnRight": "Spalte rechts einfügen",
+    "table.insertRowAbove": "Zeile oberhalb einfügen",
+    "table.insertRowBelow": "Zeile unterhalb einfügen"
+}

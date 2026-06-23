@@ -193,6 +193,28 @@ services:
       bind:
         create_host_path: true
   kafka-broker:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-actions
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-cassandra
+    - quickstart-postgres-cdc
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    - debug
+    - debug-min
+    - debug-datahub-actions
+    - debug-frontend
+    - debug-backend
+    - debug-postgres-cdc
+    - debug-cassandra
+    - debug-consumers
+    - debug-consumers-cdc
+    - debug-neo4j
+    - debug-backend-aws
+    - debug-aws
     command:
     - /bin/bash
     - -c
@@ -312,6 +334,7 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-consumers
     - quickstart-postgres-cdc
     - quickstart-consumers
     - quickstart-consumers-cdc
@@ -322,6 +345,7 @@ services:
     - debug-backend
     - debug-postgres
     - debug-postgres-cdc
+    - debug-postgres-consumers
     - debug-cassandra
     - debug-consumers
     - debug-consumers-cdc

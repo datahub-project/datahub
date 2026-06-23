@@ -48,6 +48,7 @@ class DatasetSubTypes(StrEnum):
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    CUBE = "Cube"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -76,8 +77,10 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    # Dremio
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    DREMIO_FOLDER = "Dremio Folder"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
@@ -89,6 +92,8 @@ class DatasetContainerSubTypes(StrEnum):
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
+    # Cube
+    CUBE_DEPLOYMENT = "Cube Deployment"
 
 
 class BIContainerSubTypes(StrEnum):

@@ -2,6 +2,8 @@ package com.linkedin.datahub.upgrade.sqlsetup;
 
 import static org.testng.Assert.assertEquals;
 
+import com.linkedin.metadata.config.postgres.DatabaseType;
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import org.testng.annotations.Test;
 
 public class JdbcUrlParserTest {
@@ -26,6 +28,16 @@ public class JdbcUrlParserTest {
     assertEquals(info.host, "localhost");
     assertEquals(info.port, 5432);
     assertEquals(info.database, "datahub");
+    assertEquals(info.currentSchema, null);
+  }
+
+  @Test
+  public void testParsePostgresUrlWithCurrentSchema() {
+    String url = "jdbc:postgresql://localhost:5432/datahub?currentSchema=app&sslmode=disable";
+    JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(url);
+
+    assertEquals(info.database, "datahub");
+    assertEquals(info.currentSchema, "app");
   }
 
   @Test

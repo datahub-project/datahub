@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
@@ -61,9 +61,6 @@ from datahub.ingestion.source.fabric.data_factory.models import (
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactoryClientReport,
     FabricDataFactorySourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -216,16 +213,6 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
     ) -> "FabricDataFactorySource":
         config = FabricDataFactorySourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(
-        self,
-    ) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_report(self) -> FabricDataFactorySourceReport:
         return self.report

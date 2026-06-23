@@ -1,6 +1,7 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -26,7 +27,15 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
+const EXECUTOR_ID_PLACEHOLDER = 'default';
+const EXTRA_ENV_PLACEHOLDER = '{"MY_CUSTOM_ENV": "my_custom_value2"}';
+const EXTRA_ARGS_PLACEHOLDER = '["debug"]';
+const EXTRA_PIP_PLACEHOLDER = '["sqlparse==0.4.3"]';
+
 export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const me = useUserContext();
     const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
     const initialOwners = useMemo(() => {
@@ -219,19 +228,19 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                 <Form.Item
                     label={
                         <LabelContainer>
-                            <Text>Name</Text>
+                            <Text>{tl('name')}</Text>
                             <Text color="textError"> *</Text>
                         </LabelContainer>
                     }
                     style={{ marginBottom: 16 }}
                 >
                     <Typography.Paragraph data-testid="give-source-name-heading">
-                        Give this data source a name
+                        {t('nameStep.giveName')}
                     </Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
-                        placeholder="My Redshift Source #2"
+                        placeholder={t('nameStep.namePlaceholder')}
                         value={state.name}
                         onChange={(event) => setName(event.target.value)}
                         onBlur={(event) => handleBlur(event, setName)}
@@ -241,7 +250,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                 <Form.Item
                     label={
                         <LabelContainer>
-                            <Text>Owners</Text>
+                            <Text>{tl('owners')}</Text>
                         </LabelContainer>
                     }
                     style={{ marginBottom: 16 }}
@@ -253,79 +262,66 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     <Collapse.Panel
                         header={
                             <Typography.Text type="secondary" data-testid="advanced-settings-header">
-                                Advanced
+                                {t('nameStep.advanced')}
                             </Typography.Text>
                         }
                         key="1"
                     >
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}
-                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
-                                used to route execution requests of the recipe to the executor of the same ID. The
-                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a custom executor via actions framework.
-                            </Typography.Paragraph>
+                        <Form.Item label={<Typography.Text strong>{t('nameStep.executorId.label')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('nameStep.executorId.description')}</Typography.Paragraph>
                             <Input
-                                placeholder="default"
+                                placeholder={EXECUTOR_ID_PLACEHOLDER}
                                 value={state.config?.executorId || ''}
                                 onChange={(event) => setExecutorId(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExecutorId)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Advanced: Provide a custom CLI version to use for ingestion.
-                            </Typography.Paragraph>
+                        <Form.Item label={<Typography.Text strong>{t('nameStep.cliVersion.label')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('nameStep.cliVersion.description')}</Typography.Paragraph>
                             <Input
                                 data-testid="cli-version-input"
                                 className="cli-version-input"
-                                placeholder="(e.g. 0.15.0)"
+                                placeholder={t('nameStep.cliVersion.placeholder')}
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setVersion)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Advanced: Turn on debug mode in order to get more verbose logs.
-                            </Typography.Paragraph>
+                        <Form.Item label={<Typography.Text strong>{t('nameStep.debugMode.label')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('nameStep.debugMode.description')}</Typography.Paragraph>
                             <Checkbox
                                 checked={state.config?.debugMode || false}
                                 onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra Enviroment Variables</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Advanced: Set extra environment variables to an ingestion execution
-                            </Typography.Paragraph>
+                        <Form.Item label={<Typography.Text strong>{t('nameStep.extraEnvVars.label')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('nameStep.extraEnvVars.description')}</Typography.Paragraph>
                             <Input
                                 data-testid="extra-args-input"
-                                placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
+                                placeholder={EXTRA_ENV_PLACEHOLDER}
                                 value={retrieveExtraEnvs()}
                                 onChange={(event) => setExtraEnvs(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExtraEnvs)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Advanced: Set extra DataHub plugins for an ingestion execution
-                            </Typography.Paragraph>
+                        <Form.Item label={<Typography.Text strong>{t('nameStep.extraPlugins.label')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('nameStep.extraPlugins.description')}</Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-plugin-input"
-                                placeholder='["debug"]'
+                                placeholder={EXTRA_ARGS_PLACEHOLDER}
                                 value={retrieveExtraDataHubPlugins()}
                                 onChange={(event) => setExtraDataHubPlugins(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
-                            <Typography.Paragraph>
-                                Advanced: Add extra pip libraries for an ingestion execution
-                            </Typography.Paragraph>
+                        <Form.Item
+                            label={<Typography.Text strong>{t('nameStep.extraPipLibraries.label')}</Typography.Text>}
+                        >
+                            <Typography.Paragraph>{t('nameStep.extraPipLibraries.description')}</Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-reqs-input"
-                                placeholder='["sqlparse==0.4.3"]'
+                                placeholder={EXTRA_PIP_PLACEHOLDER}
                                 value={retrieveExtraReqs()}
                                 onChange={(event) => setExtraReqs(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExtraReqs)}
@@ -336,7 +332,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
             </RequiredFieldForm>
             <ControlsContainer>
                 <Button variant="outline" color="gray" onClick={prev}>
-                    Previous
+                    {tc('previous')}
                 </Button>
                 <ModalButtonContainer>
                     <Button
@@ -345,15 +341,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
-                        Save
+                        {tc('save')}
                     </Button>
-                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                    <Tooltip showArrow={false} title={t('nameStep.saveAndRunTooltip')}>
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
                             data-testid="ingestion-source-save-and-run-button"
                         >
-                            Save & Run
+                            {t('nameStep.saveAndRun')}
                         </Button>
                     </Tooltip>
                 </ModalButtonContainer>

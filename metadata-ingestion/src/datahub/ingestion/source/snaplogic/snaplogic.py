@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -37,7 +36,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -130,14 +128,6 @@ class SnaplogicSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_failure(message="Failed to fetch lineages", exc=e)
             self.snaplogic_lineage_extractor.report_status("lineage_ingestion", False)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _process_lineage_record(self, lineage: dict) -> Iterable[MetadataWorkUnit]:
         """Process a lineage record to create pipeline and task workunits with relationships."""
