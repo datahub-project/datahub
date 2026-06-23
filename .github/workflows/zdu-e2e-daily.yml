@@ -1,0 +1,118 @@
+name: ZDU E2E (daily)
+
+# Daily smoke test of the Zero-Downtime Upgrade migration framework.
+# Applies smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+# (which contains test-only PDL schemaVersion bumps + fake aspect-migration
+# mutators) onto a clean master checkout before running the full E2E
+# pipeline. Production code stays clean — the fixtures only exist inside
+# the workflow's runtime.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch: # also manually triggerable from the Actions tab
+  pull_request:
+    paths:
+      # Re-run on any change that could break the patch round-trip or the
+      # ZDU framework. Lets reviewers catch drift before merge.
+      - "smoke-test/tests/zdu/**"
+      - "metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl"
+      - "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl"
+      - "entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/**"
+      - "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/migrations/**"
+      - ".github/workflows/zdu-e2e-daily.yml"
+
+concurrency:
+  group: zdu-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zdu-e2e:
+    # Use the same depot runner the rest of the repo's test workflows use
+    # (see docker-unified.yml's set-runner step). Depot has unlimited
+    # concurrency for org-internal runs; falls back to ubuntu-latest for
+    # fork PRs since they can't authenticate to depot.
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'depot-ubuntu-24.04-4' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0 # ZDU framework needs git history for worktrees
+
+      - name: Fetch master ref
+        # The ZDU framework's build_images phase creates a git worktree
+        # pinned to `master` (the OLD-image base). actions/checkout only
+        # fetches the PR merge commit by default; the `master` local
+        # branch ref doesn't exist on the runner without this step.
+        run: |
+          git fetch origin master:master
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify ZDU test-fixture patch applies cleanly
+        # `--check` is read-only. Fails loudly if production PDLs or
+        # SpringStandardPluginConfiguration drifted away from the patch
+        # baseline — that's the cue to refresh the patch via the README's
+        # "Regenerating the patch" steps.
+        run: |
+          git apply --check \
+            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+
+      - name: Apply ZDU test-fixture patch
+        # Materializes the 4 fake mutators + ZduTestMutatorConfiguration +
+        # PDL schemaVersion bumps in the working tree. The patch is NOT
+        # committed back — these files only exist for the lifetime of this
+        # workflow run.
+        run: |
+          git apply \
+            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+
+      - name: Regenerate metadata-models codegen
+        # Must run AFTER the patch, otherwise the mutator Java files
+        # reference Embed/GlobalTags classes generated from the pre-bump
+        # PDL.
+        run: ./gradlew :metadata-models:build -x test
+
+      - name: Install smoke-test Python deps
+        run: ./gradlew :smoke-test:installDev
+
+      - name: Run ZDU E2E
+        env:
+          DATAHUB_LOCAL_COMMON_ENV: zdu-test.env
+          # On a clean CI runner the local Docker daemon has no `:debug`
+          # images for the non-ZDU services (frontend, actions, etc.) that
+          # the compose stack pulls in. Pin all unbuilt services to the
+          # publicly-pullable `head` tag from Docker Hub. The 4 ZDU services
+          # (GMS / upgrade / mae-consumer / mce-consumer) are still served
+          # by the locally-built zdu-{old,new}-* tags via the per-service
+          # DATAHUB_*_VERSION env vars the framework sets explicitly.
+          DATAHUB_VERSION: head
+        run: |
+          cd smoke-test
+          AGENT_MODE=1 venv/bin/python -m tests.zdu
+
+      - name: Upload failure bundle
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zdu-failure-bundle-${{ github.run_id }}
+          path: smoke-test/build/zdu-failure-*/
+          if-no-files-found: ignore
+
+      - name: Upload structured test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zdu-test-report-${{ github.run_id }}
+          path: smoke-test/build/zdu-test-report.json
+          if-no-files-found: ignore
