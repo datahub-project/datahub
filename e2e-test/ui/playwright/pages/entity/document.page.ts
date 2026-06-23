@@ -84,7 +84,7 @@ export class DocumentPage extends BasePage {
 
   async navigateToDocuments(): Promise<string> {
     await this.page.goto('/context/documents');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(this.page).toHaveURL(/\/document\//, { timeout: TIMEOUTS.LONG });
     await this.expectSidebarVisible();
     return this.extractDocumentUrnFromUrl(this.page.url());
@@ -94,8 +94,16 @@ export class DocumentPage extends BasePage {
     await this.expectSidebarVisible();
     await this.expectCreateButtonEnabled();
     await this.clickCreateButton();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     return this.extractDocumentUrnFromUrl(this.page.url());
+  }
+
+  async createDocumentWithTitle(title: string): Promise<string> {
+    const docUrn = await this.createNewDocumentViaButton();
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    await this.navigateToDocument(docUrn);
+    await this.setDocumentTitle(title);
+    return docUrn;
   }
 
   // ── Document URN utilities ────────────────────────────────────────────────
@@ -109,9 +117,6 @@ export class DocumentPage extends BasePage {
 
   async setDocumentTitle(title: string): Promise<void> {
     await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await this.titleInput.click();
-    // Wait for focus to be established before clearing
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     // Triple-click selects all text in textarea reliably
     await this.titleInput.click({ clickCount: 3 });
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
@@ -141,7 +146,7 @@ export class DocumentPage extends BasePage {
   }
 
   async clickCreateButton(): Promise<void> {
-    await this.createButton.click({ force: true });
+    await this.createButton.click();
   }
 
   async expectSidebarContains(text: string): Promise<void> {
@@ -184,6 +189,13 @@ export class DocumentPage extends BasePage {
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+
+    // Verify optimistic update with case-insensitive match
+    await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
+
+    // Wait for network and database persistence before allowing reload
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
   async expectStatusContains(text: string): Promise<void> {
@@ -202,6 +214,13 @@ export class DocumentPage extends BasePage {
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+
+    // Verify optimistic update with case-insensitive match
+    await expect(this.typeSelect).toContainText(new RegExp(type, 'i'));
+
+    // Wait for network and database persistence before allowing reload
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
   async expectTypeContains(text: string): Promise<void> {
@@ -232,7 +251,7 @@ export class DocumentPage extends BasePage {
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     const menuButton = this.getTreeItemMenuButton(urn);
     await expect(menuButton).toBeVisible();
-    await menuButton.click({ force: true });
+    await menuButton.click();
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -295,46 +314,25 @@ export class DocumentPage extends BasePage {
     await expect(this.getParentBreadcrumb(parentTitle)).toBeVisible();
   }
 
-  // ── Test Helper Methods ───────────────────────────────────────────────────
-
-  async createDocument(): Promise<string> {
-    const docUrn = await this.createNewDocumentViaButton();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
-    return docUrn;
-  }
-
-  async createDocumentWithTitle(title: string): Promise<string> {
-    const docUrn = await this.createDocument();
-    await this.navigateToDocument(docUrn);
-    await this.setDocumentTitle(title);
-    return docUrn;
-  }
-
   async createAndMoveChildToParent(
     parentTitle: string,
     childTitle: string,
   ): Promise<{ parentUrn: string; childUrn: string }> {
-    // Create parent document with title
     const parentUrn = await this.createDocumentWithTitle(parentTitle);
+
     await this.navigateToDocuments();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    // Create child document with title (as a sibling initially)
     const childUrn = await this.createDocumentWithTitle(childTitle);
-    await this.navigateToDocuments();
-    // Ensure both documents are visible in tree before attempting move
     await expect(this.getTreeItem(parentUrn)).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(this.getTreeItem(childUrn)).toBeVisible({ timeout: TIMEOUTS.LONG });
 
-    // Move child under parent via tree context menu
     await this.clickTreeItemMenu(childUrn);
     await this.clickMoveOption();
     await this.expectMovePopoverVisible();
     await this.searchInMovePopover(parentTitle);
     await this.selectMoveSearchResult(parentTitle);
     await this.clickMoveConfirmButton();
-    // Wait for network and success message to confirm move completed
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await this.expectMoveSuccessMessage();
 

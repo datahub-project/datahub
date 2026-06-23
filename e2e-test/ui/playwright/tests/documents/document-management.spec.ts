@@ -41,11 +41,9 @@ test.describe('Document Management', () => {
   test('should create a new document via Context Documents page', async ({ cleanup }) => {
     const docTitle = withRandomSuffix('doc');
 
-    const docUrn = await documentPage.createDocument();
-    // Track document for cleanup after test completes (prevents orphaned test data)
+    const docUrn = await documentPage.createDocumentWithTitle(docTitle);
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
-    await documentPage.setDocumentTitle(docTitle);
     await documentPage.expectTitleInput(docTitle);
   });
 
@@ -55,16 +53,15 @@ test.describe('Document Management', () => {
     const doc2Title = `${base}_second`;
 
     // Create first document via main create action
-    const docUrn = await documentPage.createDocument();
+    const docUrn = await documentPage.createDocumentWithTitle(doc1Title);
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
-    await documentPage.setDocumentTitle(doc1Title);
     await documentPage.expectTitleInput(doc1Title);
 
     // Create second document via sidebar create button (different UI path)
     const doc2Urn = await documentPage.createNewDocumentViaButton();
     cleanup.track(doc2Urn);
-
+    await documentPage.navigateToDocument(doc2Urn);
     await documentPage.setDocumentTitle(doc2Title);
     await documentPage.expectTitleInput(doc2Title);
 
@@ -72,9 +69,10 @@ test.describe('Document Management', () => {
   });
 
   test('should update document title and verify persistence', async ({ page, cleanup }) => {
-    const updatedTitle = `${withRandomSuffix('doc')}_updated`;
+    const initialTitle = withRandomSuffix('doc');
+    const updatedTitle = `${initialTitle}_updated`;
 
-    const docUrn = await documentPage.createDocument();
+    const docUrn = await documentPage.createDocumentWithTitle(initialTitle);
     cleanup.track(docUrn);
     await documentPage.navigateToDocument(docUrn);
     await documentPage.setDocumentTitle(updatedTitle);
@@ -87,13 +85,15 @@ test.describe('Document Management', () => {
   });
 
   test('should update document content', async ({ page, cleanup }) => {
+    const docTitle = withRandomSuffix('content-test');
     const testContent = 'Test content';
 
-    const docUrn = await documentPage.createDocument();
+    const docUrn = await documentPage.createDocumentWithTitle(docTitle);
     cleanup.track(docUrn);
     await documentPage.clickEditorAndType(testContent);
     await page.keyboard.press(KEYS.ESCAPE);
-    await page.waitForTimeout(TIMEOUTS.QUICK);
+    await page.waitForTimeout(TIMEOUTS.OPERATION);
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -104,42 +104,32 @@ test.describe('Document Management', () => {
   });
 
   test('should update document status', async ({ page, cleanup }) => {
-    const docUrn = await documentPage.createDocument();
+    const statusTestDoc = withRandomSuffix('status-test');
+    const docUrn = await documentPage.createDocumentWithTitle(statusTestDoc);
     cleanup.track(docUrn);
 
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
-
     await documentPage.updateDocumentStatus(STATUS_PUBLISHED);
-    await documentPage.expectStatusContains('Published');
-
-    // Wait for mutation to process before reloading
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+
+    await documentPage.expectTitleInput(statusTestDoc);
     await documentPage.expectStatusContains('Published');
 
     await cleanup.flush();
   });
 
   test('should update document type', async ({ page, cleanup }) => {
-    const docUrn = await documentPage.createDocument();
+    const typeTestDoc = withRandomSuffix('type-test');
+    const docUrn = await documentPage.createDocumentWithTitle(typeTestDoc);
     cleanup.track(docUrn);
 
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
-
     await documentPage.updateDocumentType(TYPE_RUNBOOK);
-    await documentPage.expectTypeContains(TYPE_RUNBOOK);
-
-    // Wait for mutation to process before reloading
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+
+    await documentPage.expectTitleInput(typeTestDoc);
     await documentPage.expectTypeContains(TYPE_RUNBOOK);
 
     await cleanup.flush();
@@ -148,7 +138,8 @@ test.describe('Document Management', () => {
   // ── Sidebar Navigation ─────────────────────────────────────────────────────
 
   test('should collapse and expand the sidebar', async ({ page, cleanup }) => {
-    const docUrn = await documentPage.createDocument();
+    const docTitle = withRandomSuffix('collapse-test');
+    const docUrn = await documentPage.createDocumentWithTitle(docTitle);
     cleanup.track(docUrn);
 
     await documentPage.expectSidebarVisible();
@@ -166,15 +157,15 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should search for documents using sidebar search', async ({ cleanup }) => {
+  test('should search for documents using sidebar search', async ({ page, cleanup }) => {
     const searchTitle = withRandomSuffix('doc');
 
-    const docUrn = await documentPage.createDocument();
+    const docUrn = await documentPage.createDocumentWithTitle(searchTitle);
     cleanup.track(docUrn);
-    await documentPage.setDocumentTitle(searchTitle);
     await documentPage.expectSidebarVisible();
 
-    // Search for document by complete title (triggers debounce-based search)
+    await page.waitForTimeout(TIMEOUTS.OPERATION);
+
     await documentPage.searchForDocument(searchTitle);
     await documentPage.expectSearchResultsVisible();
 
@@ -204,18 +195,19 @@ test.describe('Document Management', () => {
   // ── Deletion Operations ────────────────────────────────────────────────────
 
   test('should create and delete a document', async ({ page }) => {
-    const docUrn = await documentPage.createDocument();
-
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
+    const docTitle = withRandomSuffix('delete-test');
+    const docUrn = await documentPage.createDocumentWithTitle(docTitle);
 
     await documentPage.clickActionsMenu();
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    const urlAfterDelete = page.url();
-    expect(urlAfterDelete).not.toContain(encodeURIComponent(docUrn));
+    await documentPage.navigateToDocuments();
+    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+
+    await expect(documentPage.getTreeItem(docUrn)).not.toBeAttached();
   });
 
   test('should delete parent document and cascade to children', async ({ page, cleanup }) => {
@@ -236,10 +228,8 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Backend needs time to process cascade deletion across distributed system
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    // Navigate back to documents to fetch fresh tree state
     await documentPage.navigateToDocuments();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
