@@ -14,3 +14,4 @@ TIMESERIES_ASPECT_MAP: Dict[str, Type[_Aspect]] = {
 
 JSON_CONTENT_TYPE = "application/json"
 JSON_PATCH_CONTENT_TYPE = "application/json-patch+json"
+GZIP_JSON_CONTENT_TYPE = "application/json+gzip"
