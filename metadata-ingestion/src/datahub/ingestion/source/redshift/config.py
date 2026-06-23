@@ -151,14 +151,15 @@ class RedshiftConfig(
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
     )
 
-    usage_via_sql_parsing: bool = Field(
+    include_column_usage_stats: bool = Field(
         default=False,
-        description="Generate usage statistics by parsing the SQL query text (via the "
-        "SQL parsing aggregator) instead of attributing reads to the tables reported by "
-        "Redshift's `stl_scan` system table. Enables column-level usage statistics. The "
-        "full query text is reconstructed from `STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the "
-        "same source used for lineage), not the truncated `stl_query.querytxt`. Only "
-        "applies when `include_usage_statistics` is enabled.",
+        description="Generate column-level usage statistics (`fieldCounts`) by parsing "
+        "the SQL query text instead of attributing reads to the tables reported by "
+        "Redshift's `stl_scan` system table. This is slower (every read query is parsed) "
+        "but adds per-column usage. The full query text is reconstructed from "
+        "`STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the same source used for lineage), not the "
+        "truncated `stl_query.querytxt`. Only applies when `include_usage_statistics` is "
+        "enabled.",
     )
 
     include_unload_lineage: bool = Field(
@@ -225,6 +226,16 @@ class RedshiftConfig(
     @model_validator(mode="after")
     def check_database_is_set(self) -> "RedshiftConfig":
         assert self.database, "database must be set"
+        return self
+
+    @model_validator(mode="after")
+    def warn_column_usage_without_usage(self) -> "RedshiftConfig":
+        if self.include_column_usage_stats and not self.include_usage_statistics:
+            logger.warning(
+                "include_column_usage_stats is set but include_usage_statistics is "
+                "disabled; no usage statistics will be produced. Enable "
+                "include_usage_statistics to get column-level usage."
+            )
         return self
 
     @model_validator(mode="after")

@@ -237,7 +237,7 @@ def test_table_pattern_filters_aggregator_usage():
         database="dev",
         email_domain="example.com",
         include_usage_statistics=True,
-        usage_via_sql_parsing=True,
+        include_column_usage_stats=True,
         table_pattern={"deny": [".*denied.*"]},
         start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
         end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
@@ -601,7 +601,7 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
         database="dev",
         email_domain="acryl.io",
         include_usage_statistics=True,
-        usage_via_sql_parsing=True,
+        include_column_usage_stats=True,
         include_operational_stats=False,
         start_time="2021-09-15T00:00:00Z",
         end_time="2021-09-16T00:00:00Z",
@@ -689,7 +689,7 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
         database="dev",
         email_domain="acryl.io",
         include_usage_statistics=True,
-        usage_via_sql_parsing=True,
+        include_column_usage_stats=True,
         include_operational_stats=False,
         start_time="2021-09-15T00:00:00Z",
         end_time="2021-09-16T00:00:00Z",
@@ -775,7 +775,7 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
 
 
 def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
-    """C1 regression guard: when all lineage flags are off but usage_via_sql_parsing=True,
+    """C1 regression guard: when all lineage flags are off but include_column_usage_stats=True,
     the aggregator must be built with generate_lineage=False so no UpstreamLineage
     aspects are emitted, while DatasetUsageStatistics aspects still are."""
 
@@ -792,7 +792,7 @@ def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
         include_table_rename_lineage=False,
         # Usage via SQL parsing on.
         include_usage_statistics=True,
-        usage_via_sql_parsing=True,
+        include_column_usage_stats=True,
         include_operational_stats=False,
         start_time="2021-09-15T00:00:00Z",
         end_time="2021-09-16T00:00:00Z",
@@ -873,7 +873,7 @@ def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
             lineage_found = True
 
     assert usage_found, (
-        "Expected DatasetUsageStatistics aspects when usage_via_sql_parsing=True"
+        "Expected DatasetUsageStatistics aspects when include_column_usage_stats=True"
     )
     assert not lineage_found, (
         "Expected no UpstreamLineage aspects when all lineage flags are off"

@@ -438,21 +438,21 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 or self.config.include_share_lineage
                 or self.config.include_table_rename_lineage
             )
-            usage_via_parsing = (
+            column_usage_enabled = (
                 self.config.include_usage_statistics
-                and self.config.usage_via_sql_parsing
+                and self.config.include_column_usage_stats
             )
             # Enter the lineage block when any lineage flag is on OR when
-            # usage_via_sql_parsing is enabled (usage is produced by the
+            # include_column_usage_stats is enabled (usage is produced by the
             # lineage aggregator in v2 mode and would be silently lost otherwise).
-            if lineage_enabled or usage_via_parsing:
+            if lineage_enabled or column_usage_enabled:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     lineage_wus = self.extract_lineage_v2(
                         connection=connection,
                         database=database,
                         lineage_extractor=lineage_extractor,
                     )
-                    if usage_via_parsing:
+                    if column_usage_enabled:
                         # In v2 mode, usage is produced by the lineage aggregator.
                         # Wrap with empty-usage backfill so tables with no queries in
                         # the window still get a usage aspect.
@@ -473,7 +473,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     yield from lineage_wus
             else:
                 logger.info(
-                    "Skipping lineage/usage-v2 extraction - all lineage flags are disabled and usage_via_sql_parsing is off"
+                    "Skipping lineage/usage-v2 extraction - all lineage flags are disabled and include_column_usage_stats is off"
                 )
 
         if self.config.include_usage_statistics:

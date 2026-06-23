@@ -132,7 +132,7 @@ class RedshiftUsageExtractor:
         self.report = report
         self.connection = connection
         self.dataset_urn_builder = dataset_urn_builder
-        # Only needed when usage_via_sql_parsing is enabled, so the aggregator can
+        # Only needed when include_column_usage_stats is enabled, so the aggregator can
         # resolve column schemas (for column-level usage) from the backend graph.
         self.context = context
 
@@ -178,7 +178,7 @@ class RedshiftUsageExtractor:
         if not self._should_ingest_usage():
             return
 
-        if not self.config.usage_via_sql_parsing:
+        if not self.config.include_column_usage_stats:
             # Default (stl_scan) path: wrap with empty-usage backfill so every known
             # table gets a usage aspect even if it had no queries in the window.
             yield from auto_empty_dataset_usage_statistics(
@@ -229,7 +229,7 @@ class RedshiftUsageExtractor:
                     self.config.database
                 ] = timer.elapsed_seconds(digits=2)
 
-        if not self.config.usage_via_sql_parsing:
+        if not self.config.include_column_usage_stats:
             # Default (stl_scan) path: generate usage statistics via the SQL parsing
             # aggregator fed with pre-resolved table reads from stl_scan.
             with self.report.new_stage(USAGE_EXTRACTION_USAGE_AGGREGATION):
@@ -447,7 +447,7 @@ class RedshiftUsageExtractor:
         # with known upstreams from stl_scan), so the aggregator never parses the
         # (often truncated) Redshift query text to derive tables — it only
         # attributes the read to the known table, preserving stl_scan accuracy.
-        # When usage_via_sql_parsing is set, queries are parsed instead (see
+        # When include_column_usage_stats is set, queries are parsed instead (see
         # _get_workunits_internal), which adds column-level usage; the backend
         # graph is passed so column references resolve to real schema fields.
         # The aggregator's query store is file-backed and the cursor is drained up

@@ -139,7 +139,8 @@ class RedshiftSqlLineage(Closeable):
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self.generate_usage = (
-            self.config.include_usage_statistics and self.config.usage_via_sql_parsing
+            self.config.include_usage_statistics
+            and self.config.include_column_usage_stats
         )
         lineage_enabled = (
             self.config.include_table_lineage
