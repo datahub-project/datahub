@@ -21,8 +21,23 @@ Result: ❌ no lineage edge — two orphaned nodes
 This silently breaks multi-hop lineage too: a single broken edge in the middle of a chain hides the
 entire downstream path.
 
-The **lineage URN casing normalization** feature fixes this at ingestion time. It is an explicit opt-in
-feature and is **not enabled by default**.
+### The existing mitigation, and why it isn't enough
+
+Today the only built-in mitigation is the per-source `convert_urns_to_lowercase` flag, which keeps
+lineage connected by **blindly lowercasing every URN**. It works only when enabled consistently across
+_all_ sources that reference the same entities (an N-source coordination problem), and it carries real
+costs:
+
+- It is not available on some BI connectors (e.g. Looker, Tableau), so a mixed Snowflake-uppercase +
+  BI-lowercase setup stays broken regardless.
+- Flattening every identity to lowercase loses the warehouse's real display casing, and on
+  case-sensitive platforms it can merge two genuinely different tables (`MyTable` and `mytable`) into a
+  single entity.
+
+The **lineage URN casing normalization** feature takes a different approach. Instead of flattening all
+identities, it resolves each upstream reference to the casing of the entity that **already exists** in
+DataHub — per ingestion, with no global coordination, preserving the warehouse's original casing, and
+only when the match is unambiguous. It is an explicit opt-in feature and is **not enabled by default**.
 
 ## How it works
 
