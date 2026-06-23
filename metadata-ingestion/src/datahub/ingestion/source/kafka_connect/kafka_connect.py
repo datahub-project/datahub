@@ -288,14 +288,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             tasks = []
 
-        filtered_manifest = {
-            "name": name,
-            "type": connector_type,
-            "config": config,
-            "tasks": tasks,
-        }
-
-        connector_manifest = ConnectorManifest(**filtered_manifest)
+        connector_manifest = ConnectorManifest(
+            name=name,
+            type=connector_type,
+            config=config,
+            tasks=tasks,
+        )
         return connector_manifest
 
     def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:

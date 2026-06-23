@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import sqlglot
 import sqlglot.expressions
@@ -151,7 +151,7 @@ logger = logging.getLogger(__name__)
 
 # https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
 # TODO: Move to the standardized types in sql_types.py
-SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
+SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
     "DATE": DateType,
     "BIGINT": NumberType,
     "BINARY": BytesType,
