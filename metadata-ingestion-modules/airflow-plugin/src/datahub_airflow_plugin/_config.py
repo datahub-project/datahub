@@ -7,6 +7,7 @@ from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.rest_emitter import EmitMode
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,12 @@ class DatahubLineageConfig(ConfigModel):
     debug_emitter: bool
 
     disable_openlineage_plugin: bool
+
+    # Emit mode for the listener's writes to DataHub. Defaults to ASYNC so
+    # high-volume DAG runs don't block GMS/MySQL on a synchronous commit per
+    # write. Set to SYNC_WAIT/SYNC_PRIMARY for read-after-write or
+    # raise-on-failure guarantees.
+    emit_mode: EmitMode
 
     @property
     def _datahub_connection_ids(self) -> List[str]:
@@ -180,6 +187,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
+    emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -205,6 +213,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
+        emit_mode=emit_mode,
     )
 
 

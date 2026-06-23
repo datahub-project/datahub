@@ -302,7 +302,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
                 tcp_keepalive=session_config.tcp_keepalive,
-            )
+            ),
+            # Preserve the source emitter's default emit mode so converting an
+            # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+            # revert to the global default.
+            default_emit_mode=emitter._default_emit_mode,
         )
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:

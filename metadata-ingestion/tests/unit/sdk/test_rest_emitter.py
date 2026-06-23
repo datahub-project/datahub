@@ -268,6 +268,17 @@ class TestDataHubRestEmitter:
             emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
             assert mock_method.call_args[0][0].endswith("dataset?async=false")
 
+    def test_to_graph_preserves_default_emit_mode(self):
+        """Converting an emitter to a graph must carry over the instance default,
+        otherwise callers that go through `.to_graph()` silently revert to the
+        global default."""
+        assert (
+            DataHubRestEmitter(MOCK_GMS_ENDPOINT, default_emit_mode=EmitMode.ASYNC)
+            .to_graph()
+            ._default_emit_mode
+            == EmitMode.ASYNC
+        )
+
     def test_openapi_emitter_emit_mcps(self, openapi_emitter):
         mock_response = Mock(spec=Response)
         mock_response.status_code = 200
