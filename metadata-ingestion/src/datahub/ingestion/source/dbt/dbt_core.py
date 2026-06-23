@@ -29,6 +29,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
@@ -48,6 +49,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTestResult,
     parse_freshness_criteria,
 )
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +89,9 @@ class DBTCoreConfig(DBTCommonConfig):
         description="Path to output of dbt test run as run_results files in JSON format. "
         "If not specified, test execution results and model performance metadata will not be populated in DataHub. "
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
-        "Glob patterns are supported for both S3 URIs and local paths "
-        "(e.g. 's3://bucket/results/*/run_results.json' or '/path/to/results/*/run_results.json'). "
+        "Glob patterns are supported for S3, GCS, and local paths "
+        "(e.g. 's3://bucket/results/*/run_results.json', 'gs://bucket/results/*/run_results.json', "
+        "or '/path/to/results/*/run_results.json'). "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
@@ -111,6 +114,12 @@ class DBTCoreConfig(DBTCommonConfig):
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
 
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from gs://, GCS connection using HMAC credentials. "
+        "See https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+
     git_info: Optional[GitReference] = Field(
         None,
         description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
@@ -119,8 +128,7 @@ class DBTCoreConfig(DBTCommonConfig):
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @model_validator(mode="after")
-    def aws_connection_needed_if_s3_uris_present(self) -> "DBTCoreConfig":
-        # first check if there are fields that contain s3 uris
+    def cloud_connection_needed_if_cloud_uris_present(self) -> "DBTCoreConfig":
         uris = [
             getattr(self, f, None)
             for f in [
@@ -130,10 +138,15 @@ class DBTCoreConfig(DBTCommonConfig):
             ]
         ] + (self.run_results_paths or [])
         s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
-
         if s3_uris and self.aws_connection is None:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
+            )
+
+        gcs_uris = [uri for uri in uris if is_gcs_uri(uri or "")]
+        if gcs_uris and self.gcs_connection is None:
+            raise ValueError(
+                f"Please provide gcs_connection configuration, since gs:// uris have been provided {gcs_uris}"
             )
         return self
 
@@ -705,11 +718,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path, source_config.aws_connection
+                source_config.manifest_path,
+                source_config.aws_connection,
+                source_config.gcs_connection,
             )
             if source_config.catalog_path is not None:
                 DBTCoreSource.load_file_as_json(
-                    source_config.catalog_path, source_config.aws_connection
+                    source_config.catalog_path,
+                    source_config.aws_connection,
+                    source_config.gcs_connection,
                 )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
@@ -720,28 +737,51 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     @staticmethod
     def load_file_as_json(
-        uri: str, aws_connection: Optional[AwsConnectionConfig]
+        uri: str,
+        aws_connection: Optional[AwsConnectionConfig],
+        gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
         if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
+            resp = requests.get(uri, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
         elif is_s3_uri(uri):
             u = urlparse(uri)
-            assert aws_connection
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
+            if not aws_connection:
+                raise ValueError(f"AWS connection required for S3 URI: {uri}")
+            try:
+                response = aws_connection.get_s3_client().get_object(
+                    Bucket=u.netloc, Key=u.path.lstrip("/")
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
+            return json.loads(response["Body"].read().decode("utf-8"))
+        elif is_gcs_uri(uri):
+            u = urlparse(uri)
+            if not gcs_connection:
+                raise ValueError(f"GCS connection required for GCS URI: {uri}")
+            try:
+                response = (
+                    gcs_connection.s3_compatible_connection.get_s3_client().get_object(
+                        Bucket=u.netloc, Key=u.path.lstrip("/")
+                    )
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
             with open(uri) as f:
                 return json.load(f)
 
     @staticmethod
-    def _expand_s3_glob(uri: str, aws_connection: AwsConnectionConfig) -> List[str]:
+    def _expand_object_store_glob(
+        uri: str, connection: AwsConnectionConfig, scheme: str
+    ) -> List[str]:
         u = urlparse(uri)
         bucket = u.netloc
         key_pattern = u.path.lstrip("/")
 
-        # Use the longest static prefix to limit S3 listing scope.
+        # Use the longest static prefix to limit object store listing scope
         prefix_parts: List[str] = []
         for part in key_pattern.split("/"):
             if _has_glob_characters(part):
@@ -751,7 +791,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         if prefix:
             prefix += "/"
 
-        s3_client = aws_connection.get_s3_client()
+        s3_client = connection.get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
 
         pattern_parts = key_pattern.split("/")
@@ -769,10 +809,48 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     matched_keys.append(key)
 
         logger.info(
-            f"S3 glob '{uri}': scanned {total_scanned} object(s) under "
+            f"{scheme} glob '{uri}': scanned {total_scanned} object(s) under "
             f"prefix '{prefix}', matched {len(matched_keys)}"
         )
-        return [f"{u.scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+        return [f"{scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+
+    def _expand_cloud_glob(
+        self,
+        path: str,
+        connection: Optional[AwsConnectionConfig],
+        scheme: str,
+        *,
+        store_label: str,
+        connection_field: str,
+    ) -> List[str]:
+        # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
+        # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
+        connection_label = connection_field.split("_")[0].upper()
+        if not connection:
+            self.report.failure(
+                title=f"Missing {connection_label} connection for {store_label} glob",
+                message=f"{connection_field} is required for {store_label} glob pattern: {path}",
+            )
+            return []
+        try:
+            matched_paths = self._expand_object_store_glob(path, connection, scheme)
+        except Exception as e:
+            self.report.failure(
+                title=f"{store_label} glob expansion failed",
+                message=f"Failed to expand {store_label} glob pattern '{path}': {e}",
+            )
+            return []
+        if not matched_paths:
+            self.report.warning(
+                title=f"{store_label} glob pattern matched no objects",
+                message=f"Pattern '{path}' did not match any {store_label} objects",
+            )
+        else:
+            logger.info(
+                f"{store_label} glob pattern '{path}' expanded to "
+                f"{len(matched_paths)} file(s)"
+            )
+        return matched_paths
 
     def _expand_run_results_paths(self) -> List[str]:
         expanded_paths: List[str] = []
@@ -783,30 +861,28 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 continue
 
             if is_s3_uri(path):
-                if not self.config.aws_connection:
-                    self.report.failure(
-                        title="Missing AWS connection for S3 glob",
-                        message=f"aws_connection is required for S3 glob pattern: {path}",
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        self.config.aws_connection,
+                        "s3",
+                        store_label="S3",
+                        connection_field="aws_connection",
                     )
-                    continue
-                try:
-                    s3_paths = self._expand_s3_glob(path, self.config.aws_connection)
-                except Exception as e:
-                    self.report.failure(
-                        title="S3 glob expansion failed",
-                        message=f"Failed to expand S3 glob pattern '{path}': {e}",
+                )
+            elif is_gcs_uri(path):
+                gcs_connection = self.config.gcs_connection
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        gcs_connection.s3_compatible_connection
+                        if gcs_connection
+                        else None,
+                        "gs",
+                        store_label="GCS",
+                        connection_field="gcs_connection",
                     )
-                    continue
-                if not s3_paths:
-                    self.report.warning(
-                        title="S3 glob pattern matched no objects",
-                        message=f"Pattern '{path}' did not match any S3 objects",
-                    )
-                else:
-                    logger.info(
-                        f"S3 glob pattern '{path}' expanded to {len(s3_paths)} file(s)"
-                    )
-                expanded_paths.extend(s3_paths)
+                )
             elif re.match("^https?://", path):
                 self.report.warning(
                     title="Glob patterns not supported for HTTP(S) URIs",
@@ -839,7 +915,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Optional[str],
     ]:
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path, self.config.aws_connection
+            self.config.manifest_path,
+            self.config.aws_connection,
+            self.config.gcs_connection,
         )
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         self.report.manifest_info = dict(
@@ -852,7 +930,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         dbt_catalog_metadata = None
         if self.config.catalog_path is not None:
             dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path, self.config.aws_connection
+                self.config.catalog_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
             self.report.catalog_info = dict(
@@ -879,7 +959,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         sources_invocation_id = None
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path, self.config.aws_connection
+                self.config.sources_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             sources_results = dbt_sources_json["results"]
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
@@ -1005,7 +1087,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         for run_results_path in expanded_run_results_paths:
             all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(run_results_path, self.config.aws_connection),
+                self.load_file_as_json(
+                    run_results_path,
+                    self.config.aws_connection,
+                    self.config.gcs_connection,
+                ),
                 all_nodes,
             )
 
