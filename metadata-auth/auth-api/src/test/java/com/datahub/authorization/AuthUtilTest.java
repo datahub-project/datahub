@@ -457,6 +457,33 @@ public class AuthUtilTest {
         "Expected User B to be allowed access to subresources 2 & 3");
   }
 
+  @Test
+  public void testIsAPIAuthorizedForTagModification() {
+    final Urn TEST_TAG = UrnUtils.getUrn("urn:li:tag:Legacy");
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("EDIT_ENTITY_TAGS", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected EDIT_ENTITY_TAGS to authorize tag modifications without EDIT_ENTITY");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected user without EDIT_ENTITY_TAGS to be denied");
+  }
+
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {
     Authorizer authorizer = mock(Authorizer.class);
     when(authorizer.authorize(any()))
