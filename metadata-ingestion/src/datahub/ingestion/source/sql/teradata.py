@@ -2,11 +2,11 @@ import logging
 import random
 import re
 import time
-import traceback
 from collections import defaultdict
 from collections.abc import Generator
 from concurrent.futures import (
     FIRST_COMPLETED,
+    CancelledError,
     Future,
     ThreadPoolExecutor,
     wait,
@@ -19,8 +19,10 @@ from threading import Event, Lock, Thread, current_thread
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
+    Literal,
     MutableMapping,
     Optional,
     Set,
@@ -46,6 +48,7 @@ from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
+from typing_extensions import ClassVar, LiteralString
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -89,6 +92,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -261,6 +265,110 @@ _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS: Tuple[str, ...] = (
 _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
     r"\[Error (?:2631|2639|3111|3120|3598|3897|3603)\]"
 )
+
+# Extracts the authoritative numeric code from a Teradata error message.
+# teradatasql (verified v20.0.0.52) exposes no structured code attribute — the
+# code lives only in the message string, formatted as "[Error NNNN]: <text>" —
+# so the code must be parsed out of str(exc).
+_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (\d+)\]")
+
+# Teradata error codes that indicate a SQL syntax / parse failure.
+#   3706 — Syntax error: <detail>.
+#   3707 — Syntax error, expected something between <X> and <Y>.
+#
+# Source: Teradata Database Messages, doc B035-1096.
+_PARSE_CODES: FrozenSet[int] = frozenset({3706, 3707})
+
+# Substrings that identify SQL parse / syntax failures in cases where the
+# driver omits the numeric error code.
+_PARSE_ERROR_KEYWORDS: Tuple[str, ...] = (
+    "syntax error",
+    "parse error",
+    "invalid sql",
+)
+
+# Teradata error codes that specifically represent permission / access-denied
+# failures (subset of _PERMANENT_ERROR_CODE_RE used only for categorisation).
+#   3523 — <user> does not have <access type> access to <db>.<table>.
+#   3524 — <user> does not have <access type> access to database <db>.
+#   8017 — The UserId, Password or Account is invalid (auth failure).
+#   3003 — Logon failed / Invalid password (auth failure).
+_PERMISSION_CODES: FrozenSet[int] = frozenset({3523, 3524, 8017, 3003})
+
+# Substrings from _PERMANENT_ERROR_SUBSTRINGS that specifically indicate a
+# permission / authentication denial (used for categorisation only).
+_PERMISSION_ERROR_KEYWORDS: Tuple[str, ...] = (
+    "permission denied",
+    "access denied",
+    "no access",
+    "authentication failed",
+    "logon failed",
+    "invalid logon",
+    "invalid user",
+)
+
+
+def _error_code(exc: BaseException) -> Optional[int]:
+    """Extract the Teradata ``[Error NNNN]`` numeric code from *exc*, if present.
+
+    Returns ``None`` when the message carries no bracketed code (e.g. a
+    driver-level failure before a session is established, or a wrapped error
+    where the original ``[Error N]`` tag did not propagate).
+    """
+    m = _ERROR_CODE_RE.search(str(exc))
+    return int(m.group(1)) if m else None
+
+
+class ViewErrorCategory(StrEnum):
+    TIMEOUT = "timeout"
+    PERMISSION = "permission"
+    PARSE = "parse"
+    UNKNOWN = "unknown"
+
+
+def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
+    """Classify a view-processing exception for report error-breakdown counters.
+
+    Returns one of the ``ViewErrorCategory`` enum members:
+        ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
+        ``PERMISSION`` — auth failure or missing access privilege.
+        ``PARSE``      — SQL syntax / parse error.
+        ``UNKNOWN``    — none of the above.
+
+    The Teradata ``[Error NNNN]`` code is authoritative, so classification is
+    by numeric code first.  Keyword / ``isinstance`` checks are kept only as a
+    fallback for code-less errors (the driver omits the bracketed code in some
+    wrapped or pre-session failures): matching keywords anywhere in the
+    stringified exception is unreliable because the SQL text, object names, or a
+    wrapped inner message can incidentally contain words like "access denied",
+    "cursor", or "timeout".  Within the fallback, timeout precedence is kept
+    first because a code-less message can carry both "timed out" and a
+    permission/parse phrase.
+    """
+    # Timeout: SQLAlchemy pool exhaustion, Python built-in, or Future timeout.
+    if isinstance(exc, (PoolTimeoutError, TimeoutError)):
+        return ViewErrorCategory.TIMEOUT
+
+    # Authoritative classification by numeric code.
+    code = _error_code(exc)
+    if code in _PERMISSION_CODES:
+        return ViewErrorCategory.PERMISSION
+    if code in _PARSE_CODES:
+        return ViewErrorCategory.PARSE
+
+    # Fallback for code-less errors only: match keywords / types in the message.
+    # Timeout-first precedence is intentional (see docstring).
+    msg = str(exc).lower()
+    if any(k in msg for k in ("timed out", "timeout")):
+        return ViewErrorCategory.TIMEOUT
+    if any(k in msg for k in _PERMISSION_ERROR_KEYWORDS):
+        return ViewErrorCategory.PERMISSION
+    if any(k in msg for k in _PARSE_ERROR_KEYWORDS) or isinstance(
+        exc, NotSupportedError
+    ):
+        return ViewErrorCategory.PARSE
+
+    return ViewErrorCategory.UNKNOWN
 
 
 def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
@@ -953,11 +1061,30 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
 
+    # Per-query execution timing for lineage fetch.
+    # Key: unique label generated by _fetch_lineage_entries_chunked (one per query invocation).
+    # Value: elapsed seconds covering both the execute step and the complete result fetch.
+    # Labels are unique by construction — each entry is a snapshot for exactly one query.
+    lineage_query_timings: Dict[str, float] = field(default_factory=dict)
+
+    # Number of lineage queries whose total execution time exceeded
+    # config.lineage_slow_query_log_seconds.
+    lineage_slow_queries_detected: int = 0
+
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
 
     # Retry statistics
     num_db_retries: int = 0
+
+    # Per-phase error breakdown for self-service diagnostics; categories align
+    # with _categorize_view_error() so support can pinpoint root cause quickly.
+    schema_discovery_failures: int = 0
+    historical_lineage_check_failures: int = 0
+    view_timeout_errors: int = 0
+    view_parse_errors: int = 0
+    view_permission_errors: int = 0
+    view_unknown_errors: int = 0
 
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
@@ -972,6 +1099,14 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_db_retries(self) -> None:
         with self._lock:
             self.num_db_retries += 1
+
+    def increment_schema_discovery_failures(self) -> None:
+        with self._lock:
+            self.schema_discovery_failures += 1
+
+    def increment_historical_lineage_check_failures(self) -> None:
+        with self._lock:
+            self.historical_lineage_check_failures += 1
 
     def increment_pool_timeout_retries(self) -> None:
         with self._lock:
@@ -992,6 +1127,26 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_view_error(self, category: ViewErrorCategory) -> None:
+        with self._lock:
+            self.num_view_processing_failures += 1
+            if category is ViewErrorCategory.TIMEOUT:
+                self.view_timeout_errors += 1
+            elif category is ViewErrorCategory.PARSE:
+                self.view_parse_errors += 1
+            elif category is ViewErrorCategory.PERMISSION:
+                self.view_permission_errors += 1
+            else:
+                self.view_unknown_errors += 1
+
+    def record_lineage_query_timing(self, label: str, elapsed_seconds: float) -> None:
+        with self._lock:
+            self.lineage_query_timings[label] = elapsed_seconds
+
+    def increment_lineage_slow_query(self) -> None:
+        with self._lock:
+            self.lineage_slow_queries_detected += 1
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -1259,6 +1414,34 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    lineage_slow_query_log_seconds: float = Field(
+        default=60.0,
+        ge=0.0,
+        description=(
+            "When the total database time for a single lineage query (execute call plus "
+            "all fetchmany calls, excluding downstream processing time) exceeds this many "
+            "seconds, emit a warning with the query label, elapsed DB time, and the first "
+            "500 characters of the SQL text so slow queries can be identified and tuned. "
+            "Note: when the driver retries a failed fetchmany call, the retry backoff "
+            "sleep time is included in the measurement, so the threshold should be set "
+            "well above the expected base query time. "
+            "Set to 0 to disable. Default is 60 seconds."
+        ),
+    )
+
+
+# The label flows into lineage_query_timings report keys, so it is constrained
+# to the known set to keep a typo from silently drifting into report output.
+LineageQueryLabel = Literal["current_only", "historical_union"]
+
+
+@dataclass
+class LineageQuery:
+    """A SQL query together with a short human-readable label used for timing reports."""
+
+    sql: str
+    label: LineageQueryLabel
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -1437,6 +1620,13 @@ WHERE DataBaseName NOT IN ({excluded_dbs}){db_allowlist}
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
 """.strip()
+
+    WARNING_VIEW_ERROR_MAP: ClassVar[Dict[ViewErrorCategory, LiteralString]] = {
+        ViewErrorCategory.TIMEOUT: "View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
+        ViewErrorCategory.PERMISSION: "Permission denied processing view — check database access rights for the ingestion user.",
+        ViewErrorCategory.PARSE: "SQL parse error in view definition — check the view SQL for syntax issues.",
+        ViewErrorCategory.UNKNOWN: "Unexpected error processing view — check the logs for the full traceback.",
+    }
 
     def _build_tables_and_views_query(self) -> str:
         excluded_dbs = ",".join([f"'{db}'" for db in EXCLUDED_DATABASES])
@@ -1692,16 +1882,17 @@ ORDER by DataBaseName, TableName;
                     return inspect(conn).get_schema_names()
             except Exception as exc:
                 if not _should_retry_connect(exc) or attempt == max_attempts - 1:
+                    self.report.increment_schema_discovery_failures()
                     self.report.failure(
                         title="Schema discovery failed"
                         if attempt == 0
                         else "Schema discovery failed after retries",
                         message=(
-                            f"Could not list schemas after {attempt + 1} attempt(s). "
+                            "Could not list schemas. "
                             "Check network connectivity, authentication, and "
                             "database permissions."
                         ),
-                        context=str(exc),
+                        context=f"attempt={attempt + 1}",
                         exc=exc,
                     )
                     raise
@@ -2018,7 +2209,27 @@ ORDER by DataBaseName, TableName;
             def process_single_view(
                 view_name: str,
             ) -> List[Union[MetadataWorkUnit, Any]]:
-                """Process a single view with its own database connection."""
+                """Process a single view with its own database connection.
+
+                CONTRACT: must never re-raise exceptions. All errors must be
+                handled internally — calling ``self.report.increment_view_error``
+                and ``self._warn_view_error`` — then returning ``[]``.  The
+                outer ``_loop_views_with_connection_pool`` caller reads the
+                future's result via ``fut.result()`` and calls
+                ``self.report.increment_view_error`` again if that raises,
+                so re-raising here would cause double-counting of
+                ``num_view_processing_failures`` and ``view_*_errors``.
+
+                OWNERSHIP after abandonment: when a view exceeds the per-view
+                timeout the caller abandons it (records num_view_processing_timeouts
+                + stalled_views) but cannot stop this already-running worker —
+                ``fut.cancel()`` returns False. This worker keeps running and
+                remains the sole owner of the error-category counters: if the
+                blocking call later raises, the ``except`` below counts it exactly
+                once. The abandon path deliberately does not touch
+                increment_view_error so the two counter families never double-count
+                the same view.
+                """
                 results: List[Union[MetadataWorkUnit, Any]] = []
 
                 # Detailed timing measurements for bottleneck analysis
@@ -2101,18 +2312,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                 except Exception as e:
-                    with self.report.atomic():
-                        self.report.num_view_processing_failures += 1
-                        full_traceback = traceback.format_exc()
-                        logger.error(
-                            f"Failed to process view {schema}.{view_name}: {str(e)}"
-                        )
-                        logger.error(f"Full traceback: {full_traceback}")
-                        self.report.warning(
-                            f"Error processing view {schema}.{view_name}",
-                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
-                            exc=e,
-                        )
+                    _error_category = _categorize_view_error(e)
+                    self.report.increment_view_error(_error_category)
+                    logger.error(
+                        f"Failed to process view {schema}.{view_name}: {str(e)}",
+                        exc_info=True,
+                    )
+                    self._warn_view_error(schema, view_name, _error_category, e)
 
                 return results
 
@@ -2169,13 +2375,24 @@ ORDER by DataBaseName, TableName;
                             results = fut.result(timeout=1)
                             for result in results:
                                 yield result
+                        except CancelledError:
+                            # A cancelled (never-started) view is owned by the
+                            # timeout counters via the abandon path above, which
+                            # already recorded num_view_processing_timeouts +
+                            # stalled_views. It has no error category to count
+                            # here, so skip increment_view_error.
+                            pass
                         except Exception as e:
-                            with self.report.atomic():
-                                self.report.warning(
-                                    "Error in thread processing view",
-                                    context=f"{schema}.{view_name}",
-                                    exc=e,
-                                )
+                            _error_category = _categorize_view_error(e)
+                            self._warn_view_error(schema, view_name, _error_category, e)
+                            # fut.result() can raise for infrastructure-level exceptions
+                            # (e.g. concurrent.futures internals) that are NOT caught by
+                            # process_single_view.  In those cases no error has been
+                            # counted yet, so we count and warn here.
+                            # process_single_view catches all DB exceptions internally
+                            # (see its CONTRACT docstring), so this path will NOT fire
+                            # for normal DB errors — no double-counting occurs.
+                            self.report.increment_view_error(_error_category)
                         completed_count += 1
 
                     # Abandon any view that has exceeded the per-view timeout.
@@ -2200,13 +2417,28 @@ ORDER by DataBaseName, TableName;
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(
-                                    "View processing timed out",
+                                    title="View processing timed out",
+                                    message="A view did not complete within the per-view timeout — consider increasing view_processing_timeout_seconds.",
                                     context=(
                                         f"{schema}.{name} did not complete within "
                                         f"{per_view_timeout}s (ran for "
                                         f"{elapsed:.0f}s)"
                                     ),
                                 )
+                            # OWNERSHIP RULE: an abandoned/hung view is owned
+                            # exclusively by the timeout counters
+                            # (num_view_processing_timeouts + stalled_views). We
+                            # deliberately do NOT call increment_view_error here.
+                            # fut.cancel() cannot stop an already-running worker
+                            # (it returns False), so the worker keeps executing
+                            # process_single_view; if its blocking I/O later
+                            # raises, the worker's own handler calls
+                            # increment_view_error exactly once. Counting TIMEOUT
+                            # here as well would double-count that
+                            # hung-then-failed view in num_view_processing_failures
+                            # and view_timeout_errors. Leaving the error-category
+                            # counters solely to the worker keeps every view
+                            # counted at most once across the two counter families.
                             fut.cancel()
                             started_at_by_future.pop(fut, None)
                             remaining_futures.discard(fut)
@@ -2249,6 +2481,31 @@ ORDER by DataBaseName, TableName;
         finally:
             # Don't dispose the reusable engine here - it will be cleaned up in close()
             pass
+
+    def _warn_view_error(
+        self,
+        schema: str,
+        view_name: str,
+        error_category: ViewErrorCategory,
+        exc: BaseException,
+    ) -> None:
+        """Emit a categorised report warning for a view-processing failure.
+
+        The ``message`` text is looked up from ``WARNING_VIEW_ERROR_MAP`` so
+        operators see actionable guidance without having to read the full
+        exception context.  Dynamic data (schema, view name) is placed in
+        ``context``.
+        """
+        message = self.WARNING_VIEW_ERROR_MAP.get(
+            error_category, self.WARNING_VIEW_ERROR_MAP[ViewErrorCategory.UNKNOWN]
+        )
+        with self.report.atomic():
+            self.report.warning(
+                title="View processing error",
+                message=message,
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
 
     def _process_views_single_threaded(
         self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
@@ -2299,16 +2556,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                     except Exception as e:
-                        full_traceback = traceback.format_exc()
+                        _error_category = _categorize_view_error(e)
+                        self.report.increment_view_error(_error_category)
                         logger.error(
-                            f"Failed to process view {schema}.{view_name}: {str(e)}"
+                            f"Failed to process view {schema}.{view_name}: {str(e)}",
+                            exc_info=True,
                         )
-                        logger.error(f"Full traceback: {full_traceback}")
-                        self.report.warning(
-                            f"Error processing view {schema}.{view_name}",
-                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
-                            exc=e,
-                        )
+                        self._warn_view_error(schema, view_name, _error_category, e)
 
         finally:
             engine.dispose()
@@ -2572,6 +2826,42 @@ ORDER by DataBaseName, TableName;
             default_schema=default_database,  # Set default_schema for unqualified table references
         )
 
+    def _report_slow_lineage_query(
+        self, query_label: str, query_db_elapsed: float, sql: str
+    ) -> None:
+        """Emit the slow-query metric + warning when *query_db_elapsed* exceeds the threshold.
+
+        Deliberately invoked from the normal-completion path rather than a
+        ``finally``: the fetch loop yields rows from inside a ``try``, so a
+        consumer that abandons the generator raises ``GeneratorExit`` at the
+        suspended ``yield``. Firing this from ``finally`` would log a false
+        slow-query warning for a query the user voluntarily cut short.
+        """
+        if (
+            self.config.lineage_slow_query_log_seconds <= 0
+            or query_db_elapsed <= self.config.lineage_slow_query_log_seconds
+        ):
+            return
+
+        self.report.increment_lineage_slow_query()
+        with self.report.atomic():
+            self.report.warning(
+                title="Slow lineage query detected",
+                message="A lineage query exceeded the slow-query threshold. Consider tuning the query or increasing lineage_slow_query_log_seconds.",
+                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s)",
+            )
+        # sql is a connector-generated DBC.QryLogV SQL string assembled entirely
+        # from config values (time range, database names, cursor type). It
+        # contains no user-supplied text and no PII, so logging a snippet is safe.
+        sql_snippet = sql[:500].replace("\n", " ")
+        if len(sql) > 500:
+            sql_snippet += " …"
+        logger.warning(
+            f"Slow lineage query detected: {query_label} took "
+            f"{query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s). "
+            f"SQL (first 500 chars): {sql_snippet}"
+        )
+
     def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
         """Fetch lineage entries using server-side cursor to handle large result sets efficiently."""
         queries = self._make_lineage_queries()
@@ -2592,6 +2882,13 @@ ORDER by DataBaseName, TableName;
 
         def _watchdog() -> None:
             check_interval = max(min(stall_seconds, 60), 10)
+            stall_warned = False
+            # Suppression is per query: reset stall_warned whenever the fetch
+            # loop advances to a new query so an independent stall on a later
+            # query is still reported. Today _make_lineage_queries() returns a
+            # single query, but this keeps the watchdog correct if that ever
+            # becomes multiple queries.
+            warned_for_query_index: Optional[int] = None
             while not watchdog_stop.wait(check_interval):
                 with phase_state_lock:
                     phase = phase_state["phase"]
@@ -2599,14 +2896,25 @@ ORDER by DataBaseName, TableName;
                     elapsed = time.time() - phase_state["last_event_at"]
                 if phase == "completed":
                     return
+                if query_index != warned_for_query_index:
+                    stall_warned = False
                 if elapsed > stall_seconds:
-                    logger.warning(
-                        f"Lineage fetch stall: no progress in {elapsed:.0f}s "
-                        f"(phase={phase}, query_index={query_index}). The "
-                        f"Teradata cursor may be blocked or the query is still "
-                        f"executing on the server. Investigate "
-                        f"DBC.SessionInfoV / network keepalive if this persists."
-                    )
+                    if not stall_warned:
+                        logger.warning(
+                            f"Lineage fetch stall: no progress in {elapsed:.0f}s "
+                            f"(phase={phase}, query_index={query_index}). The "
+                            f"Teradata cursor may be blocked or the query is still "
+                            f"executing on the server. Investigate "
+                            f"DBC.SessionInfoV / network keepalive if this persists."
+                        )
+                        with self.report.atomic():
+                            self.report.warning(
+                                title="Lineage fetch stall detected",
+                                message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
+                                context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
+                            )
+                        stall_warned = True
+                        warned_for_query_index = query_index
 
         watchdog_thread: Optional[Thread] = None
         if stall_seconds > 0:
@@ -2634,46 +2942,83 @@ ORDER by DataBaseName, TableName;
 
                 total_count_all_queries = 0
 
-                for query_index, query in enumerate(queries, 1):
+                for query_index, lineage_query in enumerate(queries, 1):
+                    query_label = f"query_{query_index} ({lineage_query.label})"
+
                     logger.info(
-                        f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
+                        f"Executing lineage query {query_index}/{len(queries)} "
+                        f"[{query_label}] for time range "
+                        f"{self.config.start_time} to {self.config.end_time} "
+                        f"with {cursor_type} cursor..."
                     )
                     _mark_phase("executing_query", query_index)
 
-                    # Use helper method to try server-side cursor with fallback
-                    result = self._execute_with_cursor_fallback(conn, query)
-                    _mark_phase("awaiting_first_batch", query_index)
+                    # Track only the time spent inside the database driver: the
+                    # execute call and every fetchmany call.  We deliberately do
+                    # NOT include the time the generator is suspended inside
+                    # `yield from batch`, because that is dominated by downstream
+                    # sqlglot parsing and aggregation — pipeline latency, not DB
+                    # latency.  Accumulating per-operation avoids that skew.
+                    query_db_elapsed = 0.0
 
-                    # Stream results in batches to avoid memory issues
-                    batch_size = 5000
-                    batch_count = 0
-                    query_total_count = 0
+                    try:
+                        t_start = time.monotonic()
+                        result = self._execute_with_cursor_fallback(
+                            conn, lineage_query.sql
+                        )
+                        query_db_elapsed += time.monotonic() - t_start
+                        _mark_phase("awaiting_first_batch", query_index)
 
-                    while True:
-                        # _fetchmany_with_retry handles transient errors that leave
-                        # the cursor intact (e.g. a brief network hiccup).  It does
-                        # NOT recover a server-side cursor whose position has been
-                        # lost — in that case retries exhaust and the exception
-                        # propagates to the outer except block.  The stall-detection
-                        # watchdog above covers the complementary failure mode where
-                        # fetchmany() hangs rather than raises.
-                        batch = self._retry_fetchmany(result, batch_size)
-                        if not batch:
-                            break
+                        # Stream results in batches to avoid memory issues
+                        batch_size = 5000
+                        batch_count = 0
+                        query_total_count = 0
 
-                        batch_count += 1
-                        query_total_count += len(batch)
-                        total_count_all_queries += len(batch)
-                        _mark_phase("fetching_batches", query_index)
+                        while True:
+                            # _fetchmany_with_retry handles transient errors that leave
+                            # the cursor intact (e.g. a brief network hiccup).  It does
+                            # NOT recover a server-side cursor whose position has been
+                            # lost — in that case retries exhaust and the exception
+                            # propagates to the outer except block.  The stall-detection
+                            # watchdog above covers the complementary failure mode where
+                            # fetchmany() hangs rather than raises.
+                            t_start = time.monotonic()
+                            batch = self._retry_fetchmany(result, batch_size)
+                            query_db_elapsed += time.monotonic() - t_start
+                            if not batch:
+                                break
+
+                            batch_count += 1
+                            query_total_count += len(batch)
+                            total_count_all_queries += len(batch)
+                            _mark_phase("fetching_batches", query_index)
+
+                            logger.debug(
+                                f"Query {query_index} - Fetched batch {batch_count}: {len(batch)} lineage entries (query total: {query_total_count})"
+                            )
+                            yield from batch
 
                         logger.info(
-                            f"Query {query_index} - Fetched batch {batch_count}: {len(batch)} lineage entries (query total: {query_total_count})"
+                            f"Completed lineage {query_label}: {query_total_count} entries "
+                            f"in {batch_count} batches ({query_db_elapsed:.1f}s DB time)"
                         )
-                        yield from batch
-
-                    logger.info(
-                        f"Completed query {query_index}: {query_total_count} lineage entries in {batch_count} batches"
-                    )
+                        # Normal-completion path only. The slow-query check is
+                        # deliberately NOT in `finally`: `yield from batch`
+                        # suspends inside this try, so a consumer that abandons
+                        # the generator raises GeneratorExit there, and a
+                        # finally-based check would emit a false slow-query
+                        # warning for a query the user voluntarily cut short.
+                        # See _report_slow_lineage_query.
+                        self._report_slow_lineage_query(
+                            query_label, query_db_elapsed, lineage_query.sql
+                        )
+                    finally:
+                        # Timing is recorded unconditionally — including on
+                        # GeneratorExit — because elapsed DB time is always a
+                        # valid measurement regardless of how the query exits.
+                        self.report.record_lineage_query_timing(
+                            query_label, query_db_elapsed
+                        )
 
                 logger.info(
                     f"Completed fetching all queries: {total_count_all_queries} total lineage entries from {len(queries)} queries"
@@ -2681,16 +3026,17 @@ ORDER by DataBaseName, TableName;
                 _mark_phase("completed")
 
         except Exception as e:
-            self.report.warning(
-                title="Lineage fetch failed",
-                message=(
-                    "Failed to fetch lineage entries from Teradata audit logs. "
-                    "Lineage data for this run will be incomplete. "
-                    "Check Teradata connectivity and DBC.QryLogV access."
-                ),
-                context=str(e),
-                exc=e,
-            )
+            with self.report.atomic():
+                self.report.warning(
+                    title="Lineage fetch failed",
+                    message=(
+                        "Failed to fetch lineage entries from Teradata audit logs. "
+                        "Lineage data for this run will be incomplete. "
+                        "Check Teradata connectivity and DBC.QryLogV access."
+                    ),
+                    context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                    exc=e,
+                )
             raise
         finally:
             watchdog_stop.set()
@@ -2727,24 +3073,19 @@ ORDER by DataBaseName, TableName;
                 return True
         except Exception as e:
             if isinstance(e, PoolTimeoutError):
+                self.report.increment_historical_lineage_check_failures()
                 self.report.warning(
                     title="Connection pool exhausted checking historical lineage table",
-                    message=(
-                        f"Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst "
-                        f"after {self.config.retry_max_attempts} attempts — the connection pool "
-                        f"was exhausted. Historical lineage will be skipped for this run. "
-                        f"Consider increasing connection_pool_timeout_ms or reducing max_workers."
-                    ),
+                    message="Could not acquire a connection to verify PDCRINFO.DBQLSqlTbl_Hst — the connection pool was exhausted. Historical lineage will be skipped for this run. Consider increasing connection_pool_timeout_ms or reducing max_workers.",
+                    context=f"retry_max_attempts={self.config.retry_max_attempts}",
                     exc=e,
                 )
             elif _should_retry_connect(e):
+                self.report.increment_historical_lineage_check_failures()
                 self.report.warning(
                     title="Historical lineage table unreachable",
-                    message=(
-                        f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
-                        f"after {self.config.retry_max_attempts} attempts due to a transient "
-                        f"error: {e}. Historical lineage will be skipped for this run."
-                    ),
+                    message="Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed after repeated transient errors. Historical lineage will be skipped for this run.",
+                    context=f"retry_max_attempts={self.config.retry_max_attempts}, error={e}",
                     exc=e,
                 )
             else:
@@ -2755,7 +3096,7 @@ ORDER by DataBaseName, TableName;
         finally:
             engine.dispose()
 
-    def _make_lineage_queries(self) -> List[str]:
+    def _make_lineage_queries(self) -> List[LineageQuery]:
         if self.config.databases:
             scoped_databases = self.config.databases
         elif self._tables_cache:
@@ -2783,7 +3124,7 @@ ORDER by DataBaseName, TableName;
             else ""
         )
 
-        queries = []
+        queries: List[LineageQuery] = []
 
         # Check if historical lineage is configured and available
         if (
@@ -2806,7 +3147,7 @@ ORDER by DataBaseName, TableName;
                 databases_filter=databases_filter,
                 databases_filter_history=databases_filter_history,
             )
-            queries.append(union_query)
+            queries.append(LineageQuery(sql=union_query, label="historical_union"))
         else:
             if self.config.include_historical_lineage:
                 logger.warning(
@@ -2819,7 +3160,7 @@ ORDER by DataBaseName, TableName;
                 end_time=self.config.end_time,
                 databases_filter=databases_filter,
             )
-            queries.append(current_query)
+            queries.append(LineageQuery(sql=current_query, label="current_only"))
 
         return queries
 
