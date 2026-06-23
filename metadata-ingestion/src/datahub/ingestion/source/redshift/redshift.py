@@ -452,10 +452,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         database=database,
                         lineage_extractor=lineage_extractor,
                     )
-                    if (
-                        self.config.include_usage_statistics
-                        and self.config.usage_via_sql_parsing
-                    ):
+                    if usage_via_parsing:
                         # In v2 mode, usage is produced by the lineage aggregator.
                         # Wrap with empty-usage backfill so tables with no queries in
                         # the window still get a usage aspect.

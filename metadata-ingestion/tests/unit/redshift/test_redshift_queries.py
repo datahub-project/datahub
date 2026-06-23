@@ -137,6 +137,11 @@ class TestProvisionedQueries:
         assert "stl_scan" not in sql.lower()
         # Must be scoped to the requested database (stl_query is cluster-wide).
         assert "q.database = 'test_db'" in sql
+        # Time window must be injected into the WHERE clause.
+        assert "2024-01-01 12:00:00" in sql
+        assert "2024-01-10 12:00:00" in sql
+        # Internal Redshift user must be excluded to avoid usage noise.
+        assert "rdsdb" in sql
 
 
 class TestServerlessQueries:
@@ -172,6 +177,11 @@ class TestServerlessQueries:
         assert "SYS_QUERY_DETAIL" not in sql  # not scan/table-scoped
         # Must be scoped to the requested database (SYS_QUERY_HISTORY is cluster-wide).
         assert "qh.database_name = 'test_db'" in sql
+        # Time window must be injected into the WHERE clause.
+        assert "2024-01-01 12:00:00" in sql
+        assert "2024-01-10 12:00:00" in sql
+        # Internal Redshift user must be excluded to avoid usage noise.
+        assert "rdsdb" in sql
 
     def test_no_old_listagg_pattern_serverless(self):
         """Ensure the old bare LISTAGG(qt."text") pattern is gone for serverless."""

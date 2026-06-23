@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import datahub.metadata.schema_classes as m
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import (
@@ -197,6 +198,32 @@ def get_lineage_extractor() -> RedshiftSqlLineage:
     )
 
     return lineage_extractor
+
+
+def test_user_urn_none_username_returns_none():
+    # NULL users are common for internal Redshift queries; the guard must
+    # return None rather than building a bogus urn:li:corpuser: from "".
+    assert get_lineage_extractor()._user_urn(None) is None
+
+
+def test_user_urn_strips_domain_when_email_already_present():
+    urn = get_lineage_extractor()._user_urn("alice@company.com")
+    assert str(urn) == "urn:li:corpuser:alice"
+
+
+def test_user_urn_appends_configured_email_domain():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="test",
+        email_domain="example.com",
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    # Domain is appended to form the email, but the urn id is the local part.
+    assert str(extractor._user_urn("bob")) == "urn:li:corpuser:bob"
 
 
 def test_cll():
@@ -524,7 +551,6 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
     """Queries-v2 unified feed: _populate_unified_queries feeds all queries to the
     lineage aggregator once, which then produces DatasetUsageStatistics with
     fieldCounts for explicitly referenced columns."""
-    import datahub.metadata.schema_classes as m
 
     config = RedshiftConfig(
         host_port="localhost:5439",
@@ -613,7 +639,6 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
     """Queries-v2 unified feed: _populate_unified_queries produces UpstreamLineage
     from write (INSERT INTO ... SELECT ...) statements, proving lineage is derived
     from the unified feed rather than a separate path."""
-    import datahub.metadata.schema_classes as m
 
     config = RedshiftConfig(
         host_port="localhost:5439",
@@ -709,7 +734,6 @@ def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
     """C1 regression guard: when all lineage flags are off but usage_via_sql_parsing=True,
     the aggregator must be built with generate_lineage=False so no UpstreamLineage
     aspects are emitted, while DatasetUsageStatistics aspects still are."""
-    import datahub.metadata.schema_classes as m
 
     config = RedshiftConfig(
         host_port="localhost:5439",

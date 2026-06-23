@@ -688,7 +688,7 @@ class RedshiftSqlLineage(Closeable):
             self.report.warning(
                 title="Failed to extract some lineage/usage",
                 message="Failed to process the unified query history",
-                context=f"Query: '{query}'",
+                context=f"database={self.database}, window={self.start_time}..{self.end_time}",
                 exc=e,
             )
             self.report_status("extract-all-queries", False)

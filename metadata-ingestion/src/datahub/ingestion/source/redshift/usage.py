@@ -468,11 +468,11 @@ class RedshiftUsageExtractor:
             format_queries=False,
         )
 
-    def _user_urn(self, event: RedshiftAccessEvent) -> CorpUserUrn:
+    def _user_urn(self, username: str) -> CorpUserUrn:
         # Preserve the legacy user identity: the urn id is the local part of the
         # email (domain stripped), so existing CorpUser links are unchanged.
-        user_email: str = event.username if event.username else "unknown"
-        if "@" not in user_email:
+        user_email = username if username else "unknown"
+        if "@" not in user_email and self.config.email_domain:
             user_email += f"@{self.config.email_domain}"
         return CorpUserUrn.from_string(builder.make_user_urn(user_email.split("@")[0]))
 
@@ -484,7 +484,7 @@ class RedshiftUsageExtractor:
             query_id=None,
             query_text=event.text or "",
             upstreams=[self.dataset_urn_builder(resource)],
-            user=self._user_urn(event),
+            user=self._user_urn(event.username),
             timestamp=event.starttime,
             query_count=1,
         )
