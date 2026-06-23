@@ -239,6 +239,10 @@ class RedshiftUsageExtractor:
                     start_time=start, end_time=end, database=self.config.database
                 )
                 aggregator = self._make_usage_aggregator()
+                # Surface this aggregator's report so the default usage path has
+                # the same observability (parse timers, filter skips, counts) as
+                # the v2 lineage aggregator.
+                self.report.usage_aggregator = aggregator.report
                 try:
                     # Drain the access events into a local cache before feeding the
                     # aggregator. add_preparsed_query fingerprints and formats each
@@ -246,15 +250,17 @@ class RedshiftUsageExtractor:
                     # live Redshift cursor would hold the cursor open for the whole
                     # aggregation and risk a timeout on large query histories.
                     with FileBackedList[RedshiftAccessEvent]() as access_events:
-                        for event in self._gen_access_events_from_history_query(
-                            query, connection=self.connection, all_tables=all_tables
-                        ):
-                            access_events.append(event)
+                        with self.report.usage_query_fetch_timer:
+                            for event in self._gen_access_events_from_history_query(
+                                query, connection=self.connection, all_tables=all_tables
+                            ):
+                                access_events.append(event)
 
-                        for event in access_events:
-                            aggregator.add_preparsed_query(
-                                self._access_event_to_preparsed_query(event)
-                            )
+                        with self.report.usage_parsing_timer:
+                            for event in access_events:
+                                aggregator.add_preparsed_query(
+                                    self._access_event_to_preparsed_query(event)
+                                )
 
                     for wu in auto_workunit(aggregator.gen_metadata()):
                         self.report.num_usage_workunits_emitted += 1

@@ -666,33 +666,35 @@ class RedshiftSqlLineage(Closeable):
         timer = self.report.lineage_phases_timer.setdefault("ALL_QUERIES", PerfTimer())
         try:
             with timer, FileBackedList[ObservedQuery]() as observed:
-                cursor = RedshiftDataDictionary.get_query_result(
-                    conn=connection, query=query
-                )
-                field_names = [c[0] for c in cursor.description]
-                idx_query_text = field_names.index("query_text")
-                idx_starttime = field_names.index("starttime")
-                idx_username = field_names.index("username")
-                idx_session_id = field_names.index("session_id")
-                rows = cursor.fetchmany()
-                while rows:
-                    for row in rows:
-                        text = row[idx_query_text]
-                        if not text:
-                            continue
-                        observed.append(
-                            ObservedQuery(
-                                query=text,
-                                default_db=self.database,
-                                default_schema=self.config.default_schema,
-                                timestamp=row[idx_starttime],
-                                user=self._user_urn(row[idx_username]),
-                                session_id=str(row[idx_session_id]),
-                            )
-                        )
+                with self.report.usage_query_fetch_timer:
+                    cursor = RedshiftDataDictionary.get_query_result(
+                        conn=connection, query=query
+                    )
+                    field_names = [c[0] for c in cursor.description]
+                    idx_query_text = field_names.index("query_text")
+                    idx_starttime = field_names.index("starttime")
+                    idx_username = field_names.index("username")
+                    idx_session_id = field_names.index("session_id")
                     rows = cursor.fetchmany()
-                for observed_query in observed:
-                    self.aggregator.add_observed_query(observed_query)
+                    while rows:
+                        for row in rows:
+                            text = row[idx_query_text]
+                            if not text:
+                                continue
+                            observed.append(
+                                ObservedQuery(
+                                    query=text,
+                                    default_db=self.database,
+                                    default_schema=self.config.default_schema,
+                                    timestamp=row[idx_starttime],
+                                    user=self._user_urn(row[idx_username]),
+                                    session_id=str(row[idx_session_id]),
+                                )
+                            )
+                        rows = cursor.fetchmany()
+                with self.report.usage_parsing_timer:
+                    for observed_query in observed:
+                        self.aggregator.add_observed_query(observed_query)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage/usage",
