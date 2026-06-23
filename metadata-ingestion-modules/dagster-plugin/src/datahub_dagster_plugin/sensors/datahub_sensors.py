@@ -209,6 +209,7 @@ class DatahubSensors:
             )
         self.graph = DataHubGraph(
             self.config.datahub_client_config,
+            default_emit_mode=self.config.emit_mode,
         )
 
         self.graph.test_connection()

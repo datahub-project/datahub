@@ -45,6 +45,23 @@ FROZEN_TIME = "2024-07-11 07:00:00"
 call_num = 0
 
 
+def test_emit_mode_defaults_to_async_and_is_overridable():
+    """The sensor defaults to ASYNC emit so high-volume runs don't block
+    GMS/MySQL, and users can override it on the source config."""
+    from datahub.emitter.rest_emitter import EmitMode
+
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+    )
+    assert config.emit_mode == EmitMode.ASYNC
+
+    override = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+        emit_mode=EmitMode.SYNC_WAIT,
+    )
+    assert override.emit_mode == EmitMode.SYNC_WAIT
+
+
 def make_new_run_id_mock() -> str:
     global call_num
     call_num += 1

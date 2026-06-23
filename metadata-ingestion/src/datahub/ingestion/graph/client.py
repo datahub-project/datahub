@@ -36,6 +36,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
     DatahubRestEmitter,
+    EmitMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
@@ -162,9 +163,12 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
 
-    def __init__(self, config: DatahubClientConfig) -> None:
+    def __init__(
+        self, config: DatahubClientConfig, default_emit_mode: Optional[EmitMode] = None
+    ) -> None:
         self.config = config
         super().__init__(
+            default_emit_mode=default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout

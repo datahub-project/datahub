@@ -511,6 +511,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
+        default_emit_mode: Optional[EmitMode] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -522,6 +523,10 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
+        # Per-instance default emit mode. Falls back to the global default
+        # (env-driven _DEFAULT_EMIT_MODE) when not set, so SDK behavior is
+        # unchanged unless a caller (e.g. a high-volume plugin) opts in.
+        self._default_emit_mode = default_emit_mode or _DEFAULT_EMIT_MODE
         self._session = requests.Session()
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
@@ -724,8 +729,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
     ) -> None:
+        if emit_mode is None:
+            emit_mode = self._default_emit_mode
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
@@ -787,7 +794,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         *,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> Optional[TraceData]: ...
 
@@ -795,11 +802,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> Optional[TraceData]:
         if async_flag is True:
             emit_mode = EmitMode.ASYNC
+        elif emit_mode is None:
+            emit_mode = self._default_emit_mode
 
         ensure_has_system_metadata(mcp)
 
@@ -882,9 +891,11 @@ class DataHubRestEmitter(Closeable, Emitter):
     def emit_mcps(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> List[TraceData]:
+        if emit_mode is None:
+            emit_mode = self._default_emit_mode
         if _DATAHUB_EMITTER_TRACE:
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
 
