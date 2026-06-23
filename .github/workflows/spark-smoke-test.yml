@@ -7,17 +7,19 @@ on:
       - master
       - releases/**
     paths:
-      - "metadata_models/**"
-      - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/acryl-spark-lineage/**"
+      # Run only when the Spark plugin or what it builds on changes.
+      - "metadata-integration/java/acryl-spark-lineage/**" # the Spark listener/plugin
+      - "metadata-integration/java/openlineage-converter/**" # OpenLineage -> DataHub conversion
+      - "metadata-integration/java/datahub-client/**" # the DataHub emitter client it uses
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
       - "**"
     paths:
-      - "metadata_models/**"
-      - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/acryl-spark-lineage/**"
+      # Run only when the Spark plugin or what it builds on changes.
+      - "metadata-integration/java/acryl-spark-lineage/**" # the Spark listener/plugin
+      - "metadata-integration/java/openlineage-converter/**" # OpenLineage -> DataHub conversion
+      - "metadata-integration/java/datahub-client/**" # the DataHub emitter client it uses
       - ".github/workflows/spark-smoke-test.yml"
   release:
     types: [published]
@@ -104,7 +106,10 @@ jobs:
           artifact-name: Test Results (smoke tests)
           test-results-paths: |
             **/build/reports/tests/test/**
+            **/build/reports/tests/sparkRealSmokeTest/**
             **/build/test-results/test/**
+            **/build/test-results/sparkRealSmokeTest/**
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
+            **/build/test-results/sparkRealSmokeTest/**/*.xml
