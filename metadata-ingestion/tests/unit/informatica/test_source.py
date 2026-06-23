@@ -1187,7 +1187,10 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._extract_lineage())
 
-        assert submitted == [["guid-a"], ["guid-b"], ["guid-c"]]
+        # Submission order is non-deterministic — batches run concurrently
+        # in a ThreadPoolExecutor (max_concurrent_export_jobs defaults to 4).
+        # The contract is "all batches submitted + failure recorded", not order.
+        assert sorted(submitted) == [["guid-a"], ["guid-b"], ["guid-c"]]
         assert len(source.report.export_jobs_failed) == 1
         assert "guid-b" not in str(source.report.export_jobs_failed[0])
         # ``batch@N`` identifies which mapping_id slice failed.
