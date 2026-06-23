@@ -430,17 +430,22 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            # Only extract lineage if at least one lineage flag is enabled.
-            # This addresses a regression introduced in PR #14580 where lineage v1 removal
-            # inadvertently caused lineage extraction to run even when all flags were disabled.
-            if (
+            lineage_enabled = (
                 self.config.include_table_lineage
                 or self.config.include_view_lineage
                 or self.config.include_copy_lineage
                 or self.config.include_unload_lineage
                 or self.config.include_share_lineage
                 or self.config.include_table_rename_lineage
-            ):
+            )
+            usage_via_parsing = (
+                self.config.include_usage_statistics
+                and self.config.usage_via_sql_parsing
+            )
+            # Enter the lineage block when any lineage flag is on OR when
+            # usage_via_sql_parsing is enabled (usage is produced by the
+            # lineage aggregator in v2 mode and would be silently lost otherwise).
+            if lineage_enabled or usage_via_parsing:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     lineage_wus = self.extract_lineage_v2(
                         connection=connection,
@@ -471,7 +476,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     yield from lineage_wus
             else:
                 logger.info(
-                    "Skipping lineage extraction - all lineage flags are disabled"
+                    "Skipping lineage/usage-v2 extraction - all lineage flags are disabled and usage_via_sql_parsing is off"
                 )
 
         if self.config.include_usage_statistics:

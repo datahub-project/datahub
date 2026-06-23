@@ -703,3 +703,110 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
     assert src_urn in upstream_urns, (
         f"Expected {src_urn!r} in upstreams of {tgt_urn!r}, got: {upstream_urns}"
     )
+
+
+def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
+    """C1 regression guard: when all lineage flags are off but usage_via_sql_parsing=True,
+    the aggregator must be built with generate_lineage=False so no UpstreamLineage
+    aspects are emitted, while DatasetUsageStatistics aspects still are."""
+    import datahub.metadata.schema_classes as m
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        # All lineage flags explicitly off.
+        include_table_lineage=False,
+        include_view_lineage=False,
+        include_copy_lineage=False,
+        include_unload_lineage=False,
+        include_share_lineage=False,
+        include_table_rename_lineage=False,
+        # Usage via SQL parsing on.
+        include_usage_statistics=True,
+        usage_via_sql_parsing=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-usage-only"), config.database
+    )
+
+    # Aggregator must not generate lineage when all lineage flags are off.
+    assert lineage_extractor.generate_usage is True
+    assert lineage_extractor.aggregator.generate_lineage is False
+
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.src,PROD)"
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tgt,PROD)"
+
+    def _make_schema(name: str) -> m.SchemaMetadataClass:
+        return m.SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="id",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+            ],
+        )
+
+    lineage_extractor.aggregator.register_schema(
+        urn=src_urn, schema=_make_schema("dev.public.src")
+    )
+    lineage_extractor.aggregator.register_schema(
+        urn=tgt_urn, schema=_make_schema("dev.public.tgt")
+    )
+    lineage_extractor.known_urns = {src_urn, tgt_urn}
+
+    # Feed an INSERT…SELECT which would produce lineage if generate_lineage were True.
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                1,
+                "INSERT INTO public.tgt SELECT id FROM public.src",
+                "alice",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "10",
+            ]
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    usage_found = False
+    lineage_found = False
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        asp = mcp.aspect
+        if isinstance(asp, m.DatasetUsageStatisticsClass):
+            usage_found = True
+        if isinstance(asp, m.UpstreamLineageClass):
+            lineage_found = True
+
+    assert usage_found, (
+        "Expected DatasetUsageStatistics aspects when usage_via_sql_parsing=True"
+    )
+    assert not lineage_found, (
+        "Expected no UpstreamLineage aspects when all lineage flags are off"
+    )

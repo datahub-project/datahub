@@ -875,7 +875,7 @@ where
             AND q.starttime < '{end_time}'
             AND q.aborted = 0
             AND q.database = '{database}'
-            AND sui.usename <> 'rdsdb'
+            AND (sui.usename IS NULL OR sui.usename <> 'rdsdb')
             ORDER BY q.starttime
         """.format(
             _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
@@ -1302,7 +1302,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     AND qh.status = 'success'
                     AND qh.database_name = '{database}'
                     AND qt.sequence < 16
-                    AND sui.user_name <> 'rdsdb'
+                    AND (sui.user_name IS NULL OR sui.user_name <> 'rdsdb')
                 GROUP BY qh.query_id, qh.session_id, qh.start_time, sui.user_name
             )
             ORDER BY starttime

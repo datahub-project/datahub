@@ -141,11 +141,19 @@ class RedshiftSqlLineage(Closeable):
         self.generate_usage = (
             self.config.include_usage_statistics and self.config.usage_via_sql_parsing
         )
+        lineage_enabled = (
+            self.config.include_table_lineage
+            or self.config.include_view_lineage
+            or self.config.include_copy_lineage
+            or self.config.include_unload_lineage
+            or self.config.include_share_lineage
+            or self.config.include_table_rename_lineage
+        )
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            generate_lineage=True,
+            generate_lineage=lineage_enabled,
             generate_queries=self.config.lineage_generate_queries,
             generate_usage_statistics=self.generate_usage,
             generate_operations=False,
@@ -653,10 +661,14 @@ class RedshiftSqlLineage(Closeable):
                     conn=connection, query=query
                 )
                 field_names = [c[0] for c in cursor.description]
+                idx_query_text = field_names.index("query_text")
+                idx_starttime = field_names.index("starttime")
+                idx_username = field_names.index("username")
+                idx_session_id = field_names.index("session_id")
                 rows = cursor.fetchmany()
                 while rows:
                     for row in rows:
-                        text = row[field_names.index("query_text")]
+                        text = row[idx_query_text]
                         if not text:
                             continue
                         observed.append(
@@ -664,9 +676,9 @@ class RedshiftSqlLineage(Closeable):
                                 query=text,
                                 default_db=self.database,
                                 default_schema=self.config.default_schema,
-                                timestamp=row[field_names.index("starttime")],
-                                user=self._user_urn(row[field_names.index("username")]),
-                                session_id=str(row[field_names.index("session_id")]),
+                                timestamp=row[idx_starttime],
+                                user=self._user_urn(row[idx_username]),
+                                session_id=str(row[idx_session_id]),
                             )
                         )
                     rows = cursor.fetchmany()
