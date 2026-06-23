@@ -2,7 +2,7 @@ import json
 import pathlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 from unittest.mock import MagicMock, Mock, patch
 
 import time_machine
@@ -312,3 +312,33 @@ def test_duplicate_operations_dropped():
         opA1,
         opB1,
     ]
+
+
+def _usage_extractor(email_domain: Optional[str] = None) -> RedshiftUsageExtractor:
+    config = RedshiftConfig(
+        host_port="localhost:5439", database="dev", email_domain=email_domain
+    )
+    return RedshiftUsageExtractor(
+        config=config,
+        connection=MagicMock(),
+        report=RedshiftReport(),
+        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
+        redundant_run_skip_handler=None,
+    )
+
+
+def test_usage_user_urn_blank_username_falls_back_to_unknown():
+    # Unlike the lineage extractor (which returns None), the usage extractor
+    # attributes blank users to a sentinel "unknown" corpuser.
+    assert str(_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
+
+
+def test_usage_user_urn_strips_domain_when_email_already_present():
+    urn = _usage_extractor(email_domain="company.com")._user_urn("alice@company.com")
+    assert str(urn) == "urn:li:corpuser:alice"
+
+
+def test_usage_user_urn_without_email_domain_uses_bare_username():
+    # The email_domain guard avoids building a "bob@None" intermediate; the urn
+    # id is the bare username either way (domain is not part of the urn id).
+    assert str(_usage_extractor()._user_urn("bob")) == "urn:li:corpuser:bob"

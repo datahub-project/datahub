@@ -211,7 +211,10 @@ def test_user_urn_strips_domain_when_email_already_present():
     assert str(urn) == "urn:li:corpuser:alice"
 
 
-def test_user_urn_appends_configured_email_domain():
+def test_user_urn_is_local_part_regardless_of_email_domain():
+    # The urn id is always the local part of the username; a configured
+    # email_domain does not appear in the urn (it is stripped before the urn
+    # is built), so a bare username yields urn:li:corpuser:<username>.
     config = RedshiftConfig(
         host_port="localhost:5439",
         database="test",
@@ -222,7 +225,6 @@ def test_user_urn_appends_configured_email_domain():
     extractor = RedshiftSqlLineage(
         config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
     )
-    # Domain is appended to form the email, but the urn id is the local part.
     assert str(extractor._user_urn("bob")) == "urn:li:corpuser:bob"
 
 
