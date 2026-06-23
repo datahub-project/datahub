@@ -1,17 +1,9 @@
 """
 Relationship Entity Module
 
-Self-contained processing for glossary term relationships:
-- Extraction from RDF graphs (skos:broader, skos:narrower only)
-- Conversion to DataHub AST
-- MCP creation for DataHub ingestion (isRelatedTerms only - inheritance)
-
-Note: Only broader/narrower relationships are supported.
-skos:related, skos:exactMatch, skos:closeMatch are NOT extracted.
-
-Both broader and narrower create inheritance relationships (isRelatedTerms):
-- broader: child → parent → child inherits from parent
-- narrower: parent → child → normalized to child → parent (child inherits from parent)
+Ontology-gated relationship routing for RDF ingestion:
+- Harvest all URI-object property triples
+- Route via DataHub TBox alignments to native @Relationship fields or extension SPs
 """
 
 from datahub.ingestion.source.rdf.entities.base import EntityMetadata
@@ -19,12 +11,14 @@ from datahub.ingestion.source.rdf.entities.glossary_term import (
     ENTITY_TYPE as GLOSSARY_TERM_ENTITY_TYPE,
 )
 from datahub.ingestion.source.rdf.entities.relationship.ast import (
+    DataHubNativeRelationship,
     DataHubRelationship,
+    DataHubStructuredPropertyAssignment,
+    DataHubStructuredPropertyDefinition,
+    MappingClass,
     RDFRelationship,
+    RDFStatement,
     RelationshipType,
-)
-from datahub.ingestion.source.rdf.entities.relationship.converter import (
-    RelationshipConverter,
 )
 from datahub.ingestion.source.rdf.entities.relationship.extractor import (
     RelationshipExtractor,
@@ -32,28 +26,36 @@ from datahub.ingestion.source.rdf.entities.relationship.extractor import (
 from datahub.ingestion.source.rdf.entities.relationship.mcp_builder import (
     RelationshipMCPBuilder,
 )
+from datahub.ingestion.source.rdf.entities.relationship.router import RelationshipRouter
+from datahub.ingestion.source.rdf.entities.relationship.triple_harvester import (
+    TripleHarvester,
+)
 
-# Entity type constant - part of the module contract
 ENTITY_TYPE = "relationship"
 
 ENTITY_METADATA = EntityMetadata(
     entity_type=ENTITY_TYPE,
     cli_names=["relationship", "relationships"],
-    rdf_ast_class=RDFRelationship,
-    datahub_ast_class=DataHubRelationship,
+    rdf_ast_class=RDFStatement,
+    datahub_ast_class=DataHubNativeRelationship,
     export_targets=["pretty_print", "file", "datahub"],
-    dependencies=[
-        GLOSSARY_TERM_ENTITY_TYPE
-    ],  # Depends on glossary terms (relationships reference terms)
+    dependencies=[GLOSSARY_TERM_ENTITY_TYPE],
+    processing_order=110,
 )
 
 __all__ = [
     "ENTITY_TYPE",
     "RelationshipExtractor",
-    "RelationshipConverter",
     "RelationshipMCPBuilder",
+    "RelationshipRouter",
+    "TripleHarvester",
     "RDFRelationship",
+    "RDFStatement",
     "DataHubRelationship",
+    "DataHubNativeRelationship",
+    "DataHubStructuredPropertyAssignment",
+    "DataHubStructuredPropertyDefinition",
+    "MappingClass",
     "RelationshipType",
     "ENTITY_METADATA",
 ]
