@@ -416,6 +416,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
+        # Fetch once; reused by the v2 auto_empty wrap and extract_usage below.
+        all_tables = self.get_all_tables()
+
         with RedshiftSqlLineage(
             config=self.config,
             report=self.report,
@@ -451,7 +454,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         # In v2 mode, usage is produced by the lineage aggregator.
                         # Wrap with empty-usage backfill so tables with no queries in
                         # the window still get a usage aspect.
-                        all_tables_now = self.get_all_tables()
                         lineage_wus = auto_empty_dataset_usage_statistics(
                             lineage_wus,
                             config=BaseTimeWindowConfig(
@@ -461,7 +463,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             ),
                             dataset_urns={
                                 self.gen_dataset_urn(f"{db}.{schema}.{t.name}")
-                                for db, schemas in all_tables_now.items()
+                                for db, schemas in all_tables.items()
                                 for schema, tables in schemas.items()
                                 for t in tables
                             },
@@ -471,8 +473,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info(
                     "Skipping lineage extraction - all lineage flags are disabled"
                 )
-
-        all_tables = self.get_all_tables()
 
         if self.config.include_usage_statistics:
             with self.report.new_stage(USAGE_EXTRACTION_INGESTION):

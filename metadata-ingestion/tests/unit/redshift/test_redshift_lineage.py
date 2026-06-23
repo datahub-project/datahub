@@ -570,13 +570,14 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
 
     # Build a fake cursor that returns one row matching the list_all_queries_sql
     # column layout: query_id, query_text, username, starttime, session_id.
+    # DB-API requires description to be a sequence of 7-item sequences; use tuples.
     fake_cursor = MagicMock()
     fake_cursor.description = [
-        ["query_id"],
-        ["query_text"],
-        ["username"],
-        ["starttime"],
-        ["session_id"],
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
     ]
     fake_cursor.fetchmany.side_effect = [
         [
@@ -606,3 +607,99 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
             field_paths.update(f.fieldPath for f in (asp.fieldCounts or []))
 
     assert {"col_a", "col_b"} <= field_paths, field_paths
+
+
+def test_populate_unified_queries_produces_lineage(monkeypatch):
+    """Queries-v2 unified feed: _populate_unified_queries produces UpstreamLineage
+    from write (INSERT INTO ... SELECT ...) statements, proving lineage is derived
+    from the unified feed rather than a separate path."""
+    import datahub.metadata.schema_classes as m
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        include_usage_statistics=True,
+        usage_via_sql_parsing=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-lineage"), config.database
+    )
+
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.src,PROD)"
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tgt,PROD)"
+
+    def _make_schema(name: str, urn: str) -> m.SchemaMetadataClass:
+        return m.SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="id",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+                m.SchemaFieldClass(
+                    fieldPath="name",
+                    type=m.SchemaFieldDataTypeClass(type=m.StringTypeClass()),
+                    nativeDataType="varchar",
+                ),
+            ],
+        )
+
+    lineage_extractor.aggregator.register_schema(
+        urn=src_urn, schema=_make_schema("dev.public.src", src_urn)
+    )
+    lineage_extractor.aggregator.register_schema(
+        urn=tgt_urn, schema=_make_schema("dev.public.tgt", tgt_urn)
+    )
+    lineage_extractor.known_urns = {src_urn, tgt_urn}
+
+    # DB-API description uses tuples (sequence of at least 1 element per column).
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                2,
+                "INSERT INTO public.tgt SELECT id, name FROM public.src",
+                "bob",
+                datetime(2021, 9, 15, 10, 0, 0, tzinfo=timezone.utc),
+                "99",
+            ]
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    upstream_urns: set = set()
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        if mcp.entityUrn == tgt_urn:
+            asp = mcp.aspect
+            if isinstance(asp, m.UpstreamLineageClass):
+                for upstream in asp.upstreams or []:
+                    upstream_urns.add(upstream.dataset)
+
+    assert src_urn in upstream_urns, (
+        f"Expected {src_urn!r} in upstreams of {tgt_urn!r}, got: {upstream_urns}"
+    )

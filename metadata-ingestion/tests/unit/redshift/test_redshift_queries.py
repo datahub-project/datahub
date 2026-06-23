@@ -122,21 +122,6 @@ class TestProvisionedQueries:
         ]:
             assert "LEN(RTRIM(text)) = 0" not in sql
 
-    def test_usage_query_sql_parsing_reconstructs_full_text(self):
-        """Parsing-mode usage must reconstruct the full query text from
-        STL_QUERYTEXT (boundary-aware LISTAGG), not the truncated
-        stl_query.querytxt, so column-level parsing sees the whole query."""
-        sql = RedshiftProvisionedQuery.usage_query_sql_parsing(
-            start_time="2024-01-01 12:00:00",
-            end_time="2024-01-10 12:00:00",
-            database="test_db",
-        )
-        assert "WITH query_txt AS" in sql
-        assert "STL_QUERYTEXT" in sql
-        assert PROVISIONED_LISTAGG_PATTERN in sql
-        # The selected query text comes from the reconstructed CTE.
-        assert "qt.querytxt as querytxt" in sql
-
     def test_list_all_queries_reconstructs_full_text(self):
         """Queries-v2 unified feed: all statements (reads + writes) with full text
         reconstructed from STL_QUERYTEXT, not pre-filtered by table."""
@@ -150,6 +135,8 @@ class TestProvisionedQueries:
         assert "stl_query" in sql.lower()
         # Not scoped to a target/scanned table — the aggregator filters instead.
         assert "stl_scan" not in sql.lower()
+        # Must be scoped to the requested database (stl_query is cluster-wide).
+        assert "q.database = 'test_db'" in sql
 
 
 class TestServerlessQueries:
@@ -171,19 +158,6 @@ class TestServerlessQueries:
         )
         assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
 
-    def test_usage_query_sql_parsing_reconstructs_full_text(self):
-        """Parsing-mode usage must reconstruct the full query text from
-        SYS_QUERY_TEXT (boundary-aware LISTAGG, sequence-capped for the LISTAGG
-        size limit), not the truncated qh.query_text."""
-        sql = RedshiftServerlessQuery.usage_query_sql_parsing(
-            start_time="2024-01-01 12:00:00",
-            end_time="2024-01-10 12:00:00",
-            database="test_db",
-        )
-        assert "SYS_QUERY_TEXT" in sql
-        assert SERVERLESS_LISTAGG_PATTERN_QUERYTXT in sql
-        assert "qt.sequence < 16" in sql
-
     def test_list_all_queries_reconstructs_full_text(self):
         """Queries-v2 unified feed (serverless): all statements with full text
         reconstructed from SYS_QUERY_TEXT, not pre-filtered by table."""
@@ -196,6 +170,8 @@ class TestServerlessQueries:
         assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
         assert "qt.sequence < 16" in sql
         assert "SYS_QUERY_DETAIL" not in sql  # not scan/table-scoped
+        # Must be scoped to the requested database (SYS_QUERY_HISTORY is cluster-wide).
+        assert "qh.database_name = 'test_db'" in sql
 
     def test_no_old_listagg_pattern_serverless(self):
         """Ensure the old bare LISTAGG(qt."text") pattern is gone for serverless."""
