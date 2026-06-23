@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import cachetools
 import redshift_connector
@@ -12,6 +12,7 @@ from pydantic.main import BaseModel
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source_helpers import (
     auto_empty_dataset_usage_statistics,
     auto_workunit,
@@ -39,6 +40,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
     PreparsedQuery,
     SqlParsingAggregator,
 )
@@ -125,11 +127,15 @@ class RedshiftUsageExtractor:
         report: RedshiftReport,
         dataset_urn_builder: Callable[[str], str],
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
+        context: Optional[PipelineContext] = None,
     ):
         self.config = config
         self.report = report
         self.connection = connection
         self.dataset_urn_builder = dataset_urn_builder
+        # Only needed when usage_via_sql_parsing is enabled, so the aggregator can
+        # resolve column schemas (for column-level usage) from the backend graph.
+        self.context = context
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = (
@@ -167,12 +173,14 @@ class RedshiftUsageExtractor:
         return True
 
     def get_usage_workunits(
-        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+        self,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+        schema_metadata_stream: Optional[Iterable[MetadataWorkUnit]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_usage():
             return
         yield from auto_empty_dataset_usage_statistics(
-            self._get_workunits_internal(all_tables),
+            self._get_workunits_internal(all_tables, schema_metadata_stream),
             config=BaseTimeWindowConfig(
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -195,7 +203,9 @@ class RedshiftUsageExtractor:
             )
 
     def _get_workunits_internal(
-        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+        self,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+        schema_metadata_stream: Optional[Iterable[MetadataWorkUnit]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
@@ -216,13 +226,35 @@ class RedshiftUsageExtractor:
 
         # Generate usage statistics via the SQL parsing aggregator.
         with self.report.new_stage(USAGE_EXTRACTION_USAGE_AGGREGATION):
-            query: str = self.queries.usage_query(
-                start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-                end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
-                database=self.config.database,
+            start = self.start_time.strftime(REDSHIFT_DATETIME_FORMAT)
+            end = self.end_time.strftime(REDSHIFT_DATETIME_FORMAT)
+            # In parsing mode, fetch the full reconstructed query text (from
+            # STL_QUERYTEXT / SYS_QUERY_TEXT) so column-level parsing isn't limited
+            # by the truncated stl_query.querytxt; otherwise the lighter scan-based
+            # query (truncated text is fine, only used for top-N display) suffices.
+            query: str = (
+                self.queries.usage_query_sql_parsing(
+                    start_time=start, end_time=end, database=self.config.database
+                )
+                if self.config.usage_via_sql_parsing
+                else self.queries.usage_query(
+                    start_time=start, end_time=end, database=self.config.database
+                )
             )
             aggregator = self._make_usage_aggregator()
             try:
+                if self.config.usage_via_sql_parsing and schema_metadata_stream:
+                    # Record this run's table schemas in the aggregator's schema
+                    # resolver so column references (including SELECT * and
+                    # unqualified columns) resolve to real fields without depending
+                    # on a pre-populated backend graph. The schema workunits are
+                    # already emitted by the source, so consume the stream here
+                    # purely to register — don't re-yield them.
+                    for _ in aggregator.register_schemas_from_stream(
+                        schema_metadata_stream
+                    ):
+                        pass
+
                 # Drain the access events into a local cache before feeding the
                 # aggregator. add_preparsed_query fingerprints and formats each
                 # query (SQL parsing, slow); doing that inline while iterating the
@@ -234,10 +266,25 @@ class RedshiftUsageExtractor:
                     ):
                         access_events.append(event)
 
-                    for event in access_events:
-                        aggregator.add_preparsed_query(
-                            self._access_event_to_preparsed_query(event)
-                        )
+                    if self.config.usage_via_sql_parsing:
+                        # Parse each distinct query once to derive column-level
+                        # usage. usage_query returns one row per (query, table), so
+                        # dedup by Redshift query id — otherwise a query scanning N
+                        # tables would be parsed N times and over-count usage across
+                        # all of its parsed upstreams.
+                        seen_queries: Set[int] = set()
+                        for event in access_events:
+                            if event.query in seen_queries:
+                                continue
+                            seen_queries.add(event.query)
+                            aggregator.add_observed_query(
+                                self._access_event_to_observed_query(event)
+                            )
+                    else:
+                        for event in access_events:
+                            aggregator.add_preparsed_query(
+                                self._access_event_to_preparsed_query(event)
+                            )
 
                 for wu in auto_workunit(aggregator.gen_metadata()):
                     self.report.num_usage_workunits_emitted += 1
@@ -426,18 +473,22 @@ class RedshiftUsageExtractor:
             self.report.num_operational_stats_workunits_emitted += 1
 
     def _make_usage_aggregator(self) -> SqlParsingAggregator:
-        # Usage is fed as already-resolved table reads (PreparsedQuery with known
-        # upstreams from stl_scan), so the aggregator never parses the (often
-        # truncated) Redshift query text to derive tables — it only attributes the
-        # read to the known table, preserving stl_scan accuracy. The aggregator's
-        # internal query store is file-backed, and the cursor is drained up front,
-        # so large histories don't hold the Redshift cursor open or blow up memory.
-        # format_queries=False so top-N query text is formatted exactly once, in
-        # make_usage_workunit (matching the previous behavior).
+        # By default usage is fed as already-resolved table reads (PreparsedQuery
+        # with known upstreams from stl_scan), so the aggregator never parses the
+        # (often truncated) Redshift query text to derive tables — it only
+        # attributes the read to the known table, preserving stl_scan accuracy.
+        # When usage_via_sql_parsing is set, queries are parsed instead (see
+        # _get_workunits_internal), which adds column-level usage; the backend
+        # graph is passed so column references resolve to real schema fields.
+        # The aggregator's query store is file-backed and the cursor is drained up
+        # front, so large histories don't hold the Redshift cursor open or blow up
+        # memory. format_queries=False so top-N query text is formatted exactly
+        # once, in make_usage_workunit (matching the previous behavior).
         return SqlParsingAggregator(
             platform="redshift",
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            graph=self.context.graph if self.context else None,
             generate_lineage=False,
             generate_queries=False,
             generate_query_usage_statistics=False,
@@ -447,23 +498,36 @@ class RedshiftUsageExtractor:
             format_queries=False,
         )
 
-    def _access_event_to_preparsed_query(
-        self, event: RedshiftAccessEvent
-    ) -> PreparsedQuery:
-        resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
+    def _user_urn(self, event: RedshiftAccessEvent) -> CorpUserUrn:
         # Preserve the legacy user identity: the urn id is the local part of the
         # email (domain stripped), so existing CorpUser links are unchanged.
         user_email: str = event.username if event.username else "unknown"
         if "@" not in user_email:
             user_email += f"@{self.config.email_domain}"
-        user = CorpUserUrn.from_string(builder.make_user_urn(user_email.split("@")[0]))
+        return CorpUserUrn.from_string(builder.make_user_urn(user_email.split("@")[0]))
+
+    def _access_event_to_preparsed_query(
+        self, event: RedshiftAccessEvent
+    ) -> PreparsedQuery:
+        resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
         return PreparsedQuery(
             query_id=None,
             query_text=event.text or "",
             upstreams=[self.dataset_urn_builder(resource)],
-            user=user,
+            user=self._user_urn(event),
             timestamp=event.starttime,
             query_count=1,
+        )
+
+    def _access_event_to_observed_query(
+        self, event: RedshiftAccessEvent
+    ) -> ObservedQuery:
+        return ObservedQuery(
+            query=event.text or "",
+            default_db=event.database,
+            default_schema=event.schema_,
+            user=self._user_urn(event),
+            timestamp=event.starttime,
         )
 
     def report_status(self, step: str, status: bool) -> None:

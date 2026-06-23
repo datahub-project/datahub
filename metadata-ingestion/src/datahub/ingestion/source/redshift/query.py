@@ -446,6 +446,13 @@ ORDER BY target_schema, target_table, filename
         raise NotImplementedError
 
     @staticmethod
+    def usage_query_sql_parsing(start_time: str, end_time: str, database: str) -> str:
+        # Like usage_query, but returns the full query text reconstructed from
+        # STL_QUERYTEXT / SYS_QUERY_TEXT (instead of the truncated
+        # stl_query.querytxt), for the column-level usage-via-SQL-parsing path.
+        raise NotImplementedError
+
+    @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
         raise NotImplementedError
 
@@ -831,6 +838,61 @@ where
         """.strip()
 
     @staticmethod
+    def usage_query_sql_parsing(start_time: str, end_time: str, database: str) -> str:
+        # Same scan-based scoping as usage_query, but the query text is the full
+        # statement reconstructed from STL_QUERYTEXT (segments of up to
+        # _PROVISIONED_SEGMENT_SIZE chars, ordered by sequence) rather than the
+        # truncated stl_query.querytxt — so SQL parsing for column-level usage sees
+        # the complete query. Mirrors the reconstruction used by the lineage
+        # queries.
+        return """
+            WITH query_txt AS (
+                SELECT
+                    query,
+                    RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY sequence)) AS querytxt
+                FROM (
+                    SELECT query, text, sequence
+                    FROM STL_QUERYTEXT
+                    WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                    ORDER BY sequence
+                )
+                GROUP BY query
+            )
+            SELECT DISTINCT ss.userid as userid,
+                   ss.query as query,
+                   sui.usename as username,
+                   ss.tbl as tbl,
+                   qt.querytxt as querytxt,
+                   sti.database as database,
+                   sti.schema as schema,
+                   sti.table as table,
+                   sq.starttime as starttime,
+                   sq.endtime as endtime
+            FROM stl_scan ss
+              JOIN svv_table_info sti ON ss.tbl = sti.table_id
+              JOIN stl_query sq ON ss.query = sq.query
+              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              JOIN query_txt qt ON ss.query = qt.query
+            WHERE ss.starttime >= '{start_time}'
+            AND ss.starttime < '{end_time}'
+            AND sti.database = '{database}'
+            AND sq.aborted = 0
+            AND NOT (
+                sq.querytxt LIKE 'small table validation: %'
+                OR sq.querytxt LIKE 'Small table conversion: %'
+                OR sq.querytxt LIKE 'padb_fetch_sample: %'
+            )
+            ORDER BY ss.endtime DESC;
+        """.format(
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            start_time=start_time,
+            end_time=end_time,
+            database=database,
+        ).strip()
+
+    @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
         return f"""
           (SELECT
@@ -1214,6 +1276,65 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ORDER BY qh.end_time DESC
             ;
         """.strip()
+
+    @staticmethod
+    def usage_query_sql_parsing(start_time: str, end_time: str, database: str) -> str:
+        # Same scan-based scoping as usage_query, but the query text is the full
+        # statement reconstructed from SYS_QUERY_TEXT (segments ordered by
+        # sequence) rather than the truncated qh.query_text — so SQL parsing for
+        # column-level usage sees the complete query. sequence is capped at 16
+        # because each SYS_QUERY_TEXT segment is up to _SERVERLESS_SEGMENT_SIZE
+        # (4000) chars and LISTAGG's result is bounded to ~64KB (mirrors the
+        # serverless lineage query).
+        return """
+            SELECT
+                userid,
+                query,
+                username,
+                tbl,
+                RTRIM(LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                    WITHIN GROUP (ORDER BY sequence)) AS querytxt,
+                db AS database,
+                sch AS schema,
+                tbl_name AS "table",
+                starttime,
+                endtime
+            FROM (
+                SELECT DISTINCT
+                    qh.user_id AS userid,
+                    qh.query_id AS query,
+                    sui.user_name AS username,
+                    qd.table_id AS tbl,
+                    qt."text" AS querytxt,
+                    sti.database AS db,
+                    sti.schema AS sch,
+                    sti.table AS tbl_name,
+                    qh.start_time AS starttime,
+                    qh.end_time AS endtime,
+                    qt.sequence AS sequence
+                FROM
+                    SYS_QUERY_DETAIL qd
+                    JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
+                    JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                    JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
+                    LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qd.query_id
+                WHERE
+                    qd.step_name = 'scan'
+                    AND qh.start_time >= '{start_time}'
+                    AND qh.start_time < '{end_time}'
+                    AND sti.database = '{database}'
+                    AND qh.status = 'success'
+                    AND qt.sequence < 16
+            )
+            GROUP BY userid, query, username, tbl, db, sch, tbl_name, starttime, endtime
+            ORDER BY endtime DESC
+            ;
+        """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
+            start_time=start_time,
+            end_time=end_time,
+            database=database,
+        ).strip()
 
     @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:

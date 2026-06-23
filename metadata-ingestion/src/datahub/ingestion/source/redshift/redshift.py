@@ -981,9 +981,29 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 report=self.report,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                context=self.ctx,
             )
 
-            yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
+            # For column-level usage (usage_via_sql_parsing), register this run's
+            # schemas in the usage aggregator so parsed column references resolve.
+            # Built from the already-fetched all_tables (no extra DB round-trip).
+            schema_metadata_stream: Optional[Iterable[MetadataWorkUnit]] = None
+            if self.config.usage_via_sql_parsing:
+                schema_metadata_stream = (
+                    wu
+                    for db, schemas in all_tables.items()
+                    for schema, tables in schemas.items()
+                    for table in tables
+                    for wu in self.gen_schema_metadata(
+                        self.gen_dataset_urn(f"{db}.{schema}.{table.name}"),
+                        table,
+                        f"{db}.{schema}.{table.name}",
+                    )
+                )
+
+            yield from usage_extractor.get_usage_workunits(
+                all_tables=all_tables, schema_metadata_stream=schema_metadata_stream
+            )
 
             self.report.usage_extraction_sec[database] = timer.elapsed_seconds(digits=2)
 

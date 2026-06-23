@@ -122,6 +122,21 @@ class TestProvisionedQueries:
         ]:
             assert "LEN(RTRIM(text)) = 0" not in sql
 
+    def test_usage_query_sql_parsing_reconstructs_full_text(self):
+        """Parsing-mode usage must reconstruct the full query text from
+        STL_QUERYTEXT (boundary-aware LISTAGG), not the truncated
+        stl_query.querytxt, so column-level parsing sees the whole query."""
+        sql = RedshiftProvisionedQuery.usage_query_sql_parsing(
+            start_time="2024-01-01 12:00:00",
+            end_time="2024-01-10 12:00:00",
+            database="test_db",
+        )
+        assert "WITH query_txt AS" in sql
+        assert "STL_QUERYTEXT" in sql
+        assert PROVISIONED_LISTAGG_PATTERN in sql
+        # The selected query text comes from the reconstructed CTE.
+        assert "qt.querytxt as querytxt" in sql
+
 
 class TestServerlessQueries:
     def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
@@ -141,6 +156,19 @@ class TestServerlessQueries:
             start_time=START_TIME, end_time=END_TIME
         )
         assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
+
+    def test_usage_query_sql_parsing_reconstructs_full_text(self):
+        """Parsing-mode usage must reconstruct the full query text from
+        SYS_QUERY_TEXT (boundary-aware LISTAGG, sequence-capped for the LISTAGG
+        size limit), not the truncated qh.query_text."""
+        sql = RedshiftServerlessQuery.usage_query_sql_parsing(
+            start_time="2024-01-01 12:00:00",
+            end_time="2024-01-10 12:00:00",
+            database="test_db",
+        )
+        assert "SYS_QUERY_TEXT" in sql
+        assert SERVERLESS_LISTAGG_PATTERN_QUERYTXT in sql
+        assert "qt.sequence < 16" in sql
 
     def test_no_old_listagg_pattern_serverless(self):
         """Ensure the old bare LISTAGG(qt."text") pattern is gone for serverless."""
