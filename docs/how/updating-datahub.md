@@ -122,6 +122,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- #18001 **(Ingestion / Redshift)** The per-user `userEmail` field in Redshift dataset usage statistics (`DatasetUserUsageCounts`) is no longer populated. Redshift's catalog only stores usernames, so this email was previously synthesized as `<username>@<email_domain>` and carried no information beyond the user's CorpUser URN. That URN is unchanged, so user attribution and ownership links are unaffected. **No action required;** if you relied on the synthetic email, derive it from the user URN plus your `email_domain` setting. (This is a side effect of Redshift usage now flowing through the standard SQL-parsing usage aggregator. A new opt-in `usage_via_sql_parsing` config additionally enables column-level usage statistics.)
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
