@@ -838,6 +838,7 @@ kafka:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
+    reconcileExistingTopicConfigs: ${KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS:false}
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:
