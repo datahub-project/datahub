@@ -42,6 +42,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import auto_lowercase_urns
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.omni.omni_api import OmniClient
@@ -157,7 +158,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return self.get_workunits_internal()
+        stream: Iterable[MetadataWorkUnit] = self.get_workunits_internal()
+        if self.config.convert_urns_to_lowercase:
+            stream = auto_lowercase_urns(stream)
+        return stream
 
     # ------------------------------------------------------------------
     # TestableSource
@@ -269,8 +273,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         db, sc, tb = database or "", schema or "", table or ""
         if self.config.normalize_snowflake_names and platform.lower() == "snowflake":
             db, sc, tb = db.upper(), sc.upper(), tb.upper()
-        if self.config.convert_urns_to_lowercase:
-            db, sc, tb = db.lower(), sc.lower(), tb.lower()
         full_name = ".".join(p for p in [db, sc, tb] if p)
         if platform_instance:
             return make_dataset_urn_with_platform_instance(
@@ -647,16 +649,43 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             schema = view.get("schema") or ""
             catalog = view.get("catalog") or ""
             table = view.get("table_name") or ""
-            logger.debug(
-                "View physical binding for %s.%s: %r",
+            logger.info(
+                "View physical binding for model=%s view=%s: "
+                "table=%r catalog=%r schema=%r connection_db=%r platform=%r "
+                "normalize_snowflake_names=%s convert_urns_to_lowercase=%s",
                 model_id,
                 view.get("name", ""),
-                view,
+                table,
+                catalog,
+                schema,
+                database,
+                platform,
+                self.config.normalize_snowflake_names,
+                self.config.convert_urns_to_lowercase,
             )
             if table:
                 effective_database = catalog or database
+                logger.info(
+                    "Constructing physical URN for model=%s view=%s: "
+                    "effective_database=%r (catalog=%r overrides connection_db=%r) "
+                    "schema=%r table=%r platform_instance=%r",
+                    model_id,
+                    view.get("name", ""),
+                    effective_database,
+                    catalog,
+                    database,
+                    schema,
+                    table,
+                    platform_instance,
+                )
                 physical_urn = self._physical_dataset_urn(
                     platform, effective_database, schema, table, platform_instance
+                )
+                logger.info(
+                    "Physical URN emitted for model=%s view=%s: %r",
+                    model_id,
+                    view.get("name", ""),
+                    physical_urn,
                 )
                 self._physical_dataset_urns.add(physical_urn)
                 yield from self._emit_dataset(
