@@ -29,6 +29,8 @@ import com.linkedin.metadata.authorization.Conjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.util.Pair;
 import io.datahubproject.test.metadata.context.TestAuthSession;
+import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -482,6 +484,139 @@ public class AuthUtilTest {
             List.of(TEST_TAG),
             PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
         "Expected user without EDIT_ENTITY_TAGS to be denied");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            Collections.emptyList(),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected empty tag list to skip authorization");
+
+    Authorizer datasetColTagsAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("EDIT_DATASET_COL_TAGS", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_A, datasetColTagsAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+        "Expected EDIT_DATASET_COL_TAGS to authorize dataset column tag modifications");
+  }
+
+  @Test
+  public void testIsAuthorizedForTagModification() {
+    final Urn TEST_TAG = UrnUtils.getUrn("urn:li:tag:Legacy");
+
+    Authorizer editEntityAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_A, editEntityAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected EDIT_ENTITY to authorize tag modifications");
+
+    assertTrue(
+        AuthUtil.isAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_B, editEntityAuthorizer),
+            TEST_ENTITY_1,
+            Collections.emptyList(),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected empty tag list to skip authorization");
+
+    Authorizer editEntityTagsAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("EDIT_ENTITY_TAGS", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_A, editEntityTagsAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected EDIT_ENTITY_TAGS to authorize tag modifications without EDIT_ENTITY");
+
+    assertFalse(
+        AuthUtil.isAuthorizedForTagModification(
+            TestAuthSession.from(TEST_AUTH_B, editEntityTagsAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_TAG),
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        "Expected user without tag privileges to be denied");
+  }
+
+  @Test
+  public void testTagModificationPrivilege() {
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+    Urn dataFlowUrn = UrnUtils.getUrn("urn:li:dataFlow:(urn:li:dataPlatform:airflow,flow,PROD)");
+
+    assertEquals(
+        PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE,
+        AuthUtil.tagModificationPrivilege(datasetUrn, true));
+    assertEquals(
+        PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+        AuthUtil.tagModificationPrivilege(datasetUrn, false));
+    assertEquals(
+        PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE,
+        AuthUtil.tagModificationPrivilege(dataFlowUrn, true));
+  }
+
+  @Test
+  public void testTagModificationPrivilegeGroup() {
+    assertEquals(
+        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_TAGS")))));
+
+    assertEquals(
+        AuthUtil.tagModificationPrivilegeGroup(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("EDIT_DATASET_COL_TAGS")))));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedSkipsWhenRestApiAuthorizationDisabled() throws Exception {
+    final Urn TEST_TAG = UrnUtils.getUrn("urn:li:tag:Legacy");
+    boolean previous = getRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(false);
+    try {
+      assertTrue(
+          AuthUtil.isAPIAuthorizedForTagModification(
+              TestAuthSession.from(TEST_AUTH_B, mock(Authorizer.class)),
+              TEST_ENTITY_1,
+              List.of(TEST_TAG),
+              PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
+          "Expected REST API authorization disabled to bypass tag checks");
+    } finally {
+      setRestApiAuthorizationEnabled(previous);
+    }
+  }
+
+  private static boolean getRestApiAuthorizationEnabled() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    return field.getBoolean(null);
+  }
+
+  private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, enabled);
   }
 
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {

@@ -1022,6 +1022,49 @@ public class PrivilegeConstraintsValidatorTest {
   }
 
   @Test
+  public void testEditDatasetColTagsPrivilegeAllowsAddingSchemaFieldTags() throws Exception {
+    closeAuthUtilMock();
+    boolean previousRestApiAuthorizationEnabled = getRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+    try {
+      AuthorizationSession session =
+          TestAuthSession.from(
+              TAG_EDITOR_AUTH,
+              mockAuthorizer(
+                  Map.of(
+                      TAG_EDITOR_AUTH.getActor().toUrnStr(),
+                      Map.of("EDIT_DATASET_COL_TAGS", Set.of(TEST_DATASET_URN)))));
+
+      EditableSchemaMetadata editableSchemaMetadata =
+          createEditableSchemaMetadata("field1", TEST_TAG_URN);
+      BatchItem item =
+          TestMCP.ofOneUpsertItem(TEST_DATASET_URN, editableSchemaMetadata, TEST_REGISTRY).stream()
+              .findFirst()
+              .orElseThrow();
+
+      Mockito.doReturn(null)
+          .when(mockAspectRetriever)
+          .getLatestAspectObject(
+              any(OperationFingerprint.class),
+              Mockito.eq(TEST_DATASET_URN),
+              Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
+
+      Stream<AspectValidationException> result =
+          validator.validateProposedAspectsWithAuth(
+              OperationFingerprint.EMPTY,
+              Collections.singletonList(item),
+              retrieverContext,
+              session);
+
+      Assert.assertTrue(
+          result.findAny().isEmpty(),
+          "Users granted only EDIT_DATASET_COL_TAGS should be able to add schema field tags");
+    } finally {
+      setRestApiAuthorizationEnabled(previousRestApiAuthorizationEnabled);
+    }
+  }
+
+  @Test
   public void testEditEntityTagsPrivilegeAllowsAddingGlobalTags() throws Exception {
     closeAuthUtilMock();
     boolean previousRestApiAuthorizationEnabled = getRestApiAuthorizationEnabled();
