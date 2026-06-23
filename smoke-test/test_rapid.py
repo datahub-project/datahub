@@ -51,3 +51,10 @@ def test_ingestion_via_rest_rapid(auth_session):
     ingest_file_via_rest(auth_session, bootstrap_small)
     ingest_file_via_rest(auth_session, bootstrap_small_2)
     _ensure_dataset_present_correctly(auth_session)
+
+
+def test_graphql_error_expectation(auth_session):
+    """Verify execute_graphql respects expect_errors=True for invalid queries."""
+    query = "query { nonExistentField }"
+    res_data = execute_graphql(auth_session, query, expect_errors=True)
+    assert "errors" in res_data, "Expected GraphQL errors when expect_errors=True"
