@@ -1,5 +1,8 @@
 package io.datahubproject.openapi.health;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -7,6 +10,7 @@ import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -222,10 +226,28 @@ public class HealthCheckController {
     String responseString = null;
     try {
       ClusterHealthRequest request = new ClusterHealthRequest();
-      // TODO(opcontext-pr6): cannot use per-event opContext — health probe has no per-event
-      // identity
+      // /health is auth-excluded — there is no human actor. Build an anonymous session opContext
+      // so downstream telemetry has a proper per-request context instead of the raw system context.
+      // HttpServletRequest is not available here (memoized supplier, no Spring MVC injection),
+      // so we pass null; RequestContext.buildOpenapi handles null gracefully.
+      // When AuthenticationContext is unset (auth-excluded path or tests without a filter chain),
+      // fall back to systemOperationContext so the call still proceeds.
+      Authentication auth = AuthenticationContext.getAuthentication();
+      OperationContext opContext;
+      if (auth != null) {
+        opContext =
+            OperationContext.asSession(
+                systemOperationContext,
+                RequestContext.builder()
+                    .buildOpenapi(auth.getActor().toUrnStr(), null, "healthCheck", (String) null),
+                Authorizer.EMPTY,
+                auth,
+                true);
+      } else {
+        opContext = systemOperationContext;
+      }
       ClusterHealthResponse response =
-          elasticClient.clusterHealth(systemOperationContext, request, RequestOptions.DEFAULT);
+          elasticClient.clusterHealth(opContext, request, RequestOptions.DEFAULT);
 
       boolean isHealthy = !response.isTimedOut() && response.getStatus() != ClusterHealthStatus.RED;
       responseString = response.toString();

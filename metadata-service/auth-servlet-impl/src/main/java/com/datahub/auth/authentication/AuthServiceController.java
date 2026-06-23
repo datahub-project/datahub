@@ -19,6 +19,7 @@ import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -35,10 +36,12 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -138,7 +141,7 @@ public class AuthServiceController {
    */
   @PostMapping(value = "/generateSessionTokenForUser", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> generateSessionTokenForUser(
-      final HttpEntity<String> httpEntity) {
+      final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
 
     JsonNode bodyJson = null;
@@ -170,13 +173,22 @@ public class AuthServiceController {
           // 1. Verify that only those authorized to generate a token (datahub system) are able to.
           if (isAuthorizedToGenerateSessionToken(actorId)) {
             try {
+              final OperationContext opContext =
+                  OperationContext.asSession(
+                      systemOperationContext,
+                      RequestContext.builder()
+                          .buildOpenapi(
+                              actorUrn, request, "generateSessionTokenForUser", List.of()),
+                      Authorizer.EMPTY,
+                      authentication,
+                      true);
               final boolean verboseAuthFailureLogging =
                   _configProvider.getAuthentication().isVerboseAuthFailureLogging();
               final boolean enforceExistence =
                   _configProvider.getAuthentication().isEnforceExistenceEnabled();
               final Optional<LoginDenialReason> eligibilityDenial =
                   _userSessionEligibilityChecker.checkEligibility(
-                      systemOperationContext, userId.asText(), enforceExistence);
+                      opContext, userId.asText(), enforceExistence);
               if (eligibilityDenial.isPresent()) {
                 emitLoginDenialLog(
                     verboseAuthFailureLogging,
@@ -199,7 +211,7 @@ public class AuthServiceController {
                   "Successfully generated session token for userRef: {}, duration: {} ms",
                   LoginIdentityMask.mask(userId.asText()),
                   sessionTokenDurationMs);
-              return systemOperationContext.withSpan(
+              return opContext.withSpan(
                   "loginSuccess",
                   () -> {
                     AttributesBuilder loginEventAttributes = Attributes.builder();
@@ -253,7 +265,8 @@ public class AuthServiceController {
    * <p>{ "isNativeUserCreated": true }
    */
   @PostMapping(value = "/signUp", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> signUp(final HttpEntity<String> httpEntity) {
+  CompletableFuture<ResponseEntity<String>> signUp(
+      final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
 
     JsonNode bodyJson;
@@ -303,19 +316,22 @@ public class AuthServiceController {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            final OperationContext opContext =
+                OperationContext.asSession(
+                    systemOperationContext,
+                    RequestContext.builder()
+                        .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
+                    Authorizer.EMPTY,
+                    auth,
+                    true);
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
-            if (!_inviteTokenService.isInviteTokenValid(systemOperationContext, inviteTokenUrn)) {
+            if (!_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn)) {
               log.error("Invalid invite token");
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
 
             _nativeUserService.createNativeUser(
-                systemOperationContext,
-                userUrnString,
-                fullNameString,
-                emailString,
-                titleString,
-                passwordString);
+                opContext, userUrnString, fullNameString, emailString, titleString, passwordString);
             String response = buildSignUpResponse();
             log.info("Created native user {}", userUrnString);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -342,7 +358,7 @@ public class AuthServiceController {
    */
   @PostMapping(value = "/resetNativeUserCredentials", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> resetNativeUserCredentials(
-      final HttpEntity<String> httpEntity) {
+      final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
 
     JsonNode bodyJson;
@@ -373,8 +389,20 @@ public class AuthServiceController {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            final OperationContext opContext =
+                OperationContext.asSession(
+                    systemOperationContext,
+                    RequestContext.builder()
+                        .buildOpenapi(
+                            auth.getActor().toUrnStr(),
+                            request,
+                            "resetNativeUserCredentials",
+                            List.of()),
+                    Authorizer.EMPTY,
+                    auth,
+                    true);
             _nativeUserService.resetCorpUserCredentials(
-                systemOperationContext, userUrnString, passwordString, resetTokenString);
+                opContext, userUrnString, passwordString, resetTokenString);
             String response = buildResetNativeUserCredentialsResponse();
             log.info("Reset credentials for native user {}", userUrnString);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -400,7 +428,7 @@ public class AuthServiceController {
    */
   @PostMapping(value = "/verifyNativeUserCredentials", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> verifyNativeUserCredentials(
-      final HttpEntity<String> httpEntity) {
+      final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
 
     JsonNode bodyJson;
@@ -424,15 +452,27 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
+    Authentication auth = AuthenticationContext.getAuthentication();
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            final OperationContext opContext =
+                OperationContext.asSession(
+                    systemOperationContext,
+                    RequestContext.builder()
+                        .buildOpenapi(
+                            auth.getActor().toUrnStr(),
+                            request,
+                            "verifyNativeUserCredentials",
+                            List.of()),
+                    Authorizer.EMPTY,
+                    auth,
+                    true);
             boolean doesPasswordMatch =
-                _nativeUserService.doesPasswordMatch(
-                    systemOperationContext, userUrnString, passwordString);
+                _nativeUserService.doesPasswordMatch(opContext, userUrnString, passwordString);
             final boolean verboseAuthFailureLogging =
                 _configProvider.getAuthentication().isVerboseAuthFailureLogging();
             final boolean enforceExistence =
@@ -442,7 +482,7 @@ public class AuthServiceController {
             if (doesPasswordMatch) {
               final Optional<LoginDenialReason> eligibilityDenial =
                   _userSessionEligibilityChecker.checkEligibility(
-                      systemOperationContext, userUrnString, enforceExistence);
+                      opContext, userUrnString, enforceExistence);
               if (eligibilityDenial.isPresent()) {
                 sessionDenial = eligibilityDenial.get();
               }
@@ -551,16 +591,25 @@ public class AuthServiceController {
    * <p>{ "clientId": "clientId", "clientSecret": "secret", "discoveryUri = "discoveryUri" }
    */
   @PostMapping(value = "/getSsoSettings", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> getSsoSettings(final HttpEntity<String> httpEntity) {
+  CompletableFuture<ResponseEntity<String>> getSsoSettings(
+      final HttpServletRequest request, final HttpEntity<String> httpEntity) {
+    Authentication auth = AuthenticationContext.getAuthentication();
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            final OperationContext opContext =
+                OperationContext.asSession(
+                    systemOperationContext,
+                    RequestContext.builder()
+                        .buildOpenapi(
+                            auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
+                    Authorizer.EMPTY,
+                    auth,
+                    true);
             GlobalSettingsInfo globalSettingsInfo =
                 (GlobalSettingsInfo)
                     _entityService.getLatestAspect(
-                        systemOperationContext,
-                        GLOBAL_SETTINGS_URN,
-                        GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+                        opContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
             if (globalSettingsInfo == null || !globalSettingsInfo.hasSso()) {
               log.debug("There are no SSO settings available");
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -615,6 +664,8 @@ public class AuthServiceController {
       final String userUrnString,
       final LoginDenialReason denialReason,
       final String spanName) {
+    // Uses systemOperationContext for span telemetry only; no entity reads/writes are performed
+    // here.
     systemOperationContext.withSpan(
         spanName,
         () -> {

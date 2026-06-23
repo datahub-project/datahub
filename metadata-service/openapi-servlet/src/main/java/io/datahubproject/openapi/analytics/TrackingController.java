@@ -2,9 +2,11 @@ package io.datahubproject.openapi.analytics;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,12 +23,15 @@ public class TrackingController {
 
   private final TrackingService trackingService;
   private final OperationContext systemOperationContext;
+  private final AuthorizerChain authorizerChain;
 
   public TrackingController(
       @Qualifier("trackingService") TrackingService trackingService,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      @Qualifier("authorizerChain") AuthorizerChain authorizerChain) {
     this.trackingService = trackingService;
     this.systemOperationContext = systemOperationContext;
+    this.authorizerChain = authorizerChain;
     log.info(
         "TrackingController initialized with trackingService: {}",
         trackingService != null ? "present" : "null");
@@ -53,9 +58,19 @@ public class TrackingController {
     }
     log.debug("Authentication verified for user: {}", authentication.getActor());
 
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "trackEvent", "tracking"),
+            authorizerChain,
+            authentication,
+            true);
+
     try {
       log.debug("Forwarding tracking event to TrackingService");
-      trackingService.track(event.get("type").asText(), systemOperationContext, null, null, event);
+      trackingService.track(event.get("type").asText(), opContext, null, null, event);
       log.debug("Successfully emitted analytics event");
       return ResponseEntity.ok().build();
     } catch (Exception e) {

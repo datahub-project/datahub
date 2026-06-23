@@ -386,7 +386,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
             }
-
             return Utils.restoreIndices(systemOperationContext, getContext(),
               aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },
