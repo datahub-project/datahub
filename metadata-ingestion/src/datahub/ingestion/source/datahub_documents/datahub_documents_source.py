@@ -725,12 +725,27 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
+        # scrollAcrossEntities uses cursor-based pagination and is not subject to
+        # Elasticsearch's max_result_window limit (default 10,000), unlike offset-based search.
         query = """
-        query listDocuments($input: SearchInput!) {
-          search(input: $input) {
-            start
-            count
-            total
+        query scrollDocuments(
+            $scrollId: String,
+            $batchSize: Int!,
+            $orFilters: [AndFilterInput!]
+        ) {
+          scrollAcrossEntities(input: {
+            types: [DOCUMENT],
+            query: "*",
+            count: $batchSize,
+            scrollId: $scrollId,
+            orFilters: $orFilters,
+            searchFlags: {
+              skipHighlighting: true,
+              skipAggregates: true
+              includeHiddenLifecycleStages: true
+            }
+          }) {
+            nextScrollId
             searchResults {
               entity {
                 urn
@@ -760,72 +775,86 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
 
-        # Build search input with optional multi-platform filter
-        search_input: dict[str, Any] = {
-            "type": "DOCUMENT",
-            "query": "*",
-            "start": 0,
-            "count": 1000,  # Fetch in batches
-        }
+        page_size = 1000
 
-        # Only add platform filter if specific platforms are provided
-        # Empty list or wildcard ("*", "ALL") means no GraphQL filter (client-side filtering instead)
+        # Build optional platform filter
+        or_filters = None
         if (
             self.config.platform_filter
             and "*" not in self.config.platform_filter
             and "ALL" not in self.config.platform_filter
         ):
-            search_input["filters"] = [
+            or_filters = [
                 {
-                    "field": "platform",
-                    "values": [
-                        f"urn:li:dataPlatform:{platform}"
-                        for platform in self.config.platform_filter
-                    ],
+                    "and": [
+                        {
+                            "field": "platform",
+                            "values": [
+                                f"urn:li:dataPlatform:{platform}"
+                                for platform in self.config.platform_filter
+                            ],
+                        }
+                    ]
                 }
             ]
 
-        variables = {"input": search_input}
-
         try:
-            response = self.graph.execute_graphql(query, variables)
-            search_data = response.get("search") or {}
-            search_results = search_data.get("searchResults") or []
-
             documents = []
-            for result in search_results:
-                entity = result.get("entity") or {}
-                urn = entity.get("urn")
+            scroll_id: Optional[str] = None
+            first_iter = True
 
-                if not urn:
-                    continue
+            while first_iter or scroll_id:
+                first_iter = False
+                variables: dict[str, Any] = {
+                    "batchSize": page_size,
+                    "scrollId": scroll_id,
+                    "orFilters": or_filters,
+                }
+                response = self.graph.execute_graphql(query, variables)
+                scroll_data = response.get("scrollAcrossEntities") or {}
+                scroll_id = scroll_data.get("nextScrollId")
+                search_results = scroll_data.get("searchResults") or []
 
-                # Filter by specific URNs if provided
-                if self.config.document_urns and urn not in self.config.document_urns:
-                    continue
+                logger.debug(
+                    f"Fetched page of {len(search_results)} documents (scrollId={scroll_id})"
+                )
 
-                # Extract text content (GraphQL returns null for missing aspects)
-                info = entity.get("info") or {}
-                contents = info.get("contents") or {}
-                text = contents.get("text") or ""
+                for result in search_results:
+                    entity = result.get("entity") or {}
+                    urn = entity.get("urn")
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                should_process = self._should_process_by_source_type(entity, info)
-                if not should_process:
-                    continue
+                    if not urn:
+                        continue
 
-                # Skip if no text or too short
-                if not text or (
-                    self.config.skip_empty_text
-                    and len(text) < self.config.min_text_length
-                ):
-                    logger.debug(
-                        f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                    )
-                    continue
+                    # Filter by specific URNs if provided
+                    if (
+                        self.config.document_urns
+                        and urn not in self.config.document_urns
+                    ):
+                        continue
 
-                documents.append({"urn": urn, "text": text})
-                self.report.report_document_fetched()
+                    # Extract text content (GraphQL returns null for missing aspects)
+                    info = entity.get("info") or {}
+                    contents = info.get("contents") or {}
+                    text = contents.get("text") or ""
+
+                    # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+                    should_process = self._should_process_by_source_type(entity, info)
+                    if not should_process:
+                        continue
+
+                    # Skip if no text or too short
+                    if not text or (
+                        self.config.skip_empty_text
+                        and len(text) < self.config.min_text_length
+                    ):
+                        logger.debug(
+                            f"Skipping document {urn} (empty or too short: {len(text)} chars)"
+                        )
+                        continue
+
+                    documents.append({"urn": urn, "text": text})
+                    self.report.report_document_fetched()
 
             logger.info(
                 f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
