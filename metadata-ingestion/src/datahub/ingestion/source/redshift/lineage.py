@@ -37,7 +37,7 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -138,13 +138,16 @@ class RedshiftSqlLineage(Closeable):
         self.known_urns: Set[str] = set()  # will be set later
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
+        self.generate_usage = (
+            self.config.include_usage_statistics and self.config.usage_via_sql_parsing
+        )
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             generate_lineage=True,
             generate_queries=self.config.lineage_generate_queries,
-            generate_usage_statistics=False,
+            generate_usage_statistics=self.generate_usage,
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
@@ -536,19 +539,23 @@ class RedshiftSqlLineage(Closeable):
             LineageMode.SQL_BASED,
             LineageMode.MIXED,
         }:
-            # Populate lineage by parsing table creating sqls
-            query = self.queries.list_insert_create_queries_sql(
-                db_name=self.database,
-                start_time=self.start_time,
-                end_time=self.end_time,
-            )
-            populate_calls.append(
-                (
-                    LineageCollectorType.QUERY_SQL_PARSER,
-                    query,
-                    self._process_sql_parser_lineage,
+            if not self.generate_usage:
+                # Populate lineage by parsing table creating sqls.
+                # Skipped in unified-feed mode: _populate_unified_queries feeds all
+                # queries (reads + writes) once, superseding this narrower feed and
+                # avoiding a double-parse that would over-count usage.
+                query = self.queries.list_insert_create_queries_sql(
+                    db_name=self.database,
+                    start_time=self.start_time,
+                    end_time=self.end_time,
                 )
-            )
+                populate_calls.append(
+                    (
+                        LineageCollectorType.QUERY_SQL_PARSER,
+                        query,
+                        self._process_sql_parser_lineage,
+                    )
+                )
         if self.config.table_lineage_mode in {
             LineageMode.STL_SCAN_BASED,
             LineageMode.MIXED,
@@ -610,9 +617,69 @@ class RedshiftSqlLineage(Closeable):
                 connection=connection,
             )
 
+        # Queries-v2: feed every query (reads + writes) once so this aggregator also
+        # produces usage, column usage and Query entities. (insert/create feed skipped above.)
+        if self.generate_usage:
+            self._populate_unified_queries(connection)
+
         # Populate lineage for external tables.
         if not self.config.skip_external_tables:
             self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+
+    def _user_urn(self, username: Optional[str]) -> Optional[CorpUserUrn]:
+        if not username:
+            return None
+        email = username
+        if "@" not in email and self.config.email_domain:
+            email = f"{email}@{self.config.email_domain}"
+        return CorpUserUrn.from_string(mce_builder.make_user_urn(email.split("@")[0]))
+
+    def _populate_unified_queries(
+        self, connection: redshift_connector.Connection
+    ) -> None:
+        """Queries-v2 unified feed: parse every statement (reads + writes) once so
+        the single aggregator yields lineage, usage, column usage and Query
+        entities together. Drains the cursor into a local cache before parsing so
+        the live cursor isn't held open through aggregation."""
+        query = self.queries.list_all_queries_sql(
+            start_time=self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            end_time=self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            database=self.database,
+        )
+        timer = self.report.lineage_phases_timer.setdefault("ALL_QUERIES", PerfTimer())
+        try:
+            with timer, FileBackedList[ObservedQuery]() as observed:
+                cursor = RedshiftDataDictionary.get_query_result(
+                    conn=connection, query=query
+                )
+                field_names = [c[0] for c in cursor.description]
+                rows = cursor.fetchmany()
+                while rows:
+                    for row in rows:
+                        text = row[field_names.index("query_text")]
+                        if not text:
+                            continue
+                        observed.append(
+                            ObservedQuery(
+                                query=text,
+                                default_db=self.database,
+                                default_schema=self.config.default_schema,
+                                timestamp=row[field_names.index("starttime")],
+                                user=self._user_urn(row[field_names.index("username")]),
+                                session_id=str(row[field_names.index("session_id")]),
+                            )
+                        )
+                    rows = cursor.fetchmany()
+                for observed_query in observed:
+                    self.aggregator.add_observed_query(observed_query)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to extract some lineage/usage",
+                message="Failed to process the unified query history",
+                context=f"Query: '{query}'",
+                exc=e,
+            )
+            self.report_status("extract-all-queries", False)
 
     def _populate_lineage_agg(
         self,

@@ -453,6 +453,15 @@ ORDER BY target_schema, target_table, filename
         raise NotImplementedError
 
     @staticmethod
+    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+        # Queries-v2 unified feed: every statement in the window (reads AND
+        # writes) with its full reconstructed text, user, timestamp and session —
+        # NOT pre-filtered by table, so a single aggregator pass derives lineage
+        # (from writes), usage and column usage (from all reads), each query
+        # parsed exactly once. The aggregator filters by allowed table internally.
+        raise NotImplementedError
+
+    @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
         raise NotImplementedError
 
@@ -890,6 +899,50 @@ where
             start_time=start_time,
             end_time=end_time,
             database=database,
+        ).strip()
+
+    @staticmethod
+    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+        # Queries-v2 unified feed: every statement in the window (reads + writes)
+        # with its full reconstructed text, user, timestamp and session — not
+        # pre-filtered by table. Fed once to a single aggregator, this yields
+        # lineage (from writes), usage and column usage (from reads), and Query
+        # entities, each query parsed exactly once. Reconstructs full text from
+        # STL_QUERYTEXT (segments ordered by sequence), like the lineage queries.
+        return """
+            WITH query_txt AS (
+                SELECT
+                    query,
+                    pid,
+                    RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY sequence)) AS query_text
+                FROM (
+                    SELECT query, pid, text, sequence
+                    FROM STL_QUERYTEXT
+                    WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                    ORDER BY sequence
+                )
+                GROUP BY query, pid
+            )
+            SELECT DISTINCT
+                q.query AS query_id,
+                qt.query_text AS query_text,
+                sui.usename AS username,
+                q.starttime AS starttime,
+                q.pid AS session_id
+            FROM stl_query q
+              JOIN query_txt qt ON q.query = qt.query AND q.pid = qt.pid
+              LEFT JOIN svl_user_info sui ON q.userid = sui.usesysid
+            WHERE q.starttime >= '{start_time}'
+            AND q.starttime < '{end_time}'
+            AND q.aborted = 0
+            AND sui.usename <> 'rdsdb'
+            ORDER BY q.starttime
+        """.format(
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            start_time=start_time,
+            end_time=end_time,
         ).strip()
 
     @staticmethod
@@ -1334,6 +1387,48 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             start_time=start_time,
             end_time=end_time,
             database=database,
+        ).strip()
+
+    @staticmethod
+    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+        # Queries-v2 unified feed (serverless): every statement in the window
+        # (reads + writes) with full reconstructed text, user, timestamp, session
+        # — not pre-filtered by table. Reconstructs full text from SYS_QUERY_TEXT
+        # (sequence-capped for the LISTAGG size limit). Validated against a live
+        # serverless cluster.
+        return """
+            SELECT
+                query_id,
+                query_text,
+                username,
+                starttime,
+                session_id
+            FROM (
+                SELECT
+                    qh.query_id AS query_id,
+                    qh.session_id AS session_id,
+                    qh.start_time AS starttime,
+                    sui.user_name AS username,
+                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY qt.sequence)) AS query_text
+                FROM
+                    SYS_QUERY_HISTORY qh
+                    LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qh.query_id
+                    LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qh.user_id
+                WHERE
+                    qh.start_time >= '{start_time}'
+                    AND qh.start_time < '{end_time}'
+                    AND qh.status = 'success'
+                    AND qt.sequence < 16
+                    AND sui.user_name <> 'rdsdb'
+                GROUP BY qh.query_id, qh.session_id, qh.start_time, sui.user_name
+            )
+            ORDER BY starttime
+            ;
+        """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
+            start_time=start_time,
+            end_time=end_time,
         ).strip()
 
     @staticmethod

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from typing import Dict, List, Union
 from unittest.mock import MagicMock
@@ -518,3 +518,91 @@ def test_populate_lineage_agg_drains_cursor_before_processing(monkeypatch):
         "process",
         "process",
     ]
+
+
+def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
+    """Queries-v2 unified feed: _populate_unified_queries feeds all queries to the
+    lineage aggregator once, which then produces DatasetUsageStatistics with
+    fieldCounts for explicitly referenced columns."""
+    import datahub.metadata.schema_classes as m
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        include_usage_statistics=True,
+        usage_via_sql_parsing=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-unified"), config.database
+    )
+
+    # Register the schema for dev.public.t1 so SELECT * would also resolve, and
+    # so the aggregator knows the table is not a temp table.
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.t1,PROD)"
+    lineage_extractor.aggregator.register_schema(
+        urn=dataset_urn,
+        schema=m.SchemaMetadataClass(
+            schemaName="dev.public.t1",
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="col_a",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+                m.SchemaFieldClass(
+                    fieldPath="col_b",
+                    type=m.SchemaFieldDataTypeClass(type=m.StringTypeClass()),
+                    nativeDataType="varchar",
+                ),
+            ],
+        ),
+    )
+    lineage_extractor.known_urns = {dataset_urn}
+
+    # Build a fake cursor that returns one row matching the list_all_queries_sql
+    # column layout: query_id, query_text, username, starttime, session_id.
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ["query_id"],
+        ["query_text"],
+        ["username"],
+        ["starttime"],
+        ["session_id"],
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                1,
+                "select col_a, col_b from public.t1",
+                "alice",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "42",
+            ]
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    field_paths: set = set()
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        asp = mcp.aspect
+        if isinstance(asp, m.DatasetUsageStatisticsClass):
+            field_paths.update(f.fieldPath for f in (asp.fieldCounts or []))
+
+    assert {"col_a", "col_b"} <= field_paths, field_paths

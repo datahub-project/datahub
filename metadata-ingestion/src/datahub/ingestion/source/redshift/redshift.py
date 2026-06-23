@@ -9,6 +9,7 @@ import redshift_connector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -31,6 +32,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.source_helpers import (
+    auto_empty_dataset_usage_statistics,
     auto_workunit,
     create_dataset_props_patch_builder,
 )
@@ -437,11 +439,34 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 or self.config.include_table_rename_lineage
             ):
                 with self.report.new_stage(LINEAGE_EXTRACTION):
-                    yield from self.extract_lineage_v2(
+                    lineage_wus = self.extract_lineage_v2(
                         connection=connection,
                         database=database,
                         lineage_extractor=lineage_extractor,
                     )
+                    if (
+                        self.config.include_usage_statistics
+                        and self.config.usage_via_sql_parsing
+                    ):
+                        # In v2 mode, usage is produced by the lineage aggregator.
+                        # Wrap with empty-usage backfill so tables with no queries in
+                        # the window still get a usage aspect.
+                        all_tables_now = self.get_all_tables()
+                        lineage_wus = auto_empty_dataset_usage_statistics(
+                            lineage_wus,
+                            config=BaseTimeWindowConfig(
+                                start_time=self.config.start_time,
+                                end_time=self.config.end_time,
+                                bucket_duration=self.config.bucket_duration,
+                            ),
+                            dataset_urns={
+                                self.gen_dataset_urn(f"{db}.{schema}.{t.name}")
+                                for db, schemas in all_tables_now.items()
+                                for schema, tables in schemas.items()
+                                for t in tables
+                            },
+                        )
+                    yield from lineage_wus
             else:
                 logger.info(
                     "Skipping lineage extraction - all lineage flags are disabled"
@@ -984,26 +1009,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 context=self.ctx,
             )
 
-            # For column-level usage (usage_via_sql_parsing), register this run's
-            # schemas in the usage aggregator so parsed column references resolve.
-            # Built from the already-fetched all_tables (no extra DB round-trip).
-            schema_metadata_stream: Optional[Iterable[MetadataWorkUnit]] = None
-            if self.config.usage_via_sql_parsing:
-                schema_metadata_stream = (
-                    wu
-                    for db, schemas in all_tables.items()
-                    for schema, tables in schemas.items()
-                    for table in tables
-                    for wu in self.gen_schema_metadata(
-                        self.gen_dataset_urn(f"{db}.{schema}.{table.name}"),
-                        table,
-                        f"{db}.{schema}.{table.name}",
-                    )
-                )
-
-            yield from usage_extractor.get_usage_workunits(
-                all_tables=all_tables, schema_metadata_stream=schema_metadata_stream
-            )
+            yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
 
             self.report.usage_extraction_sec[database] = timer.elapsed_seconds(digits=2)
 
