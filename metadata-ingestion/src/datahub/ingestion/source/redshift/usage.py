@@ -1,4 +1,3 @@
-import collections
 import logging
 import time
 from datetime import datetime, timezone
@@ -11,12 +10,12 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.time_window_config import (
-    BaseTimeWindowConfig,
-    get_time_bucket,
-)
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
+from datahub.ingestion.api.source_helpers import (
+    auto_empty_dataset_usage_statistics,
+    auto_workunit,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.query import (
@@ -33,22 +32,22 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    PreparsedQuery,
+    SqlParsingAggregator,
+)
+from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-
-RedshiftTableRef = str
-AggregatedDataset = GenericAggregatedDataset[RedshiftTableRef]
-AggregatedAccessEvents = Dict[datetime, Dict[RedshiftTableRef, AggregatedDataset]]
 
 
 class RedshiftAccessEvent(BaseModel):
@@ -215,28 +214,36 @@ class RedshiftUsageExtractor:
                     self.config.database
                 ] = timer.elapsed_seconds(digits=2)
 
-        # Generate aggregate events
+        # Generate usage statistics via the SQL parsing aggregator.
         with self.report.new_stage(USAGE_EXTRACTION_USAGE_AGGREGATION):
             query: str = self.queries.usage_query(
                 start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
                 end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
                 database=self.config.database,
             )
-            access_events_iterable: Iterable[RedshiftAccessEvent] = (
-                self._gen_access_events_from_history_query(
-                    query, connection=self.connection, all_tables=all_tables
-                )
-            )
+            aggregator = self._make_usage_aggregator()
+            try:
+                # Drain the access events into a local cache before feeding the
+                # aggregator. add_preparsed_query fingerprints and formats each
+                # query (SQL parsing, slow); doing that inline while iterating the
+                # live Redshift cursor would hold the cursor open for the whole
+                # aggregation and risk a timeout on large query histories.
+                with FileBackedList[RedshiftAccessEvent]() as access_events:
+                    for event in self._gen_access_events_from_history_query(
+                        query, connection=self.connection, all_tables=all_tables
+                    ):
+                        access_events.append(event)
 
-            aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
-                access_events_iterable
-            )
-            # Generate usage workunits from aggregated events.
-            for time_bucket in aggregated_events.values():
-                for aggregate in time_bucket.values():
-                    wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
+                    for event in access_events:
+                        aggregator.add_preparsed_query(
+                            self._access_event_to_preparsed_query(event)
+                        )
+
+                for wu in auto_workunit(aggregator.gen_metadata()):
                     self.report.num_usage_workunits_emitted += 1
                     yield wu
+            finally:
+                aggregator.close()
 
     def _gen_operation_aspect_workunits(
         self,
@@ -418,43 +425,45 @@ class RedshiftUsageExtractor:
             )
             self.report.num_operational_stats_workunits_emitted += 1
 
-    def _aggregate_access_events(
-        self, events_iterable: Iterable[RedshiftAccessEvent]
-    ) -> AggregatedAccessEvents:
-        datasets: AggregatedAccessEvents = collections.defaultdict(dict)
-        for event in events_iterable:
-            floored_ts: datetime = get_time_bucket(
-                event.starttime, self.config.bucket_duration
-            )
-            resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
-            # Get a reference to the bucket value(or initialize not yet in dict) and update it.
-            agg_bucket: AggregatedDataset = datasets[floored_ts].setdefault(
-                resource,
-                AggregatedDataset(
-                    bucket_start_time=floored_ts,
-                    resource=resource,
-                ),
-            )
-            # current limitation in user stats UI, we need to provide email to show users
-            user_email: str = f"{event.username if event.username else 'unknown'}"
-            if "@" not in user_email:
-                user_email += f"@{self.config.email_domain}"
-            agg_bucket.add_read_entry(
-                user_email,
-                event.text,
-                [],  # TODO: not currently supported by redshift; find column level changes
-                user_email_pattern=self.config.user_email_pattern,
-            )
-        return datasets
+    def _make_usage_aggregator(self) -> SqlParsingAggregator:
+        # Usage is fed as already-resolved table reads (PreparsedQuery with known
+        # upstreams from stl_scan), so the aggregator never parses the (often
+        # truncated) Redshift query text to derive tables — it only attributes the
+        # read to the known table, preserving stl_scan accuracy. The aggregator's
+        # internal query store is file-backed, and the cursor is drained up front,
+        # so large histories don't hold the Redshift cursor open or blow up memory.
+        # format_queries=False so top-N query text is formatted exactly once, in
+        # make_usage_workunit (matching the previous behavior).
+        return SqlParsingAggregator(
+            platform="redshift",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            generate_lineage=False,
+            generate_queries=False,
+            generate_query_usage_statistics=False,
+            generate_usage_statistics=True,
+            generate_operations=False,
+            usage_config=self.config,
+            format_queries=False,
+        )
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
-        return agg.make_usage_workunit(
-            self.config.bucket_duration,
-            self.dataset_urn_builder,
-            self.config.top_n_queries,
-            self.config.format_sql_queries,
-            self.config.include_top_n_queries,
-            self.config.queries_character_limit,
+    def _access_event_to_preparsed_query(
+        self, event: RedshiftAccessEvent
+    ) -> PreparsedQuery:
+        resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
+        # Preserve the legacy user identity: the urn id is the local part of the
+        # email (domain stripped), so existing CorpUser links are unchanged.
+        user_email: str = event.username if event.username else "unknown"
+        if "@" not in user_email:
+            user_email += f"@{self.config.email_domain}"
+        user = CorpUserUrn.from_string(builder.make_user_urn(user_email.split("@")[0]))
+        return PreparsedQuery(
+            query_id=None,
+            query_text=event.text or "",
+            upstreams=[self.dataset_urn_builder(resource)],
+            user=user,
+            timestamp=event.starttime,
+            query_count=1,
         )
 
     def report_status(self, step: str, status: bool) -> None:
