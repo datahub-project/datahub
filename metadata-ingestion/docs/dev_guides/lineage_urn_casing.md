@@ -28,11 +28,13 @@ lineage connected by **blindly lowercasing every URN**. It works only when enabl
 _all_ sources that reference the same entities (an N-source coordination problem), and it carries real
 costs:
 
-- It is not available on some BI connectors (e.g. Looker, Tableau), so a mixed Snowflake-uppercase +
-  BI-lowercase setup stays broken regardless.
-- Flattening every identity to lowercase loses the warehouse's real display casing, and on
-  case-sensitive platforms it can merge two genuinely different tables (`MyTable` and `mytable`) into a
-  single entity.
+- It only ever forces names to lowercase, and it is not available on some BI connectors (e.g. Looker,
+  Tableau) at all. Because you cannot control the casing those connectors emit, the only way to reconcile
+  a warehouse↔BI mismatch is to lowercase the warehouse side too — there is no setting that connects them
+  while preserving the warehouse's original (upper- or mixed-case) casing.
+- That path commits you to lowercasing every identity, which loses the warehouse's real display casing
+  and, on case-sensitive platforms, can merge two genuinely different tables (`MyTable` and `mytable`)
+  into a single entity.
 
 The **lineage URN casing normalization** feature takes a different approach. Instead of flattening all
 identities, it resolves each upstream reference to the casing of the entity that **already exists** in
