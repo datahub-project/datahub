@@ -236,6 +236,16 @@ public class OpenLineageToDataHub {
       }
     } else {
       platform = namespace;
+      // Bare-namespace FS datasets (e.g. "file", "dbfs") have no scheme, so they don't flow through
+      // HdfsPathDataset where file_partition_regexp is normally applied. Apply the opt-in regexp
+      // here too — otherwise it is silently ignored for these platforms. Scoped to FS platforms so
+      // non-FS bare namespaces (hive, the symlink-flattened glue) are unaffected.
+      if (HdfsPlatform.isFsPlatformPrefix(platform)
+          && mappingConfig.getFilePartitionRegexpPattern() != null) {
+        datasetName =
+            HdfsPathDataset.getRawNameWithoutPartition(
+                datasetName, mappingConfig.getFilePartitionRegexpPattern());
+      }
     }
 
     // The connection key drives per-connection platform_instance/env resolution. The caller

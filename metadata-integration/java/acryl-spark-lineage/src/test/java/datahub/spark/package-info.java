@@ -56,12 +56,14 @@
  * column-level/path lineage) run Docker-free. Tests that need a source container (the JDBC
  * connection-instance tests) use Testcontainers and require Docker.
  *
- * <p>Two features can't be exercised here and live elsewhere: Glue catalog symlinks only appear
- * under a real {@code spark-submit} run (see the {@code spark-smoke-test/} docker harness); and
- * {@code file_partition_regexp} / {@code path_spec_list} only apply to scheme-based namespaces
- * ({@code s3://}, {@code gs://}, {@code hdfs://}) that route through {@code HdfsPathDataset} — a
- * local {@code file} dataset (namespace {@code file}, no scheme) bypasses that path. They are
- * unit-tested directly in {@code HdfsPathDatasetTest} and belong against object storage in the
- * docker harness for end-to-end coverage.
+ * <p>Glue catalog symlinks can't be exercised here — they only appear under a real {@code
+ * spark-submit} run (see the {@code spark-smoke-test/} docker harness).
+ *
+ * <p>{@code file_partition_regexp} works for both scheme-based namespaces ({@code s3://}, {@code
+ * gs://}, …) via {@code HdfsPathDataset} and bare FS namespaces ({@code file}, {@code dbfs}) via
+ * the converter fallback (see {@code SparkPartitionPatternSmokeTest} and {@code
+ * HdfsPathDatasetTest}). {@code path_spec_list}, by contrast, still applies only to scheme-based
+ * namespaces — it is not yet wired for bare-FS namespaces, so a local-{@code file} path_spec test
+ * would not pass here.
  */
 package datahub.spark;

@@ -645,6 +645,45 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testFilePartitionRegexpStripsBareFileNamespace() throws URISyntaxException {
+    // Local "file" datasets use a bare namespace (no scheme), so they bypass HdfsPathDataset where
+    // file_partition_regexp is normally applied. The opt-in regexp must still strip the partition.
+    OpenLineage.InputDataset inputDataset =
+        new OpenLineage.InputDatasetBuilder()
+            .namespace("file")
+            .name("/data/events/dt=2024-01-01")
+            .build();
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .filePartitionRegexpPattern("/dt=[^/]*")
+            .build();
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(inputDataset, config);
+    assert (urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:file,/data/events,PROD)", urn.get().toString());
+  }
+
+  @Test
+  public void testBareFileNamespaceUnchangedWithoutPartitionRegexp() throws URISyntaxException {
+    // Without the opt-in regexp the bare-namespace file dataset URN is unchanged (no regression).
+    OpenLineage.InputDataset inputDataset =
+        new OpenLineage.InputDatasetBuilder()
+            .namespace("file")
+            .name("/data/events/dt=2024-01-01")
+            .build();
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(inputDataset, config);
+    assert (urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:file,/data/events/dt=2024-01-01,PROD)",
+        urn.get().toString());
+  }
+
+  @Test
   public void testConnectionInstanceMapNonGlueUpstream() throws URISyntaxException {
     // A non-Glue upstream with no symlink: the OpenLineage namespace IS the connection key and its
     // scheme is the platform, so the same map works beyond Glue (e.g. a Spark job reading
