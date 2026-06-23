@@ -10,6 +10,7 @@ import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsC
 import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
@@ -101,6 +102,15 @@ const Text = styled.div`
     align-items: center;
     font-size: 14px;
     width: 80%;
+`;
+
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const LoadingWrapper = styled.div`
@@ -458,6 +468,16 @@ export default function DomainNode({
                             <DisplayName $isSelected={isDomainNodeSelected && !isCollapsed}>
                                 {!isCollapsed && displayName}
                             </DisplayName>
+                            {!isCollapsed && domain.deprecation?.deprecated && (
+                                <DeprecationSlot>
+                                    <DeprecationIcon
+                                        urn={domain.urn}
+                                        deprecation={domain.deprecation}
+                                        showUndeprecate={false}
+                                        showText={false}
+                                    />
+                                </DeprecationSlot>
+                            )}
                         </Text>
                         {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
