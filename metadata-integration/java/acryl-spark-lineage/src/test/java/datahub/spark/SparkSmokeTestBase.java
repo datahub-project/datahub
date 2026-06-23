@@ -5,6 +5,8 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.apache.spark.sql.SaveMode;
@@ -35,11 +37,28 @@ abstract class SparkSmokeTestBase {
    * {@code spark.datahub.*} comes from the {@link ListenerConf} the test passes.
    */
   protected EmittedMetadata runJob(ListenerConf conf, Consumer<SparkSession> job) throws Exception {
+    return runJob(conf, Collections.emptyMap(), job);
+  }
+
+  /**
+   * Same as {@link #runJob(ListenerConf, Consumer)} but also applies {@code sparkInfraConf} —
+   * non-DataHub Spark settings a test needs at session-build time (e.g. an Iceberg catalog
+   * definition). Logged separately so both the listener config and the infra config are visible.
+   */
+  protected EmittedMetadata runJob(
+      ListenerConf conf, Map<String, String> sparkInfraConf, Consumer<SparkSession> job)
+      throws Exception {
     if (conf.emitFile() == null) {
       throw new IllegalStateException(
           "Test must declare an emitter, e.g. listener().emitToFile(tmp.resolve(\"mcps.json\"))");
     }
     System.out.println("\n" + conf.describe());
+    if (!sparkInfraConf.isEmpty()) {
+      StringBuilder sb = new StringBuilder("--- spark infra config (catalog, etc.) ---\n");
+      sparkInfraConf.forEach(
+          (k, v) -> sb.append("  ").append(k).append(" = ").append(v).append('\n'));
+      System.out.println(sb);
+    }
 
     SparkSession.Builder builder =
         SparkSession.builder()
@@ -53,6 +72,7 @@ abstract class SparkSmokeTestBase {
             .config("spark.driver.host", "127.0.0.1")
             .config("spark.sql.shuffle.partitions", "1")
             .config("spark.extraListeners", "datahub.spark.DatahubSparkListener");
+    sparkInfraConf.forEach(builder::config);
     conf.toSparkConf().forEach(builder::config);
 
     SparkSession spark = builder.getOrCreate();

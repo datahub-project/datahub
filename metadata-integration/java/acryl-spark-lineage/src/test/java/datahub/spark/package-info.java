@@ -53,11 +53,16 @@
  * <h2>What runs where</h2>
  *
  * File-only feature tests (env, tags, domains, pipeline instance, lowerCaseUrns, materialize,
- * column-level/path lineage) run Docker-free. Tests that need a source container (the JDBC
+ * column-level/path lineage) run Docker-free. Tests that need a source container (the JDBC and Glue
  * connection-instance tests) use Testcontainers and require Docker.
  *
- * <p>Glue catalog symlinks can't be exercised here — they only appear under a real {@code
- * spark-submit} run (see the {@code spark-smoke-test/} docker harness).
+ * <p>The Glue scenario ({@code SparkGlueConnectionInstanceSmokeTest}) reads an Iceberg table via
+ * GlueCatalog against a mocked Glue/S3 (moto). OpenLineage emits the {@code arn:aws:glue} symlink
+ * only when it can resolve the region + account: the region comes from the {@code AWS_REGION} env
+ * var (set on the sparkRealSmokeTest task, since OL reads it via getenv, not a system property),
+ * and the account from {@code spark.glue.accountId} (set on the job, to skip OL's live STS fallback
+ * that doesn't resolve for an in-process Spark). With those, the scenario runs in-JVM — no
+ * spark-submit harness needed.
  *
  * <p>{@code file_partition_regexp} works for both scheme-based namespaces ({@code s3://}, {@code
  * gs://}, …) via {@code HdfsPathDataset} and bare FS namespaces ({@code file}, {@code dbfs}) via

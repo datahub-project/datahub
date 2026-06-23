@@ -19,14 +19,6 @@ services:
       - 8092:8081
     depends_on:
       - spark-master
-  # Mock AWS Glue + S3 for the Iceberg-on-Glue connection-instance scenario. The Glue job points
-  # Iceberg's GlueCatalog/S3FileIO at this endpoint, so OpenLineage emits an arn:aws:glue namespace.
-  # moto's fixed default account is 123456789012, which the connection mapping keys on.
-  moto:
-    image: motoserver/moto:5.1.0
-    container_name: moto
-    ports:
-      - 5051:5000
 
 networks:
   default:

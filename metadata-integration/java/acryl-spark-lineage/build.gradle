@@ -119,6 +119,12 @@ dependencies {
     exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
+
+  // Iceberg + AWS SDK (shaded uber-jars) for the Glue connection-instance smoke test: a real Spark
+  // job reads an Iceberg table via GlueCatalog pointed at a mocked Glue/S3 (moto), so OpenLineage
+  // emits an `arn:aws:glue:<region>:<account>` symlink the listener resolves to a platform_instance.
+  testImplementation "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1"
+  testImplementation "org.apache.iceberg:iceberg-aws-bundle:1.6.1"
 }
 
 tasks.register('checkShadowJar', Exec) {
@@ -329,6 +335,11 @@ tasks.register('sparkRealSmokeTest', Test) {
     includeTags 'integration'
   }
   jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+  // OpenLineage's Glue ARN resolution reads the region from the AWS_REGION env var only (not a
+  // system property or Spark conf), so the Glue smoke test needs it set on the forked test JVM.
+  // Harmless for the non-AWS integration tests.
+  environment 'AWS_REGION', 'us-east-1'
+  environment 'AWS_DEFAULT_REGION', 'us-east-1'
 }
 
 // Most of the listener lifecycle is exercised by the real-Spark integration suite, not the unit
