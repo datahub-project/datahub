@@ -707,6 +707,7 @@ class JsonSchemaTranslator:
         schema_dict: Dict,
         is_key_schema: bool = False,
         swallow_exceptions: bool = True,
+        max_depth: Optional[int] = None,
     ) -> Iterable[SchemaField]:
         """Takes a json schema which can contain references and returns an iterator over schema fields.
         Preserves behavior similar to schema_util.avro_schema_to_mce which swallows exceptions by default
@@ -733,11 +734,15 @@ class JsonSchemaTranslator:
                 else:
                     raise
             json_type = cls._get_type_from_schema(jsonref_schema_dict)
+            base_path = FieldPath(
+                is_key_schema=is_key_schema,
+                MAX_COMPLEX_DEPTH=max_depth if max_depth is not None else 50,
+            )
             yield from JsonSchemaTranslator.get_fields(
                 json_type,
                 jsonref_schema_dict,
                 required=False,
-                base_field_path=FieldPath(is_key_schema=is_key_schema),
+                base_field_path=base_path,
             )
 
     @staticmethod
@@ -765,11 +770,14 @@ def get_schema_metadata(
     name: str,
     json_schema: Dict[Any, Any],
     raw_schema_string: Optional[str] = None,
+    max_depth: Optional[int] = None,
 ) -> SchemaMetadataClass:
     json_schema_as_string = raw_schema_string or json.dumps(json_schema)
     md5_hash: str = md5(json_schema_as_string.encode()).hexdigest()
 
-    schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(json_schema))
+    schema_fields = list(
+        JsonSchemaTranslator.get_fields_from_schema(json_schema, max_depth=max_depth)
+    )
 
     schema_metadata = SchemaMetadataClass(
         schemaName=name,
