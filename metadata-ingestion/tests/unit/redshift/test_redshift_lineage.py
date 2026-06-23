@@ -21,6 +21,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
@@ -226,6 +227,47 @@ def test_user_urn_is_local_part_regardless_of_email_domain():
         config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
     )
     assert str(extractor._user_urn("bob")) == "urn:li:corpuser:bob"
+
+
+def test_table_pattern_filters_aggregator_usage():
+    # table_pattern denies are pushed into the aggregator via is_allowed_table, so
+    # usage is not attributed to excluded tables (matching other SQL connectors).
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        usage_via_sql_parsing=True,
+        table_pattern={"deny": [".*denied.*"]},
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    # Mark both tables as known so they aren't treated as temp tables (temp
+    # tables are filtered before is_allowed_table is consulted).
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.kept,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.denied,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    for table in ("kept", "denied"):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query=f"select a from dev.public.{table}",
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+    usage_urns = [
+        str(mcp.entityUrn)
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.DatasetUsageStatisticsClass)
+    ]
+    assert any("public.kept" in urn for urn in usage_urns)
+    assert not any("denied" in urn for urn in usage_urns)
 
 
 def test_cll():

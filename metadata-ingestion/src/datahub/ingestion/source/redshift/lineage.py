@@ -160,6 +160,7 @@ class RedshiftSqlLineage(Closeable):
             usage_config=self.config,
             graph=self.context.graph,
             is_temp_table=self._is_temp_table,
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -195,6 +196,13 @@ class RedshiftSqlLineage(Closeable):
             ).urn()
             not in self.known_urns
         )
+
+    def _is_allowed_table(self, name: str) -> bool:
+        # name is the `db.schema.table` dataset name (platform instance stripped),
+        # matching the form the catalog walk filters in redshift.py. Applying the
+        # pattern here keeps the aggregator from emitting lineage/usage/queries for
+        # tables the user excluded via table_pattern.
+        return self.config.table_pattern.allowed(name)
 
     def _get_s3_path(self, path: str) -> Optional[str]:
         if self.config.s3_lineage_config:

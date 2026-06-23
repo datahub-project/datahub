@@ -466,7 +466,13 @@ class RedshiftUsageExtractor:
             generate_operations=False,
             usage_config=self.config,
             format_queries=False,
+            is_allowed_table=self._is_allowed_table,
         )
+
+    def _is_allowed_table(self, name: str) -> bool:
+        # Don't attribute usage to tables the user excluded via table_pattern.
+        # name is the `db.schema.table` dataset name from the aggregator.
+        return self.config.table_pattern.allowed(name)
 
     def _user_urn(self, username: str) -> CorpUserUrn:
         # Preserve the legacy user identity: the urn id is the local part of the
