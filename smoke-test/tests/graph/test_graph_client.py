@@ -158,3 +158,7 @@ def test_get_entity_aspect_specs(graph_client):
     assert specs is not None
     assert specs.supports("dataset", "datasetKey")  # keyAspectName branch
     assert specs.supports("dataset", "datasetProperties")  # aspectSpecs branch
+    schema_version = specs.schema_version("datasetProperties")
+    assert schema_version is not None
+    assert isinstance(schema_version, int)
+    assert not specs.supports("dataset", "notARealAspect")
