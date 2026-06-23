@@ -252,6 +252,33 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/path/to/table,PROD)"
         )
 
+    def test_plain_name_without_scheme_uses_airflow_platform(self) -> None:
+        class Asset:
+            uri = "my_plain_asset"
+
+        urn = translate_airflow_asset_to_urn(Asset())
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)"
+
+    def test_urlparse_failure_returns_none(self) -> None:
+        class Asset:
+            uri = "s3://bucket/path"
+
+        with patch(
+            "datahub_airflow_plugin._airflow_asset_adapter.urlparse",
+            side_effect=ValueError("bad uri"),
+        ):
+            assert translate_airflow_asset_to_urn(Asset()) is None
+
+    def test_make_dataset_urn_failure_returns_none(self) -> None:
+        class Asset:
+            uri = "s3://bucket/path"
+
+        with patch(
+            "datahub_airflow_plugin._airflow_asset_adapter.builder.make_dataset_urn",
+            side_effect=Exception("boom"),
+        ):
+            assert translate_airflow_asset_to_urn(Asset()) is None
+
 
 class TestUriSchemeToPlatform:
     """Tests for the URI_SCHEME_TO_PLATFORM mapping."""
@@ -345,6 +372,16 @@ class TestTranslateAirflowAssetAliasToUrn:
             pass
 
         assert translate_airflow_asset_alias_to_urn(AssetAlias()) is None
+
+    def test_make_dataset_urn_failure_returns_none(self) -> None:
+        class AssetAlias:
+            name = "parsed_data"
+
+        with patch(
+            "datahub_airflow_plugin._airflow_asset_adapter.builder.make_dataset_urn",
+            side_effect=Exception("boom"),
+        ):
+            assert translate_airflow_asset_alias_to_urn(AssetAlias()) is None
 
 
 class TestExtractUrnsFromIolets:
@@ -483,6 +520,18 @@ class TestExtractUrnsFromIolets:
             "urn:li:dataset:(urn:li:dataPlatform:airflow,my_alias,PROD)",
         ]
 
+    def test_skips_asset_alias_when_translation_fails(self) -> None:
+        class AssetAlias:
+            name = "parsed_data"
+
+        with patch(
+            "datahub_airflow_plugin._airflow_asset_adapter.translate_airflow_asset_alias_to_urn",
+            return_value=None,
+        ):
+            urns = extract_urns_from_iolets([AssetAlias()], capture_airflow_assets=True)
+
+        assert urns == []
+
 
 class TestExtractUrnsFromResolvedAliasEvents:
     """Tests for extract_urns_from_resolved_alias_events function.
@@ -589,6 +638,32 @@ class TestExtractUrnsFromResolvedAliasEvents:
             )
 
         assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,DEV)"]
+
+    def test_uses_provided_session(self) -> None:
+        event = self._make_event("s3://bucket/path", alias_names=["alias"])
+        session = MagicMock()
+        session.scalars.return_value.all.return_value = [event]
+
+        import sys
+
+        mock_asset_mod = MagicMock()
+        mock_sqlalchemy = MagicMock()
+        with patch.dict(
+            sys.modules,
+            {
+                "airflow.models.asset": mock_asset_mod,
+                "sqlalchemy": mock_sqlalchemy,
+            },
+        ):
+            urns = extract_urns_from_resolved_alias_events(
+                "my_dag",
+                "my_task",
+                "run_1",
+                session=session,
+            )
+
+        assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,PROD)"]
+        session.scalars.assert_called_once()
 
     def test_db_exception_returns_empty(self) -> None:
         import sys
@@ -837,6 +912,24 @@ class TestExtractUrnsFromTaskInstanceOutletEvents:
                 sys.modules.pop("airflow.sdk.definitions.asset", None)
             else:
                 sys.modules["airflow.sdk.definitions.asset"] = original
+
+    def test_exception_returns_empty(self) -> None:
+        AssetAlias, OutletEventAccessors = self._make_classes()
+        alias = AssetAlias("alias")
+        accessor = self._make_asset_accessor("s3://bucket/data.parquet", AssetAlias)
+        outlet_events = OutletEventAccessors({alias: accessor})
+
+        task_instance = MagicMock(spec=["_datahub_outlet_events"])
+        task_instance._datahub_outlet_events = outlet_events
+
+        with self._sys_modules_patch(AssetAlias, OutletEventAccessors):
+            with patch(
+                "datahub_airflow_plugin._airflow_asset_adapter.translate_airflow_asset_to_urn",
+                side_effect=RuntimeError("boom"),
+            ):
+                urns = extract_urns_from_task_instance_outlet_events(task_instance)
+
+        assert urns == []
 
 
 def _create_airflow_dataset(uri: str) -> Optional[Any]:
