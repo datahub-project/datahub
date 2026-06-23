@@ -11,12 +11,17 @@ import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 public class Es8IndexEmbeddingsTest {
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   private static EmbeddingBatch testBatch() {
     EmbeddingBatch.Chunk chunk =
@@ -34,7 +39,7 @@ public class Es8IndexEmbeddingsTest {
     when(mockClient.index(any(IndexRequest.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    shim.indexEmbeddings(testBatch());
+    shim.indexEmbeddings(OP_CONTEXT, testBatch());
 
     ArgumentCaptor<IndexRequest> captor = ArgumentCaptor.forClass(IndexRequest.class);
     verify(mockClient).index(captor.capture());
@@ -51,6 +56,6 @@ public class Es8IndexEmbeddingsTest {
     when(mockClient.index(any(IndexRequest.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    shim.indexEmbeddings(testBatch());
+    shim.indexEmbeddings(OP_CONTEXT, testBatch());
   }
 }

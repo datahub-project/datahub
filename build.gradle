@@ -30,7 +30,10 @@ buildscript {
   ext.springVersion = '7.0.7'
   // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
   ext.springBootVersion = '4.0.6'
-  ext.springKafkaVersion = '4.0.4'
+  // CVE-2026-41731 (spring-kafka header deserialization): fixed in 4.0.6+ / 3.3.16+
+  ext.springKafkaVersion = '4.0.6'
+  // CVE-2023-50572 (GroovyEngine OOM); GHSA-2r2c-cx56-8933 (remote-telnet NAWS DoS): fixed in 4.2.1+
+  ext.jlineVersion = '4.2.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
   ext.openTelemetryVersion = '1.62.0'
   ext.neo4jVersion = '5.20.0'
@@ -536,6 +539,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.bouncycastle:bcpkix-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.springframework.kafka:spring-kafka:${rootProject.ext.springKafkaVersion}"
+    resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
@@ -579,6 +584,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.projectreactor.netty') {
         details.useVersion(rootProject.ext.reactorNettyVersion)
         details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'org.jline') {
+        details.useVersion(rootProject.ext.jlineVersion)
+        details.because("JLine aligned to ${rootProject.ext.jlineVersion} for CVE/GHSA fixes")
       }
       // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv)
       // and opentelemetry-api-incubator (separate -alpha release line; not published at the stable version).
@@ -759,9 +768,10 @@ subprojects {
         implementation("io.netty:netty-transport-native-unix-common:${rootProject.ext.nettyVersion}")
         implementation("io.projectreactor.netty:reactor-netty-core:${rootProject.ext.reactorNettyVersion}")
         implementation("io.projectreactor.netty:reactor-netty-http:${rootProject.ext.reactorNettyVersion}")
+        implementation("org.springframework.kafka:spring-kafka:${rootProject.ext.springKafkaVersion}") // CVE-2026-41731
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
-        implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
+        implementation("org.jline:jline:${rootProject.ext.jlineVersion}") // CVE-2023-50572; GHSA-2r2c-cx56-8933
         implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
         implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
         implementation('org.apache.velocity:velocity-engine-core:2.4')
