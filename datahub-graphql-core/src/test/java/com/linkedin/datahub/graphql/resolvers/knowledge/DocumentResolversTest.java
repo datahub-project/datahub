@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.List;
 import org.testng.annotations.BeforeMethod;
@@ -58,7 +59,8 @@ public class DocumentResolversTest {
             mockEntityService,
             mockGraphClient,
             mockEntityRegistry,
-            mockTimelineService);
+            mockTimelineService,
+            mock(DocumentImportService.class));
   }
 
   @Test
@@ -82,5 +84,29 @@ public class DocumentResolversTest {
     verify(mockBuilder, times(1)).type(eq("DocumentRelatedAsset"), any());
     verify(mockBuilder, times(1)).type(eq("DocumentRelatedDocument"), any());
     verify(mockBuilder, times(1)).type(eq("DocumentParentDocument"), any());
+  }
+
+  @Test
+  public void testConfigureResolversWithoutImportService() {
+    DocumentResolvers resolversWithoutImport =
+        new DocumentResolvers(
+            mockService,
+            (List) java.util.Collections.emptyList(),
+            mockType,
+            mockDataPlatformType,
+            mockDataPlatformInstanceType,
+            mockEntityClient,
+            mockEntityService,
+            mockGraphClient,
+            mockEntityRegistry,
+            mockTimelineService,
+            null);
+
+    RuntimeWiring.Builder mockBuilder = mock(RuntimeWiring.Builder.class);
+    when(mockBuilder.type(anyString(), any())).thenReturn(mockBuilder);
+
+    resolversWithoutImport.configureResolvers(mockBuilder);
+
+    verify(mockBuilder, times(1)).type(eq("Mutation"), any());
   }
 }
