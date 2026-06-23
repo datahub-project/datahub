@@ -121,10 +121,12 @@ class FlagsConfig(ConfigModel):
             "warehouse URN references (table- and column-level) against the casing "
             "stored in DataHub, so casing mismatches between sources (e.g. an uppercase "
             "Snowflake table referenced as lowercase by a BI tool, or vice versa) don't "
-            "produce two disconnected lineage nodes. Requires a DataHub backend "
-            "connection (no-op for offline/file-only ingestion) and the upstream "
-            "platform(s) to be configured. Enable on BI-tool ingestions, not on the "
-            "warehouse ingestion itself."
+            "produce two disconnected lineage nodes. Unlike `convert_urns_to_lowercase`, "
+            "which lowercases every URN, this resolves references to the casing of the "
+            "entity that already exists, preserving the warehouse's original casing. "
+            "Requires a DataHub backend connection (no-op for offline/file-only "
+            "ingestion) and the upstream platform(s) to be configured. Enable on BI-tool "
+            "ingestions, not on the warehouse ingestion itself."
         ),
     )
 
