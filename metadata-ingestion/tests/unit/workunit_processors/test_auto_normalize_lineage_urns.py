@@ -30,6 +30,11 @@ LOWER = make_dataset_urn("snowflake", "db.schema.table")
 MIXED = make_dataset_urn("snowflake", "Db.Schema.Table")
 DOWNSTREAM = make_dataset_urn("looker", "explore.orders")
 
+# Mixed-case identifier variants that all share the lowercase form "db.schema.datahub".
+WH_MIXED = make_dataset_urn("snowflake", "db.schema.DataHub")
+WH_LOWER = make_dataset_urn("snowflake", "db.schema.datahub")
+WH_UPPER = make_dataset_urn("snowflake", "db.schema.DATAHUB")
+
 _PATCH_TARGET = (
     "datahub.ingestion.workunit_processors."
     "auto_normalize_lineage_urns.provide_schema_resolver"
@@ -139,6 +144,50 @@ def test_unconfigured_platform_left_unchanged():
     bq = make_dataset_urn("bigquery", "PROJ.DS.T")
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(bq))
     assert _stored_upstream(out) == bq
+
+
+# --- mixed-casing identifiers (e.g. `DataHub` vs `datahub`) ------------------------
+
+
+def test_heals_lowercase_emit_to_existing_mixedcase():
+    # Warehouse stores `DataHub` (mixed); BI emits `datahub` (lower) -> heal to `DataHub`.
+    out = _run({WH_MIXED: {"amount": "int"}}, _upstream_wu(WH_LOWER))
+    assert _stored_upstream(out) == WH_MIXED
+
+
+def test_heals_mixedcase_emit_to_existing_lowercase():
+    # The other way round: warehouse stores `datahub`; BI emits `DataHub` -> heal to `datahub`.
+    out = _run({WH_LOWER: {"amount": "int"}}, _upstream_wu(WH_MIXED))
+    assert _stored_upstream(out) == WH_LOWER
+
+
+def test_heals_uppercase_emit_to_existing_mixedcase():
+    # Warehouse stores `DataHub` (mixed); BI emits `DATAHUB` (upper) -> heal to `DataHub`.
+    out = _run({WH_MIXED: {"amount": "int"}}, _upstream_wu(WH_UPPER))
+    assert _stored_upstream(out) == WH_MIXED
+
+
+def test_exact_mixedcase_wins_and_does_not_misroute():
+    # Both `DataHub` and `datahub` genuinely exist (case-sensitive platform). BI emits
+    # `datahub`, which matches one exactly -> keep it, never re-route to `DataHub`.
+    out = _run(
+        {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
+        _upstream_wu(WH_LOWER),
+    )
+    assert _stored_upstream(out) == WH_LOWER
+    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    assert upstream.matchType == LineageMatchTypeClass.EXACT
+
+
+def test_mixedcase_ambiguous_third_casing_left_unchanged():
+    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB` that matches
+    # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged.
+    out = _run(
+        {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
+        _upstream_wu(WH_UPPER),
+    )
+    assert _stored_upstream(out) == WH_UPPER
+    assert out.get_aspect_of_type(UpstreamLineageClass).upstreams[0].matchType is None
 
 
 # --- match type discriminator -----------------------------------------------------
