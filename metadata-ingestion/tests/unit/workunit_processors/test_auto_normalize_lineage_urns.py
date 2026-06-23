@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    LineageMatchTypeClass,
     StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -138,6 +139,34 @@ def test_unconfigured_platform_left_unchanged():
     bq = make_dataset_urn("bigquery", "PROJ.DS.T")
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(bq))
     assert _stored_upstream(out) == bq
+
+
+# --- match type discriminator -----------------------------------------------------
+
+
+def test_match_type_normalized_when_rewritten():
+    out = _run({LOWER: {"amount": "int"}}, _upstream_wu(UPPER))
+    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    assert upstream.matchType == LineageMatchTypeClass.NORMALIZED
+
+
+def test_match_type_exact_when_exact_match():
+    out = _run({UPPER: {"amount": "int"}}, _upstream_wu(UPPER))
+    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    assert upstream.matchType == LineageMatchTypeClass.EXACT
+
+
+def test_match_type_unset_when_no_match():
+    out = _run({}, _upstream_wu(UPPER))
+    assert out.get_aspect_of_type(UpstreamLineageClass).upstreams[0].matchType is None
+
+
+def test_fine_grained_match_type_normalized():
+    out = _run(
+        {LOWER: {"amount": "int"}}, _upstream_wu(UPPER, fine_grained_field="AMOUNT")
+    )
+    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    assert fg.matchType == LineageMatchTypeClass.NORMALIZED
 
 
 # --- column-level (fine-grained) casing -------------------------------------------

@@ -51,8 +51,16 @@ record FineGrainedLineage {
   // Other information e.g. user who created this lineage etc. can added here.
 
   /**
-  * The query that was used to generate this lineage. 
+  * The query that was used to generate this lineage.
   * Present only if the lineage was generated from a detected query.
   */
   query: optional Urn
+
+  /**
+  * How the upstream field references' URNs were resolved against the entities stored
+  * in DataHub. Set by the lineage URN casing normalization processor (EXACT when the
+  * references already matched existing entities, NORMALIZED when any were rewritten to
+  * heal a casing mismatch). Absent when no reconciliation was performed.
+  */
+  matchType: optional LineageMatchType
 }
