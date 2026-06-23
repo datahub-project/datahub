@@ -196,6 +196,9 @@ def extract_urns_from_task_instance_outlet_events(
     during task execution. Direct ``Asset`` outlets are already captured statically.
     """
     try:
+        # LATE IMPORT: Optional Airflow 3.1+ symbols. The module loads on
+        # Airflow 2.x and older 3.0 minor versions where these don't exist;
+        # the ImportError branch keeps lineage extraction working there.
         from airflow.sdk.definitions.asset import AssetAlias
         from airflow.sdk.execution_time.context import OutletEventAccessors
     except ImportError:
@@ -240,7 +243,7 @@ def extract_urns_from_task_instance_outlet_events(
                 urn = translate_airflow_asset_to_urn(asset, env=env)
                 if urn:
                     urns.append(urn)
-                    logger.info(
+                    logger.debug(
                         f"Resolved AssetAlias '{key.name}' via in-process context: {urn}"
                     )
         return urns
@@ -278,6 +281,9 @@ def extract_urns_from_resolved_alias_events(
     empty list if the models are unavailable or any query fails.
     """
     try:
+        # LATE IMPORT: Optional Airflow 3.x ORM. AssetEvent only exists in
+        # Airflow 3.x; sqlalchemy is a transitive Airflow dep that we import
+        # here to keep the function self-contained for the ImportError guard.
         from airflow.models.asset import AssetEvent
         from sqlalchemy import and_, select
     except ImportError:
@@ -315,8 +321,9 @@ def extract_urns_from_resolved_alias_events(
         if session is not None:
             return _query(session)
 
-        # Fallback: create a new session (blocked in Airflow 3.0 listener threads;
-        # available in tests and Airflow 2.x).
+        # LATE IMPORT: Optional Airflow util. Only used when no session was
+        # provided by the caller (tests / Airflow 2.x). In Airflow 3.0 listener
+        # threads this would raise — that's caught by the outer try/except.
         from airflow.utils.session import create_session
 
         with create_session() as new_session:

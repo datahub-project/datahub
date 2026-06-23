@@ -52,7 +52,12 @@ from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
 
 # Import Airflow 3.x specific shims (clean, no cross-version complexity)
-from datahub_airflow_plugin._airflow_asset_adapter import extract_urns_from_iolets
+from datahub_airflow_plugin._airflow_asset_adapter import (
+    extract_urns_from_iolets,
+    extract_urns_from_resolved_alias_events,
+    extract_urns_from_task_instance_outlet_events,
+    is_airflow_asset_alias,
+)
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._version import __package_name__, __version__
@@ -182,6 +187,34 @@ def _patch_runtime_ti_for_outlet_events() -> None:
     Airflow 3.2.x natively stores ``_cached_template_context`` as a
     ``PrivateAttr``; ``extract_urns_from_task_instance_outlet_events`` still
     works there via the fallback path, but installing this patch is harmless.
+
+    Failure modes (silent — patch becomes a no-op, AssetAlias lineage falls back
+    to the DB query path which itself depends on Airflow passing a session to
+    the listener hook):
+
+    1. ``airflow.sdk.execution_time.task_runner.RuntimeTaskInstance`` is removed
+       or renamed in a future Airflow release — the ImportError branch returns
+       early, ``_RUNTIME_TI_PATCHED`` stays ``False``, and we keep retrying on
+       every ``on_starting`` (still cheap, just no caching).
+    2. ``RuntimeTaskInstance`` is converted to use ``__slots__`` or otherwise
+       blocks attribute assignment — ``object.__setattr__`` raises and the
+       wrapped ``get_template_context`` lets the exception propagate the first
+       time the patched method runs.  Tasks would fail; if Airflow ships this
+       change we need to detect it here and skip the patch instead.
+    3. ``get_template_context()`` is removed, renamed, or no longer puts
+       ``outlet_events`` in its returned Context — ``context.get("outlet_events")``
+       returns ``None`` and we silently store nothing.  Detectable only by
+       missing AssetAlias lineage; consider a version check + warning if a
+       future Airflow drops the key.
+    4. Another plugin patches the same method.  Whichever patch runs last wins
+       its wrapping; both should still chain correctly because each wraps the
+       previously-bound ``get_template_context``, but ordering is undefined.
+
+    Verified against Airflow 3.1.x and 3.2.x.  Re-validate on each minor Airflow
+    upgrade — search this codebase for ``RuntimeTaskInstance`` and confirm the
+    private attribute names (``_datahub_outlet_events`` /
+    ``_cached_template_context`` / ``__pydantic_private__``) still match what
+    ``extract_urns_from_task_instance_outlet_events`` reads.
     """
     global _RUNTIME_TI_PATCHED
     # Fast path: already patched, no lock needed
@@ -828,12 +861,6 @@ class DataHubListener:
           emitted; if the task never called outlet_events[alias].add(...), nothing
           is emitted for that alias.
         """
-        from datahub_airflow_plugin._airflow_asset_adapter import (
-            extract_urns_from_resolved_alias_events,
-            extract_urns_from_task_instance_outlet_events,
-            is_airflow_asset_alias,
-        )
-
         outlets = list(get_task_outlets(task))
         alias_outlets = [o for o in outlets if is_airflow_asset_alias(o)]
         non_alias_outlets = [o for o in outlets if not is_airflow_asset_alias(o)]
@@ -841,7 +868,7 @@ class DataHubListener:
         urns: List[str] = list(
             extract_urns_from_iolets(
                 non_alias_outlets,
-                capture_airflow_assets=True,
+                capture_airflow_assets=self.config.capture_airflow_assets,
                 env=self.config.cluster,
             )
         )
