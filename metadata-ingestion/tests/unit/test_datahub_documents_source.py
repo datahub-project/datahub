@@ -1724,7 +1724,8 @@ class TestConfigFingerprintInHash:
 
             # Mock GraphQL to return both NATIVE and EXTERNAL documents
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1748,7 +1749,7 @@ class TestConfigFingerprintInHash:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1781,7 +1782,8 @@ class TestConfigFingerprintInHash:
 
             # Mock GraphQL to return documents from different platforms
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1813,7 +1815,7 @@ class TestConfigFingerprintInHash:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1869,7 +1871,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1888,7 +1891,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1908,7 +1911,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1919,7 +1923,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1937,7 +1941,7 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response: dict[str, Any] = {"search": None}
+            mock_response: dict[str, Any] = {"scrollAcrossEntities": None}
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=mock_response
@@ -2013,7 +2017,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -2050,7 +2055,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -2484,7 +2489,7 @@ class TestDataHubGraphInitialization:
 
 
 class TestFetchDocumentsPagination:
-    """Test that _fetch_documents_graphql paginates through all pages."""
+    """Test that _fetch_documents_graphql paginates through all pages via scrollAcrossEntities."""
 
     @pytest.fixture
     def config(self):
@@ -2522,10 +2527,12 @@ class TestFetchDocumentsPagination:
             }
         }
 
-    def _make_page(self, start: int, count: int, total: int) -> dict:
+    def _make_scroll_page(
+        self, start: int, count: int, next_scroll_id: Any = None
+    ) -> dict:
         return {
-            "search": {
-                "total": total,
+            "scrollAcrossEntities": {
+                "nextScrollId": next_scroll_id,
                 "searchResults": [
                     self._make_entity(i) for i in range(start, start + count)
                 ],
@@ -2538,8 +2545,8 @@ class TestFetchDocumentsPagination:
             source = DataHubDocumentsSource(ctx, config)
 
             responses = [
-                self._make_page(0, 1000, 1200),
-                self._make_page(1000, 200, 1200),
+                self._make_scroll_page(0, 1000, next_scroll_id="cursor-1"),
+                self._make_scroll_page(1000, 200, next_scroll_id=None),
             ]
 
             with patch.object(
@@ -2550,17 +2557,17 @@ class TestFetchDocumentsPagination:
             assert len(documents) == 1200
             assert mock_execute.call_count == 2
 
-            first_call_input = mock_execute.call_args_list[0][0][1]["input"]
-            second_call_input = mock_execute.call_args_list[1][0][1]["input"]
-            assert first_call_input["start"] == 0
-            assert second_call_input["start"] == 1000
+            first_scroll_id = mock_execute.call_args_list[0][0][1]["scrollId"]
+            second_scroll_id = mock_execute.call_args_list[1][0][1]["scrollId"]
+            assert first_scroll_id is None
+            assert second_scroll_id == "cursor-1"
 
-    def test_stops_at_exact_page_boundary(self, ctx, config, mock_graph):
-        """Exactly page_size results with total=page_size issues only one call."""
+    def test_stops_when_no_next_scroll_id(self, ctx, config, mock_graph):
+        """A single page with no nextScrollId issues only one call."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            response = self._make_page(0, 1000, 1000)
+            response = self._make_scroll_page(0, 1000, next_scroll_id=None)
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
@@ -2570,12 +2577,32 @@ class TestFetchDocumentsPagination:
             assert len(documents) == 1000
             assert mock_execute.call_count == 1
 
+    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
+        """Document backfills request hidden-lifecycle stages so hidden documents are included."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            response = self._make_scroll_page(0, 0, next_scroll_id=None)
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                source._fetch_documents_graphql()
+
+            query = mock_execute.call_args[0][0]
+            assert "includeHiddenLifecycleStages: true" in query
+
     def test_empty_result_set(self, ctx, config, mock_graph):
         """Zero documents returns empty list after one call."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            response = {"search": {"total": 0, "searchResults": []}}
+            response: dict[str, Any] = {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
+                    "searchResults": [],
+                }
+            }
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
@@ -2585,30 +2612,15 @@ class TestFetchDocumentsPagination:
             assert documents == []
             assert mock_execute.call_count == 1
 
-    def test_missing_total_field_stops_after_first_page(self, ctx, config, mock_graph):
-        """If the API omits 'total', pagination stops after the first page without looping."""
-        with mock_graph:
-            source = DataHubDocumentsSource(ctx, config)
-
-            response = {"search": {"searchResults": [self._make_entity(0)]}}
-
-            with patch.object(
-                source.graph, "execute_graphql", return_value=response
-            ) as mock_execute:
-                documents = source._fetch_documents_graphql()
-
-            assert len(documents) == 1
-            assert mock_execute.call_count == 1
-
     def test_three_pages(self, ctx, config, mock_graph):
-        """Three-page fetch collects all documents and advances start correctly."""
+        """Three-page fetch collects all documents and threads scroll cursors correctly."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
             responses = [
-                self._make_page(0, 1000, 2500),
-                self._make_page(1000, 1000, 2500),
-                self._make_page(2000, 500, 2500),
+                self._make_scroll_page(0, 1000, next_scroll_id="cursor-1"),
+                self._make_scroll_page(1000, 1000, next_scroll_id="cursor-2"),
+                self._make_scroll_page(2000, 500, next_scroll_id=None),
             ]
 
             with patch.object(
@@ -2618,5 +2630,53 @@ class TestFetchDocumentsPagination:
 
             assert len(documents) == 2500
             assert mock_execute.call_count == 3
-            starts = [c[0][1]["input"]["start"] for c in mock_execute.call_args_list]
-            assert starts == [0, 1000, 2000]
+            scroll_ids = [c[0][1]["scrollId"] for c in mock_execute.call_args_list]
+            assert scroll_ids == [None, "cursor-1", "cursor-2"]
+
+    def test_raw_page_size_used_as_start_advance(self, ctx, config, mock_graph):
+        """Pagination advances by raw page size even when some results are filtered client-side.
+
+        This test locks in that start is advanced by the number of results returned from the
+        server, not the number that pass client-side filters. Using filtered count would cause
+        pages to be requested at wrong offsets or loop incorrectly.
+        """
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Page 1: 1000 results, 800 pass client filters (200 have empty text).
+            # Page 2: remaining results with no next scroll id.
+            page1_results = [self._make_entity(i) for i in range(800)]
+            # Add 200 entities with empty text that will be filtered out
+            for i in range(800, 1000):
+                page1_results.append(
+                    {
+                        "entity": {
+                            "urn": f"urn:li:document:doc-{i}",
+                            "info": {
+                                "source": {"sourceType": "NATIVE"},
+                                "contents": {"text": ""},
+                            },
+                        }
+                    }
+                )
+
+            responses = [
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1",
+                        "searchResults": page1_results,
+                    }
+                },
+                self._make_scroll_page(1000, 300, next_scroll_id=None),
+            ]
+
+            with patch.object(
+                source.graph, "execute_graphql", side_effect=responses
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            # 800 from page 1 (200 filtered) + 300 from page 2
+            assert len(documents) == 1100
+            assert mock_execute.call_count == 2
+            # Second call must use the cursor from page 1, not a derived offset
+            assert mock_execute.call_args_list[1][0][1]["scrollId"] == "cursor-1"
