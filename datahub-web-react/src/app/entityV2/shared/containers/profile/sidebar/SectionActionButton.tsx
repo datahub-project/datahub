@@ -58,7 +58,7 @@ const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = tru
                 <span style={wrapperStyle} onClick={wrapperOnClick}>
                     <Button
                         variant="text"
-                        color="violet"
+                        color="primary"
                         size="md"
                         icon={{ icon }}
                         onClick={onClick}

@@ -403,7 +403,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     String taskId =
         indexBuilder.submitFilteredReindex(
-            oldBackingIndex, nextIndex, timeRangeFilter, targetShards);
+            opContext, oldBackingIndex, nextIndex, timeRangeFilter, targetShards);
     log.info(
         "Submitted timeseries catch-up _reindex for {} -> {} (task {}, shards {})",
         oldBackingIndex,
@@ -418,7 +418,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     long pollIntervalMs = buildIndicesConfig.getTaskPollIntervalSeconds() * 1000;
 
     while (System.currentTimeMillis() < timeoutAt) {
-      Optional<TaskInfo> runningTask = indexBuilder.getTaskInfoByHeader(oldBackingIndex);
+      Optional<TaskInfo> runningTask = indexBuilder.getTaskInfoByHeader(opContext, oldBackingIndex);
       if (runningTask.isEmpty()) {
         log.info("Timeseries catch-up _reindex completed for {} -> {}", oldBackingIndex, nextIndex);
         return;

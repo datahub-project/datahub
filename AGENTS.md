@@ -453,6 +453,21 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Docs added/updated (if applicable)
 - [ ] Breaking changes documented in `docs/how/updating-datahub.md`
 
+### Confidentiality in Committed Code
+
+DataHub is a **public repository**. Never put customer-identifiable or
+environment-specific details into committed code, tests, docs, comments, commit
+messages, or PRs:
+
+- No real database / schema / table / view / column names, and no usernames,
+  customer names, host names, account IDs, or URLs from customer environments.
+- No Linear/Jira ticket IDs or links.
+- When reproducing a customer issue in a test, use generic placeholder names
+  (e.g. `my_db.my_schema.events`, `col_a`) that preserve the structural pattern
+  being tested, not the customer's actual identifiers.
+- Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
+  but prefer generic names when in doubt.
+
 ## Starting / Operating DataHub
 
 Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
