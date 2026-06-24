@@ -139,10 +139,13 @@ datahub datapack unload showcase-ecommerce --hard
 
 ## Built-in Data Packs
 
-| Pack                   | Description                                                                         | Entities | Platforms                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- |
-| **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags         | ~50      | Kafka, Hive, HDFS                                               |
-| **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
+| Pack                   | Description                                                                          | Entities | Platforms                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------ |
+| **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags          | ~50      | Kafka, Hive, HDFS                                                  |
+| **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products  | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3    |
+| **authz-perf-medium**  | Authz perf fixture: users, groups, domains, glossary, policies (standard boot roles) | ~1,900   | (authz structure only; deactivates editable boot policies on load) |
+
+For persona-level authz latency benchmarks, see [`perf-test/authz-perf/README.md`](../../perf-test/authz-perf/README.md). Pack MCP data is published via the registry (hosted in `datahub-project/static-assets`, same as `showcase-ecommerce`).
 
 ## Trust Model
 

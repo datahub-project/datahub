@@ -44,6 +44,15 @@ datahub datapack unload showcase-ecommerce
 | -------------------- | ---------------------------------------------------------------------------------- | ------- |
 | `bootstrap`          | Lightweight bootstrap data (datasets, dashboards, users, tags)                     | ~100 KB |
 | `showcase-ecommerce` | Rich e-commerce demo with 1049 entities across Snowflake, Looker, PowerBI, Tableau | ~2.7 MB |
+| `authz-perf-medium`  | Authz perf fixture: users, groups, domains, glossary, policies (~6378 MCPs)        | ~8 MB   |
+
+The `authz-perf-medium` pack UPSERT-deactivates editable boot policies on load so fixture policies take effect without default all-users grants. It uses standard DataHub roles (`Admin`, `Editor`, `Reader`) from boot — no custom role entities are ingested. Unload restores boot policy state via version rollback. Raw MCP data is published via the datapack registry (hosted in `datahub-project/static-assets`, same as `showcase-ecommerce`). Test oracles (`personas.json`, `benchmarks.json`) live in `perf-test/authz-perf/fixture/` and are not ingested; persona intent, policy descriptions, and login hints are already baked into the ingested entity/MCP JSON.
+
+**Load order:** Files are mostly independent. The only dependency is `corpGroup.json` before `corpuser.json`; `corpGroup.json` uses `wait_for_completion` so groups are persisted before user ingest starts. After editing fixture JSON locally, bump `index.json` version or use `--no-cache`.
+
+**Native login:** Pre-baked `corpUserCredentials` MCPs target quickstart/dev GMS with the default `secretService.encryptionKey` (`ENCRYPTION_KEY`, overridable via `SECRET_SERVICE_ENCRYPTION_KEY`). Password convention: **password equals username** (`corpUserKey` id, not the email address) — e.g. user `persona-admin` / password `persona-admin`. `corpUserInfo.customProperties` records `authzLoginUsername` and `authzFixturePasswordRule=password_equals_username`.
+
+**Perf harness:** [`perf-test/authz-perf/README.md`](../../../../../../perf-test/authz-perf/README.md) benchmarks all 17 personas via frontend GraphQL (`getMe`, `getDomain`, `getSearchResultsForMultiple`). Uses `perf-test/authz-perf/fixture/benchmarks.json` + `personas.json` as oracles; query text is generated at run time from GMS introspection.
 
 ## Agent Workflow
 
