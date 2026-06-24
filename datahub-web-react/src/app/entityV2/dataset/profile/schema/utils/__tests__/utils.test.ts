@@ -27,10 +27,7 @@ describe('pathMatchesInsensitiveToV2', () => {
     it('matches V1 path against V2 path (same case)', () => {
         expect(pathMatchesInsensitiveToV2('address', '[version=2.0].[type=struct].address')).toBe(true);
         expect(
-            pathMatchesInsensitiveToV2(
-                'address.street',
-                '[version=2.0].[type=struct].address.[type=struct].street',
-            ),
+            pathMatchesInsensitiveToV2('address.street', '[version=2.0].[type=struct].address.[type=struct].street'),
         ).toBe(true);
     });
 
@@ -46,10 +43,7 @@ describe('pathMatchesInsensitiveToV2', () => {
     it('does not match genuinely different fields', () => {
         expect(pathMatchesInsensitiveToV2('order_id', 'address')).toBe(false);
         expect(
-            pathMatchesInsensitiveToV2(
-                'address.street',
-                '[version=2.0].[type=struct].address.[type=struct].city',
-            ),
+            pathMatchesInsensitiveToV2('address.street', '[version=2.0].[type=struct].address.[type=struct].city'),
         ).toBe(false);
     });
 
