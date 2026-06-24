@@ -826,8 +826,16 @@ public class ESUtils {
   }
 
   public static boolean prefixMatch(String id, String version, String indexName) {
+    // Match on "<version>|<indexName>|" (note the trailing delimiter). The opaque id is always
+    // "<version>|<indexName>|<tempIndexName>", so a delimiter always follows the index name.
+    // Without it, "<v>|chartindex_v2" would also match a sibling index whose name merely starts
+    // with "chartindex_v2", causing a reindex to falsely re-attach to an unrelated task.
     return Optional.ofNullable(id)
-        .map(t -> t.startsWith(String.join(HEADER_VALUE_DELIMITER, version, indexName)))
+        .map(
+            t ->
+                t.startsWith(
+                    String.join(HEADER_VALUE_DELIMITER, version, indexName)
+                        + HEADER_VALUE_DELIMITER))
         .orElse(false);
   }
 

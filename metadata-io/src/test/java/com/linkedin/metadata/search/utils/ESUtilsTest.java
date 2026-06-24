@@ -1758,4 +1758,31 @@ public class ESUtilsTest {
       assertTrue(e.getDurationMs() > 0);
     }
   }
+
+  @Test
+  public void testPrefixMatchExactIndex() {
+    String id = ESUtils.getOpaqueIdHeaderValue("v1", "chartindex_v2", "chartindex_v2_123");
+    assertTrue(ESUtils.prefixMatch(id, "v1", "chartindex_v2"));
+  }
+
+  @Test
+  public void testPrefixMatchDoesNotMatchSiblingPrefixIndex() {
+    // Regression: "<version>|chartindex_v2" must NOT match a sibling index whose name merely
+    // starts with "chartindex_v2" (e.g. "chartindex_v2_semantic"), which would otherwise cause a
+    // reindex to falsely re-attach to an unrelated task. Guaranteed by the trailing delimiter.
+    String siblingId =
+        ESUtils.getOpaqueIdHeaderValue("v1", "chartindex_v2_semantic", "chartindex_v2_semantic_1");
+    Assert.assertFalse(ESUtils.prefixMatch(siblingId, "v1", "chartindex_v2"));
+  }
+
+  @Test
+  public void testPrefixMatchVersionMismatch() {
+    String id = ESUtils.getOpaqueIdHeaderValue("v2", "chartindex_v2", "chartindex_v2_1");
+    Assert.assertFalse(ESUtils.prefixMatch(id, "v1", "chartindex_v2"));
+  }
+
+  @Test
+  public void testPrefixMatchNullId() {
+    Assert.assertFalse(ESUtils.prefixMatch(null, "v1", "chartindex_v2"));
+  }
 }
