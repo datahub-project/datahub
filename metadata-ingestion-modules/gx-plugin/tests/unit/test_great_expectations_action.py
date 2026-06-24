@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Iterator
 from unittest import mock
 
 import pandas as pd
@@ -64,7 +65,7 @@ def ge_data_context(tmp_path: str) -> FileDataContext:
 
 
 @pytest.fixture(scope="function")
-def spark_session() -> SparkSession:
+def spark_session() -> Iterator[SparkSession]:
     spark = (
         SparkSession.builder.master("local")
         .appName("pytest-pyspark-local-testing")
