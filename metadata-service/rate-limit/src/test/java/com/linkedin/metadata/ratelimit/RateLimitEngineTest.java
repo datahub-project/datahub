@@ -268,8 +268,14 @@ public class RateLimitEngineTest {
     RateLimitEngine engine =
         new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
 
-    assertTrue(engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null).isAllowed());
-    assertTrue(engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null).isAllowed());
+    RateLimitDecision first =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    RateLimitDecision second =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    assertTrue(first.isAllowed());
+    assertTrue(second.isAllowed());
+    engine.release(engine.toLease(first), true);
+    engine.release(engine.toLease(second), true);
   }
 
   @Test

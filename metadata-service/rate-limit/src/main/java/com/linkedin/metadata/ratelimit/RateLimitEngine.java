@@ -98,7 +98,7 @@ public class RateLimitEngine {
       config.getEndpoint().getRules().stream()
           .filter(RateLimitProperties.Rule::isEnabled)
           .filter(RateLimitProperties.Rule::isPerActor)
-          .filter(rule -> !graphqlPathPattern.equals(rule.getPathPattern()))
+          .filter(rule -> !pathMatcher.match(rule.getPathPattern(), graphqlPathPattern))
           .forEach(
               rule ->
                   log.warn(
@@ -341,7 +341,10 @@ public class RateLimitEngine {
   @Nullable
   private ConsumptionProbe consumeEndpoint(
       @Nonnull CompiledRateLimitRule endpointRule, @Nullable String actorUrn) {
-    if (endpointRule.isPerActor() && actorUrn != null) {
+    // skipPerActorConsume upstream guarantees actorUrn != null when isPerActor(); the
+    // additional null guard there is the single source of truth — keep this branch minimal.
+    if (endpointRule.isPerActor()) {
+      // Hazelcast key is opaque (never parsed back) — raw URN safe to embed.
       return endpointStore.tryConsumeForActor(endpointRule.getId(), actorUrn);
     }
     return endpointStore.tryConsumeAndReturnRemaining(endpointRule.getId());
@@ -389,8 +392,11 @@ public class RateLimitEngine {
       return;
     }
     if (endpointStore != null) {
+      // perActor rules never consume the ruleId-keyed bucket — the engine routes to per-actor
+      // keys instead. Skipping registration avoids holding an idle Hazelcast entry per rule.
       config.getEndpoint().getRules().stream()
           .filter(RateLimitProperties.Rule::isEnabled)
+          .filter(rule -> !rule.isPerActor())
           .forEach(endpointStore::registerEndpointRule);
     }
   }
