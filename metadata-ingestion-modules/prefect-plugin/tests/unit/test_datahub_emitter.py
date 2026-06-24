@@ -495,7 +495,7 @@ def test_entities_to_urn_list(mock_emit):
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_emit_mode_defaults_to_async_and_is_overridable(mock_emit):
     """The block defaults to ASYNC emit so high-volume runs don't block
-    GMS/MySQL, and the mode is forwarded to the underlying emitter."""
+    GMS, and the mode is forwarded to the underlying emitter."""
     DatahubEmitter()
     assert mock_emit.call_args.kwargs["default_emit_mode"] == EmitMode.ASYNC
 

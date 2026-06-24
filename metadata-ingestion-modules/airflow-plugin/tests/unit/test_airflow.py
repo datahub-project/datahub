@@ -188,7 +188,7 @@ def test_datajob_url_link_taskinstance_rejected_with_migration_message():
 
 def test_emit_mode_defaults_to_async_and_is_overridable():
     """The listener defaults to ASYNC emit so high-volume DAG runs don't block
-    GMS/MySQL, and operators can override it via `[datahub] emit_mode`."""
+    GMS, and operators can override it via `[datahub] emit_mode`."""
     from datahub.emitter.rest_emitter import EmitMode
     from datahub_airflow_plugin._config import get_lineage_config
 

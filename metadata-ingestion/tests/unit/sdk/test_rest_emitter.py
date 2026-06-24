@@ -268,6 +268,48 @@ class TestDataHubRestEmitter:
             emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
             assert mock_method.call_args[0][0].endswith("dataset?async=false")
 
+    def test_instance_default_emit_mode_emit_mcps(self):
+        """emit_mcps() (the batch path) also honours the per-instance default,
+        with per-call emit_mode still overriding it."""
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            default_emit_mode=EmitMode.ASYNC,
+        )
+        emitter._server_config = RestServiceConfig(
+            raw_config={"versions": {"acryldata/datahub": {"version": "v1.0.1rc0"}}}
+        )
+
+        items = [
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+                aspect=DatasetProfile(
+                    rowCount=2000, columnCount=15, timestampMillis=1626995099686
+                ),
+            )
+        ]
+
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = []
+
+        with (
+            patch.object(
+                emitter, "_emit_generic", return_value=mock_response
+            ) as mock_method,
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", APITracingWarning)
+
+            # No per-call emit_mode -> picks up the instance default (ASYNC).
+            emitter.emit_mcps(items)
+            assert mock_method.call_args[0][0].endswith("dataset?async=true")
+
+            # Per-call emit_mode overrides the instance default.
+            emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
+            assert mock_method.call_args[0][0].endswith("dataset?async=false")
+
     def test_to_graph_preserves_default_emit_mode(self):
         """Converting an emitter to a graph must carry over the instance default,
         otherwise callers that go through `.to_graph()` silently revert to the

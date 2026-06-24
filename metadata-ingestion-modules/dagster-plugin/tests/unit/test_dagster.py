@@ -47,7 +47,7 @@ call_num = 0
 
 def test_emit_mode_defaults_to_async_and_is_overridable():
     """The sensor defaults to ASYNC emit so high-volume runs don't block
-    GMS/MySQL, and users can override it on the source config."""
+    GMS, and users can override it on the source config."""
     from datahub.emitter.rest_emitter import EmitMode
 
     config = DatahubDagsterSourceConfig(

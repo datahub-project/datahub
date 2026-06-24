@@ -87,12 +87,12 @@ DatahubEmitter(
 
 Configuration options:
 
-| Config            | Type       | Default                 | Description                                                                                                                                                                                                                       |
-| ----------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| datahub_rest_url  | `str`      | `http://localhost:8080` | DataHub GMS REST URL                                                                                                                                                                                                              |
-| env               | `str`      | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))                                                                                                                                |
-| platform_instance | `str`      | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/))                                                                                                                        |
-| emit_mode         | `EmitMode` | `ASYNC`                 | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS/MySQL load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
+| Config            | Type       | Default                 | Description                                                                                                                                                                                                                 |
+| ----------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str`      | `http://localhost:8080` | DataHub GMS REST URL                                                                                                                                                                                                        |
+| env               | `str`      | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))                                                                                                                          |
+| platform_instance | `str`      | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/))                                                                                                                  |
+| emit_mode         | `EmitMode` | `ASYNC`                 | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
 
 ### 3. Using the Block in Prefect Workflows
 

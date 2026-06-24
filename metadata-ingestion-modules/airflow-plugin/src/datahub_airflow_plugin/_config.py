@@ -91,7 +91,7 @@ class DatahubLineageConfig(ConfigModel):
     disable_openlineage_plugin: bool
 
     # Emit mode for the listener's writes to DataHub. Defaults to ASYNC so
-    # high-volume DAG runs don't block GMS/MySQL on a synchronous commit per
+    # high-volume DAG runs don't block GMS on a synchronous commit per
     # write. Set to SYNC_WAIT/SYNC_PRIMARY for read-after-write or
     # raise-on-failure guarantees.
     emit_mode: EmitMode

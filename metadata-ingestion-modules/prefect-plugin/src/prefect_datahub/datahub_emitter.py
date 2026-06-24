@@ -104,7 +104,7 @@ class DatahubEmitter(Block):
     env: str = builder.DEFAULT_ENV
     platform_instance: Optional[str] = None
     token: Optional[SecretStr] = None
-    # Default to ASYNC so high-volume Prefect runs don't block GMS/MySQL on a
+    # Default to ASYNC so high-volume Prefect runs don't block GMS on a
     # synchronous commit per write. Set to SYNC_WAIT/SYNC_PRIMARY for
     # read-after-write or raise-on-failure guarantees.
     emit_mode: EmitMode = EmitMode.ASYNC

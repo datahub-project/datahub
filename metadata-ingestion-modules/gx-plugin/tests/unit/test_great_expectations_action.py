@@ -718,7 +718,7 @@ def test_emit_mode_defaults_to_async_and_coerces_string_override(
     ge_data_context: FileDataContext,
 ) -> None:
     """The action defaults to ASYNC emit so high-volume validation runs don't
-    block GMS/MySQL, and a string override from checkpoint YAML is coerced to
+    block GMS, and a string override from checkpoint YAML is coerced to
     the EmitMode enum the emitter requires."""
     from datahub.emitter.rest_emitter import EmitMode
 

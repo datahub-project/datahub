@@ -143,9 +143,16 @@ class DataHubValidationAction(ValidationAction):
         self.convert_urns_to_lowercase = convert_urns_to_lowercase
         # Coerce here because GX passes action kwargs from checkpoint YAML as
         # plain strings; the emitter needs a real EmitMode enum downstream.
-        self.emit_mode = (
-            EmitMode(emit_mode.upper()) if isinstance(emit_mode, str) else emit_mode
-        )
+        if isinstance(emit_mode, str):
+            try:
+                self.emit_mode = EmitMode(emit_mode.upper())
+            except ValueError:
+                valid = ", ".join(m.name for m in EmitMode)
+                raise ValueError(
+                    f"Invalid emit_mode '{emit_mode}'. Valid values are: {valid}"
+                ) from None
+        else:
+            self.emit_mode = emit_mode
 
     def _run(
         self,

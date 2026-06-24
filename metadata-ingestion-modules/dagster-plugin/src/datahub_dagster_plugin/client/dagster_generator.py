@@ -217,7 +217,7 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         default=EmitMode.ASYNC,
         description=(
             "Emit mode for writes to DataHub. Defaults to ASYNC so high-volume "
-            "runs don't block GMS/MySQL on a synchronous commit per write. Use "
+            "runs don't block GMS on a synchronous commit per write. Use "
             "SYNC_WAIT/SYNC_PRIMARY when read-after-write or raise-on-failure "
             "guarantees are required."
         ),
