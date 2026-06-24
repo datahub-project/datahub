@@ -14,10 +14,6 @@ This upgrade path is in **Beta**. It is **opt-in per pool**. Existing pools cont
 This feature is disabled by default. Please, contact DataHub support to enable it in your instance.
 :::
 
-:::info Moving away from SQS
-SQS remains the default today and continues to work as before. We are moving toward Kafka channels, and the SQS channel will ultimately be removed in a later release. We recommend upgrading your Remote Executors to **v2.0.0 or above** and migrating your pools to the Kafka channel when convenient.
-:::
-
 ## Why upgrade
 
 Today, each Remote Executor Pool uses an AWS SQS queue to distribute work, which means your executor deployment needs AWS credentials and outbound access to SQS endpoints.
@@ -46,7 +42,7 @@ A few rules first:
 
 With that in mind, the per-pool upgrade flow is:
 
-1. You deploy Kafka-enabled executors (version `v2.0.0+`, `channel: KAFKA`) into the pool. They join but stay in `Waiting` state - they do not receive work yet.
+1. You deploy Kafka-enabled executors (version `≥ 2.0.0`, `channel: KAFKA`) into the pool. They join but stay in `Waiting` state - they do not receive work yet.
 2. Once **≥ 50%** of the pool's executors report the new channel, DataHub flips the pool's channel automatically. The pool enters `DRAINING`:
    - New work is sent on the new channel.
    - Old executors keep finishing in-flight work from SQS.
