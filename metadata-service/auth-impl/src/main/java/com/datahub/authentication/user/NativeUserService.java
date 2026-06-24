@@ -118,7 +118,8 @@ public class NativeUserService {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
     final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
-    String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
+    String encryptedSalt =
+        _secretService.encrypt(opContext, Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
@@ -149,7 +150,8 @@ public class NativeUserService {
     }
     // Add reset token to CorpUserCredentials
     String passwordResetToken = _secretService.generateUrlSafeToken(PASSWORD_RESET_TOKEN_LENGTH);
-    corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
+    corpUserCredentials.setPasswordResetToken(
+        _secretService.encrypt(opContext, passwordResetToken));
 
     long tokenExpirationMs = _authConfig.getPasswordResetTokenExpirationMs();
     if (tokenExpirationMs <= 0) {
@@ -198,7 +200,9 @@ public class NativeUserService {
       throw new RuntimeException("User has not generated a password reset token!");
     }
 
-    if (!_secretService.decrypt(corpUserCredentials.getPasswordResetToken()).equals(resetToken)) {
+    if (!_secretService
+        .decrypt(opContext, corpUserCredentials.getPasswordResetToken())
+        .equals(resetToken)) {
       throw new RuntimeException(
           "Invalid reset token. Please ask your administrator to send you an updated link!");
     }
@@ -211,7 +215,8 @@ public class NativeUserService {
 
     // Construct corpUserCredentials
     final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
-    String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
+    String encryptedSalt =
+        _secretService.encrypt(opContext, Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
@@ -242,7 +247,7 @@ public class NativeUserService {
       return false;
     }
 
-    String decryptedSalt = _secretService.decrypt(corpUserCredentials.getSalt());
+    String decryptedSalt = _secretService.decrypt(opContext, corpUserCredentials.getSalt());
     byte[] salt = Base64.getDecoder().decode(decryptedSalt);
     String storedHashedPassword = corpUserCredentials.getHashedPassword();
     String hashedPassword = _secretService.getHashedPassword(salt, password);
