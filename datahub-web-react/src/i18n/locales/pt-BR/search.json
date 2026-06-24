@@ -71,6 +71,7 @@
     "filters.incidents.hasActiveLabel": "Com Incidents Ativos",
     "filters.incidents.hasResolvedLabel": "Com Incidents Resolvidos",
     "filters.incidents.title": "Incidents",
+    "filters.moreCount_zero": "Mais",
     "filters.moreCount_one": "Mais ({{count}})",
     "filters.moreCount_other": "Mais ({{count}})",
     "filters.pluralizedTypeLabel": "{{type}}s",

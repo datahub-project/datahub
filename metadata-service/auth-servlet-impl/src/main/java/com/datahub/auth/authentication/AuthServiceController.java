@@ -682,7 +682,9 @@ public class AuthServiceController {
   private void buildOidcSettingsResponse(JSONObject json, final OidcSettings oidcSettings) {
     json.put(OIDC_ENABLED, oidcSettings.isEnabled());
     json.put(CLIENT_ID, oidcSettings.getClientId());
-    json.put(CLIENT_SECRET, _secretService.decrypt(oidcSettings.getClientSecret()));
+    json.put(
+        CLIENT_SECRET,
+        _secretService.decrypt(systemOperationContext, oidcSettings.getClientSecret()));
     json.put(DISCOVERY_URI, oidcSettings.getDiscoveryUri());
     if (oidcSettings.hasUserNameClaim()) {
       json.put(USER_NAME_CLAIM, oidcSettings.getUserNameClaim());
