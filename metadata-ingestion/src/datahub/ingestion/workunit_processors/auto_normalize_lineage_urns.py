@@ -1,3 +1,11 @@
+# NOTE: `from __future__ import annotations` keeps the schema_resolver type hints
+# (imported only under TYPE_CHECKING) as strings, so importing this module does not
+# pull in sqlglot. The sqlglot-heavy schema_resolver imports are deferred into the
+# methods that use them — importing this module (e.g. via the workunit_processors
+# package) must stay lightweight so it never adds a transitive sqlglot requirement
+# to connectors that don't declare it.
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
@@ -16,17 +24,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
-from datahub.sql_parsing.schema_resolver import (
-    SchemaInfo,
-    SchemaResolver,
-    match_columns_to_schema,
-)
-from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
     from datahub.ingestion.run.pipeline_config import UpstreamPlatformCasing
+    from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 
 logger = logging.getLogger(__name__)
 
@@ -129,8 +132,12 @@ class AutoNormalizeLineageUrnsProcessor(
 
     # --- resolution -------------------------------------------------------------
 
-    def _get_resolvers(self, platform: str) -> List[SchemaResolver]:
+    def _get_resolvers(self, platform: str) -> List["SchemaResolver"]:
         """Bulk-initialized resolvers for every configured entry on this platform."""
+        # Deferred import: schema_resolver_provider pulls in sqlglot, which must not
+        # be a module-load-time dependency (see the note at the top of this file).
+        from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
+
         if platform not in self._resolvers_by_platform:
             self._resolvers_by_platform[platform] = [
                 provide_schema_resolver(
@@ -235,6 +242,9 @@ class AutoNormalizeLineageUrnsProcessor(
         # Correct the column casing against the warehouse schema, if known.
         new_field_path = field_path
         if res.schema:
+            # Deferred import: keeps sqlglot off this module's load path.
+            from datahub.sql_parsing.schema_resolver import match_columns_to_schema
+
             new_field_path = match_columns_to_schema(res.schema, [field_path])[0]
 
         if res.urn == parent and new_field_path == field_path:
