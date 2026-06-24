@@ -40,7 +40,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
@@ -119,6 +119,7 @@ class DataHubValidationAction(ValidationAction):
         exclude_dbname: Optional[bool] = None,
         parse_table_names_from_sql: bool = False,
         convert_urns_to_lowercase: bool = False,
+        emit_mode: Union[str, EmitMode] = EmitMode.ASYNC,
         name: str = "DataHubValidationAction",
     ):
         if has_name_positional_arg:
@@ -140,6 +141,11 @@ class DataHubValidationAction(ValidationAction):
         self.exclude_dbname = exclude_dbname
         self.parse_table_names_from_sql = parse_table_names_from_sql
         self.convert_urns_to_lowercase = convert_urns_to_lowercase
+        # Coerce here because GX passes action kwargs from checkpoint YAML as
+        # plain strings; the emitter needs a real EmitMode enum downstream.
+        self.emit_mode = (
+            EmitMode(emit_mode.upper()) if isinstance(emit_mode, str) else emit_mode
+        )
 
     def _run(
         self,
@@ -164,6 +170,7 @@ class DataHubValidationAction(ValidationAction):
                 extra_headers=self.extra_headers,
                 client_mode=ClientMode.INGESTION,
                 datahub_component="gx-plugin",
+                default_emit_mode=self.emit_mode,
             )
 
             expectation_suite_name = validation_result_suite.meta.get(
