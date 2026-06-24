@@ -40,10 +40,11 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
     await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
 
-    // Click the 'address' struct row. Its data-testid contains a V2 path with brackets,
-    // so use XPath for reliable exact attribute matching.
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
-    const addressRow = page.locator('xpath=//tr[@data-testid="column-[version=2.0].[type=struct].address"]');
+    // Click the 'address' struct row. Its id contains a V2 path with brackets;
+    // use XPath on the id attribute for reliable exact matching (CSS id selector
+    // cannot handle the brackets and dots in V2 field paths).
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
+    const addressRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=struct].address"]');
     await expect(addressRow).toBeVisible({ timeout: 10000 });
     await addressRow.click();
 
@@ -68,9 +69,9 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
 
     // Click the lowercased top-level field — opens the drawer on the About tab (default).
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
     const rawCounterpartyRow = page.locator(
-      'xpath=//tr[@data-testid="column-[version=2.0].[type=string].rawcounterpartyid"]',
+      'xpath=//tr[@id="column-[version=2.0].[type=string].rawcounterpartyid"]',
     );
     await expect(rawCounterpartyRow).toBeVisible({ timeout: 10000 });
     await rawCounterpartyRow.click();
@@ -90,7 +91,7 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
     await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
 
-    await page.getByTestId(`column-${TOP_LEVEL_FIELD}`).click();
+    await page.getByTestId(`schema-field-${TOP_LEVEL_FIELD}`).click();
     await page.getByTestId('Statistics-field-drawer-tab-header').click();
 
     await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
