@@ -309,6 +309,64 @@ def test_fine_grained_fixes_column_casing_even_when_dataset_exact():
     assert fg.upstreams == [make_schema_field_urn(UPPER, "amount")]
 
 
+# --- multiple upstream platforms in one aspect ------------------------------------
+
+
+def test_multi_platform_upstreams_both_healed():
+    # A BI dataset (e.g. Hex) whose lineage references TWO warehouses; both are
+    # configured. Each upstream is routed to the resolver for its own platform and
+    # healed independently within the same aspect.
+    sf_real = make_dataset_urn("snowflake", "DB.SCHEMA.Orders")
+    rs_real = make_dataset_urn("redshift", "db.public.Customers")
+    hex_dataset = make_dataset_urn("hex", "project.cell.combined")
+
+    sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+    sf_resolver.add_raw_schema_info(sf_real, {"amount": "int"})
+    rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
+    rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
+
+    def fake_provide(graph, platform, platform_instance, env, batch_size=100):
+        return sf_resolver if platform == "snowflake" else rs_resolver
+
+    cfg = NormalizeLineageUrnCasingConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(platform="snowflake", env="PROD"),
+            UpstreamPlatformCasing(platform="redshift", env="PROD"),
+        ],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+
+    # BI emits both upstreams with the wrong casing (snowflake lower, redshift upper).
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=hex_dataset,
+        aspect=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=make_dataset_urn("snowflake", "db.schema.orders"),
+                    type="TRANSFORMED",
+                ),
+                UpstreamClass(
+                    dataset=make_dataset_urn("redshift", "DB.PUBLIC.CUSTOMERS"),
+                    type="TRANSFORMED",
+                ),
+            ],
+        ),
+    ).as_workunit()
+
+    with mock.patch(_PATCH_TARGET, side_effect=fake_provide):
+        [out] = list(processor.process(iter([wu])))
+
+    healed = {u.dataset for u in _upstream_aspect(out).upstreams}
+    assert sf_real in healed  # snowflake lower -> mixed
+    assert rs_real in healed  # redshift upper -> mixed
+
+
 # --- dashboardInfo ----------------------------------------------------------------
 
 
