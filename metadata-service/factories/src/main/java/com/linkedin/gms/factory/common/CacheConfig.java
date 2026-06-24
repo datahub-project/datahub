@@ -51,6 +51,12 @@ public class CacheConfig {
   @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
   private String rateLimitEndpointHazelcastMapName;
 
+  @Value("${datahub.gms.rateLimits.endpoint.bucketMaxIdleSeconds:300}")
+  private int rateLimitEndpointBucketMaxIdleSeconds;
+
+  @Value("${datahub.gms.rateLimits.endpoint.bucketMaxSize:100000}")
+  private int rateLimitEndpointBucketMaxSize;
+
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
@@ -144,6 +150,22 @@ public class CacheConfig {
   public MapConfig rateLimitEndpointBucketsMapConfig() {
     MapConfig mapConfig = new MapConfig();
     mapConfig.setName(rateLimitEndpointHazelcastMapName).setBackupCount(1).setAsyncBackupCount(0);
+
+    // Idle eviction (not TTL): an idle actor's entry expires and its bucket re-initialises to full
+    // on the next consume, which is the correct behaviour for a token-bucket limiter.  TTL would
+    // reset buckets for actors that are actively sending requests.
+    mapConfig.setMaxIdleSeconds(rateLimitEndpointBucketMaxIdleSeconds);
+
+    // LRU eviction caps per-node memory when the actor population grows very large.  The limit is
+    // tuned via config; idle eviction above handles the common case of actors that stop sending
+    // requests.
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setEvictionPolicy(EvictionPolicy.LRU)
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(rateLimitEndpointBucketMaxSize);
+    mapConfig.setEvictionConfig(evictionConfig);
+
     return mapConfig;
   }
 }

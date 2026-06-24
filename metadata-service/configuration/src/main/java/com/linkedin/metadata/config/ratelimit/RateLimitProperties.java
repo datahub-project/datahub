@@ -33,6 +33,7 @@ public class RateLimitProperties {
   @AllArgsConstructor
   public static class Rule {
     private String id;
+    @Builder.Default private boolean enabled = true;
     private String pathPattern;
     @Builder.Default private List<String> methods = new ArrayList<>();
     @Builder.Default private List<String> graphqlOperationNames = new ArrayList<>();
@@ -46,6 +47,8 @@ public class RateLimitProperties {
     private Integer capacity;
     private Integer refillTokens;
     private Integer refillPeriodSeconds;
+
+    @Builder.Default private boolean perActor = false;
   }
 
   @Data
@@ -85,6 +88,12 @@ public class RateLimitProperties {
     @Builder.Default private boolean enabled = false;
 
     @Builder.Default private String hazelcastMapName = DEFAULT_HAZELCAST_MAP_NAME;
+
+    /** Idle eviction window (seconds) for endpoint bucket entries in Hazelcast. */
+    @Builder.Default private int bucketMaxIdleSeconds = 300;
+
+    /** LRU per-node size cap for endpoint bucket entries in Hazelcast. */
+    @Builder.Default private int bucketMaxSize = 100_000;
 
     @Builder.Default private List<Rule> rules = new ArrayList<>();
   }

@@ -20,6 +20,8 @@ import org.springframework.util.StringUtils;
 
 @Slf4j
 final class EndpointRateLimitStore {
+  private static final String ACTOR_KEY_INFIX = ":actor:";
+
   private final Map<String, RegisteredEndpointBucket> buckets = new HashMap<>();
   private final ProxyManager<String> distributedProxyManager;
 
@@ -47,7 +49,7 @@ final class EndpointRateLimitStore {
     BucketConfiguration configuration =
         bucketConfiguration(capacity, refillTokens, refillPeriodSeconds);
     Bucket bucket = distributedProxyManager.builder().build(rule.getId(), () -> configuration);
-    buckets.put(rule.getId(), new RegisteredEndpointBucket(bucket, capacity));
+    buckets.put(rule.getId(), new RegisteredEndpointBucket(bucket, capacity, configuration));
     log.info(
         "Registered endpoint rate limit rule {} (cluster-wide capacity={})",
         rule.getId(),
@@ -61,6 +63,18 @@ final class EndpointRateLimitStore {
       return null;
     }
     return bucket.getBucket().tryConsumeAndReturnRemaining(1);
+  }
+
+  @Nullable
+  ConsumptionProbe tryConsumeForActor(@Nonnull String ruleId, @Nonnull String actorUrn) {
+    RegisteredEndpointBucket registered = buckets.get(ruleId);
+    if (registered == null) {
+      return null;
+    }
+    BucketConfiguration config = registered.getConfiguration();
+    Bucket bucket =
+        distributedProxyManager.builder().build(ruleId + ACTOR_KEY_INFIX + actorUrn, () -> config);
+    return bucket.tryConsumeAndReturnRemaining(1);
   }
 
   double remaining(@Nonnull String ruleId) {
@@ -101,10 +115,13 @@ final class EndpointRateLimitStore {
   private static final class RegisteredEndpointBucket {
     private final Bucket bucket;
     private final int configuredCapacity;
+    private final BucketConfiguration configuration;
 
-    private RegisteredEndpointBucket(Bucket bucket, int configuredCapacity) {
+    private RegisteredEndpointBucket(
+        Bucket bucket, int configuredCapacity, BucketConfiguration configuration) {
       this.bucket = bucket;
       this.configuredCapacity = configuredCapacity;
+      this.configuration = configuration;
     }
 
     private Bucket getBucket() {
@@ -113,6 +130,10 @@ final class EndpointRateLimitStore {
 
     private int getConfiguredCapacity() {
       return configuredCapacity;
+    }
+
+    private BucketConfiguration getConfiguration() {
+      return configuration;
     }
   }
 }

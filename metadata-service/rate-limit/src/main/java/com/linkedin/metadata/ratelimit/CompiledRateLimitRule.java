@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Builder;
 import lombok.Getter;
 import org.springframework.util.AntPathMatcher;
 
@@ -29,7 +30,9 @@ final class CompiledRateLimitRule {
   private final Integer endpointCapacity;
   private final Integer refillTokens;
   private final Integer refillPeriodSeconds;
+  private final boolean perActor;
 
+  @Builder
   private CompiledRateLimitRule(
       String id,
       RateLimitRuleType type,
@@ -40,7 +43,8 @@ final class CompiledRateLimitRule {
       CapacityLimitConfig capacityConfig,
       Integer endpointCapacity,
       Integer refillTokens,
-      Integer refillPeriodSeconds) {
+      Integer refillPeriodSeconds,
+      boolean perActor) {
     this.id = id;
     this.type = type;
     this.pathPattern = pathPattern;
@@ -53,6 +57,7 @@ final class CompiledRateLimitRule {
     this.endpointCapacity = endpointCapacity;
     this.refillTokens = refillTokens;
     this.refillPeriodSeconds = refillPeriodSeconds;
+    this.perActor = perActor;
   }
 
   static CompiledRateLimitRule fromCapacityRuleConfig(
@@ -84,32 +89,36 @@ final class CompiledRateLimitRule {
       }
       capacityConfig.setEnabled(true);
     }
-    return new CompiledRateLimitRule(
-        config.getId(),
-        type,
-        config.getPathPattern(),
-        normalizeMethods(config.getMethods()),
-        config.getGraphqlOperationNames(),
-        rank,
-        capacityConfig,
-        config.getCapacity(),
-        config.getRefillTokens(),
-        config.getRefillPeriodSeconds());
+    return CompiledRateLimitRule.builder()
+        .id(config.getId())
+        .type(type)
+        .pathPattern(config.getPathPattern())
+        .methods(normalizeMethods(config.getMethods()))
+        .graphqlOperationNames(config.getGraphqlOperationNames())
+        .specificityRank(rank)
+        .capacityConfig(capacityConfig)
+        .endpointCapacity(config.getCapacity())
+        .refillTokens(config.getRefillTokens())
+        .refillPeriodSeconds(config.getRefillPeriodSeconds())
+        .perActor(config.isPerActor())
+        .build();
   }
 
   static CompiledRateLimitRule materializedCapacityRule(
       String id, String pathPattern, int rank, CapacityLimitConfig capacityConfig) {
-    return new CompiledRateLimitRule(
-        id,
-        RateLimitRuleType.capacity,
-        pathPattern,
-        Set.of("POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"),
-        List.of(),
-        rank,
-        capacityConfig,
-        null,
-        null,
-        null);
+    return CompiledRateLimitRule.builder()
+        .id(id)
+        .type(RateLimitRuleType.capacity)
+        .pathPattern(pathPattern)
+        .methods(Set.of("POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"))
+        .graphqlOperationNames(List.of())
+        .specificityRank(rank)
+        .capacityConfig(capacityConfig)
+        .endpointCapacity(null)
+        .refillTokens(null)
+        .refillPeriodSeconds(null)
+        .perActor(false)
+        .build();
   }
 
   boolean matchesPath(@Nonnull AntPathMatcher matcher, @Nonnull String path) {

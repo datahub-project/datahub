@@ -212,7 +212,21 @@ datahub:
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
         hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        rules: []
+        # Idle window for per-actor bucket entries in Hazelcast (idle eviction, not TTL).
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        # LRU per-node backstop on bucket entry count.
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
+        rules:
+          # Per-actor GraphQL POST throttle. Active only when endpoint.enabled=true
+          # AND this rule's `enabled` is true. System actor is exempt.
+          - id: graphql-per-actor-default
+            enabled: ${RATE_LIMITS_PER_ACTOR_ENABLED:true}
+            pathPattern: ${RATE_LIMITS_PER_ACTOR_PATH:/api/graphql}
+            methods: [POST]
+            perActor: true
+            capacity: ${RATE_LIMITS_PER_ACTOR_CAPACITY:1000}
+            refillTokens: ${RATE_LIMITS_PER_ACTOR_REFILL_TOKENS:1000}
+            refillPeriodSeconds: ${RATE_LIMITS_PER_ACTOR_REFILL_PERIOD:60}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 

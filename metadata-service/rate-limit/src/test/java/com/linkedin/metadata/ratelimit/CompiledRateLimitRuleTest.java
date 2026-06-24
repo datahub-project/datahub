@@ -60,6 +60,24 @@ public class CompiledRateLimitRuleTest {
   }
 
   @Test
+  public void testPerActorCarriedFromEndpointConfig() {
+    RateLimitProperties.Rule config =
+        RateLimitProperties.Rule.builder()
+            .id("graphql-per-actor")
+            .pathPattern("/api/graphql")
+            .perActor(true)
+            .capacity(10)
+            .refillTokens(10)
+            .refillPeriodSeconds(60)
+            .build();
+
+    CompiledRateLimitRule rule =
+        CompiledRateLimitRule.fromEndpointRuleConfig(config, "/api/graphql");
+
+    assertTrue(rule.isPerActor());
+  }
+
+  @Test
   public void testCompareSpecificityPrefersHigherRank() {
     CompiledRateLimitRule generic =
         CompiledRateLimitRule.materializedCapacityRule(

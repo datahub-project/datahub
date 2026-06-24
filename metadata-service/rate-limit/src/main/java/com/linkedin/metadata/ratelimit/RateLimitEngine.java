@@ -76,6 +76,39 @@ public class RateLimitEngine {
     registerMetrics();
     warnIfMisconfiguredPaths(config);
     warnIfMisconfiguredLimiters();
+    validatePerActorRules(config);
+  }
+
+  private void validatePerActorRules(RateLimitProperties config) {
+    if (config.getCapacity() != null && config.getCapacity().getRules() != null) {
+      config.getCapacity().getRules().stream()
+          .filter(RateLimitProperties.Rule::isEnabled)
+          .filter(RateLimitProperties.Rule::isPerActor)
+          .findFirst()
+          .ifPresent(
+              rule -> {
+                throw new IllegalStateException(
+                    "perActor is not supported on capacity (adaptive concurrency) rules; "
+                        + "offending rule="
+                        + rule.getId());
+              });
+    }
+    String graphqlPathPattern = ruleSelector.getGraphqlPathPattern();
+    if (config.getEndpoint() != null && config.getEndpoint().getRules() != null) {
+      config.getEndpoint().getRules().stream()
+          .filter(RateLimitProperties.Rule::isEnabled)
+          .filter(RateLimitProperties.Rule::isPerActor)
+          .filter(rule -> !graphqlPathPattern.equals(rule.getPathPattern()))
+          .forEach(
+              rule ->
+                  log.warn(
+                      "Rate limit rule {} sets perActor=true on non-GraphQL path {}; per-actor "
+                          + "enforcement only applies to the GraphQL POST path ({}) and will be "
+                          + "skipped (no actor available) elsewhere",
+                      rule.getId(),
+                      rule.getPathPattern(),
+                      graphqlPathPattern));
+    }
   }
 
   private void warnIfMisconfiguredLimiters() {
@@ -117,20 +150,27 @@ public class RateLimitEngine {
   public RateLimitDecision evaluateAndAcquireRest(
       @Nonnull String requestUri, @Nonnull String method) {
     return evaluateAndAcquire(
-        stripPath(requestUri),
-        method.toUpperCase(Locale.ROOT),
-        null,
-        RateLimitSource.SERVLET_FILTER);
+        new RateLimitContext(
+            stripPath(requestUri),
+            method.toUpperCase(Locale.ROOT),
+            null,
+            null,
+            RateLimitSource.SERVLET_FILTER));
   }
 
   @Nonnull
   public RateLimitDecision evaluateAndAcquireGraphQL(
-      @Nonnull String requestUri, @Nonnull String method, @Nonnull String operationName) {
+      @Nonnull String requestUri,
+      @Nonnull String method,
+      @Nonnull String operationName,
+      @Nullable String actorUrn) {
     return evaluateAndAcquire(
-        stripPath(requestUri),
-        method.toUpperCase(Locale.ROOT),
-        operationName,
-        RateLimitSource.GRAPHQL_GATE);
+        new RateLimitContext(
+            stripPath(requestUri),
+            method.toUpperCase(Locale.ROOT),
+            operationName,
+            actorUrn,
+            RateLimitSource.GRAPHQL_GATE));
   }
 
   public void release(@Nonnull RateLimitLease lease, boolean success) {
@@ -203,17 +243,16 @@ public class RateLimitEngine {
         System.nanoTime());
   }
 
-  private RateLimitDecision evaluateAndAcquire(
-      String path, String method, @Nullable String operationName, RateLimitSource source) {
+  private RateLimitDecision evaluateAndAcquire(RateLimitContext ctx) {
     if (!isEnabled()) {
-      return RateLimitDecision.disabled(source);
+      return RateLimitDecision.disabled(ctx.source());
     }
 
     try {
       CompiledRateLimitRule capacityRule =
-          ruleSelector.selectCapacityRule(path, method, operationName);
+          ruleSelector.selectCapacityRule(ctx.path(), ctx.method(), ctx.operationName());
       CompiledRateLimitRule endpointRule =
-          ruleSelector.selectEndpointRule(path, method, operationName);
+          ruleSelector.selectEndpointRule(ctx.path(), ctx.method(), ctx.operationName());
 
       Limiter.Listener capacityListener = null;
       if (capacityRule != null) {
@@ -225,20 +264,22 @@ public class RateLimitEngine {
                   .allowed(false)
                   .denyingRuleId(capacityRule.getId())
                   .denyingType(RateLimitRuleType.capacity)
-                  .source(source)
-                  .graphqlOperation(operationName)
+                  .source(ctx.source())
+                  .graphqlOperation(ctx.operationName())
                   .retryAfterSeconds(config.getMinRetryAfterSeconds())
                   .build();
           logDeny(decision);
           metrics.recordDecision(
-              decision, RateLimitMetrics.graphqlOperationTag(operationName, capacityRule));
+              decision, RateLimitMetrics.graphqlOperationTag(ctx.operationName(), capacityRule));
           return decision;
         }
         capacityListener = acquired.get();
       }
 
-      if (endpointRule != null && endpointStore != null) {
-        ConsumptionProbe probe = endpointStore.tryConsumeAndReturnRemaining(endpointRule.getId());
+      if (endpointRule != null
+          && endpointStore != null
+          && !skipPerActorConsume(endpointRule, ctx.actorUrn())) {
+        ConsumptionProbe probe = consumeEndpoint(endpointRule, ctx.actorUrn());
         if (probe == null || !probe.isConsumed()) {
           if (capacityListener != null) {
             adaptiveCapacityLimiter.release(capacityListener, false);
@@ -248,14 +289,15 @@ public class RateLimitEngine {
                   .allowed(false)
                   .denyingRuleId(endpointRule.getId())
                   .denyingType(RateLimitRuleType.endpoint)
-                  .source(source)
-                  .graphqlOperation(operationName)
+                  .source(ctx.source())
+                  .graphqlOperation(ctx.operationName())
                   .retryAfterSeconds(endpointRetryAfterSeconds(probe))
                   .build();
           logDeny(decision);
           metrics.recordDecision(
               decision,
-              RateLimitMetrics.graphqlOperationTag(operationName, capacityRule, endpointRule));
+              RateLimitMetrics.graphqlOperationTag(
+                  ctx.operationName(), capacityRule, endpointRule));
           return decision;
         }
       }
@@ -266,21 +308,43 @@ public class RateLimitEngine {
               .capacityRuleId(capacityRule != null ? capacityRule.getId() : null)
               .endpointRuleId(endpointRule != null ? endpointRule.getId() : null)
               .capacityListener(capacityListener)
-              .source(source)
-              .graphqlOperation(operationName)
+              .source(ctx.source())
+              .graphqlOperation(ctx.operationName())
               .build();
       metrics.recordDecision(
           decision,
-          RateLimitMetrics.graphqlOperationTag(operationName, capacityRule, endpointRule));
+          RateLimitMetrics.graphqlOperationTag(ctx.operationName(), capacityRule, endpointRule));
       return decision;
     } catch (RuntimeException e) {
       if (config.isFailOpen()) {
         log.warn(
-            "Rate limit evaluation failed; fail-open allowing request for {} {}", method, path, e);
-        return RateLimitDecision.disabled(source);
+            "Rate limit evaluation failed; fail-open allowing request for {} {}",
+            ctx.method(),
+            ctx.path(),
+            e);
+        return RateLimitDecision.disabled(ctx.source());
       }
       throw e;
     }
+  }
+
+  /**
+   * A {@code perActor} rule with no actor (REST path, or non-USER/null GraphQL actor) skips the
+   * per-actor token-bucket consume — the request proceeds. Safe because the GraphQL POST path is
+   * auth-gated and the global adaptive capacity limiter still applies.
+   */
+  private boolean skipPerActorConsume(
+      @Nonnull CompiledRateLimitRule endpointRule, @Nullable String actorUrn) {
+    return endpointRule.isPerActor() && actorUrn == null;
+  }
+
+  @Nullable
+  private ConsumptionProbe consumeEndpoint(
+      @Nonnull CompiledRateLimitRule endpointRule, @Nullable String actorUrn) {
+    if (endpointRule.isPerActor() && actorUrn != null) {
+      return endpointStore.tryConsumeForActor(endpointRule.getId(), actorUrn);
+    }
+    return endpointStore.tryConsumeAndReturnRemaining(endpointRule.getId());
   }
 
   private int endpointRetryAfterSeconds(@Nullable ConsumptionProbe probe) {
@@ -325,7 +389,9 @@ public class RateLimitEngine {
       return;
     }
     if (endpointStore != null) {
-      config.getEndpoint().getRules().stream().forEach(endpointStore::registerEndpointRule);
+      config.getEndpoint().getRules().stream()
+          .filter(RateLimitProperties.Rule::isEnabled)
+          .forEach(endpointStore::registerEndpointRule);
     }
   }
 
@@ -354,6 +420,10 @@ public class RateLimitEngine {
         && config.getEndpoint().getRules() != null) {
       if (endpointStore != null) {
         config.getEndpoint().getRules().stream()
+            .filter(RateLimitProperties.Rule::isEnabled)
+            // perActor rules never consume the ruleId-keyed bucket, so its remaining gauge
+            // would always read full and mislead operators — suppress it.
+            .filter(rule -> !rule.isPerActor())
             .forEach(rule -> metrics.registerEndpointGauge(rule.getId(), endpointStore));
       }
     }

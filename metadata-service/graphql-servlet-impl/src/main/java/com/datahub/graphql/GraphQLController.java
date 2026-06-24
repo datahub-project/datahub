@@ -156,9 +156,22 @@ public class GraphQLController {
     final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
+    // getActorUrn() throws for non-USER actor types and NPEs on a null actor; per-actor rate
+    // limiting treats a missing actor as "skip", so resolve to null rather than propagate.
+    // The internal system principal is also resolved to null so its (often high-volume) internal
+    // calls are never per-actor throttled — mirrors DataHubAuthorizer.isSystemRequest.
+    String rateLimitActorUrn;
+    try {
+      String actorUrn = context.getActorUrn();
+      String systemActorUrn = systemOperationContext.getAuthentication().getActor().toUrnStr();
+      rateLimitActorUrn = actorUrn.equals(systemActorUrn) ? null : actorUrn;
+    } catch (RuntimeException e) {
+      rateLimitActorUrn = null;
+    }
+
     RateLimitDecision rateLimitDecision =
         rateLimitEngine.evaluateAndAcquireGraphQL(
-            request.getRequestURI(), request.getMethod(), resolvedOperationName);
+            request.getRequestURI(), request.getMethod(), resolvedOperationName, rateLimitActorUrn);
     if (!rateLimitDecision.isAllowed()) {
       try {
         HttpHeaders headers = new HttpHeaders();
