@@ -1,0 +1,5 @@
+# 1.6.0+ ships graphql_query_adapter (required for query generation).
+acryl-datahub>=1.6.0
+graphql-core>=3.0.0,<4.0.0
+pytest>=8.0.0
+ruff>=0.8.0
