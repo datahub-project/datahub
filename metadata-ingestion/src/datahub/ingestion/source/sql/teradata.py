@@ -3039,7 +3039,6 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         query_db_elapsed += time.monotonic() - t_start
                         _mark_phase("awaiting_first_batch", query_index)
 
-
                         batch_count = 0
                         query_total_count = 0
 

@@ -1269,7 +1269,11 @@ class TestLineageQuerySeparation:
         mock_result = MagicMock()
         mock_engine = MagicMock()
         with (
-            patch.object(source, "_make_lineage_queries", return_value=["query1"]),
+            patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="query1", label="current_only")],
+            ),
             patch.object(source, "get_metadata_engine", return_value=mock_engine),
             patch.object(
                 source, "_execute_with_cursor_fallback", return_value=mock_result
