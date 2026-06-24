@@ -8,6 +8,7 @@ from datahub.configuration.env_vars import (
     get_datahub_component,
     get_rest_sink_default_tcp_keepalive,
 )
+from datahub.emitter.emit_mode import EmitMode
 
 
 class ClientMode(Enum):
@@ -40,5 +41,8 @@ class DatahubClientConfig(ConfigModel):
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
     tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
+    # Default emit mode for emit calls that don't pass one. None falls back to the
+    # emitter's global default. Not used by the `datahub-rest` sink (it has `mode`).
+    default_emit_mode: Optional[EmitMode] = None
 
     model_config = ConfigDict(extra="ignore")

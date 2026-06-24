@@ -207,10 +207,8 @@ class DatahubSensors:
                     datahub_component="dagster-plugin",
                 )
             )
-        self.graph = DataHubGraph(
-            self.config.datahub_client_config,
-            default_emit_mode=self.config.emit_mode,
-        )
+        self.config.datahub_client_config.default_emit_mode = self.config.emit_mode
+        self.graph = DataHubGraph(self.config.datahub_client_config)
 
         self.graph.test_connection()
 

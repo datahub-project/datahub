@@ -56,6 +56,11 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_default_retry_max_times,
     get_rest_sink_default_tcp_keepalive,
 )
+
+# Re-exported (`as EmitMode`) so existing `from datahub.emitter.rest_emitter import
+# EmitMode` imports keep working; the class now lives in its own leaf module so
+# graph.config can reference it for the default_emit_mode field without a cycle.
+from datahub.emitter.emit_mode import EmitMode as EmitMode
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import OpenApiRequest, make_curl_command
@@ -251,28 +256,6 @@ def preserve_unicode_escapes(obj: Any) -> Any:
         return re.sub(r"[^\x00-\x7F]", escape_unicode, obj)
     else:
         return obj
-
-
-class EmitMode(ConfigEnum):
-    # Fully synchronous processing that updates both primary storage (SQL) and search storage (Elasticsearch) before returning.
-    # Provides the strongest consistency guarantee but with the highest cost. Best for critical operations where immediate
-    # searchability and consistent reads are required.
-    SYNC_WAIT = auto()
-    # Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides
-    # a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct
-    # entity retrievals but where search index consistency can be slightly delayed.
-    SYNC_PRIMARY = auto()
-    # Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without
-    # waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
-    ASYNC = auto()
-    # Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted.
-    # More efficient than fully synchronous operations due to backend parallelization and batching while still providing
-    # strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
-    ASYNC_WAIT = auto()
-
-    @property
-    def is_async(self) -> bool:
-        return self in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
 
 
 _DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
