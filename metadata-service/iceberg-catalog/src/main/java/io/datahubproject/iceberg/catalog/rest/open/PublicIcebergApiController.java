@@ -46,7 +46,7 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
     checkPublicEnabled();
 
-    OperationContext opContext = opContext(request);
+    OperationContext opContext = publicOpContext(request, "iceberg-public-getConfig");
     // check that warehouse exists
     warehouse(warehouse, opContext);
     ConfigResponse response = ConfigResponse.builder().withOverride("prefix", warehouse).build();
@@ -69,7 +69,7 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
     checkPublicEnabled();
 
-    OperationContext opContext = opContext(request);
+    OperationContext opContext = publicOpContext(request, "iceberg-public-loadTable");
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, opContext);
     Optional<DatasetUrn> datasetUrn = warehouse.getDatasetUrn(tableIdFromString(namespace, table));
     if (datasetUrn.isPresent()) {

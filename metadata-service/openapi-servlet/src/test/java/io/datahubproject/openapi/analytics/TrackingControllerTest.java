@@ -129,4 +129,28 @@ public class TrackingControllerTest {
     // Verify response is bad request
     assertEquals(response.getStatusCode().value(), 400);
   }
+
+  /**
+   * Confirms that the controller falls back to Authorizer.EMPTY when the AuthorizerChain bean isn't
+   * wired (constructor passes null). Mirrors the wiring shape of a "telemetry-disabled" deployment
+   * profile that ships without the authorizer chain.
+   */
+  @Test
+  public void testTrackEventNullAuthorizerChainFallsBackToEmpty() throws Exception {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "TestEvent");
+
+    AuthenticationContext.setAuthentication(authentication);
+
+    // Construct with null authorizerChain — should NOT NPE; controller falls back to
+    // Authorizer.EMPTY.
+    TrackingController controllerWithoutAuthorizer =
+        new TrackingController(trackingService, systemOperationContext, null);
+
+    ResponseEntity<Void> response = controllerWithoutAuthorizer.trackEvent(request, event);
+
+    assertEquals(response.getStatusCode().value(), 200);
+    verify(trackingService)
+        .track(eq("TestEvent"), any(OperationContext.class), eq(null), eq(null), eq(event));
+  }
 }

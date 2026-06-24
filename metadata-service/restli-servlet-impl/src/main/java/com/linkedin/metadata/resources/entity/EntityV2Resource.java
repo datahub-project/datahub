@@ -94,7 +94,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
 
-      return RestliUtils.toTask(systemOperationContext,
+      return RestliUtils.toTask(opContext,
         () -> {
           final String entityName = urnToEntityName(urn);
           final Set<String> projectedAspects =
@@ -141,7 +141,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       return Task.value(Collections.emptyMap());
     }
     final String entityName = urnToEntityName(urns.iterator().next());
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null

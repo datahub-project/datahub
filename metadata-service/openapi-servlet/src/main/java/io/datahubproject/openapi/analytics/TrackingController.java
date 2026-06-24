@@ -3,6 +3,7 @@ package io.datahubproject.openapi.analytics;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.datahubproject.metadata.context.OperationContext;
@@ -23,7 +24,10 @@ public class TrackingController {
 
   private final TrackingService trackingService;
   private final OperationContext systemOperationContext;
-  private final AuthorizerChain authorizerChain;
+  // Stored as Authorizer (supertype) so we can fall back to Authorizer.EMPTY when the
+  // AuthorizerChain bean isn't wired (e.g. in tests, or in a future "telemetry-disabled"
+  // wiring profile that doesn't ship the full chain).
+  private final Authorizer authorizer;
 
   public TrackingController(
       @Qualifier("trackingService") TrackingService trackingService,
@@ -31,7 +35,7 @@ public class TrackingController {
       @Qualifier("authorizerChain") AuthorizerChain authorizerChain) {
     this.trackingService = trackingService;
     this.systemOperationContext = systemOperationContext;
-    this.authorizerChain = authorizerChain;
+    this.authorizer = authorizerChain != null ? authorizerChain : Authorizer.EMPTY;
     log.info(
         "TrackingController initialized with trackingService: {}",
         trackingService != null ? "present" : "null");
@@ -64,7 +68,7 @@ public class TrackingController {
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "trackEvent", "tracking"),
-            authorizerChain,
+            authorizer,
             authentication,
             true);
 

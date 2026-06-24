@@ -143,13 +143,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       throws URISyntaxException {
     log.debug("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
 
             if (!isAPIAuthorizedEntityUrns(
                   opContext,
@@ -193,13 +192,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         endTimeMillis,
         limit);
     final Urn urn = Urn.createFromString(urnStr);
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
 
             if (!isAPIAuthorizedUrns(
                   opContext,
@@ -303,7 +301,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
-    return RestliUtils.toTask(systemOperationContext, () -> {
+    return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
@@ -339,13 +337,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   public Task<Integer> getCount(
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication authentication = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                    getContext(), ACTION_GET_COUNT), _authorizer, authentication, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication authentication = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_GET_COUNT), _authorizer, authentication, true);
 
             if (!isAPIAuthorized(
                   opContext,
@@ -372,13 +369,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
       @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication authentication = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                    getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication authentication = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
 
             if (!isAPIOperationsAuthorized(
                     opContext,
@@ -386,6 +382,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
             }
+            // TODO(opContext-review): dual context — please review
             return Utils.restoreIndices(systemOperationContext, getContext(),
               aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },

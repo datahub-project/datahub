@@ -135,7 +135,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final Set<String> relationshipTypes = Set.of(relationshipTypesParam);
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
               getRelatedEntities(opContext, rawUrn, relationshipTypes, direction, start, count);
@@ -212,7 +212,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () ->
             _graphService.getLineage(opContext,
                 urn,

@@ -54,15 +54,22 @@ public class ConfigSearchExport extends HttpServlet {
     OperationContext systemOperationContext =
         ctx.getBean("systemOperationContext", OperationContext.class);
     Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "configSearchExport", (String) null),
-            Authorizer.EMPTY,
-            auth,
-            true);
+    // When AuthenticationContext is unset (anonymous path, filter not yet run, or tests without a
+    // filter chain), fall back to systemOperationContext so the call still proceeds safely.
+    final OperationContext opContext;
+    if (auth != null) {
+      opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(), request, "configSearchExport", "configSearch"),
+              Authorizer.EMPTY,
+              auth,
+              true);
+    } else {
+      opContext = systemOperationContext;
+    }
     ConfigurationProvider configurationProvider = getConfigProvider(ctx);
     ElasticSearchConfiguration searchConfiguration = configurationProvider.getElasticSearch();
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
