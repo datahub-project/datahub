@@ -1522,6 +1522,12 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
+# Two-tier platforms whose connector URNs are schema.table. Their ODBC
+# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
+# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource).
+ODBC_TWO_TIER_PLATFORMS = {"hive"}
+
+
 class OdbcLineage(AbstractLineage):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -1834,6 +1840,13 @@ class OdbcLineage(AbstractLineage):
                 break
 
         if (
+            data_platform in ODBC_TWO_TIER_PLATFORMS
+            and schema_name is not None
+            and table_name is not None
+        ):
+            # Drop the pseudo-catalog database_name for two-tier platforms.
+            qualified_table_name = f"{schema_name}.{table_name}"
+        elif (
             database_name is not None
             and schema_name is not None
             and table_name is not None
