@@ -36,10 +36,8 @@ WH_MIXED = make_dataset_urn("snowflake", "db.schema.DataHub")
 WH_LOWER = make_dataset_urn("snowflake", "db.schema.datahub")
 WH_UPPER = make_dataset_urn("snowflake", "db.schema.DATAHUB")
 
-_PATCH_TARGET = (
-    "datahub.ingestion.workunit_processors."
-    "auto_normalize_lineage_urns.provide_schema_resolver"
-)
+# Deferred-imported inside the processor, so patch it at its source module.
+_PATCH_TARGET = "datahub.sql_parsing.schema_resolver_provider.provide_schema_resolver"
 
 
 def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
