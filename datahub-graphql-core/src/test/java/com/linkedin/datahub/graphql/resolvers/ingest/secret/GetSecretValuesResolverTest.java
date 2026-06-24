@@ -38,7 +38,8 @@ public class GetSecretValuesResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
-    Mockito.when(mockSecretService.decrypt(Mockito.eq(getTestSecretValue().getValue())))
+    Mockito.when(
+            mockSecretService.decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue())))
         .thenReturn(decryptedSecretValue);
 
     DataHubSecretValue returnedValue = getTestSecretValue();

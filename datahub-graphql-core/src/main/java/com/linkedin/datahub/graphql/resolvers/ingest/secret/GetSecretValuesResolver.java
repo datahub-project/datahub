@@ -80,7 +80,9 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                           final DataHubSecretValue secretValue =
                               new DataHubSecretValue(aspect.getValue().data());
                           // Now decrypt the encrypted secret.
-                          final String decryptedSecretValue = decryptSecret(secretValue.getValue());
+                          final String decryptedSecretValue =
+                              _secretService.decrypt(
+                                  context.getOperationContext(), secretValue.getValue());
                           return new SecretValue(secretValue.getName(), decryptedSecretValue);
                         } else {
                           // No secret exists
@@ -99,9 +101,5 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
-  }
-
-  private String decryptSecret(final String encryptedSecret) {
-    return _secretService.decrypt(encryptedSecret);
   }
 }

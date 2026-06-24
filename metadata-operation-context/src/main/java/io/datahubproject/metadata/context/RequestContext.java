@@ -61,7 +61,7 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String requestID;
 
   @Nonnull private final String userAgent;
-  @Nonnull private final String agentClass;
+  @Nonnull private final AgentClass agentClass;
   @Nonnull private final String agentName;
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
@@ -96,10 +96,10 @@ public class RequestContext implements ContextInterface {
      */
     if (this.userAgent != null && !this.userAgent.isEmpty()) {
       UserAgent ua = UAA.parse(this.userAgent);
-      this.agentClass = ua.get(UserAgent.AGENT_CLASS).getValue();
+      this.agentClass = AgentClass.fromRawUserAgentClass(ua.get(UserAgent.AGENT_CLASS).getValue());
       this.agentName = ua.get(UserAgent.AGENT_NAME).getValue();
     } else {
-      this.agentClass = "Unknown";
+      this.agentClass = AgentClass.UNKNOWN;
       this.agentName = "Unknown";
     }
 
@@ -268,7 +268,7 @@ public class RequestContext implements ContextInterface {
     }
 
     if (requestContext.getRequestAPI() != RequestAPI.TEST && metricUtils != null) {
-      String agentClass = requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", "");
+      String agentClass = requestContext.getAgentClass().toMetricLabel();
       String requestAPI = requestContext.getRequestAPI().toString().toLowerCase();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);

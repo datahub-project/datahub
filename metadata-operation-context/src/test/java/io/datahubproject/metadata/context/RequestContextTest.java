@@ -357,7 +357,7 @@ public class RequestContextTest {
             .build();
 
     // Verify that the agentClass is set to "Unknown"
-    assertEquals(context.getAgentClass(), "Unknown");
+    assertEquals(context.getAgentClass(), AgentClass.UNKNOWN);
 
     // Verify that a metric was captured with "unknown" agent class
     verify(mockMetricUtils, atLeastOnce())
@@ -382,7 +382,7 @@ public class RequestContextTest {
               .build();
 
       // Verify agent class is set to "Unknown" for null user agent
-      assertEquals(context.getAgentClass(), "Unknown");
+      assertEquals(context.getAgentClass(), AgentClass.UNKNOWN);
 
       // Verify a metric was captured
       verify(mockMetricUtils, atLeastOnce())
@@ -409,7 +409,7 @@ public class RequestContextTest {
     assertNotNull(context.getAgentClass());
     // The agent class should be "Browser" for this user agent string, but we're only checking it's
     // not null
-    assertFalse(context.getAgentClass().isEmpty());
+    assertNotEquals(context.getAgentClass(), AgentClass.UNKNOWN);
   }
 
   @Test
@@ -452,7 +452,7 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "sdk");
+    assertEquals(context.getAgentClass(), AgentClass.SDK);
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
@@ -472,7 +472,7 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "cli");
+    assertEquals(context.getAgentClass(), AgentClass.CLI);
     assertEquals(context.getAgentName(), "Datahub");
 
     // Verify metrics were captured correctly
@@ -492,7 +492,7 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "ingestion");
+    assertEquals(context.getAgentClass(), AgentClass.INGESTION);
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
