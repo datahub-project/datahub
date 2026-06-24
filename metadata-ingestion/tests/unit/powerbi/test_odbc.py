@@ -126,7 +126,7 @@ def test_hive_resolves_distinctly_from_hadoop():
     assert normalize_platform_name("hadoop") == ("hadoop", "Hadoop")
 
 
-def test_hive_dsn_platform_has_valid_sqlglot_dialect():
+def test_hive_platform_has_valid_sqlglot_dialect():
     """A 'hive' DSN must resolve to a platform sqlglot can parse.
 
     Direct regression guard for the runtime warning

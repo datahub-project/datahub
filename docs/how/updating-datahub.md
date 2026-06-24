@@ -136,6 +136,8 @@ Requirements:
 
 - #17971 **(Ingestion / Databricks Unity Catalog)** On the system-tables usage path, a time window that returns **no** queries (an idle workspace) now emits zero-value `datasetUsageStatistics` for the ingested tables, where it previously emitted none. This aligns Unity with the Snowflake, BigQuery, and Redshift connectors, which stamp a zero datapoint whenever the usage read succeeds. Because `datasetUsageStatistics` is a timeseries aspect written via UPSERT, this records a current-bucket zero datapoint and does **not** delete prior usage history. A genuine fetch or permission failure still emits nothing (it is surfaced as a run failure instead), so existing usage history is never overwritten with zeros on error.
 
+- #18017 **(Ingestion / Power BI)** Hive ODBC sources are now resolved to the `hive` data platform instead of `hadoop`. Previously both folded into a shared `(hadoop|hive)` mapping, which emitted upstream URNs under `urn:li:dataPlatform:hadoop` (never matching the Hive connector's `hive` URNs) and broke native SQL parsing because sqlglot has no `hadoop` dialect, so Hive lineage was silently dropped. After upgrade, new runs emit `hive` upstreams that parse correctly and align with the Hive connector; any previously-emitted `hadoop` upstreams were already broken/dangling and are retired by stateful stale-entity removal (if enabled) or can be cleaned up manually. Hadoop (non-Hive) resolution is unchanged and no recipe changes are required.
+
 ## v1.6.0
 
 Requirements:

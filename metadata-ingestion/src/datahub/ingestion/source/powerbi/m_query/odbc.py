@@ -37,7 +37,7 @@ platform_patterns = {
     "sybase": r"sybase",
     "teradata": r"teradata",
     "hive": r"hive",
-    "hadoop": r"(hadoop)",
+    "hadoop": r"hadoop",
     "snowflake": r"snowflake",
     "redshift": r"redshift",
     "bigquery": r"bigquery",
