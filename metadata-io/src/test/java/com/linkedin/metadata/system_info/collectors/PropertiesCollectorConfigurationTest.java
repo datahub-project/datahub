@@ -1160,6 +1160,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.gms.rateLimits.capacity.rules",
           "datahub.gms.rateLimits.endpoint.enabled",
           "datahub.gms.rateLimits.endpoint.hazelcastMapName",
+          "datahub.gms.rateLimits.endpoint.bucketMaxIdleSeconds",
+          "datahub.gms.rateLimits.endpoint.bucketMaxSize",
           "datahub.gms.rateLimits.endpoint.rules",
           "datahub.gms.rateLimits.metrics.detailed"
 
