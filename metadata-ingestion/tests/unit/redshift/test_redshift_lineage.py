@@ -678,13 +678,22 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
     ]
     fake_cursor.fetchmany.side_effect = [
         [
+            # Row with empty query_text must be skipped (e.g. text reconstruction
+            # produced nothing), without affecting the rest of the batch.
+            [
+                2,
+                "",
+                "bob",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "43",
+            ],
             [
                 1,
                 "select col_a, col_b from public.t1",
                 "alice",
                 datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
                 "42",
-            ]
+            ],
         ],
         [],
     ]
