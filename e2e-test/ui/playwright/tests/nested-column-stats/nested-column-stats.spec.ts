@@ -70,9 +70,7 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
 
     // Click the lowercased top-level field — opens the drawer on the About tab (default).
     // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
-    const rawCounterpartyRow = page.locator(
-      'xpath=//tr[@id="column-[version=2.0].[type=string].rawcounterpartyid"]',
-    );
+    const rawCounterpartyRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=string].rawcounterpartyid"]');
     await expect(rawCounterpartyRow).toBeVisible({ timeout: 10000 });
     await rawCounterpartyRow.click();
 
