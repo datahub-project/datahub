@@ -4,9 +4,15 @@ on:
   push:
     paths:
       - ".github/scripts/**"
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
   pull_request:
     paths:
       - ".github/scripts/**"
+    branches:
+      - "**"
 
 jobs:
   test:
