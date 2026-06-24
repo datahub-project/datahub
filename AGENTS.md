@@ -730,21 +730,13 @@ Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/READ
 feature per run. Do **not** set `featureName` for suites that create their own data
 via `apiMock` or direct API calls.
 
-### Formatting
-
-Run before pushing:
-
-```bash
-cd e2e-test/ui/playwright && yarn format:check
-```
-
 ## Frontend CI Checklist
 
-This checklist is for **commit- or PR-ready** work — i.e. when you're about to
-commit, push, or hand off frontend/e2e changes that are going into a PR. It is
-**not** required for every intermediate edit: work that is part of a larger task,
-a work-in-progress branch, or scratch experimentation that won't be committed yet
-can skip it. Run the relevant commands when the change is ready to ship:
+This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
+commit, push, or hand off changes that are going into a PR. It is **not** required for
+every intermediate edit: work that is part of a larger task, a work-in-progress branch,
+or scratch experimentation that won't be committed yet can skip it. Run the relevant
+commands when the change is ready to ship:
 
 ```bash
 # Full lint (eslint + prettier src + type-check) for datahub-web-react
@@ -756,9 +748,6 @@ can skip it. Run the relevant commands when the change is ready to ship:
 # Vitest unit tests (requires icon stubs — run once per clone)
 node datahub-web-react/scripts/generate-lazy-icon-stubs.js
 cd datahub-web-react && yarn test src/path/to/file.test.ts --run
-
-# Playwright e2e formatting
-cd e2e-test/ui/playwright && yarn format:check
 ```
 
 `yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
