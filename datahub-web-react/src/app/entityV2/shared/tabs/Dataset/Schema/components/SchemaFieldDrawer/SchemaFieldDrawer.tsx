@@ -297,7 +297,7 @@ export default function SchemaFieldDrawer({
             {!!openTimelineDrawer && (
                 <StyledDrawer
                     open={!!openTimelineDrawer}
-                    onClose={() => setOpenTimelineDrawer(false)}
+                    onClose={() => setOpenTimelineDrawer?.(false)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
                     contentWrapperStyle={{ width: '33%' }}
                     mask={false}

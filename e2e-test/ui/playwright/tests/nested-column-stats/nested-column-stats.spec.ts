@@ -48,7 +48,7 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     await addressRow.click();
 
     // Open the Statistics tab in the schema field drawer
-    await page.locator('[data-testid="Statistics-field-drawer-tab-header"]').click();
+    await page.getByTestId('Statistics-field-drawer-tab-header').click();
 
     // Pre-fix: "No column statistics found" appears — V2 fieldPath can't match V1 profile path
     // Post-fix: sample values from the profile are shown
@@ -90,8 +90,8 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
     await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
 
-    await page.locator(`[data-testid="column-${TOP_LEVEL_FIELD}"]`).click();
-    await page.locator('[data-testid="Statistics-field-drawer-tab-header"]').click();
+    await page.getByTestId(`column-${TOP_LEVEL_FIELD}`).click();
+    await page.getByTestId('Statistics-field-drawer-tab-header').click();
 
     await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Sample Values')).toBeVisible({ timeout: 10000 });
