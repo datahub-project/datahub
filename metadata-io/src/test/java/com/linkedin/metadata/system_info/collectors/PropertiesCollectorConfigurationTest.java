@@ -150,6 +150,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.setup.preCreateTopics",
           "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
+          "kafka.setup.reconcileExistingTopicConfigs",
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
