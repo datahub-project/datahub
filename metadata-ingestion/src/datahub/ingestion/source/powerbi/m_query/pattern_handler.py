@@ -56,6 +56,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -367,12 +368,23 @@ class AbstractLineage(ABC):
         return None
 
     @staticmethod
-    def is_sql_query(query: Optional[str]) -> bool:
+    def is_sql_query(query: Optional[str], platform: Optional[str] = None) -> bool:
         if not query:
             return False
         query = native_sql_parser.remove_special_characters(query)
+        # Parse in the platform's dialect when known. An Odbc.Query against e.g.
+        # Snowflake can use dialect-specific syntax (``//`` comments, ``IFF``,
+        # ``::`` casts) that the default dialect rejects; without the dialect the
+        # query would be misclassified as a navigation expression and its lineage
+        # silently dropped ("Can not determine qualified table name").
         try:
-            expression = sqlglot.parse_one(query)
+            dialect = get_dialect(platform) if platform else None
+        except (ValueError, AttributeError):
+            # Platform has no sqlglot dialect (e.g. unresolved 'odbc'); fall back
+            # to the default dialect.
+            dialect = None
+        try:
+            expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
@@ -1612,7 +1624,7 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
-        if self.is_sql_query(query):
+        if self.is_sql_query(query, data_platform):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(

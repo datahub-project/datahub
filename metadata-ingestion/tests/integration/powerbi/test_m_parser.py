@@ -1594,6 +1594,62 @@ def test_mysql_odbc_query_without_dsn_mapping():
 
 
 @pytest.mark.integration
+def test_snowflake_odbc_query_with_dialect_specific_sql():
+    """An Odbc.Query whose SQL uses Snowflake-only syntax must still be detected
+    as SQL and yield query lineage.
+
+    `//` line comments, `IFF(...)` and `::` casts are valid Snowflake SQL but are
+    rejected by sqlglot's default dialect. If `is_sql_query` parses without the
+    platform dialect, the query is misclassified as a navigation expression and
+    its lineage is silently dropped ("Can not determine qualified table name").
+    """
+    odbc_snowflake_dialect_sql = (
+        'let\n    Source = Odbc.Query("dsn=SNOWFLAKE_DSN", "'
+        "SELECT#(lf)"
+        "    o.ORDER_ID,#(lf)"
+        "    o.AMOUNT::DECIMAL(10,2) AS AMOUNT,#(lf)"
+        "    IFF(o.STATUS = 'PAID', 1, 0) AS IS_PAID#(lf)"
+        "//    o.LEGACY_COLUMN  -- excluded#(lf)"
+        'FROM SALES.PUBLIC.ORDERS o")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_snowflake_dialect_sql,
+        name="Orders",
+        full_name="Orders.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"SNOWFLAKE_DSN": "snowflake"}}
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales.public.orders,PROD)"
+    )
+    # The Snowflake SQL must be recognised as a query, not a navigation
+    # expression, so no "qualified table name" warning is raised.
+    assert "Can not determine qualified table name" not in [
+        w.title for w in reporter.warnings
+    ]
+
+
+@pytest.mark.integration
 def test_athena_regular_case():
     """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
     q: str = M_QUERIES[37]
