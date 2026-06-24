@@ -14,6 +14,7 @@ from datahub.ingestion.workunit_processors.auto_normalize_lineage_urns import (
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass,
+    EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -331,7 +332,75 @@ def test_dashboard_info_dataset_refs_are_healed():
         patcher.stop()
 
 
+def test_dashboard_info_dataset_edges_are_healed():
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
+    try:
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn("looker", "dashboard.y"),
+            aspect=DashboardInfoClass(
+                title="y",
+                description="",
+                lastModified=ChangeAuditStampsClass(),
+                datasetEdges=[EdgeClass(destinationUrn=UPPER)],
+            ),
+        ).as_workunit()
+        [out] = list(processor.process(iter([wu])))
+        edges = _dashboard_aspect(out).datasetEdges
+        assert edges is not None
+        assert edges[0].destinationUrn == LOWER
+    finally:
+        patcher.stop()
+
+
 # --- safety / enablement ----------------------------------------------------------
+
+
+def test_malformed_fine_grained_field_left_unchanged():
+    # A field reference that can't be parsed is passed through, not crashed on.
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPPER, type="TRANSFORMED")],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=["not-a-valid-urn"],
+                downstreams=[make_schema_field_urn(DOWNSTREAM, "amount")],
+            )
+        ],
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    out = _run({LOWER: {"amount": "int"}}, wu)
+    assert _fine_grained(out).upstreams == ["not-a-valid-urn"]
+
+
+def test_non_dataset_upstream_ref_is_skipped():
+    # A non-dataset upstream URN (e.g. a dataJob) is ignored, not resolved.
+    datajob = "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,prod),task)"
+    out = _run({LOWER: {"amount": "int"}}, _upstream_wu(datajob))
+    assert _stored_upstream(out) == datajob
+
+
+def test_exception_is_recorded_and_workunit_passed_through():
+    # If resolution raises, the workunit is passed through unchanged and counted.
+    provide_mock = mock.MagicMock(side_effect=RuntimeError("boom"))
+    cfg = NormalizeLineageUrnCasingConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+
+    assert _stored_upstream(out) == UPPER  # unchanged
+    assert processor.report.num_exceptions == 1
 
 
 def test_entity_urn_is_never_rewritten():
