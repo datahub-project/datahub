@@ -1427,6 +1427,26 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    lineage_fetch_batch_size: int = Field(
+        default=5000,
+        gt=0,
+        description=(
+            "Number of rows fetched per batch when streaming results from DBC.QryLogV "
+            "during lineage extraction. Each row can carry several KB of query_text, so "
+            "larger values increase peak memory usage while smaller values increase the "
+            "number of round-trips to the database. Lower this (e.g. to a few hundred, "
+            "or lower still) if the ingestion process runs out of memory during lineage "
+            "extraction; raise it to reduce round-trips when rows are small and network "
+            "latency is high. Must be a positive integer (a batch size of 0 would fetch "
+            "no rows and stall the stream). "
+            "NOTE: this only reduces memory when `use_server_side_cursors` is true (the "
+            "default). With client-side cursors the driver buffers the entire result set "
+            "in memory before this batching applies, so lowering the batch size will not "
+            "prevent out-of-memory errors in that mode — it only changes the Python "
+            "iteration chunk size. Default is 5000."
+        ),
+    )
+
     lineage_slow_query_log_seconds: float = Field(
         default=60.0,
         ge=0.0,
@@ -2992,9 +3012,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
                 total_count_all_queries = 0
 
+                batch_size = self.config.lineage_fetch_batch_size
                 for query_index, lineage_query in enumerate(queries, 1):
                     query_label = f"query_{query_index} ({lineage_query.label})"
-
                     logger.info(
                         f"Executing lineage query {query_index}/{len(queries)} "
                         f"[{query_label}] for time range "
@@ -3019,8 +3039,6 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         query_db_elapsed += time.monotonic() - t_start
                         _mark_phase("awaiting_first_batch", query_index)
 
-                        # Stream results in batches to avoid memory issues
-                        batch_size = 5000
                         batch_count = 0
                         query_total_count = 0
 
