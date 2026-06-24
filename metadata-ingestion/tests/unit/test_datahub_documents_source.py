@@ -2763,7 +2763,7 @@ class TestScrollPaginationConfig:
         config = _make_config(scroll_batch_size=250)
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
-            response = {
+            response: dict[str, Any] = {
                 "scrollAcrossEntities": {"nextScrollId": None, "searchResults": []}
             }
             with patch.object(
@@ -2848,7 +2848,7 @@ class TestSkipIfSemanticContentExists:
         )
 
     @staticmethod
-    def _semantic_aspect(model_key: str):
+    def _semantic_aspect(model_key: str) -> Any:
         from datahub.metadata.schema_classes import (
             EmbeddingModelDataClass,
             SemanticContentClass,
@@ -2965,6 +2965,7 @@ class TestSkipIfSemanticContentExists:
             source = DataHubDocumentsSource(ctx, config)
             source.document_state = {}
             model_key = source.chunking_source.get_model_embedding_key()
+            assert model_key is not None
             doc = {
                 "urn": "urn:li:document:ext-indexed",
                 "text": "Some sufficiently long document text content here.",
