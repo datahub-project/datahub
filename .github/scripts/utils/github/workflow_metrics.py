@@ -54,7 +54,7 @@ class JobMetrics:
         may itself end in parens, e.g. "(Shard 1/5)", and would otherwise be
         mis-parsed as the matrix). Otherwise returns (full_name, []).
         """
-        # ponytail: collapses multiple inner jobs under one caller to the caller
+        # Collapses multiple inner jobs under one caller to the caller
         # name; fine while each caller has a single inner job (the case here).
         caller = full_name.split(" / ", 1)[0]
         match = re.match(r"^(.+?)\s*\((.+)\)$", caller)
