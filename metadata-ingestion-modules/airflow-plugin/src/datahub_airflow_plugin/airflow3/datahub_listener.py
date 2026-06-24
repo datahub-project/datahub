@@ -10,6 +10,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Mapping,
     Optional,
     Tuple,
     TypeVar,
@@ -236,12 +237,31 @@ def _patch_runtime_ti_for_outlet_events() -> None:
         original_get_template_context = RuntimeTaskInstance.get_template_context
 
         def _patched_get_template_context(self: Any) -> Any:
+            # Call Airflow's real method OUTSIDE the try so genuine Airflow
+            # errors propagate normally — DataHub bookkeeping must never be the
+            # cause of a task failure.
             context = original_get_template_context(self)
-            outlet_events = context.get("outlet_events")
-            if outlet_events is not None:
+            try:
                 # Store a reference to the mutable OutletEventAccessors so our
                 # on_task_instance_success listener can read it without DB access.
-                object.__setattr__(self, "_datahub_outlet_events", outlet_events)
+                # Guard the whole side-effect: object.__setattr__ can raise (e.g.
+                # if a future Airflow gives RuntimeTaskInstance __slots__ —
+                # failure-mode #2 above), and context.get assumes a Mapping.
+                # On any failure we degrade to the DB-query fallback path rather
+                # than failing the user's task.
+                outlet_events = (
+                    context.get("outlet_events")
+                    if isinstance(context, Mapping)
+                    else None
+                )
+                if outlet_events is not None:
+                    object.__setattr__(self, "_datahub_outlet_events", outlet_events)
+            except Exception as e:
+                logger.warning(
+                    f"DataHub: failed to cache outlet_events on RuntimeTaskInstance "
+                    f"({type(e).__name__}: {e}); AssetAlias lineage will fall back "
+                    f"to the DB query path.",
+                )
             return context
 
         RuntimeTaskInstance.get_template_context = _patched_get_template_context  # type: ignore[method-assign]
@@ -1212,7 +1232,16 @@ class DataHubListener:
             if isinstance(component, TaskRunnerMarker):
                 _patch_runtime_ti_for_outlet_events()
         except ImportError:
+            # Airflow <3.x / 3.0: TaskRunnerMarker doesn't exist — nothing to patch.
             pass
+        except Exception as e:
+            # Best-effort lineage setup must never disrupt worker startup
+            # (on_starting runs synchronously on Airflow's startup path).
+            logger.warning(
+                f"DataHub: failed to install RuntimeTaskInstance patch for "
+                f"AssetAlias resolution ({type(e).__name__}: {e}); "
+                f"alias lineage will fall back to the DB query path.",
+            )
 
     @hookimpl
     @run_in_thread
