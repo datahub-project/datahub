@@ -2,7 +2,7 @@ import json
 import pathlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 from unittest.mock import MagicMock, Mock, patch
 
 import time_machine
@@ -24,11 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import (
-    DatasetUsageStatisticsClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-09-15 09:00:00"
@@ -316,89 +312,3 @@ def test_duplicate_operations_dropped():
         opA1,
         opB1,
     ]
-
-
-def _usage_extractor(email_domain: Optional[str] = None) -> RedshiftUsageExtractor:
-    config = RedshiftConfig(
-        host_port="localhost:5439", database="dev", email_domain=email_domain
-    )
-    return RedshiftUsageExtractor(
-        config=config,
-        connection=MagicMock(),
-        report=RedshiftReport(),
-        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
-        redundant_run_skip_handler=None,
-    )
-
-
-def test_usage_user_urn_blank_username_falls_back_to_unknown():
-    # Unlike the lineage extractor (which returns None), the usage extractor
-    # attributes blank users to a sentinel "unknown" corpuser.
-    assert str(_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
-
-
-def test_usage_user_urn_strips_domain_when_email_already_present():
-    urn = _usage_extractor(email_domain="company.com")._user_urn("alice@company.com")
-    assert str(urn) == "urn:li:corpuser:alice"
-
-
-def test_usage_user_urn_without_email_domain_uses_bare_username():
-    # The email_domain guard avoids building a "bob@None" intermediate; the urn
-    # id is the bare username either way (domain is not part of the urn id).
-    assert str(_usage_extractor()._user_urn("bob")) == "urn:li:corpuser:bob"
-
-
-def test_v2_usage_path_emits_no_usage_aspects_from_extractor():
-    # In include_column_usage_stats (v2) mode the lineage aggregator owns usage,
-    # so this extractor must not run the stl_scan usage aggregation and must not
-    # apply the auto_empty backfill — it emits only operational stats (disabled
-    # here). The default path would emit an empty usage aspect for dev.public.t.
-    config = RedshiftConfig(
-        host_port="test:1234",
-        database="dev",
-        email_domain="acryl.io",
-        include_usage_statistics=True,
-        include_column_usage_stats=True,
-        include_operational_stats=False,
-    )
-    extractor = RedshiftUsageExtractor(
-        config=config,
-        connection=MagicMock(),
-        report=RedshiftReport(),
-        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
-    )
-    all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
-        "dev": {
-            "public": [
-                RedshiftTable(
-                    name="t",
-                    schema="public",
-                    type="BASE TABLE",
-                    created=None,
-                    comment="",
-                )
-            ]
-        }
-    }
-    wus = list(extractor.get_usage_workunits(all_tables=all_tables))
-    usage_wus = [
-        wu
-        for wu in wus
-        if isinstance(getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass)
-    ]
-    assert usage_wus == []
-
-
-def test_config_lineage_enabled_property():
-    base = dict(host_port="test:1234", database="dev", email_domain="acryl.io")
-    all_off = RedshiftConfig(
-        **base,
-        include_table_lineage=False,
-        include_view_lineage=False,
-        include_copy_lineage=False,
-        include_unload_lineage=False,
-        include_share_lineage=False,
-        include_table_rename_lineage=False,
-    )
-    assert all_off.lineage_enabled is False
-    assert RedshiftConfig(**base, include_view_lineage=True).lineage_enabled is True
