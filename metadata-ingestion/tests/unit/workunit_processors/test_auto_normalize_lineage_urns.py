@@ -233,6 +233,54 @@ def test_fine_grained_fixes_dataset_and_column_casing():
     assert fg.downstreams == [make_schema_field_urn(DOWNSTREAM, "amount")]
 
 
+def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
+    # Mirrors a BI dataset (e.g. Power BI) whose column lineage points at a warehouse
+    # (e.g. MSSQL): the BI side emits the upstream column lowercased ("orgid"), but the
+    # warehouse stores it PascalCase ("OrgID"). The upstream field URN should be healed
+    # to the warehouse's actual casing so the column-level edge connects, while the BI
+    # dataset's own downstream column is left untouched.
+    mssql_table = make_dataset_urn("mssql", "db.dbo.OrgSettings")
+    pbi_dataset = make_dataset_urn("powerbi", "ws.model.org_settings")
+
+    resolver = SchemaResolver(platform="mssql", env="PROD", graph=None)
+    resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
+    provide_mock = mock.MagicMock(return_value=resolver)
+
+    cfg = NormalizeLineageUrnCasingConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="mssql", env="PROD")],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=pbi_dataset,
+        aspect=UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=mssql_table, type="TRANSFORMED")],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(mssql_table, "orgid")],
+                    downstreams=[make_schema_field_urn(pbi_dataset, "OrgID")],
+                )
+            ],
+        ),
+    ).as_workunit()
+
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        [out] = list(processor.process(iter([wu])))
+
+    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    assert fg.upstreams == [make_schema_field_urn(mssql_table, "OrgID")]
+    # Downstream (the BI dataset's own column) is never touched.
+    assert fg.downstreams == [make_schema_field_urn(pbi_dataset, "OrgID")]
+
+
 def test_fine_grained_fixes_column_casing_even_when_dataset_exact():
     # Dataset casing already correct, but column casing is wrong.
     out = _run(
