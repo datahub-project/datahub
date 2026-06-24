@@ -102,7 +102,13 @@ class AutoNormalizeLineageUrnsProcessor(
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         cfg = ctx.pipeline_context.flags.normalize_lineage_urn_casing
-        return cfg.enabled and ctx.pipeline_context.graph is not None
+        # Use getattr for graph: it's a no-op without a backend, and `graph` is a
+        # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
+        # some connector tests).
+        return (
+            bool(cfg.enabled)
+            and getattr(ctx.pipeline_context, "graph", None) is not None
+        )
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
