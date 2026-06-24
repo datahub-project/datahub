@@ -13,6 +13,8 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
+import re
+import time
 from dataclasses import field
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +36,9 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
+)
+from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
+    DocumentIndexingLock,
 )
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -60,7 +65,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
+    num_documents_skipped_existing_embeddings: int = 0
     num_chunks_created: int = 0
+    lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
@@ -84,6 +91,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_skipped_empty(self) -> None:
         """Report document skipped due to empty or too-short text."""
         self.num_documents_skipped_empty += 1
+
+    def report_document_skipped_existing_embeddings(self) -> None:
+        """Report document skipped because it already has semanticContent for the model."""
+        self.num_documents_skipped_existing_embeddings += 1
 
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
@@ -175,11 +186,45 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if self.config.incremental.enabled:
             self._initialize_state_tracking()
 
+        # Initialize the distributed lock used to prevent overlapping scheduled runs.
+        # We use the internal ``dataHubStepState`` entity as a synchronous key/value store:
+        # each lock is a dataHubStepState whose properties map holds the lease payload.
+        self.lock: Optional[DocumentIndexingLock] = None
+        if self.config.locking.enabled:
+            lock_id = self.config.locking.lock_id or self._default_lock_id(
+                self.ctx.pipeline_name
+            )
+            self.lock = DocumentIndexingLock(
+                graph=self.graph,
+                lock_id=lock_id,
+                run_id=self.ctx.run_id,
+                ttl_seconds=self.config.locking.lock_ttl_seconds,
+                renewal_interval_seconds=self.config.locking.lock_renewal_interval_seconds,
+            )
+
         logger.info(
             f"Initialized DataHubDocumentsSource with platforms: {self.config.platform_filter}, "
             f"mode: {'event-driven' if self.config.event_mode.enabled else 'batch'}, "
             f"incremental: {self.config.incremental.enabled}"
         )
+
+    @staticmethod
+    def _default_lock_id(pipeline_name: Optional[str]) -> str:
+        """Derive a clean, per-source lock id from the pipeline name.
+
+        In managed ingestion, ``pipeline_name`` is the ingestion source URN
+        (e.g. ``urn:li:dataHubIngestionSource:datahub-documents``). We key the lock on the
+        source id so all scheduled runs of the same source contend for one lock, while
+        unrelated sources don't. We strip the URN wrapper and sanitize URN-reserved
+        characters so the lock's own dataHubStepState URN id stays clean (no nested URNs).
+        """
+        name = pipeline_name or "default"
+        prefix = "urn:li:dataHubIngestionSource:"
+        if name.startswith(prefix):
+            name = name[len(prefix) :]
+        # Replace anything outside the safe id charset (handles colons, parens, commas).
+        name = re.sub(r"[^A-Za-z0-9_.-]", "_", name)
+        return f"document-indexing-lock-{name}"
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for incremental mode."""
@@ -222,6 +267,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point - route to batch or event mode."""
+        # Acquire the distributed lock before doing any work so overlapping scheduled
+        # runs do not duplicate scroll + indexing work. If another run holds it, exit
+        # cleanly without processing (this is expected, not a failure).
+        if self.lock is not None and not self.lock.acquire():
+            self.report.lock_skipped_run = True
+            self.report.report_warning(
+                title="Run skipped (lock held)",
+                message="Another datahub-documents run is in progress; this run exited "
+                "without processing to avoid duplicate work. Adjust the schedule or "
+                "locking.lock_ttl_seconds if this happens persistently.",
+            )
+            return
+
         try:
             if self.config.event_mode.enabled:
                 yield from self._process_event_mode()
@@ -230,10 +288,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.report_failure(str(e))
-
-        # Save state after processing
-        if self.config.incremental.enabled:
-            self._save_state()
+        finally:
+            # Save state after processing
+            if self.config.incremental.enabled:
+                self._save_state()
+            if self.lock is not None:
+                self.lock.release()
 
     def _process_batch_mode(self) -> Iterable[MetadataWorkUnit]:
         """Process documents using GraphQL search (batch mode)."""
@@ -244,6 +304,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         # Process each document
         for doc in documents:
+            # Keep the distributed lock lease alive during long runs.
+            if self.lock is not None:
+                self.lock.heartbeat()
+
+            # EXTERNAL documents already semantically indexed by their own source (e.g.
+            # Notion/Confluence emit semanticContent themselves) are owned by that source:
+            # skip them and do NOT record them in our state, so we never claim ownership.
+            if self._is_indexed_by_source(
+                doc["urn"], doc.get("source_type") == "EXTERNAL"
+            ):
+                logger.debug(
+                    f"Skipping document {doc['urn']} (already indexed by its source)"
+                )
+                self.report.report_document_skipped_existing_embeddings()
+                continue
+
             # Check if we should process this document (incremental mode)
             if (
                 self.config.incremental.enabled
@@ -259,7 +335,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Process document and yield workunits
             yield from self._process_single_document(doc)
 
-            # Update state after successful processing
+            # Update state after successful processing (we own this document now).
             if self.config.incremental.enabled:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
 
@@ -366,6 +442,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if not should_process:
             return
 
+        # EXTERNAL documents already semantically indexed by their own source (e.g.
+        # Notion/Confluence emit semanticContent themselves) are owned by that source:
+        # skip them and do NOT record them in our state, so we never claim ownership.
+        if self._is_indexed_by_source(entity_urn, source_type == "EXTERNAL"):
+            logger.debug(
+                f"Skipping document {entity_urn} (already indexed by its source)"
+            )
+            self.report.report_document_skipped_existing_embeddings()
+            return
+
         # Check if we should process (incremental mode)
         if (
             self.config.incremental.enabled
@@ -377,13 +463,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return
 
         # Build document dict
-        doc = {"urn": entity_urn, "text": text}
+        doc = {"urn": entity_urn, "text": text, "source_type": source_type}
         self.report.report_document_fetched()
 
         # Process document and yield work units
         yield from self._process_single_document(doc)
 
-        # Update state
+        # Update state (we own this document now).
         if self.config.incremental.enabled:
             self._update_document_state(entity_urn, text)
 
@@ -446,6 +532,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Process events
             # consume_events() already yields parsed MCL dicts with entityUrn, aspectName, etc.
             for event in event_consumer.consume_events():
+                # Keep the distributed lock lease alive during long event runs.
+                if self.lock is not None:
+                    self.lock.heartbeat()
                 events_processed = True
                 yield from self._process_single_event(event)
 
@@ -589,7 +678,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         Logic:
         - NATIVE documents: Always process if platform_filter is empty, or if platform matches
-        - EXTERNAL documents: Only process if their platform is in platform_filter
+        - EXTERNAL documents: Processed when include_external_documents is True (default).
+          If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
         Args:
             source_type: Document source type ("NATIVE" or "EXTERNAL")
@@ -617,14 +707,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             platform_name = "datahub"  # Default for native documents
             return platform_name in self.config.platform_filter
 
-        # EXTERNAL documents: Only process if their platform is in platform_filter
+        # EXTERNAL documents
         if source_type == "EXTERNAL":
-            # Empty platform_filter means "no external documents"
-            if not self.config.platform_filter:
+            if not self.config.include_external_documents:
                 logger.debug(
-                    f"Skipping document {entity_urn} (sourceType=EXTERNAL, platform_filter is empty - only processing NATIVE documents)"
+                    f"Skipping document {entity_urn} (sourceType=EXTERNAL, include_external_documents is False)"
                 )
                 return False
+            # No platform_filter: include all external documents.
+            if not self.config.platform_filter:
+                return True
+            # platform_filter set: restrict external documents to those platforms.
             # documentInfo aspect doesn't contain platform - need to fetch it via GraphQL
             external_platform = self._fetch_platform_from_entity(entity_urn)
             if (
@@ -650,7 +743,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         Logic:
         - NATIVE documents: Always process if platform_filter is empty, or if platform matches
-        - EXTERNAL documents: Only process if their platform is in platform_filter
+        - EXTERNAL documents: Processed when include_external_documents is True (default).
+          If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
         Args:
             entity: GraphQL entity response (includes dataPlatformInstance)
@@ -684,14 +778,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 platform_name = "datahub"  # Default for native documents
             return platform_name in self.config.platform_filter
 
-        # EXTERNAL documents: Only process if their platform is in platform_filter
+        # EXTERNAL documents
         if source_type == "EXTERNAL":
-            # Empty platform_filter means "no external documents"
-            if not self.config.platform_filter:
+            if not self.config.include_external_documents:
                 logger.debug(
-                    f"Skipping document {entity.get('urn', 'unknown')} (sourceType=EXTERNAL, platform_filter is empty - only processing NATIVE documents)"
+                    f"Skipping document {entity.get('urn', 'unknown')} (sourceType=EXTERNAL, include_external_documents is False)"
                 )
                 return False
+            # No platform_filter: include all external documents.
+            if not self.config.platform_filter:
+                return True
+            # platform_filter set: restrict external documents to those platforms.
             # Extract platform from entity (dataPlatformInstance)
             external_platform = self._extract_platform_from_entity(entity)
             if (
@@ -775,7 +872,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
 
-        page_size = 1000
+        page_size = self.config.scroll_batch_size
 
         # Build optional platform filter
         or_filters = None
@@ -804,6 +901,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             first_iter = True
 
             while first_iter or scroll_id:
+                # Keep the distributed lock lease alive while scrolling large document sets.
+                if self.lock is not None:
+                    self.lock.heartbeat()
+                # Throttle between pages (not before the first) to reduce load on
+                # GMS/Elasticsearch when scrolling large document sets.
+                if not first_iter and self.config.scroll_delay_seconds > 0:
+                    time.sleep(self.config.scroll_delay_seconds)
                 first_iter = False
                 variables: dict[str, Any] = {
                     "batchSize": page_size,
@@ -838,6 +942,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     contents = info.get("contents") or {}
                     text = contents.get("text") or ""
 
+                    # Default to NATIVE when sourceType is absent (older documents).
+                    source = info.get("source") or {}
+                    source_type = source.get("sourceType") or "NATIVE"
+
                     # Filter by source type (NATIVE vs EXTERNAL) for batch mode
                     should_process = self._should_process_by_source_type(entity, info)
                     if not should_process:
@@ -853,7 +961,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         )
                         continue
 
-                    documents.append({"urn": urn, "text": text})
+                    documents.append(
+                        {"urn": urn, "text": text, "source_type": source_type}
+                    )
                     self.report.report_document_fetched()
 
             logger.info(
@@ -964,6 +1074,66 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "last_processed": last_processed,
             }
 
+    def _state_has_document(self, document_urn: str) -> bool:
+        """Whether incremental state already tracks this document.
+
+        When state already has a record, this run reached the document because its content
+        changed (the unchanged check in _should_process let it through), so we must
+        re-embed and must NOT consult the existing semanticContent aspect.
+        """
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            return self.state_handler.get_document_hash(document_urn) is not None
+        return document_urn in self.document_state
+
+    def _is_indexed_by_source(self, document_urn: str, is_external: bool) -> bool:
+        """Whether an EXTERNAL document is already semantically indexed by its own source.
+
+        Some ingestion sources (e.g. Notion, Confluence) perform their own semantic indexing
+        and emit the semanticContent aspect themselves. For EXTERNAL documents we therefore
+        treat an existing semanticContent aspect (for the active model) as a sign that the
+        source owns indexing for that document: we leave it untouched -- we neither re-embed it
+        nor record it in our incremental state. The purpose of this source for EXTERNAL
+        documents is to pick up the ones the source did NOT index and take ownership of them
+        (embed + track in state). NATIVE documents are owned by DataHub directly and are never
+        skipped this way.
+
+        We only consult the aspect when our incremental state has no record for the document:
+        if state already tracks it, this run reached it because its content changed and we must
+        re-embed (we already own it).
+        """
+        if not is_external:
+            return False
+        if not self.config.skip_external_if_semantic_content_exists:
+            return False
+        if self.config.incremental.force_reprocess:
+            return False
+        if self._state_has_document(document_urn):
+            return False
+        return self._has_existing_semantic_content(document_urn)
+
+    def _has_existing_semantic_content(self, document_urn: str) -> bool:
+        """Check whether the document already has a semanticContent aspect for the active model.
+
+        Used to avoid recomputing embeddings when local incremental state is unavailable
+        (e.g. after an ingestion of external documents that were indexed in the source). Returns False if no embedding model is configured or
+        the aspect is absent for the current model key.
+        """
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        model_key = self.chunking_source.get_model_embedding_key()
+        if model_key is None:
+            return False
+        try:
+            aspect = self.graph.get_aspect(
+                entity_urn=document_urn, aspect_type=SemanticContentClass
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to read semanticContent for {document_urn}: {e}; will process."
+            )
+            return False
+        return bool(aspect and aspect.embeddings and model_key in aspect.embeddings)
+
     def _process_single_document(
         self, doc: dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
@@ -1031,4 +1201,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Cleanup resources."""
         if self.config.incremental.enabled:
             self._save_state()
+        # Safety net: release the lock if the work generator was never fully consumed.
+        if self.lock is not None:
+            self.lock.release()
         super().close()
