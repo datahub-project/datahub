@@ -22,6 +22,17 @@
       "reference_timestamp": 1769615173327,
       "min_server_version": "0.14.0",
       "pack_format_version": "1"
+    },
+    "authz-perf-medium": {
+      "name": "authz-perf-medium",
+      "description": "Medium-scale authz perf fixture: users, groups, domains, glossary, and policies for policy-evaluation benchmarking (uses standard Admin/Editor/Reader boot roles)",
+      "url": "https://raw.githubusercontent.com/datahub-project/static-assets/main/datapacks/authz-perf-medium/index.json",
+      "size_hint": "~8 MB",
+      "tags": ["perf", "authz", "testing"],
+      "trust": "verified",
+      "reference_timestamp": 1782247005037,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
     }
   }
 }
