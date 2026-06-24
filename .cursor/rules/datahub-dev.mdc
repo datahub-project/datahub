@@ -88,6 +88,8 @@ Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/buil
 AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```
 
+For the frontend and e2e pre-completion checklist (lint, Vitest, Playwright format check), see the *Frontend CI Checklist* section in [`AGENTS.md`](../../AGENTS.md).
+
 ---
 
 Canonical source: [`AGENTS.md`](../../AGENTS.md) — keep this file in sync with AGENTS.md
