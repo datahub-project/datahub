@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from unittest import mock
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
@@ -49,7 +49,9 @@ def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
     return resolver
 
 
-def _make_processor(schemas: Dict[str, Dict[str, str]]):
+def _make_processor(
+    schemas: Dict[str, Dict[str, str]],
+) -> Tuple[AutoNormalizeLineageUrnsProcessor, mock.MagicMock, Any]:
     """Patch provide_schema_resolver to a single seeded resolver; configure snowflake."""
     resolver = _resolver(schemas)
     provide_mock = mock.MagicMock(return_value=resolver)
@@ -102,8 +104,26 @@ def _run(schemas: Dict[str, Dict[str, str]], wu: MetadataWorkUnit) -> MetadataWo
         patcher.stop()
 
 
+def _upstream_aspect(wu: MetadataWorkUnit) -> UpstreamLineageClass:
+    aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+    assert aspect is not None
+    return aspect
+
+
+def _dashboard_aspect(wu: MetadataWorkUnit) -> DashboardInfoClass:
+    aspect = wu.get_aspect_of_type(DashboardInfoClass)
+    assert aspect is not None
+    return aspect
+
+
+def _fine_grained(wu: MetadataWorkUnit) -> FineGrainedLineageClass:
+    fine_grained = _upstream_aspect(wu).fineGrainedLineages
+    assert fine_grained is not None
+    return fine_grained[0]
+
+
 def _stored_upstream(wu: MetadataWorkUnit) -> str:
-    return wu.get_aspect_of_type(UpstreamLineageClass).upstreams[0].dataset
+    return _upstream_aspect(wu).upstreams[0].dataset
 
 
 # --- table-level dataset URN casing -----------------------------------------------
@@ -175,7 +195,7 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
         _upstream_wu(WH_LOWER),
     )
     assert _stored_upstream(out) == WH_LOWER
-    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    upstream = _upstream_aspect(out).upstreams[0]
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
@@ -187,7 +207,7 @@ def test_mixedcase_ambiguous_third_casing_left_unchanged():
         _upstream_wu(WH_UPPER),
     )
     assert _stored_upstream(out) == WH_UPPER
-    assert out.get_aspect_of_type(UpstreamLineageClass).upstreams[0].matchType is None
+    assert _upstream_aspect(out).upstreams[0].matchType is None
 
 
 # --- match type discriminator -----------------------------------------------------
@@ -195,26 +215,26 @@ def test_mixedcase_ambiguous_third_casing_left_unchanged():
 
 def test_match_type_normalized_when_rewritten():
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(UPPER))
-    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    upstream = _upstream_aspect(out).upstreams[0]
     assert upstream.matchType == LineageMatchTypeClass.NORMALIZED
 
 
 def test_match_type_exact_when_exact_match():
     out = _run({UPPER: {"amount": "int"}}, _upstream_wu(UPPER))
-    upstream = out.get_aspect_of_type(UpstreamLineageClass).upstreams[0]
+    upstream = _upstream_aspect(out).upstreams[0]
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
 def test_match_type_unset_when_no_match():
     out = _run({}, _upstream_wu(UPPER))
-    assert out.get_aspect_of_type(UpstreamLineageClass).upstreams[0].matchType is None
+    assert _upstream_aspect(out).upstreams[0].matchType is None
 
 
 def test_fine_grained_match_type_normalized():
     out = _run(
         {LOWER: {"amount": "int"}}, _upstream_wu(UPPER, fine_grained_field="AMOUNT")
     )
-    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    fg = _fine_grained(out)
     assert fg.matchType == LineageMatchTypeClass.NORMALIZED
 
 
@@ -227,7 +247,7 @@ def test_fine_grained_fixes_dataset_and_column_casing():
     out = _run(
         {LOWER: {"amount": "int"}}, _upstream_wu(UPPER, fine_grained_field="AMOUNT")
     )
-    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    fg = _fine_grained(out)
     assert fg.upstreams == [make_schema_field_urn(LOWER, "amount")]
     # Downstream field belongs to the entity itself and must never be touched.
     assert fg.downstreams == [make_schema_field_urn(DOWNSTREAM, "amount")]
@@ -275,7 +295,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     with mock.patch(_PATCH_TARGET, provide_mock):
         [out] = list(processor.process(iter([wu])))
 
-    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    fg = _fine_grained(out)
     assert fg.upstreams == [make_schema_field_urn(mssql_table, "OrgID")]
     # Downstream (the BI dataset's own column) is never touched.
     assert fg.downstreams == [make_schema_field_urn(pbi_dataset, "OrgID")]
@@ -286,7 +306,7 @@ def test_fine_grained_fixes_column_casing_even_when_dataset_exact():
     out = _run(
         {UPPER: {"amount": "int"}}, _upstream_wu(UPPER, fine_grained_field="AMOUNT")
     )
-    fg = out.get_aspect_of_type(UpstreamLineageClass).fineGrainedLineages[0]
+    fg = _fine_grained(out)
     assert fg.upstreams == [make_schema_field_urn(UPPER, "amount")]
 
 
@@ -306,7 +326,7 @@ def test_dashboard_info_dataset_refs_are_healed():
             ),
         ).as_workunit()
         [out] = list(processor.process(iter([wu])))
-        assert out.get_aspect_of_type(DashboardInfoClass).datasets == [LOWER]
+        assert _dashboard_aspect(out).datasets == [LOWER]
     finally:
         patcher.stop()
 
@@ -331,7 +351,7 @@ def test_non_lineage_workunits_pass_through_without_resolution():
         patcher.stop()
 
 
-def _ctx(enabled: bool, graph: object):
+def _ctx(enabled: bool, graph: object) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = graph
     pipeline_ctx.flags.normalize_lineage_urn_casing = NormalizeLineageUrnCasingConfig(
