@@ -270,6 +270,33 @@ def test_table_pattern_filters_aggregator_usage():
     assert not any("denied" in urn for urn in usage_urns)
 
 
+def test_unified_queries_failure_is_reported_as_failure(monkeypatch):
+    # In v2 mode the unified feed is the sole usage producer, so a failure (e.g.
+    # a missing SELECT grant on STL_QUERYTEXT) must surface as a report failure,
+    # not a warning that still exits successfully.
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+
+    def boom(conn, query):
+        raise RuntimeError("permission denied for relation stl_querytext")
+
+    monkeypatch.setattr(RedshiftDataDictionary, "get_query_result", staticmethod(boom))
+    # Must not raise, and must record a failure (not just a warning).
+    extractor._populate_unified_queries(MagicMock())
+    assert extractor.report.failures
+    assert not extractor.report.warnings
+
+
 def test_cll():
     test_query = """
         select a,b,c from db.public.customer inner join db.public.order on db.public.customer.id = db.public.order.customer_id

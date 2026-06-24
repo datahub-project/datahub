@@ -374,6 +374,19 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 title="Config option deprecation warning",
             )
 
+        if (
+            self.config.include_column_usage_stats
+            and not self.config.include_usage_statistics
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_column_usage_stats` is enabled but "
+                "`include_usage_statistics` is disabled, so no usage statistics "
+                "(column-level or otherwise) will be produced. Enable "
+                "`include_usage_statistics` to get column-level usage.",
+                context="include_column_usage_stats",
+            )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
@@ -430,14 +443,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            lineage_enabled = (
-                self.config.include_table_lineage
-                or self.config.include_view_lineage
-                or self.config.include_copy_lineage
-                or self.config.include_unload_lineage
-                or self.config.include_share_lineage
-                or self.config.include_table_rename_lineage
-            )
+            lineage_enabled = self.config.lineage_enabled
             column_usage_enabled = (
                 self.config.include_usage_statistics
                 and self.config.include_column_usage_stats

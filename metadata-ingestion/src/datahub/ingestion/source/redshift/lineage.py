@@ -142,14 +142,7 @@ class RedshiftSqlLineage(Closeable):
             self.config.include_usage_statistics
             and self.config.include_column_usage_stats
         )
-        lineage_enabled = (
-            self.config.include_table_lineage
-            or self.config.include_view_lineage
-            or self.config.include_copy_lineage
-            or self.config.include_unload_lineage
-            or self.config.include_share_lineage
-            or self.config.include_table_rename_lineage
-        )
+        lineage_enabled = self.config.lineage_enabled
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -696,9 +689,14 @@ class RedshiftSqlLineage(Closeable):
                     for observed_query in observed:
                         self.aggregator.add_observed_query(observed_query)
         except Exception as e:
-            self.report.warning(
-                title="Failed to extract some lineage/usage",
-                message="Failed to process the unified query history",
+            # In queries-v2 mode this feed is the sole producer of usage (and the
+            # main SQL-parsed lineage), so a total failure here — e.g. a missing
+            # SELECT grant on STL_QUERYTEXT / SYS_QUERY_HISTORY — must surface as a
+            # failure, not a warning that still exits successfully.
+            self.report.failure(
+                title="Failed to extract lineage/usage from query history",
+                message="Could not process the unified query history; usage and "
+                "SQL-parsed lineage will be missing for this database.",
                 context=f"database={self.database}, window={self.start_time}..{self.end_time}",
                 exc=e,
             )

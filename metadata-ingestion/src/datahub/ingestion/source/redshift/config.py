@@ -228,15 +228,18 @@ class RedshiftConfig(
         assert self.database, "database must be set"
         return self
 
-    @model_validator(mode="after")
-    def warn_column_usage_without_usage(self) -> "RedshiftConfig":
-        if self.include_column_usage_stats and not self.include_usage_statistics:
-            logger.warning(
-                "include_column_usage_stats is set but include_usage_statistics is "
-                "disabled; no usage statistics will be produced. Enable "
-                "include_usage_statistics to get column-level usage."
-            )
-        return self
+    @property
+    def lineage_enabled(self) -> bool:
+        """True if any lineage source is enabled. Single source of truth so the
+        source-level gating and the aggregator's generate_lineage stay in sync."""
+        return (
+            self.include_table_lineage
+            or self.include_view_lineage
+            or self.include_copy_lineage
+            or self.include_unload_lineage
+            or self.include_share_lineage
+            or self.include_table_rename_lineage
+        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
