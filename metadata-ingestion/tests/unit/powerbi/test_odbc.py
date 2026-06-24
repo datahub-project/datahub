@@ -135,5 +135,6 @@ def test_hive_dsn_platform_has_valid_sqlglot_dialect():
     when parsing native SQL, so the platform must map to a real dialect.
     """
     platform, _ = normalize_platform_name("hive")
+    assert platform is not None
     # Must not raise "Unknown dialect '<platform>'".
     get_dialect(platform)
