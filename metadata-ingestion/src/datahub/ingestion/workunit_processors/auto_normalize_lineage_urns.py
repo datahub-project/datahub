@@ -11,6 +11,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+
+# _make_generic_aspect is the canonical typed-aspect -> GenericAspect serializer used by
+# MetadataChangeProposalWrapper.make_mcp(); we reuse it to write a mutated aspect back
+# into a raw MetadataChangeProposal (see _write_back).
 from datahub.emitter.mcp import _make_generic_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
@@ -38,6 +42,11 @@ if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 
 logger = logging.getLogger(__name__)
+
+# Above this many URNs per platform, the in-memory URN set + lowercase index are large
+# enough (order of hundreds of MB) to warrant an explicit heads-up to operators rather
+# than letting it surface as unexplained memory pressure / OOM.
+_CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 
 @dataclass
@@ -222,13 +231,22 @@ class AutoNormalizeLineageUrnsProcessor(
                 except Exception:
                     continue
             # The full URN set and its lowercase index are held in memory for the
-            # lifetime of the pipeline. On very large warehouses (hundreds of
-            # thousands+ of tables) this is the processor's main memory cost; log the
-            # size so operators can gauge it.
-            logger.info(
-                f"Loaded {len(urns)} '{platform}' dataset URNs "
-                f"for lineage casing reconciliation."
+            # lifetime of the pipeline. On very large warehouses this is the
+            # processor's main memory cost; log the size so operators can gauge it,
+            # escalating to WARNING once the catalog is large enough to matter.
+            count = len(urns)
+            message = (
+                f"Loaded {count} '{platform}' dataset URNs for lineage casing "
+                f"reconciliation (held in memory for the pipeline's lifetime)."
             )
+            if count > _CATALOG_SIZE_WARN_THRESHOLD:
+                logger.warning(
+                    f"{message} This is a large catalog and may use significant "
+                    f"memory; consider narrowing upstream_platforms "
+                    f"(platform_instance / env) to the assets this source references."
+                )
+            else:
+                logger.info(message)
             self._catalog_by_platform[platform] = _Catalog(urns, index, resolvers)
         return self._catalog_by_platform[platform]
 
@@ -378,6 +396,11 @@ class AutoNormalizeLineageUrnsProcessor(
     def _heal_dataset_urns(self, urns: List[str]) -> List[str]:
         healed: List[str] = []
         for dataset in urns:
+            # Guard non-dataset URNs (consistent with _normalize_upstream_lineage and
+            # _heal_dataset_edges): leave them untouched without attempting resolution.
+            if guess_entity_type(dataset) != "dataset":
+                healed.append(dataset)
+                continue
             res = self._resolve_dataset(dataset)
             if res.urn != dataset:
                 self.report.num_dataset_urns_normalized += 1
