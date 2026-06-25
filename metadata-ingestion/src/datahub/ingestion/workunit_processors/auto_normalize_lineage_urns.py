@@ -432,8 +432,13 @@ class AutoNormalizeLineageUrnsProcessor(
                 healed.append(dataset)
                 continue
             res = self._resolve_dataset(dataset)
-            if res.urn != dataset:
+            # A plain URN list / Edge has no matchType field to stamp, but the report
+            # counters must still distinguish UNRESOLVED (broken) from a clean ref so a
+            # dashboard/datajob pointing at broken lineage isn't invisible in the report.
+            if res.match_type == LineageMatchTypeClass.NORMALIZED:
                 self.report.num_dataset_urns_normalized += 1
+            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+                self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
             healed.append(res.urn)
@@ -445,8 +450,10 @@ class AutoNormalizeLineageUrnsProcessor(
             if destination is None or guess_entity_type(destination) != "dataset":
                 continue
             res = self._resolve_dataset(destination)
-            if res.urn != destination:
+            if res.match_type == LineageMatchTypeClass.NORMALIZED:
                 edge.destinationUrn = res.urn
                 self.report.num_dataset_urns_normalized += 1
+            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+                self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
