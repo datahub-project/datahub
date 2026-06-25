@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
@@ -598,6 +600,22 @@ def test_raw_mcp_aspect_is_healed_and_written_back():
     healed = out.get_aspect_of_type(UpstreamLineageClass)
     assert healed is not None
     assert healed.upstreams[0].dataset == LOWER
+
+
+def test_module_import_does_not_pull_sqlglot():
+    # Importing this module (e.g. via the workunit_processors package) must not drag
+    # in sqlglot, or connectors that don't declare it would break. The invariant rests
+    # on deferred imports + `from __future__ import annotations`; assert it in a fresh
+    # interpreter, since this test session may already have sqlglot loaded.
+    code = (
+        "import sys; "
+        "import datahub.ingestion.workunit_processors.auto_normalize_lineage_urns; "
+        "assert 'sqlglot' not in sys.modules, 'sqlglot imported at module load'"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_mce_aspect_is_healed():
