@@ -665,7 +665,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.normalize_snowflake_names,
                 self.config.convert_urns_to_lowercase,
             )
-            if table:
+            if table and platform:
                 effective_database = catalog or database
                 logger.info(
                     "Constructing physical URN for model=%s view=%s: "
@@ -684,51 +684,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     platform, effective_database, schema, table, platform_instance
                 )
                 logger.info(
-                    "Physical URN emitted for model=%s view=%s: %r",
+                    "Physical URN constructed for lineage: model=%s view=%s physical_urn=%r",
                     model_id,
                     view.get("name", ""),
                     physical_urn,
                 )
                 self._physical_dataset_urns.add(physical_urn)
-                yield from self._emit_dataset(
-                    name=".".join(
-                        p
-                        for p in [
-                            (
-                                database.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else database
-                            ),
-                            (
-                                schema.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else schema
-                            ),
-                            (
-                                table.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else table
-                            ),
-                        ]
-                        if p
-                    ),
-                    description="Physical source table referenced by Omni model.",
-                    custom_properties={
-                        "platform": platform,
-                        "database": database,
-                        "schema": schema,
-                        "table": table,
-                        "connectionId": connection_id,
-                        "platformInstance": platform_instance or "",
-                    },
-                    subtype="Table",
-                    platform=platform,
-                    platform_instance=platform_instance,
-                )
-                self.report.physical_datasets_emitted += 1
 
             # Collect schema fields and register semantic field metadata
             for dimension in view.get("dimensions", []):
@@ -845,6 +806,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     def _warn_unmapped_connections(
         self, connections: Dict[str, Dict[str, object]]
     ) -> None:
+        self.report.info(
+            title="Connection found",
+            message="Found Omni connection(s)",
+            context=f"connections={list(connections.keys())}",
+        )
         unmapped = [
             conn_id
             for conn_id, conn in connections.items()
@@ -862,7 +828,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"unmapped={unmapped}",
             )
 
-    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
+    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:  # noqa: C901
         connections: Dict[str, Dict[str, object]] = {}
         try:
             connections = {
@@ -917,11 +883,20 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             conn: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
                 yield from self._ensure_connection_dataset(connection_id, conn)
-            platform: str = str((conn or {}).get("dialect") or "database")
-            if self.config.connection_to_platform:
-                platform = self.config.connection_to_platform.get(
-                    connection_id, platform
+
+            platform: Optional[str] = None
+            if conn:
+                platform = str(conn.get("dialect") or "")
+            if not platform and self.config.connection_to_platform and connection_id:
+                platform = self.config.connection_to_platform.get(connection_id)
+
+            if connection_id and not platform:
+                self.report.warning(
+                    title="Missing platform mapping for connection",
+                    message="Model has a connection but no platform could be resolved. Physical lineage will be skipped for this model.",
+                    context=f"model_id={model_id}, model_name={model_name}, connection_id={connection_id}",
                 )
+
             database: str = str((conn or {}).get("database") or "")
             if self.config.connection_to_database:
                 database = self.config.connection_to_database.get(
@@ -940,7 +915,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 model_name,
                 model_kind,
                 connection_id or "(none)",
-                platform,
+                platform or "(no-platform-mapping)",
                 database or "(none)",
                 platform_instance or "(none)",
             )
