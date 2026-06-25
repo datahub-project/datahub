@@ -147,7 +147,11 @@ class AutoNormalizeLineageUrnsProcessor(
                     env=entry.env,
                 )
                 for entry in self._config
-                if entry.platform == platform
+                # Normalize the configured platform: it may be a bare name
+                # ("snowflake") or a full URN ("urn:li:dataPlatform:snowflake"), both
+                # of which SchemaResolver accepts. `platform` here is the normalized
+                # name parsed from the dataset URN, so compare like-for-like.
+                if DataPlatformUrn(entry.platform).platform_name == platform
             ]
         return self._resolvers_by_platform[platform]
 
