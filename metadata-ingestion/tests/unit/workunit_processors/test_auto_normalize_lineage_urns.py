@@ -367,6 +367,29 @@ def test_multi_platform_upstreams_both_healed():
     assert rs_real in healed  # redshift upper -> mixed
 
 
+def test_platform_urn_form_in_config_is_normalized():
+    # Config may specify the platform as a full URN; it must still match the
+    # normalized platform parsed from the dataset URN (else: silent no-op).
+    resolver = _resolver({LOWER: {"amount": "int"}})
+    provide_mock = mock.MagicMock(return_value=resolver)
+    cfg = NormalizeLineageUrnCasingConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(platform="urn:li:dataPlatform:snowflake", env="PROD")
+        ],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+    assert _stored_upstream(out) == LOWER
+
+
 # --- dashboardInfo ----------------------------------------------------------------
 
 
