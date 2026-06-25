@@ -249,6 +249,88 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self.PLATFORM, f"connection.{connection_id}", self.config.env
         )
 
+    def _resolve_platform_from_connection(
+        self,
+        connection_id: Optional[str],
+        conn: Optional[Dict[str, object]],
+        warn_on_missing: bool = False,
+        model_id: Optional[str] = None,
+        model_name: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Resolve platform name from connection.
+
+        Priority:
+        1. Connection dialect from Omni API (auto-detected)
+        2. Manual connection_to_platform config mapping (fallback)
+
+        If warn_on_missing=True and platform cannot be resolved, emits a structured warning.
+
+        Returns None if platform cannot be determined.
+        """
+        platform: Optional[str] = None
+
+        # Try auto-detection from connection dialect
+        if conn and conn.get("dialect"):
+            platform = str(conn.get("dialect"))
+
+        # Fall back to manual config mapping
+        if not platform and self.config.connection_to_platform and connection_id:
+            platform = self.config.connection_to_platform.get(connection_id)
+
+        # Warn if platform resolution failed
+        if warn_on_missing and connection_id and not platform:
+            self.report.warning(
+                title="Missing platform mapping for connection",
+                message="Model has a connection but no platform could be resolved. Physical lineage will be skipped for this model.",
+                context=f"model_id={model_id}, model_name={model_name}, connection_id={connection_id}",
+            )
+
+        return platform
+
+    def _resolve_database_from_connection(
+        self,
+        connection_id: Optional[str],
+        conn: Optional[Dict[str, object]],
+    ) -> Optional[str]:
+        """
+        Resolve database name from connection.
+
+        Priority:
+        1. Connection database from Omni API (auto-detected)
+        2. Manual connection_to_database config mapping (override)
+
+        Returns None if database cannot be determined.
+        Note: Database is optional - some platforms don't use databases.
+        """
+        database: Optional[str] = None
+
+        # Try auto-detection from connection
+        if conn and conn.get("database"):
+            database = str(conn.get("database"))
+
+        # Override with manual config if provided
+        if self.config.connection_to_database and connection_id:
+            database = self.config.connection_to_database.get(connection_id, database)
+
+        return database
+
+    def _resolve_platform_instance_from_connection(
+        self,
+        connection_id: Optional[str],
+    ) -> Optional[str]:
+        """
+        Resolve platform instance from connection.
+
+        Uses manual connection_to_platform_instance config mapping.
+        Platform instance must match the one used when ingesting the warehouse.
+
+        Returns None if not configured (platform instance is optional).
+        """
+        if self.config.connection_to_platform_instance and connection_id:
+            return self.config.connection_to_platform_instance.get(connection_id)
+        return None
+
     def _physical_dataset_urn(
         self,
         platform: str,
@@ -622,13 +704,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         views_raw = topic.get("views", [])
         views = views_raw if isinstance(views_raw, list) else []
 
-        # Debug logging for specific topic to understand its structure
-        if "sv_metrics_sessions_all" in topic_name:
-            logger.info(
-                "DEBUG: Full topic object for %s: %s",
-                topic_name,
-                topic,
-            )
+        logger.debug(
+            "Full topic object for %s: %s",
+            topic_name,
+            topic,
+        )
 
         logger.info(
             "Processing topic views: model_id=%s topic_name=%s view_count=%d",
@@ -642,20 +722,18 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if not view_name:
                 continue
 
-            logger.info(
+            logger.debug(
                 "Processing view: model_id=%s topic_name=%s view_name=%s",
                 model_id,
                 topic_name,
                 view_name,
             )
 
-            # Debug logging for specific view to understand its structure
-            if "sv_metrics_sessions_all" in view_name:
-                logger.info(
-                    "DEBUG: Full view object for %s: %s",
-                    view_name,
-                    view,
-                )
+            logger.debug(
+                "Full view object for %s: %s",
+                view_name,
+                view,
+            )
 
             semantic_urn = self._semantic_dataset_urn(model_id, view_name)
             self._semantic_dataset_urns.add(semantic_urn)
@@ -667,7 +745,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             schema = view.get("schema") or ""
             catalog = view.get("catalog") or ""
             table = view.get("table_name") or ""
-            logger.info(
+            logger.debug(
                 "View physical binding for model=%s view=%s: "
                 "table=%r catalog=%r schema=%r connection_db=%r platform=%r "
                 "normalize_snowflake_names=%s convert_urns_to_lowercase=%s",
@@ -683,7 +761,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             if table and platform:
                 effective_database = catalog or database or ""
-                logger.info(
+                logger.debug(
                     "Constructing physical URN for model=%s view=%s: "
                     "effective_database=%r (catalog=%r overrides connection_db=%r) "
                     "schema=%r table=%r platform_instance=%r",
@@ -701,7 +779,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 physical_urn = self._physical_dataset_urn(
                     platform, effective_database, schema, table, platform_instance
                 )
-                logger.info(
+                logger.debug(
                     "Physical URN constructed for lineage: model=%s view=%s physical_urn=%r",
                     model_id,
                     view.get("name", ""),
@@ -801,13 +879,13 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         )
                     ]
                 )
-                logger.info(
+                logger.debug(
                     "Creating lineage for view: semantic_view=%s upstream_physical=%s",
                     f"{model_id}.{view_name}",
                     physical_urn,
                 )
             else:
-                logger.info(
+                logger.debug(
                     "No lineage created for view (no physical URN): semantic_view=%s",
                     f"{model_id}.{view_name}",
                 )
@@ -856,7 +934,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"unmapped={unmapped}",
             )
 
-    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:  # noqa: C901
+    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
         connections: Dict[str, Dict[str, object]] = {}
         try:
             connections = {
@@ -892,13 +970,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_name = model.get("name") or model_id
             model_kind = model.get("modelKind")
             model_layer = self._normalize_model_layer(model_kind)
+            connection_id = model.get("connectionId") or ""
             model_props: Dict[str, str] = {
                 "modelId": model_id,
                 "modelName": model_name,
                 "modelKind": model_kind or "",
                 "modelLayer": model_layer,
                 "baseModelId": model.get("baseModelId") or "",
-                "connectionId": model.get("connectionId") or "",
+                "connectionId": connection_id,
                 "createdAt": model.get("createdAt") or "",
                 "updatedAt": model.get("updatedAt") or "",
                 "deletedAt": model.get("deletedAt") or "",
@@ -907,34 +986,24 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_urn = self._model_dataset_urn(model_id)
             self._model_dataset_urns.add(model_urn)
 
-            connection_id = model.get("connectionId") or ""
             conn: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
                 yield from self._ensure_connection_dataset(connection_id, conn)
 
-            platform: Optional[str] = None
-            if conn:
-                platform = str(conn.get("dialect") or "")
-            if not platform and self.config.connection_to_platform and connection_id:
-                platform = self.config.connection_to_platform.get(connection_id)
+            # Resolve platform from connection (dialect or manual config)
+            platform = self._resolve_platform_from_connection(
+                connection_id=connection_id,
+                conn=conn,
+                warn_on_missing=True,
+                model_id=model_id,
+                model_name=model_name,
+            )
 
-            if connection_id and not platform:
-                self.report.warning(
-                    title="Missing platform mapping for connection",
-                    message="Model has a connection but no platform could be resolved. Physical lineage will be skipped for this model.",
-                    context=f"model_id={model_id}, model_name={model_name}, connection_id={connection_id}",
-                )
-
-            database: str = str((conn or {}).get("database") or "")
-            if self.config.connection_to_database:
-                database = self.config.connection_to_database.get(
-                    connection_id, database
-                )
-            platform_instance: Optional[str] = None
-            if self.config.connection_to_platform_instance:
-                platform_instance = self.config.connection_to_platform_instance.get(
-                    connection_id
-                )
+            # Resolve database and platform instance from connection
+            database = self._resolve_database_from_connection(connection_id, conn)
+            platform_instance = self._resolve_platform_instance_from_connection(
+                connection_id
+            )
 
             logger.info(
                 "Processing model: model_id=%s model_name=%s model_kind=%s "
@@ -942,10 +1011,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 model_id,
                 model_name,
                 model_kind,
-                connection_id or "(none)",
-                platform or "(no-platform-mapping)",
-                database or "(none)",
-                platform_instance or "(none)",
+                connection_id,
+                platform,
+                database,
+                platform_instance,
             )
 
             self._model_context_by_id[model_id] = {
@@ -961,7 +1030,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_upstream_urns: Set[str] = set()
             if connection_id:
                 model_upstream_urns.add(self._connection_dataset_urn(connection_id))
-            base_model_id = model.get("baseModelId") or ""
+            base_model_id = model.get("baseModelId")
             if base_model_id:
                 base_model_urn = self._model_dataset_urn(base_model_id)
                 model_upstream_urns.add(base_model_urn)
@@ -1023,6 +1092,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 ", ".join(sorted(topic_names)) if topic_names else "(none)",
             )
 
+            # TODO: Lookig at GET model yaml, it doesn't look like topics are expected here https://docs.omni.co/api/models/get-model-yaml
+
             if not topic_names:
                 continue
 
@@ -1072,22 +1143,24 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             folder_id = folder.get("id")
             if not folder_id:
                 continue
-            folder.get("name") or folder_id
+            logger.info(
+                "Processing folder: folder_id=%s name=%s", folder_id, folder.get("name")
+            )
             owner = folder.get("owner") or {}
-            path = folder.get("path") or ""
-            folder_url = folder.get("url") or ""
+            path = str(folder.get("path") or "")
+            folder_url = str(folder.get("url") or "")
             parent_path = path.rsplit("/", 1)[0] if "/" in path else ""
             yield from self._emit_dataset(
                 name=f"folder.{folder_id}",
                 description="Omni folder entity.",
                 custom_properties={
                     "entityType": "folder",
-                    "folderId": folder_id,
+                    "folderId": str(folder_id),
                     "folderPath": path,
                     "parentFolderPath": parent_path,
-                    "ownerId": owner.get("id") or "",
-                    "ownerName": owner.get("name") or "",
-                    "scope": folder.get("scope") or "",
+                    "ownerId": str(owner.get("id") or ""),
+                    "ownerName": str(owner.get("name") or ""),
+                    "scope": str(folder.get("scope") or ""),
                     "url": folder_url,
                 },
                 subtype="Folder",
@@ -1127,13 +1200,28 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterator[MetadataWorkUnit]:
         """Pass dashboard tile topic payloads into :meth:`_ingest_topic_payload` with model context."""
         ctx = self._model_context_by_id.get(model_id, {})
+
+        # Get platform from context, no fallback - None means skip physical lineage
+        platform = ctx.get("platform") if ctx.get("platform") else None
+        database = ctx.get("database") if ctx.get("database") else None
+        connection_id = ctx.get("connection_id") if ctx.get("connection_id") else None
+
+        if not ctx:
+            # Model not in filtered set, no context available
+            # We'll still emit semantic assets (topic, views) but skip physical lineage
+            self.report.warning(
+                title="Dashboard topic from unprocessed model",
+                message="Model not in filtered set, no platform context available. Semantic assets will be emitted but physical lineage will be skipped.",
+                context=f"model_id={model_id}, topic_name={topic_name}",
+            )
+
         yield from self._ingest_topic_payload(
             model_id=model_id,
             topic_name=topic_name,
             topic=topic,
-            platform=str(ctx.get("platform") or "database"),
-            database=str(ctx.get("database") or ""),
-            connection_id=str(ctx.get("connection_id") or ""),
+            platform=platform,
+            database=database,
+            connection_id=connection_id,
             platform_instance=(
                 str(ctx.get("platform_instance"))
                 if ctx.get("platform_instance")
@@ -1422,9 +1510,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             dashboard_title = document.get("name") or doc_id
             folder = document.get("folder") or {}
-            folder_id = folder.get("id") or ""
-            folder_name = folder.get("name") or ""
-            folder_path = folder.get("path") or ""
+            folder_id = folder.get("id")
+            folder_name = str(folder.get("name") or "")
+            folder_path = str(folder.get("path") or "")
             owner_info = document.get("owner") or {}
             owner_id = str(owner_info.get("id") or "")
             owner_name = str(owner_info.get("name") or "")
@@ -1437,10 +1525,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             if folder_id:
                 yield from self._ensure_inline_folder(
-                    folder_id, folder_name, folder_path
+                    str(folder_id), folder_name, folder_path
                 )
 
-            document_connection_id = str(document.get("connectionId") or "")
+            document_connection_id = str(document.get("connectionId"))
             if document_connection_id:
                 yield from self._ensure_connection_dataset(
                     document_connection_id,
@@ -1550,16 +1638,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 chart_urns=chart_urns,
                 custom_properties={
                     "documentId": doc_id,
-                    "connectionId": document.get("connectionId") or "",
-                    "scope": document.get("scope") or "",
-                    "folderId": folder_id,
+                    "connectionId": str(document.get("connectionId") or ""),
+                    "scope": str(document.get("scope") or ""),
+                    "folderId": str(folder_id or ""),
                     "folderName": folder_name,
                     "folderPath": folder_path,
                     "labels": ",".join(lb for lb in normalized_labels if lb),
                     "omniEmbedUrl": str(dashboard_url),
                     "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
                     "topicNames": ",".join(sorted(dashboard_topics)),
-                    "updatedAt": document.get("updatedAt") or "",
+                    "updatedAt": str(document.get("updatedAt") or ""),
                 },
                 owner_id=owner_id,
                 owner_name=owner_name,

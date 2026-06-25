@@ -115,17 +115,38 @@ class OmniClient:
     def list_connections(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
         params = {"includeDeleted": str(include_deleted).lower()}
         payload = self._request("GET", "/v1/connections", params=params)
-        return payload.get("connections", [])
+        connections = payload.get("connections", [])
+        logger.debug(
+            "API response list_connections: count=%d connections=%s",
+            len(connections),
+            connections,
+        )
+        return connections
 
     def list_models(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
-        yield from self.paginate_records("/v1/models", params={"pageSize": page_size})
+        for model in self.paginate_records(
+            "/v1/models", params={"pageSize": page_size}
+        ):
+            logger.debug("API response list_models: model=%s", model)
+            yield model
 
     def get_model_yaml(self, model_id: str) -> Dict[str, Any]:
-        return self._request("GET", f"/v1/models/{model_id}/yaml")
+        response = self._request("GET", f"/v1/models/{model_id}/yaml")
+        logger.debug(
+            "API response get_model_yaml: model_id=%s payload=%s", model_id, response
+        )
+        return response
 
     def get_topic(self, model_id: str, topic_name: str) -> Dict[str, Any]:
         payload = self._request("GET", f"/v1/models/{model_id}/topic/{topic_name}")
-        return payload.get("topic", {})
+        topic = payload.get("topic", {})
+        logger.debug(
+            "API response get_topic: model_id=%s topic_name=%s payload=%s",
+            model_id,
+            topic_name,
+            topic,
+        )
+        return topic
 
     def list_documents(
         self, page_size: int = 50, include_deleted: bool = False
@@ -134,17 +155,35 @@ class OmniClient:
         params: Dict[str, Any] = {"pageSize": page_size}
         if include:
             params["include"] = include
-        yield from self.paginate_records("/v1/documents", params=params)
+        for document in self.paginate_records("/v1/documents", params=params):
+            logger.debug("API response list_documents: document=%s", document)
+            yield document
 
     def get_dashboard_document(self, document_id: str) -> Dict[str, Any]:
-        return self._request("GET", f"/v1/documents/{document_id}")
+        response = self._request("GET", f"/v1/documents/{document_id}")
+        logger.debug(
+            "API response get_dashboard_document: doc_id=%s payload=%s",
+            document_id,
+            response,
+        )
+        return response
 
     def get_document_queries(self, document_id: str) -> List[Dict[str, Any]]:
         payload = self._request("GET", f"/v1/documents/{document_id}/queries")
-        return payload.get("queries", [])
+        queries = payload.get("queries", [])
+        logger.debug(
+            "API response get_document_queries: doc_id=%s queries=%s",
+            document_id,
+            queries,
+        )
+        return queries
 
     def list_folders(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
-        yield from self.paginate_records("/v1/folders", params={"pageSize": page_size})
+        for folder in self.paginate_records(
+            "/v1/folders", params={"pageSize": page_size}
+        ):
+            logger.debug("API response list_folders: folder=%s", folder)
+            yield folder
 
 
 # Backwards-compatibility alias used in some tests
