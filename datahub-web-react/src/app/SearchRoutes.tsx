@@ -14,6 +14,7 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import MetricsPage from '@app/metrics/MetricsPage';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
@@ -88,6 +89,7 @@ export const SearchRoutes = (): JSX.Element => {
                         render={() => <EntityPageV2 entityType={entity.type} />}
                     />
                 ))}
+                <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
