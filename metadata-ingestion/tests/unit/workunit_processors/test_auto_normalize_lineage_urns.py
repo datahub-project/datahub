@@ -19,11 +19,13 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass,
     DataJobInputOutputClass,
+    DatasetSnapshotClass,
     EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     LineageMatchTypeClass,
+    MetadataChangeEventClass,
     StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -590,6 +592,28 @@ def test_raw_mcp_aspect_is_healed_and_written_back():
         ),
     ).make_mcp()
     wu = MetadataWorkUnit(id="raw-mcp-test", mcp_raw=raw_mcp)
+
+    out = _run({LOWER: {"amount": "int"}}, wu)
+
+    healed = out.get_aspect_of_type(UpstreamLineageClass)
+    assert healed is not None
+    assert healed.upstreams[0].dataset == LOWER
+
+
+def test_mce_aspect_is_healed():
+    # The legacy MCE path carries aspects as live objects in proposedSnapshot.aspects,
+    # so in-place mutation lands directly (no write-back needed).
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=DOWNSTREAM,
+            aspects=[
+                UpstreamLineageClass(
+                    upstreams=[UpstreamClass(dataset=UPPER, type="TRANSFORMED")],
+                )
+            ],
+        )
+    )
+    wu = MetadataWorkUnit(id="mce-test", mce=mce)
 
     out = _run({LOWER: {"amount": "int"}}, wu)
 
