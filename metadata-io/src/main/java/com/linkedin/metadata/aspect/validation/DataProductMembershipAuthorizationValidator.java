@@ -80,10 +80,7 @@ public class DataProductMembershipAuthorizationValidator
         extractProposedProductDomainsAspects(batchItems);
     Set<Urn> unauthorized =
         EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-            session,
-            aspectRetriever,
-            changedAssetsByProduct,
-            proposedProductDomainsAspects);
+            session, aspectRetriever, changedAssetsByProduct, proposedProductDomainsAspects);
 
     List<AspectValidationException> failures = new ArrayList<>();
     for (BatchItem item : membershipChanges) {

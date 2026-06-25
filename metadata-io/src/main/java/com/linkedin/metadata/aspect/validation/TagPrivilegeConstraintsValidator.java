@@ -67,8 +67,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                   session,
                   item,
                   aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      item.getUrn(), GLOBAL_TAGS_ASPECT_NAME)));
+                  aspectRetriever.getLatestAspectObject(item.getUrn(), GLOBAL_TAGS_ASPECT_NAME)));
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(

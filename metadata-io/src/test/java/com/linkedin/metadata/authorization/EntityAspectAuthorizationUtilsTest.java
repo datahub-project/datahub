@@ -244,9 +244,7 @@ public class EntityAspectAuthorizationUtilsTest {
 
     Set<Urn> unauthorized =
         EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-            mockAuthSession,
-            mockAspectRetriever,
-            Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
+            mockAuthSession, mockAspectRetriever, Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
 
     Assert.assertEquals(unauthorized, Set.of(DATA_PRODUCT_URN));
   }
@@ -269,9 +267,7 @@ public class EntityAspectAuthorizationUtilsTest {
 
     Set<Urn> unauthorized =
         EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-            mockAuthSession,
-            mockAspectRetriever,
-            Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
+            mockAuthSession, mockAspectRetriever, Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
 
     Assert.assertTrue(unauthorized.isEmpty());
   }
@@ -303,9 +299,7 @@ public class EntityAspectAuthorizationUtilsTest {
 
     Set<Urn> unauthorized =
         EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-            mockAuthSession,
-            mockAspectRetriever,
-            Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
+            mockAuthSession, mockAspectRetriever, Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)));
 
     Assert.assertTrue(unauthorized.isEmpty());
   }

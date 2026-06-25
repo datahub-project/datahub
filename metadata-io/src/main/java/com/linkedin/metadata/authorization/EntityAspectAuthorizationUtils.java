@@ -152,9 +152,9 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Like {@link #filterUnauthorizedToManageDataProductMembership(
-   * AuthorizationSession, AspectRetriever, Map)} but also considers {@code domains} aspects
-   * proposed on data products in the same ingest batch (not yet committed when validation runs).
+   * Like {@link #filterUnauthorizedToManageDataProductMembership( AuthorizationSession,
+   * AspectRetriever, Map)} but also considers {@code domains} aspects proposed on data products in
+   * the same ingest batch (not yet committed when validation runs).
    */
   @Nonnull
   public static Set<Urn> filterUnauthorizedToManageDataProductMembership(
@@ -168,8 +168,7 @@ public final class EntityAspectAuthorizationUtils {
 
     Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects =
         aspectRetriever.getLatestAspectObjects(
-            new HashSet<>(changedAssetsByProduct.keySet()),
-            Set.of(DOMAINS_ASPECT_NAME));
+            new HashSet<>(changedAssetsByProduct.keySet()), Set.of(DOMAINS_ASPECT_NAME));
 
     return filterUnauthorizedToManageDataProductMembership(
         session,
@@ -346,8 +345,7 @@ public final class EntityAspectAuthorizationUtils {
       @Nonnull AuthorizationSession session,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Urn queryEntityUrn) {
-    return filterViewableQueryEntities(
-            session, aspectRetriever, List.of(queryEntityUrn))
+    return filterViewableQueryEntities(session, aspectRetriever, List.of(queryEntityUrn))
         .contains(queryEntityUrn);
   }
 
