@@ -4,6 +4,7 @@ import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
 import auth.pac4j.DatahubPlayCookieSessionStore;
+import auth.proxy.ProxyAuthProvisioner;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -35,6 +37,7 @@ import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
+import utils.FrontendConstants;
 
 public class AuthenticationControllerTest {
 
@@ -764,5 +767,178 @@ public class AuthenticationControllerTest {
         "Invalid Credentials", Json.parse(Helpers.contentAsString(result)).get("message").asText());
     verify(authClient).verifyNativeUserCredentials("urn:li:corpuser:someuser", "wrong");
     verify(authClient, never()).generateSessionTokenForUser(anyString(), anyString());
+  }
+
+  @Test
+  public void testProxyAuthAuthenticatesUserFromHeader() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = false\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.authClient = authClient;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
+    testController.proxyAuthProvisioner = mockProvisioner;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate?redirect_uri=/dashboard")
+            .header("X-Forwarded-User", "proxyuser")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(303, result.status());
+    assertEquals("/dashboard", result.redirectLocation().orElse(""));
+    verify(authClient).generateSessionTokenForUser(eq("proxyuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockProvisioner, never()).provisionUser(any(), anyString());
+  }
+
+  @Test
+  public void testProxyAuthWithJitProvisioning() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.authClient = authClient;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
+    testController.proxyAuthProvisioner = mockProvisioner;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .header("X-Forwarded-User", "newuser")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(303, result.status());
+    verify(mockProvisioner).provisionUser(eq(new com.linkedin.common.urn.CorpuserUrn("newuser")), eq("newuser"));
+    verify(authClient).generateSessionTokenForUser(eq("newuser"), eq(FrontendConstants.PROXY_LOGIN));
+  }
+
+  @Test
+  public void testProxyAuthMissingHeaderFallsThrough() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.authClient = authClient;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
+    testController.proxyAuthProvisioner = mockProvisioner;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(true);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(302, result.status());
+    verify(mockProvisioner, never()).provisionUser(any(), anyString());
+    verify(authClient, never()).generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
+  }
+
+  @Test
+  public void testProxyAuthCustomHeader() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Remote-User\n"
+                + "auth.proxy.jitProvisioningEnabled = false\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.authClient = authClient;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
+    testController.proxyAuthProvisioner = mockProvisioner;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .header("X-Remote-User", "customuser")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(303, result.status());
+    verify(authClient).generateSessionTokenForUser(eq("customuser"), eq(FrontendConstants.PROXY_LOGIN));
+  }
+
+  @Test
+  public void testProxyAuthEmptyHeaderFallsThrough() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.authClient = authClient;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
+    testController.proxyAuthProvisioner = mockProvisioner;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .header("X-Forwarded-User", "")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    verify(mockProvisioner, never()).provisionUser(any(), anyString());
+    verify(authClient, never()).generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
   }
 }
