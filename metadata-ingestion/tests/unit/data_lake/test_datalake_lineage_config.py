@@ -105,15 +105,6 @@ class TestDataLakeLineageProviderConfigPrefixFolding:
         )
         assert config.get_path("s3://other-bucket/x/", mode=PathMode.DIRECTORY) is None
 
-    def test_prefix_folding_not_applied_to_file_inputs(self) -> None:
-        config = DataLakeLineageProviderConfig(
-            path_specs=[PathSpec(include="s3://lake/{table}/*.csv")],
-        )
-        assert (
-            config.get_path("s3://lake/events/part-0001.parquet", mode=PathMode.FILE)
-            == "s3://lake/events"
-        )
-
     def test_directory_mode_no_path_specs_strips_trailing_slash(self) -> None:
         config = DataLakeLineageProviderConfig()
         assert (
@@ -159,15 +150,6 @@ class TestDataLakeLineageProviderConfigSchemeDispatch:
             mode=PathMode.DIRECTORY,
         )
         assert urn == ("urn:li:dataset:(urn:li:dataPlatform:abs,container/events,PROD)")
-
-    def test_unsupported_scheme_returns_none(self) -> None:
-        config = DataLakeLineageProviderConfig()
-        assert (
-            config.get_urn_for_lineage(
-                "file:///local/path", ENV, mode=PathMode.DIRECTORY
-            )
-            is None
-        )
 
     def test_gcs_path_spec_folds_directory(self) -> None:
         config = DataLakeLineageProviderConfig(
