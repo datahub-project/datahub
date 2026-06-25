@@ -125,6 +125,12 @@ platform(s).
 Do **not** enable it on the warehouse ingestion itself (e.g. the Snowflake ingestion) — the warehouse is
 the source of truth for its own casing and identity, which must be respected.
 
+> **Expect mostly `EXACT` if there's no actual mismatch.** The feature only rewrites genuine casing
+> mismatches. If your warehouse is ingested with default settings (e.g. Snowflake URNs already lower-cased
+> by `convert_urns_to_lowercase`) and the BI tool also emits lower-case, references will already match and
+> be recorded as `EXACT` with zero rewrites — that is the feature working correctly, not a no-op. You'll
+> see `NORMALIZED` only where the two sides genuinely disagree on casing.
+
 ## Match type explainability
 
 For every upstream reference **on a configured platform**, the feature records a `matchType` verdict on
