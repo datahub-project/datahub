@@ -2101,11 +2101,12 @@
             "type" : {
               "type" : "enum",
               "name" : "LineageMatchType",
-              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor; absent\nwhen no casing reconciliation was performed.",
-              "symbols" : [ "EXACT", "NORMALIZED" ],
+              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.",
+              "symbols" : [ "EXACT", "NORMALIZED", "UNRESOLVED" ],
               "symbolDocs" : {
                 "EXACT" : "The reference matched an existing entity exactly, including URN casing.",
-                "NORMALIZED" : "The reference was case-normalized to match an existing entity whose URN uses\ndifferent casing (i.e. the reference was rewritten to heal a casing mismatch)."
+                "NORMALIZED" : "The reference was case-normalized to match an existing entity whose URN uses\ndifferent casing (i.e. the reference was rewritten to heal a casing mismatch).",
+                "UNRESOLVED" : "The reference is on a configured upstream platform but could not be resolved to\na single existing entity — either no entity matched (under any casing), or the\ncasing was ambiguous (multiple entities share the case-insensitive form). The\nreference was left unchanged; this flags potentially broken lineage."
               }
             },
             "doc" : "How the upstream field references' URNs were resolved against the entities stored\nin DataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreferences already matched existing entities, NORMALIZED when any were rewritten to\nheal a casing mismatch). Absent when no reconciliation was performed.",

@@ -127,25 +127,27 @@ the source of truth for its own casing and identity, which must be respected.
 
 ## Match type explainability
 
-When the feature **rewrites** a reference to heal a casing mismatch, it stamps `matchType = NORMALIZED`
-on the lineage aspect. Treat `matchType` as a **positive signal**: `NORMALIZED` means "this feature
-healed a casing mismatch on this reference."
+For every upstream reference **on a configured platform**, the feature records a `matchType` verdict on
+the lineage aspect:
 
-Every other reference is **left untouched**, with no `matchType` written — this includes references that
-already matched exactly, references the feature could **not** reconcile (no match, or an ambiguous
-collision — i.e. genuinely broken lineage), references ingested **before** this feature was enabled, and
-references from sources where the flag is off. So **absence of `matchType` does not mean "exact"** — it
-only means this feature made no assertion. Do not read it as a guarantee of correctness.
+- **`EXACT`** — the reference already matched an existing entity exactly, including casing. Left unchanged.
+- **`NORMALIZED`** — the reference was rewritten to heal a casing mismatch against an existing entity.
+- **`UNRESOLVED`** — the reference is on a configured platform but could **not** be resolved to a single
+  existing entity (no match under any casing, or an ambiguous casing collision). Left unchanged, but
+  flagged so potentially **broken lineage** is visible rather than indistinguishable from a clean edge.
 
-Two consequences worth calling out:
+For a `fineGrainedLineage`, the aspect-level `matchType` is the aggregate of its upstream fields, surfacing
+the most actionable verdict first: `NORMALIZED` > `UNRESOLVED` > `EXACT`.
 
-- **Stamping is opt-in and ingest-time only.** Metadata already stored in DataHub is never modified; a
-  reference only gains (or loses) a `matchType` when its source is re-ingested with the feature enabled.
-- **`EXACT` is intentionally never emitted.** The `LineageMatchType` model defines an `EXACT` value for
-  completeness, but the processor does not stamp it. Doing so would rewrite every clean edge's content on
-  first enable (defeating GMS no-op de-duplication and causing a metadata-change-log storm) for a
-  distinction no consumer currently relies on — and it still would not help historical data, which stays
-  unstamped until re-ingested.
+**Absence of `matchType` means the reference is out of scope** — its platform is not in
+`upstream_platforms`, the feature is disabled for that source, or the data was ingested before the feature
+was enabled. Absence is **not** a verdict; only a present value (including `EXACT`) is an assertion by this
+feature.
+
+A consequence worth calling out: stamping is **ingest-time only**. Metadata already stored in DataHub is
+never modified — a reference gains (or updates) its `matchType` only when its source is re-ingested with
+the feature enabled. So historical edges stay unstamped until re-ingested, regardless of whether they are
+actually exact or broken.
 
 ## Requirements and limitations
 
