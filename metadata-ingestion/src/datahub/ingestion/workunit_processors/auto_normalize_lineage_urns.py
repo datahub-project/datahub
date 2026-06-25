@@ -194,6 +194,12 @@ class AutoNormalizeLineageUrnsProcessor(
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 
         if platform not in self._catalog_by_platform:
+            # Emitted before the (potentially long, paginated) fetch so operators see a
+            # signal during the stall on the first lineage work unit, not only after.
+            logger.info(
+                f"Loading '{platform}' catalog from DataHub for lineage casing "
+                f"reconciliation; this may take a while on large warehouses..."
+            )
             urns: Set[str] = set()
             resolvers: List[SchemaResolver] = []
             for entry in self._config:
@@ -312,12 +318,15 @@ class AutoNormalizeLineageUrnsProcessor(
             if dataset is None or guess_entity_type(dataset) != "dataset":
                 continue
             res = self._resolve_dataset(dataset)
-            if res.match_type is not None:
-                upstream.matchType = res.match_type
             if res.urn != dataset:
                 upstream.dataset = res.urn
+                upstream.matchType = res.match_type  # NORMALIZED
                 self.report.num_dataset_urns_normalized += 1
             else:
+                # Exact / no match: leave the upstream untouched. We deliberately do
+                # NOT stamp matchType=EXACT — a clean edge then stays byte-identical to
+                # the previous ingest so GMS dedupes it (no MCL churn). Absence of
+                # matchType means "exact / not reconciled".
                 self.report.num_refs_unchanged += 1
 
         for fine_grained in aspect.fineGrainedLineages or []:
@@ -337,12 +346,11 @@ class AutoNormalizeLineageUrnsProcessor(
             rewritten.append(new_urn)
             match_types.append(match_type)
         fine_grained.upstreams = rewritten
-        # Aggregate: surface NORMALIZED if any field was rewritten, else EXACT if any
-        # matched exactly, else leave unset.
+        # Aggregate: stamp NORMALIZED only if at least one field was reconciled. We
+        # don't stamp EXACT (absence means exact / not reconciled), so an unchanged
+        # fine-grained lineage stays byte-identical and GMS dedupes it (no MCL churn).
         if LineageMatchTypeClass.NORMALIZED in match_types:
             fine_grained.matchType = LineageMatchTypeClass.NORMALIZED
-        elif LineageMatchTypeClass.EXACT in match_types:
-            fine_grained.matchType = LineageMatchTypeClass.EXACT
 
     def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[str]]:
         parent = _parent_dataset_urn(field_urn)

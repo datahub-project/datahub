@@ -127,13 +127,14 @@ the source of truth for its own casing and identity, which must be respected.
 
 ## Match type explainability
 
-When the feature reconciles a reference, it records a `matchType` on the lineage aspect:
+When the feature **rewrites** a reference to heal a casing mismatch, it stamps `matchType = NORMALIZED`
+on the lineage aspect. This makes casing-resolved lineage distinguishable from exact lineage downstream.
 
-- `EXACT` — the reference already matched an existing entity, including casing.
-- `NORMALIZED` — the reference was rewritten to heal a casing mismatch.
-
-When no reconciliation was performed, `matchType` is left unset. This makes it possible to distinguish
-exact lineage from casing-resolved lineage downstream.
+References that already match an existing entity exactly are **left untouched** — no `matchType` is
+written. The absence of `matchType` therefore means "exact match, or not reconciled". This is deliberate:
+stamping every clean edge with `EXACT` would change the aspect's content on every ingest, defeating GMS's
+no-op de-duplication and producing needless metadata-change-log churn. The `LineageMatchType` model still
+defines an `EXACT` value for completeness, but this processor only ever emits `NORMALIZED`.
 
 ## Requirements and limitations
 
