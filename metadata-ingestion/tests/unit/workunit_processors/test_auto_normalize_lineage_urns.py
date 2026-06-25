@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
@@ -50,8 +50,14 @@ def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
 
 def _make_processor(
     schemas: Dict[str, Dict[str, str]],
+    all_urns: Optional[List[str]] = None,
 ) -> Tuple[AutoNormalizeLineageUrnsProcessor, mock.MagicMock, Any]:
-    """Patch provide_schema_resolver to a single seeded resolver; configure snowflake."""
+    """Patch provide_schema_resolver to a single seeded resolver; configure snowflake.
+
+    `schemas` maps existing URN -> column schema (what the resolver caches). The
+    complete URN set seen by exact-match (graph.get_urns_by_filter) defaults to the
+    schema keys, but `all_urns` can add schemaless entities that exist without a schema.
+    """
     resolver = _resolver(schemas)
     provide_mock = mock.MagicMock(return_value=resolver)
 
@@ -61,6 +67,9 @@ def _make_processor(
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.graph.get_urns_by_filter.return_value = list(
+        schemas if all_urns is None else all_urns
+    )
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -94,8 +103,12 @@ def _upstream_wu(
     ).as_workunit()
 
 
-def _run(schemas: Dict[str, Dict[str, str]], wu: MetadataWorkUnit) -> MetadataWorkUnit:
-    processor, _provide, patcher = _make_processor(schemas)
+def _run(
+    schemas: Dict[str, Dict[str, str]],
+    wu: MetadataWorkUnit,
+    all_urns: Optional[List[str]] = None,
+) -> MetadataWorkUnit:
+    processor, _provide, patcher = _make_processor(schemas, all_urns=all_urns)
     try:
         [out] = list(processor.process(iter([wu])))
         return out
@@ -198,6 +211,19 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
+def test_schemaless_exact_entity_is_not_rewritten():
+    # The exact entity exists but has NO schema (absent from the schema cache); a
+    # case-variant exists WITH a schema. Exact match must still win via the complete
+    # URN set, so the reference is never redirected to the differently-cased variant.
+    out = _run(
+        {LOWER: {"amount": "int"}},  # only the lowercase variant has a schema
+        _upstream_wu(UPPER),  # BI references the (schemaless) exact UPPER entity
+        all_urns=[LOWER, UPPER],  # both exist in the warehouse; UPPER is schemaless
+    )
+    assert _stored_upstream(out) == UPPER
+    assert _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.EXACT
+
+
 def test_mixedcase_ambiguous_third_casing_left_unchanged():
     # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB` that matches
     # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged.
@@ -271,6 +297,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.graph.get_urns_by_filter.return_value = [mssql_table]
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -328,6 +355,9 @@ def test_multi_platform_upstreams_both_healed():
     def fake_provide(graph, platform, platform_instance, env, batch_size=100):
         return sf_resolver if platform == "snowflake" else rs_resolver
 
+    def fake_urns(entity_types, platform, platform_instance=None, env=None, **kwargs):
+        return [sf_real] if platform == "snowflake" else [rs_real]
+
     cfg = NormalizeLineageUrnCasingConfig(
         enabled=True,
         upstream_platforms=[
@@ -337,6 +367,7 @@ def test_multi_platform_upstreams_both_healed():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.graph.get_urns_by_filter.side_effect = fake_urns
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -380,6 +411,7 @@ def test_platform_urn_form_in_config_is_normalized():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
