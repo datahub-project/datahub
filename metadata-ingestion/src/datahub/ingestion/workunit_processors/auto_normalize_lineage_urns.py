@@ -317,7 +317,10 @@ class AutoNormalizeLineageUrnsProcessor(
             self.report.num_refs_unchanged += 1
             return field_urn, res.match_type
         # A corrected column path means this field was normalized — even when the
-        # parent dataset matched exactly.
+        # parent dataset matched exactly. A field URN is a single column-level
+        # reference, so it's counted once under the column bucket even if the parent
+        # dataset portion also changed (the counters track references rewritten by
+        # kind, not every URN segment touched).
         if new_field_path != field_path:
             self.report.num_column_urns_normalized += 1
             match_type: Optional[str] = LineageMatchTypeClass.NORMALIZED
