@@ -962,15 +962,44 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_id = model.get("id")
             if not model_id:
                 continue
+
+            # Extract model metadata
+            model_name = model.get("name") or model_id
+            model_kind = model.get("modelKind")
+            model_layer = self._normalize_model_layer(model_kind)
+            connection_id = model.get("connectionId") or ""
+
+            # Resolve connection context for ALL models (needed for dashboard lineage)
+            conn: Optional[Dict[str, object]] = connections.get(connection_id)
+            platform = self._resolve_platform_from_connection(
+                connection_id=connection_id,
+                conn=conn,
+                warn_on_missing=False,  # Don't warn for filtered models
+                model_id=model_id,
+                model_name=model_name,
+            )
+            database = self._resolve_database_from_connection(connection_id, conn)
+            platform_instance = self._resolve_platform_instance_from_connection(
+                connection_id
+            )
+
+            # Store context for ALL models so dashboards can reference them
+            self._model_context_by_id[model_id] = {
+                "connection_id": connection_id,
+                "platform": platform,
+                "database": database,
+                "platform_instance": platform_instance,
+                "model_kind": model_kind,
+                "model_layer": model_layer,
+            }
+
+            # Now apply filter - if model doesn't match pattern, skip entity emission
             if not self.config.model_pattern.allowed(model_id):
                 self.report.report_dropped(model_id)
                 continue
             self.report.models_scanned += 1
 
-            model_name = model.get("name") or model_id
-            model_kind = model.get("modelKind")
-            model_layer = self._normalize_model_layer(model_kind)
-            connection_id = model.get("connectionId") or ""
+            # From here on, only process models that match the pattern
             model_props: Dict[str, str] = {
                 "modelId": model_id,
                 "modelName": model_name,
@@ -986,24 +1015,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_urn = self._model_dataset_urn(model_id)
             self._model_dataset_urns.add(model_urn)
 
-            conn: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
                 yield from self._ensure_connection_dataset(connection_id, conn)
-
-            # Resolve platform from connection (dialect or manual config)
-            platform = self._resolve_platform_from_connection(
-                connection_id=connection_id,
-                conn=conn,
-                warn_on_missing=True,
-                model_id=model_id,
-                model_name=model_name,
-            )
-
-            # Resolve database and platform instance from connection
-            database = self._resolve_database_from_connection(connection_id, conn)
-            platform_instance = self._resolve_platform_instance_from_connection(
-                connection_id
-            )
 
             logger.info(
                 "Processing model: model_id=%s model_name=%s model_kind=%s "
