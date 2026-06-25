@@ -1,7 +1,11 @@
 from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline_config import (
@@ -422,6 +426,47 @@ def test_platform_urn_form_in_config_is_normalized():
     with mock.patch(_PATCH_TARGET, provide_mock):
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     assert _stored_upstream(out) == LOWER
+
+
+def test_platform_instance_is_threaded_through_and_heals():
+    # When an upstream platform is configured with a platform_instance, that instance
+    # must be passed to both the resolver and the URN-membership query, and an
+    # instance-qualified reference must heal against the stored instance-qualified URN.
+    stored = make_dataset_urn_with_platform_instance(
+        "snowflake", "DB.SCHEMA.TABLE", "my_instance", "PROD"
+    )
+    referenced = make_dataset_urn_with_platform_instance(
+        "snowflake", "db.schema.table", "my_instance", "PROD"
+    )
+    resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+    resolver.add_raw_schema_info(stored, {"amount": "int"})
+    provide_mock = mock.MagicMock(return_value=resolver)
+
+    cfg = NormalizeLineageUrnCasingConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance="my_instance", env="PROD"
+            )
+        ],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.graph.get_urns_by_filter.return_value = [stored]
+    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
+
+    assert _stored_upstream(out) == stored
+    assert provide_mock.call_args.kwargs["platform_instance"] == "my_instance"
+    assert (
+        pipeline_ctx.graph.get_urns_by_filter.call_args.kwargs["platform_instance"]
+        == "my_instance"
+    )
 
 
 # --- dashboardInfo ----------------------------------------------------------------
