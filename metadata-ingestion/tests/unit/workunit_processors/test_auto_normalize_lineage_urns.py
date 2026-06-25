@@ -334,6 +334,8 @@ def test_fine_grained_fixes_column_casing_even_when_dataset_exact():
     )
     fg = _fine_grained(out)
     assert fg.upstreams == [make_schema_field_urn(UPPER, "amount")]
+    # The parent matched exactly, but a corrected column path is still a normalization.
+    assert fg.matchType == LineageMatchTypeClass.NORMALIZED
 
 
 # --- multiple upstream platforms in one aspect ------------------------------------
