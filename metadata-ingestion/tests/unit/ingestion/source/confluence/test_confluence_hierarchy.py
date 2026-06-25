@@ -314,3 +314,89 @@ def test_build_browse_path_v2_fallback_to_space_key() -> None:
     # Should use space key as fallback
     assert browse_path.path[0].id == "TEAM"
     assert browse_path.path[0].urn is None
+
+
+def test_collect_folder_nodes_basic() -> None:
+    """A page nested under a folder yields a FolderNode whose parent is the
+    page above the folder in the ancestry."""
+    pages = [
+        {
+            "id": "67043329",
+            "title": "Doc inside a folder",
+            "space": {"key": "FB", "name": "Fiction Bank"},
+            "ancestors": [
+                {"id": "16351389", "title": "Fiction Bank", "type": "page"},
+                {"id": "67010561", "title": "Nick demo", "type": "folder"},
+            ],
+        }
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
+
+    assert set(folders.keys()) == {"67010561"}
+    node = folders["67010561"]
+    assert node.title == "Nick demo"
+    assert node.parent_id == "16351389"
+    assert node.space_key == "FB"
+    assert node.space_name == "Fiction Bank"
+    # ancestor_prefix is everything before the folder (used for its browse path)
+    assert [a["id"] for a in node.ancestor_prefix] == ["16351389"]
+
+
+def test_collect_folder_nodes_nested_folders() -> None:
+    """Folder-under-folder chains are reconstructed from a single page's
+    ancestry, each folder pointing at the entry immediately above it."""
+    pages = [
+        {
+            "id": "900",
+            "ancestors": [
+                {"id": "100", "title": "Home", "type": "page"},
+                {"id": "200", "title": "Outer", "type": "folder"},
+                {"id": "300", "title": "Inner", "type": "folder"},
+            ],
+        }
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
+
+    assert folders["200"].parent_id == "100"
+    assert folders["300"].parent_id == "200"
+
+
+def test_collect_folder_nodes_folder_directly_under_space() -> None:
+    """A folder that is the first ancestor has no parent (it is a root)."""
+    pages = [
+        {
+            "id": "900",
+            "ancestors": [
+                {"id": "200", "title": "Top Folder", "type": "folder"},
+            ],
+        }
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
+
+    assert folders["200"].parent_id is None
+
+
+def test_collect_folder_nodes_ignores_pages_and_dedupes() -> None:
+    """Page ancestors are ignored, and a folder shared by multiple pages is
+    only emitted once."""
+    pages = [
+        {
+            "id": "1",
+            "ancestors": [{"id": "200", "title": "Shared", "type": "folder"}],
+        },
+        {
+            "id": "2",
+            "ancestors": [{"id": "200", "title": "Shared", "type": "folder"}],
+        },
+        {
+            "id": "3",
+            "ancestors": [{"id": "50", "title": "Just a page", "type": "page"}],
+        },
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
+
+    assert set(folders.keys()) == {"200"}

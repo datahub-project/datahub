@@ -26,6 +26,9 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     pages_failed: int = 0
     failed_pages: List[Tuple[str, str]] = field(default_factory=list)
 
+    # Folder-level metrics
+    folders_ingested: int = 0
+
     # Content metrics
     total_text_extracted_bytes: int = 0
     total_chunks_generated: int = 0
