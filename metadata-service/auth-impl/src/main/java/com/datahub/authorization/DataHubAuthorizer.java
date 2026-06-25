@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,6 +71,11 @@ public class DataHubAuthorizer
   private final ScheduledExecutorService refreshExecutorService =
       Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable policyRefreshRunnable;
+
+  // Derived from the policy cache and recomputed on each refresh: true iff any active policy is
+  // owner-scoped. Volatile so the per-request gate (hasResourceOwnerPolicy) is a lock-free read
+  // instead of scanning the cache under the read lock on every request.
+  private volatile boolean resourceOwnerPolicyPresent = false;
   private final PolicyEngine policyEngine;
   private final GroupService groupService;
   private EntitySpecResolver entitySpecResolver;
@@ -97,7 +103,8 @@ public class DataHubAuthorizer
               new PolicyFetcher(entityClient),
               policyCache,
               readWriteLock.writeLock(),
-              policyFetchSize);
+              policyFetchSize,
+              this::setResourceOwnerPolicyPresent);
       refreshExecutorService.scheduleAtFixedRate(
           policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     } else {
@@ -495,6 +502,33 @@ public class DataHubAuthorizer
         .orElse(new PolicyEngine.PolicyEvaluationContext());
   }
 
+  /**
+   * Returns true if any active policy grants access to resource owners (i.e. an owner-scoped policy
+   * exists). Lock-free read of a flag recomputed whenever the policy cache refreshes -- no backend
+   * calls and no per-request scan, so it is safe on hot paths under high concurrency.
+   *
+   * <p>Used to decide whether ownership must be resolved at all (e.g. whether to batch-prefetch
+   * ownership before view-authorizing a page of search results). Conservative by design: it returns
+   * true whenever ANY owner-scoped policy exists, so it never suppresses a needed ownership
+   * resolution; at worst it permits an unnecessary prefetch. Defaults to false until the first
+   * policy refresh completes (gate simply stays off during that startup window).
+   */
+  @Override
+  public boolean hasResourceOwnerPolicy() {
+    return resourceOwnerPolicyPresent;
+  }
+
+  @Override
+  public void prefetchOwners(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> resourceUrns) {
+    policyEngine.prefetchOwners(opContext, resourceUrns);
+  }
+
+  @VisibleForTesting
+  protected void setResourceOwnerPolicyPresent(boolean present) {
+    this.resourceOwnerPolicyPresent = present;
+  }
+
   private List<DataHubPolicyInfo> getOrDefault(String key, List<DataHubPolicyInfo> defaultValue) {
     readLock.lock();
     try {
@@ -520,6 +554,8 @@ public class DataHubAuthorizer
     private final Map<String, List<DataHubPolicyInfo>> policyCache;
     private final Lock writeLock;
     private final int count;
+    // Invoked after each successful cache swap with whether any active policy is owner-scoped.
+    private final Consumer<Boolean> ownerPolicyFlagSink;
 
     @Override
     public void run() {
@@ -556,6 +592,16 @@ public class DataHubAuthorizer
           // To unlock the acquired write thread
           writeLock.unlock();
         }
+
+        // Recompute the owner-scoped-policy gate from the freshly built cache (off the request
+        // path) so the per-request check is a lock-free volatile read.
+        ownerPolicyFlagSink.accept(
+            newCache.getOrDefault(DataHubAuthorizer.ALL, Collections.emptyList()).stream()
+                .anyMatch(
+                    policy ->
+                        PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())
+                            && policy.getActors() != null
+                            && policy.getActors().isResourceOwners()));
 
         log.debug("Successfully fetched {} policies.", total);
       } catch (Exception e) {

@@ -4,6 +4,7 @@ import static com.datahub.authorization.AuthUtil.VIEW_RESTRICTED_ENTITY_TYPES;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
@@ -11,10 +12,12 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextAuthorizer;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +45,7 @@ public class ESAccessControlUtil {
           Objects.requireNonNull(opContext.getServicesRegistryContext()).getRestrictedService();
 
       if (opContext.getSearchContext().isRestrictedSearch()) {
+        prefetchOwnership(opContext, searchEntities);
         for (SearchEntity searchEntity : searchEntities) {
           final String entityType = searchEntity.getEntity().getEntityType();
           final com.linkedin.metadata.models.EntitySpec entitySpec =
@@ -72,6 +76,44 @@ public class ESAccessControlUtil {
       return !canViewEntity(opContext, urn);
     }
     return false;
+  }
+
+  /**
+   * When ownership-based view policies are in play, batch-warm ownership for all restricted results
+   * up front so the per-result {@link #canViewEntity} checks hit the request-scoped cache instead
+   * of fetching ownership one result at a time. Gated behind the {@code ownershipPrefetchEnabled}
+   * feature flag and the presence of an owner-scoped policy; best-effort, falling back to lazy
+   * per-result resolution on any failure.
+   */
+  private static void prefetchOwnership(
+      @Nonnull OperationContext opContext, @Nonnull Collection<SearchEntity> searchEntities) {
+    if (!opContext
+        .getOperationContextConfig()
+        .getViewAuthorizationConfiguration()
+        .isOwnershipPrefetchEnabled()) {
+      log.trace("Ownership prefetch skipped: feature flag disabled");
+      return;
+    }
+    final Authorizer authorizer = opContext.getAuthorizationContext().getAuthorizer();
+    if (!(authorizer instanceof OperationContextAuthorizer ocAuthorizer)
+        || !ocAuthorizer.hasResourceOwnerPolicy()) {
+      log.trace("Ownership prefetch skipped: no owner-scoped policy");
+      return;
+    }
+    try {
+      final List<Urn> restrictedUrns =
+          searchEntities.stream()
+              .map(SearchEntity::getEntity)
+              .filter(urn -> VIEW_RESTRICTED_ENTITY_TYPES.contains(urn.getEntityType()))
+              .collect(Collectors.toList());
+      if (!restrictedUrns.isEmpty()) {
+        ocAuthorizer.prefetchOwners(opContext, restrictedUrns);
+        log.debug(
+            "Ownership prefetch warmed {} restricted search result(s)", restrictedUrns.size());
+      }
+    } catch (Exception e) {
+      log.warn("Ownership prefetch failed, falling back to per-result resolution", e);
+    }
   }
 
   private static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {

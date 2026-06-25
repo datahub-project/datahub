@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PACKAGE)
 public class ViewAuthorizationConfiguration {
   private boolean enabled;
+  private boolean ownershipPrefetchEnabled = false;
   private ViewAuthorizationRecommendationsConfig recommendations;
 
   @Builder(toBuilder = true)

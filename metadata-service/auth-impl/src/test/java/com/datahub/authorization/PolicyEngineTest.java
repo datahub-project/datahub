@@ -602,6 +602,141 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testPrefetchOwnersWarmsCacheAvoidingPerResultFetch() throws Exception {
+    final DataHubPolicyInfo ownerPolicy = newOwnerPolicy();
+
+    final EntityResponse ownershipResponse = newOwnershipResponse(true, false);
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(Collections.singleton(resourceUrn)),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(Collections.singletonMap(resourceUrn, ownershipResponse));
+
+    // Warm the per-request ownership cache up-front (as a search-result page would).
+    _policyEngine.prefetchOwners(systemOperationContext, List.of(resourceUrn));
+
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList())
+            .isGranted());
+
+    // Ownership was batch-prefetched exactly once; the per-result lazy getV2 path never fires.
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(Collections.singleton(resourceUrn)),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+    verify(_entityClient, never())
+        .getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testPrefetchOwnersBatchesByEntityType() throws Exception {
+    final Urn r1 = Urn.createFromString("urn:li:dataset:prefetch1");
+    final Urn r2 = Urn.createFromString("urn:li:dataset:prefetch2");
+    final Map<Urn, EntityResponse> batch = new HashMap<>();
+    batch.put(r1, newOwnershipResponse(true, false));
+    batch.put(r2, newOwnershipResponse(true, false));
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq("dataset"),
+            any(),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(batch);
+
+    _policyEngine.prefetchOwners(systemOperationContext, List.of(r1, r2));
+
+    // Two same-type resources resolve to a single batch fetch (not one per resource).
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq("dataset"),
+            any(),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testPrefetchOwnersFailureFallsBackToLazyResolution() throws Exception {
+    final DataHubPolicyInfo ownerPolicy = newOwnerPolicy();
+
+    // Prefetch batch fails ...
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(Collections.singleton(resourceUrn)),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("prefetch boom"));
+    // ... but the lazy per-resource getV2 still works.
+    when(_entityClient.getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(newOwnershipResponse(true, false));
+
+    // prefetchOwners is best-effort: it must swallow the failure (no throw).
+    _policyEngine.prefetchOwners(systemOperationContext, List.of(resourceUrn));
+
+    // Authorization still succeeds via lazy resolution despite the failed prefetch.
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList())
+            .isGranted());
+  }
+
+  private DataHubPolicyInfo newOwnerPolicy() {
+    final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
+    ownerPolicy.setType(METADATA_POLICY_TYPE);
+    ownerPolicy.setState(ACTIVE_POLICY_STATE);
+    ownerPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    ownerPolicy.setDisplayName("Owner policy");
+    ownerPolicy.setDescription("Owner policy");
+    ownerPolicy.setEditable(true);
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    ownerPolicy.setActors(actorFilter);
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    ownerPolicy.setResources(resourceFilter);
+    return ownerPolicy;
+  }
+
+  private EntityResponse newOwnershipResponse(boolean userOwner, boolean groupOwner)
+      throws Exception {
+    final EntityResponse response = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(new Aspect(createOwnershipAspect(userOwner, groupOwner).data())));
+    response.setAspects(aspectMap);
+    return response;
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterRoleMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();

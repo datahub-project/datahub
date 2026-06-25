@@ -103,6 +103,27 @@ public class ESAccessControlUtilTest {
           null,
           null);
 
+  // Same as ENABLED_CONTEXT but with the ownership-prefetch feature flag turned on.
+  private static final OperationContext PREFETCH_ENABLED_CONTEXT =
+      TestOperationContexts.systemContext(
+          () ->
+              OperationContextConfig.builder()
+                  .allowSystemAuthentication(true)
+                  .viewAuthorizationConfiguration(
+                      ViewAuthorizationConfiguration.builder()
+                          .enabled(true)
+                          .ownershipPrefetchEnabled(true)
+                          .build())
+                  .build(),
+          () -> SYSTEM_AUTH,
+          () ->
+              ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
+          null,
+          null,
+          null,
+          null,
+          null);
+
   private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";
 
   private static final Urn UNRESTRICTED_RESULT_URN =
@@ -325,6 +346,31 @@ public class ESAccessControlUtilTest {
     result = mockSearchResult();
     ESAccessControlUtil.restrictSearchResult(userBContext, result);
     assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+  }
+
+  @Test
+  public void testOwnershipPrefetchPreservesRestriction()
+      throws RemoteInvocationException, URISyntaxException {
+    // FF on + an owner-scoped policy: exercises the ESAccessControlUtil prefetch path end-to-end.
+    // Owner sees the result; non-owner is restricted. (The fetch-count reduction itself is
+    // unit-tested in PolicyEngineTest; this harness hides the entity client, so this asserts
+    // behavior through the prefetch path, not call counts.)
+
+    // USER A owns UNRESTRICTED_RESULT_URN -> granted via ownership -> not restricted.
+    OperationContext userAContext =
+        sessionWithPrefetch(USER_A_AUTH, List.of(TEST_POLICIES.get("anyOwner")));
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B is not an owner -> denied -> restricted.
+    OperationContext userBContext =
+        sessionWithPrefetch(USER_B_AUTH, List.of(TEST_POLICIES.get("anyOwner")));
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), RESTRICTED_RESULT_URN);
   }
 
   @Test
@@ -608,6 +654,16 @@ public class ESAccessControlUtilTest {
     return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
   }
 
+  private static OperationContext sessionWithPrefetch(
+      Authentication auth, List<DataHubPolicyInfo> policies)
+      throws RemoteInvocationException, URISyntaxException {
+    Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
+    Authorizer dataHubAuthorizer =
+        new TestDataHubAuthorizer(
+            PREFETCH_ENABLED_CONTEXT, policies, Map.of(actorUrn, List.of()), TEST_OWNERSHIP);
+    return PREFETCH_ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
+  }
+
   public static class TestDataHubAuthorizer extends DataHubAuthorizer {
 
     public TestDataHubAuthorizer(
@@ -656,6 +712,12 @@ public class ESAccessControlUtilTest {
       } finally {
         readWriteLock.writeLock().unlock();
       }
+
+      // Tests load the policy cache directly, bypassing the refresh runnable that normally computes
+      // the owner-scoped-policy gate; derive it here so hasResourceOwnerPolicy() is correct.
+      setResourceOwnerPolicyPresent(
+          policies.stream()
+              .anyMatch(p -> p.getActors() != null && p.getActors().isResourceOwners()));
     }
 
     private static SystemEntityClient mockUserGroupEntityClient(
