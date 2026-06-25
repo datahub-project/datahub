@@ -6,11 +6,11 @@ This connector is a **pull-based** ingestion source: it connects to a running Da
 
 ## Concept Mapping
 
-| Source Concept                  | DataHub Concept                                                | Notes                                          |
-| ------------------------------- | -------------------------------------------------------------- | ---------------------------------------------- |
-| `Job`                           | [DataFlow](../../metamodel/entities/dataFlow.md)               | Platform is `dagster`                          |
-| `Op`                            | [DataJob](../../metamodel/entities/dataJob.md)                 | Nested under its job's DataFlow                |
-| `Software-Defined Asset`        | [Dataset](../../metamodel/entities/dataset.md)                 | `subTypes` is `Asset`                          |
-| Asset dependency                | [Upstream Lineage](../../metamodel/entities/dataset.md)        | Derived from asset `dependencyKeys`            |
-| Asset / Job owner               | [Ownership](../../metamodel/entities/dataset.md)               | User email → CorpUser, team → CorpGroup        |
-| Asset / Job tag, kind, group    | [Tag](../../metamodel/entities/tag.md)                         | Group emitted as `asset_group:<name>`          |
+| Source Concept               | DataHub Concept                                         | Notes                                   |
+| ---------------------------- | ------------------------------------------------------- | --------------------------------------- |
+| `Job`                        | [DataFlow](../../metamodel/entities/dataFlow.md)        | Platform is `dagster`                   |
+| `Op`                         | [DataJob](../../metamodel/entities/dataJob.md)          | Nested under its job's DataFlow         |
+| `Software-Defined Asset`     | [Dataset](../../metamodel/entities/dataset.md)          | `subTypes` is `Asset`                   |
+| Asset dependency             | [Upstream Lineage](../../metamodel/entities/dataset.md) | Derived from asset `dependencyKeys`     |
+| Asset / Job owner            | [Ownership](../../metamodel/entities/dataset.md)        | User email → CorpUser, team → CorpGroup |
+| Asset / Job tag, kind, group | [Tag](../../metamodel/entities/tag.md)                  | Group emitted as `asset_group:<name>`   |

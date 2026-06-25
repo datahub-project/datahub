@@ -709,6 +709,50 @@
       "platform_name": "Cube",
       "support_status": "INCUBATING"
     },
+    "dagster": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default, can be disabled via `include_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default, can be disabled via `include_tags`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default via asset dependencies",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dagster.dagster.DagsterSource",
+      "platform_id": "dagster",
+      "platform_name": "Dagster",
+      "support_status": "INCUBATING"
+    },
     "datahub": {
       "capabilities": [
         {

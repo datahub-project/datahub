@@ -1,3 +1,7 @@
+### Overview
+
+This plugin extracts jobs, ops, and Software-Defined Assets from a running Dagster instance by querying its GraphQL API on a schedule. It emits DataFlow, DataJob, and Dataset entities along with asset lineage, descriptions, ownership, tags, documentation links, and table schemas. It works against both Dagster OSS and Dagster+ (Cloud).
+
 ### Prerequisites
 
 The connector talks to the GraphQL endpoint served by the Dagster webserver (`dagster-webserver`, formerly `dagit`):

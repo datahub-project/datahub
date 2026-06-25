@@ -1,3 +1,7 @@
+# mypy: ignore-errors
+# This fixture is only executed inside the Dagster Docker container (where the
+# `dagster` package is installed); it is not part of the typed package surface,
+# so the untyped `@asset` decorator should not fail metadata-ingestion's mypy.
 """Minimal Dagster definitions for live integration testing of the pull source.
 
 Run with:  dagster dev -f definitions.py -h 0.0.0.0 -p 3000
