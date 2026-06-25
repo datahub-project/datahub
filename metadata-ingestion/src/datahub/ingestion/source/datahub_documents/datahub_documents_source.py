@@ -189,6 +189,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Initialize the distributed lock used to prevent overlapping scheduled runs.
         # We use the internal ``dataHubStepState`` entity as a synchronous key/value store:
         # each lock is a dataHubStepState whose properties map holds the lease payload.
+        #
+        # To manually clear a stuck lock (rarely needed -- a crashed run's lease expires on
+        # its own after locking.lock_ttl_seconds), delete the backing dataHubStepState
+        # entity. Its URN is urn:li:dataHubStepState:<lock_id>, logged below and on every
+        # acquire/release:
+        #     datahub delete --urn "urn:li:dataHubStepState:<lock_id>" --hard -f
         self.lock: Optional[DocumentIndexingLock] = None
         if self.config.locking.enabled:
             lock_id = self.config.locking.lock_id or self._default_lock_id(
@@ -200,6 +206,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 run_id=self.ctx.run_id,
                 ttl_seconds=self.config.locking.lock_ttl_seconds,
                 renewal_interval_seconds=self.config.locking.lock_renewal_interval_seconds,
+            )
+            logger.info(
+                f"Document indexing lock enabled: urn={self.lock.urn}, "
+                f"ttl={self.config.locking.lock_ttl_seconds}s, "
+                f"renewal_interval={self.config.locking.lock_renewal_interval_seconds}s. "
+                f'To clear it manually: datahub delete --urn "{self.lock.urn}" --hard -f'
             )
 
         logger.info(

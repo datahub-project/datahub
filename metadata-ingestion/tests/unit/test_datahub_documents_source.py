@@ -3188,6 +3188,31 @@ class TestDocumentIndexingLock:
         lock.release()
         graph.emit_mcp.assert_not_called()
 
+    def test_release_does_not_clobber_other_owner(self):
+        """If another run took over after our lease expired, release() must not overwrite it."""
+        graph = Mock()
+        graph.exists.return_value = False
+        graph.get_aspect.side_effect = [
+            None,
+            self._props("running", "run-A", 9999999999999),  # confirm we acquired
+            self._props(
+                "running", "run-B", 9999999999999
+            ),  # read in release(): now run-B
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+            lock.release()
+
+        # Cold-start acquire used emit_mcps; release must NOT write a released lease
+        # because run-B now owns the lock.
+        graph.emit_mcp.assert_not_called()
+
     def test_heartbeat_renews_after_interval(self):
         graph = Mock()
         graph.exists.return_value = True
@@ -3243,6 +3268,28 @@ class TestDocumentIndexingLock:
         lock = self._make_lock(graph)
         lock.heartbeat()
         graph.emit_mcp.assert_not_called()
+
+    def test_heartbeat_swallows_write_failure(self):
+        """A transient renewal failure must not propagate; the TTL still has margin."""
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("released", "run-old", 1),
+            self._props("running", "run-A", 9999999999999),
+        ]
+        # First emit_mcp (takeover) succeeds; the heartbeat renewal raises.
+        graph.emit_mcp = Mock(side_effect=[None, Exception("transient GMS error")])
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph, renewal_interval_seconds=0)
+            assert lock.acquire() is True
+            assert graph.emit_mcp.call_count == 1
+            # Should not raise even though the renewal write fails.
+            lock.heartbeat()
+            assert graph.emit_mcp.call_count == 2
 
     def test_lease_is_active_states(self):
         """The is_active predicate distinguishes the three lock conditions."""
@@ -3338,3 +3385,21 @@ class TestLockIntegrationWithSource:
                 str(DataHubStepStateUrn(lock_id))
                 == "urn:li:dataHubStepState:document-indexing-lock-datahub-documents"
             )
+
+    def test_default_lock_id_falls_back_without_pipeline_name(self):
+        # When no pipeline name is available, the lock id falls back to a safe default.
+        assert (
+            DataHubDocumentsSource._default_lock_id(None)
+            == "document-indexing-lock-default"
+        )
+
+    def test_custom_lock_id_overrides_default(self, mock_graph):
+        ctx = PipelineContext(
+            run_id="test-run",
+            pipeline_name="urn:li:dataHubIngestionSource:datahub-documents",
+        )
+        config = _make_config(locking={"enabled": True, "lock_id": "my-custom-lock"})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is not None
+            assert str(source.lock.urn) == "urn:li:dataHubStepState:my-custom-lock"
