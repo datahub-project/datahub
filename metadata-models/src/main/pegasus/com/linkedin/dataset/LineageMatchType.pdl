@@ -2,8 +2,10 @@ namespace com.linkedin.dataset
 
 /**
  * How an upstream lineage reference's URN was resolved against the entities stored
- * in DataHub. Populated by the lineage URN casing normalization processor; absent
- * when no casing reconciliation was performed.
+ * in DataHub. Populated by the lineage URN casing normalization processor for
+ * references on a configured upstream platform; absent when the reference is out of
+ * scope (platform not configured, feature disabled) or was ingested before the
+ * feature was enabled.
  */
 enum LineageMatchType {
   /**
@@ -16,4 +18,12 @@ enum LineageMatchType {
    * different casing (i.e. the reference was rewritten to heal a casing mismatch).
    */
   NORMALIZED
+
+  /**
+   * The reference is on a configured upstream platform but could not be resolved to
+   * a single existing entity — either no entity matched (under any casing), or the
+   * casing was ambiguous (multiple entities share the case-insensitive form). The
+   * reference was left unchanged; this flags potentially broken lineage.
+   */
+  UNRESOLVED
 }
