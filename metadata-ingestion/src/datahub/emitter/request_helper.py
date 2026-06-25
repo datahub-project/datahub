@@ -14,6 +14,30 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 
+SYNC_INGEST_KEY = "syncIngest"
+
+
+def is_sync_ingest_marker_value(value: object) -> bool:
+    """True if a syncIngest marker value is set. Tolerant of casing/whitespace
+    so an externally-generated MCP that passes e.g. "True" is still honored;
+    the marker is always written canonically as "true"."""
+    return isinstance(value, str) and value.strip().lower() == "true"
+
+
+def has_sync_ingest_marker(
+    mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+) -> bool:
+    """True if the MCP carries the syncIngest marker (syncIngest=true in its
+    system metadata). Producers populate this marker on MCPs that must remain
+    synchronous; it is read here, not set."""
+    return (
+        mcp.systemMetadata is not None
+        and mcp.systemMetadata.properties is not None
+        and is_sync_ingest_marker_value(
+            mcp.systemMetadata.properties.get(SYNC_INGEST_KEY)
+        )
+    )
+
 
 def _decode_bytes(value: Union[str, bytes]) -> str:
     """Decode bytes to string, if necessary."""

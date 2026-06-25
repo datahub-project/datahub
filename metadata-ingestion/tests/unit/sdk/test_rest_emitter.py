@@ -3,7 +3,7 @@ import os
 import time
 import warnings
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
@@ -2862,3 +2862,165 @@ class TestWeightedRetry:
 
             # With multiplier=2, we should get ~2x retries
             assert retry_count == 6
+
+
+class TestAsyncUnlessSyncIngest:
+    """Marker-aware sync routing requires explicit per-client opt-in (config /
+    constructor — never implicit). When opted in, SYNC_PRIMARY requests are sent
+    async unless an MCP carries the syncIngest marker in its system metadata.
+    The async parameter is always explicit, so server-side ingest resolution is
+    untouched; default-off keeps the existing wire format."""
+
+    @pytest.fixture
+    def restli_emitter(self) -> DataHubRestEmitter:
+        return DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=False,
+            special_sync_only_for_sync_origin=True,
+        )
+
+    def _emit_and_get_payload(
+        self,
+        emitter: DataHubRestEmitter,
+        emit_mode: EmitMode,
+        mcp: Optional[MetadataChangeProposalWrapper] = None,
+    ) -> dict:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(
+            emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            item = mcp or MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(test,async_unless_sync,PROD)",
+                aspect=Status(removed=False),
+            )
+            emitter.emit_mcp(item, emit_mode=emit_mode)
+            return json.loads(mock_emit.call_args[0][1])
+
+    def _emit_openapi_and_get_url(
+        self,
+        emitter: DataHubRestEmitter,
+        emit_mode: EmitMode,
+        mcp: Optional[MetadataChangeProposalWrapper] = None,
+    ) -> str:
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        with patch.object(
+            emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            item = mcp or MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(test,async_unless_sync_openapi,PROD)",
+                aspect=Status(removed=False),
+            )
+            emitter.emit_mcp(item, emit_mode=emit_mode)
+            return mock_emit.call_args[0][0]
+
+    def test_openapi_classification_upgrades_sync_primary(self):
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            special_sync_only_for_sync_origin=True,
+        )
+        url = self._emit_openapi_and_get_url(emitter, EmitMode.SYNC_PRIMARY)
+        assert "async=true" in url
+
+    def test_openapi_sync_ingest_marker_keeps_request_sync(self):
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            openapi_ingestion=True,
+            special_sync_only_for_sync_origin=True,
+        )
+        url = self._emit_openapi_and_get_url(
+            emitter, EmitMode.SYNC_PRIMARY, mcp=self._sync_demanding_mcp()
+        )
+        assert "async=false" in url
+
+    @staticmethod
+    def _sync_demanding_mcp() -> MetadataChangeProposalWrapper:
+        from datahub.metadata.schema_classes import SystemMetadataClass
+
+        return MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,sync_demanded,PROD)",
+            aspect=Status(removed=False),
+            systemMetadata=SystemMetadataClass(properties={"syncIngest": "true"}),
+        )
+
+    def test_default_sends_explicit_async_false(self):
+        # No config opt-in: wire format unchanged from the default.
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        payload = self._emit_and_get_payload(emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "false"
+
+    def test_async_mode_sends_async_true(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.ASYNC)
+        assert payload.get("async") == "true"
+
+    def test_classification_upgrades_sync_primary(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "true"
+
+    def test_sync_ingest_marker_keeps_request_sync(self, restli_emitter):
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.SYNC_PRIMARY, mcp=self._sync_demanding_mcp()
+        )
+        assert payload.get("async") == "false"
+
+    def test_sync_ingest_marker_case_insensitive(self, restli_emitter):
+        # A non-canonical "True" (e.g. from an externally-generated MCP) is still
+        # honored — the marker read is case/whitespace tolerant.
+        from datahub.metadata.schema_classes import SystemMetadataClass
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,sync_demanded_caps,PROD)",
+            aspect=Status(removed=False),
+            systemMetadata=SystemMetadataClass(properties={"syncIngest": "True"}),
+        )
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.SYNC_PRIMARY, mcp=mcp
+        )
+        assert payload.get("async") == "false"
+
+    def test_no_implicit_enrollment_without_config_opt_in(self):
+        """A client that did not explicitly opt in (recipe/pipeline config or
+        constructor) keeps explicit async=false — there is no process-wide
+        enrollment mechanism."""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+        payload = self._emit_and_get_payload(emitter, EmitMode.SYNC_PRIMARY)
+        assert payload.get("async") == "false"
+
+    def test_sync_wait_never_upgraded(self, restli_emitter):
+        payload = self._emit_and_get_payload(restli_emitter, EmitMode.SYNC_WAIT)
+        assert payload.get("async") == "false"
+
+    def test_restli_batch_coarsens_to_sync_when_any_marked(self, restli_emitter):
+        mock_response = Mock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {"value": "success"}
+
+        plain = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,plain,PROD)",
+            aspect=Status(removed=False),
+        )
+
+        with patch.object(
+            restli_emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            restli_emitter.emit_mcps(
+                [plain, self._sync_demanding_mcp()], emit_mode=EmitMode.SYNC_PRIMARY
+            )
+            payload = json.loads(mock_emit.call_args[0][1])
+            assert payload.get("async") == "false"
+
+        with patch.object(
+            restli_emitter, "_emit_generic", return_value=mock_response
+        ) as mock_emit:
+            restli_emitter.emit_mcps([plain], emit_mode=EmitMode.SYNC_PRIMARY)
+            payload = json.loads(mock_emit.call_args[0][1])
+            assert payload.get("async") == "true"

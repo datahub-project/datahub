@@ -63,7 +63,11 @@ from datahub.configuration.env_vars import (
 from datahub.emitter.emit_mode import EmitMode as EmitMode
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.request_helper import OpenApiRequest, make_curl_command
+from datahub.emitter.request_helper import (
+    OpenApiRequest,
+    has_sync_ingest_marker,
+    make_curl_command,
+)
 from datahub.emitter.response_helper import (
     TraceData,
     extract_trace_data,
@@ -491,6 +495,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_key_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
+        special_sync_only_for_sync_origin: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
@@ -515,6 +520,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
+        self._special_sync_only_for_sync_origin = special_sync_only_for_sync_origin
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
@@ -687,10 +693,49 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         return DataHubGraph.from_emitter(self)
 
+    def respect_mcp_sync_marker(self) -> bool:
+        """
+        True when marker-aware sync routing is enabled — set explicitly via
+        config or constructor, never implicit. When enabled, a SYNC_PRIMARY
+        request is sent async unless one of its MCPs carries the syncIngest
+        marker in its system metadata, in which case that request stays
+        synchronous.
+
+        The marker is read, not produced, here: a producer must populate the
+        syncIngest system-metadata property on the MCPs that must remain
+        synchronous (e.g. via a custom aspect mutator/validator, or an upstream
+        processing step). Absent the marker, opting in routes all SYNC_PRIMARY
+        writes async.
+        """
+        return self._special_sync_only_for_sync_origin is True
+
+    def _is_batch_async(
+        self,
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        emit_mode: EmitMode,
+    ) -> bool:
+        """
+        Resolve the async flag actually sent on the wire. When the client has
+        opted in to async-unless-sync-ingest, SYNC_PRIMARY requests are
+        upgraded to async unless an MCP demands a sync roundtrip via the
+        syncIngest marker (a marked MCP keeps its request sync — conservative,
+        ordering-safe). SYNC_WAIT is never upgraded: those callers explicitly
+        asked to wait. Otherwise this is exactly emit_mode.is_async — the
+        historical wire format.
+        """
+        if emit_mode.is_async:
+            return True
+        if emit_mode != EmitMode.SYNC_PRIMARY:
+            return False
+        if not self.respect_mcp_sync_marker():
+            return False
+        return not any(has_sync_ingest_marker(mcp) for mcp in mcps)
+
     def _to_openapi_request(
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         emit_mode: EmitMode,
+        async_flag: Optional[bool] = None,
     ) -> Optional[OpenApiRequest]:
         """
         Convert a MetadataChangeProposal to an OpenAPI request format.
@@ -705,7 +750,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         return OpenApiRequest.from_mcp(
             mcp=mcp,
             gms_server=self._gms_server,
-            async_flag=emit_mode.is_async,
+            async_flag=async_flag if async_flag is not None else emit_mode.is_async,
             search_sync_flag=emit_mode == EmitMode.SYNC_WAIT,
         )
 
@@ -805,12 +850,13 @@ class DataHubRestEmitter(Closeable, Emitter):
             emit_mode = self._default_emit_mode
 
         ensure_has_system_metadata(mcp)
+        effective_async = self._is_batch_async([mcp], emit_mode)
 
         trace_data: Optional[TraceData] = None
         response: Optional[requests.Response] = None
 
         if self._openapi_ingestion:
-            request = self._to_openapi_request(mcp, emit_mode)
+            request = self._to_openapi_request(mcp, emit_mode, effective_async)
             if request:
                 response = self._emit_generic(
                     request.url, payload=request.payload, method=request.method
@@ -841,7 +887,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
                 payload_dict = {
                     "proposal": mcp_obj,
-                    "async": "true" if emit_mode.is_async else "false",
+                    "async": "true" if effective_async else "false",
                 }
 
             payload = json.dumps(payload_dict)
@@ -929,7 +975,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         )  # Initialize with one empty Chunk
 
         for mcp in mcps:
-            request = self._to_openapi_request(mcp, emit_mode)
+            request = self._to_openapi_request(
+                mcp, emit_mode, self._is_batch_async([mcp], emit_mode)
+            )
             if request:
                 # Create a composite key with both method and URL
                 key = (request.method, request.url)
@@ -1054,7 +1102,9 @@ class DataHubRestEmitter(Closeable, Emitter):
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
                 "proposals": mcp_obj_chunk,
-                "async": "true" if emit_mode.is_async else "false",
+                "async": "true"
+                if self._is_batch_async(mcp_chunk, emit_mode)
+                else "false",
             }
 
             payload = json.dumps(payload_dict)
