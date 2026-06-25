@@ -744,14 +744,22 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             schema = view.get("schema") or ""
             catalog = view.get("catalog") or ""
-            table = view.get("table_name") or ""
+            table = view.get("table_name") or view.get("semantic_view_name") or ""
+            table_source = (
+                "table_name"
+                if view.get("table_name")
+                else "semantic_view_name"
+                if view.get("semantic_view_name")
+                else "none"
+            )
             logger.debug(
                 "View physical binding for model=%s view=%s: "
-                "table=%r catalog=%r schema=%r connection_db=%r platform=%r "
+                "table=%r (from %s) catalog=%r schema=%r connection_db=%r platform=%r "
                 "normalize_snowflake_names=%s convert_urns_to_lowercase=%s",
                 model_id,
                 view.get("name", ""),
                 table,
+                table_source,
                 catalog,
                 schema,
                 database,
