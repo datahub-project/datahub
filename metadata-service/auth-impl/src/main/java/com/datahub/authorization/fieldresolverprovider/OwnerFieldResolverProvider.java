@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,17 +46,23 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
     final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     // Share the per-request ownership cache with policy evaluation so a resource's ownership is
     // fetched at most once per request across both this field resolver and getOwnersForType.
-    final List<Owner> owners =
+    List<Owner> owners =
         opContext
             .getAuthorizationContext()
             .getResourceOwnersByUrn()
             .computeIfAbsent(entityUrn, urn -> fetchOwners(opContext, urn));
+    if (owners == null) {
+      // Transient fetch failure: not cached (computeIfAbsent records no mapping for a null loader
+      // result), so a later resolution this request can retry instead of reading a poisoned empty.
+      owners = Collections.emptyList();
+    }
     return FieldResolver.FieldValue.builder()
         .values(
             owners.stream().map(owner -> owner.getOwner().toString()).collect(Collectors.toSet()))
         .build();
   }
 
+  @Nullable
   private List<Owner> fetchOwners(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
     try {
       EntityResponse response =
@@ -73,8 +80,10 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
                   response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME).getValue().data())
               .getOwners());
     } catch (Exception e) {
+      // Return null (not empty) so the failure is NOT cached -- a genuine "no ownership aspect"
+      // returns an empty list above and is safely cached.
       log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptyList();
+      return null;
     }
   }
 }

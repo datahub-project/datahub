@@ -490,11 +490,17 @@ public class PolicyEngine {
     // across the many authorize() calls in one request (e.g. a page of search results, which can be
     // warmed up-front by prefetchOwners). Then filter by ownership type in memory.
     final Urn resourceUrn = UrnUtils.getUrn(resourceSpec.getEntity());
-    final List<Owner> owners =
+    List<Owner> owners =
         opContext
             .getAuthorizationContext()
             .getResourceOwnersByUrn()
             .computeIfAbsent(resourceUrn, urn -> fetchOwners(opContext, urn));
+    if (owners == null) {
+      // Transient fetch failure (not a genuine empty): computeIfAbsent records no mapping when the
+      // loader returns null, so a later check in this request can retry rather than read a poisoned
+      // empty result.
+      owners = Collections.emptyList();
+    }
 
     Stream<Owner> ownersStream = owners.stream();
     if (ownershipTypes != null) {
@@ -503,6 +509,7 @@ public class PolicyEngine {
     return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
+  @Nullable
   private List<Owner> fetchOwners(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
     try {
       return ownersFromResponse(
@@ -512,8 +519,10 @@ public class PolicyEngine {
               entityUrn,
               Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
     } catch (Exception e) {
+      // Return null (not empty) so the failure is NOT cached -- a genuine "no ownership aspect"
+      // returns an empty list above and is safely cached.
       log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptyList();
+      return null;
     }
   }
 
