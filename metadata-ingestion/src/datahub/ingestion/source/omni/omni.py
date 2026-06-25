@@ -576,9 +576,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         model_id: str,
         topic_name: str,
         topic: Dict[str, Any],
-        platform: str,
-        database: str,
-        connection_id: str,
+        platform: Optional[str],
+        database: Optional[str],
+        connection_id: Optional[str],
         platform_instance: Optional[str],
         inferred: bool = False,
         model_custom_properties: Optional[Dict[str, str]] = None,
@@ -622,6 +622,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         views_raw = topic.get("views", [])
         views = views_raw if isinstance(views_raw, list) else []
 
+        # Debug logging for specific topic to understand its structure
+        if "sv_metrics_sessions_all" in topic_name:
+            logger.info(
+                "DEBUG: Full topic object for %s: %s",
+                topic_name,
+                topic,
+            )
+
         logger.info(
             "Processing topic views: model_id=%s topic_name=%s view_count=%d",
             model_id,
@@ -640,6 +648,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 topic_name,
                 view_name,
             )
+
+            # Debug logging for specific view to understand its structure
+            if "sv_metrics_sessions_all" in view_name:
+                logger.info(
+                    "DEBUG: Full view object for %s: %s",
+                    view_name,
+                    view,
+                )
 
             semantic_urn = self._semantic_dataset_urn(model_id, view_name)
             self._semantic_dataset_urns.add(semantic_urn)
@@ -666,7 +682,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.convert_urns_to_lowercase,
             )
             if table and platform:
-                effective_database = catalog or database
+                effective_database = catalog or database or ""
                 logger.info(
                     "Constructing physical URN for model=%s view=%s: "
                     "effective_database=%r (catalog=%r overrides connection_db=%r) "
@@ -680,6 +696,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     table,
                     platform_instance,
                 )
+                # Type narrowing: at this point platform is guaranteed to be str (not None)
+                assert platform is not None
                 physical_urn = self._physical_dataset_urn(
                     platform, effective_database, schema, table, platform_instance
                 )
@@ -782,6 +800,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             type=DatasetLineageTypeClass.COPY,
                         )
                     ]
+                )
+                logger.info(
+                    "Creating lineage for view: semantic_view=%s upstream_physical=%s",
+                    f"{model_id}.{view_name}",
+                    physical_urn,
+                )
+            else:
+                logger.info(
+                    "No lineage created for view (no physical URN): semantic_view=%s",
+                    f"{model_id}.{view_name}",
                 )
             yield from self._emit_dataset(
                 name=f"{model_id}.{view_name}",
@@ -1118,12 +1146,60 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             },
         )
 
+    def _find_model_for_topic(self, topic_name: str) -> Optional[str]:
+        """Find which model owns a given topic by searching YAML specs."""
+        for model_id, topic_specs in self._topic_specs_by_model_id.items():
+            if topic_name in topic_specs:
+                return model_id
+        return None
+
     def _ingest_topic_from_dashboard(
         self,
         model_id: str,
         topic_name: str,
     ) -> Iterator[MetadataWorkUnit]:
         """Fetch (or fall back to YAML) and ingest a topic referenced by a dashboard tile."""
+        # Try to find which model actually owns this topic
+        owner_model_id = self._find_model_for_topic(topic_name)
+
+        if owner_model_id:
+            logger.info(
+                "Topic ownership resolved: topic_name=%s dashboard_model=%s owner_model=%s",
+                topic_name,
+                model_id,
+                owner_model_id,
+            )
+            # Use the owner model to fetch the topic
+            try:
+                tp = self.client.get_topic(owner_model_id, topic_name)
+                if tp:
+                    yield from self._ingest_topic_payload_for_dashboard_tile(
+                        owner_model_id, topic_name, tp
+                    )
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "Topic API fetch failed, falling back to YAML: topic_name=%s owner_model=%s error=%s",
+                    topic_name,
+                    owner_model_id,
+                    exc,
+                )
+                # Fall back to owner model's YAML
+                ts = self._topic_specs_by_model_id.get(owner_model_id, {})
+                vs = self._view_specs_by_model_id.get(owner_model_id, {})
+                yt = self._topic_payload_from_yaml_specs(topic_name, ts, vs)
+                if yt.get("views"):
+                    yield from self._ingest_topic_payload_for_dashboard_tile(
+                        owner_model_id, topic_name, yt
+                    )
+                    return
+
+        # Fallback: owner model not found, try the dashboard's model
+        logger.warning(
+            "Topic owner not found in YAML specs, trying dashboard model: topic_name=%s dashboard_model=%s",
+            topic_name,
+            model_id,
+        )
         try:
             tp = self.client.get_topic(model_id, topic_name)
             if tp:
@@ -1141,8 +1217,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 self.report.warning(
                     title="Topic fetch from dashboard error",
-                    message="Failed to fetch topic for model",
-                    context=f"topic_name={topic_name}, model_id={model_id}",
+                    message="Failed to fetch topic from both owner model and dashboard model",
+                    context=f"topic_name={topic_name}, dashboard_model={model_id}",
                     exc=exc,
                 )
 
