@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp import _make_generic_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
@@ -19,9 +20,13 @@ from datahub.ingestion.api.workunit_processor import (
 )
 from datahub.metadata.schema_classes import (
     DashboardInfoClass,
+    DataJobInputOutputClass,
+    EdgeClass,
     FineGrainedLineageClass,
     LineageMatchTypeClass,
+    MetadataChangeProposalClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -122,13 +127,21 @@ class AutoNormalizeLineageUrnsProcessor(
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         cfg = ctx.pipeline_context.flags.normalize_lineage_urn_casing
+        if not cfg.enabled:
+            return False
+        if not cfg.upstream_platforms:
+            # Enabled but unconfigured: every reference would no-op. Skip the
+            # per-platform bulk catalog load entirely and tell the operator why.
+            logger.warning(
+                "normalize_lineage_urn_casing is enabled but no upstream_platforms "
+                "are configured; the processor will not run. Configure the warehouse "
+                "platform(s) this source references to enable casing reconciliation."
+            )
+            return False
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
         # some connector tests).
-        return (
-            bool(cfg.enabled)
-            and getattr(ctx.pipeline_context, "graph", None) is not None
-        )
+        return getattr(ctx.pipeline_context, "graph", None) is not None
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
@@ -136,9 +149,15 @@ class AutoNormalizeLineageUrnsProcessor(
                 upstream = wu.get_aspect_of_type(UpstreamLineageClass)
                 if upstream is not None:
                     self._normalize_upstream_lineage(upstream)
+                    self._write_back(wu, upstream)
                 dashboard = wu.get_aspect_of_type(DashboardInfoClass)
                 if dashboard is not None:
                     self._normalize_dashboard_info(dashboard)
+                    self._write_back(wu, dashboard)
+                datajob = wu.get_aspect_of_type(DataJobInputOutputClass)
+                if datajob is not None:
+                    self._normalize_datajob_io(datajob)
+                    self._write_back(wu, datajob)
             except Exception as e:
                 self.report.num_exceptions += 1
                 logger.warning(
@@ -146,6 +165,16 @@ class AutoNormalizeLineageUrnsProcessor(
                     exc_info=True,
                 )
             yield wu
+
+    @staticmethod
+    def _write_back(wu: MetadataWorkUnit, aspect: _Aspect) -> None:
+        # get_aspect_of_type returns the *live* aspect for MCE/MCPW workunits, so the
+        # in-place mutation above is already reflected in what gets emitted. For a raw
+        # MetadataChangeProposal (e.g. workunits from the file source) it returns a
+        # throwaway deserialized copy, so the mutation would be silently dropped unless
+        # we re-serialize it back into the proposal's generic aspect.
+        if isinstance(wu.metadata, MetadataChangeProposalClass):
+            wu.metadata.aspect = _make_generic_aspect(aspect)
 
     # --- resolution -------------------------------------------------------------
 
@@ -316,32 +345,49 @@ class AutoNormalizeLineageUrnsProcessor(
         if res.urn == parent and new_field_path == field_path:
             self.report.num_refs_unchanged += 1
             return field_urn, res.match_type
-        # A corrected column path means this field was normalized — even when the
-        # parent dataset matched exactly. A field URN is a single column-level
-        # reference, so it's counted once under the column bucket even if the parent
-        # dataset portion also changed (the counters track references rewritten by
-        # kind, not every URN segment touched).
-        if new_field_path != field_path:
-            self.report.num_column_urns_normalized += 1
-            match_type: Optional[str] = LineageMatchTypeClass.NORMALIZED
-        else:
-            self.report.num_dataset_urns_normalized += 1
-            match_type = res.match_type
+        # A field (schemaField) URN is a single column-level reference, so any rewrite
+        # is counted under the column bucket — whether the parent dataset casing, the
+        # column casing, or both changed. num_dataset_urns_normalized is reserved for
+        # table-level references. A corrected column path is itself a normalization
+        # even when the parent dataset matched exactly, so report NORMALIZED in that
+        # case rather than the parent's (EXACT) match type.
+        self.report.num_column_urns_normalized += 1
+        match_type = (
+            LineageMatchTypeClass.NORMALIZED
+            if new_field_path != field_path
+            else res.match_type
+        )
         return make_schema_field_urn(res.urn, new_field_path), match_type
 
     def _normalize_dashboard_info(self, aspect: DashboardInfoClass) -> None:
         if aspect.datasets:
-            rewritten: List[str] = []
-            for dataset in aspect.datasets:
-                res = self._resolve_dataset(dataset)
-                if res.urn != dataset:
-                    self.report.num_dataset_urns_normalized += 1
-                else:
-                    self.report.num_refs_unchanged += 1
-                rewritten.append(res.urn)
-            aspect.datasets = rewritten
+            aspect.datasets = self._heal_dataset_urns(aspect.datasets)
+        self._heal_dataset_edges(aspect.datasetEdges or [])
 
-        for edge in aspect.datasetEdges or []:
+    def _normalize_datajob_io(self, aspect: DataJobInputOutputClass) -> None:
+        # A DataJob's *inputs* are upstream warehouse references (the dbt / Airflow /
+        # Spark warehouse-upstream path) and are healed like any other upstream. The
+        # job's outputs are its declared products and are left untouched, matching the
+        # processor's rule of never rewriting an entity's own / downstream side.
+        if aspect.inputDatasets:
+            aspect.inputDatasets = self._heal_dataset_urns(aspect.inputDatasets)
+        self._heal_dataset_edges(aspect.inputDatasetEdges or [])
+        for fine_grained in aspect.fineGrainedLineages or []:
+            self._normalize_fine_grained_upstreams(fine_grained)
+
+    def _heal_dataset_urns(self, urns: List[str]) -> List[str]:
+        healed: List[str] = []
+        for dataset in urns:
+            res = self._resolve_dataset(dataset)
+            if res.urn != dataset:
+                self.report.num_dataset_urns_normalized += 1
+            else:
+                self.report.num_refs_unchanged += 1
+            healed.append(res.urn)
+        return healed
+
+    def _heal_dataset_edges(self, edges: List[EdgeClass]) -> None:
+        for edge in edges:
             destination = getattr(edge, "destinationUrn", None)
             if destination is None or guess_entity_type(destination) != "dataset":
                 continue
