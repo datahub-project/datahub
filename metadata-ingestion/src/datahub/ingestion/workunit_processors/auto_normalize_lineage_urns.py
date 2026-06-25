@@ -308,11 +308,15 @@ class AutoNormalizeLineageUrnsProcessor(
         if res.urn == parent and new_field_path == field_path:
             self.report.num_refs_unchanged += 1
             return field_urn, res.match_type
+        # A corrected column path means this field was normalized — even when the
+        # parent dataset matched exactly.
         if new_field_path != field_path:
             self.report.num_column_urns_normalized += 1
+            match_type: Optional[str] = LineageMatchTypeClass.NORMALIZED
         else:
             self.report.num_dataset_urns_normalized += 1
-        return make_schema_field_urn(res.urn, new_field_path), res.match_type
+            match_type = res.match_type
+        return make_schema_field_urn(res.urn, new_field_path), match_type
 
     def _normalize_dashboard_info(self, aspect: DashboardInfoClass) -> None:
         if aspect.datasets:
