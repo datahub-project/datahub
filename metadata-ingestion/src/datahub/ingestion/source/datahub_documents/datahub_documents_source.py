@@ -345,7 +345,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     continue
 
             # Process document and yield workunits
-            yield from self._process_single_document(doc)
+            yield from self._process_document_with_throttle(doc)
 
             # Update state after successful processing (we own this document now).
             if self.config.incremental.enabled:
@@ -479,7 +479,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         self.report.report_document_fetched()
 
         # Process document and yield work units
-        yield from self._process_single_document(doc)
+        yield from self._process_document_with_throttle(doc)
 
         # Update state (we own this document now).
         if self.config.incremental.enabled:
@@ -1145,6 +1145,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             )
             return False
         return bool(aspect and aspect.embeddings and model_key in aspect.embeddings)
+
+    def _throttle_after_indexing(self) -> None:
+        """Pause after indexing a document to smooth write load to GMS."""
+        if self.config.index_delay_seconds > 0:
+            time.sleep(self.config.index_delay_seconds)
+
+    def _process_document_with_throttle(
+        self, doc: dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process one document and throttle only when it produced work units."""
+        indexed = False
+        for wu in self._process_single_document(doc):
+            indexed = True
+            yield wu
+        if indexed:
+            self._throttle_after_indexing()
 
     def _process_single_document(
         self, doc: dict[str, Any]

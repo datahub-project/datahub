@@ -206,11 +206,20 @@ class DataHubDocumentsSourceConfig(
         "vs. memory/load on GMS.",
     )
     scroll_delay_seconds: float = Field(
-        default=10.0,
+        default=0.0,
         ge=0,
         description="Delay in seconds between consecutive scroll page requests in batch mode. "
-        "Defaults to 10s to reduce load on GMS/Elasticsearch when scrolling large document sets; "
-        "set to 0 to disable the delay.",
+        "Use a small delay to reduce read load on GMS/Elasticsearch when scrolling large document sets; "
+        "set to 0 to disable.",
+    )
+    index_delay_seconds: float = Field(
+        default=0.025,
+        ge=0,
+        description="Delay in seconds after each document that is actually indexed (embeddings "
+        "emitted). Skipped documents (unchanged, externally owned, empty, etc.) are not delayed. "
+        "Defaults to 0.025s to smooth write load during bootstrap without unduly slowing large "
+        "backfills (e.g. ~42 min of added pacing for 100k new documents); set to 0 to disable. "
+        "Sub-second values are supported.",
     )
 
     # Skip EXTERNAL documents that are already semantically indexed by their own source

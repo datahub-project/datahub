@@ -2828,6 +2828,116 @@ class TestScrollPaginationConfig:
             mock_sleep.assert_not_called()
 
 
+class TestIndexDelay:
+    """Test per-indexed-document write throttling."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _doc(self, urn: str) -> dict[str, Any]:
+        return {
+            "urn": urn,
+            "text": "Some sufficiently long document text content here.",
+            "source_type": "NATIVE",
+        }
+
+    def test_index_delay_sleeps_after_each_indexed_document(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5)
+        docs = [self._doc("urn:li:document:a"), self._doc("urn:li:document:b")]
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            fake_wu = Mock()
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda d: iter([fake_wu]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            assert mock_sleep.call_count == 2
+            mock_sleep.assert_called_with(0.5)
+
+    def test_index_delay_skips_unchanged_documents(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5, incremental={"enabled": True})
+        docs = [
+            self._doc("urn:li:document:unchanged"),
+            self._doc("urn:li:document:new"),
+        ]
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            fake_wu = Mock()
+
+            def should_process(urn: str, text: str) -> bool:
+                return urn.endswith(":new")
+
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(source, "_should_process", side_effect=should_process),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda d: iter([fake_wu]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_called_once_with(0.5)
+
+    def test_no_index_delay_when_zero(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.0)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source,
+                    "_fetch_documents_graphql",
+                    return_value=[self._doc("urn:li:document:a")],
+                ),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    return_value=iter([Mock()]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_not_called()
+
+    def test_no_index_delay_when_document_produces_no_workunits(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source,
+                    "_fetch_documents_graphql",
+                    return_value=[self._doc("urn:li:document:empty")],
+                ),
+                patch.object(source, "_process_single_document", return_value=iter([])),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_not_called()
+
+
 class TestSkipIfSemanticContentExists:
     """Test that EXTERNAL documents already indexed by their own source are left untouched.
 
