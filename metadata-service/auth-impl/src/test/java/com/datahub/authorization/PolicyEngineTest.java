@@ -2172,6 +2172,12 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet()); // Is owner
 
+    // Ownership is now resolved once per request and cached on the OperationContext (shared across
+    // these getGrantedPrivileges calls). The earlier evaluations above negatively cached this
+    // resource's ownership before getV2 was stubbed; clear the per-request cache so this scenario
+    // resolves the now-stubbed owner, as a real (separate) request would.
+    systemOperationContext.getAuthorizationContext().getResourceOwnersByUrn().clear();
+
     grantedPrivileges =
         _policyEngine.getGrantedPrivileges(
             systemOperationContext,

@@ -212,6 +212,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",
           "authorization.view.enabled",
+          "authorization.view.ownershipPrefetchEnabled",
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",

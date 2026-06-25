@@ -11,6 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -66,9 +67,11 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
       if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
         return Collections.emptyList();
       }
-      return new Ownership(
-              response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME).getValue().data())
-          .getOwners();
+      // Copy out of the DataMap-backed OwnerArray before caching it in the shared per-request map.
+      return new ArrayList<>(
+          new Ownership(
+                  response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME).getValue().data())
+              .getOwners());
     } catch (Exception e) {
       log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
       return Collections.emptyList();

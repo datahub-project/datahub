@@ -522,9 +522,11 @@ public class PolicyEngine {
     if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
       return Collections.emptyList();
     }
-    return new Ownership(
-            response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME).getValue().data())
-        .getOwners();
+    // Copy out of the DataMap-backed OwnerArray: the result is cached per request and read by
+    // multiple branches, so it must not be a mutable view onto the response.
+    return new ArrayList<>(
+        new Ownership(response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME).getValue().data())
+            .getOwners());
   }
 
   /**
