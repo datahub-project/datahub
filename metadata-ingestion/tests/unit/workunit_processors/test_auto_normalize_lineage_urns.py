@@ -3,6 +3,8 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 from unittest import mock
 
+import pytest
+
 from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
@@ -150,15 +152,21 @@ def _stored_upstream(wu: MetadataWorkUnit) -> str:
 # --- table-level dataset URN casing -----------------------------------------------
 
 
-def test_heals_uppercase_emit_to_existing_lowercase():
-    out = _run({LOWER: {"amount": "int"}}, _upstream_wu(UPPER))
-    assert _stored_upstream(out) == LOWER
-
-
-def test_heals_lowercase_emit_to_existing_uppercase():
-    # Doc headline: real Snowflake entity is uppercase, BI emits lowercase.
-    out = _run({UPPER: {"amount": "int"}}, _upstream_wu(LOWER))
-    assert _stored_upstream(out) == UPPER
+@pytest.mark.parametrize(
+    "stored,emitted",
+    [
+        (LOWER, UPPER),  # BI emits uppercase, warehouse stores lowercase
+        (UPPER, LOWER),  # doc headline: BI emits lowercase, warehouse stores uppercase
+        (WH_MIXED, WH_LOWER),  # mixed stored, lowercase emitted
+        (WH_LOWER, WH_MIXED),  # lowercase stored, mixed emitted
+        (WH_MIXED, WH_UPPER),  # mixed stored, uppercase emitted
+    ],
+)
+def test_heals_to_stored_casing(stored: str, emitted: str) -> None:
+    # An upstream reference is reconciled to whatever casing the warehouse already
+    # stores, in any direction (upper/lower/mixed) — the property is symmetric.
+    out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
+    assert _stored_upstream(out) == stored
 
 
 def test_keeps_exact_when_exact_entity_exists():
@@ -188,24 +196,6 @@ def test_unconfigured_platform_left_unchanged():
 
 
 # --- mixed-casing identifiers (e.g. `DataHub` vs `datahub`) ------------------------
-
-
-def test_heals_lowercase_emit_to_existing_mixedcase():
-    # Warehouse stores `DataHub` (mixed); BI emits `datahub` (lower) -> heal to `DataHub`.
-    out = _run({WH_MIXED: {"amount": "int"}}, _upstream_wu(WH_LOWER))
-    assert _stored_upstream(out) == WH_MIXED
-
-
-def test_heals_mixedcase_emit_to_existing_lowercase():
-    # The other way round: warehouse stores `datahub`; BI emits `DataHub` -> heal to `datahub`.
-    out = _run({WH_LOWER: {"amount": "int"}}, _upstream_wu(WH_MIXED))
-    assert _stored_upstream(out) == WH_LOWER
-
-
-def test_heals_uppercase_emit_to_existing_mixedcase():
-    # Warehouse stores `DataHub` (mixed); BI emits `DATAHUB` (upper) -> heal to `DataHub`.
-    out = _run({WH_MIXED: {"amount": "int"}}, _upstream_wu(WH_UPPER))
-    assert _stored_upstream(out) == WH_MIXED
 
 
 def test_exact_mixedcase_wins_and_does_not_misroute():
