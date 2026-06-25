@@ -880,3 +880,63 @@ def test_extensionless_file_profiles_via_content_type(tmp_path):
     assert profile.rowCount == 3
     assert profile.columnCount == 2
     assert not report.warnings  # no "unsupported format" warning
+
+
+def _make_ragged_csv(tmp: str) -> str:
+    """A comma CSV with one row carrying an extra, unexpected value.
+
+    Real data-lake CSVs are frequently ragged; the profiler reads them with
+    ``strict_mode=False`` so a malformed row degrades gracefully instead of
+    aborting the whole table.
+    """
+    path = os.path.join(tmp, "data.csv")
+    with open(path, "w") as f:
+        f.write("num,txt\n1,a\n2,b,UNEXPECTED\n3,c\n")
+    return path
+
+
+def test_ragged_csv_still_profiles_without_failure(tmp_path):
+    """A malformed/ragged CSV row must not abort profiling: a profile is still
+    produced and nothing is escalated to a failure. Guards the lenient
+    ``strict_mode=False`` CSV read path — a regression that made CSV reads strict
+    would surface here as a missing profile or a reported failure."""
+    csv = _make_ragged_csv(str(tmp_path))
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+    urn = "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+    profile = _extract_profile(
+        profiler.get_table_profile(_table_data(csv, display_name="data.csv"), urn)
+    )
+    profiler.close()
+    assert profile is not None
+    assert profile.rowCount == 3
+    assert not report.failures
+
+
+def test_unexpected_error_is_reported_as_warning_not_failure(tmp_path, monkeypatch):
+    """An unanticipated, non-structural error (a bare ValueError matching none of
+    the typed arms) must land in the per-table warning bucket — not as a platform
+    failure, and not as an uncaught crash. Guards the catch-all fail-soft arm so
+    one odd table cannot abort the whole run."""
+    parquet = _make_parquet(str(tmp_path))
+    report = DataLakeSourceReport()
+    profiler = DuckDBProfiler(
+        aws_config=None, report=report, profiling_config=_profiling_config()
+    )
+
+    def _raise_value_error(*args, **kwargs):
+        raise ValueError("unexpected internal state")
+
+    monkeypatch.setattr(profiler, "_materialize_profile_table", _raise_value_error)
+    wus = list(
+        profiler.get_table_profile(
+            _table_data(parquet), "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
+        )
+    )
+    profiler.close()
+    assert wus == []
+    # Per-table warning, not a platform-wide failure.
+    assert len(report.failures) == 0
+    assert any(w.title == "DuckDB profiling failed" for w in report.warnings)
