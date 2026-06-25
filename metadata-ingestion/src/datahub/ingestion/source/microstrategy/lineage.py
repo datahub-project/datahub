@@ -1,8 +1,18 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Set,
+    Tuple,
+)
 
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.models import (
@@ -27,6 +37,54 @@ class WarehouseLineageContext:
     platform_instance: Optional[str] = None
     database: Optional[str] = None
     schema: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ModelFieldLineage:
+    upstream_dataset_urn: str
+    upstream_field_urns: List[str]
+
+
+@dataclass
+class ModelLineageIndex:
+    fact_upstreams: Dict[str, List[ModelFieldLineage]]
+    attribute_upstreams: Dict[str, List[ModelFieldLineage]]
+    attribute_form_upstreams: Dict[Tuple[str, str], List[ModelFieldLineage]]
+    table_count: int = 0
+
+    def fact_field_urns(self, fact_ids: Iterable[str]) -> List[str]:
+        upstreams: List[str] = []
+        for fact_id in fact_ids:
+            for lineage in self.fact_upstreams.get(_normalize_object_id(fact_id), []):
+                upstreams.extend(lineage.upstream_field_urns)
+        return _dedupe_sorted(upstreams)
+
+    def attribute_field_urns(
+        self,
+        attribute_id: str,
+        form_name: Optional[str] = None,
+    ) -> List[str]:
+        normalized_attribute_id = _normalize_object_id(attribute_id)
+        upstreams: List[str] = []
+        if form_name:
+            upstreams.extend(
+                field_urn
+                for lineage in self.attribute_form_upstreams.get(
+                    (normalized_attribute_id, _normalize_lineage_key(form_name)),
+                    [],
+                )
+                for field_urn in lineage.upstream_field_urns
+            )
+        if not upstreams:
+            upstreams.extend(
+                field_urn
+                for lineage in self.attribute_upstreams.get(
+                    normalized_attribute_id,
+                    [],
+                )
+                for field_urn in lineage.upstream_field_urns
+            )
+        return _dedupe_sorted(upstreams)
 
 
 class MicroStrategyLineageExtractor:
@@ -56,7 +114,11 @@ class MicroStrategyLineageExtractor:
         if visualization.datasets:
             return sorted(
                 {
-                    self.dataset_urn(project_id, dashboard.id, dataset_by_id[dataset_id])
+                    self.dataset_urn(
+                        project_id,
+                        dashboard.id,
+                        dataset_by_id[dataset_id],
+                    )
                     for dataset_id in visualization.datasets
                     if dataset_id in dataset_by_id
                 }
@@ -140,6 +202,76 @@ class MicroStrategyLineageExtractor:
                 self.warehouse_dataset_urn(context, table_name)
                 for table_name in extract_tables_from_sql(sql)
             }
+        )
+
+    def model_lineage_index_from_tables(
+        self,
+        model_tables: List[Dict[str, object]],
+        context: WarehouseLineageContext,
+    ) -> ModelLineageIndex:
+        fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
+        attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
+        attribute_form_upstreams: Dict[Tuple[str, str], List[ModelFieldLineage]] = {}
+
+        for table in model_tables:
+            if not isinstance(table, dict):
+                continue
+            physical_table = table.get("physicalTable")
+            if not isinstance(physical_table, dict):
+                continue
+            upstream_dataset_urn = self.warehouse_dataset_urn(
+                context,
+                _physical_table_name(physical_table, context),
+            )
+
+            for fact in _coerce_dicts(table.get("facts")):
+                fact_id = _object_id(fact.get("information"))
+                if not fact_id:
+                    continue
+                field_urns = _model_expression_field_urns(
+                    fact,
+                    upstream_dataset_urn,
+                )
+                if field_urns:
+                    _append_lineage(
+                        fact_upstreams,
+                        _normalize_object_id(fact_id),
+                        ModelFieldLineage(upstream_dataset_urn, field_urns),
+                    )
+
+            for attribute in _coerce_dicts(table.get("attributes")):
+                attribute_id = _object_id(attribute.get("information"))
+                if not attribute_id:
+                    continue
+                attribute_lineages: List[ModelFieldLineage] = []
+                for form in _coerce_dicts(attribute.get("forms")):
+                    field_urns = _model_expression_field_urns(
+                        form,
+                        upstream_dataset_urn,
+                    )
+                    if not field_urns:
+                        continue
+                    lineage = ModelFieldLineage(upstream_dataset_urn, field_urns)
+                    attribute_lineages.append(lineage)
+                    form_name = _form_name(form)
+                    if form_name:
+                        _append_lineage(
+                            attribute_form_upstreams,
+                            (_normalize_object_id(attribute_id), form_name),
+                            lineage,
+                        )
+                for lineage in attribute_lineages:
+                    _append_lineage(
+                        attribute_upstreams,
+                        _normalize_object_id(attribute_id),
+                        lineage,
+                    )
+
+        return ModelLineageIndex(
+            fact_upstreams=fact_upstreams,
+            attribute_upstreams=attribute_upstreams,
+            attribute_form_upstreams=attribute_form_upstreams,
+            table_count=len(model_tables),
         )
 
     @staticmethod
@@ -300,6 +432,28 @@ def qualify_table_name(
     return table_name
 
 
+def metric_fact_ids_from_model(model: Dict[str, object]) -> List[str]:
+    fact_ids: Set[str] = set()
+    for target in _expression_targets(model):
+        subtype = str(target.get("subType") or target.get("subtype") or "").lower()
+        if subtype == "fact":
+            object_id = _object_id(target)
+            if object_id:
+                fact_ids.add(_normalize_object_id(object_id))
+    return sorted(fact_ids)
+
+
+def metric_metric_ids_from_model(model: Dict[str, object]) -> List[str]:
+    metric_ids: Set[str] = set()
+    for target in _expression_targets(model):
+        subtype = str(target.get("subType") or target.get("subtype") or "").lower()
+        if subtype == "metric":
+            object_id = _object_id(target)
+            if object_id:
+                metric_ids.add(_normalize_object_id(object_id))
+    return sorted(metric_ids)
+
+
 _LINEAGE_STOP_WORDS = {
     "AND",
     "DASHBOARD",
@@ -330,6 +484,127 @@ def _normalize_source_type(value: Optional[str]) -> Optional[str]:
 
 def _sqlglot_dialect(platform: str) -> Optional[str]:
     return _DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT.get(platform)
+
+
+def _physical_table_name(
+    physical_table: Dict[str, object],
+    context: WarehouseLineageContext,
+) -> str:
+    table_name = _clean_identifier_part(physical_table.get("tableName"))
+    if not table_name:
+        information = physical_table.get("information")
+        if isinstance(information, dict):
+            table_name = _clean_identifier_part(information.get("name"))
+    return qualify_table_name(
+        table_name,
+        database=_clean_identifier_part(physical_table.get("namespace"))
+        or context.database,
+        schema=_clean_identifier_part(physical_table.get("tablePrefix"))
+        or context.schema,
+    )
+
+
+def _model_expression_field_urns(
+    item: Dict[str, object],
+    upstream_dataset_urn: str,
+) -> List[str]:
+    expression = item.get("expression")
+    text = ""
+    if isinstance(expression, dict):
+        text = str(expression.get("text") or "")
+    field_names = extract_field_names_from_expression(text)
+    return [
+        builder.make_schema_field_urn(upstream_dataset_urn, field_name)
+        for field_name in field_names
+    ]
+
+
+def extract_field_names_from_expression(expression: str) -> List[str]:
+    if not expression.strip():
+        return []
+    identifiers = [
+        identifier
+        for identifier in re.findall(r"[A-Za-z_][\w$#]*", expression)
+        if identifier.lower() not in _SQL_KEYWORDS
+    ]
+    return _dedupe_sorted(identifiers)
+
+
+def _expression_targets(model: Dict[str, object]) -> List[Dict[str, object]]:
+    expression = model.get("expression")
+    if not isinstance(expression, dict):
+        return []
+    targets: List[Dict[str, object]] = []
+    tokens = expression.get("tokens")
+    if not isinstance(tokens, list):
+        return targets
+    for token in tokens:
+        if not isinstance(token, dict):
+            continue
+        target = token.get("target")
+        if isinstance(target, dict):
+            targets.append(target)
+            continue
+        value = token.get("value")
+        if isinstance(value, dict):
+            targets.append(value)
+    return targets
+
+
+def _form_name(form: Dict[str, object]) -> Optional[str]:
+    for key in ("name", "title", "id"):
+        value = form.get(key)
+        if value:
+            return _normalize_lineage_key(str(value))
+    form_category = form.get("formCategory")
+    if isinstance(form_category, dict):
+        value = form_category.get("name")
+        if value:
+            return _normalize_lineage_key(str(value))
+    return None
+
+
+def _object_id(value: object) -> Optional[str]:
+    if not isinstance(value, dict):
+        return None
+    for key in ("objectId", "id"):
+        candidate = value.get(key)
+        if candidate:
+            return str(candidate)
+    return None
+
+
+def _coerce_dicts(value: object) -> List[Dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _append_lineage(
+    target: MutableMapping[object, List[ModelFieldLineage]],
+    key: object,
+    lineage: ModelFieldLineage,
+) -> None:
+    target.setdefault(key, []).append(lineage)
+
+
+def _normalize_object_id(value: str) -> str:
+    return value.strip().upper()
+
+
+def _normalize_lineage_key(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
+def _clean_identifier_part(value: object) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = str(value).strip().strip(".")
+    return cleaned or None
+
+
+def _dedupe_sorted(values: Iterable[str]) -> List[str]:
+    return sorted(set(values))
 
 
 def _extract_cte_names(sql: str) -> Set[str]:

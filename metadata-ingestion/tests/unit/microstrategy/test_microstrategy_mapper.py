@@ -1,4 +1,4 @@
-from typing import Iterable, Type, TypeVar
+from typing import Iterable, Optional, Type, TypeVar
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -12,6 +12,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     MSTRObject,
 )
+from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -30,6 +31,16 @@ def _aspect(workunits: Iterable[MetadataWorkUnit], aspect_type: Type[T]) -> T:
         if aspect:
             return aspect
     raise AssertionError(f"Aspect {aspect_type} not found")
+
+
+def _maybe_aspect(
+    workunits: Iterable[MetadataWorkUnit], aspect_type: Type[T]
+) -> Optional[T]:
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect:
+            return aspect
+    return None
 
 
 def _tag_urns(field) -> set[str]:
@@ -99,12 +110,14 @@ def _definition() -> DashboardDefinition:
 
 def _mapper(
     emit_dashboard_dataset_edges: bool = False,
+    extract_warehouse_lineage: bool = False,
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
             "base_url": "https://mstr.example.com/MicroStrategyLibrary",
             "platform_instance": "prod",
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
+            "extract_warehouse_lineage": extract_warehouse_lineage,
         }
     )
     return MicroStrategyMapper(config, MicroStrategyReport())
@@ -431,8 +444,37 @@ def test_dataset_properties_include_semantic_counts() -> None:
     assert dataset_properties.customProperties["microstrategyObjectIdCount"] == "2"
 
 
-def test_dataset_workunits_include_warehouse_upstream_lineage() -> None:
+def test_dataset_workunits_skip_coarse_warehouse_upstream_lineage_by_default() -> None:
     mapper = _mapper()
+    dashboard = _definition()
+    dashboard.datasets[0].warehouse_upstream_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)",
+    ]
+
+    workunits = list(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        )
+    )
+
+    assert _maybe_aspect(workunits, UpstreamLineageClass) is None
+    dataset_properties = _aspect(workunits, DatasetPropertiesClass)
+    assert (
+        "microstrategyWarehouseUpstreamCount"
+        not in dataset_properties.customProperties
+    )
+    assert (
+        "microstrategyWarehouseUpstreamPlatforms"
+        not in dataset_properties.customProperties
+    )
+
+
+def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> None:
+    mapper = _mapper(extract_warehouse_lineage=True)
     dashboard = _definition()
     dashboard.datasets[0].warehouse_upstream_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
@@ -463,6 +505,130 @@ def test_dataset_workunits_include_warehouse_upstream_lineage() -> None:
         dataset_properties.customProperties["microstrategyWarehouseUpstreamPlatforms"]
         == '["snowflake"]'
     )
+
+
+def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    dashboard.datasets[0].available_objects["metrics"][0]["modelFactIds"] = ["fact-1"]
+    upstream_dataset_urn = (
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)"
+    )
+    dashboard.datasets[0].warehouse_upstream_urns = [upstream_dataset_urn]
+    index = mapper.lineage.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {
+                    "namespace": "SALES_DB",
+                    "tablePrefix": "ORDERS",
+                    "tableName": "fact_orders",
+                },
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "net_sales_amt"},
+                    }
+                ],
+                "attributes": [
+                    {
+                        "information": {"objectId": "attr-1"},
+                        "forms": [
+                            {
+                                "name": "ID",
+                                "expression": {"text": "order_date_id"},
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        WarehouseLineageContext(
+            platform="snowflake",
+            env="PROD",
+            database="SALES_DB",
+            schema="SALES",
+        ),
+    )
+    mapper.attach_model_lineage(dashboard, index)
+
+    workunits = list(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        )
+    )
+    upstream_lineage = _aspect(workunits, UpstreamLineageClass)
+    dataset_properties = _aspect(workunits, DatasetPropertiesClass)
+
+    assert [upstream.dataset for upstream in upstream_lineage.upstreams] == [
+        upstream_dataset_urn
+    ]
+    assert len(upstream_lineage.fineGrainedLineages) == 2
+    downstreams = sorted(
+        downstream
+        for lineage in upstream_lineage.fineGrainedLineages
+        for downstream in lineage.downstreams
+    )
+    microstrategy_dataset_urn = (
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)"
+    )
+    assert downstreams == [
+        f"urn:li:schemaField:({microstrategy_dataset_urn},Order Date)",
+        f"urn:li:schemaField:({microstrategy_dataset_urn},Revenue)",
+    ]
+    assert (
+        "microstrategyWarehouseUpstreamCount"
+        not in dataset_properties.customProperties
+    )
+    assert (
+        dataset_properties.customProperties["microstrategyModelLineageFieldCount"]
+        == "2"
+    )
+
+
+def test_dataset_workunits_skip_model_lineage_without_dataset_sql_context() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    dashboard.datasets[0].available_objects["metrics"][0]["modelFactIds"] = ["fact-1"]
+    index = mapper.lineage.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {
+                    "namespace": "SALES_DB",
+                    "tablePrefix": "ORDERS",
+                    "tableName": "fact_orders",
+                },
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "net_sales_amt"},
+                    }
+                ],
+            }
+        ],
+        WarehouseLineageContext(
+            platform="snowflake",
+            env="PROD",
+            database="SALES_DB",
+            schema="SALES",
+        ),
+    )
+    mapper.attach_model_lineage(dashboard, index)
+
+    workunits = list(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        )
+    )
+
+    assert _maybe_aspect(workunits, UpstreamLineageClass) is None
 
 
 def test_dashboard_properties_include_direct_dependency_summary() -> None:

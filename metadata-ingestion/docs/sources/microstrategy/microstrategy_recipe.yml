@@ -28,7 +28,11 @@ source:
     extract_dashboard_dependencies: true
     extract_metric_expressions: true
     extract_model_lineage: true
-    extract_warehouse_lineage: true
+
+    # Optional coarse table-level lineage from MicroStrategy SQL-view APIs.
+    # Keep disabled unless you want dataset -> warehouse table edges without
+    # field-level metric / attribute / fact lineage.
+    extract_warehouse_lineage: false
 
     # Disabled by default to keep DataHub lineage graphs focused on
     # dataset -> visualization edges.

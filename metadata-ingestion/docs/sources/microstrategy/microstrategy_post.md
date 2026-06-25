@@ -18,7 +18,7 @@ When `extract_source_warehouses: true`, the connector calls MicroStrategy dataso
 
 If a dashboard dataset payload includes a direct source warehouse reference, the connector also records datasource ID, datasource name, source type, database version, DBMS name, connection ID/name, and available database/schema context as dataset custom properties.
 
-When `extract_warehouse_lineage: true`, the connector executes the dashboard/dossier SQL-view API and emits upstream lineage from each MicroStrategy dataset to the physical warehouse datasets parsed from SQL. It does not store raw SQL or connection strings. The resulting lineage shape is:
+When `extract_warehouse_lineage: true`, the connector executes the dashboard/dossier SQL-view API and emits coarse upstream lineage from each MicroStrategy dataset to the physical warehouse datasets parsed from SQL. It does not store raw SQL or connection strings. This setting is disabled by default because SQL-view lineage is table-level and does not prove field-level metric, attribute, or fact lineage. The resulting lineage shape is:
 
 ```text
 Dashboard/Dossier -> Visualization -> MicroStrategy Dataset -> Warehouse Dataset

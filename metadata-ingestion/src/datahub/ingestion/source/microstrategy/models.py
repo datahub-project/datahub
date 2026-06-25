@@ -79,6 +79,7 @@ class DatasetObject(MicroStrategyBaseModel):
         alias="sourceWarehouse",
     )
     warehouse_upstream_urns: List[str] = Field(default_factory=list)
+    field_warehouse_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
     raw: MSTRDict = Field(default_factory=dict)
 
     @model_validator(mode="before")

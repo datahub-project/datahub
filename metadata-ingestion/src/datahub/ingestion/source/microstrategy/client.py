@@ -204,9 +204,10 @@ class MicroStrategyClient:
         self,
         project_id: str,
         limit: int = 1,
+        offset: int = 0,
         fields: Optional[str] = None,
     ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit, "offset": 0}
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if fields:
             params["fields"] = fields
         return self._get_json(

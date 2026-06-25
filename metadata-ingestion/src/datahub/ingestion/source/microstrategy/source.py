@@ -23,7 +23,10 @@ from datahub.ingestion.source.microstrategy.client import (
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import (
+    ModelLineageIndex,
     WarehouseLineageContext,
+    metric_fact_ids_from_model,
+    metric_metric_ids_from_model,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
@@ -58,8 +61,8 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_COARSE, "Visualization inputs when resolvable")
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Reserved for modeling API and SQL-view lineage enrichment",
-    supported=False,
+    "Modeling API field lineage from MicroStrategy metrics and attributes "
+    "to source warehouse fields",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -75,7 +78,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self._metric_model_cache: Dict[str, Dict[str, Any]] = {}
-        self._model_lineage_probed_projects: set[str] = set()
 
     @classmethod
     def create(
@@ -118,7 +120,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project.id,
                     source_warehouses,
                 )
-                self._probe_model_lineage_access(project.id)
+                model_lineage_index = self._get_project_model_lineage_index(
+                    project.id,
+                    warehouse_context,
+                )
                 yield from self.mapper.gen_project_container(
                     project,
                     source_warehouses=source_warehouses,
@@ -127,6 +132,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     yield from self._process_project_dashboards(
                         project.id,
                         warehouse_context,
+                        model_lineage_index,
                     )
         finally:
             self.client.close()
@@ -169,7 +175,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         source_warehouses: List[Datasource],
     ) -> Optional[WarehouseLineageContext]:
-        if not self.config.extract_lineage or not self.config.extract_warehouse_lineage:
+        if not self.config.extract_lineage:
+            return None
+        if not (
+            self.config.extract_warehouse_lineage or self.config.extract_model_lineage
+        ):
             return None
 
         context = warehouse_context_from_datasources(source_warehouses, self.config.env)
@@ -196,6 +206,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         warehouse_context: Optional[WarehouseLineageContext],
+        model_lineage_index: Optional[ModelLineageIndex],
     ) -> Iterable[MetadataWorkUnit]:
         for dashboard_object in self.client.search_dashboards(project_id):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
@@ -207,13 +218,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard = self._get_dashboard_definition(project_id, dashboard_object)
             if dashboard is None:
                 continue
-            if warehouse_context:
+            if warehouse_context and (
+                self.config.extract_warehouse_lineage or model_lineage_index
+            ):
                 self._enrich_warehouse_lineage(
                     project_id=project_id,
                     dashboard_object=dashboard_object,
                     dashboard=dashboard,
                     context=warehouse_context,
                 )
+            if model_lineage_index:
+                self.mapper.attach_model_lineage(dashboard, model_lineage_index)
             yield from self._process_dashboard(
                 project_id, dashboard_object, dashboard, parent_key
             )
@@ -256,30 +271,66 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._enrich_metric_expressions(project_id, dashboard)
         return dashboard
 
-    def _probe_model_lineage_access(self, project_id: str) -> None:
-        if not self.config.extract_model_lineage:
-            return
-        if project_id in self._model_lineage_probed_projects:
-            return
-        self._model_lineage_probed_projects.add(project_id)
-        try:
-            self.client.list_model_tables(
-                project_id,
-                limit=1,
-                fields="physicalTable,datasource",
-            )
-        except MicroStrategyAPIError as error:
-            self.report.report_model_lineage_api_failure()
+    def _get_project_model_lineage_index(
+        self,
+        project_id: str,
+        warehouse_context: Optional[WarehouseLineageContext],
+    ) -> Optional[ModelLineageIndex]:
+        if not self.config.extract_lineage or not self.config.extract_model_lineage:
+            return None
+        if warehouse_context is None:
             self.report.warning(
                 title="MicroStrategy Model Lineage Unavailable",
                 message=(
-                    "Logical table lineage requires model table access. "
-                    "SQL-view physical warehouse lineage may still be emitted "
-                    "when dashboard SQL-view APIs are available."
+                    "Skipping logical table lineage because no supported source "
+                    "warehouse context was discovered for this project."
                 ),
                 context=f"project_id={project_id}",
-                exc=error,
             )
+            return None
+
+        model_tables: List[Dict[str, Any]] = []
+        offset = 0
+        while True:
+            try:
+                response = self.client.list_model_tables(
+                    project_id,
+                    limit=self.config.page_size,
+                    offset=offset,
+                    fields="physicalTable,attributes,facts",
+                )
+            except MicroStrategyAPIError as error:
+                self.report.report_model_lineage_api_failure()
+                self.report.warning(
+                    title="MicroStrategy Model Lineage Unavailable",
+                    message=(
+                        "Logical table lineage requires model table access. "
+                        "SQL-view physical warehouse lineage may still be emitted "
+                        "when dashboard SQL-view APIs are available."
+                    ),
+                    context=f"project_id={project_id}",
+                    exc=error,
+                )
+                return None
+
+            tables = response.get("tables")
+            if not isinstance(tables, list):
+                break
+            model_tables.extend(table for table in tables if isinstance(table, dict))
+            total = response.get("total")
+            offset += len(tables)
+            if len(tables) < self.config.page_size:
+                break
+            if isinstance(total, int) and offset >= total:
+                break
+
+        self.report.report_model_tables_scanned(len(model_tables))
+        if not model_tables:
+            return None
+        return self.mapper.lineage.model_lineage_index_from_tables(
+            model_tables,
+            warehouse_context,
+        )
 
     def _enrich_dashboard_dependencies(
         self,
@@ -320,19 +371,60 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 metric_id = str(metric.get("id") or "")
                 if not metric_id:
                     continue
-                model = self._metric_model_cache.get(metric_id)
-                if model is None:
-                    try:
-                        model = self.client.get_metric_model(project_id, metric_id)
-                    except MicroStrategyAPIError:
-                        self.report.report_metric_expression_api_failure()
-                        self._metric_model_cache[metric_id] = {}
-                        continue
-                    self._metric_model_cache[metric_id] = model
-                    self.report.report_metric_expression_scanned()
+                model = self._get_metric_model(project_id, metric_id)
+                if not model:
+                    continue
                 summary = _metric_expression_summary(model)
                 if summary:
                     metric["modelExpression"] = summary
+                fact_ids = self._metric_model_fact_ids(
+                    project_id,
+                    model,
+                    visited={metric_id.upper()},
+                )
+                if fact_ids:
+                    metric["modelFactIds"] = fact_ids
+
+    def _get_metric_model(
+        self,
+        project_id: str,
+        metric_id: str,
+    ) -> Dict[str, Any]:
+        normalized_metric_id = metric_id.upper()
+        model = self._metric_model_cache.get(normalized_metric_id)
+        if model is not None:
+            return model
+        try:
+            model = self.client.get_metric_model(project_id, metric_id)
+        except MicroStrategyAPIError:
+            self.report.report_metric_expression_api_failure()
+            self._metric_model_cache[normalized_metric_id] = {}
+            return {}
+        self._metric_model_cache[normalized_metric_id] = model
+        self.report.report_metric_expression_scanned()
+        return model
+
+    def _metric_model_fact_ids(
+        self,
+        project_id: str,
+        model: Dict[str, Any],
+        visited: set[str],
+    ) -> List[str]:
+        fact_ids = set(metric_fact_ids_from_model(model))
+        for nested_metric_id in metric_metric_ids_from_model(model):
+            if nested_metric_id in visited:
+                continue
+            visited.add(nested_metric_id)
+            nested_model = self._get_metric_model(project_id, nested_metric_id)
+            if nested_model:
+                fact_ids.update(
+                    self._metric_model_fact_ids(
+                        project_id,
+                        nested_model,
+                        visited,
+                    )
+                )
+        return sorted(fact_ids)
 
     def _enrich_visualization_details(
         self,

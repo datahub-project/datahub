@@ -19,6 +19,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     TEMPORAL_TAG_URN,
 )
 from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
+from datahub.ingestion.source.microstrategy.lineage import ModelLineageIndex
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     Datasource,
@@ -41,6 +42,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     EdgeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -98,6 +102,17 @@ class MicroStrategyMapper:
             platform_instance=self.config.platform_instance,
             name=f"{project_id}.{dashboard_id}".lower(),
         )
+
+    def attach_model_lineage(
+        self,
+        dashboard: DashboardDefinition,
+        model_lineage_index: ModelLineageIndex,
+    ) -> None:
+        for dataset in dashboard.datasets:
+            dataset.field_warehouse_upstreams = self._model_field_upstreams(
+                dataset,
+                model_lineage_index,
+            )
 
     def gen_project_container(
         self,
@@ -204,9 +219,26 @@ class MicroStrategyMapper:
                 fields=self._schema_fields(dataset),
             ),
         ).as_workunit()
-        if dataset.warehouse_upstream_urns:
-            upstream_urns = sorted(set(dataset.warehouse_upstream_urns))
-            self.report.report_warehouse_lineage_edges(len(upstream_urns))
+        fine_grained_lineages = self._fine_grained_lineages(dataset_urn, dataset)
+        if fine_grained_lineages:
+            self.report.report_model_lineage_edges(len(fine_grained_lineages))
+        coarse_upstream_urns = (
+            sorted(set(dataset.warehouse_upstream_urns))
+            if self.config.extract_warehouse_lineage
+            else []
+        )
+        if coarse_upstream_urns:
+            self.report.report_warehouse_lineage_edges(len(coarse_upstream_urns))
+        upstream_urns = sorted(
+            set(coarse_upstream_urns).union(
+                upstream_urn
+                for upstreams in dataset.field_warehouse_upstreams.values()
+                for field_urn in upstreams
+                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
+                if upstream_urn
+            )
+        )
+        if upstream_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
@@ -217,6 +249,7 @@ class MicroStrategyMapper:
                         )
                         for upstream_urn in upstream_urns
                     ],
+                    fineGrainedLineages=fine_grained_lineages or None,
                 ),
             ).as_workunit()
         yield from add_entity_to_container(
@@ -459,6 +492,81 @@ class MicroStrategyMapper:
 
         return sorted(fields, key=lambda field: field.fieldPath)
 
+    def _model_field_upstreams(
+        self,
+        dataset: DatasetObject,
+        model_lineage_index: ModelLineageIndex,
+    ) -> Dict[str, List[str]]:
+        allowed_upstream_urns = set(dataset.warehouse_upstream_urns)
+        if not allowed_upstream_urns:
+            return {}
+
+        field_upstreams: Dict[str, List[str]] = {}
+        seen: Set[str] = set()
+        available_objects = dataset.available_objects or {}
+
+        for metric in _coerce_list(available_objects.get("metrics")):
+            if not isinstance(metric, dict):
+                continue
+            field_path = _dedupe_field_path(_field_name(metric), seen)
+            fact_ids = [
+                str(fact_id)
+                for fact_id in _coerce_list(metric.get("modelFactIds"))
+                if fact_id
+            ]
+            upstreams = _filter_schema_field_upstreams(
+                model_lineage_index.fact_field_urns(fact_ids),
+                allowed_upstream_urns,
+            )
+            if upstreams:
+                field_upstreams[field_path] = upstreams
+
+        for attribute in _coerce_list(available_objects.get("attributes")):
+            if not isinstance(attribute, dict):
+                continue
+            attribute_id = str(attribute.get("id") or attribute.get("objectId") or "")
+            forms = _coerce_list(attribute.get("forms"))
+            if not forms:
+                forms = [attribute]
+            for form in forms:
+                if not isinstance(form, dict):
+                    continue
+                field_path = _attribute_field_path(attribute, form, len(forms))
+                field_path = _dedupe_field_path(field_path, seen)
+                upstreams = _filter_schema_field_upstreams(
+                    model_lineage_index.attribute_field_urns(
+                        attribute_id,
+                        _field_name(form),
+                    ),
+                    allowed_upstream_urns,
+                )
+                if upstreams:
+                    field_upstreams[field_path] = upstreams
+
+        return field_upstreams
+
+    def _fine_grained_lineages(
+        self,
+        dataset_urn: str,
+        dataset: DatasetObject,
+    ) -> List[FineGrainedLineageClass]:
+        lineages: List[FineGrainedLineageClass] = []
+        for field_path, upstreams in sorted(dataset.field_warehouse_upstreams.items()):
+            upstream_field_urns = sorted(set(upstreams))
+            if not upstream_field_urns:
+                continue
+            lineages.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstream_field_urns,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[
+                        builder.make_schema_field_urn(dataset_urn, field_path)
+                    ],
+                )
+            )
+        return lineages
+
     def _make_schema_field(
         self,
         field_path: str,
@@ -541,7 +649,7 @@ class MicroStrategyMapper:
             "microstrategyDatasetId": dataset.id,
         }
         properties.update(_dataset_semantic_count_properties(dataset))
-        if dataset.warehouse_upstream_urns:
+        if self.config.extract_warehouse_lineage and dataset.warehouse_upstream_urns:
             upstream_platforms = sorted(
                 {
                     platform
@@ -559,6 +667,27 @@ class MicroStrategyMapper:
                 properties["microstrategyWarehouseUpstreamPlatforms"] = json.dumps(
                     upstream_platforms
                 )
+        if dataset.field_warehouse_upstreams:
+            upstream_field_urns = {
+                field_urn
+                for upstreams in dataset.field_warehouse_upstreams.values()
+                for field_urn in upstreams
+            }
+            upstream_dataset_urns = {
+                upstream_urn
+                for field_urn in upstream_field_urns
+                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
+                if upstream_urn
+            }
+            properties["microstrategyModelLineageFieldCount"] = str(
+                len(dataset.field_warehouse_upstreams)
+            )
+            properties["microstrategyModelLineageUpstreamFieldCount"] = str(
+                len(upstream_field_urns)
+            )
+            properties["microstrategyModelLineageUpstreamDatasetCount"] = str(
+                len(upstream_dataset_urns)
+            )
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
 
@@ -789,6 +918,57 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
 def _platform_from_dataset_urn(dataset_urn: str) -> Optional[str]:
     match = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),", dataset_urn)
     return match.group(1) if match else None
+
+
+def _schema_field_dataset_urn(schema_field_urn: str) -> Optional[str]:
+    match = re.match(
+        r"^urn:li:schemaField:\((urn:li:dataset:\(.+\)),.+\)$",
+        schema_field_urn,
+    )
+    return match.group(1) if match else None
+
+
+def _filter_schema_field_upstreams(
+    schema_field_urns: Sequence[str],
+    allowed_dataset_urns: Set[str],
+) -> List[str]:
+    allowed_keys = {
+        key
+        for dataset_urn in allowed_dataset_urns
+        for key in _dataset_lineage_match_keys(dataset_urn)
+    }
+    return sorted(
+        {
+            schema_field_urn
+            for schema_field_urn in schema_field_urns
+            if _schema_field_dataset_urn(schema_field_urn) in allowed_dataset_urns
+            or bool(
+                allowed_keys.intersection(
+                    _dataset_lineage_match_keys(
+                        _schema_field_dataset_urn(schema_field_urn)
+                    )
+                )
+            )
+        }
+    )
+
+
+def _dataset_lineage_match_keys(dataset_urn: Optional[str]) -> Set[str]:
+    if not dataset_urn:
+        return set()
+    match = re.match(
+        r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),(.+),([^,]+)\)$",
+        dataset_urn,
+    )
+    if not match:
+        return set()
+    platform = match.group(1).lower()
+    qualified_name = re.sub(r"\.+", ".", match.group(2).strip(".").lower())
+    parts = [part for part in qualified_name.split(".") if part]
+    keys = {f"{platform}:{qualified_name}"}
+    if parts:
+        keys.add(f"{platform}:table:{parts[-1]}")
+    return keys
 
 
 def _audit_stamp(date_value: Optional[str], owner: str) -> Optional[AuditStampClass]:

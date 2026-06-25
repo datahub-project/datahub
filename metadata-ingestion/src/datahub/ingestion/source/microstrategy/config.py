@@ -153,12 +153,14 @@ class MicroStrategyConfig(
         ),
     )
     extract_warehouse_lineage: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Whether to execute dashboard/dossier SQL-view APIs and emit upstream "
-            "lineage from MicroStrategy datasets to source warehouse datasets. "
-            "The connector discovers the warehouse platform from MicroStrategy "
-            "datasource metadata and does not store raw SQL."
+            "coarse table-level lineage from MicroStrategy datasets to source "
+            "warehouse datasets parsed from SQL. Disabled by default because this "
+            "is not field-level metric, attribute, or fact lineage. The connector "
+            "discovers the warehouse platform from MicroStrategy datasource metadata "
+            "and does not store raw SQL."
         ),
     )
     warehouse_lineage_sql_timeout_seconds: int = Field(

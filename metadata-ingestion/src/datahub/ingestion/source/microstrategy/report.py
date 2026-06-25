@@ -17,7 +17,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     dashboard_dependencies_scanned: int = 0
     metric_expressions_scanned: int = 0
     metric_expression_api_failures: int = 0
+    model_tables_scanned: int = 0
     model_lineage_api_failures: int = 0
+    model_lineage_edges: int = 0
     warehouse_lineage_sql_views_scanned: int = 0
     warehouse_lineage_edges: int = 0
     warehouse_lineage_api_failures: int = 0
@@ -59,8 +61,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_metric_expression_api_failure(self) -> None:
         self.metric_expression_api_failures += 1
 
+    def report_model_tables_scanned(self, count: int) -> None:
+        self.model_tables_scanned += count
+
     def report_model_lineage_api_failure(self) -> None:
         self.model_lineage_api_failures += 1
+
+    def report_model_lineage_edges(self, count: int) -> None:
+        self.model_lineage_edges += count
 
     def report_warehouse_lineage_sql_views_scanned(self, count: int) -> None:
         self.warehouse_lineage_sql_views_scanned += count
