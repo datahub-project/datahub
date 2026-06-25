@@ -29,6 +29,23 @@ Design:
 - Leases carry a TTL so a crashed run that never releases does not block forever. The
   holder renews periodically, so TTL only needs to exceed the renewal interval (not total
   run duration).
+
+Manually releasing / deleting a lock:
+  A healthy run releases its lock automatically on completion, and a crashed run's lease
+  expires on its own after ``lock_ttl_seconds`` (default 1800s / 30 min), after which the
+  next run takes over. You normally do **not** need to intervene. If you want to clear a
+  lock immediately (e.g. you know a run died and do not want to wait out the TTL), delete
+  the backing ``dataHubStepState`` entity.
+
+  The lock URN is ``urn:li:dataHubStepState:<lock_id>`` where ``<lock_id>`` is either the
+  ``locking.lock_id`` you configured or the auto-derived default
+  ``document-indexing-lock-<ingestion-source-id>`` (the ingestion source URN with the
+  ``urn:li:dataHubIngestionSource:`` prefix stripped and unsafe characters replaced). The
+  exact URN is logged at startup and on every acquire/release. To delete it:
+
+      datahub delete --urn "urn:li:dataHubStepState:<lock_id>" --hard -f
+
+  Deleting the entity is safe: the next run simply cold-starts a fresh lease.
 """
 
 import logging
@@ -199,6 +216,11 @@ class DocumentIndexingLock:
 
         Returns True if this run now holds the lock, False if another active run holds it.
         """
+        logger.info(
+            f"Attempting to acquire document indexing lock {self.urn} for run "
+            f"{self.run_id} (ttl={self.ttl_seconds}s). To clear this lock manually, "
+            f'delete the entity: datahub delete --urn "{self.urn}" --hard -f'
+        )
         existing = self._read_lease()
         if (
             existing is not None
