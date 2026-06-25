@@ -319,13 +319,7 @@ class TableauConnectionConfig(ConfigModel):
                 self.connect_uri,
                 use_server_version=True,
                 http_options={
-                    # As per https://community.tableau.com/s/question/0D54T00000F33bdSAB/tableauserverclient-signin-with-ssl-certificate
-                    "verify": bool(self.ssl_verify),
-                    **(
-                        {"cert": self.ssl_verify}
-                        if isinstance(self.ssl_verify, str)
-                        else {}
-                    ),
+                    "verify": self.ssl_verify,
                 },
             )
 
