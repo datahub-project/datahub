@@ -1,0 +1,47 @@
+source:
+  type: microstrategy
+  config:
+    base_url: "https://your-company.example.com/MicroStrategyLibrary"
+
+    auth:
+      type: password
+      username: "${MSTR_USERNAME}"
+      password: "${MSTR_PASSWORD}"
+
+    platform_instance: production
+    env: PROD
+
+    project_pattern:
+      allow:
+        - ".*"
+
+    dashboard_pattern:
+      allow:
+        - "^Salon Sales To Plan$"
+
+    extract_dashboards: true
+    extract_charts: true
+    extract_cubes: true
+    extract_lineage: true
+    extract_visualization_details: true
+    extract_source_warehouses: true
+    extract_dashboard_dependencies: true
+    extract_metric_expressions: true
+    extract_model_lineage: true
+    extract_warehouse_lineage: true
+
+    # Disabled by default to keep DataHub lineage graphs focused on
+    # dataset -> visualization edges.
+    emit_dashboard_dataset_edges: false
+
+    tag_measures_and_dimensions: true
+    ingest_owner: true
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
