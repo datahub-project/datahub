@@ -1481,5 +1481,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._ingest_folders()
             yield from self._ingest_documents()
         except Exception as exc:
-            self.report.failure("omni-source", str(exc))
+            self.report.failure(
+                title="Omni source error",
+                message="Fatal Omni source error",
+                exc=exc,
+            )
             raise
