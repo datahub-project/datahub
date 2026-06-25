@@ -2138,12 +2138,12 @@ class TestMaxDocumentsLimit:
         return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
 
     def test_default_max_documents(self, ctx, config):
-        """Test that max_documents defaults to 10000."""
+        """Test that max_documents defaults to 100000."""
         with patch(
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
-            assert source.chunking_source.config.max_documents == 10000
+            assert source.chunking_source.config.max_documents == 100000
 
     def test_max_documents_limit_raises_error(self, ctx, config):
         """Test that RuntimeError is raised when max_documents limit is hit."""
