@@ -206,10 +206,11 @@ class DataHubDocumentsSourceConfig(
         "vs. memory/load on GMS.",
     )
     scroll_delay_seconds: float = Field(
-        default=0.0,
+        default=10.0,
         ge=0,
         description="Delay in seconds between consecutive scroll page requests in batch mode. "
-        "Use a small delay to reduce load on GMS/Elasticsearch when scrolling large document sets.",
+        "Defaults to 10s to reduce load on GMS/Elasticsearch when scrolling large document sets; "
+        "set to 0 to disable the delay.",
     )
 
     # Skip EXTERNAL documents that are already semantically indexed by their own source
