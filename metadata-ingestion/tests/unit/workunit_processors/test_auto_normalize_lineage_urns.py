@@ -18,6 +18,7 @@ from datahub.ingestion.workunit_processors.auto_normalize_lineage_urns import (
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass,
+    DataJobInputOutputClass,
     EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -578,11 +579,71 @@ def test_non_lineage_workunits_pass_through_without_resolution():
         patcher.stop()
 
 
-def _ctx(enabled: bool, graph: object) -> mock.MagicMock:
+def test_raw_mcp_aspect_is_healed_and_written_back():
+    # The file source emits raw MetadataChangeProposals (mcp_raw). get_aspect_of_type
+    # returns a throwaway deserialized copy for those, so the in-place mutation must be
+    # re-serialized back into the proposal — otherwise the rewrite is silently dropped.
+    raw_mcp = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM,
+        aspect=UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=UPPER, type="TRANSFORMED")],
+        ),
+    ).make_mcp()
+    wu = MetadataWorkUnit(id="raw-mcp-test", mcp_raw=raw_mcp)
+
+    out = _run({LOWER: {"amount": "int"}}, wu)
+
+    healed = out.get_aspect_of_type(UpstreamLineageClass)
+    assert healed is not None
+    assert healed.upstreams[0].dataset == LOWER
+
+
+def test_datajob_io_inputs_and_fine_grained_are_healed():
+    # dbt / Airflow / Spark warehouse-upstream path: a DataJob's inputs are healed
+    # (table, edge, and fine-grained columns); its outputs are left untouched.
+    job = "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,prod),task)"
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=job,
+        aspect=DataJobInputOutputClass(
+            inputDatasets=[UPPER],
+            outputDatasets=[MIXED],
+            inputDatasetEdges=[EdgeClass(destinationUrn=UPPER)],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(UPPER, "AMOUNT")],
+                    downstreams=[make_schema_field_urn(DOWNSTREAM, "amount")],
+                )
+            ],
+        ),
+    ).as_workunit()
+
+    out = _run({LOWER: {"amount": "int"}}, wu)
+
+    io = out.get_aspect_of_type(DataJobInputOutputClass)
+    assert io is not None
+    assert io.inputDatasets == [LOWER]  # input table healed
+    edges = io.inputDatasetEdges
+    assert edges is not None and edges[0].destinationUrn == LOWER  # input edge healed
+    assert io.outputDatasets == [MIXED]  # output left untouched
+    fgl = io.fineGrainedLineages
+    assert fgl is not None
+    assert fgl[0].upstreams == [make_schema_field_urn(LOWER, "amount")]
+
+
+def _ctx(
+    enabled: bool,
+    graph: object,
+    upstream_platforms: Optional[List[UpstreamPlatformCasing]] = None,
+) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = graph
     pipeline_ctx.flags.normalize_lineage_urn_casing = NormalizeLineageUrnCasingConfig(
-        enabled=enabled
+        enabled=enabled,
+        upstream_platforms=upstream_platforms
+        if upstream_platforms is not None
+        else [UpstreamPlatformCasing(platform="snowflake", env="PROD")],
     )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -596,6 +657,16 @@ def test_disabled_without_graph():
 def test_disabled_when_flag_off():
     assert (
         AutoNormalizeLineageUrnsProcessor.should_enable(_ctx(False, mock.MagicMock()))
+        is False
+    )
+
+
+def test_disabled_when_no_upstream_platforms():
+    # Enabled but unconfigured = active no-op; should_enable guards against it.
+    assert (
+        AutoNormalizeLineageUrnsProcessor.should_enable(
+            _ctx(True, mock.MagicMock(), upstream_platforms=[])
+        )
         is False
     )
 

@@ -64,11 +64,18 @@ warehouse itself reported.
 
 ### What gets fixed
 
-| Reference                                                       | Fixed                                     |
-| --------------------------------------------------------------- | ----------------------------------------- |
-| `upstreamLineage` upstream dataset URNs                         | ✅ table-level                            |
-| `fineGrainedLineage` upstream field URNs                        | ✅ table-level **and** column-name casing |
-| `dashboardInfo` dataset references (`datasets`, `datasetEdges`) | ✅ table-level                            |
+| Reference                                                                                 | Fixed                                     |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `upstreamLineage` upstream dataset URNs                                                   | ✅ table-level                            |
+| `fineGrainedLineage` upstream field URNs                                                  | ✅ table-level **and** column-name casing |
+| `dashboardInfo` dataset references (`datasets`, `datasetEdges`)                           | ✅ table-level                            |
+| `dataJobInputOutput` inputs (`inputDatasets`, `inputDatasetEdges`, `fineGrainedLineages`) | ✅ table-level **and** column-name casing |
+| `dataJobInputOutput` outputs (`outputDatasets`, `outputDatasetEdges`)                     | ❌ left unchanged (the job's own outputs) |
+
+`dataJobInputOutput` covers the dbt / Airflow / Spark warehouse-upstream path: a job's **inputs** are
+upstream warehouse references and are healed like any other upstream, while its **outputs** are the job's
+declared products and are left untouched — consistent with the feature never rewriting an entity's own /
+downstream side.
 
 Column-level casing is corrected using the schema DataHub stores for the resolved table, so a BI tool
 that reports a column as `AMOUNT` is reconciled to the warehouse's actual `amount` (or vice versa).
@@ -152,3 +159,14 @@ exact lineage from casing-resolved lineage downstream.
 - **Platform-instance casing must match exactly.** Only the dataset _name_ is reconciled
   case-insensitively; the `platform_instance` segment is compared as-is. A reference whose platform-instance
   casing differs from what is stored in DataHub is left unchanged.
+
+### Interaction with `convert_urns_to_lowercase`
+
+The two settings are complementary, not mutually exclusive — they can both be enabled on the same source.
+`convert_urns_to_lowercase` runs first and blindly lowercases URNs; this normalizer then runs afterward
+and resolves each (now-lowercased) upstream reference to the actual casing stored in DataHub. So if both
+are on, the normalizer effectively wins, restoring the warehouse's real casing where an unambiguous match
+exists. In practice you should prefer this normalizer **instead of** `convert_urns_to_lowercase` for the
+sources you enable it on, since it achieves connected lineage without flattening casing; the coexistence
+behavior is documented only so a source that already has `convert_urns_to_lowercase` set behaves
+predictably.
