@@ -23,6 +23,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     MutableMapping,
     Optional,
     Set,
@@ -90,6 +91,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.str_enum import StrEnum
@@ -655,7 +657,21 @@ class TeradataTable:
     create_timestamp: datetime
     last_alter_name: Optional[str]
     last_alter_timestamp: Optional[datetime]
-    request_text: Optional[str]
+    # NOTE: View SQL text is intentionally NOT stored here. On large installations
+    # (thousands of views) keeping every view's RequestText resident drove the
+    # cache to hundreds of MB. View definitions now live in a disk-backed
+    # FileBackedDict (TeradataSource._view_definitions), keyed by
+    # _view_definition_key(schema, name).
+
+
+def _view_definition_key(schema: str, view_name: str) -> str:
+    """Build the FileBackedDict key for a view's SQL text.
+
+    Schema is lowercased to match the casing used for `_tables_cache` lookups
+    (config-supplied names vs. Teradata's stored case); the view name is kept
+    as stored in dbc.TablesV so it matches the name resolved during the loop.
+    """
+    return f"{schema.lower()}.{view_name}"
 
 
 # Bounded cache so multiple schemas stay resident across sequential database processing.
@@ -1009,22 +1025,18 @@ def optimized_get_view_definition(
     connection: Connection,
     view_name: str,
     schema: Optional[str] = None,
-    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
+    view_definitions: Optional[Mapping[str, str]] = None,
     **kw: Dict[str, Any],
 ) -> Optional[str]:
-    tables_cache = tables_cache or {}
+    if view_definitions is None:
+        return None
     if schema is None:
         schema = self.default_schema_name
 
-    schema_key = schema.lower()
-    if schema_key not in tables_cache:
+    request_text = view_definitions.get(_view_definition_key(schema, view_name))
+    if request_text is None:
         return None
-
-    for table in tables_cache[schema_key]:
-        if table.name == view_name:
-            return self.normalize_name(table.request_text)
-
-    return None
+    return self.normalize_name(request_text)
 
 
 @dataclass
@@ -1716,6 +1728,15 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # record of user intent across sequential recipe runs.
         self._effective_max_workers: int = config.max_workers
 
+        # View SQL text is offloaded to a temporary SQLite-backed dict instead of
+        # being held in `_tables_cache`. On large installations the resident view
+        # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
+        # _view_definition_key(schema, view_name). FileBackedDict mutates its
+        # in-memory LRU on read, so reads (which happen on parallel view-processing
+        # worker threads) must be guarded by `_view_definitions_lock`.
+        self._view_definitions: FileBackedDict[str] = FileBackedDict()
+        self._view_definitions_lock = Lock()
+
         self.schema_resolver = self._init_schema_resolver()
 
         # Initialize SqlParsingAggregator for modern lineage processing
@@ -1829,11 +1850,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             )
 
             # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
+            # view_definitions = self._view_definitions
             # setattr(
             #   TeradataDialect,
             #    "get_view_definition",
             #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
+            #        self, connection, view_name, schema, view_definitions=view_definitions, **kw
             #    ),
             # )
 
@@ -2131,8 +2153,16 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         for entry in cache_entries:
             if entry.name == table:
                 description = entry.description
-                if entry.object_type == "View" and entry.request_text:
-                    properties["view_definition"] = entry.request_text
+                if entry.object_type == "View":
+                    # View text lives in the disk-backed dict; reads run on parallel
+                    # worker threads and FileBackedDict mutates its LRU on read, so
+                    # the lookup must be serialized.
+                    with self._view_definitions_lock:
+                        request_text = self._view_definitions.get(
+                            _view_definition_key(schema, table)
+                        )
+                    if request_text:
+                        properties["view_definition"] = request_text
                 break
         return description, properties, location
 
@@ -2746,11 +2776,6 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 create_timestamp=entry.CreateTimeStamp,
                                 last_alter_name=entry.LastAlterName,
                                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                                request_text=(
-                                    entry.RequestText.strip()
-                                    if entry.object_type == "View" and entry.RequestText
-                                    else None
-                                ),
                             )
 
                             # Count objects per database for metrics
@@ -2758,6 +2783,15 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 database_counts[table.database]["views"] += 1
                             else:
                                 database_counts[table.database]["tables"] += 1
+
+                            # Offload view SQL text to disk rather than holding it in
+                            # the in-memory cache. This loop is single-threaded, so the
+                            # write does not need `_view_definitions_lock` (only the
+                            # concurrent reads later do).
+                            if table.object_type == "View" and entry.RequestText:
+                                self._view_definitions[
+                                    _view_definition_key(table.database, table.name)
+                                ] = entry.RequestText.strip()
 
                             with self._tables_cache_lock:
                                 # Cache key is lowercased so lookups by schema name from
@@ -3405,10 +3439,15 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         try:
             # Clear class-level caches so memory is released between recipe runs in the
             # same process. Without this, sequential recipes accumulate all TeradataTable
-            # objects (including view request_text) and creator metadata indefinitely.
+            # objects and creator metadata indefinitely.
             with self._tables_cache_lock:
                 self._tables_cache.clear()
                 self._table_creator_cache.clear()
+
+            # Close the disk-backed view-definition store so its temporary SQLite
+            # file is removed promptly rather than waiting for GC.
+            with self._view_definitions_lock:
+                self._view_definitions.close()
 
             # Clear module-level LRU caches for the same reason — schema column/PK/FK
             # data is per-connection and must not carry over to the next recipe run.

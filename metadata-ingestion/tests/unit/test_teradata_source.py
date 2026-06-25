@@ -38,6 +38,7 @@ from datahub.ingestion.source.sql.teradata import (
     _jittered_backoff,
     _should_retry,
     _should_retry_connect,
+    _view_definition_key,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
@@ -488,7 +489,6 @@ class TestTeradataSource:
                     create_timestamp=datetime(2024, 1, 1),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
             source._table_creator_cache[("db1", "t1")] = "owner"
@@ -785,7 +785,6 @@ class TestConcurrencySupport:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
             source._tables_cache["test_schema"] = [test_table]
 
@@ -2346,7 +2345,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2381,7 +2379,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2415,7 +2412,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2444,7 +2440,6 @@ class TestDbcColumnsForViews:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
     def test_uses_dbc_columns_when_all_types_present(self) -> None:
@@ -2708,7 +2703,6 @@ class TestCacheCaseInsensitivity:
             create_timestamp=datetime(2024, 1, 1),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text="SELECT 1" if object_type == "View" else None,
         )
 
     def test_cache_write_lowercases_database_key(self) -> None:
@@ -2725,6 +2719,48 @@ class TestCacheCaseInsensitivity:
 
         assert "my_db" in source._tables_cache
         assert "MY_DB" not in source._tables_cache
+
+    def test_view_definition_offloaded_to_file_backed_dict(self) -> None:
+        """View SQL text is spilled to the disk-backed dict (keyed by lowercased
+        schema), not held on the in-memory TeradataTable."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert (
+            source._view_definitions[_view_definition_key("MY_DB", "MY_VIEW")]
+            == "SELECT * FROM MY_DB.MY_TABLE"
+        )
+        # The lightweight cache entry must not carry the SQL text anymore.
+        cached_view = source._tables_cache["my_db"][0]
+        assert not hasattr(cached_view, "request_text")
+
+    def test_table_does_not_populate_view_definitions(self) -> None:
+        """Only views contribute SQL text; tables must not create entries."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", object_type="Table")]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert _view_definition_key("MY_DB", "MY_TABLE") not in source._view_definitions
 
     def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
         self,
@@ -2770,6 +2806,9 @@ class TestCacheCaseInsensitivity:
         entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
         entry.description = "promo mart"
         source._tables_cache["my_db"] = [entry]
+        # View SQL text now lives in the disk-backed dict, keyed with a lowercased
+        # schema; the lookup must hit it even when the query uses a different case.
+        source._view_definitions[_view_definition_key("MY_DB", "MY_TABLE")] = "SELECT 1"
 
         description, properties, _ = source.cached_get_table_properties(
             MagicMock(), "my_db", "MY_TABLE"
@@ -2803,16 +2842,16 @@ class TestCacheCaseInsensitivity:
         mock_dialect.default_schema_name = "MY_DB"
         mock_dialect.normalize_name = lambda s: s
 
-        tables_cache: Dict[str, List[TeradataTable]] = {
-            "my_db": [self._make_table("MY_DB", "MY_VIEW", object_type="View")]
-        }
+        # View text is keyed by lowercased schema; the lookup must normalize the
+        # caller-supplied (uppercase) schema to hit it.
+        view_definitions = {_view_definition_key("MY_DB", "MY_VIEW"): "SELECT 1"}
 
         view_def = optimized_get_view_definition(
             mock_dialect,
             MagicMock(),
             "MY_VIEW",
             "MY_DB",
-            tables_cache=tables_cache,
+            view_definitions=view_definitions,
         )
 
         assert view_def == "SELECT 1"
@@ -2910,7 +2949,6 @@ class TestConfiguredDatabasesValidation:
                 create_timestamp=datetime(2024, 1, 1),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
         ]
 
@@ -5504,7 +5542,6 @@ class TestCharPaddingFixes:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
