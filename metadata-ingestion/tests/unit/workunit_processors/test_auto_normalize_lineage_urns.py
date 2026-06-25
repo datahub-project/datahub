@@ -207,7 +207,8 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     )
     assert _stored_upstream(out) == WH_LOWER
     upstream = _upstream_aspect(out).upstreams[0]
-    assert upstream.matchType == LineageMatchTypeClass.EXACT
+    # Exact matches are left untouched (no matchType stamp) to avoid MCL churn.
+    assert upstream.matchType is None
 
 
 def test_schemaless_exact_entity_is_not_rewritten():
@@ -220,7 +221,7 @@ def test_schemaless_exact_entity_is_not_rewritten():
         all_urns=[LOWER, UPPER],  # both exist in the warehouse; UPPER is schemaless
     )
     assert _stored_upstream(out) == UPPER
-    assert _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.EXACT
+    assert _upstream_aspect(out).upstreams[0].matchType is None
 
 
 def test_mixedcase_ambiguous_third_casing_left_unchanged():
@@ -243,10 +244,12 @@ def test_match_type_normalized_when_rewritten():
     assert upstream.matchType == LineageMatchTypeClass.NORMALIZED
 
 
-def test_match_type_exact_when_exact_match():
+def test_match_type_unset_when_exact_match():
+    # An exact match is left untouched: no matchType is stamped (absence == exact),
+    # so a clean edge is not re-emitted with changed content.
     out = _run({UPPER: {"amount": "int"}}, _upstream_wu(UPPER))
     upstream = _upstream_aspect(out).upstreams[0]
-    assert upstream.matchType == LineageMatchTypeClass.EXACT
+    assert upstream.matchType is None
 
 
 def test_match_type_unset_when_no_match():
