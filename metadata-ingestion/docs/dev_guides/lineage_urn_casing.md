@@ -128,13 +128,24 @@ the source of truth for its own casing and identity, which must be respected.
 ## Match type explainability
 
 When the feature **rewrites** a reference to heal a casing mismatch, it stamps `matchType = NORMALIZED`
-on the lineage aspect. This makes casing-resolved lineage distinguishable from exact lineage downstream.
+on the lineage aspect. Treat `matchType` as a **positive signal**: `NORMALIZED` means "this feature
+healed a casing mismatch on this reference."
 
-References that already match an existing entity exactly are **left untouched** — no `matchType` is
-written. The absence of `matchType` therefore means "exact match, or not reconciled". This is deliberate:
-stamping every clean edge with `EXACT` would change the aspect's content on every ingest, defeating GMS's
-no-op de-duplication and producing needless metadata-change-log churn. The `LineageMatchType` model still
-defines an `EXACT` value for completeness, but this processor only ever emits `NORMALIZED`.
+Every other reference is **left untouched**, with no `matchType` written — this includes references that
+already matched exactly, references the feature could **not** reconcile (no match, or an ambiguous
+collision — i.e. genuinely broken lineage), references ingested **before** this feature was enabled, and
+references from sources where the flag is off. So **absence of `matchType` does not mean "exact"** — it
+only means this feature made no assertion. Do not read it as a guarantee of correctness.
+
+Two consequences worth calling out:
+
+- **Stamping is opt-in and ingest-time only.** Metadata already stored in DataHub is never modified; a
+  reference only gains (or loses) a `matchType` when its source is re-ingested with the feature enabled.
+- **`EXACT` is intentionally never emitted.** The `LineageMatchType` model defines an `EXACT` value for
+  completeness, but the processor does not stamp it. Doing so would rewrite every clean edge's content on
+  first enable (defeating GMS no-op de-duplication and causing a metadata-change-log storm) for a
+  distinction no consumer currently relies on — and it still would not help historical data, which stays
+  unstamped until re-ingested.
 
 ## Requirements and limitations
 
