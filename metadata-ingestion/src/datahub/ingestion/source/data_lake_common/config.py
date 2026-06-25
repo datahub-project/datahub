@@ -58,6 +58,9 @@ class DataLakeLineageProviderConfig(ConfigModel):
         description="Ignore paths that do not match any path_spec. Only applies if path_specs are configured.",
     )
 
+    # TODO: get_path / get_urn_for_lineage make this ConfigModel a service as well
+    # as a value object. Move them to free functions (e.g. data_lake_common/
+    # lineage_utils.py) in a follow-up so the config stays a plain data holder.
     def get_path(self, path: str, mode: PathMode = PathMode.FILE) -> Optional[str]:
         for path_spec in self.path_specs:
             if mode is PathMode.FILE and path_spec.allowed(path):
@@ -109,10 +112,16 @@ class DataLakeLineageProviderConfig(ConfigModel):
         return None
 
 
+# TODO: migrate all sources that expose `s3_lineage_config` (e.g. Redshift)
+# to use DataLakeLineageProviderConfig / DataLakeLineageProviderConfigBase
+# and remove these aliases once all callers are updated.
 class S3LineageProviderConfig(DataLakeLineageProviderConfig):
     """Alias of :class:`DataLakeLineageProviderConfig` kept for back-compat with sources (e.g. Redshift) that exposed ``s3_lineage_config``."""
 
 
+# TODO: migrate all sources that expose `s3_lineage_config` (e.g. Redshift)
+# to use DataLakeLineageProviderConfigBase and remove this alias once all
+# callers are updated.
 class S3DatasetLineageProviderConfigBase(ConfigModel):
     """Groups all s3 lineage config under a single ``s3_lineage_config`` property."""
 
