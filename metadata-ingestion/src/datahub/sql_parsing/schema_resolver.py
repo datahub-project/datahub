@@ -24,7 +24,6 @@ from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
-from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +89,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             extra_columns={"is_missing": lambda v: v is None},
         )
 
-        # Lazily-built {lowercase(urn) -> [actual urns]} index over the resolved
-        # cache, used by resolve_urn_casing() for case-insensitive URN resolution.
-        self._normalized_urn_index_cache: Optional[Dict[str, List[str]]] = None
-
     @property
     def platform(self) -> str:
         return self._platform
@@ -151,28 +146,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         return urn, None
 
-    def resolve_urn_casing(self, urn: str) -> str:
-        """Return the URN of the existing entity that matches `urn` ignoring casing.
-
-        Resolution is fully local against this resolver's URN cache (typically
-        bulk-initialized via SchemaResolverProvider), so it is bidirectional:
-        - an exact match present in the cache is returned unchanged;
-        - otherwise, if exactly one cached URN shares the same lowercase form, that
-          existing URN is returned (heals both UPPER->lower and lower->UPPER);
-        - no match, or an ambiguous collision (e.g. `MyTable` and `mytable` both
-          exist on a case-sensitive platform), leaves the URN unchanged.
-        """
-        if self.has_urn(urn):
-            return urn
-        try:
-            normalized = lowercase_dataset_urn(urn)
-        except Exception:
-            return urn
-        candidates = self._normalized_urn_index().get(normalized)
-        if candidates is not None and len(candidates) == 1:
-            return candidates[0]
-        return urn
-
     def get_cached_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         """Return locally-cached schema info for `urn` (column -> type), or None.
 
@@ -180,19 +153,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         bulk initialization. Used to correct column casing in fine-grained lineage.
         """
         return self._schema_cache.get(urn)
-
-    def _normalized_urn_index(self) -> Dict[str, List[str]]:
-        if self._normalized_urn_index_cache is None:
-            index: Dict[str, List[str]] = {}
-            for cached_urn in self.get_urns():
-                try:
-                    index.setdefault(lowercase_dataset_urn(cached_urn), []).append(
-                        cached_urn
-                    )
-                except Exception:
-                    continue
-            self._normalized_urn_index_cache = index
-        return self._normalized_urn_index_cache
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         """Resolve a table to its URN and (best-effort) schema.
