@@ -55,7 +55,8 @@ class AutoNormalizeLineageUrnsProcessorReport(WorkunitProcessorReport):
 
     num_dataset_urns_normalized: int = 0  # Upstream dataset URNs rewritten
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
-    num_refs_unchanged: int = 0  # Left as-is (already canonical or no match)
+    num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
+    num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
 
 
@@ -194,6 +195,21 @@ class AutoNormalizeLineageUrnsProcessor(
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 
         if platform not in self._catalog_by_platform:
+            # Normalize the configured platform: it may be a bare name ("snowflake") or
+            # a full URN ("urn:li:dataPlatform:snowflake"), both of which the resolver
+            # accepts. `platform` here is the normalized name parsed from the dataset
+            # URN, so compare like-for-like.
+            entries = [
+                entry
+                for entry in self._config
+                if DataPlatformUrn(entry.platform).platform_name == platform
+            ]
+            if not entries:
+                # Platform not configured: references to it are out of scope. Cache an
+                # empty catalog (resolvers empty -> _resolve_dataset returns no verdict)
+                # without logging a misleading "loading" line.
+                self._catalog_by_platform[platform] = _Catalog(set(), {}, [])
+                return self._catalog_by_platform[platform]
             # Emitted before the (potentially long, paginated) fetch so operators see a
             # signal during the stall on the first lineage work unit, not only after.
             logger.info(
@@ -202,13 +218,7 @@ class AutoNormalizeLineageUrnsProcessor(
             )
             urns: Set[str] = set()
             resolvers: List[SchemaResolver] = []
-            for entry in self._config:
-                # Normalize the configured platform: it may be a bare name
-                # ("snowflake") or a full URN ("urn:li:dataPlatform:snowflake"), both
-                # of which the resolver accepts. `platform` here is the normalized
-                # name parsed from the dataset URN, so compare like-for-like.
-                if DataPlatformUrn(entry.platform).platform_name != platform:
-                    continue
+            for entry in entries:
                 resolvers.append(
                     provide_schema_resolver(
                         graph=self._graph,
@@ -307,8 +317,10 @@ class AutoNormalizeLineageUrnsProcessor(
                 self._schema_for(resolved, catalog.resolvers),
                 LineageMatchTypeClass.NORMALIZED,
             )
-        # No match, or ambiguous collision -> leave unchanged.
-        return _Resolution(urn, None, None)
+        # On a configured platform but no unique match (none, or an ambiguous casing
+        # collision): leave the URN unchanged but flag it UNRESOLVED so potentially
+        # broken lineage is visible rather than indistinguishable from a clean edge.
+        return _Resolution(urn, None, LineageMatchTypeClass.UNRESOLVED)
 
     # --- aspect rewriters -------------------------------------------------------
 
@@ -318,15 +330,17 @@ class AutoNormalizeLineageUrnsProcessor(
             if dataset is None or guess_entity_type(dataset) != "dataset":
                 continue
             res = self._resolve_dataset(dataset)
-            if res.urn != dataset:
+            # Stamp the verdict (EXACT / NORMALIZED / UNRESOLVED) for any reference on
+            # a configured platform; out-of-scope refs get res.match_type=None and are
+            # left untouched.
+            if res.match_type is not None:
+                upstream.matchType = res.match_type
+            if res.match_type == LineageMatchTypeClass.NORMALIZED:
                 upstream.dataset = res.urn
-                upstream.matchType = res.match_type  # NORMALIZED
                 self.report.num_dataset_urns_normalized += 1
+            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+                self.report.num_refs_unresolved += 1
             else:
-                # Exact / no match: leave the upstream untouched. We deliberately do
-                # NOT stamp matchType=EXACT — a clean edge then stays byte-identical to
-                # the previous ingest so GMS dedupes it (no MCL churn). Absence of
-                # matchType means "exact / not reconciled".
                 self.report.num_refs_unchanged += 1
 
         for fine_grained in aspect.fineGrainedLineages or []:
@@ -346,11 +360,16 @@ class AutoNormalizeLineageUrnsProcessor(
             rewritten.append(new_urn)
             match_types.append(match_type)
         fine_grained.upstreams = rewritten
-        # Aggregate: stamp NORMALIZED only if at least one field was reconciled. We
-        # don't stamp EXACT (absence means exact / not reconciled), so an unchanged
-        # fine-grained lineage stays byte-identical and GMS dedupes it (no MCL churn).
+        # Aggregate a single verdict for the fine-grained lineage, surfacing the most
+        # actionable signal first: NORMALIZED (something was healed) > UNRESOLVED (a
+        # field couldn't be matched) > EXACT (all verified). Absent only when every
+        # field was out of scope.
         if LineageMatchTypeClass.NORMALIZED in match_types:
             fine_grained.matchType = LineageMatchTypeClass.NORMALIZED
+        elif LineageMatchTypeClass.UNRESOLVED in match_types:
+            fine_grained.matchType = LineageMatchTypeClass.UNRESOLVED
+        elif LineageMatchTypeClass.EXACT in match_types:
+            fine_grained.matchType = LineageMatchTypeClass.EXACT
 
     def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[str]]:
         parent = _parent_dataset_urn(field_urn)
@@ -369,7 +388,10 @@ class AutoNormalizeLineageUrnsProcessor(
             new_field_path = match_columns_to_schema(res.schema, [field_path])[0]
 
         if res.urn == parent and new_field_path == field_path:
-            self.report.num_refs_unchanged += 1
+            if res.match_type == LineageMatchTypeClass.UNRESOLVED:
+                self.report.num_refs_unresolved += 1
+            else:
+                self.report.num_refs_unchanged += 1
             return field_urn, res.match_type
         # A field (schemaField) URN is a single column-level reference, so any rewrite
         # is counted under the column bucket — whether the parent dataset casing, the

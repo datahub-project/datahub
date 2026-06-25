@@ -189,10 +189,12 @@ def test_leaves_unchanged_when_no_entity_matches():
 
 
 def test_unconfigured_platform_left_unchanged():
-    # Upstream is bigquery, but only snowflake is configured -> no resolution.
+    # Upstream is bigquery, but only snowflake is configured -> out of scope: the URN
+    # is untouched and no matchType verdict is stamped (absence == not processed).
     bq = make_dataset_urn("bigquery", "PROJ.DS.T")
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(bq))
     assert _stored_upstream(out) == bq
+    assert _upstream_aspect(out).upstreams[0].matchType is None
 
 
 # --- mixed-casing identifiers (e.g. `DataHub` vs `datahub`) ------------------------
@@ -207,8 +209,7 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     )
     assert _stored_upstream(out) == WH_LOWER
     upstream = _upstream_aspect(out).upstreams[0]
-    # Exact matches are left untouched (no matchType stamp) to avoid MCL churn.
-    assert upstream.matchType is None
+    assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
 def test_schemaless_exact_entity_is_not_rewritten():
@@ -221,18 +222,21 @@ def test_schemaless_exact_entity_is_not_rewritten():
         all_urns=[LOWER, UPPER],  # both exist in the warehouse; UPPER is schemaless
     )
     assert _stored_upstream(out) == UPPER
-    assert _upstream_aspect(out).upstreams[0].matchType is None
+    assert _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.EXACT
 
 
 def test_mixedcase_ambiguous_third_casing_left_unchanged():
     # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB` that matches
-    # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged.
+    # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged but
+    # flag UNRESOLVED.
     out = _run(
         {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
         _upstream_wu(WH_UPPER),
     )
     assert _stored_upstream(out) == WH_UPPER
-    assert _upstream_aspect(out).upstreams[0].matchType is None
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    )
 
 
 # --- match type discriminator -----------------------------------------------------
@@ -244,17 +248,20 @@ def test_match_type_normalized_when_rewritten():
     assert upstream.matchType == LineageMatchTypeClass.NORMALIZED
 
 
-def test_match_type_unset_when_exact_match():
-    # An exact match is left untouched: no matchType is stamped (absence == exact),
-    # so a clean edge is not re-emitted with changed content.
+def test_match_type_exact_when_exact_match():
     out = _run({UPPER: {"amount": "int"}}, _upstream_wu(UPPER))
     upstream = _upstream_aspect(out).upstreams[0]
-    assert upstream.matchType is None
+    assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
-def test_match_type_unset_when_no_match():
+def test_match_type_unresolved_when_no_match():
+    # Configured platform but the entity doesn't exist under any casing -> flag the
+    # reference UNRESOLVED (left unchanged) so potentially broken lineage is visible.
     out = _run({}, _upstream_wu(UPPER))
-    assert _upstream_aspect(out).upstreams[0].matchType is None
+    upstream = _upstream_aspect(out).upstreams[0]
+    assert _stored_upstream(out) == UPPER
+    assert upstream.matchType == LineageMatchTypeClass.UNRESOLVED
+    assert out.get_aspect_of_type(UpstreamLineageClass) is not None
 
 
 def test_fine_grained_match_type_normalized():
@@ -263,6 +270,13 @@ def test_fine_grained_match_type_normalized():
     )
     fg = _fine_grained(out)
     assert fg.matchType == LineageMatchTypeClass.NORMALIZED
+
+
+def test_fine_grained_match_type_unresolved_when_no_match():
+    # Configured platform, no matching entity -> field flagged UNRESOLVED in aggregate.
+    out = _run({}, _upstream_wu(UPPER, fine_grained_field="amount"))
+    fg = _fine_grained(out)
+    assert fg.matchType == LineageMatchTypeClass.UNRESOLVED
 
 
 # --- column-level (fine-grained) casing -------------------------------------------
