@@ -221,6 +221,8 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
+            # BigQuery precomputes query_hash on the fast path (below), so the
+            # aggregator's slow-path name normalization isn't needed here.
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -403,7 +405,9 @@ class BigQueryQueriesExtractor(Closeable):
 
             # Not using original BQ query hash as it's not always present
             query.query_hash = get_query_fingerprint(
-                query.query, self.identifiers.platform, fast=True
+                query.query,
+                self.identifiers.platform,
+                fast=True,
             )
 
             query_instances = queries_deduped.setdefault(query.query_hash, {})

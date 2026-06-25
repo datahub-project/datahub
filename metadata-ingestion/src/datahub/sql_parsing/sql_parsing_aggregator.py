@@ -5,11 +5,23 @@ import functools
 import json
 import logging
 import pathlib
+import re
 import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -418,6 +430,7 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        temp_table_name_patterns: Optional[Sequence["re.Pattern[str]"]] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -447,6 +460,16 @@ class SqlParsingAggregator(Closeable):
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self._is_temp_table = is_temp_table
         self._is_allowed_table = is_allowed_table
+
+        # Temp-aware fingerprinting: collapse per-run ephemeral tables so repeated
+        # ETL/sync queries map to one Query entity. These are RESOLVED-NAME regexes
+        # (a connector's `temporary_tables_pattern`) applied on the parse path —
+        # reusing the connector's existing temp detection rather than a parallel
+        # set of text heuristics. Stored as a tuple for the lru-cached
+        # sqlglot_lineage.
+        self._temp_table_name_patterns: Optional[Tuple["re.Pattern[str]", ...]] = (
+            tuple(temp_table_name_patterns) if temp_table_name_patterns else None
+        )
 
         self.format_queries = format_queries
         self.query_log = query_log
@@ -735,6 +758,7 @@ class SqlParsingAggregator(Closeable):
                 query_fingerprint = get_query_fingerprint(
                     known_query_lineage.query_text,
                     platform=self.platform.platform_name,
+                    temp_table_patterns=self._temp_table_name_patterns,
                 )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
@@ -968,6 +992,7 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint = get_query_fingerprint(
                 parsed.query_text,
                 platform=self.platform.platform_name,
+                temp_table_patterns=self._temp_table_name_patterns,
             )
 
         # Format the query.
@@ -1005,6 +1030,26 @@ class SqlParsingAggregator(Closeable):
             counts = self._query_usage_counts.for_mutation(query_fingerprint, {})
             counts[bucket] = counts.get(bucket, 0) + parsed.query_count
 
+        # Whether this query's OUTPUT is a temp table. Drives temp-table lineage
+        # resolution below (folding its lineage into downstream consumers). The
+        # query itself is still emitted as a Query entity: per-run ephemeral
+        # variants collapse to one via fingerprint normalization, and it carries
+        # only its real upstream subjects (the temp downstream is not emitted).
+        # out_table may be None when there is no downstream.
+        out_table = parsed.downstream
+        is_temp_output = out_table is not None and (
+            is_known_temp_table
+            or (
+                parsed.query_type.is_create()
+                and parsed.query_type_props.get("temporary")
+            )
+            or self.is_temp_table(out_table)
+            or (
+                require_out_table_schema
+                and not self._schema_resolver.has_urn(out_table)
+            )
+        )
+
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -1027,24 +1072,10 @@ class SqlParsingAggregator(Closeable):
 
         if not parsed.downstream:
             return
-        out_table = parsed.downstream
+        assert out_table is not None  # narrowed: downstream is set
 
         # Register the query's lineage.
-        # Check if output table is a temp table
-        is_temp = (
-            is_known_temp_table
-            or (
-                parsed.query_type.is_create()
-                and parsed.query_type_props.get("temporary")
-            )
-            or self.is_temp_table(out_table)
-            or (
-                require_out_table_schema
-                and not self._schema_resolver.has_urn(out_table)
-            )
-        )
-
-        if is_temp:
+        if is_temp_output:
             # Infer the schema of the output table and track it for later.
             if parsed.inferred_schema is not None:
                 self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
@@ -1249,6 +1280,7 @@ class SqlParsingAggregator(Closeable):
                 default_db=default_db,
                 default_schema=default_schema,
                 override_dialect=override_dialect,
+                temp_table_name_patterns=self._temp_table_name_patterns,
             )
         self.report.num_sql_parsed += 1
 
@@ -1632,9 +1664,10 @@ class SqlParsingAggregator(Closeable):
         for query_id in self._query_usage_counts:
             if query_id in queries_generated:
                 continue
+            query = self._query_map[query_id]
             queries_generated.add(query_id)
 
-            yield from self._gen_query(self._query_map[query_id])
+            yield from self._gen_query(query)
 
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)

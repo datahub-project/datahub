@@ -162,10 +162,13 @@ class QueryGeneralizationTestMode(Enum):
         ),
         # Test table name normalization.
         # These are only supported with fast normalization.
+        # The always-on DEFAULT_TEMP_TABLE_FINGERPRINT_RULES keep the ephemeral
+        # marker (here the "<entity>-staging-" prefix) and fix only the per-run
+        # variable token, so per-run variants collapse to one fingerprint.
         (
             "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-480fd5a7-58f4-4cc9-b6fb-87358788efe6",
             "bigquery",
-            "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-00000000-0000-0000-0000-000000000000",
+            "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-?",
             QueryGeneralizationTestMode.FAST,
         ),
         (
@@ -177,7 +180,7 @@ class QueryGeneralizationTestMode(Enum):
         (
             "SELECT COUNT(*) FROM ge_temp_aa91f1fd",
             "bigquery",
-            "SELECT COUNT(*) FROM ge_temp_abcdefgh",
+            "SELECT COUNT(*) FROM ge_temp_0",
             QueryGeneralizationTestMode.FAST,
         ),
     ],
@@ -201,6 +204,182 @@ def test_query_fingerprint():
     assert get_query_fingerprint(
         "select 1 + 1", platform="postgres"
     ) != get_query_fingerprint("select 2", platform="postgres")
+
+
+# Two ETL/sync runs of the same load differ only by the per-run ephemeral staging
+# table name (a UUID). With temp-aware normalization they must collapse to one
+# fingerprint (one Query entity), instead of minting a new entity every run.
+_STAGING_MERGE = (
+    'MERGE INTO "DB"."SCH"."{dest}" AS m '
+    'USING "DB"."FIVETRAN_X_STAGING"."T-STAGING-{uuid}" AS s '
+    "ON m.id = s.id WHEN MATCHED THEN UPDATE SET m.v = s.v"
+)
+
+
+def test_temp_aware_fingerprint_collapses_per_run_staging_uuid():
+    run1 = _STAGING_MERGE.format(
+        dest="DEST", uuid="e089db10-8bb1-4989-9859-ea3ec9387b50"
+    )
+    run2 = _STAGING_MERGE.format(
+        dest="DEST", uuid="aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+    )
+    fp1 = get_query_fingerprint(
+        run1,
+        "snowflake",
+        fast=True,
+    )
+    fp2 = get_query_fingerprint(
+        run2,
+        "snowflake",
+        fast=True,
+    )
+    assert fp1 == fp2
+
+
+def test_temp_aware_fingerprint_keeps_distinct_real_targets():
+    # Same staging-shaped source but DIFFERENT real destinations => different
+    # lineage => must stay distinct fingerprints.
+    uuid = "e089db10-8bb1-4989-9859-ea3ec9387b50"
+    fp_a = get_query_fingerprint(
+        _STAGING_MERGE.format(dest="DEST_A", uuid=uuid),
+        "snowflake",
+        fast=True,
+    )
+    fp_b = get_query_fingerprint(
+        _STAGING_MERGE.format(dest="DEST_B", uuid=uuid),
+        "snowflake",
+        fast=True,
+    )
+    assert fp_a != fp_b
+
+
+@pytest.mark.parametrize(
+    "name_a,name_b",
+    [
+        # Segment per-sync uuid (underscore form)
+        (
+            '"DB"."S"."segment_aaaaaaaa_1111_2222_3333_444444444444"',
+            '"DB"."S"."segment_bbbbbbbb_5555_6666_7777_888888888888"',
+        ),
+        # Great Expectations per-run temp tables
+        ('"DB"."S"."GE_TMP_0a1b2c3d"', '"DB"."S"."GE_TMP_9f8e7d6c"'),
+        # pysnowflake temp_<32hex>
+        (
+            '"DB"."S"."temp_0a1b2c3d4e5f60718293a4b5c6d7e8f90"',
+            '"DB"."S"."temp_ffffffff00000000ffffffff00000000"',
+        ),
+    ],
+)
+def test_temp_aware_fingerprint_collapses_per_run_etl_markers(name_a, name_b):
+    fp_a = get_query_fingerprint(
+        f"SELECT * FROM {name_a}",
+        "snowflake",
+        fast=True,
+    )
+    fp_b = get_query_fingerprint(
+        f"SELECT * FROM {name_b}",
+        "snowflake",
+        fast=True,
+    )
+    assert fp_a == fp_b
+
+
+def test_temp_aware_fingerprint_does_not_merge_distinct_dbt_models():
+    # dbt `<model>__dbt_tmp` names are STABLE per model (no per-run token), so they
+    # don't cause the explosion and must NOT be collapsed — that would merge the
+    # lineage of two different real models.
+    fp_orders = get_query_fingerprint(
+        'CREATE TABLE "DB"."S"."orders__dbt_tmp" AS SELECT 1',
+        "snowflake",
+        fast=True,
+    )
+    fp_customers = get_query_fingerprint(
+        'CREATE TABLE "DB"."S"."customers__dbt_tmp" AS SELECT 1',
+        "snowflake",
+        fast=True,
+    )
+    assert fp_orders != fp_customers
+
+
+def test_temp_table_patterns_default_none_is_unchanged():
+    # Regression guard: omitting the param (or None) must be byte-identical to today.
+    q = "SELECT a FROM t WHERE x = 1"
+    assert get_query_fingerprint(q, "snowflake", fast=True) == get_query_fingerprint(
+        q, "snowflake", fast=True, temp_table_patterns=None
+    )
+
+
+@pytest.mark.parametrize(
+    "platform,name_a,name_b",
+    [
+        # Snowflake / Redshift / Postgres style: double-quoted identifiers.
+        (
+            "snowflake",
+            '"DB"."S"."T-STAGING-aaaaaaaa-1111-2222-3333-444444444444"',
+            '"DB"."S"."T-STAGING-bbbbbbbb-5555-6666-7777-888888888888"',
+        ),
+        # BigQuery style: backtick-quoted identifiers.
+        (
+            "bigquery",
+            "`proj`.`ds`.`T-STAGING-aaaaaaaa-1111-2222-3333-444444444444`",
+            "`proj`.`ds`.`T-STAGING-bbbbbbbb-5555-6666-7777-888888888888`",
+        ),
+        # MSSQL style: bracket-quoted identifiers.
+        (
+            "mssql",
+            "[db].[s].[T-STAGING-aaaaaaaa-1111-2222-3333-444444444444]",
+            "[db].[s].[T-STAGING-bbbbbbbb-5555-6666-7777-888888888888]",
+        ),
+    ],
+)
+def test_temp_aware_fingerprint_is_dialect_quoting_aware(platform, name_a, name_b):
+    # The same per-run staging token must collapse regardless of the dialect's
+    # identifier quoting (double-quote / backtick / bracket).
+    fp_a = get_query_fingerprint(
+        f"SELECT * FROM {name_a}",
+        platform,
+        fast=True,
+    )
+    fp_b = get_query_fingerprint(
+        f"SELECT * FROM {name_b}",
+        platform,
+        fast=True,
+    )
+    assert fp_a == fp_b
+
+
+def test_slow_path_temp_normalization_by_table_name():
+    # On the slow/AST path, temp tables are normalized by matching the RESOLVED
+    # table name against the connector's temporary_tables_pattern (no raw-text
+    # quoting regexes). Two runs differing only by a per-run staging table
+    # collapse; a different real destination stays distinct.
+    name_patterns = [re.compile(r".*\.fivetran_.*_staging\..*", re.IGNORECASE)]
+
+    def merge(dest: str, uuid: str) -> str:
+        return (
+            f'MERGE INTO "DB"."SCH"."{dest}" AS m '
+            f'USING "DB"."FIVETRAN_X_STAGING"."T-STAGING-{uuid}" AS s '
+            "ON m.id = s.id WHEN MATCHED THEN UPDATE SET m.v = s.v"
+        )
+
+    fp1 = get_query_fingerprint(
+        merge("DEST", "e089db10-8bb1-4989-9859-ea3ec9387b50"),
+        "snowflake",
+        temp_table_patterns=name_patterns,
+    )
+    fp2 = get_query_fingerprint(
+        merge("DEST", "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"),
+        "snowflake",
+        temp_table_patterns=name_patterns,
+    )
+    assert fp1 == fp2
+
+    fp_other = get_query_fingerprint(
+        merge("OTHER", "e089db10-8bb1-4989-9859-ea3ec9387b50"),
+        "snowflake",
+        temp_table_patterns=name_patterns,
+    )
+    assert fp_other != fp1
 
 
 def test_redshift_query_fingerprint():

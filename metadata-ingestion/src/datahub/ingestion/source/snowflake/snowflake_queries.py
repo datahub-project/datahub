@@ -282,6 +282,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 is_temp_table=self.is_temp_table,
                 is_allowed_table=self.is_allowed_table,
                 format_queries=False,
+                # Reuse the connector's existing temp-table detection for
+                # fingerprint normalization on the aggregator's parse path
+                # (single source of truth).
+                temp_table_name_patterns=self.config._compiled_temporary_tables_pattern,
             )
         )
         self.report.sql_aggregator = self.aggregator.report
@@ -734,7 +738,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
                 ),
                 extra_info=extra_info,
             )
@@ -792,7 +798,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         default_db=res["default_db"],
                         default_schema=res["default_schema"],
                         query_hash=get_query_fingerprint(
-                            query_text, self.identifiers.platform, fast=True
+                            query_text,
+                            self.identifiers.platform,
+                            fast=True,
                         ),
                         extra_info=extra_info,
                     )
@@ -823,7 +831,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_schema=res["default_schema"],
                 usage_multiplier=res["query_count"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
                 ),
                 extra_info=extra_info,
             )
@@ -851,7 +861,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_schema=res["default_schema"],
                 usage_multiplier=res["query_count"],
                 query_hash=get_query_fingerprint(
-                    query_text, self.identifiers.platform, fast=True
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
                 ),
                 extra_info=extra_info,
             )
