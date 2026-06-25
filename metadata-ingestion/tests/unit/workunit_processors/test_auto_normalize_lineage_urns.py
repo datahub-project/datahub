@@ -502,6 +502,29 @@ def test_dashboard_info_dataset_refs_are_healed():
         patcher.stop()
 
 
+def test_dashboard_info_unresolved_ref_is_counted():
+    # A dashboard pointing at a dataset that doesn't exist on a configured platform
+    # must be counted as unresolved (not silently "unchanged"), even though a bare
+    # dataset URN has no matchType field to stamp.
+    processor, _provide, patcher = _make_processor({})  # nothing to match against
+    try:
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn("looker", "dashboard.z"),
+            aspect=DashboardInfoClass(
+                title="z",
+                description="",
+                lastModified=ChangeAuditStampsClass(),
+                datasets=[UPPER],
+            ),
+        ).as_workunit()
+        [out] = list(processor.process(iter([wu])))
+        assert _dashboard_aspect(out).datasets == [UPPER]  # left unchanged
+        assert processor.report.num_refs_unresolved == 1
+        assert processor.report.num_refs_unchanged == 0
+    finally:
+        patcher.stop()
+
+
 def test_dashboard_info_dataset_edges_are_healed():
     processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
