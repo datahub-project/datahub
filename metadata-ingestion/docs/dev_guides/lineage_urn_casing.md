@@ -156,9 +156,13 @@ exact lineage from casing-resolved lineage downstream.
   logged at `INFO` (`Loaded N '<platform>' dataset URNs ...`) so you can gauge it. Scope
   `upstream_platforms` to the platforms (and, where possible, `platform_instance` / `env`) the BI source
   actually references.
-- **Platform-instance casing must match exactly.** Only the dataset _name_ is reconciled
-  case-insensitively; the `platform_instance` segment is compared as-is. A reference whose platform-instance
-  casing differs from what is stored in DataHub is left unchanged.
+- **Platform-instance casing is normalized on the heal path.** The case-insensitive match lowercases the
+  entire dataset-name segment of the URN, which **includes** any `platform_instance` prefix. So a
+  reference like `MyInstance.db.schema.table` can heal to a stored `myinstance.db.schema.table` entity —
+  the instance casing is reconciled along with the table name. Only the exact-match check (which leaves a
+  reference untouched) compares the instance casing case-sensitively. As always, if two instance-case
+  variants genuinely co-exist as separate entities, that is an ambiguous collision and the reference is
+  left unchanged.
 
 ### Interaction with `convert_urns_to_lowercase`
 
