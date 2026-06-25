@@ -18,6 +18,7 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class OpenTelemetryBaseFactory {
   private static final AttributeKey<String> SERVICE_NAME = AttributeKey.stringKey("service.name");
+
+  // Shared bounded async BatchSpanProcessor settings for all factory span processors.
+  // BSP drops spans when the queue is full — it never blocks the producer (request) thread.
+  private static final int BSP_MAX_QUEUE_SIZE = 2048;
+  private static final int BSP_MAX_EXPORT_BATCH_SIZE = 512;
+  private static final Duration BSP_SCHEDULE_DELAY = Duration.ofSeconds(5);
+  private static final Duration BSP_EXPORT_TIMEOUT = Duration.ofSeconds(10);
+
+  /** Builds a bounded async {@link BatchSpanProcessor} with the shared settings above. */
+  private static BatchSpanProcessor bsp(SpanExporter exporter) {
+    return BatchSpanProcessor.builder(exporter)
+        .setMaxQueueSize(BSP_MAX_QUEUE_SIZE)
+        .setMaxExportBatchSize(BSP_MAX_EXPORT_BATCH_SIZE)
+        .setScheduleDelay(BSP_SCHEDULE_DELAY)
+        .setExporterTimeout(BSP_EXPORT_TIMEOUT)
+        .build();
+  }
 
   protected abstract String getApplicationComponent();
 
@@ -52,17 +70,11 @@ public abstract class OpenTelemetryBaseFactory {
     if (usageEventPublisher != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
-      // Bounded async BSP: drops spans when the queue is full — never blocks the producer thread.
-      return BatchSpanProcessor.builder(
-              new DataHubUsageSpanExporter(
-                  usageEventPublisher,
-                  configurationProvider.getKafka().getTopics().getDataHubUsage(),
-                  configurationProvider.getPlatformAnalytics().getUsageExport()))
-          .setMaxQueueSize(2048)
-          .setMaxExportBatchSize(512)
-          .setScheduleDelay(Duration.ofSeconds(5))
-          .setExporterTimeout(Duration.ofSeconds(10))
-          .build();
+      return bsp(
+          new DataHubUsageSpanExporter(
+              usageEventPublisher,
+              configurationProvider.getKafka().getTopics().getDataHubUsage(),
+              configurationProvider.getPlatformAnalytics().getUsageExport()));
     }
     return null;
   }
@@ -109,27 +121,19 @@ public abstract class OpenTelemetryBaseFactory {
                   // Full sampling is retained: no sampler is configured, so every span is recorded.
                   //
                   // EXCEPTION — ConditionalLogSpanExporter (LOG_SPAN_EXPORTER) stays on a
-                  // SimpleSpanProcessor (synchronous, same thread) ON PURPOSE. It decides whether
-                  // to
-                  // emit a trace log by reading a ThreadLocal (logTracingEnabled) set on the
-                  // request
-                  // thread via the X-Enable-Trace-Log header/cookie. A BatchSpanProcessor exports
-                  // on a
-                  // background thread where that ThreadLocal is never populated, so batching would
-                  // make
-                  // isLogTracingEnabled() always return false and silently disable the feature. The
-                  // synchronous cost is negligible: when the header is absent, export() is a single
-                  // ThreadLocal read + early return, so it does not block normal user operations.
+                  // SimpleSpanProcessor (synchronous, same thread) ON PURPOSE. It decides
+                  // whether to emit a trace log by reading a ThreadLocal (logTracingEnabled)
+                  // set on the request thread via the X-Enable-Trace-Log header/cookie. A
+                  // BatchSpanProcessor exports on a background thread where that ThreadLocal
+                  // is never populated, so batching would make isLogTracingEnabled() always
+                  // return false and silently disable the feature. The synchronous cost is
+                  // negligible: when the header is absent, export() is a single ThreadLocal
+                  // read + early return, so it does not block normal user operations.
                   sdkTracerProviderBuilder
                       .addSpanProcessor(
                           // MetricSpanExporter: forwards OTel spans to Dropwizard timers.
                           // Pure in-memory update — no ordering requirement, async-safe.
-                          BatchSpanProcessor.builder(new MetricSpanExporter(metricUtils))
-                              .setMaxQueueSize(2048)
-                              .setMaxExportBatchSize(512)
-                              .setScheduleDelay(Duration.ofSeconds(5))
-                              .setExporterTimeout(Duration.ofSeconds(10))
-                              .build())
+                          bsp(new MetricSpanExporter(metricUtils)))
                       .addSpanProcessor(
                           // ConditionalLogSpanExporter: MUST stay synchronous — see note above.
                           // No-op on the request thread unless X-Enable-Trace-Log is active.
