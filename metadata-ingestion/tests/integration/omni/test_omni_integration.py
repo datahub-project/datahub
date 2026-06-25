@@ -559,7 +559,7 @@ def test_model_yaml_failure_logs_warning_but_continues() -> None:
         "Model entity should still be emitted even when its YAML fetch fails"
     )
     warnings = source.report.warnings
-    assert any("model-yaml-fetch" in str(w) for w in warnings), (
+    assert any("Model yaml fetch error" in str(w) for w in warnings), (
         "A warning should be logged for the failed YAML fetch"
     )
 

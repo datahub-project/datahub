@@ -827,6 +827,26 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     # Top-level ingestion stages
     # ------------------------------------------------------------------
 
+    def _warn_unmapped_connections(
+        self, connections: Dict[str, Dict[str, object]]
+    ) -> None:
+        unmapped = [
+            conn_id
+            for conn_id, conn in connections.items()
+            if not (
+                self.config.connection_to_platform
+                and conn_id in self.config.connection_to_platform
+            )
+            and not (conn or {}).get("dialect")
+        ]
+
+        if unmapped:
+            self.report.warning(
+                title="Connections missing platform mapping",
+                message="Found connection(s) without platform mapping. Add them to recipe config: connection_to_platform. Omitting these connections will result in missing lineage and datasets.",
+                context=f"unmapped={unmapped}",
+            )
+
     def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
         connections: Dict[str, Dict[str, object]] = {}
         try:
@@ -836,15 +856,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 if c.get("id") is not None
             }
             self._connections_by_id = connections
+
             for connection_id, connection in connections.items():
                 if not connection_id:
                     continue
                 self.report.connections_scanned += 1
                 yield from self._ensure_connection_dataset(connection_id, connection)
+
+            self._warn_unmapped_connections(connections)
         except Exception as exc:
             self.report.warning(
-                "connections-fetch",
-                f"Failed to fetch Omni connections; proceeding with config overrides only: {exc}",
+                title="Connections fetch error",
+                message="Failed to fetch Omni connections; proceeding with config overrides only",
+                exc=exc,
             )
 
         for model in self.client.list_models(page_size=self.config.page_size):
@@ -949,8 +973,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 model_yaml_payload = self.client.get_model_yaml(model_id)
             except Exception as exc:
                 self.report.warning(
-                    "model-yaml-fetch",
-                    f"Failed to fetch model YAML for {model_id}: {exc}",
+                    title="Model yaml fetch error",
+                    message="Failed to fetch model YAML",
+                    context=f"model_id={model_id}",
+                    exc=exc,
                 )
                 continue
 
@@ -967,8 +993,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     topic = self.client.get_topic(model_id, topic_name)
                 except Exception as exc:
                     self.report.warning(
-                        "topic-fetch",
-                        f"Failed to fetch topic {topic_name} for model {model_id}; using YAML fallback: {exc}",
+                        title="Topic fetch error",
+                        message="Failed to fetch topic for model; using YAML fallback",
+                        context=f"topic_name={topic_name}, model_id={model_id}",
+                        exc=exc,
                     )
                     topic = self._topic_payload_from_yaml_specs(
                         topic_name, topic_specs, view_specs
@@ -1092,8 +1120,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
             else:
                 self.report.warning(
-                    "topic-fetch-from-dashboard",
-                    f"Failed to fetch topic {topic_name} for model {model_id}: {exc}",
+                    title="Topic fetch from dashboard error",
+                    message="Failed to fetch topic for model",
+                    context=f"topic_name={topic_name}, model_id={model_id}",
+                    exc=exc,
                 )
 
     def _collect_tile_data(
@@ -1168,8 +1198,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 chart_urls[qp_id] = f"{dashboard_url}?queryPresentationId={qp_id}"
         except Exception as exc:
             self.report.warning(
-                "dashboard-document-fetch",
-                f"Failed to fetch dashboard payload for {doc_id}: {exc}",
+                title="Dashboard document fetch error",
+                message="Failed to fetch dashboard payload for dashboard document",
+                context=f"doc_id={doc_id}",
+                exc=exc,
             )
 
     def _emit_inferred_view_datasets(
@@ -1358,8 +1390,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     )
             except Exception as exc:
                 self.report.warning(
-                    "document-queries-fetch",
-                    f"Failed to fetch queries for {doc_id}: {exc}",
+                    title="Document queries fetch error",
+                    message="Failed to fetch queries for document queries",
+                    context=f"doc_id={doc_id}",
+                    exc=exc,
                 )
 
             if model_id_from_dashboard and dashboard_topics:
