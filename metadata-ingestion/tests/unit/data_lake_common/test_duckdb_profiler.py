@@ -882,28 +882,28 @@ def test_extensionless_file_profiles_via_content_type(tmp_path):
     assert not report.warnings  # no "unsupported format" warning
 
 
-def _make_ragged_csv(tmp: str) -> str:
-    """A comma CSV with one row carrying an extra, unexpected value.
-
-    Real data-lake CSVs are frequently ragged; the profiler reads them with
-    ``strict_mode=False`` so a malformed row degrades gracefully instead of
-    aborting the whole table.
-    """
+def _make_csv(tmp: str) -> str:
     path = os.path.join(tmp, "data.csv")
     with open(path, "w") as f:
-        f.write("num,txt\n1,a\n2,b,UNEXPECTED\n3,c\n")
+        f.write("num,txt\n1,a\n2,b\n3,a\n")
     return path
 
 
-def test_ragged_csv_still_profiles_without_failure(tmp_path):
-    """A malformed/ragged CSV row must not abort profiling: a profile is still
-    produced and nothing is escalated to a failure. Guards the lenient
-    ``strict_mode=False`` CSV read path — a regression that made CSV reads strict
-    would surface here as a missing profile or a reported failure."""
-    csv = _make_ragged_csv(str(tmp_path))
-    report = DataLakeSourceReport()
+def test_profiles_local_csv(tmp_path):
+    """A comma CSV is read via the dedicated ``read_csv`` branch (no ``sep``,
+    distinct from the tab-delimited TSV path); profiling must detect both columns
+    and compute correct numeric stats. A regression that broke comma-CSV
+    delimiter detection would collapse to one column and surface here.
+
+    Note: the profiler reads CSV with ``strict_mode=False`` to tolerate messy
+    real-world files, but that leniency cannot be exercised at unit scale —
+    DuckDB's auto-sniffer reconciles a ragged row within its sample regardless of
+    strict_mode — so malformed-CSV tolerance is left to integration coverage."""
+    csv = _make_csv(str(tmp_path))
     profiler = DuckDBProfiler(
-        aws_config=None, report=report, profiling_config=_profiling_config()
+        aws_config=None,
+        report=DataLakeSourceReport(),
+        profiling_config=_profiling_config(),
     )
     urn = "urn:li:dataset:(urn:li:dataPlatform:s3,t,PROD)"
     profile = _extract_profile(
@@ -911,8 +911,10 @@ def test_ragged_csv_still_profiles_without_failure(tmp_path):
     )
     profiler.close()
     assert profile is not None
-    assert profile.rowCount == 3
-    assert not report.failures
+    assert profile.columnCount == 2  # would be 1 if comma detection regressed
+    fields = {f.fieldPath: f for f in profile.fieldProfiles}
+    assert int(fields["num"].min) == 1
+    assert int(fields["num"].max) == 3
 
 
 def test_unexpected_error_is_reported_as_warning_not_failure(tmp_path, monkeypatch):
