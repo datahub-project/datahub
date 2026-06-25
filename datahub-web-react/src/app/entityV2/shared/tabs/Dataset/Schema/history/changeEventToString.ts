@@ -24,10 +24,6 @@ import {
 import { downgradeV2FieldPath } from '@src/app/lineageV2/lineageUtils';
 import { ChangeEvent } from '@src/types.generated';
 
-/* eslint-disable i18next/no-literal-string -- injected as interpolation variable into a translated sentence; translators handle word order via the parent key */
-const DEFAULT_FIELD_PATH = 'A new field';
-/* eslint-enable i18next/no-literal-string */
-
 function emptyAssetDoc() {
     return i18next.t('entity.profile.schema:changeEventString.assetDocEmpty');
 }
@@ -47,7 +43,10 @@ function setFieldDoc(fieldPath: string | undefined | null, description: string |
 }
 
 function getRelationshipLabel(relationshipType: string): string {
-    return GLOSSARY_RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
+    return (
+        GLOSSARY_RELATIONSHIP_TYPE_LABELS[relationshipType] ||
+        i18next.t('entity.profile.schema:changeEventString.defaultRelationship')
+    );
 }
 
 // function that iterates through array of key, value objects and returns the value associated with the key or default value
@@ -120,7 +119,11 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
     const category = changeEvent.category as string;
 
     if (category === ChangeCategoryType.TechnicalSchema) {
-        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH, DEFAULT_FIELD_PATH);
+        const fieldPath = getParameter(
+            changeEvent.parameters,
+            PARAM_FIELD_PATH,
+            i18next.t('entity.profile.schema:changeEventString.defaultFieldPath'),
+        );
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = i18next.t('entity.profile.schema:changeEventString.addedColumn', {
                 column: downgradeV2FieldPath(fieldPath || ''),
@@ -155,7 +158,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === ChangeCategoryType.Tag) {
         const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
-        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const tagName = tagUrn ? extractNameFromUrn(tagUrn, nameMap) : i18next.t('common.labels:unknown');
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
 
         if (changeEvent.operation === ChangeOperationType.Add) {
@@ -175,7 +178,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === ChangeCategoryType.GlossaryTerm) {
         const termUrn = getParameter(changeEvent.parameters, PARAM_TERM_URN, '');
-        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const termName = termUrn ? extractNameFromUrn(termUrn, nameMap) : i18next.t('common.labels:unknown');
         const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
         const relationshipType = getParameter(changeEvent.parameters, PARAM_RELATIONSHIP_TYPE);
 
@@ -211,7 +214,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === ChangeCategoryType.Ownership) {
         const ownerUrn = getParameter(changeEvent.parameters, PARAM_OWNER_URN, '');
-        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn, nameMap) : i18next.t('common.labels:unknown');
         const rawOwnerType = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE);
         const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
         let ownerTypeSuffix = '';
@@ -234,7 +237,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === CATEGORY_DOMAIN) {
         const domainUrn = getParameter(changeEvent.parameters, PARAM_DOMAIN_URN, '');
-        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const domainName = domainUrn ? extractNameFromUrn(domainUrn, nameMap) : i18next.t('common.labels:unknown');
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = i18next.t('entity.profile.schema:changeEventString.addedToDomain', { domainName });
@@ -243,7 +246,9 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === CATEGORY_STRUCTURED_PROPERTY) {
         const propertyUrn = getParameter(changeEvent.parameters, PARAM_PROPERTY_URN, '');
-        const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const propertyName = propertyUrn
+            ? extractNameFromUrn(propertyUrn, nameMap)
+            : i18next.t('common.labels:unknown');
         const propertyValues = getParameter(changeEvent.parameters, PARAM_PROPERTY_VALUES);
         const valuesSuffix = propertyValues ? ` to ${formatPropertyValues(propertyValues)}` : '';
 
@@ -264,7 +269,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === CATEGORY_APPLICATION) {
         const appUrn = changeEvent.modifier || '';
-        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const appName = appUrn ? extractNameFromUrn(appUrn, nameMap) : i18next.t('common.labels:unknown');
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = i18next.t('entity.profile.schema:changeEventString.addedToApplication', { appName });
@@ -273,7 +278,7 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         }
     } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
         const assetUrn = changeEvent.modifier || '';
-        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : 'Unknown'; // eslint-disable-line i18next/no-literal-string -- URN fallback inserted as interpolation variable; word order handled by parent translation key
+        const assetName = assetUrn ? extractNameFromUrn(assetUrn, nameMap) : i18next.t('common.labels:unknown');
 
         if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = i18next.t('entity.profile.schema:changeEventString.addedAsset', { assetName });

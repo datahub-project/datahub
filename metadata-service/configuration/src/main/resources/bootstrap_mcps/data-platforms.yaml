@@ -309,6 +309,16 @@
     displayName: Matillion
     type: OTHERS
     logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:cube
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cube
+    displayName: Cube
+    type: OTHERS
+    logoUrl: "assets/platforms/cubelogo.png"
 - entityUrn: urn:li:dataPlatform:odcs
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1037,6 +1047,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:github
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: github
+    displayName: GitHub
+    type: OTHERS
+    logoUrl: "assets/platforms/githublogo.png"
 - entityUrn: urn:li:dataPlatform:fabric
   entityType: dataPlatform
   aspectName: dataPlatformInfo

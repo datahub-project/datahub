@@ -77,6 +77,7 @@
         "i18next-resources-to-backend": "^1",
         "js-cookie": "^2.2.1",
         "js-yaml": "^4.1.0",
+        "mammoth": "^1.12.0",
         "monaco-editor": "^0.28.1",
         "prosemirror-autocomplete": "^0.4.3",
         "query-string": "^6.13.8",
@@ -128,6 +129,7 @@
         "format-file": "prettier --write",
         "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
         "check-translations": "node scripts/check-translations.mjs",
+        "check-i18n-parity": "node scripts/check-i18n-parity.mjs",
         "type-watch": "NODE_OPTIONS=--max-old-space-size=8192 tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"
@@ -197,6 +199,7 @@
     },
     "resolutions": {
         "@ant-design/colors": "6.0.0",
+        "@xmldom/xmldom": "0.8.13",
         "refractor": "3.3.1",
         "json-schema": "0.4.0",
         "@babel/traverse": ">=7.23.2",

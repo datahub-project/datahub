@@ -139,6 +139,7 @@ telemetry:
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
   v1AlgorithmEnabled: "${SECRET_SERVICE_V1_ALGORITHM_ENABLED:true}" # Force only v2 algorithm, invalidates all existing v1 encrypted secrets
+  callerGuardMode: "${SECRET_SERVICE_CALLER_GUARD_MODE:ENFORCE}" # ENFORCE (default), AUDIT, or DISABLED (kill-switch)
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -426,7 +427,7 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
-  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:false}
+  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:true}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
@@ -838,6 +839,7 @@ kafka:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
+    reconcileExistingTopicConfigs: ${KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS:false}
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:

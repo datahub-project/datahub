@@ -224,6 +224,7 @@
     "sidebar.tabs.columnsLabel": "Columns",
     "sidebar.tabs.lineageLabel": "Lineage",
     "sidebar.tabs.propsAbbreviation": "Props",
+    "sidebar.tabs.structuredPropertiesTooltip": "Structured Properties",
     "sidebar.tabs.summaryLabel": "Summary",
     "sidebar.viewDefinition.languageLabel": "Language",
     "sidebar.viewDefinition.materializedFalse": "False",

@@ -69,7 +69,11 @@ export function GraphCard({
 
             {!loading && (
                 <GraphCardBody>
-                    <GraphContainer $height={graphHeight} $isEmpty={isEmpty}>
+                    <GraphContainer
+                        $height={graphHeight}
+                        $isEmpty={isEmpty}
+                        data-testid={isEmpty ? `${dataTestId}-chart-empty` : `${dataTestId}-chart`}
+                    >
                         {renderGraph()}
                     </GraphContainer>
                     {isEmpty &&

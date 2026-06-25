@@ -25,6 +25,7 @@
     "tags": "Tags",
     "title": "Title",
     "type": "Type",
+    "unknown": "Unknown",
     "usage": "Usage",
     "users": "Users",
     "value": "Value"

@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 from pydantic.fields import Field
@@ -518,7 +518,7 @@ virtual_connection_graphql_query = """
 """
 
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
-FIELD_TYPE_MAPPING = {
+FIELD_TYPE_MAPPING: Dict[str, Type] = {
     "INTEGER": NumberTypeClass,
     "REAL": NumberTypeClass,
     "STRING": StringTypeClass,

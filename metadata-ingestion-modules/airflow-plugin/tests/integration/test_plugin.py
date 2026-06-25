@@ -138,13 +138,78 @@ def _wait_for_dag_finish(
         raise NotReadyError("No DAG runs found")
 
     dag_run = dag_runs[0]
-    if dag_run["state"] == "failed":
-        if require_success:
-            raise ValueError("DAG failed")
-        # else - success is not required, so we're done.
+    state = dag_run["state"]
 
-    elif dag_run["state"] != "success":
-        raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
+    if state == "success":
+        return
+
+    if state == "failed":
+        if not require_success:
+            # success is not required, so we're done.
+            return
+
+        # On Airflow 3 the scheduler runs tasks out-of-process and learns their
+        # final state asynchronously via the execution API. Under load this opens
+        # a window where it finalizes the DagRun as "failed" even though every
+        # task instance actually succeeded (the harness's own task dump shows all
+        # tasks "success" while the DagRun is "failed"). Before trusting the
+        # DagRun-level "failed", inspect the individual task instances:
+        #   - if a task genuinely failed, it's a real failure -> raise;
+        #   - if any task is still settling (non-terminal), the run hasn't really
+        #     finished, so retry instead of declaring a spurious success;
+        #   - only when every task is terminal and none failed do we treat the
+        #     DagRun-level "failed" as the spurious scheduler race it is.
+        # Airflow 3.0 scheduler/execution-API state-mismatch (does not occur on
+        # Airflow 2's in-process execution):
+        # https://github.com/apache/airflow/issues/53797
+        # https://github.com/apache/airflow/discussions/52813
+        task_instances = _get_task_instances(
+            airflow_instance, dag_id, dag_run["dag_run_id"]
+        )
+        failed_tasks = [
+            ti["task_id"] for ti in task_instances if ti["state"] in _FAILED_TASK_STATES
+        ]
+        if failed_tasks:
+            raise ValueError(f"DAG failed; failed tasks: {failed_tasks}")
+
+        unfinished_tasks = [
+            ti["task_id"]
+            for ti in task_instances
+            if ti["state"] not in _TERMINAL_TASK_STATES
+        ]
+        if unfinished_tasks:
+            raise NotReadyError(
+                f"DAG reported state=failed but tasks have not settled yet: "
+                f"{unfinished_tasks}"
+            )
+
+        logger.warning(
+            "DAG %s reported state=failed but every task instance is terminal "
+            "and none failed; treating as success (spurious Airflow 3 "
+            "DagRun-state race).",
+            dag_id,
+        )
+        return
+
+    raise NotReadyError(f"DAG has not finished yet: {state}")
+
+
+# Airflow task-instance states. A task in a terminal state will not transition
+# again on its own; the rest are still settling and warrant a retry.
+_FAILED_TASK_STATES = frozenset({"failed", "upstream_failed"})
+_TERMINAL_TASK_STATES = frozenset(
+    {"success", "failed", "upstream_failed", "skipped", "removed"}
+)
+
+
+def _get_task_instances(
+    airflow_instance: AirflowInstance, dag_id: str, dag_run_id: str
+) -> list[dict[str, Any]]:
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+    )
+    return res.json()["task_instances"]
 
 
 @tenacity.retry(
@@ -639,45 +704,73 @@ def test_airflow_plugin(
 
     dag_id = test_case.dag_id
 
-    with _run_airflow(
-        tmp_path,
-        dags_folder=DAGS_FOLDER,
-        multiple_connections=test_case.multiple_connections,
-        platform_instance=test_case.platform_instance,
-        enable_datajob_lineage=test_case.enable_datajob_lineage,
-        cluster=test_case.cluster,
-    ) as airflow_instance:
-        print(f"Running DAG {dag_id}...")
-        _wait_for_dag_to_load(airflow_instance, dag_id)
-
-        trigger_cmd = [
-            str(airflow_instance.airflow_executable),
-            "dags",
-            "trigger",
-            "--logical-date",
-            "2023-09-27T21:34:38+00:00",
-            "-r",
-            "manual_run_test",
-            dag_id,
-        ]
-
-        subprocess.check_call(
-            trigger_cmd,
-            env=airflow_instance.env_vars,
-        )
-
-        print("Waiting for DAG to finish...")
-        _wait_for_dag_finish(
-            airflow_instance, dag_id, require_success=test_case.success
-        )
-
-        print("Sleeping for a few seconds to let the plugin finish...")
-        time.sleep(10)
-
+    # On Airflow 3.0 the scheduler learns task state out-of-process via the
+    # execution API, and under CI load it sometimes records a task instance that
+    # actually ran to completion as "failed" (apache/airflow#53797,
+    # apache/airflow#52813) -- the very same DAG then succeeds on an immediate
+    # re-run. For DAGs that are expected to succeed, run the whole thing in a
+    # fresh Airflow instance up to a few times so a spurious task-state failure
+    # does not fail the test; a genuine failure recurs on every attempt and is
+    # still surfaced. DAGs that are expected to fail are run exactly once.
+    max_attempts = 3 if test_case.success else 1
+    airflow_instance: Optional[AirflowInstance] = None
+    for attempt in range(1, max_attempts + 1):
         try:
-            _dump_dag_logs(airflow_instance, dag_id)
-        except Exception as e:
-            print(f"Failed to dump DAG logs: {e}")
+            with _run_airflow(
+                tmp_path,
+                dags_folder=DAGS_FOLDER,
+                multiple_connections=test_case.multiple_connections,
+                platform_instance=test_case.platform_instance,
+                enable_datajob_lineage=test_case.enable_datajob_lineage,
+                cluster=test_case.cluster,
+            ) as airflow_instance:
+                print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
+                _wait_for_dag_to_load(airflow_instance, dag_id)
+
+                # Clear any metadata emitted by a previous (failed) attempt so
+                # the golden comparison only sees this attempt's output.
+                airflow_instance.metadata_file.unlink(missing_ok=True)
+                airflow_instance.metadata_file2.unlink(missing_ok=True)
+
+                trigger_cmd = [
+                    str(airflow_instance.airflow_executable),
+                    "dags",
+                    "trigger",
+                    "--logical-date",
+                    "2023-09-27T21:34:38+00:00",
+                    "-r",
+                    "manual_run_test",
+                    dag_id,
+                ]
+
+                subprocess.check_call(
+                    trigger_cmd,
+                    env=airflow_instance.env_vars,
+                )
+
+                print("Waiting for DAG to finish...")
+                _wait_for_dag_finish(
+                    airflow_instance, dag_id, require_success=test_case.success
+                )
+
+                print("Sleeping for a few seconds to let the plugin finish...")
+                time.sleep(10)
+
+                try:
+                    _dump_dag_logs(airflow_instance, dag_id)
+                except Exception as e:
+                    print(f"Failed to dump DAG logs: {e}")
+            break
+        except (ValueError, NotReadyError) as e:
+            if attempt >= max_attempts:
+                raise
+            print(
+                f"DAG {dag_id} attempt {attempt}/{max_attempts} failed ({e}); "
+                "retrying with a fresh Airflow instance "
+                "(suspected Airflow 3 task-state race)."
+            )
+
+    assert airflow_instance is not None
 
     if dag_id == DAG_TO_SKIP_INGESTION:
         # Verify that no MCPs were generated.

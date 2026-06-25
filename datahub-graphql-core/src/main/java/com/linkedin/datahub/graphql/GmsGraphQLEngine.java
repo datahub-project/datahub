@@ -445,6 +445,7 @@ public class GmsGraphQLEngine {
   private ConnectionService connectionService;
   private AssertionService assertionService;
   private final DocumentService documentService;
+  private final com.linkedin.metadata.service.docimport.DocumentImportService documentImportService;
   private final EntityVersioningService entityVersioningService;
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
@@ -595,6 +596,7 @@ public class GmsGraphQLEngine {
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
     this.documentService = args.documentService;
+    this.documentImportService = args.documentImportService;
     this.entityVersioningService = args.entityVersioningService;
 
     this.businessAttributeService = args.businessAttributeService;
@@ -3140,7 +3142,8 @@ public class GmsGraphQLEngine {
             this.entityService,
             this.graphClient,
             entityRegistry,
-            this.timelineService)
+            this.timelineService,
+            this.documentImportService)
         .configureResolvers(builder);
   }
 
