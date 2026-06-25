@@ -189,10 +189,12 @@ class DataHubDocumentsSourceConfig(
     )
 
     max_documents: int = Field(
-        default=10000,
+        default=100000,
         ge=-1,
         description="Maximum number of documents to process per ingestion run. "
-        "The job will stop and fail with an error once this limit is reached. "
+        "The job will stop and fail with an error once this limit is reached. This is a "
+        "runaway-cost guardrail; it counts documents actually indexed, so incremental runs "
+        "rarely approach it and it mainly bounds initial bootstraps/backfills. "
         "Set to 0 or -1 to disable the limit.",
     )
 
