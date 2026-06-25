@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 import datahub.emitter.mce_builder as builder
@@ -303,6 +304,7 @@ class MicroStrategyMapper:
             "datasetCount": str(len(dashboard.datasets)),
             "visualizationCount": str(len(dashboard.visualizations)),
         }
+        custom_properties.update(self._dashboard_object_properties(dashboard_object))
         custom_properties.update(self._dashboard_dependency_properties(dashboard))
         unresolved = self.lineage.unresolved_visualization_datasets(dashboard)
         if unresolved:
@@ -350,7 +352,7 @@ class MicroStrategyMapper:
                 ]
                 if dashboard_dataset_edges
                 else None,
-                lastModified=ChangeAuditStampsClass(),
+                lastModified=self._dashboard_audit_stamps(dashboard_object),
                 dashboardUrl=f"{self.config.base_url}/app/{project_id}/{dashboard.id}",
                 customProperties=custom_properties,
             ),
@@ -521,6 +523,8 @@ class MicroStrategyMapper:
                 "microstrategyVisualizationKey": visualization.key,
                 "microstrategyVisualizationType": visualization.type,
                 "microstrategyDatasetIds": ",".join(visualization.datasets),
+                "microstrategyInputDatasetCount": str(len(visualization.datasets)),
+                "microstrategyObjectIdCount": str(len(visualization.object_ids)),
             }.items()
             if value
         }
@@ -536,6 +540,7 @@ class MicroStrategyMapper:
             "microstrategyDashboardId": dashboard.id,
             "microstrategyDatasetId": dataset.id,
         }
+        properties.update(_dataset_semantic_count_properties(dataset))
         if dataset.warehouse_upstream_urns:
             upstream_platforms = sorted(
                 {
@@ -655,6 +660,30 @@ class MicroStrategyMapper:
             ),
         }
 
+    @staticmethod
+    def _dashboard_object_properties(dashboard_object: MSTRObject) -> Dict[str, str]:
+        return {
+            key: value
+            for key, value in {
+                "microstrategyObjectType": dashboard_object.type,
+                "microstrategyObjectSubtype": dashboard_object.subtype,
+                "microstrategyOwner": dashboard_object.owner,
+                "microstrategyDateCreated": dashboard_object.date_created,
+                "microstrategyDateModified": dashboard_object.date_modified,
+            }.items()
+            if value
+        }
+
+    @staticmethod
+    def _dashboard_audit_stamps(
+        dashboard_object: MSTRObject,
+    ) -> ChangeAuditStampsClass:
+        owner = dashboard_object.owner or "datahub"
+        return ChangeAuditStampsClass(
+            created=_audit_stamp(dashboard_object.date_created, owner),
+            lastModified=_audit_stamp(dashboard_object.date_modified, owner),
+        )
+
 
 def _coerce_list(value: object) -> List[object]:
     if isinstance(value, list):
@@ -723,9 +752,69 @@ def _metric_expression_json_props(metric: Dict[str, object]) -> Dict[str, str]:
     return {key: str(value) for key, value in values.items() if value}
 
 
+def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]:
+    available_objects = dataset.available_objects or {}
+    metrics = [
+        item
+        for item in _coerce_list(available_objects.get("metrics"))
+        if isinstance(item, dict)
+    ]
+    attributes = [
+        item
+        for item in _coerce_list(available_objects.get("attributes"))
+        if isinstance(item, dict)
+    ]
+    attribute_form_count = 0
+    attribute_schema_field_count = 0
+    for attribute in attributes:
+        forms = [
+            item
+            for item in _coerce_list(attribute.get("forms"))
+            if isinstance(item, dict)
+        ]
+        attribute_form_count += len(forms)
+        attribute_schema_field_count += len(forms) if forms else 1
+
+    return {
+        "microstrategyMetricCount": str(len(metrics)),
+        "microstrategyAttributeCount": str(len(attributes)),
+        "microstrategyAttributeFormCount": str(attribute_form_count),
+        "microstrategySchemaFieldCount": str(
+            len(metrics) + attribute_schema_field_count
+        ),
+        "microstrategyObjectIdCount": str(len(dataset.object_ids)),
+    }
+
+
 def _platform_from_dataset_urn(dataset_urn: str) -> Optional[str]:
     match = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),", dataset_urn)
     return match.group(1) if match else None
+
+
+def _audit_stamp(date_value: Optional[str], owner: str) -> Optional[AuditStampClass]:
+    timestamp = _parse_microstrategy_time(date_value)
+    if timestamp is None:
+        return None
+    return AuditStampClass(time=timestamp, actor=builder.make_user_urn(owner))
+
+
+def _parse_microstrategy_time(date_value: Optional[str]) -> Optional[int]:
+    if not date_value:
+        return None
+    normalized = date_value.strip()
+    if normalized.endswith("Z"):
+        normalized = f"{normalized[:-1]}+0000"
+    for format_string in (
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S%z",
+    ):
+        try:
+            parsed = datetime.strptime(normalized, format_string)
+            return int(parsed.timestamp() * 1000)
+        except ValueError:
+            continue
+    return None
 
 
 def _is_temporal(item: Dict[str, object]) -> bool:

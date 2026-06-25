@@ -508,18 +508,23 @@ def _extract_dataset_ids(value: Any) -> List[str]:
 def _extract_object_ids(value: Any) -> List[str]:
     object_ids: List[str] = []
 
-    def visit(node: Any) -> None:
+    def visit(node: Any, parent_key: Optional[str] = None) -> None:
         if isinstance(node, dict):
             node_type = str(node.get("type") or node.get("objectType") or "").lower()
+            parent = (parent_key or "").lower()
             if node_type in {"metric", "attribute", "templateMetrics".lower()}:
                 object_id = _first_str(node, ["id", "objectId"])
                 if object_id and object_id != "00000000000000000000000000000000":
                     object_ids.append(object_id)
-            for child in node.values():
-                visit(child)
+            elif parent in {"metric", "metrics", "attribute", "attributes"}:
+                object_id = _first_str(node, ["id", "objectId"])
+                if object_id and object_id != "00000000000000000000000000000000":
+                    object_ids.append(object_id)
+            for child_key, child in node.items():
+                visit(child, str(child_key))
         elif isinstance(node, list):
             for child in node:
-                visit(child)
+                visit(child, parent_key)
 
     visit(value)
     return sorted(set(object_ids))

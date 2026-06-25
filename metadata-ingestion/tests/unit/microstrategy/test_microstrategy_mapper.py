@@ -151,6 +151,8 @@ def test_chart_inputs_are_dataset_lineage() -> None:
     )
 
     assert chart_info.inputs == [expected_dataset_urn]
+    assert chart_info.customProperties["microstrategyInputDatasetCount"] == "1"
+    assert chart_info.customProperties["microstrategyObjectIdCount"] == "0"
 
 
 def test_chart_inputs_are_inferred_from_runtime_visualization_objects() -> None:
@@ -359,6 +361,74 @@ def test_dataset_properties_include_source_warehouse_when_present() -> None:
     )
     assert dataset_properties.customProperties["microstrategySourceType"] == "snow_flake"
     assert dataset_properties.customProperties["microstrategyDbmsName"] == "Snowflake"
+
+
+def test_dashboard_info_includes_lifecycle_metadata() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    dashboard_object = MSTRObject.model_validate(
+        {
+            "id": dashboard.id,
+            "name": dashboard.name,
+            "type": "55",
+            "subtype": "14081",
+            "owner": {"username": "metadata_reader"},
+            "dateCreated": "2026-06-01T10:00:00.000+0000",
+            "dateModified": "2026-06-02T11:30:00.000+0000",
+        }
+    )
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            dashboard_object,
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.customProperties["microstrategyObjectType"] == "55"
+    assert dashboard_info.customProperties["microstrategyObjectSubtype"] == "14081"
+    assert dashboard_info.customProperties["microstrategyOwner"] == "metadata_reader"
+    assert (
+        dashboard_info.customProperties["microstrategyDateCreated"]
+        == "2026-06-01T10:00:00.000+0000"
+    )
+    assert dashboard_info.lastModified is not None
+    assert dashboard_info.lastModified.created is not None
+    assert (
+        dashboard_info.lastModified.created.actor
+        == "urn:li:corpuser:metadata_reader"
+    )
+    assert dashboard_info.lastModified.lastModified is not None
+    assert (
+        dashboard_info.lastModified.lastModified.time
+        > dashboard_info.lastModified.created.time
+    )
+
+
+def test_dataset_properties_include_semantic_counts() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+
+    dataset_properties = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        ),
+        DatasetPropertiesClass,
+    )
+
+    assert dataset_properties.customProperties["microstrategyMetricCount"] == "1"
+    assert dataset_properties.customProperties["microstrategyAttributeCount"] == "1"
+    assert (
+        dataset_properties.customProperties["microstrategyAttributeFormCount"] == "1"
+    )
+    assert dataset_properties.customProperties["microstrategySchemaFieldCount"] == "2"
+    assert dataset_properties.customProperties["microstrategyObjectIdCount"] == "2"
 
 
 def test_dataset_workunits_include_warehouse_upstream_lineage() -> None:
