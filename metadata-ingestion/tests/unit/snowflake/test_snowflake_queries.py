@@ -1,5 +1,7 @@
 import contextlib
+import itertools
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
@@ -23,7 +25,12 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
 )
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    _PLAIN_LITERAL_PATTERN_RE,
+    SnowflakeQuery,
+    _compose_deny,
+    _make_composable,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
@@ -2539,61 +2546,61 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB'",
+                "UPPER(col) RLIKE '(PROD_DB)'",
                 id="single_allow_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB", "ANALYTICS_DB"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_DB' OR UPPER(col) RLIKE 'ANALYTICS_DB')",
+                "UPPER(col) RLIKE '(PROD_DB)|(ANALYTICS_DB)'",
                 id="multiple_allow_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB"], ignoreCase=False),
                 "col",
-                "col RLIKE 'Prod_DB'",
+                "col RLIKE '(Prod_DB)'",
                 id="case_sensitive_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*", "DEV_.*"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_.*' OR UPPER(col) RLIKE 'DEV_.*')",
+                "UPPER(col) RLIKE '(PROD_.*)|(DEV_.*)'",
                 id="regex_allow_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="single_deny_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP", ".*_BACKUP"]),
                 "col",
-                "(UPPER(col) NOT RLIKE '.*_TEMP' AND UPPER(col) NOT RLIKE '.*_BACKUP')",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'",
                 id="multiple_deny_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) RLIKE '(PROD_DB)' AND UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_combined",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_.*' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                "UPPER(col) RLIKE '(PROD_.*)' AND UPPER(col) NOT RLIKE '(PROD_TEMP)|(.*_ARCHIVE)'",
                 id="single_allow_multiple_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*", "PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_in_list_with_deny",
             ),
             pytest.param(
@@ -2605,19 +2612,19 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["DB'NAME"]),
                 "col",
-                "UPPER(col) RLIKE 'DB''NAME'",
+                "UPPER(col) RLIKE '(DB''NAME)'",
                 id="sql_injection_protection_single_quote",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "database_name",
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(PROD_DB)'",
                 id="database_column_expression",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.TABLE"]),
                 "CONCAT(table_catalog, '.', table_schema, '.', table_name)",
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.TABLE'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.TABLE)'",
                 id="fqn_column_expression",
             ),
         ],
@@ -2646,19 +2653,19 @@ class TestBuildDatabaseFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(PROD_DB)'",
                 id="single_database",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
-                "UPPER(database_name) RLIKE 'PROD_.*' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(database_name) RLIKE '(PROD_.*)' AND UPPER(database_name) NOT RLIKE '(.*_TEMP)'",
                 id="pattern_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(
                     deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
                 ),
-                "(UPPER(database_name) NOT RLIKE '^UTIL_DB$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE_SAMPLE_DATA$')",
+                "UPPER(database_name) NOT RLIKE '(^UTIL_DB$)|(^SNOWFLAKE$)|(^SNOWFLAKE_SAMPLE_DATA$)'",
                 id="default_snowflake_deny_pattern",
             ),
         ],
@@ -2713,10 +2720,8 @@ class TestGetDatabasesQueryWithFilter:
         assert len(parsed) == 1
 
         # Verify filter components are present
-        assert "RLIKE 'PROD_.*'" in query
-        assert "RLIKE 'DEV_.*'" in query
-        assert "NOT RLIKE '.*_TEMP'" in query
-        assert "NOT RLIKE '.*_BACKUP'" in query
+        assert "RLIKE '(PROD_.*)|(DEV_.*)'" in query
+        assert "NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'" in query
 
 
 class TestBuildSchemaFilter:
@@ -2743,70 +2748,70 @@ class TestBuildSchemaFilter:
                 AllowDenyPattern(allow=["PUBLIC"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC'",
+                "UPPER(schema_name) RLIKE '(PUBLIC)'",
                 id="fqn_false_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC", "ANALYTICS"]),
                 "PROD_DB",
                 False,
-                "(UPPER(schema_name) RLIKE 'PUBLIC' OR UPPER(schema_name) RLIKE 'ANALYTICS')",
+                "UPPER(schema_name) RLIKE '(PUBLIC)|(ANALYTICS)'",
                 id="fqn_false_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*_STAGING"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE '.*_STAGING'",
+                "UPPER(schema_name) RLIKE '(.*_STAGING)'",
                 id="fqn_false_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB.PUBLIC)'",
                 id="fqn_true_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC", "PROD_DB.ANALYTICS"]),
                 "PROD_DB",
                 True,
-                "(UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC' OR UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.ANALYTICS')",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB.PUBLIC)|(PROD_DB.ANALYTICS)'",
                 id="fqn_true_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\\\..*_STAGING'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB\\\\..*_STAGING)'",
                 id="fqn_true_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Public"], ignoreCase=False),
                 "PROD_DB",
                 False,
-                "schema_name RLIKE 'Public'",
+                "schema_name RLIKE '(Public)'",
                 id="case_sensitive_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public"], ignoreCase=False),
                 "Prod_DB",
                 True,
-                "CONCAT('Prod_DB', '.', schema_name) RLIKE 'Prod_DB.Public'",
+                "CONCAT('Prod_DB', '.', schema_name) RLIKE '(Prod_DB.Public)'",
                 id="case_sensitive_fqn_true",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(schema_name) RLIKE '(PUBLIC)' AND UPPER(schema_name) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["TEST'DB.PUBLIC"]),
                 "TEST'DB",
                 True,
-                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE 'TEST''DB.PUBLIC'",
+                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE '(TEST''DB.PUBLIC)'",
                 id="sql_injection_protection_db_name",
             ),
         ],
@@ -2865,8 +2870,7 @@ class TestSchemasForDatabaseQueryWithFilter:
 
         # Verify FQN filter components are present
         assert "CONCAT" in query
-        assert "RLIKE 'TEST_DB.PUBLIC'" in query
-        assert "RLIKE 'TEST_DB.ANALYTICS'" in query
+        assert "RLIKE '(TEST_DB.PUBLIC)|(TEST_DB.ANALYTICS)'" in query
 
 
 class TestBuildTableFilter:
@@ -2887,31 +2891,31 @@ class TestBuildTableFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.CUSTOMERS)'",
                 id="single_table_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.PUBLIC.CUSTOMERS", "PROD_DB.PUBLIC.ORDERS"]
                 ),
-                "(UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS' OR UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.ORDERS')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.CUSTOMERS)|(PROD_DB.PUBLIC.ORDERS)'",
                 id="multiple_tables_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*)'",
                 id="regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_TEMP$)|(.*_BACKUP$)'",
                 id="allow_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public.Table"], ignoreCase=False),
-                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE 'Prod_DB.Public.Table'",
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE '(Prod_DB.Public.Table)'",
                 id="case_sensitive",
             ),
         ],
@@ -2940,19 +2944,19 @@ class TestBuildViewFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING.V_CUSTOMERS)'",
                 id="single_view_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING.V_.*)'",
                 id="view_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING..*' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_DEPRECATED$)'",
                 id="view_allow_with_deny",
             ),
         ],
@@ -3069,3 +3073,569 @@ class TestViewsForDatabaseQueryWithFilter:
         assert "WHERE" in query.upper()
         assert "RLIKE" in query.upper()
         assert "CONCAT" in query
+
+
+# ===========================================================================
+# Query-optimization unit tests (merged from test_snowflake_query_optimizations.py):
+#   _build_pattern_filter composition/security, _make_composable fast path
+# ===========================================================================
+
+FQN_EXPR = "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name))"
+
+
+# ---------------------------------------------------------------------------
+# Security and correctness: SQL escaping and RLIKE quoting
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPatternFilterSecurity:
+    """Verify that all allow patterns go through RLIKE and produce correctly
+    quoted SQL regardless of pattern content — no injection path exists."""
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "DB.SCHEMA.TABLE'; DROP TABLE t; --$",
+            "DB.SCHEMA.TABLE\\$",
+            "DB.SCHEMA.TABLE;$",
+            "DB.SCHEMA.TABLE NAME$",
+            "DB.SCHEMA.TABLE*$",
+            "DB.SCHEMA.TABLE+$",
+            "DB.SCHEMA.TABLE?$",
+            "(DB.SCHEMA.TABLE)$",
+            "DB.SCHEMA.TABLE|OTHER$",
+            "DB.SCHEMA.[TABLE]$",
+            "^DB.SCHEMA.TABLE$",
+            "DB.SCHEMA.TABLE{2}$",
+        ],
+    )
+    def test_all_patterns_use_rlike(self, pattern):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=[pattern]), FQN_EXPR
+        )
+        assert "RLIKE" in result, (
+            f"Expected RLIKE for pattern {pattern!r}, got: {result}"
+        )
+
+    def test_single_quote_in_rlike_pattern_is_doubled(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.O'BRIEN_TABLE$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "O''BRIEN" in result
+        stripped = result.replace("''", "")
+        assert "'" not in stripped.split("RLIKE")[1].split("'")[1]
+
+    def test_backslash_in_rlike_pattern_is_doubled_for_sql_and_regex(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\d$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "\\\\" in result
+
+    def test_exact_literal_dollar_anchor_kept_in_rlike(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.TABLE$" in result
+
+    def test_ignore_case_false_preserves_case_in_rlike(self):
+        pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=False)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "Db.Schema.MyTable" in result
+
+    def test_ignore_case_true_uppercases_rlike_pattern(self):
+        pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=True)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.MYTABLE" in result
+        assert "Db" not in result
+
+    def test_empty_allow_list_returns_false(self):
+        pattern = AllowDenyPattern(allow=[])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert result == "FALSE"
+
+    def test_none_pattern_returns_empty_string(self):
+        result = SnowflakeQuery._build_pattern_filter(None, FQN_EXPR)
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# Composition: wildcard patterns → single RLIKE alternation
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPatternFilterComposition:
+    """Wildcard/regex patterns that can be safely wrapped in (...) should
+    produce a single RLIKE alternation rather than an OR-chain."""
+
+    def test_wildcard_patterns_compose_to_single_rlike(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.*_PROD$", "DB.SCHEMA.TABLE_\\d+$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(" in result
+
+    def test_single_wildcard_composes(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.*$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+
+    def test_unbalanced_open_paren_skipped_with_warning(self):
+        # "TABLE(unclosed" has an unbalanced open paren — _make_composable returns None
+        pattern = AllowDenyPattern(
+            allow=["DB.SCHEMA.TABLE(unclosed", "DB.SCHEMA.OTHER.*$"]
+        )
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # The bad pattern is skipped; the good one is still composed
+        assert "(DB.SCHEMA.OTHER" in result
+        assert "unclosed" not in result
+
+    def test_all_unbalanced_skipped_fails_closed(self):
+        pattern = AllowDenyPattern(allow=["TABLE(bad1", "TABLE(bad2"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # All allow patterns dropped → must fail CLOSED (match nothing), not emit
+        # an empty filter that would allow everything.
+        assert result == "FALSE"
+
+    def test_bare_open_paren_at_end_is_noncomposable(self):
+        # "TABLE(" — the inner ( is closed by our wrapper's ), leaving (... unclosed
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE("])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # Sole allow pattern dropped → fail closed.
+        assert result == "FALSE"
+
+    def test_backslash_escaped_paren_is_composable(self):
+        # \) in regex means literal ')' (escaped), so (TABLE\)) is a valid closed group
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\)$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        # Backslash doubled in SQL literal; the regex seen by Snowflake is TABLE\)
+        assert "\\\\" in result
+
+    def test_composable_backslash_pattern_doubles_in_sql(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_\\d+$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        # One backslash in the regex must become two in the SQL string literal
+        assert "\\\\" in result
+
+    def test_composable_pattern_with_ignorecase(self):
+        pattern = AllowDenyPattern(allow=["db.schema.*_prod$"], ignoreCase=True)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.*_PROD" in result
+
+    def test_exact_literal_patterns_compose_to_single_rlike(self):
+        # Exact-literal patterns (no metacharacters beyond '$') go through the
+        # fast path in _make_composable and emerge as a single RLIKE alternation.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_A$", "DB.SCHEMA.TABLE_B$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(DB.SCHEMA.TABLE_A$)" in result
+        assert "(DB.SCHEMA.TABLE_B$)" in result
+
+    def test_exact_literal_with_deny_still_composes(self):
+        # Adding a deny pattern no longer gates the IN-clause path (removed);
+        # allow patterns still compose into a single RLIKE alternation.
+        pattern = AllowDenyPattern(
+            allow=["DB.SCHEMA.TABLE_A$"], deny=["DB.SCHEMA.SECRET.*"]
+        )
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+
+    def test_large_exact_literal_list_is_single_rlike(self):
+        names = [f"DB.SCHEMA.TABLE_{i}$" for i in range(500)]
+        pattern = AllowDenyPattern(allow=names)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(DB.SCHEMA.TABLE_0$)" in result
+        assert "(DB.SCHEMA.TABLE_499$)" in result
+
+    def test_dollar_sign_in_name_is_composable(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$1$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "(DB.SCHEMA.TABLE$1$)" in result
+
+
+# ---------------------------------------------------------------------------
+# Adversarial: SQL injection, escape abuse, and regex breakout attempts
+# ---------------------------------------------------------------------------
+
+
+def _rlike_string_properly_escaped(sql: str) -> bool:
+    """After collapsing '' (escaped SQL quotes), the RLIKE argument should have
+    exactly one opening and one closing quote with no bare quote inside."""
+    rlike_idx = sql.find("RLIKE ")
+    if rlike_idx == -1:
+        return True  # no RLIKE — trivially safe
+    rlike_part = sql[rlike_idx + 6 :]
+    collapsed = rlike_part.replace("''", "\x00")  # neutralise escaped quotes
+    return collapsed.count("'") == 2  # exactly the opening and closing delimiters
+
+
+class TestBuildPatternFilterAdversarial:
+    """
+    Adversarial inputs designed to break SQL quoting, inject statements,
+    or exploit double/triple backslash escaping.
+
+    The invariant: regardless of pattern content, the SQL output must either
+    (a) contain no RLIKE (pattern was skipped), or (b) have a properly delimited
+    RLIKE '...' string with no unescaped quotes that could terminate the literal.
+    """
+
+    @pytest.mark.parametrize(
+        "attack",
+        [
+            # ---- SQL injection via single quote ----
+            "DB.SCHEMA.TABLE'; DROP TABLE t; --",
+            "DB.SCHEMA.TABLE' OR '1'='1",
+            "DB.SCHEMA.TABLE'; SELECT * FROM sensitive; --$",
+            "DB.SCHEMA.TABLE' UNION SELECT password FROM users --",
+            # ---- Backslash + quote escape abuse ----
+            # If escaping is naive (one pass), \' could become \\' → unescaped quote
+            "DB.SCHEMA.TABLE\\'",
+            "DB.SCHEMA.TABLE\\\\'",
+            "DB.SCHEMA.TABLE\\\\\\'",
+            # ---- Semicolons ----
+            # Semicolons terminate SQL statements; must stay inside the literal
+            "DB.SCHEMA.TABLE; DELETE FROM metadata; --$",
+            "DB.SCHEMA.TABLE$; exec xp_cmdshell('bad'); --",
+            # ---- Snowflake comment injection ----
+            "DB.SCHEMA.TABLE/**/UNION SELECT",
+            "DB.SCHEMA.TABLE--$",
+            # ---- Regex composition breakout via )| ----
+            # If (...) wrapper can be escaped, arbitrary alternation is added
+            "DB.SCHEMA.TABLE)|(evil_table",
+            ")|(DB.SCHEMA.TABLE",
+            "DB.SCHEMA.TABLE)||(extra",
+            # ---- Null byte ----
+            "DB.SCHEMA.TABLE\x00EVIL",
+            # ---- Unicode single quote (U+0027 == standard ', but belt-and-suspenders) ----
+            "DB.SCHEMA.TABLE'EVIL",
+            # ---- Double-percent / format-string attempts ----
+            "DB.SCHEMA.TABLE%(injection)s",
+            "DB.SCHEMA.TABLE{injection}",
+        ],
+    )
+    def test_sql_injection_attempt_stays_in_string_literal(self, attack):
+        pattern = AllowDenyPattern(allow=[attack])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+
+        # Must produce a valid SQL fragment — never an empty-string exception
+        assert isinstance(result, str)
+
+        # The pattern either contributed no RLIKE (skipped as non-composable)
+        # or the RLIKE string is properly quoted with no injection path
+        assert _rlike_string_properly_escaped(result), (
+            f"Possible SQL injection with pattern {attack!r}: {result!r}"
+        )
+
+    def test_backslash_quote_two_pass_correctness(self):
+        # Naive single-pass escaping of \' produces \'' which is still an
+        # unescaped backslash before a doubled quote. Correct order:
+        # escape backslashes FIRST, then escape single quotes.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.O\\'BRIEN$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # Should be safe regardless of whether it composed or was skipped
+        assert _rlike_string_properly_escaped(result)
+
+    def test_regex_composition_breakout_does_not_inject_sql(self):
+        # "TABLE)|(evil" composes as (TABLE)|(evil) — a valid regex alternation
+        # that matches 'evil' too. This widens what gets ingested but is NOT SQL
+        # injection: it stays within the RLIKE string literal.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE)|(evil_table"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert _rlike_string_properly_escaped(result)
+        # Confirm no SQL keywords leaked outside the literal
+        if "RLIKE" in result:
+            after_rlike = result.split("RLIKE")[1]
+            assert "DROP" not in after_rlike or "'" in after_rlike.split("DROP")[0]
+
+    def test_triple_backslash_before_quote_is_safe(self):
+        # \\\ before a ' — after proper two-pass escaping:
+        # step 1: \\\' → \\\\\' (backslashes doubled)
+        # step 2: ...\'' (quotes doubled)
+        # No bare quote should escape the literal
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\\\'"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert _rlike_string_properly_escaped(result)
+
+    def test_curly_brace_format_string_does_not_interpolate(self):
+        # A pattern containing {in_values} or similar should not accidentally
+        # trigger Python str.format() substitution in any code path
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.{in_values}"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert isinstance(result, str)
+        assert _rlike_string_properly_escaped(result)
+
+
+# ---------------------------------------------------------------------------
+# _make_composable fast path: the re.compile-skip safety contract
+# ---------------------------------------------------------------------------
+#
+# _make_composable wraps a pattern in (...) and, for patterns matching
+# _PLAIN_LITERAL_PATTERN_RE, returns it WITHOUT the re.compile validation
+# every other pattern goes through. Skipping validation is only safe because that
+# subset admits no SQL-quote, backslash, or regex group/alternation metacharacter.
+# These tests pin that contract so any future loosening of the subset (or of the
+# escaping) trips a red test instead of shipping a scope-widening / literal-
+# breaking pattern straight into SQL.
+
+
+def _extract_rlike_literal(sql: str) -> str:
+    """Return the FIRST ``RLIKE '...'`` literal in *sql*, parsed with Snowflake's
+    real escaping rules. Raises ``ValueError`` if the literal is unterminated
+    (a backslash/quote broke out of it)."""
+    marker = "RLIKE '"
+    idx = sql.find(marker)
+    assert idx != -1, f"no RLIKE literal in: {sql!r}"
+    i = idx + len(marker)
+    chars: list = []
+    n = len(sql)
+    while i < n:
+        c = sql[i]
+        if c == "\\":
+            if i + 1 >= n:
+                raise ValueError(
+                    "backslash escaped the closing quote of the RLIKE literal"
+                )
+            chars.append(sql[i + 1])
+            i += 2
+            continue
+        if c == "'":
+            if i + 1 < n and sql[i + 1] == "'":
+                chars.append("'")
+                i += 2
+                continue
+            return "".join(chars)
+        chars.append(c)
+        i += 1
+    raise ValueError(f"unterminated RLIKE literal (recovered {''.join(chars)!r})")
+
+
+# SQL-literal breakers (quote, backslash) and regex group/alternation breakers
+# that the validation-skipping subset must never admit.
+_FORBIDDEN_IN_FAST_PATH = ["'", "\\", "(", ")", "|", "[", "]", "{", "}", "*", "+", "?"]
+
+
+class TestMakeComposableFastPath:
+    """Lock the safety contract of the re.compile-skipping fast path."""
+
+    @pytest.mark.parametrize("ch", _FORBIDDEN_IN_FAST_PATH)
+    def test_subset_regex_rejects_dangerous_characters(self, ch):
+        """If the subset ever admits a SQL-literal breaker or a regex
+        group/alternation metacharacter, skipping re.compile becomes unsafe."""
+        assert not _PLAIN_LITERAL_PATTERN_RE.match(f"DB.T{ch}ABLE$"), (
+            f"subset regex now admits {ch!r} — re.compile skip is unsafe"
+        )
+
+    def test_every_subset_pattern_is_a_valid_wrapped_regex(self):
+        """Skipping re.compile is sound only if EVERY subset-matching pattern is a
+        valid regex once wrapped. Fuzz the alphabet to confirm there is no input
+        the slow path would have rejected."""
+        offenders = []
+        for length in range(1, 5):
+            for combo in itertools.product("AZ09_$.", repeat=length):
+                p = "".join(combo) + "$"
+                if not _PLAIN_LITERAL_PATTERN_RE.match(p):
+                    continue
+                wrapped = _make_composable(p)
+                assert wrapped is not None
+                try:
+                    re.compile(wrapped)
+                except re.error:
+                    offenders.append(p)
+        assert not offenders, (
+            f"fast path accepts but re.compile rejects: {offenders[:10]}"
+        )
+
+    def test_fast_path_output_equals_validated_path(self):
+        """The optimization must be behavior-preserving: for subset patterns the
+        fast path returns exactly what the validate-then-wrap path would."""
+        for p in ["A.B.C$", "PROD_DB.PUBLIC.T$", "9X$", "A$B$", "X...$", "T_1$"]:
+            wrapped = f"({p})"
+            re.compile(wrapped)  # the slow path would accept it
+            assert _make_composable(p) == wrapped
+
+    @pytest.mark.parametrize(
+        "allow",
+        [
+            ["DB.SCHEMA.TABLE'; DROP TABLE t; --"],
+            ["DB.SCHEMA.TABLE\\"],  # trailing backslash
+            ["DB.SCHEMA.O\\'BRIEN"],  # backslash + quote
+            ["DB.SCHEMA.T\\\\"],  # double backslash
+            ["DB.SCHEMA.TABLE)|(.*"],  # regex-breakout attempt via )|(
+            ["A'$", "B\\$"],  # quote/backslash patterns that LOOK subset-ish
+            ["NORMAL.TABLE$"],  # benign control
+        ],
+    )
+    def test_allow_pattern_rlike_literal_is_always_well_formed(self, allow):
+        """Whatever the allow pattern, the emitted RLIKE literal must be a single,
+        properly-terminated Snowflake literal — no quote/backslash may break out.
+        (Patterns may still WIDEN regex matching, but that is within the recipe
+        author's existing authority; SQL breakout is not.)"""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=allow), FQN_EXPR
+        )
+        if "RLIKE '" in result:
+            _extract_rlike_literal(result)  # raises on breakout
+
+    def test_quotey_subsetlike_pattern_routes_through_escaping(self):
+        """``A'$`` resembles a safe literal but contains a quote, so it must NOT
+        take the validation-skip fast path, and its quote must be doubled."""
+        assert not _PLAIN_LITERAL_PATTERN_RE.match("A'$")
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["A'$"]), FQN_EXPR
+        )
+        assert "''" in result
+        _extract_rlike_literal(result)
+
+
+# ---------------------------------------------------------------------------
+# Adversarial deny patterns (NOT RLIKE)
+# ---------------------------------------------------------------------------
+
+
+def _all_rlike_literals(sql: str) -> list:
+    """Return every ``RLIKE '...'`` / ``NOT RLIKE '...'`` literal in *sql*, parsed
+    with Snowflake's real escaping rules. Raises ``ValueError`` if any literal is
+    left unterminated (backslash/quote breakout)."""
+    results: list = []
+    marker = "RLIKE '"
+    i, n = 0, len(sql)
+    while True:
+        idx = sql.find(marker, i)
+        if idx == -1:
+            return results
+        j = idx + len(marker)
+        chars: list = []
+        terminated = False
+        while j < n:
+            c = sql[j]
+            if c == "\\":
+                if j + 1 >= n:
+                    raise ValueError(
+                        "backslash consumed the closing quote of a RLIKE literal"
+                    )
+                chars.append(sql[j + 1])
+                j += 2
+                continue
+            if c == "'":
+                if j + 1 < n and sql[j + 1] == "'":
+                    chars.append("'")
+                    j += 2
+                    continue
+                j += 1
+                terminated = True
+                break
+            chars.append(c)
+            j += 1
+        if not terminated:
+            raise ValueError(
+                f"unterminated RLIKE literal (recovered {''.join(chars)!r})"
+            )
+        results.append("".join(chars))
+        i = j
+
+
+class TestDenyPatternInjection:
+    """Deny patterns are recipe-controlled (untrusted). Every NOT RLIKE literal we
+    push to the server must stay self-contained (no string-literal breakout). A
+    pattern that can't be pushed safely — unparsable as a regex, or over the byte
+    budget — is left out of the server clause and caught by the client-side deny
+    pass instead of being sent to a query it would break."""
+
+    @pytest.mark.parametrize(
+        "deny",
+        [
+            "SECRET.*'; DROP TABLE t; --",
+            "O\\'BRIEN_SECRET",  # backslash + quote
+            "X\\\\",  # double backslash
+            ".*_TEMP' OR '1'='1",
+            "SECRET)|(.*",  # regex widen attempt (must stay inside the literal)
+        ],
+    )
+    def test_single_deny_literal_is_well_formed(self, deny):
+        # ignoreCase=False keeps the round-trip exact; escaping is case-independent.
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=[deny], ignoreCase=False), FQN_EXPR
+        )
+        literals = _all_rlike_literals(result)  # raises on breakout
+        # Composable deny patterns are now wrapped in (...) before alternation, so the
+        # recovered literal is "(deny)" rather than "deny"; the pattern must still be
+        # present intact inside some literal (uncomposable ones stay unwrapped).
+        assert any(deny in lit for lit in literals), (
+            f"deny pattern {deny!r} not recovered intact from: {result!r}"
+        )
+
+    def test_backslash_deny_is_escaped(self):
+        # A composable pattern containing a backslash must have it doubled for the
+        # SQL literal (a lone backslash would otherwise consume the closing quote).
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["A\\.B"]), FQN_EXPR
+        )
+        assert "\\\\" in result  # backslash doubled for the SQL literal
+        _all_rlike_literals(result)  # well-formed
+
+    def test_allow_and_deny_both_literals_well_formed(self):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET.*", "X'Y"]),
+            FQN_EXPR,
+        )
+        literals = _all_rlike_literals(result)
+        assert any("GOOD" in lit for lit in literals)
+        assert "NOT RLIKE" in result and " AND " in result
+
+    def test_unparsable_deny_is_skipped_server_side(self):
+        """A deny pattern that isn't parsable as a regex (e.g. an unbalanced paren)
+        must NOT be sent to the server — RLIKE would reject it and break the whole
+        query. It is left out of the server clause and caught by the mandatory
+        client-side deny pass instead."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["GOOD.*"], deny=["SECRET("], ignoreCase=False),
+            "col",
+        )
+        assert "SECRET(" not in result  # skipped, not pushed to the server
+        assert result == "col RLIKE '(GOOD.*)'"  # allow still composes
+        _all_rlike_literals(result)  # well-formed
+
+    def test_composable_denies_compose_into_single_clause(self):
+        """Composable deny patterns are routed through _make_composable and composed
+        (by De Morgan) into a single NOT RLIKE alternation, each wrapped in (...)."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["A.*", "B.*"], ignoreCase=False), "col"
+        )
+        assert result == "col NOT RLIKE '(A.*)|(B.*)'"
+        _all_rlike_literals(result)  # well-formed
+
+    def test_mixed_composable_and_unparsable_denies(self):
+        """With a mix, only the composable deny patterns are pushed to the server
+        (in one alternation); the unparsable ones are skipped server-side and left
+        to the client-side deny pass."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["GOOD.*", "SECRET("], ignoreCase=False), "col"
+        )
+        _all_rlike_literals(result)  # raises on breakout
+        assert result == "col NOT RLIKE '(GOOD.*)'"  # only the composable one
+        assert "SECRET(" not in result
+
+
+def test_compose_deny_drops_patterns_past_byte_budget():
+    """Deny patterns that would push the composed clause past deny_budget are left
+    out of the server-side clause (caught by the client-side deny pass). With a tiny
+    budget only the first pattern fits."""
+    # overhead "col NOT RLIKE ''" = 16 bytes; "(AAAA)" = 6 -> 22 <= 25 fits;
+    # adding "|(BBBB)" = 7 -> 29 > 25, so BBBB and CCCC are dropped.
+    clause = _compose_deny(["AAAA", "BBBB", "CCCC"], "col", False, deny_budget=25)
+    assert clause == "col NOT RLIKE '(AAAA)'"
+
+
+def test_compose_deny_returns_none_when_nothing_fits():
+    # Even the first pattern exceeds the budget -> no server-side clause at all.
+    assert _compose_deny(["AAAA"], "col", False, deny_budget=5) is None

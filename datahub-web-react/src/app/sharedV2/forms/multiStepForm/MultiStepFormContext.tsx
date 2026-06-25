@@ -47,6 +47,7 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     children,
     steps,
     initialState,
+    initialStepIndex = 0,
     onSubmit,
     onCancel,
     isDirtyChecker,
@@ -54,8 +55,23 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     const [state, setState] = useState<TState | undefined>(initialState);
     const [onNextHandler, setOnNextHandler] = useState<OnNextHandler | undefined>();
 
-    const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
-    const [visitedSteps, setVisitedSteps] = useState<Set<StepKey>>(new Set());
+    const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(() => {
+        const completed = new Set<StepKey>();
+        if (initialStepIndex > 0 && steps[0]?.key) {
+            completed.add(steps[0].key);
+        }
+        return completed;
+    });
+    const [visitedSteps, setVisitedSteps] = useState<Set<StepKey>>(() => {
+        const visited = new Set<StepKey>();
+        for (let index = 0; index <= initialStepIndex && index < steps.length; index += 1) {
+            const stepKey = steps[index]?.key;
+            if (stepKey) {
+                visited.add(stepKey);
+            }
+        }
+        return visited;
+    });
 
     const totalSteps = useMemo(() => steps.length, [steps]);
 
@@ -63,7 +79,7 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
         setState((currentState) => deepMerge(currentState ?? {}, newState));
     }, []);
 
-    const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
+    const [currentStepIndex, setCurrentStepIndex] = useState<number>(initialStepIndex);
     const getCurrentStep = useCallback(() => {
         const currentStep = steps?.[currentStepIndex];
 

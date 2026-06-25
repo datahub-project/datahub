@@ -118,7 +118,7 @@ Optional parameters:
 - Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple variable by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2`.
 
 :::note
-Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
+When you wire **local** secrets into the executor (ECS `SECRET_NAME=SECRET_ARN`, Kubernetes mounts, or runtime AWS/GCP Secret Manager), credentials stay in your environment and are not stored in DataHub. Reference them in ingestion source configs using `${SECRET_NAME}`. This is different from **DataHub UI Secrets** — see [Secret security considerations](#secret-security-considerations).
 :::
 
 3. **Deploy Stack**
@@ -551,6 +551,49 @@ serviceAccount:
   annotations:
     iam.gke.io/gcp-service-account: "<sa>@<project-id>.iam.gserviceaccount.com"
 ```
+
+## Secret security considerations
+
+Security-conscious Remote Executor deployments should keep credentials **local to your environment** rather than in DataHub UI Secrets.
+
+:::note Secure by default
+DataHub ships with `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`. Browser sessions and user Personal Access Tokens **cannot** call `getSecretValues` or otherwise decrypt secrets through human-facing API paths. On DataHub OSS, scheduled UI ingestion uses [**datahub-actions**](../../actions/actions/executor.md) with system client credentials for the same trusted-worker path. You only need to change this setting for a staged rollout (`AUDIT`) or break-glass incident response (`DISABLED`, administrator approval required).
+:::
+
+:::caution DataHub UI Secrets and Remote Executor
+Secrets created in the DataHub UI are encrypted at rest in DataHub, but when a Remote Executor resolves `${SECRET_NAME}` against the **DataHub** secret backend, GMS decrypts the value and returns it in plaintext over the DataHub API (protected by TLS). The credential transits from DataHub Cloud back into your executor at runtime.
+
+This is convenient for getting started, but weaker than local secret backends for deployments where credentials must not leave your environment boundary.
+:::
+
+### Recommended approach (local secrets)
+
+For production Remote Executor pools, prefer:
+
+- **Kubernetes Secrets** mounted at `/mnt/secrets/` — see [Configure Secret Mounting](#configure-secret-mounting-optional)
+- **Runtime AWS Secrets Manager or GCP Secret Manager** — see [Using Cloud Secret Managers](#using-cloud-secret-managers)
+- **ECS deploy-time secrets** via CloudFormation `SECRET_NAME=SECRET_ARN`
+- **Environment variables** on the executor container
+
+Use an **embedded executor** access token when configuring the worker — not a user-issued Personal Access Token.
+
+### Discouraged approach (DataHub UI Secrets)
+
+Avoid creating secrets in the DataHub UI **Secrets** tab for ingestion sources assigned to Remote Executor pools. If a UI secret shares a name with a locally mounted secret, the **DataHub backend takes precedence** — see [Secret Resolution](../../secret-resolution.md).
+
+### Caller guard modes (override only when needed)
+
+GMS enforces a caller guard on `SecretService` decryption. The default is **secure by default** — no configuration required for production:
+
+| Value      | Behavior                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ENFORCE`  | Blocks `getSecretValues` for browser sessions, user PATs, and other non-embedded-executor callers (**default**). |
+| `AUDIT`    | Allows decryption but logs a warning — use only for staged rollout before enforcing.                             |
+| `DISABLED` | No enforcement — break-glass only; contact your DataHub administrator to enable on request.                      |
+
+`ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
+
+See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

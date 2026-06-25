@@ -20,7 +20,7 @@ graph_2 = "test_resources/graph_dataDiff.json"
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
     yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/cli/graph_data.json", "graph"
+        auth_session, graph_client, "tests/graph/graph_data.json", "graph"
     )
 
 
@@ -149,3 +149,16 @@ def test_graph_relationships(graph_client, auth_session):
     ingest_file_via_rest(auth_session, graph)
     ingest_file_via_rest(auth_session, graph_2)
     _ensure_dataset_present_correctly(auth_session, graph_client)
+
+
+def test_get_entity_aspect_specs(graph_client):
+    # E2E against the live specifications endpoint; a broken response shape
+    # yields empty specs and fails here.
+    specs = graph_client.get_entity_aspect_specs()
+    assert specs is not None
+    assert specs.supports("dataset", "datasetKey")  # keyAspectName branch
+    assert specs.supports("dataset", "datasetProperties")  # aspectSpecs branch
+    schema_version = specs.schema_version("datasetProperties")
+    assert schema_version is not None
+    assert isinstance(schema_version, int)
+    assert not specs.supports("dataset", "notARealAspect")

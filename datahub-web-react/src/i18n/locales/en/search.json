@@ -71,6 +71,7 @@
     "filters.incidents.hasActiveLabel": "Has Active Incidents",
     "filters.incidents.hasResolvedLabel": "Has Resolved Incidents",
     "filters.incidents.title": "Incidents",
+    "filters.moreCount_zero": "More",
     "filters.moreCount_one": "More ({{count}})",
     "filters.moreCount_other": "More ({{count}})",
     "filters.pluralizedTypeLabel": "{{type}}s",

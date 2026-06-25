@@ -150,6 +150,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.setup.preCreateTopics",
           "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
+          "kafka.setup.reconcileExistingTopicConfigs",
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
@@ -214,6 +215,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "secretService.callerGuardMode",
           "kubernetes.serviceHost",
           "kubernetes.operationsApiEnabled",
           "tokenService",

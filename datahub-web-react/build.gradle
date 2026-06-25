@@ -280,12 +280,12 @@ def externalPrettierConfigs = [
 externalPrettierConfigs.each { config ->
   tasks.register("${config.name}PrettierCheck", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+    args = ['run', 'prettier', '--check', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWrite", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+    args = ['run', 'prettier', '--write', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
@@ -305,7 +305,7 @@ externalPrettierConfigs.each { config ->
     }
 
     logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
-    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "${rootProject.projectDir}/${it}" }
   }
 }
 
