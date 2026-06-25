@@ -493,6 +493,11 @@ class TestTeradataSource:
             ]
             source._table_creator_cache[("db1", "t1")] = "owner"
 
+            # Spy on the disk-backed view-definition store's close() so we can
+            # assert the temporary SQLite file is torn down promptly on close.
+            mock_view_definitions_close = MagicMock()
+            source._view_definitions.close = mock_view_definitions_close  # type: ignore[method-assign]
+
             with patch(
                 "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
             ) as mock_super_close:
@@ -505,6 +510,10 @@ class TestTeradataSource:
                 # sequential recipe runs in the same process (OOM fix for #7602).
                 assert len(source._tables_cache) == 0
                 assert len(source._table_creator_cache) == 0
+
+                # The disk-backed view-definition store must be closed so its
+                # temporary SQLite file is removed rather than leaking until GC.
+                mock_view_definitions_close.assert_called_once()
 
                 # Module-level LRU caches must also be cleared between recipe runs.
                 assert get_schema_columns.cache_info().currsize == 0
