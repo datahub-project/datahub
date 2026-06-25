@@ -11,10 +11,14 @@ import duckdb
 import sqlalchemy as sa
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-    from datahub.ingestion.source.s3.datalake_profiler_config import (
+    from datahub.ingestion.source.data_lake_common.datalake_profiler_config import (
         DataLakeProfilerConfig,
     )
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+
+    # TableData still lives in the s3 source; it is used only for type hints here.
+    # Moving it (or extracting a structural Protocol) into data_lake_common is a
+    # follow-up that would remove the last shared->connector type reference.
     from datahub.ingestion.source.s3.source import TableData
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -67,18 +71,18 @@ class _ProfilerReport(Protocol):
         self,
         message: str,
         *,
-        context: Optional[str] = ...,
-        title: Optional[str] = ...,
-        exc: Optional[BaseException] = ...,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
     ) -> None: ...
 
     def report_failure(
         self,
         message: str,
         *,
-        context: Optional[str] = ...,
-        title: Optional[str] = ...,
-        exc: Optional[BaseException] = ...,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
     ) -> None: ...
 
 
@@ -293,8 +297,8 @@ class DuckDBProfiler:
             # so profiling covers just the sample object — surface that so the
             # partial result is not mistaken for a full-table profile.
             self.report.report_warning(
-                f"Partitioned table {table_data.table_path} has extension-less "
-                "files; profiled only the sample object, not the full table.",
+                "Partitioned table has extension-less files; profiled only the "
+                "sample object, not the full table.",
                 context=table_data.table_path,
                 title="Partitioned table profiled on a single file",
             )
@@ -466,8 +470,10 @@ class DuckDBProfiler:
                     row_estimate = count
                     sample_rows = int(self.profiling_config.sample_size)
                     self.report.report_warning(
-                        f"Table exceeds profile_table_row_limit ({limit}); profiled a sample of {sample_rows} rows.",
-                        context=dataset_urn,
+                        "Table exceeds profile_table_row_limit; profiled a sample "
+                        "rather than the full table.",
+                        context=f"{dataset_urn} (limit={limit}, sampled {sample_rows} rows)",
+                        title="Table profiled on a sample",
                     )
             self._create_profile_table(
                 conn, table_name, ext, path, select_list, sample_rows
@@ -620,8 +626,9 @@ class DuckDBProfiler:
             )
         except Exception as e:
             self.report.report_warning(
-                f"DuckDB profiling failed for {dataset_urn}",
-                context=display_name,
+                "DuckDB profiling failed for a table.",
+                context=dataset_urn,
+                title="DuckDB profiling failed",
                 exc=e,
             )
         finally:

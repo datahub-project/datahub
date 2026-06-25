@@ -126,6 +126,11 @@ class DuckDBAdapter(PlatformAdapter):
         Falls back gracefully (empty cache) if SUMMARIZE is unavailable for the
         relation (e.g., views, external tables in some DuckDB versions).
         """
+        # Reset the per-table cache up front so a reused adapter instance can
+        # never serve another table's stats — the cache is only valid for the
+        # table this profiling pass targets.
+        self._summary = {}
+        self._row_count = None
         context = super().setup_profiling(context, conn)
         try:
             self._run_summarize(context, conn)
@@ -204,22 +209,6 @@ class DuckDBAdapter(PlatformAdapter):
 
     def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         return sa.func.quantile_cont(sa.column(column), 0.5)
-
-    def get_quantiles_expr(
-        self, column: str, quantiles: List[float]
-    ) -> Optional[ColumnElement[Any]]:
-        """
-        DuckDB's quantile_cont accepts a list argument and returns all quantiles
-        in a single function call, avoiding one round-trip per quantile.
-
-        Args:
-            column: Column name
-            quantiles: List of quantile values (e.g., [0.25, 0.5, 0.75])
-
-        Returns:
-            SQLAlchemy expression for quantile_cont with list argument
-        """
-        return sa.func.quantile_cont(sa.column(column), sa.literal(quantiles))
 
     def get_column_quantiles(
         self,

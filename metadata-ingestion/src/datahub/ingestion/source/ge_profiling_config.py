@@ -165,12 +165,12 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     profile_table_row_limit: Annotated[
         Optional[int],
-        SupportedSources(["snowflake", "bigquery", "oracle", "s3", "gcs"]),
+        SupportedSources(["snowflake", "bigquery", "oracle", "s3"]),
     ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported in "
-        "`Snowflake`, `BigQuery`, and S3/GCS data-lake profiling (DuckDB). Supported for "
+        "`Snowflake`, `BigQuery`, and S3 data-lake profiling (DuckDB). Supported for "
         "`Oracle` based on gathered stats.",
     )
 
@@ -206,21 +206,21 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
-    use_sampling: Annotated[
-        bool, SupportedSources(["bigquery", "snowflake", "s3", "gcs"])
-    ] = Field(
-        default=True,
-        description="Whether to profile column level stats on sample of table. Supported by "
-        "BigQuery, Snowflake, and S3/GCS data-lake profiling (DuckDB). "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+    use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake", "s3"])] = (
+        Field(
+            default=True,
+            description="Whether to profile column level stats on sample of table. Supported by "
+            "BigQuery, Snowflake, and S3 data-lake profiling (DuckDB). "
+            "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+        )
     )
 
-    sample_size: Annotated[
-        int, SupportedSources(["bigquery", "snowflake", "s3", "gcs"])
-    ] = Field(
-        default=10000,
-        description="Number of rows to be sampled from table for column level profiling."
-        "Applicable only if `use_sampling` is set to True.",
+    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake", "s3"])] = (
+        Field(
+            default=10000,
+            description="Number of rows to be sampled from table for column level profiling."
+            "Applicable only if `use_sampling` is set to True.",
+        )
     )
 
     profile_external_tables: Annotated[

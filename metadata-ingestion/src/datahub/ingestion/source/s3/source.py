@@ -280,9 +280,19 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
-                DuckDBProfiler,
-            )
+            try:
+                from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
+                    DuckDBProfiler,
+                )
+            except (ImportError, ModuleNotFoundError) as e:
+                # DuckDB ships in the `data-lake-profiling` deps, which the
+                # `s3`/`gcs`/`abs` extras pull in but `s3-slim` deliberately
+                # omits. Surface an actionable install hint instead of a bare
+                # ModuleNotFoundError that aborts the whole run.
+                raise RuntimeError(
+                    "DuckDB is required for data-lake profiling but is not installed. "
+                    "Install it with: pip install 'acryl-datahub[data-lake-profiling]'"
+                ) from e
 
             self.profiler = DuckDBProfiler(
                 aws_config=config.aws_config,
