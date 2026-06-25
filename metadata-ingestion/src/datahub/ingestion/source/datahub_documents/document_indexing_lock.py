@@ -10,7 +10,7 @@ Why ``dataHubStepState``:
   The ``dataHubStepState`` entity is a general-purpose key/value store in DataHub: each
   entity is keyed by an arbitrary string id, and its ``dataHubStepStateProperties``
   aspect holds a ``map[string, string]`` for arbitrary payloads. We use that map as the
-  lock lease record (status, run_id, expiry, etc.). Writes go through the metadata API
+  lock lease record (status, owner, run_id, expiry, etc.). Writes go through the metadata API
   with ``EmitMode.SYNC_PRIMARY`` so the lease is committed to the primary store (MySQL)
   before returning, giving concurrent runners read-after-write visibility without relying
   on Elasticsearch (unlike execution-request lookups, which are search-backed and
@@ -18,6 +18,12 @@ Why ``dataHubStepState``:
 
 Design:
 - One ``dataHubStepState`` entity per lock id; lease fields live in the properties map.
+- **Ownership identity** is a per-execution ``owner`` token (run_id + a uuid minted once
+  per lock instance), NOT the pipeline run_id. Managed ingestion reuses the same run_id
+  across scheduled runs of a source, so keying ownership on run_id would make a fresh run
+  treat an already-held lease as its own and extend it instead of blocking. The uuid
+  guarantees distinct executions never collide while still allowing genuine re-entrancy
+  within a single process (same lock instance).
 - **Cold start** (lock entity does not yet exist): ``CREATE_ENTITY`` + ``CREATE`` with
   ``If-None-Match: *`` so only one concurrent runner creates the entity; losers are
   dropped server-side without error (see ``CreateIfNotExistsValidator``).
@@ -51,6 +57,7 @@ Manually releasing / deleting a lock:
 import logging
 import random
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -81,6 +88,13 @@ _IF_NONE_MATCH = {"If-None-Match": "*"}
 @dataclass
 class _LeaseState:
     status: Optional[str]
+    # Unique-per-execution identity of the lease holder. This is NOT the pipeline
+    # run_id: in managed ingestion every scheduled run of a source shares the same
+    # run_id, so comparing run_ids would make a fresh run mistake an existing lease for
+    # its own (re-entrant) and extend it instead of blocking. ``owner`` is a uuid minted
+    # once per lock instance, so distinct executions never collide.
+    owner: Optional[str]
+    # Human-readable pipeline run id, retained only for debugging/log context.
     run_id: Optional[str]
     acquired_at_ms: Optional[int]
     expires_at_ms: Optional[int]
@@ -113,6 +127,12 @@ class DocumentIndexingLock:
     ):
         self.graph = graph
         self.run_id = run_id
+        # Ownership identity, unique to this lock instance (i.e. this process/execution).
+        # We deliberately do NOT use run_id for ownership: managed ingestion reuses the
+        # same run_id across scheduled runs of a source, which would make every run look
+        # re-entrant and silently extend a held lease instead of blocking. The run_id is
+        # embedded only to make the owner token human-recognizable in logs/debugging.
+        self.owner = f"{run_id}:{uuid.uuid4().hex}"
         self.ttl_seconds = ttl_seconds
         self.renewal_interval_seconds = renewal_interval_seconds
         self.urn = DataHubStepStateUrn(lock_id)
@@ -132,6 +152,7 @@ class DocumentIndexingLock:
         p = props.properties or {}
         return _LeaseState(
             status=p.get("status"),
+            owner=p.get("owner"),
             run_id=p.get("run_id"),
             acquired_at_ms=_safe_int(p.get("acquired_at_ms")),
             expires_at_ms=_safe_int(p.get("expires_at_ms")),
@@ -145,6 +166,7 @@ class DocumentIndexingLock:
             self._acquired_at_ms = now
         return {
             "status": status,
+            "owner": self.owner,
             "run_id": self.run_id,
             "acquired_at_ms": str(self._acquired_at_ms),
             "expires_at_ms": str(now + self.ttl_seconds * 1000),
@@ -198,10 +220,11 @@ class DocumentIndexingLock:
     def _confirm_acquired(self) -> tuple[bool, Optional[_LeaseState]]:
         """Re-read the lease; return (won, confirmed_state)."""
         confirmed = self._read_lease()
-        if confirmed is not None and confirmed.run_id == self.run_id:
+        if confirmed is not None and confirmed.owner == self.owner:
             self._acquired = True
             logger.info(
-                f"Acquired document indexing lock {self.urn} for run {self.run_id}"
+                f"Acquired document indexing lock {self.urn} for run {self.run_id} "
+                f"(owner={self.owner})"
             )
             return True, confirmed
         winner = confirmed.run_id if confirmed else "unknown"
@@ -222,24 +245,18 @@ class DocumentIndexingLock:
             f'delete the entity: datahub delete --urn "{self.urn}" --hard -f'
         )
         existing = self._read_lease()
-        if (
-            existing is not None
-            and existing.is_active
-            and existing.run_id != self.run_id
-        ):
+        if existing is not None and existing.is_active and existing.owner != self.owner:
             logger.info(
                 f"Document indexing lock {self.urn} is held by run "
-                f"{existing.run_id} (expires_at_ms={existing.expires_at_ms}); "
-                "skipping this run."
+                f"{existing.run_id} (owner={existing.owner}, "
+                f"expires_at_ms={existing.expires_at_ms}); skipping this run."
             )
             return False
 
-        if (
-            existing is not None
-            and existing.is_active
-            and existing.run_id == self.run_id
-        ):
-            # Re-entrant within the same run.
+        if existing is not None and existing.is_active and existing.owner == self.owner:
+            # Re-entrant within the same execution: this exact lock instance already
+            # holds the lease (e.g. acquire() called twice). A different execution can
+            # never reach here because owner is a per-instance uuid.
             self._acquired = True
             return True
 
@@ -256,7 +273,7 @@ class DocumentIndexingLock:
             if (
                 confirmed is not None
                 and confirmed.is_active
-                and confirmed.run_id != self.run_id
+                and confirmed.owner != self.owner
             ):
                 return False
 
@@ -303,9 +320,10 @@ class DocumentIndexingLock:
             current = self._read_lease()
             # Only release if we still own it; a takeover by another run after our TTL
             # expired must not be clobbered.
-            if current is not None and current.run_id not in (None, self.run_id):
+            if current is not None and current.owner not in (None, self.owner):
                 logger.info(
-                    f"Not releasing lock {self.urn}: now owned by run {current.run_id}"
+                    f"Not releasing lock {self.urn}: now owned by run "
+                    f"{current.run_id} (owner={current.owner})"
                 )
                 return
             self._write_lease(_STATUS_RELEASED)
