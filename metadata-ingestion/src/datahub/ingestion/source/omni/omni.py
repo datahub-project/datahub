@@ -621,10 +621,25 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         topic_view_urns: Set[str] = set()
         views_raw = topic.get("views", [])
         views = views_raw if isinstance(views_raw, list) else []
+
+        logger.info(
+            "Processing topic views: model_id=%s topic_name=%s view_count=%d",
+            model_id,
+            topic_name,
+            len(views),
+        )
+
         for view in views:
             view_name = (view or {}).get("name") if isinstance(view, dict) else None
             if not view_name:
                 continue
+
+            logger.info(
+                "Processing view: model_id=%s topic_name=%s view_name=%s",
+                model_id,
+                topic_name,
+                view_name,
+            )
 
             semantic_urn = self._semantic_dataset_urn(model_id, view_name)
             self._semantic_dataset_urns.add(semantic_urn)
@@ -918,6 +933,18 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     connection_id
                 )
 
+            logger.info(
+                "Processing model: model_id=%s model_name=%s model_kind=%s "
+                "connection_id=%s platform=%s database=%s platform_instance=%s",
+                model_id,
+                model_name,
+                model_kind,
+                connection_id or "(none)",
+                platform,
+                database or "(none)",
+                platform_instance or "(none)",
+            )
+
             self._model_context_by_id[model_id] = {
                 "connection_id": connection_id,
                 "platform": platform,
@@ -985,10 +1012,23 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             topic_specs, view_specs = self._parse_model_yaml_specs(model_yaml_files)
             self._topic_specs_by_model_id[model_id] = topic_specs
             self._view_specs_by_model_id[model_id] = view_specs
+
+            logger.info(
+                "Model YAML parsed: model_id=%s found %d topics: %s",
+                model_id,
+                len(topic_names),
+                ", ".join(sorted(topic_names)) if topic_names else "(none)",
+            )
+
             if not topic_names:
                 continue
 
             for topic_name in sorted(topic_names):
+                logger.info(
+                    "Processing topic: model_id=%s topic_name=%s",
+                    model_id,
+                    topic_name,
+                )
                 try:
                     topic = self.client.get_topic(model_id, topic_name)
                 except Exception as exc:
@@ -1002,6 +1042,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         topic_name, topic_specs, view_specs
                     )
                 if not topic:
+                    logger.warning(
+                        "Skipping topic (empty payload): model_id=%s topic_name=%s",
+                        model_id,
+                        topic_name,
+                    )
                     continue
                 yield from self._ingest_topic_payload(
                     model_id=model_id,
