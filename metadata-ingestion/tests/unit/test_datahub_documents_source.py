@@ -3127,7 +3127,7 @@ class TestDocumentIndexingLock:
     """Test the dataHubStepState-based distributed lock."""
 
     @staticmethod
-    def _props(status, run_id, expires_at_ms):
+    def _props(status, owner, expires_at_ms):
         from datahub.metadata.schema_classes import (
             AuditStampClass,
             DataHubStepStatePropertiesClass,
@@ -3136,7 +3136,10 @@ class TestDocumentIndexingLock:
         return DataHubStepStatePropertiesClass(
             properties={
                 "status": status,
-                "run_id": run_id,
+                # Ownership is keyed on the per-execution owner token; run_id is retained
+                # only for human-readable debugging.
+                "owner": owner,
+                "run_id": "pipeline-run",
                 "acquired_at_ms": "0",
                 "expires_at_ms": str(expires_at_ms),
             },
@@ -3148,13 +3151,18 @@ class TestDocumentIndexingLock:
             DocumentIndexingLock,
         )
 
-        return DocumentIndexingLock(
+        lock = DocumentIndexingLock(
             graph=graph,
             lock_id="test-lock",
             run_id="run-A",
             ttl_seconds=1800,
             renewal_interval_seconds=renewal_interval_seconds,
         )
+        # Production derives owner from run_id + a uuid (unique per execution). Pin it here
+        # so tests can assert ownership deterministically; the literal "owner" values passed
+        # to _props line up with this.
+        lock.owner = "run-A"
+        return lock
 
     def test_acquire_when_free_cold_start(self):
         from datahub.emitter.rest_emitter import EmitMode
@@ -3221,7 +3229,7 @@ class TestDocumentIndexingLock:
         graph.emit_mcps.assert_not_called()
 
     def test_reentrant_when_active_lease_held_by_self(self):
-        """Lock present but held by this same run -> re-entrant success, no writes."""
+        """Lock present but held by this same execution (same owner) -> re-entrant success."""
         graph = Mock()
         graph.get_aspect.return_value = self._props("running", "run-A", 9999999999999)
         graph.emit_mcp = Mock()
@@ -3229,6 +3237,40 @@ class TestDocumentIndexingLock:
 
         lock = self._make_lock(graph)
         assert lock.acquire() is True
+        graph.emit_mcp.assert_not_called()
+        graph.emit_mcps.assert_not_called()
+
+    def test_distinct_executions_with_same_run_id_do_not_reenter(self):
+        """A second execution must NOT re-enter a lease just because run_id matches.
+
+        Managed ingestion reuses the same pipeline run_id across scheduled runs of a
+        source. Ownership is therefore keyed on a per-execution owner token (run_id +
+        uuid), so a fresh execution sees the active lease as held-by-other and is blocked
+        rather than extending it.
+        """
+        from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
+            DocumentIndexingLock,
+        )
+
+        # Two locks built with the SAME run_id, as happens for two scheduled runs.
+        lock_a = DocumentIndexingLock(
+            graph=Mock(), lock_id="test-lock", run_id="same-run", ttl_seconds=1800
+        )
+        lock_b = DocumentIndexingLock(
+            graph=Mock(), lock_id="test-lock", run_id="same-run", ttl_seconds=1800
+        )
+        assert lock_a.owner != lock_b.owner
+
+        # lock_b starts and finds lock_a's active lease. It must be blocked, not re-entrant.
+        graph = Mock()
+        graph.get_aspect.return_value = self._props(
+            "running", lock_a.owner, 9999999999999
+        )
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+        lock_b.graph = graph
+
+        assert lock_b.acquire() is False
         graph.emit_mcp.assert_not_called()
         graph.emit_mcps.assert_not_called()
 
@@ -3411,14 +3453,15 @@ class TestDocumentIndexingLock:
         future = _now_ms() + 60_000
         past = _now_ms() - 60_000
 
+        # Fields: status, owner, run_id, acquired_at_ms, expires_at_ms.
         # Lock present: held and not yet expired.
-        assert _LeaseState("running", "run-A", 0, future).is_active is True
+        assert _LeaseState("running", "owner-A", "run-A", 0, future).is_active is True
         # Lock expired: held but TTL elapsed.
-        assert _LeaseState("running", "run-A", 0, past).is_active is False
+        assert _LeaseState("running", "owner-A", "run-A", 0, past).is_active is False
         # No lock: lease was released.
-        assert _LeaseState("released", "run-A", 0, future).is_active is False
+        assert _LeaseState("released", "owner-A", "run-A", 0, future).is_active is False
         # Held with no expiry recorded -> treated as active (fail safe).
-        assert _LeaseState("running", "run-A", 0, None).is_active is True
+        assert _LeaseState("running", "owner-A", "run-A", 0, None).is_active is True
 
 
 class TestLockIntegrationWithSource:
