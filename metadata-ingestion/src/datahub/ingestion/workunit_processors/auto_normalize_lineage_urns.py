@@ -192,6 +192,14 @@ class AutoNormalizeLineageUrnsProcessor(
                     )
                 except Exception:
                     continue
+            # The full URN set and its lowercase index are held in memory for the
+            # lifetime of the pipeline. On very large warehouses (hundreds of
+            # thousands+ of tables) this is the processor's main memory cost; log the
+            # size so operators can gauge it.
+            logger.info(
+                f"Loaded {len(urns)} '{platform}' dataset URNs "
+                f"for lineage casing reconciliation."
+            )
             self._catalog_by_platform[platform] = _Catalog(urns, index, resolvers)
         return self._catalog_by_platform[platform]
 

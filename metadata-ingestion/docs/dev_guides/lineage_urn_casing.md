@@ -141,3 +141,14 @@ exact lineage from casing-resolved lineage downstream.
 - **Collision-safe but conservative.** On case-sensitive platforms where two genuinely different tables
   differ only by case, ambiguous references are left unchanged rather than risk merging distinct
   entities.
+- **Loads the upstream platform's full catalog into memory.** On first use the feature bulk-fetches every
+  dataset URN (and the schema of schema-bearing entities) for each configured upstream platform, and
+  builds an in-memory case-insensitive index over them. Resolution is then fully local (no per-reference
+  round trips), but on very large warehouses (hundreds of thousands to millions of tables) this scroll is
+  heavy and the index is the processor's main memory cost. The number of URNs loaded per platform is
+  logged at `INFO` (`Loaded N '<platform>' dataset URNs ...`) so you can gauge it. Scope
+  `upstream_platforms` to the platforms (and, where possible, `platform_instance` / `env`) the BI source
+  actually references.
+- **Platform-instance casing must match exactly.** Only the dataset _name_ is reconciled
+  case-insensitively; the `platform_instance` segment is compared as-is. A reference whose platform-instance
+  casing differs from what is stored in DataHub is left unchanged.
