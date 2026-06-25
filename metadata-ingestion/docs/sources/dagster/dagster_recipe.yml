@@ -1,0 +1,29 @@
+source:
+  type: dagster
+  config:
+    # Dagster OSS webserver. For Dagster+, use https://<org>.dagster.cloud
+    host: "http://localhost:3000"
+
+    # Dagster+ (Cloud) settings — omit for OSS.
+    # is_cloud: true
+    # deployment: prod
+    # token: "${DAGSTER_CLOUD_TOKEN}"
+
+    # Filtering (optional)
+    job_pattern:
+      allow: [".*"]
+    asset_pattern:
+      allow: [".*"]
+
+    # Feature toggles (all default to true)
+    include_assets: true
+    include_asset_lineage: true
+    include_ownership: true
+    include_tags: true
+    include_metadata: true
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs

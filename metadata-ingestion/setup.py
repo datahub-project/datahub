@@ -568,6 +568,8 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airbyte": {"requests"},
+    # Pull-based Dagster source talks raw GraphQL over HTTP; no dagster runtime needed.
+    "dagster": {"requests"},
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
@@ -981,6 +983,7 @@ base_dev_requirements = {
             "cockroachdb",
             "confluence",
             "cube",
+            "dagster",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -1129,6 +1132,7 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "dagster = datahub.ingestion.source.dagster.dagster:DagsterSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
