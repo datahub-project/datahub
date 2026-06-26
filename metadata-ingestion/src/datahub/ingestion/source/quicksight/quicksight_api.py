@@ -181,14 +181,6 @@ class QuickSightAPI:
         )
         return cast(List[Dict[str, Any]], response.get("Permissions") or [])
 
-    def describe_data_source_permissions(
-        self, data_source_id: str
-    ) -> List[Dict[str, Any]]:
-        response = self.client.describe_data_source_permissions(
-            AwsAccountId=self.aws_account_id, DataSourceId=data_source_id
-        )
-        return cast(List[Dict[str, Any]], response.get("Permissions") or [])
-
     def describe_folder_permissions(self, folder_id: str) -> List[Dict[str, Any]]:
         response = self.client.describe_folder_permissions(
             AwsAccountId=self.aws_account_id, FolderId=folder_id

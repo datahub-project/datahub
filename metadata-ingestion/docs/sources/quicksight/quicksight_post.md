@@ -8,11 +8,11 @@ For the upstream Dataset URNs to line up with the platform's own ingested tables
 
 ##### Column-level lineage
 
-`CustomSql` datasets carry a SQL definition that is parsed with sqlglot to derive column-level lineage. Unqualified table references are resolved using the `default_database` / `default_schema` configured for that data source in `external_data_sources`. Column-level lineage requires both `extract_lineage` and `extract_column_lineage` to be enabled.
+`CustomSql` datasets carry a SQL definition that is parsed with sqlglot to derive column-level lineage. Unqualified table references are resolved using the `default_database` / `default_schema` configured for that data source in `external_data_sources`. Column-level lineage requires both `extract_lineage` and `include_column_lineage` to be enabled.
 
 #### Ownership, tags, users and groups
 
-With `extract_ownership` enabled, owners are derived from each asset's QuickSight resource permissions. IAM/SSO-federated principals are normalized to the role-session name (typically the user's email) so the resulting `CorpUser` URN matches DataHub's `urn:li:corpuser:<email>` convention; set `strip_user_email_domain` to use the bare username instead. `extract_tags` maps AWS resource tags to DataHub tags (filterable via `tag_pattern`). `extract_users_and_groups` (opt-in) emits `CorpUser` / `CorpGroup` entities and their memberships.
+With `extract_ownership` enabled, owners are derived from each asset's QuickSight resource permissions. IAM/SSO-federated principals are normalized to the role-session name (typically the user's email) so the resulting `CorpUser` URN matches DataHub's `urn:li:corpuser:<email>` convention; set `strip_user_ids_from_email` to use the bare username instead. `extract_tags` maps AWS resource tags to DataHub tags (filterable via `tag_pattern`). `extract_users_and_groups` (opt-in) emits `CorpUser` / `CorpGroup` entities and their memberships.
 
 #### Stateful ingestion
 
@@ -28,13 +28,17 @@ QuickSight is a regional service, so a single ingestion run only sees assets in 
 
 Folders are a QuickSight Enterprise-edition feature. On Standard-edition accounts no folders exist, so assets are emitted directly under the platform / `platform_instance`.
 
+#### Only account-level folders are ingested (not personal "My folders")
+
+The connector ingests every folder returned by the `ListFolders` API — i.e. both `SHARED` and `RESTRICTED` folder types — and these are filterable by name via `folder_pattern`. Personal **"My folders"** are private to each user and [are not exposed by any QuickSight API](https://community.amazonquicksight.com/t/list-folders-api-does-not-return-user-folders/8981), so they cannot be ingested. Assets that live only in a user's "My folders" (and in no shared/restricted folder) are still ingested as entities — they simply attach to the namespace container (if enabled) or the platform root rather than to a folder.
+
 #### Definition payloads
 
 Chart (visual) entities are only emitted when `extract_dashboard_definitions` is enabled. Definition payloads are large; disable `extract_dashboard_definitions` / `extract_analysis_definitions` to reduce API cost at the expense of visual-level detail.
 
 #### No upstream lineage for S3-backed datasets
 
-QuickSight only exposes the **manifest file location** for S3 data sources (`DescribeDataSource → S3Parameters.ManifestFileLocation`); neither the data source nor the dataset's `PhysicalTableMap.S3Source` carries the underlying data file/prefix paths. Because DataHub's S3 source keys datasets by the data path/prefix, a URN built from the manifest key (`bucket/manifest.json`) would never match an S3-ingested dataset. The connector therefore **skips** upstream lineage for S3-backed datasets rather than emit a dangling edge (the skip count is reported, and the manifest location is preserved as a custom property on the data source entity). Relational (Athena/Redshift/Snowflake/…) and CustomSql lineage are unaffected.
+QuickSight only exposes the **manifest file location** for S3 data sources (`DescribeDataSource → S3Parameters.ManifestFileLocation`); neither the data source nor the dataset's `PhysicalTableMap.S3Source` carries the underlying data file/prefix paths. Because DataHub's S3 source keys datasets by the data path/prefix, a URN built from the manifest key (`bucket/manifest.json`) would never match an S3-ingested dataset. The connector therefore **skips** upstream lineage for S3-backed datasets rather than emit a dangling edge (the skip count is surfaced in the ingestion report). Relational (Athena/Redshift/Snowflake/…) and CustomSql lineage are unaffected.
 
 ### Troubleshooting
 

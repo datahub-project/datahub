@@ -49,7 +49,7 @@ def test_source_registered_in_plugin_registry():
     assert source_class is QuickSightSource
 
 
-def test_basic_run_emits_containers_and_builds_data_source_map():
+def test_basic_run_builds_data_source_map():
     quicksight_client, sts_client = _patched_api(
         pages={
             "list_namespaces": [{"Namespaces": [{"Name": "default"}]}],
@@ -75,11 +75,10 @@ def test_basic_run_emits_containers_and_builds_data_source_map():
     }
 
     source = _create_source(quicksight_client, sts_client)
-    workunits = list(source.get_workunits_internal())
+    list(source.get_workunits_internal())
 
-    # No account/namespace containers by default; emits the data source dataset.
-    assert workunits
-    # The lineage map is populated with the resolved upstream platform.
+    # Data sources are not emitted as entities, but the run resolves them into
+    # the lineage map with their upstream platform/dialect.
     arn = "arn:aws:quicksight:us-east-1:064369473231:datasource/ds-1"
     assert source.data_source_map[arn].platform == "athena"
     assert source.data_source_map[arn].dialect == "athena"

@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled via `extract_lineage`")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled via `extract_column_lineage`")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled via `include_column_lineage`")
 @capability(SourceCapability.OWNERSHIP, "Enabled via `extract_ownership`")
 @capability(SourceCapability.TAGS, "Enabled via `extract_tags`")
 @capability(
@@ -113,16 +113,13 @@ class QuickSightSource(StatefulIngestionSourceBase, TestableSource):
         # after the containers processor above has built the folder map.
         parent_for = containers_extractor.parent_for
 
-        # Data sources double as both Dataset entities and the ARN -> platform
-        # map consumed by the lineage extractor.
+        # Data sources are not emitted as entities; we only resolve them to the
+        # ARN -> upstream-platform map consumed by the lineage extractor below
+        # (matching how Tableau/Looker/PowerBI treat the raw connection).
         data_sources_extractor = DataSourcesExtractor(
-            self.config,
-            self.report,
-            self.api,
-            parent_resolver=parent_for,
-            enricher=enricher,
+            self.config, self.report, self.api
         )
-        yield from data_sources_extractor.get_workunits()
+        data_sources_extractor.build_data_source_map()
         self.data_source_map = data_sources_extractor.data_source_map
 
         # Datasets carry schema (from OutputColumns) and the upstream/column

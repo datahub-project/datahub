@@ -182,7 +182,7 @@ class QuickSightLineageExtractor:
             env=target.env,
             graph=self.ctx.graph,
             override_dialect=target.resolved.dialect,
-            generate_column_lineage=self.config.extract_column_lineage,
+            generate_column_lineage=self.config.include_column_lineage,
         )
 
         if result.debug_info.table_error:
@@ -202,7 +202,7 @@ class QuickSightLineageExtractor:
     def _build_column_lineage(
         self, dataset_urn: str, result: SqlParsingResult
     ) -> List[FineGrainedLineageClass]:
-        if not self.config.extract_column_lineage or not result.column_lineage:
+        if not self.config.include_column_lineage or not result.column_lineage:
             return []
 
         fine_grained: List[FineGrainedLineageClass] = []

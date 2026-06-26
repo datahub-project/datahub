@@ -11,8 +11,10 @@ if TYPE_CHECKING:
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -22,7 +24,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class ExternalDataSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class ExternalDataSourceConfig(
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+):
     """Per-data-source overrides used when stitching QuickSight Datasets to
     their upstream warehouse/database tables.
 
@@ -32,6 +38,8 @@ class ExternalDataSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     UUID matches take precedence over name matches.
     """
 
+    # Inherited from LowerCaseDatasetUrnConfigMixin; overridden only to document
+    # the "must match the upstream connector recipe" requirement.
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Whether to lower-case identifiers when constructing upstream "
@@ -76,7 +84,7 @@ class QuickSightSourceConfig(
         description="Whether to extract upstream lineage from QuickSight Datasets to "
         "their backing warehouse/database tables.",
     )
-    extract_column_lineage: bool = Field(
+    include_column_lineage: bool = Field(
         default=True,
         description="Whether to extract column-level lineage for CustomSql datasets "
         "via sqlglot. Requires `extract_lineage` to be enabled.",
@@ -85,14 +93,18 @@ class QuickSightSourceConfig(
         default=True,
         description="Whether to extract ownership from QuickSight resource permissions.",
     )
-    strip_user_email_domain: bool = Field(
+    strip_user_ids_from_email: bool = Field(
         default=False,
         description="When extracting ownership, strip the email domain from user "
         "identities so the CorpUser URN uses the bare username (e.g. "
-        "`jane@acme.com` -> `jane`). Mirrors Informatica's `strip_user_email_domain` "
-        "and Looker's `strip_user_ids_from_email`. For IAM/SSO-federated principals "
-        "the QuickSight identity is the role-session name (typically the email), "
-        "which is used regardless of this flag.",
+        "`jane@acme.com` -> `jane`). Matches Looker's `strip_user_ids_from_email`. "
+        "For IAM/SSO-federated principals the QuickSight identity is the "
+        "role-session name (typically the email), which is used regardless of this "
+        "flag.",
+    )
+
+    _strip_user_email_domain_renamed = pydantic_renamed_field(
+        "strip_user_email_domain", "strip_user_ids_from_email"
     )
     extract_tags: bool = Field(
         default=True,
@@ -163,7 +175,9 @@ class QuickSightSourceConfig(
     )
     data_source_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter QuickSight data sources by name.",
+        description="Regex patterns to filter QuickSight data sources by name. Data "
+        "sources are not emitted as entities; denying one suppresses upstream "
+        "lineage resolution for the datasets backed by it.",
     )
     tag_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

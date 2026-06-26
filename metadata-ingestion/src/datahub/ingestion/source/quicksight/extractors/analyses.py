@@ -1,7 +1,5 @@
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from botocore.exceptions import ClientError
-
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
 from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
@@ -120,7 +118,7 @@ class AnalysesExtractor:
     ) -> Tuple[List[MetadataWorkUnit], List[str]]:
         try:
             definition = self.api.describe_analysis_definition(analysis_id)
-        except ClientError as e:
+        except Exception as e:
             self.report.warning(
                 title="Could not describe analysis definition",
                 message="Charts/visuals for this analysis will be omitted.",
@@ -133,7 +131,7 @@ class AnalysesExtractor:
     def _describe(self, analysis_id: str) -> Dict[str, Any]:
         try:
             return self.api.describe_analysis(analysis_id)
-        except ClientError as e:
+        except Exception as e:
             self.report.warning(
                 title="Could not describe analysis",
                 message="Emitting the analysis without input-dataset lineage.",

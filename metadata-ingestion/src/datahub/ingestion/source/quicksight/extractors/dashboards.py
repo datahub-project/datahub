@@ -1,7 +1,5 @@
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from botocore.exceptions import ClientError
-
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
 from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
@@ -119,7 +117,7 @@ class DashboardsExtractor:
     ) -> Tuple[List[MetadataWorkUnit], List[str]]:
         try:
             definition = self.api.describe_dashboard_definition(dashboard_id)
-        except ClientError as e:
+        except Exception as e:
             self.report.warning(
                 title="Could not describe dashboard definition",
                 message="Charts/visuals for this dashboard will be omitted.",
@@ -150,7 +148,7 @@ class DashboardsExtractor:
     def _describe(self, dashboard_id: str) -> Dict[str, Any]:
         try:
             return self.api.describe_dashboard(dashboard_id)
-        except ClientError as e:
+        except Exception as e:
             self.report.warning(
                 title="Could not describe dashboard",
                 message="Emitting the dashboard without input-dataset lineage.",

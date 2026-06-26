@@ -5,7 +5,6 @@ The `quicksight` module ingests metadata from Amazon QuickSight into DataHub. It
 This source extracts the following:
 
 - **Folders** (and optionally **Namespaces**) as Containers that organize the browse hierarchy.
-- **Data sources** (Athena, Redshift, Snowflake, S3, etc.) as Datasets with the `Data Source` subtype, carrying their connection parameters.
 - **QuickSight Datasets** as Datasets with the `Dataset` subtype, including `schemaMetadata` derived from `OutputColumns`.
 - **Analyses** and **Dashboards** as Dashboard entities (subtypes `Analysis` and `Dashboard`), with each published Dashboard linked back to the Analysis it was built from.
 - **Visuals** within a dashboard's sheets as Chart entities (when `extract_dashboard_definitions` is enabled).
@@ -48,7 +47,6 @@ There is no AWS-managed read-only policy for QuickSight, so attach the following
         "quicksight:DescribeDataSet",
         "quicksight:DescribeDataSetPermissions",
         "quicksight:DescribeDataSource",
-        "quicksight:DescribeDataSourcePermissions",
         "quicksight:DescribeFolder",
         "quicksight:DescribeFolderPermissions"
       ],

@@ -42,7 +42,6 @@ _OWNER_ACTIONS = {
     "dashboard": "quicksight:UpdateDashboardPermissions",
     "analysis": "quicksight:UpdateAnalysisPermissions",
     "data_set": "quicksight:UpdateDataSetPermissions",
-    "data_source": "quicksight:UpdateDataSourcePermissions",
     "folder": "quicksight:UpdateFolderPermissions",
 }
 
@@ -357,11 +356,6 @@ class FakeQuickSightClient:
     def describe_data_set_permissions(self, AwsAccountId: str, DataSetId: str) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["data_set"])}
 
-    def describe_data_source_permissions(
-        self, AwsAccountId: str, DataSourceId: str
-    ) -> Dict:
-        return {"Permissions": _owner_permissions(_OWNER_ACTIONS["data_source"])}
-
     def describe_folder_permissions(self, AwsAccountId: str, FolderId: str) -> Dict:
         return {"Permissions": _owner_permissions(_OWNER_ACTIONS["folder"])}
 
@@ -411,7 +405,7 @@ def test_quicksight_ingest(pytestconfig, tmp_path):
                         "aws_region": REGION,
                         "aws_account_id": ACCOUNT_ID,
                         "extract_lineage": True,
-                        "extract_column_lineage": True,
+                        "include_column_lineage": True,
                         "extract_ownership": True,
                         "extract_tags": True,
                         "extract_users_and_groups": True,

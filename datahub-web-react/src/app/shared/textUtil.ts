@@ -50,6 +50,7 @@ export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
         query: 'queries',
         match: 'matches',
         analysis: 'analyses',
+        axis: 'axes',
     };
 
     const lower = noun?.toLowerCase();

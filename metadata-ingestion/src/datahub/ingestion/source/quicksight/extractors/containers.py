@@ -1,7 +1,5 @@
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
-from botocore.exceptions import ClientError
-
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
@@ -14,6 +12,7 @@ from datahub.ingestion.source.quicksight.quicksight_constants import (
     SUBTYPE_NAMESPACE,
     SUBTYPE_SHARED_FOLDERS,
 )
+from datahub.ingestion.source.quicksight.quicksight_errors import graceful_code
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
@@ -28,17 +27,6 @@ from datahub.sdk.container import Container
 # path + the folder — giving correct nesting at arbitrary folder depth, which a
 # static ``ContainerKey`` inheritance chain cannot express.
 ParentResolver = Callable[[str], Optional[Container]]
-
-# QuickSight returns these error codes when a feature (namespaces, folders) is
-# only available on Enterprise edition or the caller lacks the relevant
-# permission. We degrade gracefully rather than failing the whole run.
-_GRACEFUL_DEGRADE_CODES = frozenset(
-    {
-        "UnsupportedUserEditionException",
-        "AccessDeniedException",
-        "ResourceNotFoundException",
-    }
-)
 
 
 class QuickSightNamespaceKey(ContainerKey):
@@ -69,16 +57,6 @@ class QuickSightFolderKey(ContainerKey):
     account_id: str
     namespace: str
     folder_id: str
-
-
-def _graceful_code(error: Exception) -> Optional[str]:
-    """Return the AWS error code if ``error`` is a gracefully-degradable
-    ``ClientError`` (unsupported edition / missing permission), else ``None``."""
-    if isinstance(error, ClientError):
-        code = error.response.get("Error", {}).get("Code")
-        if code in _GRACEFUL_DEGRADE_CODES:
-            return code
-    return None
 
 
 class ContainersExtractor:
@@ -202,7 +180,7 @@ class ContainersExtractor:
                 if name:
                     namespace_names.append(name)
         except Exception as e:
-            code = _graceful_code(e)
+            code = graceful_code(e)
             if code is None:
                 raise
             self.report.warning(
@@ -262,7 +240,7 @@ class ContainersExtractor:
         try:
             folder_summaries = list(self.api.list_folders())
         except Exception as e:
-            code = _graceful_code(e)
+            code = graceful_code(e)
             if code is None:
                 raise
             self.report.folders_unsupported = True
@@ -335,7 +313,7 @@ class ContainersExtractor:
         try:
             members = list(self.api.list_folder_members(folder_id))
         except Exception as e:
-            if _graceful_code(e) is None:
+            if graceful_code(e) is None:
                 raise
             self.report.warning(
                 title="Could not list folder members",
@@ -361,7 +339,7 @@ class ContainersExtractor:
         try:
             folder = self.api.describe_folder(folder_id)
         except Exception as e:
-            if _graceful_code(e) is None:
+            if graceful_code(e) is None:
                 raise
             self._parent_folder_ids_cache[folder_id] = []
             return []

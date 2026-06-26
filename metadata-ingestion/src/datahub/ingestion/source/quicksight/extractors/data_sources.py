@@ -1,9 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.quicksight.extractors.containers import ParentResolver
-from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
@@ -11,16 +8,10 @@ from datahub.ingestion.source.quicksight.quicksight_config import (
 from datahub.ingestion.source.quicksight.quicksight_constants import (
     DATA_SOURCE_TYPE_TO_DIALECT,
     DATA_SOURCE_TYPE_TO_PLATFORM,
-    SUBTYPE_DATA_SOURCE,
 )
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
-from datahub.ingestion.source.quicksight.quicksight_urn import (
-    PLATFORM,
-    make_asset_name,
-)
-from datahub.sdk.dataset import Dataset
 
 
 @dataclass(frozen=True)
@@ -41,14 +32,19 @@ class ResolvedDataSource:
     platform: Optional[str]
     # sqlglot dialect for CustomSql parsing (None when not SQL-backed).
     dialect: Optional[str]
-    # ``{bucket}/{key}`` of the S3 manifest, for S3-type data source lineage.
+    # ``{bucket}/{key}`` of the S3 manifest; used only as context in the
+    # "S3 upstream lineage skipped" warning (see quicksight_lineage).
     s3_manifest_uri: Optional[str] = None
 
 
 class DataSourcesExtractor:
-    """Emits a Dataset per QuickSight data source (``Data Source`` subtype) and,
-    in the same pass, builds the ARN -> :class:`ResolvedDataSource` map consumed
-    later for lineage stitching and SQL-dialect selection.
+    """Resolves QuickSight data sources to their DataHub upstream platform.
+
+    QuickSight data sources are *not* emitted as DataHub entities — like other BI
+    connectors (Tableau/Looker/PowerBI), the raw warehouse connection is treated
+    purely as resolution metadata for the upstream table's platform, never its
+    own node. This builds the ARN -> :class:`ResolvedDataSource` map consumed by
+    the lineage extractor for upstream-URN stitching and SQL-dialect selection.
     """
 
     def __init__(
@@ -56,17 +52,14 @@ class DataSourcesExtractor:
         config: QuickSightSourceConfig,
         report: QuickSightSourceReport,
         api: QuickSightAPI,
-        parent_resolver: ParentResolver,
-        enricher: AssetEnricher,
     ) -> None:
         self.config = config
         self.report = report
         self.api = api
-        self.parent_resolver = parent_resolver
-        self.enricher = enricher
         self.data_source_map: Dict[str, ResolvedDataSource] = {}
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def build_data_source_map(self) -> None:
+        """Populate :attr:`data_source_map`; emits no entities (see class docs)."""
         for summary in self.api.list_data_sources():
             arn = summary.get("Arn")
             data_source_id = summary.get("DataSourceId")
@@ -86,7 +79,7 @@ class DataSourcesExtractor:
                 self.report.warning(
                     title="Unsupported data source type",
                     message="QuickSight data source type has no upstream platform "
-                    "mapping; emitting the entity without upstream lineage.",
+                    "mapping; datasets backed by it will have no upstream lineage.",
                     context=f"{name} (type={quicksight_type})",
                 )
 
@@ -101,62 +94,21 @@ class DataSourcesExtractor:
                     dialect=dialect,
                     s3_manifest_uri=self._s3_manifest_uri(data_source),
                 )
-
-                yield from self._emit_data_source(
-                    data_source_id=data_source_id,
-                    name=name,
-                    quicksight_type=quicksight_type,
-                    arn=arn,
-                    data_source=data_source,
-                )
+                self.report.data_sources.processed(f"{data_source_id} ({name})")
             except Exception as e:
                 self.report.warning(
-                    title="Failed to process data source",
-                    message="Skipping this data source; the rest of the run continues.",
+                    title="Failed to resolve data source",
+                    message="Skipping this data source; datasets backed by it will "
+                    "have no upstream lineage. The rest of the run continues.",
                     context=f"{data_source_id} ({name})",
                     exc=e,
                 )
-
-    def _emit_data_source(
-        self,
-        data_source_id: str,
-        name: str,
-        quicksight_type: str,
-        arn: str,
-        data_source: Dict[str, Any],
-    ) -> Iterable[MetadataWorkUnit]:
-        custom_properties = {
-            "type": quicksight_type,
-            "arn": arn,
-            "dataSourceId": data_source_id,
-        }
-        custom_properties.update(self._connection_properties(data_source))
-
-        # Data sources are never QuickSight folder members, so this resolves to
-        # the namespace container (if enabled) or the platform root. An explicit
-        # empty list (rather than None) overwrites any stale browse path when the
-        # asset attaches directly to the platform root.
-        parent = self.parent_resolver(data_source_id)
-        dataset = Dataset(
-            platform=PLATFORM,
-            name=make_asset_name(self.api.aws_account_id, data_source_id),
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            display_name=name,
-            subtype=SUBTYPE_DATA_SOURCE,
-            custom_properties=custom_properties,
-            parent_container=parent if parent is not None else [],
-            owners=self.enricher.owners("data_source", data_source_id),
-            tags=self.enricher.tags(arn),
-        )
-        self.report.data_sources.processed(f"{data_source_id} ({name})")
-        yield from dataset.as_workunits()
 
     def _describe(self, data_source_id: str) -> Dict[str, Any]:
         """Describe a data source, degrading to ``{}`` on permission errors.
 
         ``describe_data_source`` requires an extra permission and may fail on
-        restricted roles; we degrade rather than dropping the entity.
+        restricted roles; we degrade rather than dropping the resolution entry.
         """
         try:
             return self.api.describe_data_source(data_source_id)
@@ -164,25 +116,11 @@ class DataSourcesExtractor:
             self.report.warning(
                 title="Failed to describe data source",
                 message="Could not fetch the data source's connection details; "
-                "emitting the entity without them.",
+                "upstream lineage for its datasets may be incomplete.",
                 context=data_source_id,
                 exc=e,
             )
             return {}
-
-    @staticmethod
-    def _connection_properties(data_source: Dict[str, Any]) -> Dict[str, str]:
-        """Flatten the data source's connection parameters to string properties."""
-        params = data_source.get("DataSourceParameters") or {}
-        properties: Dict[str, str] = {}
-        # DataSourceParameters is a single-key union, e.g. {"AthenaParameters": {...}}.
-        for param_group, values in params.items():
-            if isinstance(values, dict):
-                for key, value in values.items():
-                    properties[f"{param_group}.{key}"] = str(value)
-            else:
-                properties[param_group] = str(values)
-        return properties
 
     @staticmethod
     def _s3_manifest_uri(data_source: Dict[str, Any]) -> Optional[str]:

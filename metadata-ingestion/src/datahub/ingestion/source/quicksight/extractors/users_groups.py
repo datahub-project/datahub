@@ -1,8 +1,6 @@
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Set
 
-from botocore.exceptions import ClientError
-
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.api.entities.corpuser.corpuser import (
     CorpUser,
@@ -13,27 +11,11 @@ from datahub.ingestion.source.quicksight.quicksight_api import QuickSightAPI
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
+from datahub.ingestion.source.quicksight.quicksight_errors import graceful_code
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
 from datahub.ingestion.source.quicksight.quicksight_urn import quicksight_user_id
-
-# QuickSight identity APIs are Enterprise-edition only and need extra IAM
-# actions; degrade gracefully on these codes rather than failing the run.
-_GRACEFUL_DEGRADE_CODES = frozenset(
-    {
-        "UnsupportedUserEditionException",
-        "AccessDeniedException",
-        "ResourceNotFoundException",
-    }
-)
-
-
-def _is_graceful(error: Exception) -> bool:
-    return (
-        isinstance(error, ClientError)
-        and error.response.get("Error", {}).get("Code") in _GRACEFUL_DEGRADE_CODES
-    )
 
 
 class UsersGroupsExtractor:
@@ -67,7 +49,7 @@ class UsersGroupsExtractor:
         try:
             names = [ns["Name"] for ns in self.api.list_namespaces() if ns.get("Name")]
         except Exception as e:
-            if not _is_graceful(e):
+            if graceful_code(e) is None:
                 raise
             names = []
         return names or ["default"]
@@ -88,7 +70,7 @@ class UsersGroupsExtractor:
                     if member_name:
                         memberships[member_name].add(group_name)
         except Exception as e:
-            if not _is_graceful(e):
+            if graceful_code(e) is None:
                 raise
             self.report.warning(
                 title="Skipping groups",
@@ -111,7 +93,7 @@ class UsersGroupsExtractor:
         try:
             users = list(self.api.list_users(namespace))
         except Exception as e:
-            if not _is_graceful(e):
+            if graceful_code(e) is None:
                 raise
             self.report.warning(
                 title="Skipping users",
@@ -139,7 +121,7 @@ class UsersGroupsExtractor:
         try:
             yield from self.api.list_group_memberships(group_name, namespace)
         except Exception as e:
-            if not _is_graceful(e):
+            if graceful_code(e) is None:
                 raise
             self.report.warning(
                 title="Could not list group members",
@@ -173,7 +155,7 @@ class UsersGroupsExtractor:
         # session segment for IAM/SSO users), so this CorpUser entity matches the
         # owner references on assets. The email is taken from the user record
         # when QuickSight provides it.
-        user_id = quicksight_user_id(user_name, self.config.strip_user_email_domain)
+        user_id = quicksight_user_id(user_name, self.config.strip_user_ids_from_email)
         # Display the clean identity (email for IAM/SSO users, else the username)
         # rather than the raw "AWSReservedSSO_<role>_<hash>/<session>" string, so
         # owner pills in the UI read cleanly.

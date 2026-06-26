@@ -80,7 +80,6 @@ class AssetEnricher:
             "dashboard": api.describe_dashboard_permissions,
             "analysis": api.describe_analysis_permissions,
             "data_set": api.describe_data_set_permissions,
-            "data_source": api.describe_data_source_permissions,
             "folder": api.describe_folder_permissions,
         }
 
@@ -106,7 +105,7 @@ class AssetEnricher:
                 continue
             urn = _principal_to_owner_urn(
                 permission.get("Principal") or "",
-                self.config.strip_user_email_domain,
+                self.config.strip_user_ids_from_email,
             )
             if urn and urn not in seen:
                 seen.add(urn)

@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.quicksight.extractors.containers import (
@@ -100,9 +100,11 @@ def test_file_type_dataset_degrades_to_summary_only():
 
 
 def test_describe_error_degrades_to_warning_and_continues():
-    # A failure on one dataset must not tear down the extractor (or the
-    # extractors scheduled after it); it degrades to a warning and the run
-    # continues with the remaining datasets.
+    # A describe failure on one dataset must not tear down the extractor (or the
+    # extractors scheduled after it). It degrades to a summary-only emission with
+    # a warning, and the run continues with the remaining datasets. Use a
+    # non-ClientError botocore sibling (the case that previously aborted the run)
+    # to confirm the broad-Exception handling.
     api = _mock_api(
         [
             {"DataSetId": "ds-1", "Name": "boom"},
@@ -112,10 +114,7 @@ def test_describe_error_degrades_to_warning_and_continues():
 
     def describe(data_set_id: str, **kwargs):
         if data_set_id == "ds-1":
-            raise ClientError(
-                {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
-                "DescribeDataSet",
-            )
+            raise EndpointConnectionError(endpoint_url="https://quicksight")
         return {"OutputColumns": [], "PhysicalTableMap": {}}
 
     api.describe_data_set.side_effect = describe
@@ -124,6 +123,8 @@ def test_describe_error_degrades_to_warning_and_continues():
     list(processor.get_workunits())
 
     assert len(processor.report.warnings) == 1
+    # Both datasets are still emitted; ds-1 degrades to summary-only.
+    assert "ds-1 (boom)" in processor.report.datasets.processed_entities
     assert "ds-2 (ok)" in processor.report.datasets.processed_entities
 
 

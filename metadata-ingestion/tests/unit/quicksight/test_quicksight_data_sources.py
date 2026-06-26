@@ -1,43 +1,17 @@
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
-from datahub.ingestion.source.quicksight.extractors.containers import (
-    QuickSightNamespaceKey,
-)
 from datahub.ingestion.source.quicksight.extractors.data_sources import (
     DataSourcesExtractor,
 )
-from datahub.ingestion.source.quicksight.extractors.enrichment import AssetEnricher
 from datahub.ingestion.source.quicksight.quicksight_config import (
     QuickSightSourceConfig,
 )
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
-from datahub.sdk.container import Container
 
 _ARN_PREFIX = "arn:aws:quicksight:us-east-1:064369473231:datasource"
-
-
-def _parent_container() -> Container:
-    return Container(
-        QuickSightNamespaceKey(
-            platform="quicksight",
-            instance=None,
-            env="PROD",
-            account_id="064369473231",
-            namespace="default",
-        ),
-        display_name="default",
-        subtype="Namespace",
-    )
-
-
-def _enricher(api: mock.MagicMock, report: QuickSightSourceReport) -> AssetEnricher:
-    config = QuickSightSourceConfig.model_validate(
-        {"aws_region": "us-east-1", "extract_ownership": False, "extract_tags": False}
-    )
-    return AssetEnricher(config, report, api)
 
 
 def _processor(
@@ -47,13 +21,7 @@ def _processor(
         {"aws_region": "us-east-1", **(config_dict or {})}
     )
     report = QuickSightSourceReport()
-    return DataSourcesExtractor(
-        config,
-        report,
-        api,
-        parent_resolver=lambda _id: _parent_container(),
-        enricher=_enricher(api, report),
-    )
+    return DataSourcesExtractor(config, report, api)
 
 
 def _mock_api(summaries: List[Dict[str, Any]]) -> mock.MagicMock:
@@ -76,7 +44,7 @@ def test_resolves_known_type_to_platform_and_dialect():
         ]
     )
     processor = _processor(api)
-    list(processor.get_workunits())
+    processor.build_data_source_map()
 
     resolved = processor.data_source_map[f"{_ARN_PREFIX}/ds-1"]
     assert resolved.platform == "athena"
@@ -95,7 +63,7 @@ def test_unknown_type_resolves_to_no_platform_and_is_counted():
         ]
     )
     processor = _processor(api)
-    list(processor.get_workunits())
+    processor.build_data_source_map()
 
     resolved = processor.data_source_map[f"{_ARN_PREFIX}/ds-2"]
     assert resolved.platform is None
@@ -120,25 +88,18 @@ def test_data_source_pattern_filters_out_disallowed_sources():
         ]
     )
     processor = _processor(api, {"data_source_pattern": {"deny": ["drop-me"]}})
-    list(processor.get_workunits())
+    processor.build_data_source_map()
 
     assert f"{_ARN_PREFIX}/ds-1" in processor.data_source_map
     assert f"{_ARN_PREFIX}/ds-2" not in processor.data_source_map
 
 
-def test_connection_parameters_flattened_into_properties():
-    props = DataSourcesExtractor._connection_properties(
-        {"DataSourceParameters": {"AthenaParameters": {"WorkGroup": "primary"}}}
-    )
-    assert props["AthenaParameters.WorkGroup"] == "primary"
-
-
-def test_describe_failure_degrades_to_summary_only():
+def test_describe_failure_degrades_gracefully():
     api = _mock_api([])
     api.describe_data_source.side_effect = Exception("AccessDenied")
     processor = _processor(api)
 
-    # A failed describe must not drop the entity — it degrades to empty details.
+    # A failed describe must not raise — it degrades to empty connection details.
     assert processor._describe("ds-1") == {}
 
 
@@ -164,7 +125,7 @@ def test_s3_manifest_uri_extracted_for_s3_sources():
         }
     }
     processor = _processor(api)
-    list(processor.get_workunits())
+    processor.build_data_source_map()
 
     resolved = processor.data_source_map[f"{_ARN_PREFIX}/ds-3"]
     assert resolved.s3_manifest_uri == "my-bucket/data/manifest.json"

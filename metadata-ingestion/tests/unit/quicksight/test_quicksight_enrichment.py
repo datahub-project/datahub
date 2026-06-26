@@ -70,12 +70,12 @@ def test_sso_federated_principal_uses_session_name():
     assert [o.owner for o in owners] == ["urn:li:corpuser:jane@acme.com"]
 
 
-def test_strip_user_email_domain():
+def test_strip_user_ids_from_email():
     api = mock.MagicMock()
     api.describe_dashboard_permissions.return_value = [
         {"Principal": _SSO_OWNER, "Actions": _OWNER_ACTIONS},
     ]
-    owners = _enricher(api, {"strip_user_email_domain": True}).owners(
+    owners = _enricher(api, {"strip_user_ids_from_email": True}).owners(
         "dashboard", "dash-1"
     )
 

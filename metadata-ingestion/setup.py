@@ -912,7 +912,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,lakeformation,quicksight]==1.40.0",
     "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",

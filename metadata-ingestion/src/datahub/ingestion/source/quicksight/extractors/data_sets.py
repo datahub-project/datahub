@@ -138,24 +138,34 @@ class DataSetsExtractor:
         yield from dataset.as_workunits()
 
     def _describe(self, data_set_id: str) -> Optional[Dict[str, Any]]:
-        """Describe a dataset; return ``None`` for FILE-type datasets.
+        """Describe a dataset; return ``None`` when it cannot be described.
 
         FILE datasets raise ``InvalidParameterValueException`` (they have no
-        physical table to describe), which we translate into a summary-only
-        emission rather than dropping the entity.
+        physical table to describe) and are emitted summary-only. Other
+        transient or permission failures (throttling, connection errors,
+        restricted roles) are likewise degraded to a summary-only emission
+        rather than aborting, matching the data-source/enrichment convention.
         """
         try:
             return self.api.describe_data_set(data_set_id)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code")
-            if code == _FILE_DATASET_ERROR_CODE:
+        except Exception as e:
+            if (
+                isinstance(e, ClientError)
+                and e.response.get("Error", {}).get("Code") == _FILE_DATASET_ERROR_CODE
+            ):
                 self.report.num_file_datasets_summary_only += 1
                 logger.info(
                     f"DataSet {data_set_id} is FILE-type (cannot be described); "
                     "emitting summary-only metadata."
                 )
                 return None
-            raise
+            self.report.warning(
+                title="Could not describe dataset",
+                message="Emitting summary-only metadata without schema or lineage.",
+                context=data_set_id,
+                exc=e,
+            )
+            return None
 
     @staticmethod
     def _build_schema(output_columns: List[Dict[str, Any]]) -> List[SchemaFieldClass]:

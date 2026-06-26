@@ -17,7 +17,7 @@ source:
 
     # Lineage & enrichment (all default to true except usage / users-groups).
     extract_lineage: true
-    extract_column_lineage: true
+    include_column_lineage: true
     extract_ownership: true
     extract_tags: true
     # extract_users_and_groups: true   # opt-in; needs ListUsers/ListGroups perms

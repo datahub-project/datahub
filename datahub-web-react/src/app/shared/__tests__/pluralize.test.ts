@@ -35,6 +35,10 @@ describe('pluralize text based on the count', () => {
         expect(pluralize(15, 'Analysis')).toEqual('analyses');
         expect(pluralizeIfIrregular('Analysis')).toEqual('analyses');
     });
+    it('pluralizes "Axis" to "Axes" rather than "Axis" or "Axiss"', () => {
+        expect(pluralize(3, 'Axis')).toEqual('axes');
+        expect(pluralizeIfIrregular('Axis')).toEqual('axes');
+    });
     it('does not double-pluralize names that are already plural', () => {
         expect(pluralizeIfIrregular('Shared Folders')).toEqual('Shared Folders');
         expect(forcePluralize('Shared Folders')).toEqual('Shared Folders');

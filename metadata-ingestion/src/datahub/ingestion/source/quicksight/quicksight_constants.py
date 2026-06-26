@@ -25,7 +25,6 @@ SUBTYPE_NAMESPACE = "Namespace"
 # when `add_shared_folders_container` is enabled.
 SUBTYPE_SHARED_FOLDERS = "Shared Folders"
 SUBTYPE_FOLDER = "Folder"
-SUBTYPE_DATA_SOURCE = "Data Source"
 # QuickSight natively calls these assets "Datasets", so the subtype label is the
 # plain "Dataset" (registered in the shared DatasetSubTypes enum for consistency).
 SUBTYPE_DATASET = DatasetSubTypes.QUICKSIGHT_DATASET

@@ -535,7 +535,7 @@ dev = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "quicksight", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -729,7 +729,7 @@ docs = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "quicksight", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -1985,8 +1985,8 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'tidb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'timescaledb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
     { name = "botocore", marker = "extra == 'all'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'aws-secret-manager'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
@@ -4349,6 +4349,9 @@ glue = [
 ]
 lakeformation = [
     { name = "mypy-boto3-lakeformation" },
+]
+quicksight = [
+    { name = "mypy-boto3-quicksight" },
 ]
 s3 = [
     { name = "mypy-boto3-s3" },
@@ -8790,6 +8793,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3f/ff/0334c8edc30f7815729f1aac5eba10fc2223fd4f1f4ac1d293d97e1599ef/mypy_boto3_lakeformation-1.40.55.tar.gz", hash = "sha256:21c501b9f867af719f809d051bf253c28d0480d641b602af4dde93b72b6d5914", size = 35048, upload-time = "2025-10-17T19:44:36.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/93/ef9d120ea497e57954e0dedb0f750fa328fa440e4d8d95e625258daf5691/mypy_boto3_lakeformation-1.40.55-py3-none-any.whl", hash = "sha256:fac1163ae7c264634bba7d73f8240e690995bc3476c301f7cbd20d76cffef61d", size = 39656, upload-time = "2025-10-17T19:44:34.282Z" },
+]
+
+[[package]]
+name = "mypy-boto3-quicksight"
+version = "1.40.49"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/39/4425ed64dc3b59e9bd4ff1695d1eb849de03b4adfff1c0352d7137c1c641/mypy_boto3_quicksight-1.40.49.tar.gz", hash = "sha256:b24cf91c595744886a79f30e48df25be1980baef823810bf865f181896b05d22", size = 180463, upload-time = "2025-10-09T19:26:47.546Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/cf/9ddfcafc8d94f9b85a5366c7ab942c18826a2baae8e58e734ae4fa98ae95/mypy_boto3_quicksight-1.40.49-py3-none-any.whl", hash = "sha256:5fdf2460722a152360ee10bca22f0563882eca58fc56b54bb6619ddf63511e11", size = 181832, upload-time = "2025-10-09T19:26:41.989Z" },
 ]
 
 [[package]]

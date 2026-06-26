@@ -3571,7 +3571,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled via `extract_column_lineage`",
+          "description": "Enabled via `include_column_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
