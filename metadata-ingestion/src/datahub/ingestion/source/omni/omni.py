@@ -1682,9 +1682,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterator[MetadataWorkUnit]:
         try:
-            yield from self._ingest_semantic_model()
-            yield from self._ingest_folders()
-            yield from self._ingest_documents()
+            with self.report.new_stage("Ingesting Omni semantic models"):
+                yield from self._ingest_semantic_model()
+            with self.report.new_stage("Ingesting Omni folders"):
+                yield from self._ingest_folders()
+            with self.report.new_stage("Ingesting Omni documents"):
+                yield from self._ingest_documents()
         except Exception as exc:
             self.report.failure(
                 title="Omni source error",
