@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.linkedin.common.Owner;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -30,11 +31,11 @@ public class ResolvedEntitySpec {
    *
    * @return a set of owner urns, or empty set if none exist.
    */
-  public Set<String> getOwners() {
+  public Set<Owner> getOwners() {
     if (!fieldResolvers.containsKey(EntityFieldType.OWNER)) {
       return Collections.emptySet();
     }
-    return fieldResolvers.get(EntityFieldType.OWNER).getFieldValuesFuture().join().getValues();
+    return fieldResolvers.get(EntityFieldType.OWNER).getFieldValuesFuture().join().getOwners();
   }
 
   /**

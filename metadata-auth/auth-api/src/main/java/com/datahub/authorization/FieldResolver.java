@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.linkedin.common.Owner;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -21,7 +22,7 @@ public class FieldResolver {
   @Getter(lazy = true)
   private final CompletableFuture<FieldValue> fieldValuesFuture = resolveField.get();
 
-  private static final FieldValue EMPTY = new FieldValue(Collections.emptySet());
+  private static final FieldValue EMPTY = new FieldValue(Collections.emptySet(), Set.of());
 
   /** Helper function that returns FieldResolver for precomputed values */
   public static FieldResolver getResolverFromValues(Set<String> values) {
@@ -48,5 +49,6 @@ public class FieldResolver {
   @Builder
   public static class FieldValue {
     Set<String> values;
+    Set<Owner> owners;
   }
 }

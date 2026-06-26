@@ -4,14 +4,10 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -170,7 +166,7 @@ public class PolicyEngine {
 
       // 2. Fetch Actors based on resource ownership.
       if (actorFilter.isResourceOwners() && resource.isPresent()) {
-        Set<String> owners = resource.get().getOwners();
+        Set<Owner> owners = resource.get().getOwners();
         users.addAll(userOwners(owners));
         groups.addAll(groupOwners(owners));
       }
@@ -480,48 +476,15 @@ public class PolicyEngine {
         opContext, resolvedActorSpec, requestResource.get(), ownershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(
-      @Nonnull OperationContext opContext,
-      @Nonnull EntitySpec resourceSpec,
-      @Nonnull List<Urn> ownershipTypes,
-      @Nonnull PolicyEvaluationContext context) {
-    if (resourceSpec.getEntity().isEmpty()) {
+  private Set<String> getOwnersForType(ResolvedEntitySpec spec, List<Urn> ownershipTypes) {
+    if (spec.getSpec().getEntity().isEmpty()) {
       return Set.of();
     }
-    // A resource's ownership is actor-independent. Fetch the full owner list once per resource per
-    // authorize() call (multiple ownership policies on the same resource reuse the cached fetch),
-    // then filter by ownership type in memory.
-    final List<Owner> owners =
-        context
-            .getResourceOwnersByUrn()
-            .computeIfAbsent(resourceSpec.getEntity(), urn -> fetchOwners(opContext, urn));
-
-    Stream<Owner> ownersStream = owners.stream();
+    Stream<Owner> ownersStream = spec.getOwners().stream();
     if (ownershipTypes != null) {
       ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
     }
     return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
-  }
-
-  private List<Owner> fetchOwners(
-      @Nonnull OperationContext opContext, @Nonnull String resourceUrn) {
-    Urn entityUrn = UrnUtils.getUrn(resourceUrn);
-    try {
-      EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
-      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
-        return Collections.emptyList();
-      }
-      EnvelopedAspect ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
-      return new Ownership(ownershipAspect.getValue().data()).getOwners();
-    } catch (Exception e) {
-      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptyList();
-    }
   }
 
   private boolean isActorOwner(
@@ -530,8 +493,7 @@ public class PolicyEngine {
       ResolvedEntitySpec resourceSpec,
       List<Urn> ownershipTypes,
       PolicyEvaluationContext context) {
-    Set<String> owners =
-        this.getOwnersForType(opContext, resourceSpec.getSpec(), ownershipTypes, context);
+    Set<String> owners = this.getOwnersForType(resourceSpec, ownershipTypes);
     if (isUserOwner(resolvedActorSpec, owners)) {
       return true;
     }
@@ -723,16 +685,16 @@ public class PolicyEngine {
     Boolean allGroups;
   }
 
-  private List<Urn> userOwners(final Set<String> owners) {
+  private List<Urn> userOwners(final Set<Owner> owners) {
     return owners.stream()
-        .map(UrnUtils::getUrn)
+        .map(Owner::getOwner)
         .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getEntityType()))
         .collect(Collectors.toList());
   }
 
-  private List<Urn> groupOwners(final Set<String> owners) {
+  private List<Urn> groupOwners(final Set<Owner> owners) {
     return owners.stream()
-        .map(UrnUtils::getUrn)
+        .map(Owner::getOwner)
         .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getEntityType()))
         .collect(Collectors.toList());
   }

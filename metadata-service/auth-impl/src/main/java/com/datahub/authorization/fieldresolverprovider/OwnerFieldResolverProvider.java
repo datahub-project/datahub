@@ -3,6 +3,8 @@ package com.datahub.authorization.fieldresolverprovider;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -61,11 +64,14 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
       return FieldResolver.emptyFieldValue();
     }
     Ownership ownership = new Ownership(ownershipAspect.getValue().data());
+    OwnerArray owners = ownership.getOwners();
     return FieldResolver.FieldValue.builder()
         .values(
-            ownership.getOwners().stream()
-                .map(owner -> owner.getOwner().toString())
-                .collect(Collectors.toSet()))
+            owners.stream()
+                .map(Owner::getOwner)
+                .map(Urn::toString)
+                .collect(Collectors.toUnmodifiableSet()))
+        .owners(Set.copyOf(owners))
         .build();
   }
 }
