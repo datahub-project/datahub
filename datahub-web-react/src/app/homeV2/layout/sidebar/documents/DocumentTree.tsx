@@ -13,7 +13,7 @@ import {
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
-import { partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
+import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import Loading from '@app/shared/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -205,18 +205,27 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         [rootNodes, filterSelection],
     );
 
-    // Partition visible roots into the "DataHub" layer and the collapsed "Other"
-    // bucket (every non-DataHub source platform) for the layered sidebar layout.
-    const { native: nativeRootNodes, other: otherRootNodes } = useMemo(
+    // Partition visible roots into the native ("DataHub") layer and per-platform
+    // source groups for the layered sidebar layout.
+    const { native: nativeRootNodes, sourcesByPlatform } = useMemo(
         () => partitionRootNodesByLayer(visibleRootNodes),
         [visibleRootNodes],
     );
 
     // Section expansion state — local to this component since these are UI
-    // groupings, not part of the tree's underlying data model. "DataHub" and
-    // "Other" are sibling top-level collapsible sections.
+    // groupings, not part of the tree's underlying data model. Each source
+    // platform is a top-level collapsible group, sibling to the DataHub section.
     const [isNativeExpanded, setIsNativeExpanded] = useState(true);
-    const [isOtherExpanded, setIsOtherExpanded] = useState(true);
+    const [collapsedPlatformUrns, setCollapsedPlatformUrns] = useState<Set<string>>(new Set());
+
+    const togglePlatformGroup = useCallback((urn: string) => {
+        setCollapsedPlatformUrns((prev) => {
+            const next = new Set(prev);
+            if (next.has(urn)) next.delete(urn);
+            else next.add(urn);
+            return next;
+        });
+    }, []);
 
     const getCurrentDocumentUrn = useCallback(() => {
         const match = location.pathname.match(/\/document\/([^/]+)/);
@@ -337,6 +346,31 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         ],
     );
 
+    // Each source platform renders as a sibling section to the DataHub section —
+    // same label treatment (Mulish/textTertiary), right-side caret, no icon. Its
+    // docs sit at level 0 underneath, matching how DataHub docs sit under the
+    // DataHub header.
+    const renderPlatformGroup = useCallback(
+        (group: DocumentSourceGroup) => {
+            const { platform, label } = group;
+            const isExpanded = !collapsedPlatformUrns.has(platform.urn);
+
+            return (
+                <React.Fragment key={platform.urn}>
+                    <TreeSectionHeader
+                        level={0}
+                        label={label}
+                        isExpanded={isExpanded}
+                        onToggle={() => togglePlatformGroup(platform.urn)}
+                        testId={`document-tree-platform-${platform.urn}`}
+                    />
+                    {isExpanded && group.nodes.map((node) => renderTreeNode(node.urn, 0))}
+                </React.Fragment>
+            );
+        },
+        [collapsedPlatformUrns, renderTreeNode, togglePlatformGroup],
+    );
+
     if (loading) {
         return <Loading height={16} />;
     }
@@ -355,18 +389,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                     {isNativeExpanded && nativeRootNodes.map((node) => renderTreeNode(node.urn, 0))}
                 </>
             )}
-            {otherRootNodes.length > 0 && (
-                <>
-                    <TreeSectionHeader
-                        level={0}
-                        label={t('context.tree.otherSection')}
-                        isExpanded={isOtherExpanded}
-                        onToggle={() => setIsOtherExpanded((v) => !v)}
-                        testId="document-tree-other-section"
-                    />
-                    {isOtherExpanded && otherRootNodes.map((node) => renderTreeNode(node.urn, 0))}
-                </>
-            )}
+            {sourcesByPlatform.map(renderPlatformGroup)}
             {hasMoreRoots && <ObserverContainer ref={rootObserverRef} />}
             {loadingMoreRoots && <Loading height={12} />}
         </TreeContainer>
