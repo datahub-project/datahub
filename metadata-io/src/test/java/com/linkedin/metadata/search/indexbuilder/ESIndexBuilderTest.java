@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -72,7 +73,9 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.tasks.TaskId;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.tasks.TaskInfo;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -2050,5 +2053,159 @@ public class ESIndexBuilderTest {
     assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
     assertTrue(result.reindexStartTime() > 0);
     Assert.assertFalse(result.skippedEmpty());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resume validation + task cancellation
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void testCancelReindexTaskAndConfirm_SucceedsWhenTaskGone() throws Exception {
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getTaskId()).thenReturn(new TaskId("node1", 123L));
+    when(taskInfo.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
+    // Task no longer present => stopped.
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.empty());
+
+    indexBuilder.cancelReindexTaskAndConfirm(opContext, taskInfo, 5000L, 10L);
+
+    // A _cancel request was issued for the task.
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, atLeastOnce()).performLowLevelRequest(any(), captor.capture());
+    assertTrue(
+        captor.getAllValues().stream()
+            .anyMatch(r -> r.getEndpoint().equals("/_tasks/node1:123/_cancel")));
+  }
+
+  @Test
+  void testCancelReindexTaskAndConfirm_SucceedsWhenTaskCompleted() throws Exception {
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getTaskId()).thenReturn(new TaskId("node1", 123L));
+    when(taskInfo.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
+    GetTaskResponse completed = mock(GetTaskResponse.class);
+    when(completed.isCompleted()).thenReturn(true);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(completed));
+
+    // Should return without throwing.
+    indexBuilder.cancelReindexTaskAndConfirm(opContext, taskInfo, 5000L, 10L);
+  }
+
+  @Test
+  void testCancelReindexTaskAndConfirm_ThrowsWhenTaskNeverStops() throws Exception {
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getTaskId()).thenReturn(new TaskId("node1", 123L));
+    when(taskInfo.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
+    GetTaskResponse running = mock(GetTaskResponse.class);
+    when(running.isCompleted()).thenReturn(false);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(running));
+
+    // Never confirmed stopped => must hard-fail (the error is never swallowed).
+    assertThrows(
+        IllegalStateException.class,
+        () -> indexBuilder.cancelReindexTaskAndConfirm(opContext, taskInfo, 50L, 10L));
+  }
+
+  @Test
+  void testCancelReindexTaskAndConfirm_CancelsParentForSlicedReindex() throws Exception {
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getTaskId()).thenReturn(new TaskId("node1", 999L)); // a child slice
+    when(taskInfo.getParentTaskId()).thenReturn(new TaskId("node1", 100L)); // the reindex parent
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.empty());
+
+    indexBuilder.cancelReindexTaskAndConfirm(opContext, taskInfo, 5000L, 10L);
+
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, atLeastOnce()).performLowLevelRequest(any(), captor.capture());
+    // The parent task is cancelled (cascades to all slices), not the child slice.
+    assertTrue(
+        captor.getAllValues().stream()
+            .anyMatch(r -> r.getEndpoint().equals("/_tasks/node1:100/_cancel")));
+  }
+
+  @Test
+  void testResumedReindexMatchesTarget_TrueWhenMappingsMatch() throws IOException {
+    Map<String, Object> mappings = Map.of("properties", Map.of("urn", Map.of("type", "keyword")));
+    mockExistingIndex("test_index_123", mappings);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(mappings);
+
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getHeaders())
+        .thenReturn(Map.of(ESUtils.OPAQUE_ID_HEADER, "1.0.0|test_index|test_index_123"));
+
+    assertTrue(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
+  }
+
+  @Test
+  void testResumedReindexMatchesTarget_FalseWhenMappingsStale() throws IOException {
+    // Temp index was built from older mappings (missing a field the current target now has).
+    Map<String, Object> tempMappings =
+        Map.of("properties", Map.of("urn", Map.of("type", "keyword")));
+    Map<String, Object> targetMappings =
+        Map.of(
+            "properties",
+            Map.of("urn", Map.of("type", "keyword"), "newField", Map.of("type", "keyword")));
+    mockExistingIndex("test_index_123", tempMappings);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getHeaders())
+        .thenReturn(Map.of(ESUtils.OPAQUE_ID_HEADER, "1.0.0|test_index|test_index_123"));
+
+    assertFalse(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
+  }
+
+  @Test
+  void testResumedReindexMatchesTarget_FalseOnMissingOpaqueHeader() {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+
+    TaskInfo taskInfo = mock(TaskInfo.class);
+    when(taskInfo.getHeaders()).thenReturn(Collections.emptyMap()); // can't validate
+
+    // Any failure to validate is treated as "does not match" so the caller restarts cleanly.
+    assertFalse(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
+  }
+
+  /** Mock searchClient so {@code buildReindexState} sees an existing index with given mappings. */
+  private void mockExistingIndex(String indexName, Map<String, Object> mappings)
+      throws IOException {
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(
+            Map.of(
+                indexName,
+                Settings.builder()
+                    .put("index.number_of_shards", "1")
+                    .put("index.number_of_replicas", "1")
+                    .build()));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(mappings);
+    when(mappingsResponse.mappings()).thenReturn(Map.of(indexName, mappingMetadata));
+    when(searchClient.getIndexMapping(
+            any(OperationFingerprint.class),
+            any(GetMappingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mappingsResponse);
   }
 }
