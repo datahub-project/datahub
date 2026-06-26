@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from datahub.ingestion.source.github_documents.github_hierarchy import (
     GitHubHierarchyExtractor,
 )
-from datahub.metadata.schema_classes import BrowsePathsV2Class
+from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
 # repo -> docs -> guides -> setup.md
 PARENT_LINKS: Dict[str, Optional[str]] = {
@@ -89,40 +89,53 @@ def test_build_browse_path_v2_empty_source_id_returns_none() -> None:
     )
 
 
-def test_build_browse_path_v2_with_root_parent_urn() -> None:
-    # When nesting under an external configured parent, top-level docs have no
-    # in-repo ancestors, but the configured parent roots the path.
+def test_build_browse_path_v2_with_prefix_entries() -> None:
+    # Prefix entries (e.g. configured parent, org, repo) are prepended ahead of
+    # the reconstructed in-repo ancestor chain.
     links: Dict[str, Optional[str]] = {"guides": None, "setup": "guides"}
     titles = {"guides": "guides", "setup": "setup.md"}
     urns = {"guides": "urn:li:document:guides", "setup": "urn:li:document:setup"}
-    root = "urn:li:document:external-root"
+    prefix = [
+        BrowsePathEntryClass(
+            id="urn:li:document:external-root", urn="urn:li:document:external-root"
+        ),
+        BrowsePathEntryClass(id="acme"),
+    ]
 
     browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
         source_id="setup",
         parent_links=links,
         titles=titles,
         urns=urns,
-        root_parent_urn=root,
+        prefix_entries=prefix,
     )
 
     assert browse_path is not None
-    assert [e.id for e in browse_path.path] == [root, "guides"]
-    assert [e.urn for e in browse_path.path] == [root, urns["guides"]]
+    assert [e.id for e in browse_path.path] == [
+        "urn:li:document:external-root",
+        "acme",
+        "guides",
+    ]
+    assert [e.urn for e in browse_path.path] == [
+        "urn:li:document:external-root",
+        None,
+        urns["guides"],
+    ]
 
 
-def test_build_browse_path_v2_root_parent_only_for_top_level() -> None:
-    # A top-level document under an external parent gets just that parent.
+def test_build_browse_path_v2_prefix_only_for_top_level() -> None:
+    # A top-level document with no in-repo ancestors still gets the prefix.
     links: Dict[str, Optional[str]] = {"setup": None}
-    root = "urn:li:document:external-root"
+    prefix = [BrowsePathEntryClass(id="my-repo")]
 
     browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
         source_id="setup",
         parent_links=links,
         titles={"setup": "setup.md"},
         urns={"setup": "urn:li:document:setup"},
-        root_parent_urn=root,
+        prefix_entries=prefix,
     )
 
     assert browse_path is not None
-    assert [e.id for e in browse_path.path] == [root]
-    assert browse_path.path[0].urn == root
+    assert [e.id for e in browse_path.path] == ["my-repo"]
+    assert browse_path.path[0].urn is None

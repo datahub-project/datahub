@@ -7,6 +7,7 @@ import pytest
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
@@ -422,6 +423,42 @@ def _make_notion_source() -> NotionSource:
         },
     )
     return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
+
+
+def test_browse_path_failure_reports_warning_and_still_emits():
+    """A browse-path failure surfaces as a report warning but never drops the doc."""
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source._should_process_document = MagicMock(return_value=True)  # type: ignore[method-assign]
+    source.chunking_source.process_elements_inline = MagicMock(return_value=[])  # type: ignore[method-assign]
+
+    data = {
+        "elements": [{"type": "Title", "text": "Child", "metadata": {}}],
+        "metadata": {"data_source": {"record_locator": {"page_id": "child"}}},
+    }
+
+    with patch(
+        "datahub.ingestion.source.notion.notion_source.NotionHierarchyExtractor.build_browse_path_v2",
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(source._create_document_entity(data, {"child", "root"}))
+
+    # Document still emitted despite the browse-path failure.
+    assert any(
+        isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DocumentInfoClass) is not None
+        for wu in workunits
+    )
+    # Failure surfaces as a structured warning -> "succeeded with warnings".
+    assert any(
+        warning.title == "Browse path generation failed"
+        for warning in source.report.warnings
+    )
 
 
 def test_build_notion_document_urn_matches_parent_urn():

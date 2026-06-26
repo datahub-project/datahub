@@ -54,39 +54,31 @@ class GitHubHierarchyExtractor:
         parent_links: Dict[str, Optional[str]],
         titles: Dict[str, str],
         urns: Dict[str, str],
-        root_parent_urn: Optional[str] = None,
+        prefix_entries: Optional[List[BrowsePathEntryClass]] = None,
     ) -> Optional[BrowsePathsV2Class]:
         """Build a BrowsePathsV2 aspect describing a document's ancestry.
 
         Creates a hierarchical browse path of the document's ancestors (the
-        document itself is not included). When ``root_parent_urn`` is provided
-        (an externally configured parent document), it is prepended as the
-        top-most entry.
+        document itself is not included). Any ``prefix_entries`` (e.g. a
+        configured parent document, organization, or repository name) are
+        prepended ahead of the reconstructed ancestor chain.
 
         Args:
             source_id: The document the browse path is for.
             parent_links: Map of source_id -> parent source_id.
             titles: Map of source_id -> display label.
             urns: Map of source_id -> document URN.
-            root_parent_urn: Optional configured parent document URN to root the
-                path under (used when documents are nested beneath an existing
-                document instead of a generated repo-root document).
+            prefix_entries: Optional leading entries to root the path under.
 
         Returns:
-            BrowsePathsV2Class with one entry per ancestor, or None when the
-            document has no ancestors (e.g. a repo-root document).
+            BrowsePathsV2Class with the prefix followed by one entry per
+            ancestor, or None when there are no entries at all (e.g. a repo-root
+            document with no prefix).
         """
         if not source_id:
             return None
 
-        path_entries: List[BrowsePathEntryClass] = []
-
-        # The configured external parent has no generated title; use its URN as
-        # the label, matching the SDK convention for URN-only browse entries.
-        if root_parent_urn:
-            path_entries.append(
-                BrowsePathEntryClass(id=root_parent_urn, urn=root_parent_urn)
-            )
+        path_entries: List[BrowsePathEntryClass] = list(prefix_entries or [])
 
         for ancestor_id in GitHubHierarchyExtractor.build_ancestor_chain(
             source_id, parent_links
