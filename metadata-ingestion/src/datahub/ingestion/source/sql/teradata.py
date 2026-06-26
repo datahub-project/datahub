@@ -1086,6 +1086,11 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     view_permission_errors: int = 0
     view_unknown_errors: int = 0
 
+    # Permission denials hit while sizing tables for profiling (DBC.TableSizeV).
+    # Tracked separately so a missing grant on the sizing view is visible in the
+    # report rather than buried in the generic profiling-failure warning.
+    profiling_permission_errors: int = 0
+
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
@@ -1127,6 +1132,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_profiling_permission_error(self) -> None:
+        with self._lock:
+            self.profiling_permission_errors += 1
 
     def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
@@ -3463,17 +3472,33 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
             # Teradata instances routinely withhold. Fall back to "no filtering"
             # (return None) so profiling proceeds for all tables rather than
-            # failing the entire run.
-            self.report.warning(
-                title="Could not size tables for profiling",
-                message=(
-                    "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
-                    "Profiling will proceed without size-based filtering for this schema. "
-                    "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
-                ),
-                context=f"schema={schema}",
-                exc=e,
-            )
+            # failing the entire run. A missing grant (permission error) is
+            # surfaced under a distinct, actionable title and counted separately
+            # so it isn't lost in the generic sizing-failure bucket.
+            if _categorize_view_error(e) is ViewErrorCategory.PERMISSION:
+                self.report.increment_profiling_permission_error()
+                self.report.warning(
+                    title="Unauthorized to size tables for profiling",
+                    message=(
+                        "Permission denied querying DBC.TableSizeV to apply "
+                        "profile_table_size_limit. Profiling will proceed without "
+                        "size-based filtering for this schema. Grant the ingestion "
+                        "user SELECT on DBC.TableSizeV to skip large tables."
+                    ),
+                    context=f"schema={schema}",
+                    exc=e,
+                )
+            else:
+                self.report.warning(
+                    title="Could not size tables for profiling",
+                    message=(
+                        "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
+                        "Profiling will proceed without size-based filtering for this schema. "
+                        "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
+                    ),
+                    context=f"schema={schema}",
+                    exc=e,
+                )
             return None
 
         # Teradata object names are case-insensitive, and DBC casing may differ
