@@ -178,6 +178,30 @@ def test_tableau_no_verify():
     assert "Unable to login" in report
 
 
+@pytest.mark.parametrize(
+    "ssl_verify",
+    [
+        True,
+        False,
+        "/etc/ssl/certs/custom-ca-bundle.pem",
+    ],
+)
+def test_tableau_ssl_verify_passed_to_http_options(ssl_verify):
+    config = TableauConfig.model_validate(
+        {
+            **default_config,
+            "ssl_verify": ssl_verify,
+        }
+    )
+
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_server:
+        config.make_tableau_client(config.site)
+
+    http_options = mock_server.call_args.kwargs["http_options"]
+    assert http_options["verify"] == ssl_verify
+    assert "cert" not in http_options
+
+
 def test_tableau_unsupported_csql():
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
     config_dict = default_config.copy()
