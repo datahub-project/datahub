@@ -154,6 +154,13 @@ class AutoNormalizeLineageUrnsProcessor(
         return getattr(ctx.pipeline_context, "graph", None) is not None
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
+        # We mutate the typed aspect (via get_aspect_of_type) rather than the
+        # transform_urns() helper that auto_lowercase_urns uses: that helper rewrites
+        # *every* URN uniformly (URN -> URN), but we must be selective (only upstream
+        # references, never the entity or downstream fields) AND set a non-URN field
+        # (matchType), neither of which transform_urns can express. For MCE/MCPW
+        # get_aspect_of_type returns the live aspect, so this is already an in-place
+        # edit; _write_back only does extra work for raw MCPs (see below).
         for wu in stream:
             try:
                 upstream = wu.get_aspect_of_type(UpstreamLineageClass)
