@@ -6,24 +6,27 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 // Mirrors `TreeItemContainer` in
-// `app/homeV2/layout/sidebar/documents/DocumentTreeItem.tsx`:
-//   - 38px min-height, 4px vertical padding
+// `app/homeV2/layout/sidebar/documents/DocumentTreeItem.tsx` (jjoyce0510):
+//   - 38px min-height + height, 4px vertical padding
 //   - 2px lateral / bottom margin
 //   - `bgSelectedSubtle` + `shadowFocusBrand` on selected
 //   - `bgHover` + `shadowFocus` on hover
-// `$level` controls indentation the same way Documents does.
-const TreeItemContainer = styled.button<{ $level: 0 | 1 | 2; $isSelected: boolean }>`
+//
+// Rendered as a `<div>` (not `<button>`) for the same reason Joyce did:
+// the row contains a nested expand `<button>`, and nesting buttons is
+// invalid HTML (browsers tolerate it, but screen readers and a11y tools
+// will warn). `$level` is a plain `number` so deeper trees (semantic
+// model → metric → metric child) don't need a type widening later.
+const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     position: relative;
     display: flex;
     align-items: center;
-    width: calc(100% - 4px);
-    margin: 0 2px 2px 2px;
     padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
     min-height: 38px;
-    border: none;
+    height: 38px;
+    margin: 0 2px 2px 2px;
     border-radius: 6px;
     background: ${(props) => (props.$isSelected ? props.theme.colors.bgSelectedSubtle : 'transparent')};
-    text-align: left;
     cursor: pointer;
     transition: background-color 0.15s ease;
 
@@ -117,8 +120,8 @@ const Title = styled.span<{ $isSelected: boolean }>`
 `;
 
 interface MetricsTreeItemProps {
-    /** Indentation level: 0 = root (Overview, platforms), 1 = under a parent. */
-    level: 0 | 1 | 2;
+    /** Indentation level — 0 = root, increments per nesting depth. */
+    level: number;
     /** Phosphor icon component for the row's resting state. */
     icon: PhosphorIcon;
     title: string;
@@ -134,7 +137,9 @@ interface MetricsTreeItemProps {
 /**
  * MetricsTreeItem - single row in the Metrics sidebar tree.
  *
- * Behaviour mirrors `DocumentTreeItem` exactly:
+ * Behaviour deliberately mirrors `DocumentTreeItem` (jjoyce0510 — at
+ * `app/homeV2/layout/sidebar/documents/DocumentTreeItem.tsx`) so the two
+ * sidebars feel identical to use:
  *   - one icon slot, contents swap between resting icon and caret
  *   - caret appears on hover when `hasChildren`, or while `isExpanded`
  *   - clicking the caret toggles expand without firing the row's onClick
@@ -142,10 +147,16 @@ interface MetricsTreeItemProps {
  *     the brand-gradient-clipped title; selected icons render in `iconBrand`
  *     and switch from `regular` to `fill` weight
  *
- * Currently used by `MetricsSidebar` only for the Overview row (no children).
- * When `EntityType.SemanticModel` / `EntityType.Metric` land, the same
- * component will be reused for semantic-model rows (`hasChildren`) and
- * metric leaf rows without further refactoring.
+ * Implemented as a separate component (not a fork of DocumentTreeItem)
+ * because Documents' row is coupled to document-specific affordances
+ * (dashed icons for unpublished, platform-logo for external, hover-row
+ * actions menu) that don't apply to metrics. If the row chrome
+ * stabilises across both we can lift a shared primitive.
+ *
+ * Currently used by `MetricsSidebar` only for the Overview row (no
+ * children). When `EntityType.SemanticModel` / `EntityType.Metric` land
+ * the same component will render semantic-model rows (`hasChildren`)
+ * and metric leaf rows with no further refactoring.
  */
 export const MetricsTreeItem: React.FC<MetricsTreeItemProps> = ({
     level,
