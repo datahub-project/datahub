@@ -446,7 +446,7 @@ ORDER BY target_schema, target_table, filename
         raise NotImplementedError
 
     @staticmethod
-    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+    def list_all_queries_sql() -> str:
         # Queries-v2 unified feed: every statement in the window (reads AND
         # writes) with its full reconstructed text, user, timestamp and session —
         # NOT pre-filtered by table, so a single aggregator pass derives lineage
@@ -840,13 +840,17 @@ where
         """.strip()
 
     @staticmethod
-    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+    def list_all_queries_sql() -> str:
         # Queries-v2 unified feed: every statement in the window (reads + writes)
         # with its full reconstructed text, user, timestamp and session — not
         # pre-filtered by table. Fed once to a single aggregator, this yields
         # lineage (from writes), usage and column usage (from reads), and Query
         # entities, each query parsed exactly once. Reconstructs full text from
         # STL_QUERYTEXT (segments ordered by sequence), like the lineage queries.
+        #
+        # The time window and database are bound as query parameters (%s) by
+        # RedshiftDataDictionary.get_query_result, so config/catalog-derived
+        # values never enter the SQL string. Order: start_time, end_time, database.
         return """
             WITH query_txt AS (
                 SELECT
@@ -871,18 +875,15 @@ where
             FROM stl_query q
               JOIN query_txt qt ON q.query = qt.query AND q.pid = qt.pid
               LEFT JOIN svl_user_info sui ON q.userid = sui.usesysid
-            WHERE q.starttime >= '{start_time}'
-            AND q.starttime < '{end_time}'
+            WHERE q.starttime >= %s
+            AND q.starttime < %s
             AND q.aborted = 0
-            AND q.database = '{database}'
+            AND q.database = %s
             AND (sui.usename IS NULL OR sui.usename <> 'rdsdb')
             ORDER BY q.starttime
         """.format(
             _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
-            start_time=start_time,
-            end_time=end_time,
-            database=database,
         ).strip()
 
     @staticmethod
@@ -1271,12 +1272,16 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
         """.strip()
 
     @staticmethod
-    def list_all_queries_sql(start_time: str, end_time: str, database: str) -> str:
+    def list_all_queries_sql() -> str:
         # Queries-v2 unified feed (serverless): every statement in the window
         # (reads + writes) with full reconstructed text, user, timestamp, session
         # — not pre-filtered by table. Reconstructs full text from SYS_QUERY_TEXT
         # (sequence-capped for the LISTAGG size limit). Validated against a live
         # serverless cluster.
+        #
+        # The time window and database are bound as query parameters (%s) by
+        # RedshiftDataDictionary.get_query_result, so config/catalog-derived
+        # values never enter the SQL string. Order: start_time, end_time, database.
         return """
             SELECT
                 query_id,
@@ -1297,10 +1302,10 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qh.query_id
                     LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qh.user_id
                 WHERE
-                    qh.start_time >= '{start_time}'
-                    AND qh.start_time < '{end_time}'
+                    qh.start_time >= %s
+                    AND qh.start_time < %s
                     AND qh.status = 'success'
-                    AND qh.database_name = '{database}'
+                    AND qh.database_name = %s
                     AND qt.sequence < 16
                     AND (sui.user_name IS NULL OR sui.user_name <> 'rdsdb')
                 GROUP BY qh.query_id, qh.session_id, qh.start_time, sui.user_name
@@ -1309,9 +1314,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ;
         """.format(
             _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
-            start_time=start_time,
-            end_time=end_time,
-            database=database,
         ).strip()
 
     @staticmethod

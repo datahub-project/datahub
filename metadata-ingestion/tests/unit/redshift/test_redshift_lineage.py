@@ -287,7 +287,7 @@ def test_unified_queries_failure_is_reported_as_failure(monkeypatch):
         config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
     )
 
-    def boom(conn, query):
+    def boom(conn, query, parameters=None):
         raise RuntimeError("permission denied for relation stl_querytext")
 
     monkeypatch.setattr(RedshiftDataDictionary, "get_query_result", staticmethod(boom))
@@ -701,7 +701,7 @@ def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
     monkeypatch.setattr(
         RedshiftDataDictionary,
         "get_query_result",
-        staticmethod(lambda conn, query: fake_cursor),
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
     )
 
     lineage_extractor._populate_unified_queries(MagicMock())
@@ -792,7 +792,7 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
     monkeypatch.setattr(
         RedshiftDataDictionary,
         "get_query_result",
-        staticmethod(lambda conn, query: fake_cursor),
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
     )
 
     lineage_extractor._populate_unified_queries(MagicMock())
@@ -894,7 +894,7 @@ def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
     monkeypatch.setattr(
         RedshiftDataDictionary,
         "get_query_result",
-        staticmethod(lambda conn, query: fake_cursor),
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
     )
 
     lineage_extractor._populate_unified_queries(MagicMock())

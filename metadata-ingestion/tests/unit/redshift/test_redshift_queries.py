@@ -125,21 +125,18 @@ class TestProvisionedQueries:
     def test_list_all_queries_reconstructs_full_text(self):
         """Queries-v2 unified feed: all statements (reads + writes) with full text
         reconstructed from STL_QUERYTEXT, not pre-filtered by table."""
-        sql = RedshiftProvisionedQuery.list_all_queries_sql(
-            start_time="2024-01-01 12:00:00",
-            end_time="2024-01-10 12:00:00",
-            database="test_db",
-        )
+        sql = RedshiftProvisionedQuery.list_all_queries_sql()
         assert "STL_QUERYTEXT" in sql
         assert PROVISIONED_LISTAGG_PATTERN in sql
         assert "stl_query" in sql.lower()
         # Not scoped to a target/scanned table — the aggregator filters instead.
         assert "stl_scan" not in sql.lower()
-        # Must be scoped to the requested database (stl_query is cluster-wide).
-        assert "q.database = 'test_db'" in sql
-        # Time window must be injected into the WHERE clause.
-        assert "2024-01-01 12:00:00" in sql
-        assert "2024-01-10 12:00:00" in sql
+        # Time window and database are bound as parameters (%s), not interpolated,
+        # so config/catalog values never enter the SQL string.
+        assert "q.database = %s" in sql
+        assert "q.starttime >= %s" in sql
+        assert "q.starttime < %s" in sql
+        assert sql.count("%s") == 3
         # Internal Redshift user must be excluded to avoid usage noise.
         assert "rdsdb" in sql
 
@@ -166,20 +163,17 @@ class TestServerlessQueries:
     def test_list_all_queries_reconstructs_full_text(self):
         """Queries-v2 unified feed (serverless): all statements with full text
         reconstructed from SYS_QUERY_TEXT, not pre-filtered by table."""
-        sql = RedshiftServerlessQuery.list_all_queries_sql(
-            start_time="2024-01-01 12:00:00",
-            end_time="2024-01-10 12:00:00",
-            database="test_db",
-        )
+        sql = RedshiftServerlessQuery.list_all_queries_sql()
         assert "SYS_QUERY_HISTORY" in sql
         assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
         assert "qt.sequence < 16" in sql
         assert "SYS_QUERY_DETAIL" not in sql  # not scan/table-scoped
-        # Must be scoped to the requested database (SYS_QUERY_HISTORY is cluster-wide).
-        assert "qh.database_name = 'test_db'" in sql
-        # Time window must be injected into the WHERE clause.
-        assert "2024-01-01 12:00:00" in sql
-        assert "2024-01-10 12:00:00" in sql
+        # Time window and database are bound as parameters (%s), not interpolated,
+        # so config/catalog values never enter the SQL string.
+        assert "qh.database_name = %s" in sql
+        assert "qh.start_time >= %s" in sql
+        assert "qh.start_time < %s" in sql
+        assert sql.count("%s") == 3
         # Internal Redshift user must be excluded to avoid usage noise.
         assert "rdsdb" in sql
 

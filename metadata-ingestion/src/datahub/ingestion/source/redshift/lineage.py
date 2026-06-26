@@ -651,17 +651,20 @@ class RedshiftSqlLineage(Closeable):
         the single aggregator yields lineage, usage, column usage and Query
         entities together. Drains the cursor into a local cache before parsing so
         the live cursor isn't held open through aggregation."""
-        query = self.queries.list_all_queries_sql(
-            start_time=self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time=self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
-            database=self.database,
+        query = self.queries.list_all_queries_sql()
+        # Bound as parameters (start_time, end_time, database) instead of being
+        # interpolated into the SQL string.
+        query_params = (
+            self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.database,
         )
         timer = self.report.lineage_phases_timer.setdefault("ALL_QUERIES", PerfTimer())
         try:
             with timer, FileBackedList[ObservedQuery]() as observed:
                 with self.report.usage_query_fetch_timer:
                     cursor = RedshiftDataDictionary.get_query_result(
-                        conn=connection, query=query
+                        conn=connection, query=query, parameters=query_params
                     )
                     field_names = [c[0] for c in cursor.description]
                     idx_query_text = field_names.index("query_text")
