@@ -46,13 +46,17 @@ def _get_sqlite_version_override() -> bool:
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
 
-# In-memory LRU cache size (number of objects). A larger cache reduces the
-# deserialize/re-serialize churn on cache misses for workloads whose working set
-# exceeds the cache. No longer bounded by SQLITE_MAX_VARIABLE_NUMBER (999): __len__
-# previously embedded one variable per cached key, but now flushes and counts instead,
-# so the cache size is independent of that limit.
-_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
+# In-memory LRU cache size (number of objects). Kept modest so FileBacked structures
+# actually bound memory rather than holding the whole working set resident; callers with
+# larger working sets can override cache_max_size. This is a pure memory/CPU trade-off:
+# __len__ chunks its key lookups, so the cache size is not tied to SQLITE_MAX_VARIABLE_NUMBER.
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 900
 _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
+
+# As per https://stackoverflow.com/questions/7106016/too-many-sql-variables-error-in-django-with-sqlite3
+# the default SQLITE_MAX_VARIABLE_NUMBER is 999 on the oldest SQLite we support (3.24). Queries that
+# bind one variable per cached key (e.g. __len__) must batch their keys to stay under this limit.
+_SQLITE_MAX_VARIABLES = 900
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
 # Datetimes get converted to strings
@@ -469,13 +473,28 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             yield value
 
     def __len__(self) -> int:
-        # Flush first so every key lives in the DB exactly once. This avoids binding one
-        # SQL variable per cached key (which would hit SQLITE_MAX_VARIABLE_NUMBER for
-        # large caches) and keeps the count correct independent of the cache size.
-        self.flush()
-        cursor = self._conn.execute(f"SELECT COUNT(*) FROM {self.tablename}")
-        row = cursor.fetchone()
-        return row[0]
+        # Count persisted rows, then reconcile with the in-memory cache. We deliberately
+        # avoid binding one SQL variable per cached key in a single statement: the cache
+        # can exceed SQLITE_MAX_VARIABLE_NUMBER (e.g. BigQuery usage sets cache sizes well
+        # above the 999 limit on SQLite 3.24). Unlike flush(), this stays read-only and
+        # keeps the cache warm.
+        db_count: int = self._conn.execute(
+            f"SELECT COUNT(*) FROM {self.tablename}"
+        ).fetchone()[0]
+
+        # Cached keys that are already persisted are counted in db_count too, so subtract
+        # that overlap to count each key once; cache-only (new) keys are then added via the
+        # cache size. The overlap lookup is batched to stay under SQLITE_MAX_VARIABLE_NUMBER.
+        cache_keys = list(self._active_object_cache.keys())
+        overlap = 0
+        for i in range(0, len(cache_keys), _SQLITE_MAX_VARIABLES):
+            chunk = cache_keys[i : i + _SQLITE_MAX_VARIABLES]
+            overlap += self._conn.execute(
+                f"SELECT COUNT(*) FROM {self.tablename} WHERE key IN ({','.join('?' * len(chunk))})",
+                (*chunk,),
+            ).fetchone()[0]
+
+        return db_count + len(cache_keys) - overlap
 
     def sql_query(
         self,

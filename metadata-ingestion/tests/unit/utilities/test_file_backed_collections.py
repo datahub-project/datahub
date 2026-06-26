@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from datahub.utilities.file_backed_collections import (
+    _SQLITE_MAX_VARIABLES,
     ConnectionWrapper,
     FileBackedDict,
     FileBackedList,
@@ -51,6 +52,32 @@ def test_rejects_unsafe_tablename() -> None:
     # a plain identifier, not attacker-controlled text.
     with pytest.raises(ValueError):
         FileBackedDict[int](tablename="cache; DROP TABLE x --")
+
+
+def test_len_with_cache_exceeding_sql_variable_limit() -> None:
+    # __len__ must batch its key lookups: callers (e.g. BigQuery usage) set cache sizes
+    # above SQLITE_MAX_VARIABLE_NUMBER (999 on SQLite 3.24), so binding one variable per
+    # cached key in a single statement would overflow. Use a cache big enough to hold
+    # every key resident, forcing the overlap path to cross the batch boundary.
+    n = _SQLITE_MAX_VARIABLES + 50
+    cache = FileBackedDict[int](cache_max_size=n + 100)
+
+    for i in range(n):
+        cache[str(i)] = i
+    # All keys are still in the in-memory cache (dirty, not yet persisted).
+    assert len(cache) == n
+
+    # Persist, then read back so every key lives in BOTH the cache and the DB: this is the
+    # overlap that __len__ must not double-count, and it spans more than one batch.
+    cache.flush()
+    for i in range(n):
+        assert cache[str(i)] == i
+    assert len(cache) == n
+
+    # Add new cache-only keys on top of the fully-overlapping cache (mixed case).
+    for i in range(n, n + 10):
+        cache[str(i)] = i
+    assert len(cache) == n + 10
 
 
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
