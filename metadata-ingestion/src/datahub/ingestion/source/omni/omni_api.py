@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -29,6 +30,7 @@ class OmniClient:
         self._timeout = timeout_seconds
         self._last_request_ts = 0.0
         self._min_interval = 60.0 / max_requests_per_minute
+        self._throttle_lock = threading.Lock()
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -38,11 +40,27 @@ class OmniClient:
         )
 
     def _throttle(self) -> None:
-        now = time.monotonic()
-        elapsed = now - self._last_request_ts
-        if elapsed < self._min_interval:
-            time.sleep(self._min_interval - elapsed)
-        self._last_request_ts = time.monotonic()
+        """Thread-safe rate limiting with sleep outside lock.
+
+        Each thread reserves its time slot by updating _last_request_ts,
+        then sleeps outside the lock so other threads can proceed in parallel.
+        """
+        # Calculate sleep time and reserve next slot while holding lock
+        with self._throttle_lock:
+            now = time.monotonic()
+            target_time = self._last_request_ts + self._min_interval
+            sleep_seconds = max(0.0, target_time - now)
+            # Reserve the next time slot by updating _last_request_ts
+            # This allows the next thread to calculate its slot while we sleep
+            self._last_request_ts = max(now, target_time)
+
+        # Sleep OUTSIDE the lock so other threads can proceed
+        if sleep_seconds > 0:
+            logger.debug(
+                "Throttling request: sleeping for %.3f seconds to respect rate limit",
+                sleep_seconds,
+            )
+            time.sleep(sleep_seconds)
 
     def _request(
         self, method: str, path: str, params: Optional[Dict[str, Any]] = None

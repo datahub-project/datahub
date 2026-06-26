@@ -1,3 +1,4 @@
+import threading
 from dataclasses import dataclass, field
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -21,6 +22,11 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     fine_grained_lineage_edges_exact: int = 0
     fine_grained_lineage_edges_derived: int = 0
     fine_grained_lineage_edges_unresolved: int = 0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()  # type: ignore
+        # Lock for thread-safe counter updates
+        self._report_lock = threading.Lock()
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)

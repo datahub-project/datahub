@@ -59,6 +59,16 @@ class OmniSourceConfig(
         le=100,
         description="Number of records per page for paginated Omni API endpoints. Lower values reduce memory usage; higher values speed up ingestion.",
     )
+    max_workers: int = Field(
+        default=4,
+        ge=1,
+        le=20,
+        description=(
+            "Maximum number of parallel threads for processing models and documents. "
+            "Higher values speed up ingestion but increase API load and memory usage. "
+            "Recommended: 4-8 for most Omni instances."
+        ),
+    )
     max_requests_per_minute: int = Field(
         default=50,
         ge=1,

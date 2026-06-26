@@ -14,6 +14,7 @@ DataHub metadata work-units covering:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
@@ -141,6 +142,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._topic_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._view_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._current_tile_model_id: Optional[str] = None
+
+        # Lock for source-level collections (URN sets, context dicts, registries)
+        # We use a single lock because:
+        # 1. Lock contention is minimal - most time is spent in I/O (API calls)
+        # 2. Simpler code - no need to reason about lock ordering/deadlocks
+        # 3. Critical sections are small - just set.add() or dict.__setitem__()
+        # If profiling shows lock contention, we can split into per-collection locks
+        self._state_lock = threading.Lock()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "OmniSource":
@@ -942,7 +951,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"unmapped={unmapped}",
             )
 
-    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
+    def _setup_connections(self) -> Iterator[MetadataWorkUnit]:
+        """Fetch Omni connections and emit connection datasets.
+
+        This runs sequentially before parallel model processing begins,
+        populating self._connections_by_id for use by worker threads.
+        """
         connections: Dict[str, Dict[str, object]] = {}
         try:
             connections = {
@@ -955,7 +969,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             for connection_id, connection in connections.items():
                 if not connection_id:
                     continue
-                self.report.connections_scanned += 1
+                with self.report._report_lock:
+                    self.report.connections_scanned += 1
                 yield from self._ensure_connection_dataset(connection_id, connection)
 
             self._warn_unmapped_connections(connections)
@@ -965,6 +980,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 message="Failed to fetch Omni connections; proceeding with config overrides only",
                 exc=exc,
             )
+
+    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
+        # Note: _setup_connections() has already populated self._connections_by_id
 
         for model in self.client.list_models(page_size=self.config.page_size):
             model_id = model.get("id")
@@ -978,7 +996,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             connection_id = model.get("connectionId") or ""
 
             # Resolve connection context for ALL models (needed for dashboard lineage)
-            conn: Optional[Dict[str, object]] = connections.get(connection_id)
+            conn: Optional[Dict[str, object]] = self._connections_by_id.get(
+                connection_id
+            )
             platform = self._resolve_platform_from_connection(
                 connection_id=connection_id,
                 conn=conn,
@@ -1160,6 +1180,13 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
+        """Ingest Omni folder hierarchy as DataHub containers.
+
+        NOTE: Folders are processed sequentially (not parallelized) because they have
+        parent/child relationships that must be resolved in order. Parallelizing would
+        require a two-pass approach (collect all, sort by depth, then emit), which adds
+        complexity for minimal benefit given typical folder counts (~10-100).
+        """
         for folder in self.client.list_folders(page_size=self.config.page_size):
             folder_id = folder.get("id")
             if not folder_id:
@@ -1682,10 +1709,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterator[MetadataWorkUnit]:
         try:
+            # Sequential setup stage - must run before parallel processing
+            with self.report.new_stage("Fetching Omni connections"):
+                yield from self._setup_connections()
+
+            # Parallel processing stages
             with self.report.new_stage("Ingesting Omni semantic models"):
                 yield from self._ingest_semantic_model()
+
+            # Sequential processing (not parallelized - see comment in method)
             with self.report.new_stage("Ingesting Omni folders"):
                 yield from self._ingest_folders()
+
+            # Parallel processing stages
             with self.report.new_stage("Ingesting Omni documents"):
                 yield from self._ingest_documents()
         except Exception as exc:
