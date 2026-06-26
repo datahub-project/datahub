@@ -248,6 +248,43 @@ def test_fetch_edmx_returns_error_on_request_exception(requests_mock):
     assert result.reason == EdmxFetchReason.ERROR
 
 
+def test_fetch_edmx_401_triggers_refresh_and_retry(requests_mock):
+    """A bearer expiring during the EDMX phase must trigger one token refresh +
+    retry, not lose schema for the rest of the run (the other request paths
+    already refresh)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "client_id": "cid",
+            "client_secret": "csec",
+            "xsuaa_url": "https://myco.authentication.eu10.hana.ondemand.com",
+        }
+    )
+    requests_mock.post(
+        "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
+        [
+            {"json": {"access_token": "first_token"}},
+            {"json": {"access_token": "fresh_token"}},
+        ],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/asset/$metadata",
+        [
+            {"status_code": 401, "json": {"error": "token expired"}},
+            {"text": "<edmx/>"},
+        ],
+    )
+    client = SapDatasphereClient(cfg)
+    result = client.fetch_edmx("https://myco.eu10.hcs.cloud.sap/asset/$metadata")
+    assert result.reason == EdmxFetchReason.OK
+    assert result.xml == "<edmx/>"
+    assert client.session.headers["Authorization"] == "Bearer fresh_token"
+    token_calls = [
+        h for h in requests_mock.request_history if "authentication" in h.url
+    ]
+    assert len(token_calls) == 2
+
+
 def test_no_auth_raises_error():
     # The model_validator raises ValidationError at config-parse time when no
     # credential path is configured; the client itself is never reached.
@@ -455,6 +492,43 @@ def test_fetch_object_definition_returns_csn(requests_mock):
     assert result is not None
     assert "definitions" in result
     assert "VIEW_DIMENSION_DAY" in result["definitions"]
+
+
+def test_fetch_object_definition_401_triggers_refresh_and_retry(requests_mock):
+    """The CSN endpoint has its own 401-refresh-retry block (separate from
+    ``_get_inner``); a token expiring mid-run must refresh once and retry rather
+    than dropping lineage for the remaining assets."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "client_id": "cid",
+            "client_secret": "csec",
+            "xsuaa_url": "https://myco.authentication.eu10.hana.ondemand.com",
+        }
+    )
+    requests_mock.post(
+        "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
+        [
+            {"json": {"access_token": "first_token"}},
+            {"json": {"access_token": "fresh_token"}},
+        ],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/V1",
+        [
+            {"status_code": 401, "json": {"error": "token expired"}},
+            {"json": {"definitions": {"V1": {"kind": "entity"}}}},
+        ],
+    )
+    client = SapDatasphereClient(cfg)
+    result = client.fetch_object_definition("S1", "views", "V1")
+    assert result is not None
+    assert "V1" in result["definitions"]
+    assert client.session.headers["Authorization"] == "Bearer fresh_token"
+    token_calls = [
+        h for h in requests_mock.request_history if "authentication" in h.url
+    ]
+    assert len(token_calls) == 2
 
 
 def test_fetch_object_definition_sends_supported_content_accept_header(requests_mock):
@@ -832,6 +906,51 @@ def test_post_token_falls_back_to_text_when_body_not_json(requests_mock):
     msg = str(exc_info.value)
     assert "401" in msg
     assert "Bad Gateway from auth proxy" in msg
+
+
+def test_post_token_transport_error_is_labeled_with_endpoint(requests_mock):
+    """A transport-level failure (connection refused/timeout) to the XSUAA
+    endpoint must be re-raised as an auth error naming the token endpoint, not
+    propagate as a raw requests error that gets mislabeled upstream."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "client_id": "cid",
+            "client_secret": "csec",
+            "xsuaa_url": "https://myco.authentication.eu10.hana.ondemand.com",
+        }
+    )
+    requests_mock.post(
+        "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
+        exc=requests.exceptions.ConnectionError,
+    )
+    client = SapDatasphereClient(cfg)
+    with pytest.raises(ValueError) as exc_info:
+        list(client.list_spaces())
+    assert "oauth/token" in str(exc_info.value)
+
+
+def test_post_token_non_json_2xx_body_is_labeled(requests_mock):
+    """HTTP 200 with a non-JSON body (e.g. a proxy/SSO login page) must raise a
+    ValueError naming the token endpoint rather than a bare JSON decode error."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "client_id": "cid",
+            "client_secret": "csec",
+            "xsuaa_url": "https://myco.authentication.eu10.hana.ondemand.com",
+        }
+    )
+    requests_mock.post(
+        "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
+        status_code=200,
+        text="<html>login</html>",
+        headers={"Content-Type": "text/html"},
+    )
+    client = SapDatasphereClient(cfg)
+    with pytest.raises(ValueError) as exc_info:
+        list(client.list_spaces())
+    assert "oauth/token" in str(exc_info.value)
 
 
 def test_fetch_edmx_returns_none_on_403_with_permission_signal(requests_mock, caplog):

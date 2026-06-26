@@ -11,7 +11,7 @@ fetch Local Table schemas (which aren't exposed via the OData $metadata
 endpoint that views use).
 """
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -79,17 +79,30 @@ def _native_type_string(root: str, element: Dict) -> str:
 
 def parse_csn_elements_to_schema_fields(
     elements: Dict[str, Dict],
-) -> List[SchemaFieldClass]:
+) -> Tuple[List[SchemaFieldClass], List[Tuple[str, str]]]:
     """Convert a CSN ``elements`` map to a list of DataHub SchemaFieldClass.
+
+    Returns ``(fields, unknown_types)`` where ``unknown_types`` is a list of
+    ``(column_name, cds_type)`` for any CDS type literal not in ``_TYPE_MAP``.
+    Such columns still emit (mapped to ``StringTypeClass`` with the raw type
+    preserved in ``nativeDataType``), but the caller should surface them in the
+    ingestion report — mirrors how ``edmx_parser`` reports ``unknown_edm_types``
+    so a mis-typed column is visible to the operator instead of silently
+    becoming a string.
 
     Preserves dict insertion order so the schema rendered in DataHub matches
     the upstream SAP definition's column order.
     """
     fields: List[SchemaFieldClass] = []
+    unknown_types: List[Tuple[str, str]] = []
     for col_name, element in elements.items():
         if not isinstance(element, dict):
             continue
         cds_type = element.get("type", "")
+        # Only flag a genuinely unrecognized, non-empty type literal; a missing
+        # ``type`` key is a separate (structural) concern, not an unknown type.
+        if cds_type and cds_type not in _TYPE_MAP:
+            unknown_types.append((col_name, cds_type))
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (StringTypeClass, cds_type or "UNKNOWN")
         )
@@ -104,4 +117,4 @@ def parse_csn_elements_to_schema_fields(
                 nullable=True,
             )
         )
-    return fields
+    return fields, unknown_types

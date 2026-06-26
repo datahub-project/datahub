@@ -22,8 +22,9 @@ def test_parses_string_type():
     elements = {
         "MONTH": {"type": "cds.String", "@EndUserText.label": "Month", "length": 2}
     }
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, unknown = parse_csn_elements_to_schema_fields(elements)
     assert len(fields) == 1
+    assert unknown == []
     f = fields[0]
     assert f.fieldPath == "MONTH"
     assert isinstance(f.type.type, StringTypeClass)
@@ -33,24 +34,35 @@ def test_parses_string_type():
 
 def test_parses_hana_tinyint_as_number():
     elements = {"MONTH_INT": {"type": "cds.hana.TINYINT"}}
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(fields[0].type.type, NumberTypeClass)
     assert fields[0].nativeDataType.upper().startswith("TINYINT")
 
 
 def test_parses_date_type():
     elements = {"DATE_SQL": {"type": "cds.Date"}}
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(fields[0].type.type, DateTypeClass)
 
 
 def test_parses_unknown_cds_type_as_string_with_warning_path():
     """Unknown cds.foo types fall back to StringTypeClass with the raw native
-    type preserved so the human can see what it actually was."""
+    type preserved so the human can see what it actually was, and the type is
+    returned in the unknown-types list so the caller can report it."""
     elements = {"WEIRD": {"type": "cds.SomethingNew"}}
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, unknown = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(fields[0].type.type, StringTypeClass)
     assert "cds.SomethingNew" in fields[0].nativeDataType
+    assert unknown == [("WEIRD", "cds.SomethingNew")]
+
+
+def test_missing_type_key_is_not_reported_as_unknown():
+    """A column with no ``type`` key is a structural gap, not an unknown type —
+    it should not pollute the unknown-types report list."""
+    elements = {"NO_TYPE": {"@EndUserText.label": "n/a"}}
+    fields, unknown = parse_csn_elements_to_schema_fields(elements)
+    assert isinstance(fields[0].type.type, StringTypeClass)
+    assert unknown == []
 
 
 def test_preserves_order():
@@ -59,13 +71,13 @@ def test_preserves_order():
         "A": {"type": "cds.String"},
         "B": {"type": "cds.String"},
     }
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
     assert [f.fieldPath for f in fields] == ["C", "A", "B"]
 
 
 def test_decimal_precision_in_native_type():
     elements = {"AMOUNT": {"type": "cds.Decimal", "precision": 10, "scale": 2}}
-    fields = parse_csn_elements_to_schema_fields(elements)
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(fields[0].type.type, NumberTypeClass)
     assert "10" in fields[0].nativeDataType and "2" in fields[0].nativeDataType
 
@@ -76,11 +88,11 @@ def test_nullable_default_true():
     is fine for Local Tables since exact nullability isn't critical for
     lineage UI."""
     elements = {"M": {"type": "cds.String"}}
-    assert parse_csn_elements_to_schema_fields(elements)[0].nullable is True
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
+    assert fields[0].nullable is True
 
 
 def test_boolean_type():
     elements = {"FLAG": {"type": "cds.Boolean"}}
-    assert isinstance(
-        parse_csn_elements_to_schema_fields(elements)[0].type.type, BooleanTypeClass
-    )
+    fields, _ = parse_csn_elements_to_schema_fields(elements)
+    assert isinstance(fields[0].type.type, BooleanTypeClass)

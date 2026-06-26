@@ -36,7 +36,7 @@ Example recipe: ``docs/sources/sap-datasphere/sap-datasphere_recipe.yml``.
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Union
+from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import requests
 
@@ -56,7 +56,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -105,9 +104,6 @@ from datahub.ingestion.source.sap_datasphere.tags import (
     SAP_UNIT_TAG_URN,
     get_predefined_tag_workunits,
     sap_dimension_type_tag_urn,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -200,9 +196,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = SapDatasphereReport()
         self._client = SapDatasphereClient(config, report=self.report)
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, config, ctx
-        )
+        # Stale-entity removal is wired automatically by the base
+        # Source.get_workunit_processors() from self.state_provider (set by
+        # StatefulIngestionSourceBase) — no manual handler construction needed.
         self._lineage_extractor = CsnLineageExtractor()
         # Resolvers are built lazily per space because each space has its own
         # connections list from the Datasphere connections API.
@@ -224,12 +220,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
         config = SapDatasphereConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def _safe_list_spaces(self) -> Iterator[Dict]:
         """Yield spaces from the catalog API, converting network errors into a
@@ -454,10 +444,33 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             if csn_obj is not None:
                 definition = csn_obj.get("definitions", {}).get(technical_name)
-                if isinstance(definition, dict):
-                    elements = definition.get("elements")
-                    if isinstance(elements, dict):
-                        schema_fields = parse_csn_elements_to_schema_fields(elements)
+                elements = (
+                    definition.get("elements") if isinstance(definition, dict) else None
+                )
+                if isinstance(elements, dict):
+                    schema_fields, unknown_cds_types = (
+                        parse_csn_elements_to_schema_fields(elements)
+                    )
+                    self._report_unknown_cds_types(
+                        space_name, technical_name, unknown_cds_types
+                    )
+                else:
+                    # 200 OK but the body wasn't shaped like a CSN definition we
+                    # can parse — record it so a parse miss isn't mistaken for a
+                    # genuine no-schema base table (those have csn_obj is None or
+                    # truly empty elements).
+                    self.report.assets_csn_unparseable.append(
+                        f"{space_name}.{technical_name}"
+                    )
+                    self.report.warning(
+                        title="Unparseable Local Table CSN",
+                        message=(
+                            "Fetched the Local Table definition but it did not "
+                            "contain a parseable elements map; emitting the table "
+                            "without column schema."
+                        ),
+                        context=f"{space_name}.{technical_name}",
+                    )
 
             if schema_fields:
                 description = f"Local Table from SAP Datasphere space {space_name}."
@@ -1191,6 +1204,31 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"{space_name}.{asset_name}"
             )
         return result
+
+    def _report_unknown_cds_types(
+        self, space_name: str, asset_name: str, unknown_cds_types: List[Tuple[str, str]]
+    ) -> None:
+        """Surface CDS types the CSN parser fell back to StringType for.
+
+        Mirrors the EDMX ``unknown_edm_types`` handling in ``_parse_schema`` so a
+        column mis-typed as a string (because its CDS type isn't in the parser's
+        ``_TYPE_MAP``) is visible to the operator instead of silently degrading.
+        """
+        if not unknown_cds_types:
+            return
+        self.report.warning(
+            title="Unknown CDS field type(s)",
+            message=(
+                f"{len(unknown_cds_types)} field(s) on {space_name}.{asset_name} "
+                f"have CDS types not in the connector's CSN _TYPE_MAP; those "
+                f"columns fall back to StringType. Consider adding the type to "
+                f"the connector."
+            ),
+            context=", ".join(
+                f"{name}:{cds_type}" for name, cds_type in unknown_cds_types
+            ),
+        )
+        self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
         # M4: filter columns by config.column_pattern (defaults to allow-all so

@@ -56,7 +56,14 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     assets_skipped_disabled: LossyList[str] = field(default_factory=LossyList)
     # Surfaces from EDMX parsing and CSN fetch failures.
     assets_with_unknown_edm_types: LossyList[str] = field(default_factory=LossyList)
+    # CDS type literals from the CSN path not in the parser's type map (mapped
+    # to StringType as a fallback). Mirrors `assets_with_unknown_edm_types`.
+    assets_with_unknown_cds_types: LossyList[str] = field(default_factory=LossyList)
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
+    # CSN body fetched successfully (HTTP 200) but its shape was unexpected, so
+    # no schema could be parsed — distinguishes a parse miss from a genuine
+    # no-schema base table.
+    assets_csn_unparseable: LossyList[str] = field(default_factory=LossyList)
     column_lineage_unresolved: LossyList[str] = field(default_factory=LossyList)
     """Per-asset records of column-lineage refs that could not be resolved to a known
     upstream column (e.g., `S1.VIEW.col1 -> MISSING_TABLE.x`). LossyList caps the

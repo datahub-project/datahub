@@ -176,13 +176,23 @@ class SapDatasphereClient:
                 "xsuaa_url is required for OAuth; set it explicitly or use a standard SAP tenant URL."
             )
         token_url = f"{cfg.xsuaa_url}/oauth/token"
-        with self._timed_api("oauth_token", token_url):
-            resp = requests.post(
-                token_url,
-                data=payload,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=cfg.request_timeout_sec,
-            )
+        try:
+            with self._timed_api("oauth_token", token_url):
+                resp = requests.post(
+                    token_url,
+                    data=payload,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=cfg.request_timeout_sec,
+                )
+        except requests.RequestException as e:
+            # A transport-level failure (DNS, connection refused, timeout) to the
+            # XSUAA endpoint would otherwise propagate as a raw requests error and
+            # be mislabeled by the upstream caller (e.g. "Failed to list spaces").
+            # Re-raise as an auth error that names the token endpoint.
+            raise ValueError(
+                f"OAuth token request to {token_url} failed (transport error): "
+                f"{type(e).__name__}: {e}"
+            ) from e
         if resp.status_code >= 400:
             # XSUAA returns a JSON body with `error`/`error_description`
             # (e.g. invalid_grant: refresh token expired) that raise_for_status
@@ -203,11 +213,20 @@ class SapDatasphereClient:
                 f"OAuth token request to {cfg.xsuaa_url}/oauth/token failed "
                 f"({resp.status_code}): {detail}"
             )
-        body = resp.json()
+        try:
+            body = resp.json()
+        except ValueError as e:
+            # HTTP 2xx but a non-JSON body (e.g. an SSO/proxy login HTML page) —
+            # the same failure mode the list endpoints defend against. Name the
+            # endpoint and the likely cause instead of leaking a bare JSON error.
+            raise ValueError(
+                f"OAuth response from {token_url} was not valid JSON "
+                f"(possibly a proxy/login HTML page): {e}"
+            ) from e
         token = body.get("access_token")
         if not token:
             raise ValueError(
-                f"OAuth response from {cfg.xsuaa_url}/oauth/token did not include "
+                f"OAuth response from {token_url} did not include "
                 f"`access_token`. Response body: {body}"
             )
         return token
@@ -395,13 +414,31 @@ class SapDatasphereClient:
           - ``ERROR``: network / non-2xx / other failure. ``xml`` is ``None``.
         """
         self._ensure_auth()
+        edmx_headers = {"Accept": "application/xml"}
         try:
             with self._timed_api("edmx_fetch", metadata_url):
                 resp = self.session.get(
                     metadata_url,
-                    headers={"Accept": "application/xml"},
+                    headers=edmx_headers,
                     timeout=self.config.request_timeout_sec,
                 )
+            if resp.status_code == 401:
+                # The OAuth bearer may have expired mid-run. Refresh once and
+                # retry — without this, a token expiring during the EDMX phase
+                # loses schema for every remaining asset (the other request paths
+                # already refresh). A 401 that survives the refresh falls through
+                # to raise_for_status below and is reported as ERROR.
+                logger.info(
+                    "Got 401 from EDMX %s; refreshing OAuth token and retrying once",
+                    metadata_url,
+                )
+                self._refresh_auth()
+                with self._timed_api("edmx_fetch", metadata_url):
+                    resp = self.session.get(
+                        metadata_url,
+                        headers=edmx_headers,
+                        timeout=self.config.request_timeout_sec,
+                    )
             if resp.status_code == 403:
                 msg = (
                     f"EDMX metadata forbidden (HTTP 403) for {metadata_url}; the "
