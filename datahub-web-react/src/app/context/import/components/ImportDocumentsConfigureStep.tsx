@@ -15,6 +15,7 @@ const SCHEDULED_SOURCE_COPY_KEYS: Partial<Record<ImportSourceType, string>> = {
     [ImportSourceType.GITHUB]: 'context.import.scheduledSource.github',
     [ImportSourceType.NOTION]: 'context.import.scheduledSource.notion',
     [ImportSourceType.CONFLUENCE]: 'context.import.scheduledSource.confluence',
+    [ImportSourceType.QUIP]: 'context.import.scheduledSource.quip',
 };
 
 export default function ImportDocumentsConfigureStep({

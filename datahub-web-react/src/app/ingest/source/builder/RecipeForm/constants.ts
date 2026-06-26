@@ -219,6 +219,12 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/presto';
 import {
+    QUIP_ACCESS_TOKEN,
+    QUIP_BASE_URL,
+    QUIP_FOLDER_IDS,
+    QUIP_THREAD_IDS,
+} from '@app/ingest/source/builder/RecipeForm/quip';
+import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
     REDSHIFT_PASSWORD,
@@ -305,6 +311,7 @@ import {
     NOTION,
     OKTA,
     POWER_BI,
+    QUIP,
     SAC,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
@@ -737,6 +744,13 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
         filterFields: [],
         advancedFields: [],
+    },
+    [QUIP]: {
+        fields: [QUIP_ACCESS_TOKEN, QUIP_BASE_URL],
+        filterFields: [QUIP_FOLDER_IDS, QUIP_THREAD_IDS],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip:
+            'Control which Quip content is ingested by listing specific folders or threads. Leave empty to auto-discover all accessible folders.',
     },
     [CONFLUENCE]: {
         fields: [CONFLUENCE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN],

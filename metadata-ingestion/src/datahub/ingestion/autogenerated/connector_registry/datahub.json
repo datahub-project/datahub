@@ -3561,6 +3561,32 @@
       "platform_name": "Qlik Sense",
       "support_status": "INCUBATING"
     },
+    "quip": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.quip.quip_source.QuipSource",
+      "platform_id": "quip",
+      "platform_name": "Quip",
+      "support_status": "INCUBATING"
+    },
     "rdf": {
       "capabilities": [
         {

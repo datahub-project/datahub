@@ -1,0 +1,15 @@
+source:
+  type: quip
+  config:
+    # Personal Access Token from <base_url>/dev/token
+    access_token: "${QUIP_ACCESS_TOKEN}"
+    # Use https://platform.quip-amazon.com for enterprise sites
+    base_url: "https://platform.quip.com"
+
+    # Optional: limit ingestion to specific folders (otherwise the authenticated
+    # user's accessible folders are auto-discovered)
+    # folder_ids:
+    #   - "AbCdEfGhIjKl"
+
+sink:
+  # sink configs

@@ -8,6 +8,7 @@ export enum ImportSourceType {
     GITHUB = 'GITHUB',
     NOTION = 'NOTION',
     CONFLUENCE = 'CONFLUENCE',
+    QUIP = 'QUIP',
 }
 
 /** Context docs import always creates editable native documents by default. */

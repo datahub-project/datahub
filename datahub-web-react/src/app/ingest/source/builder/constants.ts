@@ -47,6 +47,7 @@ import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
+import quipLogo from '@images/quiplogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
@@ -181,6 +182,8 @@ export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+export const QUIP = 'quip';
+const QUIP_URN = `urn:li:dataPlatform:${QUIP}`;
 const SIGMA = 'sigma';
 const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
@@ -267,6 +270,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
+    [QUIP_URN]: quipLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
     [CASSANDRA_URN]: cassandraLogo,
