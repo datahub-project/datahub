@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 
@@ -43,9 +43,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Above this many URNs per platform, the in-memory URN set + lowercase index are large
-# enough (order of hundreds of MB) to warrant an explicit heads-up to operators rather
-# than letting it surface as unexplained memory pressure / OOM.
+# Above this many URNs per platform, the in-memory lowercase index is large enough
+# (order of hundreds of MB) to warrant an explicit heads-up to operators rather than
+# letting it surface as unexplained memory pressure / OOM.
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 
@@ -74,14 +74,14 @@ class _Resolution:
 class _Catalog:
     """A platform's catalog used for casing resolution.
 
-    `urns` is the *complete* set of dataset URNs for the platform (independent of
-    whether they have a schema), so exact-match and ambiguity checks see every real
-    entity. `index` maps lowercase(urn) -> the real URNs sharing that form. The
-    `resolvers` carry schemas (a subset — only schema-bearing entities) and are used
-    solely to correct column-name casing.
+    `index` maps lowercase(urn) -> the real URNs sharing that form, built from the
+    *complete* set of dataset URNs for the platform (independent of whether they have
+    a schema). It is the single membership/casing structure: a URN exists exactly iff
+    it appears in its own lowercase bucket, so exact-match and ambiguity checks need no
+    separate URN set. The `resolvers` carry schemas (a subset — only schema-bearing
+    entities) and are used solely to correct column-name casing.
     """
 
-    urns: Set[str]
     index: Dict[str, List[str]]
     resolvers: List["SchemaResolver"]
 
@@ -215,7 +215,7 @@ class AutoNormalizeLineageUrnsProcessor(
                 # Platform not configured: references to it are out of scope. Cache an
                 # empty catalog (resolvers empty -> _resolve_dataset returns no verdict)
                 # without logging a misleading "loading" line.
-                self._catalog_by_platform[platform] = _Catalog(set(), {}, [])
+                self._catalog_by_platform[platform] = _Catalog({}, [])
                 return self._catalog_by_platform[platform]
             # Emitted before the (potentially long, paginated) fetch so operators see a
             # signal during the stall on the first lineage work unit, not only after.
@@ -223,7 +223,12 @@ class AutoNormalizeLineageUrnsProcessor(
                 f"Loading '{platform}' catalog from DataHub for lineage casing "
                 f"reconciliation; this may take a while on large warehouses..."
             )
-            urns: Set[str] = set()
+            # Single in-memory structure: lowercase(urn) -> [real urns sharing it].
+            # The full URN set is fetched independently of schema presence (so exact
+            # and ambiguity checks see every real entity, not only schema-bearing
+            # ones), and folded straight into the index — a URN is "present exactly"
+            # iff it appears in its own lowercase bucket, so no separate set is kept.
+            index: Dict[str, List[str]] = {}
             resolvers: List[SchemaResolver] = []
             for entry in entries:
                 resolvers.append(
@@ -234,30 +239,23 @@ class AutoNormalizeLineageUrnsProcessor(
                         env=entry.env,
                     )
                 )
-                # The full URN set is fetched independently of schema presence, so
-                # exact-match and ambiguity checks see every real entity — not only
-                # the schema-bearing ones the resolver caches.
-                urns.update(
-                    self._graph.get_urns_by_filter(
-                        entity_types=["dataset"],
-                        platform=entry.platform,
-                        platform_instance=entry.platform_instance,
-                        env=entry.env,
-                    )
-                )
-            index: Dict[str, List[str]] = {}
-            for existing in urns:
-                try:
-                    index.setdefault(lowercase_dataset_urn(existing), []).append(
-                        existing
-                    )
-                except Exception:
-                    continue
-            # The full URN set and its lowercase index are held in memory for the
-            # lifetime of the pipeline. On very large warehouses this is the
-            # processor's main memory cost; log the size so operators can gauge it,
-            # escalating to WARNING once the catalog is large enough to matter.
-            count = len(urns)
+                for existing in self._graph.get_urns_by_filter(
+                    entity_types=["dataset"],
+                    platform=entry.platform,
+                    platform_instance=entry.platform_instance,
+                    env=entry.env,
+                ):
+                    try:
+                        bucket = index.setdefault(lowercase_dataset_urn(existing), [])
+                    except Exception:
+                        continue
+                    if existing not in bucket:  # de-dup across entries / pagination
+                        bucket.append(existing)
+            # The index is held in memory for the lifetime of the pipeline. On very
+            # large warehouses this is the processor's main memory cost; log the size
+            # so operators can gauge it, escalating to WARNING once it's large enough
+            # to matter.
+            count = sum(len(bucket) for bucket in index.values())
             message = (
                 f"Loaded {count} '{platform}' dataset URNs for lineage casing "
                 f"reconciliation (held in memory for the pipeline's lifetime)."
@@ -270,7 +268,7 @@ class AutoNormalizeLineageUrnsProcessor(
                 )
             else:
                 logger.info(message)
-            self._catalog_by_platform[platform] = _Catalog(urns, index, resolvers)
+            self._catalog_by_platform[platform] = _Catalog(index, resolvers)
         return self._catalog_by_platform[platform]
 
     @staticmethod
@@ -303,8 +301,17 @@ class AutoNormalizeLineageUrnsProcessor(
         if not catalog.resolvers:
             return _Resolution(urn, None, None)
 
-        # Exact match wins (schema-independent). Schema, if any, is for column casing.
-        if urn in catalog.urns:
+        # The lowercase bucket for this URN holds every existing entity sharing its
+        # case-insensitive form (schema-independent, so schemaless entities are
+        # included). Compute it once and derive every verdict from it.
+        try:
+            bucket = catalog.index.get(lowercase_dataset_urn(urn), [])
+        except Exception:
+            return _Resolution(urn, None, None)
+
+        # Exact match wins: the URN is present in its own bucket. Don't merge genuinely
+        # distinct case-sensitive entities. Schema, if any, is for column casing.
+        if urn in bucket:
             return _Resolution(
                 urn,
                 self._schema_for(urn, catalog.resolvers),
@@ -312,11 +319,7 @@ class AutoNormalizeLineageUrnsProcessor(
             )
 
         # No exact match: a unique case-insensitive match heals; ambiguity is left alone.
-        try:
-            normalized = lowercase_dataset_urn(urn)
-        except Exception:
-            return _Resolution(urn, None, None)
-        candidates = [c for c in catalog.index.get(normalized, []) if c != urn]
+        candidates = [c for c in bucket if c != urn]
         if len(candidates) == 1:
             resolved = candidates[0]
             return _Resolution(
