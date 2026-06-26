@@ -83,12 +83,14 @@ def parse_csn_elements_to_schema_fields(
     """Convert a CSN ``elements`` map to a list of DataHub SchemaFieldClass.
 
     Returns ``(fields, unknown_types)`` where ``unknown_types`` is a list of
-    ``(column_name, cds_type)`` for any CDS type literal not in ``_TYPE_MAP``.
-    Such columns still emit (mapped to ``StringTypeClass`` with the raw type
-    preserved in ``nativeDataType``), but the caller should surface them in the
-    ingestion report — mirrors how ``edmx_parser`` reports ``unknown_edm_types``
-    so a mis-typed column is visible to the operator instead of silently
-    becoming a string.
+    ``(cds_type, column_name)`` for any CDS type literal not in ``_TYPE_MAP``.
+    The element order intentionally matches ``EdmxParseResult.unknown_edm_types``
+    (``(edm_type, property_name)``) so the two parsers' report consumers stay
+    interchangeable. Such columns still emit (mapped to ``StringTypeClass`` with
+    the raw type preserved in ``nativeDataType``), but the caller should surface
+    them in the ingestion report — mirrors how ``edmx_parser`` reports
+    ``unknown_edm_types`` so a mis-typed column is visible to the operator
+    instead of silently becoming a string.
 
     Preserves dict insertion order so the schema rendered in DataHub matches
     the upstream SAP definition's column order.
@@ -101,8 +103,9 @@ def parse_csn_elements_to_schema_fields(
         cds_type = element.get("type", "")
         # Only flag a genuinely unrecognized, non-empty type literal; a missing
         # ``type`` key is a separate (structural) concern, not an unknown type.
+        # Order is (cds_type, col_name) to match EdmxParseResult.unknown_edm_types.
         if cds_type and cds_type not in _TYPE_MAP:
-            unknown_types.append((col_name, cds_type))
+            unknown_types.append((cds_type, col_name))
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (StringTypeClass, cds_type or "UNKNOWN")
         )

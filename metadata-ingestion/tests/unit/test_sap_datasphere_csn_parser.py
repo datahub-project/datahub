@@ -53,7 +53,8 @@ def test_parses_unknown_cds_type_as_string_with_warning_path():
     fields, unknown = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(fields[0].type.type, StringTypeClass)
     assert "cds.SomethingNew" in fields[0].nativeDataType
-    assert unknown == [("WEIRD", "cds.SomethingNew")]
+    # (cds_type, column) order, matching EdmxParseResult.unknown_edm_types.
+    assert unknown == [("cds.SomethingNew", "WEIRD")]
 
 
 def test_missing_type_key_is_not_reported_as_unknown():

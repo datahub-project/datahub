@@ -416,24 +416,27 @@ class SapDatasphereClient:
         self._ensure_auth()
         edmx_headers = {"Accept": "application/xml"}
         try:
+            # Time the WHOLE fetch — including the optional refresh+retry — as a
+            # single sample, matching _get / fetch_object_definition so the
+            # edmx_fetch metric isn't double-counted on a 401 refresh.
             with self._timed_api("edmx_fetch", metadata_url):
                 resp = self.session.get(
                     metadata_url,
                     headers=edmx_headers,
                     timeout=self.config.request_timeout_sec,
                 )
-            if resp.status_code == 401:
-                # The OAuth bearer may have expired mid-run. Refresh once and
-                # retry — without this, a token expiring during the EDMX phase
-                # loses schema for every remaining asset (the other request paths
-                # already refresh). A 401 that survives the refresh falls through
-                # to raise_for_status below and is reported as ERROR.
-                logger.info(
-                    "Got 401 from EDMX %s; refreshing OAuth token and retrying once",
-                    metadata_url,
-                )
-                self._refresh_auth()
-                with self._timed_api("edmx_fetch", metadata_url):
+                if resp.status_code == 401:
+                    # The OAuth bearer may have expired mid-run. Refresh once and
+                    # retry — without this, a token expiring during the EDMX
+                    # phase loses schema for every remaining asset (the other
+                    # request paths already refresh). A 401 that survives the
+                    # refresh falls through to raise_for_status below and is
+                    # reported as ERROR.
+                    logger.info(
+                        "Got 401 from EDMX %s; refreshing OAuth token and retrying once",
+                        metadata_url,
+                    )
+                    self._refresh_auth()
                     resp = self.session.get(
                         metadata_url,
                         headers=edmx_headers,

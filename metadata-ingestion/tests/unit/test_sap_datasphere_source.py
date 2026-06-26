@@ -3223,6 +3223,88 @@ def test_include_local_tables_emits_dataset_stubs(requests_mock):
     )
 
 
+def test_local_table_unknown_cds_type_is_reported(requests_mock):
+    """A Local Table column whose CDS type isn't in the parser's _TYPE_MAP must
+    still emit (as StringType) but be surfaced via the report + a warning, so the
+    parser's unknown-type return is actually consumed end-to-end by the source."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "WEIRD_TABLE"}],
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/localtables/WEIRD_TABLE",
+        json={
+            "definitions": {
+                "WEIRD_TABLE": {
+                    "kind": "entity",
+                    "elements": {
+                        "OK_COL": {"type": "cds.String", "length": 4},
+                        "WEIRD_COL": {"type": "cds.SomethingExotic"},
+                    },
+                }
+            }
+        },
+    )
+    config = SapDatasphereConfig(base_url=tenant, token="t", include_local_tables=True)
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+
+    assert "S1.WEIRD_TABLE" in source.report.assets_with_unknown_cds_types
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Unknown CDS field type(s)" in titles
+
+
+def test_local_table_unparseable_csn_is_reported(requests_mock):
+    """A Local Table CSN fetched with HTTP 200 but an unexpected shape (no
+    parseable elements map) must still emit the table and be recorded in
+    assets_csn_unparseable, distinguishing a parse miss from a genuine
+    no-schema base table."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "ODD_TABLE"}],
+    )
+    # 200 OK, but definitions[name] has no `elements` map.
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/localtables/ODD_TABLE",
+        json={"definitions": {"ODD_TABLE": {"kind": "entity"}}},
+    )
+    config = SapDatasphereConfig(base_url=tenant, token="t", include_local_tables=True)
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    workunits = list(source.get_workunits())
+
+    # The table is still emitted (as a no-schema stub)...
+    dataset_urns = {
+        entity_urn_of(wu)
+        for wu in workunits
+        if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
+    }
+    assert any("odd_table" in u for u in dataset_urns)
+    # ...and the parse miss is recorded distinctly from a genuine no-schema table.
+    assert "S1.ODD_TABLE" in source.report.assets_csn_unparseable
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Unparseable Local Table CSN" in titles
+
+
 def test_include_local_tables_off_by_default(requests_mock):
     """Default behavior is unchanged — no Local Tables endpoint hit."""
     tenant = "https://test.eu10.hcs.cloud.sap"

@@ -224,7 +224,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _safe_list_spaces(self) -> Iterator[Dict]:
         """Yield spaces from the catalog API, converting network errors into a
         report warning instead of propagating. Allows ``get_workunits_internal``
-        to start emitting workunits without first buffering every space response."""
+        to start emitting workunits without first buffering every space response.
+
+        Only transport-level ``RequestException`` (a transient catalog hiccup) is
+        softened. Auth/config failures surface as ``ValueError`` (raised by the
+        client's token flow) and intentionally propagate as a hard pipeline
+        failure: a total auth outage that "succeeded" with zero spaces would let
+        stateful ingestion soft-delete every previously-ingested entity, so it
+        must fail loudly rather than warn."""
         try:
             yield from self._client.list_spaces()
         except requests.RequestException as e:
@@ -1225,7 +1232,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"the connector."
             ),
             context=", ".join(
-                f"{name}:{cds_type}" for name, cds_type in unknown_cds_types
+                # (cds_type, name) order mirrors _parse_schema's EDMX reporter.
+                f"{name}:{cds_type}"
+                for cds_type, name in unknown_cds_types
             ),
         )
         self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
