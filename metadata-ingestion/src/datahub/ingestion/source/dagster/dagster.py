@@ -46,6 +46,9 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
@@ -107,6 +110,10 @@ class _OpIO:
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE, "Enabled by default via asset dependencies"
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled when assets expose column lineage metadata; toggle via `include_column_lineage`",
 )
 @capability(
     SourceCapability.OWNERSHIP,
@@ -290,6 +297,12 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
             for asset in allowed_assets:
                 yield from self._emit_asset(asset)
 
+        # Jobs/ops are implementation artifacts; emit them only when explicitly
+        # requested. The asset-to-asset dependency graph is emitted separately
+        # (see _emit_asset), so disabling jobs does not lose lineage.
+        if not self.config.include_jobs:
+            return
+
         # Every job referenced by jobs metadata or by an allowed asset becomes a
         # DataFlow, so each DataJob has a parent flow with dataFlowInfo.
         jobs_by_name: Dict[str, Optional[DagsterJob]] = {
@@ -374,19 +387,62 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
                     entityUrn=urn, aspect=schema
                 ).as_workunit()
 
-        if self.config.include_asset_lineage and asset.upstream_keys:
+        upstream_lineage = self._upstream_lineage(asset, urn)
+        if upstream_lineage:
             yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=self._asset_dataset_urn(upstream_key),
-                            type=DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                        for upstream_key in asset.upstream_keys
-                    ]
-                ),
+                entityUrn=urn, aspect=upstream_lineage
             ).as_workunit()
+
+    def _upstream_lineage(
+        self, asset: DagsterAsset, urn: str
+    ) -> Optional[UpstreamLineageClass]:
+        # Collect the table-level upstream datasets. Datasets referenced only by
+        # column lineage are added too, so every fine-grained edge has a
+        # backing coarse edge (DataHub needs the dataset-level upstream to
+        # render the field-level one).
+        upstream_urns: Set[str] = set()
+        if self.config.include_asset_lineage:
+            for upstream_key in asset.upstream_keys:
+                upstream_urns.add(self._asset_dataset_urn(upstream_key))
+
+        fine_grained: List[FineGrainedLineageClass] = []
+        if self.config.include_column_lineage:
+            for col_lineage in asset.metadata.column_lineage:
+                upstream_fields = []
+                for dep in col_lineage.upstreams:
+                    dep_urn = self._asset_dataset_urn(dep.asset_key)
+                    upstream_urns.add(dep_urn)
+                    upstream_fields.append(
+                        builder.make_schema_field_urn(dep_urn, dep.column)
+                    )
+                if not upstream_fields:
+                    continue
+                fine_grained.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=upstream_fields,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(
+                                urn, col_lineage.downstream_column
+                            )
+                        ],
+                    )
+                )
+
+        if not upstream_urns and not fine_grained:
+            return None
+
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=dataset_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+                for dataset_urn in sorted(upstream_urns)
+            ],
+            fineGrainedLineages=fine_grained or None,
+        )
 
     def _institutional_memory(
         self, asset: DagsterAsset

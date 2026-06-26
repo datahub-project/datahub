@@ -44,12 +44,29 @@ class DagsterColumn:
 
 
 @dataclass
+class DagsterColumnDep:
+    """An upstream (asset, column) source for a downstream column."""
+
+    asset_key: List[str]
+    column: str
+
+
+@dataclass
+class DagsterColumnLineage:
+    """Column-level lineage for one output column of an asset."""
+
+    downstream_column: str
+    upstreams: List[DagsterColumnDep] = field(default_factory=list)
+
+
+@dataclass
 class DagsterAssetMetadata:
     """Metadata entries from an asset, normalized by kind."""
 
     custom_properties: dict = field(default_factory=dict)
     links: List[DagsterLink] = field(default_factory=list)
     columns: Optional[List[DagsterColumn]] = None
+    column_lineage: List[DagsterColumnLineage] = field(default_factory=list)
 
 
 @dataclass

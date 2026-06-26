@@ -12,6 +12,8 @@ from datahub.ingestion.source.dagster.data_classes import (
     DagsterAsset,
     DagsterAssetMetadata,
     DagsterColumn,
+    DagsterColumnDep,
+    DagsterColumnLineage,
     DagsterJob,
     DagsterLink,
     DagsterOwner,
@@ -69,6 +71,17 @@ def _build_repository() -> DagsterRepository:
             columns=[
                 DagsterColumn(name="id", native_type="int", nullable=False),
                 DagsterColumn(name="ts", native_type="timestamp"),
+            ],
+            column_lineage=[
+                DagsterColumnLineage(
+                    downstream_column="id",
+                    upstreams=[
+                        DagsterColumnDep(
+                            asset_key=["my_db", "my_schema", "raw_events"],
+                            column="id",
+                        )
+                    ],
+                )
             ],
         ),
     )
@@ -137,8 +150,16 @@ def test_cloud_id_prefix_includes_deployment() -> None:
     assert flow_urn == "urn:li:dataFlow:(dagster,prod/my_location/__ASSET_JOB,PROD)"
 
 
-def test_emits_core_orchestration_aspects() -> None:
+def test_jobs_disabled_by_default() -> None:
+    # include_jobs defaults to False: no DataFlow/DataJob entities, only assets.
     source = _make_source()
+    by_urn = _aspects_by_urn(source)
+    assert source.report.jobs_scanned == 0
+    assert not any("dataFlow" in urn or "dataJob" in urn for urn in by_urn)
+
+
+def test_emits_core_orchestration_aspects() -> None:
+    source = _make_source(include_jobs=True)
     by_urn = _aspects_by_urn(source)
 
     flow_urn = str(source._dataflow_urn("__ASSET_JOB", "my_location"))
@@ -189,10 +210,29 @@ def test_asset_upstream_lineage() -> None:
     source = _make_source()
     by_urn = _aspects_by_urn(source)
     events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    raw_urn = source._asset_dataset_urn(["my_db", "my_schema", "raw_events"])
     lineage = _find(by_urn[events_urn], UpstreamLineageClass)[0]
-    assert lineage.upstreams[0].dataset == source._asset_dataset_urn(
-        ["my_db", "my_schema", "raw_events"]
-    )
+    assert lineage.upstreams[0].dataset == raw_urn
+
+
+def test_emits_column_lineage() -> None:
+    source = _make_source()
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    raw_urn = source._asset_dataset_urn(["my_db", "my_schema", "raw_events"])
+    lineage = _find(by_urn[events_urn], UpstreamLineageClass)[0]
+    assert lineage.fineGrainedLineages
+    fgl = lineage.fineGrainedLineages[0]
+    assert fgl.downstreams == [f"urn:li:schemaField:({events_urn},id)"]
+    assert fgl.upstreams == [f"urn:li:schemaField:({raw_urn},id)"]
+
+
+def test_column_lineage_disabled() -> None:
+    source = _make_source(include_column_lineage=False)
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    lineage = _find(by_urn[events_urn], UpstreamLineageClass)[0]
+    assert not lineage.fineGrainedLineages
 
 
 def test_feature_flags_disable_extraction() -> None:

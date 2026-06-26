@@ -19,6 +19,8 @@ from datahub.ingestion.source.dagster.data_classes import (
     DagsterAsset,
     DagsterAssetMetadata,
     DagsterColumn,
+    DagsterColumnDep,
+    DagsterColumnLineage,
     DagsterJob,
     DagsterLink,
     DagsterOwner,
@@ -148,6 +150,23 @@ class DagsterGraphQLClient:
                 ]
                 if columns:
                     metadata.columns = columns
+            elif typename == "TableColumnLineageMetadataEntry":
+                for col_lineage in entry.get("lineage") or []:
+                    deps = [
+                        DagsterColumnDep(
+                            asset_key=dep["assetKey"]["path"],
+                            column=dep["columnName"],
+                        )
+                        for dep in col_lineage.get("columnDeps") or []
+                        if dep.get("assetKey", {}).get("path") and dep.get("columnName")
+                    ]
+                    if deps:
+                        metadata.column_lineage.append(
+                            DagsterColumnLineage(
+                                downstream_column=col_lineage["columnName"],
+                                upstreams=deps,
+                            )
+                        )
             else:
                 value = DagsterGraphQLClient._scalar_metadata_value(entry)
                 if value is not None and label:

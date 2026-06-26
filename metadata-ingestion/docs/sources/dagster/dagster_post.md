@@ -2,9 +2,10 @@
 
 The connector emits:
 
-- **Jobs** as `DataFlow` and **ops** as `DataJob`, with descriptions, ownership, and tags.
 - **Software-Defined Assets** as `Dataset` entities (subtype `Asset`), with descriptions, ownership, tags, documentation links (`institutionalMemory`), and table schemas (`schemaMetadata`) when declared.
-- **Asset lineage** derived from each asset's upstream/downstream dependencies, plus op → asset input/output relationships.
+- **Table-level asset lineage** derived from each asset's upstream/downstream dependencies.
+- **Column-level (fine-grained) lineage** when assets expose column-lineage metadata, controlled by `include_column_lineage`.
+- **Jobs** as `DataFlow` and **ops** as `DataJob` — **only when `include_jobs: true`**. These are off by default because they are orchestration implementation details; the asset-to-asset graph is emitted independently of them.
 
 #### Relationship to the Dagster plugin
 

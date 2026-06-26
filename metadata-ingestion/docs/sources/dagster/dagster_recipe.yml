@@ -15,12 +15,16 @@ source:
     asset_pattern:
       allow: [".*"]
 
-    # Feature toggles (all default to true)
-    include_assets: true
-    include_asset_lineage: true
+    # Feature toggles
+    include_assets: true # emit Software-Defined Assets as Datasets
+    include_asset_lineage: true # table-level asset -> asset lineage
+    include_column_lineage: true # fine-grained column lineage (when assets expose it)
     include_ownership: true
     include_tags: true
     include_metadata: true
+    # Emit Dagster jobs/ops as DataFlow/DataJob. Off by default so the graph
+    # shows only assets; set true if you want the orchestration nodes too.
+    include_jobs: false
 
     stateful_ingestion:
       enabled: true

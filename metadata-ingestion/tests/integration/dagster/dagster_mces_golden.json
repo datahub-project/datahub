@@ -109,6 +109,53 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.raw_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "my_db.my_schema.raw_events",
+            "platform": "urn:li:dataPlatform:dagster",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "event_id",
+                    "nullable": false,
+                    "description": "Raw event id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782512590993,
+        "runId": "dagster-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.events,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -324,256 +371,24 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.raw_events,PROD)",
                     "type": "TRANSFORMED"
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385575,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "externalUrl": "http://localhost:3000/jobs/__ASSET_JOB",
-            "name": "__ASSET_JOB",
-            "description": "Auto-materialization job for analytics assets."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385575,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dagster"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385575,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:data_eng@example.com",
-                    "type": "TECHNICAL_OWNER"
-                }
             ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385575,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
+            "fineGrainedLineages": [
                 {
-                    "tag": "urn:li:tag:schedule:daily"
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.raw_events,PROD),event_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.events,PROD),event_id)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/raw_events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "externalUrl": "http://localhost:3000/jobs/__ASSET_JOB",
-            "name": "raw_events",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/raw_events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dagster"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/raw_events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.raw_events,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "externalUrl": "http://localhost:3000/jobs/__ASSET_JOB",
-            "name": "events",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dagster"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.raw_events,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:dagster,my_db.my_schema.events,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/events)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,my_location/__ASSET_JOB,PROD),my_location/raw_events)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
+        "lastObserved": 1782512590994,
         "runId": "dagster-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -650,22 +465,6 @@
     "aspect": {
         "json": {
             "name": "python"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1782427385576,
-        "runId": "dagster-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:schedule:daily",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "schedule:daily"
         }
     },
     "systemMetadata": {

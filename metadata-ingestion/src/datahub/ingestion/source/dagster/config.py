@@ -94,9 +94,26 @@ class DagsterSourceConfig(
         description="Whether to emit Software-Defined Assets as DataHub Datasets.",
     )
 
+    include_jobs: bool = Field(
+        default=False,
+        description=(
+            "Whether to emit Dagster jobs as DataFlow and ops as DataJob. Disabled by "
+            "default so the lineage graph shows only assets; the asset-to-asset "
+            "dependency edges are emitted independently via `include_asset_lineage`."
+        ),
+    )
+
     include_asset_lineage: bool = Field(
         default=True,
-        description="Whether to emit upstream lineage between asset Datasets.",
+        description="Whether to emit upstream (table-level) lineage between asset Datasets.",
+    )
+
+    include_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit column-level (fine-grained) lineage between asset Datasets, "
+            "parsed from Dagster's column-lineage asset metadata when present."
+        ),
     )
 
     include_ownership: bool = Field(

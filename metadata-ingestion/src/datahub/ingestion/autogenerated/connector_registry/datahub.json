@@ -712,6 +712,12 @@
     "dagster": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled when assets expose column lineage metadata; toggle via `include_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,

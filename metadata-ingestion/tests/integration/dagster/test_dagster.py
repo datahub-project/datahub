@@ -57,4 +57,5 @@ def test_dagster_ingest(
     )
 
     assert source.report.assets_scanned == 2
-    assert source.report.jobs_scanned == 1
+    # Jobs/ops are off by default — the golden contains only assets + lineage.
+    assert source.report.jobs_scanned == 0

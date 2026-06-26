@@ -30,7 +30,22 @@
               { "__typename": "UserAssetOwner", "email": "data_eng@example.com" }
             ],
             "tags": [{ "key": "tier", "value": "bronze" }],
-            "metadataEntries": []
+            "metadataEntries": [
+              {
+                "__typename": "TableSchemaMetadataEntry",
+                "label": "schema",
+                "schema": {
+                  "columns": [
+                    {
+                      "name": "event_id",
+                      "type": "int",
+                      "description": "Raw event id",
+                      "constraints": { "nullable": false }
+                    }
+                  ]
+                }
+              }
+            ]
           },
           {
             "assetKey": { "path": ["my_db", "my_schema", "events"] },
@@ -80,6 +95,23 @@
                     }
                   ]
                 }
+              },
+              {
+                "__typename": "TableColumnLineageMetadataEntry",
+                "label": "column_lineage",
+                "lineage": [
+                  {
+                    "columnName": "event_id",
+                    "columnDeps": [
+                      {
+                        "assetKey": {
+                          "path": ["my_db", "my_schema", "raw_events"]
+                        },
+                        "columnName": "event_id"
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }

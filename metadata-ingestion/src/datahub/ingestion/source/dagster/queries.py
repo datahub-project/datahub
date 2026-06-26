@@ -57,6 +57,15 @@ _METADATA_ENTRIES_FRAGMENT = """
           }
         }
       }
+      ... on TableColumnLineageMetadataEntry {
+        lineage {
+          columnName
+          columnDeps {
+            assetKey { path }
+            columnName
+          }
+        }
+      }
     }
 """
 

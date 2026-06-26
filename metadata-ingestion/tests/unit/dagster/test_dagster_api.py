@@ -87,6 +87,21 @@ _RAW_REPOSITORIES = {
                                 "label": "row_count",
                                 "intRepr": "42",
                             },
+                            {
+                                "__typename": "TableColumnLineageMetadataEntry",
+                                "label": "column_lineage",
+                                "lineage": [
+                                    {
+                                        "columnName": "id",
+                                        "columnDeps": [
+                                            {
+                                                "assetKey": {"path": ["my_db", "raw"]},
+                                                "columnName": "id",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
                         ],
                     }
                 ],
@@ -149,6 +164,12 @@ def test_get_repositories_parses_full_payload() -> None:
     assert meta.columns is not None
     assert meta.columns[0].name == "id"
     assert meta.columns[0].nullable is False
+
+    assert len(meta.column_lineage) == 1
+    cl = meta.column_lineage[0]
+    assert cl.downstream_column == "id"
+    assert cl.upstreams[0].asset_key == ["my_db", "raw"]
+    assert cl.upstreams[0].column == "id"
 
 
 def test_python_error_raises() -> None:
