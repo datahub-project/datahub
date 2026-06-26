@@ -50,6 +50,7 @@ class DatasetSubTypes(StrEnum):
     SAP_LOCAL_TABLE = "Local Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    CUBE = "Cube"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -96,6 +97,8 @@ class DatasetContainerSubTypes(StrEnum):
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
+    # Cube
+    CUBE_DEPLOYMENT = "Cube Deployment"
 
 
 class BIContainerSubTypes(StrEnum):

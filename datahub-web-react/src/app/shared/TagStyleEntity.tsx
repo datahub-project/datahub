@@ -94,13 +94,10 @@ const DescriptionLabel = styled(Typography.Text)`
     }
 `;
 
-const EmptyValue = styled.div`
-    &:after {
-        content: 'None';
-        color: ${(props) => props.theme.colors.textTertiary};
-        font-style: italic;
-        font-weight: 100;
-    }
+const EmptyValue = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-style: italic;
+    font-weight: 100;
 `;
 
 const DetailsLayout = styled.div`
@@ -372,7 +369,7 @@ export default function TagStyleEntity({
                 editable={{ onChange: handleSaveDescription }}
                 ellipsis={{ rows: 2, expandable: true, symbol: tcActions('readMore') }}
             >
-                {updatedDescription || <EmptyValue />}
+                {updatedDescription || <EmptyValue>{tcLabels('none')}</EmptyValue>}
             </Paragraph>
             <Divider />
             {/* Tag Charts, Datasets and Owners */}

@@ -8,7 +8,7 @@ import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkP
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain as DomainEntity, EntityType } from '@types';
+import { Domain as DomainEntity, EntityType, MetadataAttribution } from '@types';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
@@ -82,6 +82,7 @@ type Props = {
     iconSize?: number;
     iconFontSize?: number;
     enableTooltip?: boolean;
+    attribution?: MetadataAttribution | null;
 };
 
 export const DomainLink = ({
@@ -95,14 +96,16 @@ export const DomainLink = ({
     iconSize,
     iconFontSize,
     enableTooltip = true,
+    attribution,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const urn = domain?.urn;
+    const previewContext = attribution ? { propagationDetails: { attribution } } : undefined;
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+            <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
                 <DomainWrapper>
                     <DomainContent
                         domain={domain}
@@ -120,7 +123,7 @@ export const DomainLink = ({
     }
 
     return (
-        <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+        <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)} {...linkProps}>
                 <DomainContent
                     domain={domain}

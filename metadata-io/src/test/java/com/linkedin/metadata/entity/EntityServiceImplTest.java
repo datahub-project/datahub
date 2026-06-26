@@ -5,6 +5,7 @@ import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -440,7 +441,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -472,7 +474,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -727,7 +730,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -808,7 +811,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -920,7 +923,7 @@ public class EntityServiceImplTest {
                 // Third batch with another success aspect
                 Stream.of(anotherSuccessAspect)));
 
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1003,8 +1006,10 @@ public class EntityServiceImplTest {
     // the function that's passed to it, so the getLatestAspect call inside it will throw
     doAnswer(
             invocation -> {
+              // New signature: runInTransactionWithRetry(OperationContext, Function, int).
+              // Function is at index 1, not 0.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               TransactionContext txContext = TransactionContext.empty(3);
 
               // Before calling the function, set up the mock that will throw inside it
@@ -1027,7 +1032,7 @@ public class EntityServiceImplTest {
               }
             })
         .when(mockAspectDao)
-        .runInTransactionWithRetry(any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), anyInt());
 
     // Create a counter mock
     Counter mockCounter = mock(Counter.class);
@@ -1054,6 +1059,66 @@ public class EntityServiceImplTest {
     // Verify metric was incremented
     verify(metricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("delete_nonexisting"), eq(1d));
+  }
+
+  @Test
+  public void testDeleteAspectWithoutMCL_EmptyVersionRangeRollsBack() throws URISyntaxException {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
+
+    Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
+    String aspectName = STATUS_ASPECT_NAME;
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    EbeanAspectV2 statusRow =
+        new EbeanAspectV2(
+            testUrn.toString(),
+            aspectName,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestStatus =
+        EbeanSystemAspect.builder().forUpdate(statusRow, testEntityRegistry);
+
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), eq(false)))
+        .thenReturn(latestStatus);
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName)))
+        .thenReturn(Pair.of(-1L, -1L));
+
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            opContext, testUrn.toString(), aspectName, Collections.emptyMap(), false);
+
+    assertNull(result);
+    verify(mockAspectDao)
+        .getVersionRange(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName));
+    verify(mockAspectDao, never())
+        .deleteUrn(any(OperationContext.class), any(), eq(testUrn.toString()));
+    verify(mockAspectDao, never())
+        .getAspect(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), anyLong());
   }
 
   @Test
@@ -1085,7 +1150,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1478,21 +1543,29 @@ public class EntityServiceImplTest {
             eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
             eq(false)))
         .thenReturn(latestDefinition);
-    when(mockAspectDao.getVersionRange(propertyUrn.toString(), STRUCTURED_PROPERTY_KEY_ASPECT_NAME))
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)))
         .thenReturn(Pair.of(0L, 1L));
-    when(mockAspectDao.getAspect(propertyUrn.toString(), STRUCTURED_PROPERTY_KEY_ASPECT_NAME, 1L))
+    when(mockAspectDao.getAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(1L)))
         .thenReturn(keyAspectAtVersionOne);
     when(mockAspectDao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
         .thenReturn(2);
 
     doAnswer(
             invocation -> {
+              // runInTransactionWithRetry(OperationContext, Function, int) — Function at index 1.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               return function.apply(TransactionContext.empty(3)).getResults();
             })
         .when(mockAspectDao)
-        .runInTransactionWithRetry(any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), anyInt());
 
     RollbackResult result =
         service.deleteAspectWithoutMCL(

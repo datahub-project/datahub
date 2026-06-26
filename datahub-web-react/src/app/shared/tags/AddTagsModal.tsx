@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entity/shared/utils';
@@ -65,6 +66,8 @@ export default function AddTagsModal({
     onOkOverride,
     existingUrns,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { runMutation, disableAction } = useBatchTagTermMutation();
     const [createTagName, setCreateTagName] = useState<string | null>(null);
@@ -95,10 +98,10 @@ export default function AddTagsModal({
             !exactMatch &&
             urns.length === 0;
         if (showCreate) {
-            filtered.push({ value: CREATE_TAG_VALUE, label: `Create ${trimmed}` });
+            filtered.push({ value: CREATE_TAG_VALUE, label: t('createOption', { inputValue: trimmed }) });
         }
         return filtered;
-    }, [currentEntities, entityRegistry, excludeSet, operationType, searchText, urns.length]);
+    }, [currentEntities, entityRegistry, excludeSet, operationType, searchText, urns.length, t]);
 
     const combinedOptions = useMemo<TagOption[]>(() => {
         const inDropdown = new Set(dropdownOptions.map((o) => o.value));
@@ -169,7 +172,8 @@ export default function AddTagsModal({
         });
     };
 
-    const actionLabel = isAddOperation(operationType) ? 'Add' : 'Remove';
+    const isAdd = isAddOperation(operationType);
+    const actionLabel = isAdd ? tc('add') : tc('remove');
 
     if (createTagName !== null) {
         return (
@@ -187,11 +191,11 @@ export default function AddTagsModal({
 
     return (
         <Modal
-            title={`${actionLabel} Tags`}
+            title={isAdd ? t('modal.addTagsTitle') : t('modal.removeTagsTitle')}
             open={open}
             onCancel={onCloseModal}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: onCloseModal },
+                { text: tc('cancel'), variant: 'text', onClick: onCloseModal },
                 {
                     text: actionLabel,
                     id: 'addTagButton',
@@ -217,7 +221,7 @@ export default function AddTagsModal({
                 selectLabelProps={{ variant: 'custom' }}
                 filterResultsByQuery={false}
                 isLoading={isLoading}
-                placeholder="Search for tag..."
+                placeholder={t('tagSearchPlaceholder')}
                 width="full"
                 dataTestId="tag-term-modal-input"
             />

@@ -42,6 +42,7 @@ function PlatformHeaderIcons(props: Props) {
                         <PlatformIcon
                             platform={platform}
                             size={size}
+                            dataTestId={`platform-icon-${platform.name?.toLowerCase()}`}
                             styles={styles ? { ...iconStyles, ...styles } : iconStyles}
                         />
                     )}

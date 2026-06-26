@@ -49,7 +49,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
     return (
-        <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
+        <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID} data-testid="glossary-terms-section">
             <SidebarSection
                 title={t('sidebar.glossaryTerms.sectionTitle')}
                 content={

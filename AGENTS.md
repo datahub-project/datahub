@@ -453,6 +453,21 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Docs added/updated (if applicable)
 - [ ] Breaking changes documented in `docs/how/updating-datahub.md`
 
+### Confidentiality in Committed Code
+
+DataHub is a **public repository**. Never put customer-identifiable or
+environment-specific details into committed code, tests, docs, comments, commit
+messages, or PRs:
+
+- No real database / schema / table / view / column names, and no usernames,
+  customer names, host names, account IDs, or URLs from customer environments.
+- No Linear/Jira ticket IDs or links.
+- When reproducing a customer issue in a test, use generic placeholder names
+  (e.g. `my_db.my_schema.events`, `col_a`) that preserve the structural pattern
+  being tested, not the customer's actual identifiers.
+- Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
+  but prefer generic names when in doubt.
+
 ## Starting / Operating DataHub
 
 Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
@@ -506,6 +521,11 @@ scripts/dev/datahub-dev.sh env list           # show current vars and pending_re
 ```
 
 **Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
+
+**GMS primary storage read pool** (optional, entity aspect DAO only): `EBEAN_READ_POOL_ENABLED` /
+`CASSANDRA_READ_POOL_ENABLED` route non-locking reads to a second pool; writes and `forUpdate`
+reads stay on PRIMARY. See [docs/deploy/primary-storage-read-pool.md](docs/deploy/primary-storage-read-pool.md).
+`DATAHUB_READ_ONLY=true` is separate — it disables writes and does not register the read pool.
 
 ### Feature Flag Lifecycle
 
@@ -698,6 +718,41 @@ datahub graphql --agent-context
 
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
+
+## Playwright UI E2E Tests
+
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
+
+### Seeding
+
+`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
+`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
+feature per run. Do **not** set `featureName` for suites that create their own data
+via `apiMock` or direct API calls.
+
+## Frontend CI Checklist
+
+This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
+commit, push, or hand off changes that are going into a PR. It is **not** required for
+every intermediate edit: work that is part of a larger task, a work-in-progress branch,
+or scratch experimentation that won't be committed yet can skip it. Run the relevant
+commands when the change is ready to ship:
+
+```bash
+# Full lint (eslint + prettier src + type-check) for datahub-web-react
+./gradlew :datahub-web-react:yarnLint
+
+# Targeted lint-fix on a single file
+./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Vitest unit tests (requires icon stubs — run once per clone)
+node datahub-web-react/scripts/generate-lazy-icon-stubs.js
+cd datahub-web-react && yarn test src/path/to/file.test.ts --run
+```
+
+`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
+unrelated files. Focus on errors in files **you touched** — in particular, optional
+prop calls (`prop?.(arg)`) and import aliases.
 
 ## Python Virtual Environments
 

@@ -6,9 +6,8 @@ import google.auth
 import google.auth.exceptions
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
-from pydantic import Field, PrivateAttr, SecretStr, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -21,7 +20,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.gcp_wif_config import (
@@ -35,11 +34,11 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -52,8 +51,6 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client, S3ServiceResource
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-GCS_ENDPOINT_URL = "https://storage.googleapis.com"
 
 _GCS_OAUTH_S3_OPERATIONS = (
     "ListBuckets",
@@ -126,11 +123,6 @@ class GCSAuthType(StrEnum):
     HMAC = "hmac"
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
     WORKLOAD_IDENTITY = "workload_identity"
-
-
-class HMACKey(ConfigModel):
-    hmac_access_id: str = Field(description="Access ID")
-    hmac_access_secret: SecretStr = Field(description="Secret")
 
 
 class GCSSourceConfig(
@@ -376,14 +368,6 @@ class GCSSource(StatefulIngestionSourceBase):
     def s3_source_overrides(self, source: S3Source) -> S3Source:
         adapter = create_object_store_adapter("gcs")
         return adapter.apply_customizations(source)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return self.s3_source.get_workunits_internal()

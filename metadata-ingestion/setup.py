@@ -300,7 +300,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "GeoAlchemy2<0.19.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     *path_spec_common,
 }
 
@@ -335,7 +335,7 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=46.0.7,<47.0.0",  # >=46.0.7 for CVE-2026-26007
+    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -380,10 +380,11 @@ iceberg_common = {
     # 0.8.0.
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
-    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
-    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
-    "pydantic<2.12",
+    # - v0.11.0 dropped the `zstandard` extra (now a core dependency).
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
+    # iceberg_common.py imports SortedList directly. This was pulled in transitively
+    # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
+    "sortedcontainers>=2.4.0,<3.0.0",
     *cachetools_lib,
 }
 
@@ -496,7 +497,6 @@ mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
-    "pyodata>=1.11.1,<2.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
     "Authlib>=1.6.11,<2.0.0",
 }
@@ -743,6 +743,7 @@ plugins: Dict[str, Set[str]] = {
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
     "mysql": mysql_common,
     "mariadb": mysql_common,
+    "tidb": mysql_common,
     "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
@@ -829,6 +830,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -836,6 +838,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlalchemy_lib
     | sqlglot_lib,
     "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
+    "cube": {"requests<3.0.0"} | sqlglot_lib,
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -942,8 +945,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
-    "mypy==1.17.1",
+    "ruff==0.15.18",
+    "mypy==2.1.0",
 }
 
 base_dev_requirements = {
@@ -979,6 +982,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "confluence",
+            "cube",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -997,6 +1001,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "tidb",
             "matillion-dpc",
             "okta",
             "oracle",
@@ -1029,6 +1034,7 @@ base_dev_requirements = {
             "unity-catalog",
             "nifi",
             "notion",
+            "github-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1090,6 +1096,7 @@ full_test_dev_requirements = {
             "mssql-odbc",
             "mysql",
             "mariadb",
+            "tidb",
             "rdf",
             "redash",
             "starrocks",
@@ -1163,7 +1170,9 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "tidb = datahub.ingestion.source.sql.tidb:TiDBSource",
         "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
+        "cube = datahub.ingestion.source.cube.cube:CubeSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
@@ -1201,6 +1210,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
+        "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",

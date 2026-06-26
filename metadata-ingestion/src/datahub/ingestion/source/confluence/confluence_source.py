@@ -27,7 +27,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -39,9 +38,7 @@ from datahub.ingestion.source.confluence.confluence_hierarchy import (
 )
 from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -358,9 +355,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         # Initialize stateful ingestion handler for stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
 
     def _get_instance_id(self) -> str:
         """
@@ -432,27 +426,28 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         return True
 
-    def _is_page_allowed(self, page_id: str) -> bool:
+    def _is_page_denied(self, page_id: str) -> bool:
         """
-        Check if page is allowed by pages.allow/pages.deny lists.
+        Check if a page is explicitly excluded by the pages.deny list.
+
+        pages.allow is intentionally NOT consulted here. It is a list of *root*
+        pages that seed the crawl (see _get_pages_from_page_allow); when
+        recursive=true the crawler walks the descendants of those roots, so
+        every page that reaches this point is in scope by construction.
+        Re-checking membership in pages.allow at emission time would drop those
+        legitimately-discovered child pages and silently defeat recursive
+        ingestion (only the seed/root pages would survive).
 
         Args:
             page_id: Confluence page ID
 
         Returns:
-            True if page should be ingested, False otherwise
+            True if the page is denied and should be skipped, False otherwise
         """
-        # If pages.allow is specified, page must be in the list
-        if self.config._parsed_page_allow is not None:
-            if page_id not in self.config._parsed_page_allow:
-                return False
-
-        # If pages.deny is specified, page must NOT be in the list
         if self.config._parsed_page_deny is not None:
-            if page_id in self.config._parsed_page_deny:
-                return False
+            return page_id in self.config._parsed_page_deny
 
-        return True
+        return False
 
     def _get_spaces(self) -> List[str]:
         """
@@ -775,6 +770,44 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             parent_id, platform=self.platform, instance_id=instance_id
         )
 
+    def _build_imported_document(
+        self,
+        doc_id: str,
+        title: str,
+        text: str,
+        url: str,
+        page_id: str,
+        custom_properties: Dict[str, str],
+        parent_urn: Optional[str],
+        created_time: Any,
+        last_modified_time: Any,
+    ) -> Document:
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(
+                id=doc_id,
+                title=title,
+                text=text,
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
+
+        return Document.create_external_document(
+            id=doc_id,
+            title=title,
+            platform=self.platform,
+            external_url=url,
+            external_id=page_id,
+            text=text,
+            status=DocumentStateClass.PUBLISHED,
+            custom_properties=custom_properties,
+            parent_document=parent_urn,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
+        )
+
     def _create_document_entity(
         self,
         page: Dict[str, Any],
@@ -799,8 +832,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning("Page missing ID, skipping")
             return
 
-        # Apply pages.deny filter
-        if not self._is_page_allowed(page_id):
+        # Apply pages.deny filter. pages.allow is a crawl seed list, not an
+        # emission whitelist, so it is deliberately not re-checked here -
+        # otherwise recursively-discovered child pages would be dropped.
+        if self._is_page_denied(page_id):
             logger.info(f"Page {page_id} filtered by pages.deny, skipping")
             self.report.report_page_skipped(page_id, "Filtered by pages.deny")
             return
@@ -896,16 +931,14 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             f"Creating document: doc_id={doc_id}, parent_urn={parent_urn}, url={url}"
         )
 
-        doc = Document.create_external_document(
-            id=doc_id,
+        doc = self._build_imported_document(
+            doc_id=doc_id,
             title=title,
-            platform=self.platform,
-            external_url=url,
-            external_id=page_id,
             text=text,
-            status=DocumentStateClass.PUBLISHED,
+            url=url,
+            page_id=page_id,
             custom_properties=custom_properties,
-            parent_document=parent_urn,
+            parent_urn=parent_urn,
             created_time=created_time,
             last_modified_time=last_modified_time,
         )
@@ -1092,17 +1125,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     or self.chunking_source.report.num_documents_limit_reached
                 ):
                     raise
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Register workunit processors for stateful ingestion.
-
-        The stale entity removal handler will automatically track all emitted
-        document URNs and generate deletion workunits for any that disappeared.
-        """
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     @staticmethod
     def _test_semantic_search_capability(

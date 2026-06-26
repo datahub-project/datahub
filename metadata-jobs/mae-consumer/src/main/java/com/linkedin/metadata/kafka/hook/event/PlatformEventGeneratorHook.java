@@ -97,7 +97,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
-  private final OperationContext systemOperationContext;
   private final EventProducer eventProducer;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
@@ -106,7 +105,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   @Autowired
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
@@ -116,7 +114,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           List<String> entityExclusions,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms) {
-    this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     this.eventProducer = Objects.requireNonNull(eventProducer);
@@ -128,12 +125,10 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
   @VisibleForTesting
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
       @Nonnull Boolean isEnabled) {
     this(
-        systemOperationContext,
         entityChangeEventGeneratorRegistry,
         eventProducer,
         isEnabled,
@@ -147,9 +142,10 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     return isEnabled;
   }
 
-  private List<ChangeEvent> getChangeEvents(MetadataChangeLog logEvent) {
+  private List<ChangeEvent> getChangeEvents(
+      OperationContext operationContext, MetadataChangeLog logEvent) {
     final AspectSpec aspectSpec =
-        systemOperationContext
+        operationContext
             .getEntityRegistry()
             .getEntitySpec(logEvent.getEntityType())
             .getAspectSpec(logEvent.getAspectName());
@@ -180,16 +176,19 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         logEvent.getCreated());
   }
 
-  private void processChangeEvent(@Nonnull final MetadataChangeLog logEvent) throws Exception {
+  private void processChangeEvent(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
+      throws Exception {
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-    final List<ChangeEvent> changeEvents = getChangeEvents(logEvent);
+    final List<ChangeEvent> changeEvents = getChangeEvents(operationContext, logEvent);
     // Iterate through each transaction, emit change events as platform events.
     for (final ChangeEvent event : changeEvents) {
       PlatformEvent platformEvent = buildPlatformEvent(event);
       emitPlatformEvent(
+          operationContext,
           platformEvent,
           String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn()));
       log.debug(
@@ -200,17 +199,19 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     }
   }
 
-  private void processRelationshipChangeEvent(@Nonnull final MetadataChangeLog logEvent)
+  private void processRelationshipChangeEvent(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
       throws Exception {
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
     final List<RelationshipChangeEvent> relationshipChangeEvents =
-        buildRelationshipChangeEvents(logEvent);
+        buildRelationshipChangeEvents(operationContext, logEvent);
     for (final RelationshipChangeEvent changeEvent : relationshipChangeEvents) {
       PlatformEvent platformEvent = buildRelationshipPlatformEvent(changeEvent);
       emitPlatformEvent(
+          operationContext,
           platformEvent,
           String.format(
               "%s-%s", Constants.RELATIONSHIP_PLATFORM_EVENT_NAME, logEvent.getEntityUrn()));
@@ -222,20 +223,22 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog logEvent) throws Exception {
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
+      throws Exception {
     if (isEligibleForChangeEventProcessing(logEvent)) {
       // Steps:
       // 1. Parse the old and new aspect.
       // 2. Find and invoke a EntityChangeEventGenerator.
       // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-      processChangeEvent(logEvent);
+      processChangeEvent(operationContext, logEvent);
     }
 
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-    processRelationshipChangeEvent(logEvent);
+    processRelationshipChangeEvent(operationContext, logEvent);
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
@@ -266,8 +269,11 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private void emitPlatformEvent(
-      @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    eventProducer.producePlatformEvent(event.getName(), partitioningKey, event);
+      @Nonnull OperationContext operationContext,
+      @Nonnull final PlatformEvent event,
+      @Nonnull final String partitioningKey)
+      throws Exception {
+    eventProducer.producePlatformEvent(operationContext, event.getName(), partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {
@@ -293,10 +299,10 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private List<RelationshipChangeEvent> buildRelationshipChangeEvents(
-      final MetadataChangeLog logEvent) {
+      @Nonnull OperationContext operationContext, final MetadataChangeLog logEvent) {
     final AspectSpec aspectSpec =
         Objects.requireNonNull(
-                systemOperationContext.getEntityRegistry().getEntitySpec(logEvent.getEntityType()))
+                operationContext.getEntityRegistry().getEntitySpec(logEvent.getEntityType()))
             .getAspectSpec(logEvent.getAspectName());
 
     if (aspectSpec == null) {
@@ -332,7 +338,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             newAspect,
             logEvent,
             fineGrainedLineageNotAllowedForPlatforms,
-            systemOperationContext.getEntityRegistry());
+            operationContext.getEntityRegistry());
 
     List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
 

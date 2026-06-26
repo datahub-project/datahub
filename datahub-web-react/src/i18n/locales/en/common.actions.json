@@ -81,6 +81,7 @@
     "view": "View",
     "viewAll": "View all",
     "viewAllCount": "View all ({{count}})",
+    "viewLess": "View less",
     "viewMore": "View more",
     "yes": "Yes"
 }

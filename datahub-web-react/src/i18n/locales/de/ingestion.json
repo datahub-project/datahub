@@ -123,6 +123,8 @@
     "source.emptySearchSubtitle": "Versuche eine andere Suchanfrage mit mindestens 3 Zeichen...",
     "source.emptySearchTitle": "Keine Suchergebnisse!",
     "source.emptyTitle": "Noch keine {{sourceType}}!",
+    "source.entityTypeNameCount_one": "{{type}}",
+    "source.entityTypeNameCount_other": "{{type}}s",
     "source.execute": "Ausführen",
     "source.executeConfirmText": "Klicke auf „Ausführen\", um diese Ingestion-Source zu starten.",
     "source.executeConfirmTitle": "Source-Ausführung bestätigen",

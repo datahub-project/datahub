@@ -149,24 +149,30 @@ def test_get_spaces_with_space_deny(
         assert "DOCS" in spaces
 
 
-def test_is_page_allowed_with_page_allow(
+def test_page_allow_is_seed_not_emission_filter(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    """Test page_allow filtering."""
+    """pages.allow seeds the crawl; it must not gate emission.
+
+    A recursively-discovered child page whose ID is not literally in
+    pages.allow must still be emitted (not denied), otherwise recursive
+    ingestion would only ever yield the root/seed pages.
+    """
     cloud_config._parsed_page_allow = ["123456", "789012"]
 
     with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
 
-        # Pages in allow list should be allowed
-        assert source._is_page_allowed("123456") is True
-        assert source._is_page_allowed("789012") is True
+        # Seed pages are not denied.
+        assert source._is_page_denied("123456") is False
+        assert source._is_page_denied("789012") is False
 
-        # Pages not in allow list should be denied
-        assert source._is_page_allowed("999999") is False
+        # A child page discovered via recursion (not in pages.allow) is also
+        # not denied - this is the regression the fix addresses.
+        assert source._is_page_denied("999999") is False
 
 
-def test_is_page_allowed_with_page_deny(
+def test_is_page_denied_with_page_deny(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test page_deny filtering."""
@@ -176,11 +182,11 @@ def test_is_page_allowed_with_page_deny(
         source = ConfluenceSource(cloud_config, pipeline_context)
 
         # Pages in deny list should be denied
-        assert source._is_page_allowed("999999") is False
-        assert source._is_page_allowed("888888") is False
+        assert source._is_page_denied("999999") is True
+        assert source._is_page_denied("888888") is True
 
-        # Pages not in deny list should be allowed
-        assert source._is_page_allowed("123456") is True
+        # Pages not in deny list should not be denied
+        assert source._is_page_denied("123456") is False
 
 
 def test_build_page_urn(
@@ -438,8 +444,8 @@ def test_cycle_detection_prevents_infinite_loop(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
-        mock_client.get_page_by_id.side_effect = (
-            lambda page_id, expand=None: mock_pages.get(page_id)
+        mock_client.get_page_by_id.side_effect = lambda page_id, expand=None: (
+            mock_pages.get(page_id)
         )
         mock_client.get_child_pages.side_effect = lambda page_id: iter(
             mock_children.get(page_id, [])

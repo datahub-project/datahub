@@ -44,6 +44,54 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Logical Models)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** (whose `logicalParent` aspect is written) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on the child only. The [logical models feature guide](../features/feature-guides/logical-models/overview.md) previously stated only the child was checked; enforcement now matches [metadata policies](../authorization/policies.md#logical-parent-logicalparent-aspect). **Action:** Grant **Edit Entity** on logical parent datasets to principals who create or change logical-parent links, or update policies so those operations succeed.
+
+- #17852: **(Ingestion framework)** Workunit processor helper functions have been removed and replaced with `WorkunitProcessor` classes. If you were directly calling these functions in custom code, you must update to use the processor class API. **Migration:** Import the processor class, create a `WorkunitProcessorContext`, instantiate the processor via `Processor.create(ctx)`, and call `.process(stream)`. Additionally, some processors have been renamed to follow a consistent naming convention:
+
+  **Renamed processors (old → new):**
+
+  - `AutoFixDuplicateSchemaFieldPathsProcessor` → `ValidateDuplicateSchemaFieldPathsProcessor`
+  - `AutoFixEmptyFieldPathsProcessor` → `ValidateEmptySchemaFieldPathsProcessor`
+  - `StaleEntityRemovalProcessor` → `AutoStaleEntityRemovalProcessor`
+
+  **Removed standalone functions (use processor classes instead):**
+
+  - `auto_status_aspect()` → Use `AutoStatusAspectProcessor` from `datahub.ingestion.workunit_processors.auto_status_aspect`
+  - `auto_workunit_reporter()` → Use `AutoWorkunitsReporterProcessor` from `datahub.ingestion.workunit_processors.auto_workunits_reporter`
+  - `auto_lowercase_urns()` → Use `AutoLowercaseUrnsProcessor` from `datahub.ingestion.workunit_processors.auto_lowercase_urns`
+  - `auto_materialize_referenced_tags_terms()` → Use `AutoMaterializeReferencedTagsTermsProcessor` from `datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms`
+  - `auto_fix_duplicate_schema_field_paths()` → Use `ValidateDuplicateSchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths`
+  - `auto_fix_empty_field_paths()` → Use `ValidateEmptySchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_empty_schema_field_paths`
+  - `auto_browse_path_v2()` → Use `AutoBrowsePathV2Processor` from `datahub.ingestion.workunit_processors.auto_browse_path_v2`
+  - `auto_incremental_lineage()` → Use `AutoIncrementalLineageProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_lineage`
+  - `auto_incremental_ownership()` → Use `AutoIncrementalOwnershipProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_ownership`
+  - `auto_incremental_properties()` → Use `AutoIncrementalPropertiesProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_properties`
+  - `auto_patch_last_modified()` → Use `AutoPatchLastModifiedProcessor` from `datahub.ingestion.workunit_processors.auto_patch_last_modified`
+
+  **Example migration:**
+
+  ```python
+  # OLD (removed):
+  from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
+  result = list(auto_status_aspect(stream))
+
+  # NEW (required):
+  from unittest.mock import MagicMock
+  from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+  from datahub.ingestion.workunit_processors.auto_status_aspect import AutoStatusAspectProcessor
+
+  ctx = WorkunitProcessorContext(
+      source_report=report,
+      pipeline_context=MagicMock(),
+      source_config=config,
+      platform="myplatform"
+  )
+  processor = AutoStatusAspectProcessor.create(ctx)
+  result = list(processor.process(stream))
+  ```
+
+  **Naming convention:** Processors follow a consistent pattern: `Auto*Processor` (enrichment), `Validate*Processor` (validation/cleanup), `Ensure*Processor` (constraint enforcement). See `WorkunitProcessor` base class documentation for details.
+
 - **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
 
 - **(Ingestion / Airflow plugin) Dropped support for Airflow 2.x.** `acryl-datahub-airflow-plugin` now requires Airflow 3.0+. The package's `apache-airflow` floor is bumped to `>=3.0.0`. The legacy standalone `openlineage-airflow` package is no longer used at all — the plugin always uses `apache-airflow-providers-openlineage`, which is now an unconditional dependency (`>=2.1.0` — the version that added Airflow 3 listener support). Drop `openlineage-airflow` from your constraints if it was pinned. The `[airflow2]` install extra is gone; `[airflow3]` is retained as a backward-compatible no-op (it installs the same as the bare package), so existing `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands keep working. The `taskinstance` value for `datajob_url_link` (an Airflow 2-only URL format) is no longer accepted; use `tasks` (default) or `grid`. The `patch_snowflake_schema` config option has been removed — it patched a Snowflake schema bug in the deprecated `openlineage-airflow` `SnowflakeExtractor` and has no effect under the OpenLineage provider, which handles Snowflake schema resolution natively; remove the setting from `airflow.cfg` if present (it is silently ignored). If you are still on Airflow 2.7–2.10, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support) — see the [compatibility section in the Airflow integration docs](../lineage/airflow.md#compatibility) for the full version ladder.
@@ -58,6 +106,12 @@ Requirements:
 
 - #17376: **(Ingestion / Hex)** Hex Components are now ingested as **Chart** entities instead of **Dashboard** entities. A Hex Component defines its own visualisation that importing projects cannot override, so it maps to a Chart (analogous to a Looker `Look` or a PowerBI `Tile`), with the project remaining a Dashboard that links to its Components via `DashboardInfo.charts`. **Migration:** if you ran the old version with stateful ingestion enabled, stale-entity removal soft-deletes the pre-existing legacy `Dashboard`-typed Components on the next run in most cases. Because every Component changes URN type, a component-heavy workspace can exceed the stale-removal fail-safe (`stateful_ingestion.fail_safe_threshold`, default 75%), in which case raise the threshold or perform a one-time bulk cleanup via the DataHub UI or CLI. Either way, Component URNs change entity type, so any saved views, glossary/tag/ownership assignments, and policies that targeted the old Dashboard-typed Component URNs **will be lost and must be manually reapplied** to the new Chart URNs.
 
+- #17443 **(Ingestion / MongoDB)** AWS DocumentDB can now be ingested as its own data platform. The MongoDB source has a new opt-in config field `platform` (default `mongodb`). Set `platform: documentdb` together with `hostingEnvironment: AWS_DOCUMENTDB` to emit entities under the new `documentdb` data platform URN instead of `mongodb`; setting `platform: documentdb` with any other hosting environment is rejected at config validation time. The default is unchanged, so existing recipes continue to emit `mongodb` URNs even when pointed at AWS DocumentDB. If enabled on an existing recipe, both the dataset URNs and the database-level container URNs will change, and the stale `mongodb` entities will need to be cleaned up via stateful ingestion (if enabled) or manual soft-delete.
+
+- **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` now defaults to **`ENFORCE`** (was effectively unrestricted for human callers). Browser sessions and user Personal Access Tokens **can no longer** call `getSecretValues` or otherwise decrypt UI secrets through GraphQL. **Rollout (v2.0.0):** new deployments get `ENFORCE` by default; existing deployments should migrate before upgrading or set `AUDIT` during transition. **Action:** If you relied on admins or automation using a user PAT to read plaintext secret values via `getSecretValues`, migrate to [**datahub-actions**](../actions/actions/executor.md) with system client credentials (`DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET`) or set `SECRET_SERVICE_CALLER_GUARD_MODE=AUDIT` temporarily during rollout. Scheduled UI ingestion via **datahub-actions** is unaffected. See [Environment Variables](../deploy/environment-vars.md) and [Ingestion executor security](../docker/ingestion-executor-security.md).
+
+- **(Java / Plugin API)** `SecretService.encrypt` and `SecretService.decrypt` no-context overloads are removed; use `encrypt(OperationContext, String)` and `decrypt(OperationContext, String)`. Custom GMS plugins or extensions that call `SecretService` directly must pass `OperationContext` from the request, or `null` for background jobs (allowed by the guard). With `ENFORCE`, `decrypt` throws `SecurityException` for human browser/mobile callers and callers other than trusted ingestion workers (**datahub-actions** in OSS).
+
 ### Known Issues
 
 ### Potential Downtime
@@ -68,6 +122,12 @@ Requirements:
 
 ### Other Notable Changes
 
+- #18001 **(Ingestion / Redshift)** `table_pattern` is now applied to SQL-parsing-derived lineage and usage, not just to the catalog walk. Previously, lineage/usage/query entities produced by the SQL parsing aggregator were emitted for all tables regardless of `table_pattern`; they are now filtered consistently with the other SQL connectors (Snowflake, BigQuery, Databricks). The default `table_pattern` allows everything, so most setups are unaffected. **If you set `table_pattern`** and relied on lineage/usage edges to excluded tables, widen the pattern to keep them.
+
+- #18001 **(Ingestion / Redshift)** The per-user `userEmail` field in Redshift dataset usage statistics (`DatasetUserUsageCounts`) is no longer populated. Redshift's catalog only stores usernames, so this email was previously synthesized as `<username>@<email_domain>` and carried no information beyond the user's CorpUser URN. That URN is unchanged, so user attribution and ownership links are unaffected. **No action required;** if you relied on the synthetic email, derive it from the user URN plus your `email_domain` setting. (This is a side effect of Redshift usage now flowing through the standard SQL-parsing usage aggregator. A new opt-in `include_column_usage_stats` config additionally enables column-level usage statistics.)
+
+- **(GMS / search indexing)** Inline Elasticsearch indexing and entity-graph cache invalidation on ingest now require explicit `systemMetadata.properties.appSource = ui` (or the sync-index header), not merely a GraphQL request context. `GroupService` and `RoleService` stamp UI source via `AspectUtils.buildSynchronousMetadataChangeProposal`; other GraphQL resolvers that bypass `MutationUtils` revert to async MAE indexing. See [GMS Entity Graph Cache — Invalidation (sync writes)](../deploy/gms-entity-graph-cache.md#invalidation-sync-writes).
+
 - #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
@@ -77,6 +137,14 @@ Requirements:
 
 - #17649 **(Ingestion / Dremio)** The `domain` recipe field now actually emits a `Domains` aspect for every Dremio container and dataset. Previously, the config field was documented and plumbed through to the aspect builder, but the aspect was never yielded, so the setting silently did nothing. Recipes that already set `domain` will now start attaching the configured domain to ingested entities — verify the domain URN/name is what you intend before upgrading. Bare names (e.g. `domain: marketing`) are now resolved against the live DataHub graph via `DomainRegistry` (same pattern as Snowflake/BigQuery), so the recipe must have a `datahub_api`/sink with a graph configured; otherwise pass a full `urn:li:domain:<id>`.
 - #17651 **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
+- #17812 **(Ingestion / Glue)** When `extract_lakeformation_tags` is enabled, the Glue connector now also extracts **column-level** Lake Formation tags by default (new `extract_lakeformation_column_tags`, default `true`) and can propagate a database's Lake Formation tags down to its tables and columns (new `propagate_lakeformation_tags`, default `false`). Existing recipes with `extract_lakeformation_tags: true` will start emitting directly-assigned column tags after upgrade with no config change; set `extract_lakeformation_column_tags: false` to retain the previous (table/database-only) behavior. Inherited (propagated) tags are marked with propagation attribution and a `propagated` context so they can be distinguished from directly-assigned tags. No additional AWS API calls are made — all tag levels come from the existing per-table `GetResourceLFTags` response.
+
+- #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for outbound HTTPS calls from the CLI.
+
+- #17891 **(Ingestion / Teradata)** Teradata profiling now respects `profile_table_size_limit` (default **5 GB**); tables larger than the limit are skipped by default, bringing Teradata in line with Snowflake, BigQuery, Databricks, and Oracle. Table size is derived from DBC space accounting (`SUM(CurrentPerm)` in `DBC.TableSizeV`). Tables whose size cannot be determined (e.g. the ingestion user lacks `SELECT` on `DBC.TableSizeV`) are still profiled (fail-open). **Action:** to restore the previous behavior of profiling all tables regardless of size, set `profile_table_size_limit: null` under `profiling`.
+- **(Ingestion / Databricks Unity Catalog)** When `usage_data_source` is set to `SYSTEM_TABLES` (or `AUTO` with a SQL warehouse configured), the connector now reads query history from `system.query.history` and derives usage statistics, operational stats, and query entities by parsing those statements through the shared SQL parsing aggregator (the same component used by the Snowflake, BigQuery, and Redshift connectors), which deduplicates identical statements by fingerprint so each distinct query is parsed only once. Table and column lineage continue to be sourced natively from `system.access.table_lineage` and `system.access.column_lineage` and are unaffected. Query entities are now emitted for warehouse statements on this path (`include_queries`, default `true`; `include_query_usage_statistics`, default `true`). The usage and lineage history window on the system-tables path may extend up to 365 days (the previous cap was 30 days, which applied only to the REST API path). Existing Databricks Unity Catalog ingestions that set a `warehouse_id` or use `usage_data_source: SYSTEM_TABLES` are affected; no recipe changes are required unless you want to opt out (`usage_data_source: API`). **Known limitation:** Databricks query history does not record the catalog or schema that was active when each query ran. As a result, queries that reference tables by a short (one-part) name only — typical of ad-hoc notebook queries — cannot be attributed to a specific table, and usage or operation counts for those queries may be lower than in previous releases.
+
+- #17971 **(Ingestion / Databricks Unity Catalog)** On the system-tables usage path, a time window that returns **no** queries (an idle workspace) now emits zero-value `datasetUsageStatistics` for the ingested tables, where it previously emitted none. This aligns Unity with the Snowflake, BigQuery, and Redshift connectors, which stamp a zero datapoint whenever the usage read succeeds. Because `datasetUsageStatistics` is a timeseries aspect written via UPSERT, this records a current-bucket zero datapoint and does **not** delete prior usage history. A genuine fetch or permission failure still emits nothing (it is surfaced as a run failure instead), so existing usage history is never overwritten with zeros on error.
 
 ## v1.6.0
 
