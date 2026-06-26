@@ -294,6 +294,7 @@ import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
+import com.linkedin.datahub.graphql.types.dataobject.DataObjectType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.dataprocessinst.DataProcessInstanceType;
@@ -495,6 +496,7 @@ public class GmsGraphQLEngine {
   private final ContainerType containerType;
   private final DomainType domainType;
   private final DocumentType documentType;
+  private final DataObjectType dataObjectType;
   private final NotebookType notebookType;
   private final AssertionType assertionType;
   private final VersionedDatasetType versionedDatasetType;
@@ -640,6 +642,7 @@ public class GmsGraphQLEngine {
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
     this.documentType = new DocumentType(entityClient);
+    this.dataObjectType = new DataObjectType(entityClient);
     this.notebookType = new NotebookType(entityClient);
     this.assertionType = new AssertionType(entityClient);
     this.versionedDatasetType = new VersionedDatasetType(entityClient);
@@ -700,6 +703,7 @@ public class GmsGraphQLEngine {
                 notebookType,
                 domainType,
                 documentType,
+                dataObjectType,
                 assertionType,
                 versionedDatasetType,
                 dataPlatformInstanceType,
@@ -780,6 +784,7 @@ public class GmsGraphQLEngine {
     configureLifecycleResolvers(builder);
     configureGenericEntityResolvers(builder);
     configureDatasetResolvers(builder);
+    configureDataObjectResolvers(builder);
     configureCorpUserResolvers(builder);
     configureServiceAccountResolvers(builder);
     configureCorpGroupResolvers(builder);
@@ -905,6 +910,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DATA_OBJECT_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE));
 
@@ -1083,6 +1089,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("browse", new BrowseResolver(browsableTypes))
                 .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
                 .dataFetcher("dataset", getResolver(datasetType))
+                .dataFetcher("dataObject", getResolver(dataObjectType))
                 .dataFetcher("role", getResolver(roleType))
                 .dataFetcher(
                     "versionedDataset",
@@ -2015,6 +2022,54 @@ public class GmsGraphQLEngine {
                                   .collect(Collectors.toList())
                               : null;
                         })));
+  }
+
+  private void configureDataObjectResolvers(final RuntimeWiring.Builder builder) {
+    // DataObject is ingestion-emitted and read-only in the UI. Only read field resolvers are wired;
+    // governance edits flow through the shared Entity-interface resolvers.
+    builder.type(
+        "DataObject",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        (env) -> ((DataObject) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        (env) -> {
+                          final DataObject dataObject = env.getSource();
+                          return dataObject.getDataPlatformInstance() != null
+                              ? dataObject.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "container",
+                    new LoadableTypeResolver<>(
+                        containerType,
+                        (env) -> {
+                          final DataObject dataObject = env.getSource();
+                          return dataObject.getContainer() != null
+                              ? dataObject.getContainer().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "parent",
+                    new LoadableTypeResolver<>(
+                        dataObjectType,
+                        (env) -> {
+                          final DataObject dataObject = env.getSource();
+                          return dataObject.getParent() != null
+                              ? dataObject.getParent().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 
   /**

@@ -1,0 +1,78 @@
+#import "./preview.graphql"
+#import "./fragments.graphql"
+
+query getDataObject($urn: String!) {
+    dataObject(urn: $urn) {
+        urn
+        type
+        name
+        subTypes {
+            typeNames
+        }
+        properties {
+            name
+            qualifiedName
+            description
+            externalUrl
+            customProperties {
+                key
+                value
+            }
+            created {
+                time
+            }
+            lastModified {
+                time
+            }
+        }
+        storage {
+            mimeType
+            sizeBytes
+            storageClass
+            storagePath
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        container {
+            ...entityContainer
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        applications {
+            ...entityApplication
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        status {
+            removed
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        exists
+    }
+}

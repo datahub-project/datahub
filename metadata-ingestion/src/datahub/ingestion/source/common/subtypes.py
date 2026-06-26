@@ -54,6 +54,20 @@ class DatasetSubTypes(StrEnum):
     NOTEBOOK = "Notebook"
 
 
+class DataObjectSubTypes(StrEnum):
+    FILE = "File"
+    AUDIO = "Audio"
+    VIDEO = "Video"
+    IMAGE = "Image"
+    TEXT = "Text"
+    DOCUMENT = "Document File"
+    SPREADSHEET = "Spreadsheet"
+    PRESENTATION = "Presentation"
+    ARCHIVE = "Archive"
+    OTHER = "Other"
+    CHUNK = "Chunk"  # reserved for Phase 3; not emitted by Phase-1 connectors
+
+
 class GenericContainerSubTypes(StrEnum):
     """Generic container subtypes that are not specific to datasets, BI, flows, or jobs."""
 

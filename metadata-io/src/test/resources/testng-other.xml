@@ -29,6 +29,13 @@
         </classes>
     </test>
 
+    <!-- Category B guard: recommendation entity coverage -->
+    <test name="recommendation-coverage">
+        <classes>
+            <class name="com.linkedin.metadata.recommendation.candidatesource.RecentlyEditedSourceEntityCoverageTest"/>
+        </classes>
+    </test>
+
     <!-- Additional test execution for EbeanEntityServiceTest with CDC mode -->
     <test name="ebean-entity-service-cdc">
         <parameter name="cdcMode" value="true"/>

@@ -8,6 +8,7 @@ import { DashboardEntity } from '@app/entityV2/dashboard/DashboardEntity';
 import { DataContractEntity } from '@app/entityV2/dataContract/DataContractEntity';
 import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '@app/entityV2/dataJob/DataJobEntity';
+import { DataObjectEntity } from '@app/entityV2/dataObject/DataObjectEntity';
 import { DataPlatformEntity } from '@app/entityV2/dataPlatform/DataPlatformEntity';
 import { DataPlatformInstanceEntity } from '@app/entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
 import { DataProcessInstanceEntity } from '@app/entityV2/dataProcessInstance/DataProcessInstanceEntity';
@@ -48,6 +49,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
     registry.register(new DocumentEntity());
+    registry.register(new DataObjectEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());

@@ -48,6 +48,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
 )
@@ -591,6 +592,103 @@ class S3Source(StatefulIngestionSourceBase):
 
         if self.source_config.is_profiling_enabled():
             yield from self.profiler.get_table_profile(table_data, dataset_urn)
+
+    def emit_data_object(
+        self, table_data: TableData, path_spec: PathSpec
+    ) -> Iterable[MetadataWorkUnit]:
+        from datahub.ingestion.source.s3.data_object_utils import (
+            classify_extension,
+            guess_mime_type,
+        )
+        from datahub.metadata.schema_classes import (
+            AuditStampClass,
+            DataObjectPropertiesClass,
+            ObjectStoragePropertiesClass,
+            SubTypesClass,
+        )
+        from datahub.metadata.urns import DataObjectUrn
+
+        browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
+        if self.source_config.convert_urns_to_lowercase:
+            browse_path = browse_path.lower()
+
+        data_object_urn = DataObjectUrn(
+            make_data_platform_urn(self.source_config.platform),
+            browse_path,
+            self.source_config.env,
+        )
+
+        ext = browse_path.rsplit(".", 1)[-1] if "." in browse_path else ""
+        subtype = classify_extension(ext)
+        mime = guess_mime_type(browse_path, table_data.content_type)
+
+        audit_stamp = (
+            AuditStampClass(
+                time=int(table_data.timestamp.timestamp() * 1000),
+                actor="urn:li:corpuser:datahub",
+            )
+            if table_data.timestamp
+            else None
+        )
+
+        aspects: List[_Aspect] = [
+            DataObjectPropertiesClass(
+                name=table_data.display_name,
+                qualifiedName=table_data.full_path,
+                description="",
+                created=audit_stamp,
+                lastModified=audit_stamp,
+            ),
+            ObjectStoragePropertiesClass(
+                mimeType=mime,
+                sizeBytes=table_data.size_in_bytes,
+                storagePath=table_data.full_path,
+            ),
+            SubTypesClass(typeNames=[subtype.value]),
+        ]
+
+        if self.source_config.platform_instance:
+            aspects.append(
+                DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.source_config.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.source_config.platform,
+                        self.source_config.platform_instance,
+                    ),
+                )
+            )
+
+        if table_data.is_s3 and (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            bucket = get_bucket_name(table_data.table_path)
+            key_prefix = (
+                get_key_prefix(table_data.table_path)
+                if table_data.full_path == table_data.table_path
+                else None
+            )
+            s3_tags = get_s3_tags(
+                bucket,
+                key_prefix,
+                str(data_object_urn),
+                self.source_config.aws_config,
+                self.ctx,
+                self.source_config.use_s3_bucket_tags,
+                self.source_config.use_s3_object_tags,
+                self.source_config.verify_ssl,
+            )
+            if s3_tags:
+                aspects.append(s3_tags)
+
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=str(data_object_urn), aspects=aspects
+        ):
+            yield mcp.as_workunit()
+
+        yield from self.container_WU_creator.create_container_hierarchy(
+            table_data.table_path, str(data_object_urn)
+        )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -1153,6 +1251,9 @@ class S3Source(StatefulIngestionSourceBase):
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
+                num_data_objects = 0
+                max_data_objects = self.source_config.max_data_objects
+                data_objects_capped = False
                 for browse_path in file_browser:
                     # Normalize URI for pattern matching
                     normalized_file_path = self._normalize_uri_for_pattern_matching(
@@ -1166,7 +1267,24 @@ class S3Source(StatefulIngestionSourceBase):
                     ):
                         continue
                     table_data = self.extract_table_data(path_spec, browse_path)
-                    if table_data.table_path not in table_dict:
+                    file_ext = (
+                        table_data.table_path.rsplit(".", 1)[-1].lower()
+                        if "." in table_data.table_path
+                        else ""
+                    )
+                    if self._is_unstructured_file(file_ext):
+                        # Stream dataObject emission so memory stays bounded regardless of object
+                        # count: emit per file instead of accumulating in table_dict.
+                        if (
+                            max_data_objects is not None
+                            and num_data_objects >= max_data_objects
+                        ):
+                            data_objects_capped = True
+                            continue
+                        yield from self.emit_data_object(table_data, path_spec)
+                        num_data_objects += 1
+                        self.report.num_data_objects_emitted += 1
+                    elif table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
                         table_dict[table_data.table_path].number_of_files = (
@@ -1187,6 +1305,15 @@ class S3Source(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
+                if data_objects_capped:
+                    self.report.report_warning(
+                        "max-data-objects-reached",
+                        f"Reached max_data_objects={max_data_objects} for path_spec "
+                        f"{path_spec.include}; stopped emitting further dataObjects. Raise "
+                        f"max_data_objects or narrow the path_spec to ingest more.",
+                    )
+
+                # Structured files only — unstructured were already streamed above.
                 for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
@@ -1224,6 +1351,20 @@ class S3Source(StatefulIngestionSourceBase):
                     **time_percentiles,
                 },
             )
+
+    def _is_unstructured_file(self, file_ext: str) -> bool:
+        # Routes a file to emit_data_object only when ALL three conditions hold:
+        # 1. the config opt-in list is non-empty,
+        # 2. the extension is in that list, and
+        # 3. the extension is NOT a structured type DataHub can schema-infer.
+        # Condition 3 prevents accidentally treating csv/parquet/etc. as unstructured
+        # even if a user mistakenly lists them in unstructured_file_extensions.
+        return (
+            bool(self.source_config.unstructured_file_extensions)
+            and file_ext
+            in {e.lower() for e in self.source_config.unstructured_file_extensions}
+            and file_ext not in {t.lower() for t in SUPPORTED_FILE_TYPES}
+        )
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"

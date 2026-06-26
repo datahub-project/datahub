@@ -1,0 +1,11 @@
+query searchDataObject($input: SearchAcrossEntitiesInput!) {
+  searchAcrossEntities(input: $input) {
+    total
+    searchResults {
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}

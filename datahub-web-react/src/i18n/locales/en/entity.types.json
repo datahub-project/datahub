@@ -28,6 +28,8 @@
     "dataContract.name": "Data Contract",
     "dataContract.namePlural": "Data Contracts",
     "dataContract.notImplemented": "Not Implemented",
+    "dataObject.name": "Data Object",
+    "dataObject.namePlural": "Data Objects",
     "dataFlow.name": "Pipeline",
     "dataFlow.namePlural": "Pipelines",
     "dataJob.lastRun": "Last run {{time}}",

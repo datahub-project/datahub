@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
@@ -113,6 +113,28 @@ class DataLakeSourceConfig(
     generate_partition_aspects: bool = Field(
         default=True,
         description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
+    )
+
+    unstructured_file_extensions: List[str] = Field(
+        default=[],
+        description=(
+            "Opt-in allowlist of file extensions (without leading dot) to catalog as "
+            "dataObject entities instead of datasets — e.g. ['mp4', 'wav', 'pdf', 'png']. "
+            "Empty (default) preserves existing behavior. Extensions also present in the "
+            "structured SUPPORTED_FILE_TYPES (csv/json/parquet/...) are ignored here and "
+            "continue to be ingested as datasets."
+        ),
+    )
+
+    max_data_objects: Optional[int] = Field(
+        default=100_000,
+        description=(
+            "Safety cap on the number of dataObject entities emitted per path_spec. On reaching "
+            "this limit the connector stops emitting further dataObjects for that path_spec and "
+            "reports a warning (no silent truncation). Set to null for unlimited (use with care on "
+            "very large buckets). Only applies to unstructured_file_extensions emission; structured "
+            "file / dataset ingestion is unaffected."
+        ),
     )
 
     def is_profiling_enabled(self) -> bool:

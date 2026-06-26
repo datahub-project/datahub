@@ -1,0 +1,22 @@
+namespace com.linkedin.dataobject
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Logical properties of a data object. Mirrors DatasetProperties; content is not stored.
+ */
+@Aspect = { "name": "dataObjectProperties" }
+record DataObjectProperties includes CustomProperties, ExternalReference {
+  @Searchable = { "fieldType": "WORD_GRAM", "enableAutocomplete": true, "boostScore": 10.0, "fieldNameAliases": [ "_entityName" ] }
+  name: optional string
+
+  qualifiedName: optional string
+
+  @Searchable = { "fieldType": "TEXT", "queryByDefault": true }
+  description: optional string
+
+  created: optional AuditStamp
+  lastModified: optional AuditStamp
+}

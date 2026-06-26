@@ -1,0 +1,19 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Data Object (a file/blob/object in a storage or content system).
+ */
+@Aspect = { "name": "dataObjectKey" }
+record DataObjectKey {
+  @Searchable = { "fieldType": "URN", "enableAutocomplete": true }
+  platform: Urn
+
+  @Searchable = { "fieldName": "id", "fieldType": "WORD_GRAM", "enableAutocomplete": true, "boostScore": 10.0 }
+  name: string
+
+  @Searchable = { "fieldType": "TEXT_PARTIAL", "addToFilters": true, "filterNameOverride": "Environment", "queryByDefault": false, "searchLabel": "origin" }
+  origin: FabricType
+}

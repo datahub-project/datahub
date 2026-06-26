@@ -169,6 +169,25 @@
         ]
       }
     },
+    "dataObject": {
+      "upstreamLineage": {
+        "aspect": "upstreamLineage",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "upstreams.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
     "chart": {
       "chartInfo": {
         "aspect": "chartInfo",
@@ -398,5 +417,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2025-08-05T19:29:49.306404+00:00"
+  "generated_at": "2026-06-18T10:28:24.846528+00:00"
 }

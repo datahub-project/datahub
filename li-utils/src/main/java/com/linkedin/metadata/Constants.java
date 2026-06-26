@@ -133,6 +133,7 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
   public static final String DOCUMENT_ENTITY_NAME = "document";
+  public static final String DATA_OBJECT_ENTITY_NAME = "dataObject";
 
   /** Aspects */
   // Common
@@ -486,6 +487,12 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+
+  // Data Object
+  public static final String DATA_OBJECT_KEY_ASPECT_NAME = "dataObjectKey";
+  public static final String DATA_OBJECT_PROPERTIES_ASPECT_NAME = "dataObjectProperties";
+  public static final String OBJECT_STORAGE_PROPERTIES_ASPECT_NAME = "objectStorageProperties";
+  public static final String PARENT_DATA_OBJECT_ASPECT_NAME = "parentDataObject";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");

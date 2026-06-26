@@ -1,0 +1,225 @@
+extend type Query {
+  """
+  Fetch a Data Object by primary key (urn)
+  """
+  dataObject(urn: String!): DataObject
+}
+
+"""
+A discrete object in a storage or content system - a file, blob, media asset, or a
+sub-region (chunk) thereof. Cataloged by reference; DataHub does not store the object's
+content. Data Objects are ingestion-emitted and read-only in the UI.
+"""
+type DataObject implements Entity {
+  """
+  The primary key of the Data Object
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The name of the Data Object
+  """
+  name: String!
+
+  """
+  The sub-types of the Data Object (e.g., "File", "Object", "Chunk")
+  """
+  subTypes: SubTypes
+
+  """
+  The platform that this Data Object originates in (e.g., "s3")
+  """
+  platform: DataPlatform!
+
+  """
+  Data Platform Instance associated with the Data Object
+  """
+  dataPlatformInstance: DataPlatformInstance
+
+  """
+  Logical properties of the Data Object
+  """
+  properties: DataObjectProperties
+
+  """
+  Storage-system properties of the Data Object
+  """
+  storage: ObjectStorageProperties
+
+  """
+  The parent Container of the Data Object
+  """
+  container: Container
+
+  """
+  The hierarchical parent Data Object (e.g. the file a chunk belongs to)
+  """
+  parent: DataObject
+
+  """
+  Ownership metadata of the Data Object
+  """
+  ownership: Ownership
+
+  """
+  Deprecated, use tags field instead.
+  The structured tags associated with the Data Object.
+  """
+  globalTags: GlobalTags @deprecated(reason: "Use tags field instead")
+
+  """
+  Tags applied to the Data Object
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the Data Object
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Data Object
+  """
+  domain: DomainAssociation
+
+  """
+  The applications associated with the Data Object
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  The deprecation status of the Data Object
+  """
+  deprecation: Deprecation
+
+  """
+  Status metadata of the Data Object
+  """
+  status: Status
+
+  """
+  References to internal resources related to the Data Object (links)
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Structured properties about this asset
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  The forms associated with the Data Object
+  """
+  forms: Forms
+
+  """
+  The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
+  """
+  browsePathV2: BrowsePathV2
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Experimental API.
+  For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+
+  """
+  Documentation aspect containing editable description for this Data Object
+  """
+  documentation: Documentation
+}
+
+"""
+Logical properties of a Data Object
+"""
+type DataObjectProperties {
+  """
+  The name of the Data Object
+  """
+  name: String!
+
+  """
+  The fully-qualified name of the Data Object
+  """
+  qualifiedName: String
+
+  """
+  The description of the Data Object
+  """
+  description: String
+
+  """
+  The external URL for the Data Object in its source system
+  """
+  externalUrl: String
+
+  """
+  Custom properties of the Data Object
+  """
+  customProperties: [CustomPropertiesEntry!]
+
+  """
+  When the Data Object was created
+  """
+  created: AuditStamp
+
+  """
+  When the Data Object was last modified
+  """
+  lastModified: AuditStamp
+}
+
+"""
+Storage-system facet of a Data Object (e.g. a file in object storage)
+"""
+type ObjectStorageProperties {
+  """
+  The MIME type (media type) of the object
+  """
+  mimeType: String
+
+  """
+  The size of the object in bytes
+  """
+  sizeBytes: Long
+
+  """
+  The storage class of the object (platform-specific)
+  """
+  storageClass: String
+
+  """
+  The storage path of the object
+  """
+  storagePath: String
+
+  """
+  The entity tag (etag) of the object
+  """
+  etag: String
+
+  """
+  The content encoding of the object
+  """
+  contentEncoding: String
+}

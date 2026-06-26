@@ -1150,6 +1150,11 @@ enum EntityType {
   DATASET
 
   """
+  A Data Object - a file/blob/object in storage, or a sub-region (chunk) thereof
+  """
+  DATA_OBJECT
+
+  """
   The CorpUser Entity
   """
   CORP_USER

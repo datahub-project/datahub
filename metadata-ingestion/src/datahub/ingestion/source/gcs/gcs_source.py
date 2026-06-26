@@ -158,6 +158,15 @@ class GCSSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
+    unstructured_file_extensions: List[str] = Field(
+        default=[],
+        description=(
+            "Opt-in allowlist of file extensions (without leading dot) to catalog as "
+            "dataObject entities instead of datasets — e.g. ['mp4', 'wav', 'pdf', 'png']. "
+            "Empty (default) preserves existing behavior."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def validate_credential(cls, values: Any) -> Any:
@@ -296,6 +305,7 @@ class GCSSource(StatefulIngestionSourceBase):
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
+            unstructured_file_extensions=self.config.unstructured_file_extensions,
         )
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:

@@ -45,6 +45,7 @@ public class LineageGraphFiltersTest {
             "mlFeature",
             "dataProcessInstance",
             "dataset",
+            "dataObject", // lineage-capable via the upstreamLineage aspect
             "chart",
             "dashboard",
             "mlPrimaryKey"));

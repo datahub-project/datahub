@@ -93,7 +93,8 @@ public class SearchUtils {
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.SCHEMA_FIELD,
           EntityType.APPLICATION,
-          EntityType.DOCUMENT);
+          EntityType.DOCUMENT,
+          EntityType.DATA_OBJECT);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -116,7 +117,8 @@ public class SearchUtils {
           EntityType.DOMAIN,
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.APPLICATION,
-          EntityType.STRUCTURED_PROPERTY);
+          EntityType.STRUCTURED_PROPERTY,
+          EntityType.DATA_OBJECT);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
@@ -130,7 +132,8 @@ public class SearchUtils {
           EntityType.MLFEATURE_TABLE,
           EntityType.DATA_FLOW,
           EntityType.DATA_JOB,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DATA_OBJECT);
 
   /** A prioritized list of source filter types used to generate quick filters */
   public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES =

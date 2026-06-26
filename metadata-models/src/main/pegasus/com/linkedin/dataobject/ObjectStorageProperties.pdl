@@ -1,0 +1,24 @@
+namespace com.linkedin.dataobject
+
+/**
+ * Storage-system facet of a data object (file in object storage). Optional;
+ * omitted for objects with no storage of their own (e.g. chunks).
+ */
+@Aspect = { "name": "objectStorageProperties" }
+record ObjectStorageProperties {
+  // Indexed (KEYWORD) so MIME filtering is possible via the search API, but
+  // intentionally NOT addToFilters — media type is too granular for a top-level
+  // search facet; the subtype (Audio/Video/Image/...) covers UI filtering.
+  @Searchable = { "fieldType": "KEYWORD", "queryByDefault": false }
+  mimeType: optional string
+
+  sizeBytes: optional long
+
+  storageClass: optional string
+
+  storagePath: optional string
+
+  etag: optional string
+
+  contentEncoding: optional string
+}

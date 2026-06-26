@@ -1,0 +1,18 @@
+{
+  "type": "s3",
+  "config": {
+    "env": "UAT",
+    "platform_instance": "test-platform-instance",
+    "path_specs": [
+      { "include": "s3://my-test-bucket/unstructured_media/*.*" }
+    ],
+    "unstructured_file_extensions": ["mp4", "png", "pdf"],
+    "use_s3_bucket_tags": true,
+    "use_s3_object_tags": true,
+    "aws_config": {
+      "aws_access_key_id": "test",
+      "aws_secret_access_key": "test",
+      "aws_region": "us-east-1"
+    }
+  }
+}
