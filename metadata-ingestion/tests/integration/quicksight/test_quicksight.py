@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterator, List
 from unittest import mock
 
 import pytest
+import time_machine
 from botocore.exceptions import ClientError
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -384,6 +385,7 @@ def _fake_sts_client():
 
 
 @pytest.mark.integration
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_quicksight_ingest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/quicksight"
     output_path = f"{tmp_path}/quicksight_mces.json"

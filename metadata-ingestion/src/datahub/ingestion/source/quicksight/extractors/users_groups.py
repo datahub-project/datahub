@@ -98,7 +98,15 @@ class UsersGroupsExtractor:
             )
 
         for group in groups:
-            yield from self._emit_group(group)
+            try:
+                yield from self._emit_group(group)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process group",
+                    message="Skipping this group; the rest of the run continues.",
+                    context=f"{group.get('GroupName')} ({namespace})",
+                    exc=e,
+                )
 
         try:
             users = list(self.api.list_users(namespace))
@@ -113,9 +121,17 @@ class UsersGroupsExtractor:
             )
             users = []
         for user in users:
-            yield from self._emit_user(
-                user, sorted(memberships.get(user.get("UserName") or "", set()))
-            )
+            try:
+                yield from self._emit_user(
+                    user, sorted(memberships.get(user.get("UserName") or "", set()))
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process user",
+                    message="Skipping this user; the rest of the run continues.",
+                    context=f"{user.get('UserName')} ({namespace})",
+                    exc=e,
+                )
 
     def _group_members(
         self, group_name: str, namespace: str

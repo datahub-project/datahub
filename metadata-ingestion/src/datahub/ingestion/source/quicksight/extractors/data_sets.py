@@ -79,7 +79,15 @@ class DataSetsExtractor:
             if not self.config.dataset_pattern.allowed(name):
                 self.report.datasets.dropped(f"{data_set_id} ({name})")
                 continue
-            yield from self._emit_data_set(data_set_id, name, summary)
+            try:
+                yield from self._emit_data_set(data_set_id, name, summary)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process dataset",
+                    message="Skipping this dataset; the rest of the run continues.",
+                    context=f"{data_set_id} ({name})",
+                    exc=e,
+                )
 
     def _emit_data_set(
         self, data_set_id: str, name: str, summary: Dict[str, Any]

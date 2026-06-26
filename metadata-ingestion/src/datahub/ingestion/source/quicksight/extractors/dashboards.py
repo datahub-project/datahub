@@ -59,7 +59,15 @@ class DashboardsExtractor:
             if not self.config.dashboard_pattern.allowed(name):
                 self.report.dashboards.dropped(f"{dashboard_id} ({name})")
                 continue
-            yield from self._emit_dashboard(dashboard_id, name, summary)
+            try:
+                yield from self._emit_dashboard(dashboard_id, name, summary)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process dashboard",
+                    message="Skipping this dashboard; the rest of the run continues.",
+                    context=f"{dashboard_id} ({name})",
+                    exc=e,
+                )
 
     def _emit_dashboard(
         self, dashboard_id: str, name: str, summary: Dict[str, Any]

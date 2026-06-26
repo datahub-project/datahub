@@ -74,14 +74,22 @@ class VisualsExtractor:
             for visual in sheet.get("Visuals") or []:
                 if not visual:
                     continue
-                result = self._build_chart(
-                    parent_id, visual, identifier_to_arn, parent_container
-                )
-                if result is None:
-                    continue
-                chart, chart_urn = result
-                workunits.extend(chart.as_workunits())
-                chart_urns.append(chart_urn)
+                try:
+                    result = self._build_chart(
+                        parent_id, visual, identifier_to_arn, parent_container
+                    )
+                    if result is None:
+                        continue
+                    chart, chart_urn = result
+                    workunits.extend(chart.as_workunits())
+                    chart_urns.append(chart_urn)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to process visual",
+                        message="Skipping this visual; the rest of the run continues.",
+                        context=parent_id,
+                        exc=e,
+                    )
 
         return workunits, chart_urns
 

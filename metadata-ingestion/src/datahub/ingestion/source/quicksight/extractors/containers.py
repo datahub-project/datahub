@@ -228,14 +228,22 @@ class ContainersExtractor:
             if not self.config.namespace_pattern.allowed(name):
                 self.report.containers.dropped(f"namespace:{name}")
                 continue
-            container, workunits = self._build_container(
-                container_key=self._namespace_key(name),
-                display_name=name,
-                subtype=SUBTYPE_NAMESPACE,
-                parent=None,
-            )
-            self._namespace_containers[name] = container
-            yield from workunits
+            try:
+                container, workunits = self._build_container(
+                    container_key=self._namespace_key(name),
+                    display_name=name,
+                    subtype=SUBTYPE_NAMESPACE,
+                    parent=None,
+                )
+                self._namespace_containers[name] = container
+                yield from workunits
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process namespace",
+                    message="Skipping this namespace; the rest of the run continues.",
+                    context=name,
+                    exc=e,
+                )
 
     def _emit_shared_folders_root(self) -> Iterable[MetadataWorkUnit]:
         """Emit the synthetic Shared folders root and cache it as the parent for
@@ -291,27 +299,36 @@ class ContainersExtractor:
                 self.report.containers.dropped(f"folder:{folder_id}")
                 continue
 
-            parent_folder_id = self._parent_folder_id(folder_id)
-            # Nested folders parent to their (already-emitted) parent folder;
-            # top-level folders parent to the Shared folders root (when enabled),
-            # else the namespace container (when enabled) or the platform root. If
-            # the parent folder was filtered out, fall back to the folder root.
-            parent: Optional[Container] = (
-                self._folder_containers.get(parent_folder_id)
-                if parent_folder_id
-                else None
-            ) or self.folder_root_parent
-            container, workunits = self._build_container(
-                container_key=self.folder_key(folder_id),
-                display_name=name,
-                subtype=SUBTYPE_FOLDER,
-                parent=parent,
-                owners=self.enricher.owners("folder", folder_id),
-                tags=self.enricher.tags(summary.get("Arn") or ""),
-            )
-            self._folder_containers[folder_id] = container
-            yield from workunits
-            self._record_folder_members(folder_id)
+            try:
+                parent_folder_id = self._parent_folder_id(folder_id)
+                # Nested folders parent to their (already-emitted) parent folder;
+                # top-level folders parent to the Shared folders root (when
+                # enabled), else the namespace container (when enabled) or the
+                # platform root. If the parent folder was filtered out, fall back
+                # to the folder root.
+                parent: Optional[Container] = (
+                    self._folder_containers.get(parent_folder_id)
+                    if parent_folder_id
+                    else None
+                ) or self.folder_root_parent
+                container, workunits = self._build_container(
+                    container_key=self.folder_key(folder_id),
+                    display_name=name,
+                    subtype=SUBTYPE_FOLDER,
+                    parent=parent,
+                    owners=self.enricher.owners("folder", folder_id),
+                    tags=self.enricher.tags(summary.get("Arn") or ""),
+                )
+                self._folder_containers[folder_id] = container
+                yield from workunits
+                self._record_folder_members(folder_id)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process folder",
+                    message="Skipping this folder; the rest of the run continues.",
+                    context=f"{folder_id} ({name})",
+                    exc=e,
+                )
 
     def _record_folder_members(self, folder_id: str) -> None:
         """Map a folder's member assets to its folder id (first folder wins)."""

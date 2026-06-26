@@ -99,20 +99,32 @@ def test_file_type_dataset_degrades_to_summary_only():
     assert processor.report.num_file_datasets_summary_only == 1
 
 
-def test_non_file_describe_error_propagates():
-    api = _mock_api([{"DataSetId": "ds-1", "Name": "X"}])
-    api.describe_data_set.side_effect = ClientError(
-        {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
-        "DescribeDataSet",
+def test_describe_error_degrades_to_warning_and_continues():
+    # A failure on one dataset must not tear down the extractor (or the
+    # extractors scheduled after it); it degrades to a warning and the run
+    # continues with the remaining datasets.
+    api = _mock_api(
+        [
+            {"DataSetId": "ds-1", "Name": "boom"},
+            {"DataSetId": "ds-2", "Name": "ok"},
+        ]
     )
+
+    def describe(data_set_id: str, **kwargs):
+        if data_set_id == "ds-1":
+            raise ClientError(
+                {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
+                "DescribeDataSet",
+            )
+        return {"OutputColumns": [], "PhysicalTableMap": {}}
+
+    api.describe_data_set.side_effect = describe
     processor = _processor(api)
 
-    raised = False
-    try:
-        list(processor.get_workunits())
-    except ClientError:
-        raised = True
-    assert raised
+    list(processor.get_workunits())
+
+    assert len(processor.report.warnings) == 1
+    assert "ds-2 (ok)" in processor.report.datasets.processed_entities
 
 
 def test_dataset_pattern_filters_out_disallowed_datasets():

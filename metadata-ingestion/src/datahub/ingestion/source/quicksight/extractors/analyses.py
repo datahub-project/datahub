@@ -59,7 +59,15 @@ class AnalysesExtractor:
             if not self.config.analysis_pattern.allowed(name):
                 self.report.analyses.dropped(f"{analysis_id} ({name})")
                 continue
-            yield from self._emit_analysis(analysis_id, name, summary)
+            try:
+                yield from self._emit_analysis(analysis_id, name, summary)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process analysis",
+                    message="Skipping this analysis; the rest of the run continues.",
+                    context=f"{analysis_id} ({name})",
+                    exc=e,
+                )
 
     def _emit_analysis(
         self, analysis_id: str, name: str, summary: Dict[str, Any]

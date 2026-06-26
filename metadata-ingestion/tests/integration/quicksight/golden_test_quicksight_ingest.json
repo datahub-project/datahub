@@ -1907,6 +1907,26 @@
     }
 },
 {
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:jane@acme.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1704047400000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704047400000,
+        "runId": "quicksight-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:team=sales",
     "changeType": "UPSERT",

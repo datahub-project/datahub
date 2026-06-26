@@ -90,24 +90,32 @@ class DataSourcesExtractor:
                     context=f"{name} (type={quicksight_type})",
                 )
 
-            data_source = self._describe(data_source_id)
-            self.data_source_map[arn] = ResolvedDataSource(
-                arn=arn,
-                data_source_id=data_source_id,
-                name=name,
-                quicksight_type=quicksight_type,
-                platform=platform,
-                dialect=dialect,
-                s3_manifest_uri=self._s3_manifest_uri(data_source),
-            )
+            try:
+                data_source = self._describe(data_source_id)
+                self.data_source_map[arn] = ResolvedDataSource(
+                    arn=arn,
+                    data_source_id=data_source_id,
+                    name=name,
+                    quicksight_type=quicksight_type,
+                    platform=platform,
+                    dialect=dialect,
+                    s3_manifest_uri=self._s3_manifest_uri(data_source),
+                )
 
-            yield from self._emit_data_source(
-                data_source_id=data_source_id,
-                name=name,
-                quicksight_type=quicksight_type,
-                arn=arn,
-                data_source=data_source,
-            )
+                yield from self._emit_data_source(
+                    data_source_id=data_source_id,
+                    name=name,
+                    quicksight_type=quicksight_type,
+                    arn=arn,
+                    data_source=data_source,
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process data source",
+                    message="Skipping this data source; the rest of the run continues.",
+                    context=f"{data_source_id} ({name})",
+                    exc=e,
+                )
 
     def _emit_data_source(
         self,
