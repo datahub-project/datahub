@@ -5716,6 +5716,7 @@ class TestGenerateProfileCandidates:
         # The warning should point at the DBC view so operators know what to grant;
         # match on a stable keyword rather than the full wording.
         assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
+        assert source.report.profiling_permission_errors == 1
 
     def test_permission_failure_is_categorized_and_counted(self):
         """A permission denial while sizing (e.g. [Error 3523] on DBC.TableSizeV)
