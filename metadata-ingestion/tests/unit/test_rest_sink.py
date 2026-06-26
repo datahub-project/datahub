@@ -457,31 +457,21 @@ class TestDataHubRestSinkBatchEmission:
             assert "payload was split into 2 batches" in caplog.text
 
 
-def test_sync_mode_suppresses_sync_origin_classification():
+def test_sync_origin_opt_in_passed_through_in_all_modes():
     from datahub.ingestion.sink.datahub_rest import (
         DatahubRestSinkConfig,
         RestSinkMode,
     )
 
-    # mode: SYNC already sends everything synchronously, so opting into
-    # marker-aware sync routing is a no-op there. The emitter must not treat the
-    # marker as active — otherwise an unmarked SYNC_PRIMARY write would be sent
-    # async, contradicting mode: SYNC.
-    sync_emitter = DatahubRestSink._make_emitter(
-        DatahubRestSinkConfig(
-            server="http://localhost:8080",
-            mode=RestSinkMode.SYNC,
-            special_sync_only_for_sync_origin=True,
+    # Marker-aware sync routing only ever upgrades a batch to sync, never
+    # downgrades it, so it is a no-op in SYNC mode (already synchronous) and the
+    # opt-in is passed through unconditionally regardless of sink mode.
+    for mode in (RestSinkMode.SYNC, RestSinkMode.ASYNC, RestSinkMode.ASYNC_BATCH):
+        emitter = DatahubRestSink._make_emitter(
+            DatahubRestSinkConfig(
+                server="http://localhost:8080",
+                mode=mode,
+                special_respect_mcp_sync_marker=True,
+            )
         )
-    )
-    assert sync_emitter.respect_mcp_sync_marker() is False
-
-    # Async-capable modes honor the opt-in.
-    async_emitter = DatahubRestSink._make_emitter(
-        DatahubRestSinkConfig(
-            server="http://localhost:8080",
-            mode=RestSinkMode.ASYNC_BATCH,
-            special_sync_only_for_sync_origin=True,
-        )
-    )
-    assert async_emitter.respect_mcp_sync_marker() is True
+        assert emitter.special_respect_mcp_sync_marker is True

@@ -39,15 +39,15 @@ class DatahubClientConfig(ConfigModel):
     client_key_path: Optional[str] = None
     disable_ssl_verification: bool = False
     openapi_ingestion: Optional[bool] = None
-    # Opt this client into marker-aware sync routing: emits go explicit
-    # async=true unless an MCP carries the syncIngest marker in its system
-    # metadata, which keeps that request at explicit async=false. Never
-    # implicit. The marker is read, not produced, here: a producer must
-    # populate the syncIngest system-metadata property on writes that must remain
-    # synchronous (e.g. via a custom aspect mutator/validator or an upstream
-    # processing step), otherwise opting in routes everything async. Mutually
-    # exclusive with an all-sync sink mode.
-    special_sync_only_for_sync_origin: Optional[bool] = None
+    # Opt this client into marker-aware sync routing: a batch is upgraded to
+    # explicit async=false (synchronous) if any of its MCPs carries the
+    # syncIngest marker in its system metadata; otherwise the configured
+    # emit_mode is honored unchanged. It only ever forces more synchronicity,
+    # never less. Never implicit. The marker is read, not produced, here: a
+    # producer must populate the syncIngest system-metadata property on writes
+    # that must remain synchronous (e.g. via a custom aspect mutator/validator
+    # or an upstream processing step).
+    special_respect_mcp_sync_marker: Optional[bool] = None
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None

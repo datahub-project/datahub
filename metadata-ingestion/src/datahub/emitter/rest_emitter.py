@@ -495,7 +495,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_key_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
-        special_sync_only_for_sync_origin: Optional[bool] = None,
+        special_respect_mcp_sync_marker: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
@@ -520,7 +520,16 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
-        self._special_sync_only_for_sync_origin = special_sync_only_for_sync_origin
+        # Marker-aware sync routing: enabled only when set explicitly via config
+        # or constructor, never implicit. When enabled, a batch is upgraded to
+        # synchronous if any of its MCPs carries the syncIngest marker in its
+        # system metadata; otherwise the configured emit_mode is honored
+        # unchanged. This only ever forces more synchronicity, never less. The
+        # marker is read, not produced, here: a producer must populate the
+        # syncIngest system-metadata property on the MCPs that must remain
+        # synchronous (e.g. via a custom aspect mutator/validator, or an upstream
+        # processing step).
+        self.special_respect_mcp_sync_marker = special_respect_mcp_sync_marker is True
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
@@ -693,43 +702,24 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         return DataHubGraph.from_emitter(self)
 
-    def respect_mcp_sync_marker(self) -> bool:
-        """
-        True when marker-aware sync routing is enabled — set explicitly via
-        config or constructor, never implicit. When enabled, a SYNC_PRIMARY
-        request is sent async unless one of its MCPs carries the syncIngest
-        marker in its system metadata, in which case that request stays
-        synchronous.
-
-        The marker is read, not produced, here: a producer must populate the
-        syncIngest system-metadata property on the MCPs that must remain
-        synchronous (e.g. via a custom aspect mutator/validator, or an upstream
-        processing step). Absent the marker, opting in routes all SYNC_PRIMARY
-        writes async.
-        """
-        return self._special_sync_only_for_sync_origin is True
-
     def _is_batch_async(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         emit_mode: EmitMode,
     ) -> bool:
         """
-        Resolve the async flag actually sent on the wire. When the client has
-        opted in to async-unless-sync-ingest, SYNC_PRIMARY requests are
-        upgraded to async unless an MCP demands a sync roundtrip via the
-        syncIngest marker (a marked MCP keeps its request sync — conservative,
-        ordering-safe). SYNC_WAIT is never upgraded: those callers explicitly
-        asked to wait. Otherwise this is exactly emit_mode.is_async — the
-        historical wire format.
+        Resolve the async flag actually sent on the wire. The default is exactly
+        emit_mode.is_async — the historical wire format, unchanged. The one
+        exception: when the client has opted in to marker-aware sync routing and
+        any MCP in this batch carries the syncIngest marker, the whole batch is
+        upgraded to synchronous. This only ever forces more synchronicity, never
+        less, so it is safe regardless of the configured emit_mode.
         """
-        if emit_mode.is_async:
-            return True
-        if emit_mode != EmitMode.SYNC_PRIMARY:
+        if self.special_respect_mcp_sync_marker and any(
+            has_sync_ingest_marker(mcp) for mcp in mcps
+        ):
             return False
-        if not self.respect_mcp_sync_marker():
-            return False
-        return not any(has_sync_ingest_marker(mcp) for mcp in mcps)
+        return emit_mode.is_async
 
     def _to_openapi_request(
         self,
@@ -974,10 +964,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             lambda: [_Chunk()]
         )  # Initialize with one empty Chunk
 
+        # A single sync-marked MCP upgrades the whole batch to sync, so resolve
+        # the async flag once across all MCPs rather than per-request.
+        batch_async = self._is_batch_async(mcps, emit_mode)
         for mcp in mcps:
-            request = self._to_openapi_request(
-                mcp, emit_mode, self._is_batch_async([mcp], emit_mode)
-            )
+            request = self._to_openapi_request(mcp, emit_mode, batch_async)
             if request:
                 # Create a composite key with both method and URL
                 key = (request.method, request.url)

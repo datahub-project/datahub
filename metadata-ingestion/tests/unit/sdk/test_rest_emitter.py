@@ -2866,17 +2866,19 @@ class TestWeightedRetry:
 
 class TestAsyncUnlessSyncIngest:
     """Marker-aware sync routing requires explicit per-client opt-in (config /
-    constructor — never implicit). When opted in, SYNC_PRIMARY requests are sent
-    async unless an MCP carries the syncIngest marker in its system metadata.
-    The async parameter is always explicit, so server-side ingest resolution is
-    untouched; default-off keeps the existing wire format."""
+    constructor — never implicit). When opted in, a batch is upgraded to
+    synchronous if any of its MCPs carries the syncIngest marker; otherwise the
+    configured emit_mode is honored unchanged. It only ever forces more
+    synchronicity, never less. The async parameter is always explicit, so
+    server-side ingest resolution is untouched; default-off keeps the existing
+    wire format."""
 
     @pytest.fixture
     def restli_emitter(self) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=False,
-            special_sync_only_for_sync_origin=True,
+            special_respect_mcp_sync_marker=True,
         )
 
     def _emit_and_get_payload(
@@ -2921,23 +2923,23 @@ class TestAsyncUnlessSyncIngest:
             emitter.emit_mcp(item, emit_mode=emit_mode)
             return mock_emit.call_args[0][0]
 
-    def test_openapi_classification_upgrades_sync_primary(self):
+    def test_openapi_sync_primary_unmarked_stays_sync(self):
         emitter = DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=True,
-            special_sync_only_for_sync_origin=True,
+            special_respect_mcp_sync_marker=True,
         )
         url = self._emit_openapi_and_get_url(emitter, EmitMode.SYNC_PRIMARY)
-        assert "async=true" in url
+        assert "async=false" in url
 
-    def test_openapi_sync_ingest_marker_keeps_request_sync(self):
+    def test_openapi_async_marker_upgrades_to_sync(self):
         emitter = DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=True,
-            special_sync_only_for_sync_origin=True,
+            special_respect_mcp_sync_marker=True,
         )
         url = self._emit_openapi_and_get_url(
-            emitter, EmitMode.SYNC_PRIMARY, mcp=self._sync_demanding_mcp()
+            emitter, EmitMode.ASYNC, mcp=self._sync_demanding_mcp()
         )
         assert "async=false" in url
 
@@ -2961,9 +2963,15 @@ class TestAsyncUnlessSyncIngest:
         payload = self._emit_and_get_payload(restli_emitter, EmitMode.ASYNC)
         assert payload.get("async") == "true"
 
-    def test_classification_upgrades_sync_primary(self, restli_emitter):
+    def test_sync_primary_unmarked_stays_sync(self, restli_emitter):
         payload = self._emit_and_get_payload(restli_emitter, EmitMode.SYNC_PRIMARY)
-        assert payload.get("async") == "true"
+        assert payload.get("async") == "false"
+
+    def test_async_marker_upgrades_to_sync(self, restli_emitter):
+        payload = self._emit_and_get_payload(
+            restli_emitter, EmitMode.ASYNC, mcp=self._sync_demanding_mcp()
+        )
+        assert payload.get("async") == "false"
 
     def test_sync_ingest_marker_keeps_request_sync(self, restli_emitter):
         payload = self._emit_and_get_payload(
@@ -2999,6 +3007,8 @@ class TestAsyncUnlessSyncIngest:
         assert payload.get("async") == "false"
 
     def test_restli_batch_coarsens_to_sync_when_any_marked(self, restli_emitter):
+        # A single marked MCP upgrades the whole async batch to sync; an
+        # all-unmarked async batch stays async.
         mock_response = Mock(spec=Response)
         mock_response.status_code = 200
         mock_response.headers = {}
@@ -3013,7 +3023,7 @@ class TestAsyncUnlessSyncIngest:
             restli_emitter, "_emit_generic", return_value=mock_response
         ) as mock_emit:
             restli_emitter.emit_mcps(
-                [plain, self._sync_demanding_mcp()], emit_mode=EmitMode.SYNC_PRIMARY
+                [plain, self._sync_demanding_mcp()], emit_mode=EmitMode.ASYNC
             )
             payload = json.loads(mock_emit.call_args[0][1])
             assert payload.get("async") == "false"
@@ -3021,6 +3031,6 @@ class TestAsyncUnlessSyncIngest:
         with patch.object(
             restli_emitter, "_emit_generic", return_value=mock_response
         ) as mock_emit:
-            restli_emitter.emit_mcps([plain], emit_mode=EmitMode.SYNC_PRIMARY)
+            restli_emitter.emit_mcps([plain], emit_mode=EmitMode.ASYNC)
             payload = json.loads(mock_emit.call_args[0][1])
             assert payload.get("async") == "true"

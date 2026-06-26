@@ -227,14 +227,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             client_key_path=config.client_key_path,
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
-            # mode: SYNC already sends everything synchronously, so marker-aware
-            # sync routing has nothing to do — keep it inert there. It only has an
-            # effect on async-capable sink modes.
-            special_sync_only_for_sync_origin=(
-                config.special_sync_only_for_sync_origin
-                if config.mode != RestSinkMode.SYNC
-                else False
-            ),
+            # Marker-aware sync routing only ever upgrades a batch to sync, never
+            # downgrades it, so it is a no-op in SYNC mode (already synchronous)
+            # and safe to pass through unconditionally.
+            special_respect_mcp_sync_marker=config.special_respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             tcp_keepalive=config.tcp_keepalive,
