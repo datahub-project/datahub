@@ -1180,9 +1180,20 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # (and nested folders) resolve their parent against an entity we emit.
         folder_nodes: Dict[str, FolderNode] = {}
         if self.config.ingest_folders:
-            folder_nodes = ConfluenceHierarchyExtractor.collect_folder_nodes(all_pages)
-            ingested_page_ids |= set(folder_nodes.keys())
-            logger.info(f"Discovered {len(folder_nodes)} folder(s) in page ancestry")
+            try:
+                folder_nodes = ConfluenceHierarchyExtractor.collect_folder_nodes(
+                    all_pages
+                )
+                ingested_page_ids |= set(folder_nodes.keys())
+                logger.info(
+                    f"Discovered {len(folder_nodes)} folder(s) in page ancestry"
+                )
+            except Exception as e:
+                # Folder discovery is best-effort enrichment of the hierarchy;
+                # never let it abort the ingestion of the pages themselves.
+                logger.warning(f"Failed to discover folders from page ancestry: {e}")
+                self.report.report_folder_failed("<discovery>", str(e))
+                folder_nodes = {}
 
         # Build set of parent page IDs (pages that have children)
         parent_page_ids: Set[str] = set()
@@ -1200,14 +1211,14 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._create_folder_entity(folder_node, ingested_page_ids)
             except Exception as e:
-                logger.error(
+                # Folders are best-effort hierarchy reconstruction; a folder that
+                # fails to materialise is logged as a warning but must never abort
+                # the ingestion of the actual pages, regardless of
+                # continue_on_failure.
+                logger.warning(
                     f"Failed to create entity for folder {folder_node.id}: {e}"
                 )
-                self.report.report_page_failed(
-                    folder_node.id, folder_node.space_key or "unknown", str(e)
-                )
-                if not self.config.advanced.continue_on_failure:
-                    raise
+                self.report.report_folder_failed(folder_node.id, str(e))
 
         # Second pass: create document entities
         for page in all_pages:

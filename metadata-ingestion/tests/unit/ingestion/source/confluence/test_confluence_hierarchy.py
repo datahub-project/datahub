@@ -400,3 +400,25 @@ def test_collect_folder_nodes_ignores_pages_and_dedupes() -> None:
     folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
 
     assert set(folders.keys()) == {"200"}
+
+
+def test_collect_folder_nodes_skips_malformed_pages() -> None:
+    """A malformed page must not abort folder discovery for the rest."""
+    pages = [
+        "not-a-dict",  # type: ignore[list-item]
+        {"id": "1", "ancestors": "not-a-list"},
+        {
+            "id": "2",
+            "ancestors": [{"id": "300", "title": "Good", "type": "folder"}],
+        },
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)  # type: ignore[arg-type]
+
+    # The valid folder is still collected despite the malformed entries.
+    assert set(folders.keys()) == {"300"}
+
+
+def test_collect_folder_nodes_non_list_input() -> None:
+    """A non-list input is handled gracefully rather than raising."""
+    assert ConfluenceHierarchyExtractor.collect_folder_nodes(None) == {}  # type: ignore[arg-type]
