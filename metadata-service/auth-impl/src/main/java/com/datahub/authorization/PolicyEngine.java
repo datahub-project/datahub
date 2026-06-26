@@ -21,7 +21,6 @@ import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -601,13 +600,8 @@ public class PolicyEngine {
     private Set<Urn> roles;
     private SessionActorIdentity sessionActorIdentity;
     private OperationContext opContext;
-    // Resource owners cache, keyed by resource URN. Scoped to a single authorize() call: dedupes
-    // the ownership fetch across all ownership policies evaluated for the same resource.
-    private final Map<String, List<Owner>> resourceOwnersByUrn = new HashMap<>();
-
-    Map<String, List<Owner>> getResourceOwnersByUrn() {
-      return resourceOwnersByUrn;
-    }
+    // Ownership data is cached per ResolvedEntitySpec via FieldResolver.fieldValuesFuture
+    // (lazy CompletableFuture), so no separate per-URN owners map is needed here.
 
     public void setGroups(Set<String> groups) {
       this.groups = groups;
