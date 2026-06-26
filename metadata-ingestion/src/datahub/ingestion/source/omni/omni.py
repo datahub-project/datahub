@@ -81,6 +81,22 @@ logger = logging.getLogger(__name__)
 FieldConfidence = Literal["unresolved", "exact", "derived"]
 
 
+@dataclass(frozen=True)
+class _ModelContext:
+    """Context information for an Omni model used for lineage resolution.
+
+    Stored for ALL models (even filtered ones) because dashboards may reference
+    any model's topics/views for lineage.
+    """
+
+    connection_id: str
+    platform: Optional[str]
+    database: Optional[str]
+    platform_instance: Optional[str]
+    model_kind: Optional[str]
+    model_layer: str
+
+
 @dataclass
 class SemanticField:
     model_id: str
@@ -139,7 +155,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._folder_dataset_urns: Set[str] = set()
         self._connection_dataset_urns: Set[str] = set()
         self._connections_by_id: Dict[str, Dict[str, object]] = {}
-        self._model_context_by_id: Dict[str, Dict[str, Optional[str]]] = {}
+        self._model_context_by_id: Dict[str, _ModelContext] = {}
         self._topic_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._view_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._current_tile_model_id: Optional[str] = None
@@ -958,23 +974,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         This runs sequentially before parallel model processing begins,
         populating self._connections_by_id for use by worker threads.
         """
-        connections: Dict[str, Dict[str, object]] = {}
         try:
-            connections = {
+            self._connections_by_id = {
                 str(c["id"]): c
                 for c in self.client.list_connections(self.config.include_deleted)
                 if c.get("id") is not None
             }
-            self._connections_by_id = connections
 
-            for connection_id, connection in connections.items():
+            for connection_id, connection in self._connections_by_id.items():
                 if not connection_id:
                     continue
                 with self.report._report_lock:
                     self.report.connections_scanned += 1
                 yield from self._ensure_connection_dataset(connection_id, connection)
 
-            self._warn_unmapped_connections(connections)
+            self._warn_unmapped_connections(self._connections_by_id)
         except Exception as exc:
             self.report.warning(
                 title="Connections fetch error",
@@ -997,13 +1011,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 return []
 
             # Get pre-populated context
-            ctx = self._model_context_by_id.get(model_id, {})
-            connection_id = ctx.get("connection_id", "")
-            platform = ctx.get("platform")
-            database = ctx.get("database")
-            platform_instance = ctx.get("platform_instance")
-            model_kind = ctx.get("model_kind")
-            model_layer = str(ctx.get("model_layer") or "")
+            ctx = self._model_context_by_id.get(model_id)
+            if not ctx:
+                self.report.warning(
+                    title="Missing model context",
+                    message="Model context not found in _model_context_by_id",
+                    context=f"model_id={model_id}",
+                )
+                return []
+
+            connection_id = ctx.connection_id
+            platform = ctx.platform
+            database = ctx.database
+            platform_instance = ctx.platform_instance
+            model_kind = ctx.model_kind
+            model_layer = ctx.model_layer
             model_name = model.get("name") or model_id
 
             # Build model properties
@@ -1179,13 +1201,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         """Ingest Omni semantic models in two phases: context collection, then parallel processing.
 
         Phase 1 (sequential): Collect context for ALL models (even filtered ones)
-                              because dashboards may reference any model.
+                              because documents may reference any model.
         Phase 2 (parallel):   Process filtered models in detail using ThreadPoolExecutor.
         """
-        # Note: _setup_connections() has already populated self._connections_by_id
-
         # Phase 1: Collect ALL models and their context (sequential - needed for dashboard lineage)
-        all_models: List[Dict[str, Any]] = []
         filtered_models: List[Dict[str, Any]] = []
 
         try:
@@ -1194,22 +1213,20 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 if not model_id:
                     continue
 
-                all_models.append(model)
-
                 # Extract model metadata
                 model_name = model.get("name") or model_id
                 model_kind = model.get("modelKind")
                 model_layer = self._normalize_model_layer(model_kind)
                 connection_id = model.get("connectionId") or ""
 
-                # Resolve connection context for ALL models (needed for dashboard lineage)
+                # Resolve connection context for ALL models (needed for document/dashboard lineage)
                 conn: Optional[Dict[str, object]] = self._connections_by_id.get(
                     connection_id
                 )
                 platform = self._resolve_platform_from_connection(
                     connection_id=connection_id,
                     conn=conn,
-                    warn_on_missing=False,  # Don't warn for filtered models
+                    warn_on_missing=True,
                     model_id=model_id,
                     model_name=model_name,
                 )
@@ -1219,14 +1236,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 # Store context for ALL models so dashboards can reference them
-                self._model_context_by_id[model_id] = {
-                    "connection_id": connection_id,
-                    "platform": platform,
-                    "database": database,
-                    "platform_instance": platform_instance,
-                    "model_kind": model_kind,
-                    "model_layer": model_layer,
-                }
+                self._model_context_by_id[model_id] = _ModelContext(
+                    connection_id=connection_id,
+                    platform=platform,
+                    database=database,
+                    platform_instance=platform_instance,
+                    model_kind=model_kind,
+                    model_layer=model_layer,
+                )
 
                 # Now apply filter - if model doesn't match pattern, skip entity emission
                 if not self.config.model_pattern.allowed(model_id):
@@ -1335,12 +1352,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         topic: Dict[str, Any],
     ) -> Iterator[MetadataWorkUnit]:
         """Pass dashboard tile topic payloads into :meth:`_ingest_topic_payload` with model context."""
-        ctx = self._model_context_by_id.get(model_id, {})
-
-        # Get platform from context, no fallback - None means skip physical lineage
-        platform = ctx.get("platform") if ctx.get("platform") else None
-        database = ctx.get("database") if ctx.get("database") else None
-        connection_id = ctx.get("connection_id") if ctx.get("connection_id") else None
+        ctx = self._model_context_by_id.get(model_id)
 
         if not ctx:
             # Model not in filtered set, no context available
@@ -1350,6 +1362,27 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 message="Model not in filtered set, no platform context available. Semantic assets will be emitted but physical lineage will be skipped.",
                 context=f"model_id={model_id}, topic_name={topic_name}",
             )
+            # Emit with minimal context
+            yield from self._ingest_topic_payload(
+                model_id=model_id,
+                topic_name=topic_name,
+                topic=topic,
+                platform=None,
+                database=None,
+                connection_id=None,
+                platform_instance=None,
+                inferred=True,
+                model_custom_properties={
+                    "modelKind": "",
+                    "modelLayer": "",
+                },
+            )
+            return
+
+        # Get platform from context, no fallback - None means skip physical lineage
+        platform = ctx.platform if ctx.platform else None
+        database = ctx.database if ctx.database else None
+        connection_id = ctx.connection_id if ctx.connection_id else None
 
         yield from self._ingest_topic_payload(
             model_id=model_id,
@@ -1358,15 +1391,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             platform=platform,
             database=database,
             connection_id=connection_id,
-            platform_instance=(
-                str(ctx.get("platform_instance"))
-                if ctx.get("platform_instance")
-                else None
-            ),
+            platform_instance=ctx.platform_instance,
             inferred=True,
             model_custom_properties={
-                "modelKind": str(ctx.get("model_kind") or ""),
-                "modelLayer": str(ctx.get("model_layer") or ""),
+                "modelKind": ctx.model_kind or "",
+                "modelLayer": ctx.model_layer,
             },
         )
 
@@ -1877,19 +1906,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterator[MetadataWorkUnit]:
         try:
-            # Sequential setup stage - must run before parallel processing
             with self.report.new_stage("Fetching Omni connections"):
                 yield from self._setup_connections()
 
-            # Parallel processing stages
             with self.report.new_stage("Ingesting Omni semantic models"):
                 yield from self._ingest_semantic_model()
 
-            # Sequential processing (not parallelized - see comment in method)
             with self.report.new_stage("Ingesting Omni folders"):
                 yield from self._ingest_folders()
 
-            # Parallel processing stages
             with self.report.new_stage("Ingesting Omni documents"):
                 yield from self._ingest_documents()
         except Exception as exc:
