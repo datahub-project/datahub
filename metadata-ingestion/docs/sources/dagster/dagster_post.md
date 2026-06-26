@@ -8,7 +8,7 @@ The connector emits:
 
 #### Relationship to the Dagster plugin
 
-DataHub also ships a push-based [Dagster plugin](../../../docs/lineage/dagster.md) that runs inside your Dagster deployment as a run-status sensor and emits metadata (including run history) as runs happen. This pull-based source instead scrapes definition-time metadata from the GraphQL API on a schedule, with no code deployed into Dagster.
+DataHub also ships a push-based [Dagster plugin](../../../../docs/lineage/dagster.md) that runs inside your Dagster deployment as a run-status sensor and emits metadata (including run history) as runs happen. This pull-based source instead scrapes definition-time metadata from the GraphQL API on a schedule, with no code deployed into Dagster.
 
 Both produce the same URNs (platform `dagster`, matching DataFlow/DataJob/asset Dataset conventions), so you can run them together — the pull source for definition-time coverage and the plugin for run-time lineage and execution history.
 

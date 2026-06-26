@@ -2,7 +2,7 @@
 
 [Dagster](https://dagster.io/) is an orchestrator for the development, production, and observation of data assets. It exposes pipeline and asset metadata through a GraphQL API served by the Dagster webserver.
 
-This connector is a **pull-based** ingestion source: it connects to a running Dagster instance's `/graphql` endpoint and extracts jobs, ops, and Software-Defined Assets as DataHub DataFlow, DataJob, and Dataset entities — including asset lineage, descriptions, ownership, tags, documentation links, and table schemas. It works against both Dagster OSS and Dagster+ (Cloud), and supports stateful deletion detection. It complements the push-based [Dagster plugin](../../../docs/lineage/dagster.md) and emits the same URN conventions, so the two can be used together without creating duplicate entities.
+This connector is a **pull-based** ingestion source: it connects to a running Dagster instance's `/graphql` endpoint and extracts jobs, ops, and Software-Defined Assets as DataHub DataFlow, DataJob, and Dataset entities — including asset lineage, descriptions, ownership, tags, documentation links, and table schemas. It works against both Dagster OSS and Dagster+ (Cloud), and supports stateful deletion detection. It complements the push-based [Dagster plugin](../../../../docs/lineage/dagster.md) and emits the same URN conventions, so the two can be used together without creating duplicate entities.
 
 ## Concept Mapping
 
