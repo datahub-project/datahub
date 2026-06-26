@@ -2,9 +2,7 @@ package auth;
 
 import static auth.ConfigUtil.*;
 
-/**
- * Configuration properties for users authenticating from a trusted reverse proxy.
- */
+/** Configuration properties for users authenticating from a trusted reverse proxy. */
 public class ProxyAuthConfigs {
   public static final String PROXY_ENABLED_CONFIG_PATH = "auth.proxy.enabled";
   public static final String PROXY_USER_HEADER_CONFIG_PATH = "auth.proxy.userHeader";

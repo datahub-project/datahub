@@ -42,7 +42,8 @@ class ProxyAuthProvisionerTest {
     provisioner.provisionUser(urn, "New User");
 
     verify(systemEntityClient).update(eq(systemOperationContext), any(Entity.class));
-    verify(systemEntityClient).ingestProposal(eq(systemOperationContext), any(MetadataChangeProposal.class));
+    verify(systemEntityClient)
+        .ingestProposal(eq(systemOperationContext), any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -64,7 +65,8 @@ class ProxyAuthProvisionerTest {
     provisioner.provisionUser(urn, "Existing User");
 
     verify(systemEntityClient, never()).update(any(), any(Entity.class));
-    verify(systemEntityClient).ingestProposal(eq(systemOperationContext), any(MetadataChangeProposal.class));
+    verify(systemEntityClient)
+        .ingestProposal(eq(systemOperationContext), any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -74,7 +76,8 @@ class ProxyAuthProvisionerTest {
     when(systemEntityClient.get(eq(systemOperationContext), eq(urn)))
         .thenThrow(new RemoteInvocationException("not found"));
     doThrow(new RemoteInvocationException("update failed"))
-        .when(systemEntityClient).update(any(), any(Entity.class));
+        .when(systemEntityClient)
+        .update(any(), any(Entity.class));
 
     provisioner.provisionUser(urn, "Fail User");
 

@@ -801,7 +801,8 @@ public class AuthenticationControllerTest {
 
     assertEquals(303, result.status());
     assertEquals("/dashboard", result.redirectLocation().orElse(""));
-    verify(authClient).generateSessionTokenForUser(eq("proxyuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(authClient)
+        .generateSessionTokenForUser(eq("proxyuser"), eq(FrontendConstants.PROXY_LOGIN));
     verify(mockProvisioner, never()).provisionUser(any(), anyString());
   }
 
@@ -836,8 +837,10 @@ public class AuthenticationControllerTest {
     Result result = testController.authenticate(request);
 
     assertEquals(303, result.status());
-    verify(mockProvisioner).provisionUser(eq(new com.linkedin.common.urn.CorpuserUrn("newuser")), eq("newuser"));
-    verify(authClient).generateSessionTokenForUser(eq("newuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockProvisioner)
+        .provisionUser(eq(new com.linkedin.common.urn.CorpuserUrn("newuser")), eq("newuser"));
+    verify(authClient)
+        .generateSessionTokenForUser(eq("newuser"), eq(FrontendConstants.PROXY_LOGIN));
   }
 
   @Test
@@ -861,17 +864,14 @@ public class AuthenticationControllerTest {
 
     when(ssoManager.isSsoEnabled()).thenReturn(true);
 
-    Http.Request request =
-        new Http.RequestBuilder()
-            .method("GET")
-            .uri("/authenticate")
-            .build();
+    Http.Request request = new Http.RequestBuilder().method("GET").uri("/authenticate").build();
 
     Result result = testController.authenticate(request);
 
     assertEquals(302, result.status());
     verify(mockProvisioner, never()).provisionUser(any(), anyString());
-    verify(authClient, never()).generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
+    verify(authClient, never())
+        .generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
   }
 
   @Test
@@ -905,7 +905,8 @@ public class AuthenticationControllerTest {
     Result result = testController.authenticate(request);
 
     assertEquals(303, result.status());
-    verify(authClient).generateSessionTokenForUser(eq("customuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(authClient)
+        .generateSessionTokenForUser(eq("customuser"), eq(FrontendConstants.PROXY_LOGIN));
   }
 
   @Test
@@ -939,6 +940,7 @@ public class AuthenticationControllerTest {
     Result result = testController.authenticate(request);
 
     verify(mockProvisioner, never()).provisionUser(any(), anyString());
-    verify(authClient, never()).generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
+    verify(authClient, never())
+        .generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
   }
 }
