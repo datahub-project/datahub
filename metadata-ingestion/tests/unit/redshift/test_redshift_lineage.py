@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from typing import Dict, List, Union
 from unittest.mock import MagicMock
 
 import pytest
 
+import datahub.metadata.schema_classes as m
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import (
@@ -14,11 +15,13 @@ from datahub.ingestion.source.redshift.lineage import (
     parse_alter_table_rename,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
@@ -196,6 +199,102 @@ def get_lineage_extractor() -> RedshiftSqlLineage:
     )
 
     return lineage_extractor
+
+
+def test_user_urn_none_username_returns_none():
+    # NULL users are common for internal Redshift queries; the guard must
+    # return None rather than building a bogus urn:li:corpuser: from "".
+    assert get_lineage_extractor()._user_urn(None) is None
+
+
+def test_user_urn_strips_domain_when_email_already_present():
+    urn = get_lineage_extractor()._user_urn("alice@company.com")
+    assert str(urn) == "urn:li:corpuser:alice"
+
+
+def test_user_urn_is_local_part_regardless_of_email_domain():
+    # The urn id is always the local part of the username; a configured
+    # email_domain does not appear in the urn (it is stripped before the urn
+    # is built), so a bare username yields urn:li:corpuser:<username>.
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="test",
+        email_domain="example.com",
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    assert str(extractor._user_urn("bob")) == "urn:li:corpuser:bob"
+
+
+def test_table_pattern_filters_aggregator_usage():
+    # table_pattern denies are pushed into the aggregator via is_allowed_table, so
+    # usage is not attributed to excluded tables (matching other SQL connectors).
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        table_pattern={"deny": [".*denied.*"]},
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    # Mark both tables as known so they aren't treated as temp tables (temp
+    # tables are filtered before is_allowed_table is consulted).
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.kept,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.denied,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    for table in ("kept", "denied"):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query=f"select a from dev.public.{table}",
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+    usage_urns = [
+        str(mcp.entityUrn)
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.DatasetUsageStatisticsClass)
+    ]
+    assert any("public.kept" in urn for urn in usage_urns)
+    assert not any("denied" in urn for urn in usage_urns)
+
+
+def test_unified_queries_failure_is_reported_as_failure(monkeypatch):
+    # In v2 mode the unified feed is the sole usage producer, so a failure (e.g.
+    # a missing SELECT grant on STL_QUERYTEXT) must surface as a report failure,
+    # not a warning that still exits successfully.
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+
+    def boom(conn, query, parameters=None):
+        raise RuntimeError("permission denied for relation stl_querytext")
+
+    monkeypatch.setattr(RedshiftDataDictionary, "get_query_result", staticmethod(boom))
+    # Must not raise, and must record a failure (not just a warning).
+    extractor._populate_unified_queries(MagicMock())
+    assert extractor.report.failures
+    assert not extractor.report.warnings
 
 
 def test_cll():
@@ -474,3 +573,344 @@ def test_build():
 
     # Test build method doesn't raise exception
     lineage_extractor.build(connection, all_tables, db_schemas)
+
+
+def test_populate_lineage_agg_drains_cursor_before_processing(monkeypatch):
+    """The Redshift cursor must be fully drained before the (slow) SQL-parsing
+    processors run, so the live cursor isn't held open through aggregation and
+    timed out by Redshift on large query histories.
+
+    Pre-fix, fetch and process interleaved (fetch-0, process, fetch-1, ...),
+    keeping the cursor open for the whole parse. The fix drains into a local
+    FileBackedList first, so all fetches complete before any processing.
+    """
+    lineage_extractor = get_lineage_extractor()
+    events: List[str] = []
+
+    def fake_get_lineage_rows(conn, query):
+        for i in range(3):
+            events.append(f"fetch-{i}")
+            yield MagicMock()
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_lineage_rows",
+        staticmethod(fake_get_lineage_rows),
+    )
+
+    def processor(_row):
+        events.append("process")
+
+    lineage_extractor._populate_lineage_agg(
+        query="select 1",
+        lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
+        processor=processor,
+        connection=MagicMock(),
+    )
+
+    assert events == [
+        "fetch-0",
+        "fetch-1",
+        "fetch-2",
+        "process",
+        "process",
+        "process",
+    ]
+
+
+def test_populate_unified_queries_produces_column_level_usage(monkeypatch):
+    """Queries-v2 unified feed: _populate_unified_queries feeds all queries to the
+    lineage aggregator once, which then produces DatasetUsageStatistics with
+    fieldCounts for explicitly referenced columns."""
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-unified"), config.database
+    )
+
+    # Register the schema for dev.public.t1 so SELECT * would also resolve, and
+    # so the aggregator knows the table is not a temp table.
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.t1,PROD)"
+    lineage_extractor.aggregator.register_schema(
+        urn=dataset_urn,
+        schema=m.SchemaMetadataClass(
+            schemaName="dev.public.t1",
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="col_a",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+                m.SchemaFieldClass(
+                    fieldPath="col_b",
+                    type=m.SchemaFieldDataTypeClass(type=m.StringTypeClass()),
+                    nativeDataType="varchar",
+                ),
+            ],
+        ),
+    )
+    lineage_extractor.known_urns = {dataset_urn}
+
+    # Build a fake cursor that returns one row matching the list_all_queries_sql
+    # column layout: query_id, query_text, username, starttime, session_id.
+    # DB-API requires description to be a sequence of 7-item sequences; use tuples.
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            # Row with empty query_text must be skipped (e.g. text reconstruction
+            # produced nothing), without affecting the rest of the batch.
+            [
+                2,
+                "",
+                "bob",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "43",
+            ],
+            [
+                1,
+                "select col_a, col_b from public.t1",
+                "alice",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "42",
+            ],
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    field_paths: set = set()
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        asp = mcp.aspect
+        if isinstance(asp, m.DatasetUsageStatisticsClass):
+            field_paths.update(f.fieldPath for f in (asp.fieldCounts or []))
+
+    assert {"col_a", "col_b"} <= field_paths, field_paths
+
+
+def test_populate_unified_queries_produces_lineage(monkeypatch):
+    """Queries-v2 unified feed: _populate_unified_queries produces UpstreamLineage
+    from write (INSERT INTO ... SELECT ...) statements, proving lineage is derived
+    from the unified feed rather than a separate path."""
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-lineage"), config.database
+    )
+
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.src,PROD)"
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tgt,PROD)"
+
+    def _make_schema(name: str, urn: str) -> m.SchemaMetadataClass:
+        return m.SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="id",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+                m.SchemaFieldClass(
+                    fieldPath="name",
+                    type=m.SchemaFieldDataTypeClass(type=m.StringTypeClass()),
+                    nativeDataType="varchar",
+                ),
+            ],
+        )
+
+    lineage_extractor.aggregator.register_schema(
+        urn=src_urn, schema=_make_schema("dev.public.src", src_urn)
+    )
+    lineage_extractor.aggregator.register_schema(
+        urn=tgt_urn, schema=_make_schema("dev.public.tgt", tgt_urn)
+    )
+    lineage_extractor.known_urns = {src_urn, tgt_urn}
+
+    # DB-API description uses tuples (sequence of at least 1 element per column).
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                2,
+                "INSERT INTO public.tgt SELECT id, name FROM public.src",
+                "bob",
+                datetime(2021, 9, 15, 10, 0, 0, tzinfo=timezone.utc),
+                "99",
+            ]
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    upstream_urns: set = set()
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        if mcp.entityUrn == tgt_urn:
+            asp = mcp.aspect
+            if isinstance(asp, m.UpstreamLineageClass):
+                for upstream in asp.upstreams or []:
+                    upstream_urns.add(upstream.dataset)
+
+    assert src_urn in upstream_urns, (
+        f"Expected {src_urn!r} in upstreams of {tgt_urn!r}, got: {upstream_urns}"
+    )
+
+
+def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):
+    """C1 regression guard: when all lineage flags are off but include_column_usage_stats=True,
+    the aggregator must be built with generate_lineage=False so no UpstreamLineage
+    aspects are emitted, while DatasetUsageStatistics aspects still are."""
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="acryl.io",
+        # All lineage flags explicitly off.
+        include_table_lineage=False,
+        include_view_lineage=False,
+        include_copy_lineage=False,
+        include_unload_lineage=False,
+        include_share_lineage=False,
+        include_table_rename_lineage=False,
+        # Usage via SQL parsing on.
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    report = RedshiftReport()
+    lineage_extractor = RedshiftSqlLineage(
+        config, report, PipelineContext(run_id="test-usage-only"), config.database
+    )
+
+    # Aggregator must not generate lineage when all lineage flags are off.
+    assert lineage_extractor.generate_usage is True
+    assert lineage_extractor.aggregator.generate_lineage is False
+
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.src,PROD)"
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tgt,PROD)"
+
+    def _make_schema(name: str) -> m.SchemaMetadataClass:
+        return m.SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="id",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+            ],
+        )
+
+    lineage_extractor.aggregator.register_schema(
+        urn=src_urn, schema=_make_schema("dev.public.src")
+    )
+    lineage_extractor.aggregator.register_schema(
+        urn=tgt_urn, schema=_make_schema("dev.public.tgt")
+    )
+    lineage_extractor.known_urns = {src_urn, tgt_urn}
+
+    # Feed an INSERT…SELECT which would produce lineage if generate_lineage were True.
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                1,
+                "INSERT INTO public.tgt SELECT id FROM public.src",
+                "alice",
+                datetime(2021, 9, 15, 9, 0, 0, tzinfo=timezone.utc),
+                "10",
+            ]
+        ],
+        [],
+    ]
+
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    usage_found = False
+    lineage_found = False
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        asp = mcp.aspect
+        if isinstance(asp, m.DatasetUsageStatisticsClass):
+            usage_found = True
+        if isinstance(asp, m.UpstreamLineageClass):
+            lineage_found = True
+
+    assert usage_found, (
+        "Expected DatasetUsageStatistics aspects when include_column_usage_stats=True"
+    )
+    assert not lineage_found, (
+        "Expected no UpstreamLineage aspects when all lineage flags are off"
+    )

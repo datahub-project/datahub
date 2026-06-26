@@ -151,6 +151,17 @@ class RedshiftConfig(
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
     )
 
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description="Generate column-level usage statistics (`fieldCounts`) by parsing "
+        "the SQL query text instead of attributing reads to the tables reported by "
+        "Redshift's `stl_scan` system table. This is slower (every read query is parsed) "
+        "but adds per-column usage. The full query text is reconstructed from "
+        "`STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the same source used for lineage), not the "
+        "truncated `stl_query.querytxt`. Only applies when `include_usage_statistics` is "
+        "enabled.",
+    )
+
     include_unload_lineage: bool = Field(
         default=True,
         description="Whether lineage should be collected from unload commands",
@@ -216,6 +227,19 @@ class RedshiftConfig(
     def check_database_is_set(self) -> "RedshiftConfig":
         assert self.database, "database must be set"
         return self
+
+    @property
+    def lineage_enabled(self) -> bool:
+        """True if any lineage source is enabled. Single source of truth so the
+        source-level gating and the aggregator's generate_lineage stay in sync."""
+        return (
+            self.include_table_lineage
+            or self.include_view_lineage
+            or self.include_copy_lineage
+            or self.include_unload_lineage
+            or self.include_share_lineage
+            or self.include_table_rename_lineage
+        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

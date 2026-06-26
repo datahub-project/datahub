@@ -48,7 +48,7 @@ on:
         default: ${{ vars.DOCKER_REGISTRY }}
 jobs:
   playwright_test:
-    name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
+    name: Playwright E2E Tests
     runs-on: ${{ inputs.test_runner_type }}
     timeout-minutes: 60
     steps:
