@@ -1101,7 +1101,12 @@ def query_metadata_cursor_based_pagination(
           $first: Int,
           $after: String
         ) {{
-            {connection_name} (  first: $first, after: $after, filter:{{ {qry_filter} }})
+            {connection_name} (
+              first: $first,
+              after: $after,
+              orderBy: {{field: NAME, direction: ASC}},
+              filter:{{ {qry_filter} }}
+            )
             {{
                 nodes {main_query}
                 pageInfo {{
