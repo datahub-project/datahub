@@ -112,7 +112,7 @@ def test_describe_error_degrades_to_warning_and_continues():
         ]
     )
 
-    def describe(data_set_id: str, **kwargs):
+    def describe(data_set_id: str, **kwargs: Any) -> Dict[str, Any]:
         if data_set_id == "ds-1":
             raise EndpointConnectionError(endpoint_url="https://quicksight")
         return {"OutputColumns": [], "PhysicalTableMap": {}}
