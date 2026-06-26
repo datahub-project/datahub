@@ -10,8 +10,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800922,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801100,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -36,8 +36,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800923,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801100,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -54,8 +54,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800924,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801101,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -70,8 +70,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800924,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -96,8 +96,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800925,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -114,8 +114,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800926,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -130,8 +130,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800930,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -155,8 +155,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800930,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -184,8 +184,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800931,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -202,8 +202,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800931,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -218,8 +218,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800932,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -234,8 +234,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800932,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -260,8 +260,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800932,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -278,68 +278,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800932,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800933,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "CUSTOMERS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800933,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800933,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -354,8 +294,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800933,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -434,8 +374,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800934,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801116,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -459,8 +399,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800934,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801116,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -484,8 +424,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800935,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -502,8 +442,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800935,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -527,8 +467,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800935,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -543,8 +483,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800936,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -559,8 +499,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800936,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -585,8 +525,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800936,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -603,68 +543,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800936,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800937,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "ORDERS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800937,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800937,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -679,8 +559,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800937,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -759,8 +639,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800938,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -784,8 +664,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800938,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -809,8 +689,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800939,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -827,68 +707,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800939,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800939,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "ORDER_ITEMS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800939,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800940,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -903,8 +723,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800940,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -971,8 +791,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800940,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -996,8 +816,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800941,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1021,8 +841,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800941,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1039,8 +859,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800941,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1072,8 +892,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800942,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1088,8 +908,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800942,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801122,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1121,8 +941,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800942,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1150,8 +970,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800943,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1168,8 +988,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800943,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1184,8 +1004,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800943,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801126,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1212,8 +1032,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800943,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801127,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1230,8 +1050,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800944,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801127,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1248,8 +1068,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800944,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801128,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1274,6 +1094,30 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),lifetime_value)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.lifetime_value)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
                     ],
                     "downstreamType": "FIELD",
@@ -1294,37 +1138,13 @@
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),lifetime_value)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.lifetime_value)"
-                    ],
-                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
-                    ],
-                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800945,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801128,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1339,8 +1159,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800946,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1379,8 +1199,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800946,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1405,8 +1225,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800946,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1421,8 +1241,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800947,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1461,8 +1281,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800947,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1487,8 +1307,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800947,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1503,8 +1323,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800948,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1556,8 +1376,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800948,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1582,8 +1402,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800948,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1603,8 +1423,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800949,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1621,8 +1441,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800949,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1663,8 +1483,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800950,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1679,8 +1499,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800950,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1725,8 +1545,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800950,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1751,8 +1571,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800950,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1767,8 +1587,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800951,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1783,8 +1603,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800951,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1799,8 +1619,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800951,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1815,8 +1635,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800951,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1831,8 +1651,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800952,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1847,8 +1667,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800952,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1863,8 +1683,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800952,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1879,8 +1699,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800952,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1895,8 +1715,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800952,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1911,8 +1731,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800953,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1927,8 +1747,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800953,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1943,8 +1763,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800953,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1959,8 +1779,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800953,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1975,8 +1795,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800953,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1991,8 +1811,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800954,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2007,56 +1827,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719784800954,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800954,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800954,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719784800954,
-        "runId": "omni-2024_07_01-00_00_00-38t2fb",
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
         "lastRunId": "no-run-id-provided"
     }
 }

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
@@ -981,70 +982,53 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 exc=exc,
             )
 
-    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
-        # Note: _setup_connections() has already populated self._connections_by_id
+    def _process_model_worker(self, model: Dict[str, Any]) -> List[MetadataWorkUnit]:
+        """Process a single model and return work units (thread-safe).
 
-        for model in self.client.list_models(page_size=self.config.page_size):
+        Extracts detailed model processing logic into a dedicated worker function
+        that can be called in parallel by ThreadPoolExecutor. The model context
+        must already be populated in _model_context_by_id.
+        """
+        work_units: List[MetadataWorkUnit] = []
+
+        try:
             model_id = model.get("id")
             if not model_id:
-                continue
+                return []
 
-            # Extract model metadata
+            # Get pre-populated context
+            ctx = self._model_context_by_id.get(model_id, {})
+            connection_id = ctx.get("connection_id", "")
+            platform = ctx.get("platform")
+            database = ctx.get("database")
+            platform_instance = ctx.get("platform_instance")
+            model_kind = ctx.get("model_kind")
+            model_layer = str(ctx.get("model_layer") or "")
             model_name = model.get("name") or model_id
-            model_kind = model.get("modelKind")
-            model_layer = self._normalize_model_layer(model_kind)
-            connection_id = model.get("connectionId") or ""
 
-            # Resolve connection context for ALL models (needed for dashboard lineage)
-            conn: Optional[Dict[str, object]] = self._connections_by_id.get(
-                connection_id
-            )
-            platform = self._resolve_platform_from_connection(
-                connection_id=connection_id,
-                conn=conn,
-                warn_on_missing=False,  # Don't warn for filtered models
-                model_id=model_id,
-                model_name=model_name,
-            )
-            database = self._resolve_database_from_connection(connection_id, conn)
-            platform_instance = self._resolve_platform_instance_from_connection(
-                connection_id
-            )
-
-            # Store context for ALL models so dashboards can reference them
-            self._model_context_by_id[model_id] = {
-                "connection_id": connection_id,
-                "platform": platform,
-                "database": database,
-                "platform_instance": platform_instance,
-                "model_kind": model_kind,
-                "model_layer": model_layer,
-            }
-
-            # Now apply filter - if model doesn't match pattern, skip entity emission
-            if not self.config.model_pattern.allowed(model_id):
-                self.report.report_dropped(model_id)
-                continue
-            self.report.models_scanned += 1
-
-            # From here on, only process models that match the pattern
+            # Build model properties
             model_props: Dict[str, str] = {
                 "modelId": model_id,
                 "modelName": model_name,
                 "modelKind": model_kind or "",
                 "modelLayer": model_layer,
                 "baseModelId": model.get("baseModelId") or "",
-                "connectionId": connection_id,
+                "connectionId": str(connection_id),
                 "createdAt": model.get("createdAt") or "",
                 "updatedAt": model.get("updatedAt") or "",
                 "deletedAt": model.get("deletedAt") or "",
                 "entityType": "model",
             }
+
             model_urn = self._model_dataset_urn(model_id)
-            self._model_dataset_urns.add(model_urn)
+            with self._state_lock:
+                self._model_dataset_urns.add(model_urn)
 
             if connection_id:
-                yield from self._ensure_connection_dataset(connection_id, conn)
+                conn = self._connections_by_id.get(str(connection_id))
+                work_units.extend(
+                    self._ensure_connection_dataset(str(connection_id), conn)
+                )
 
             logger.info(
                 "Processing model: model_id=%s model_name=%s model_kind=%s "
@@ -1058,36 +1042,33 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 platform_instance,
             )
 
-            self._model_context_by_id[model_id] = {
-                "connection_id": connection_id,
-                "platform": platform,
-                "database": database,
-                "platform_instance": platform_instance,
-                "model_kind": model_kind,
-                "model_layer": model_layer,
-            }
-
             # Resolve model upstreams: connection + base model
             model_upstream_urns: Set[str] = set()
             if connection_id:
-                model_upstream_urns.add(self._connection_dataset_urn(connection_id))
+                model_upstream_urns.add(
+                    self._connection_dataset_urn(str(connection_id))
+                )
             base_model_id = model.get("baseModelId")
             if base_model_id:
                 base_model_urn = self._model_dataset_urn(base_model_id)
                 model_upstream_urns.add(base_model_urn)
-                if base_model_urn not in self._model_dataset_urns:
-                    yield from self._emit_dataset(
-                        name=f"model.{base_model_id}",
-                        description="Omni base model inferred from model relationship.",
-                        custom_properties={
-                            "entityType": "model",
-                            "modelId": base_model_id,
-                            "inferred": "true",
-                        },
-                        subtype="Model",
-                    )
-                    self._model_dataset_urns.add(base_model_urn)
-                    self.report.semantic_datasets_emitted += 1
+                with self._state_lock:
+                    if base_model_urn not in self._model_dataset_urns:
+                        work_units.extend(
+                            self._emit_dataset(
+                                name=f"model.{base_model_id}",
+                                description="Omni base model inferred from model relationship.",
+                                custom_properties={
+                                    "entityType": "model",
+                                    "modelId": base_model_id,
+                                    "inferred": "true",
+                                },
+                                subtype="Model",
+                            )
+                        )
+                        self._model_dataset_urns.add(base_model_urn)
+                        with self.report._report_lock:
+                            self.report.semantic_datasets_emitted += 1
 
             model_upstreams_aspect: Optional[UpstreamLineageClass] = None
             if model_upstream_urns:
@@ -1100,14 +1081,17 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     ]
                 )
 
-            yield from self._emit_dataset(
-                name=f"model.{model_id}",
-                description="Omni model entity.",
-                custom_properties=model_props,
-                subtype="Model",
-                upstreams=model_upstreams_aspect,
+            work_units.extend(
+                self._emit_dataset(
+                    name=f"model.{model_id}",
+                    description="Omni model entity.",
+                    custom_properties=model_props,
+                    subtype="Model",
+                    upstreams=model_upstreams_aspect,
+                )
             )
-            self.report.semantic_datasets_emitted += 1
+            with self.report._report_lock:
+                self.report.semantic_datasets_emitted += 1
 
             try:
                 model_yaml_payload = self.client.get_model_yaml(model_id)
@@ -1118,13 +1102,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"model_id={model_id}",
                     exc=exc,
                 )
-                continue
+                return work_units
 
             model_yaml_files = model_yaml_payload.get("files", {})
             topic_names = self._topic_names_from_yaml(model_yaml_files)
             topic_specs, view_specs = self._parse_model_yaml_specs(model_yaml_files)
-            self._topic_specs_by_model_id[model_id] = topic_specs
-            self._view_specs_by_model_id[model_id] = view_specs
+            with self._state_lock:
+                self._topic_specs_by_model_id[model_id] = topic_specs
+                self._view_specs_by_model_id[model_id] = view_specs
 
             logger.info(
                 "Model YAML parsed: model_id=%s found %d topics: %s",
@@ -1133,10 +1118,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 ", ".join(sorted(topic_names)) if topic_names else "(none)",
             )
 
-            # TODO: Lookig at GET model yaml, it doesn't look like topics are expected here https://docs.omni.co/api/models/get-model-yaml
-
             if not topic_names:
-                continue
+                return work_units
 
             for topic_name in sorted(topic_names):
                 logger.info(
@@ -1163,21 +1146,126 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         topic_name,
                     )
                     continue
-                yield from self._ingest_topic_payload(
-                    model_id=model_id,
-                    topic_name=topic_name,
-                    topic=topic,
-                    platform=platform,
-                    database=database,
+                work_units.extend(
+                    self._ingest_topic_payload(
+                        model_id=model_id,
+                        topic_name=topic_name,
+                        topic=topic,
+                        platform=platform,
+                        database=database,
+                        connection_id=str(connection_id) if connection_id else None,
+                        platform_instance=platform_instance,
+                        inferred=bool(topic.get("views")) and not bool(topic.get("id")),
+                        model_custom_properties={
+                            "modelKind": model_kind or "",
+                            "modelLayer": model_layer,
+                        },
+                        model_name=model_name,
+                    )
+                )
+
+            return work_units
+
+        except Exception as exc:
+            self.report.warning(
+                title="Model processing error",
+                message="Failed to process model",
+                context=f"model_id={model.get('id')}",
+                exc=exc,
+            )
+            return []
+
+    def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
+        """Ingest Omni semantic models in two phases: context collection, then parallel processing.
+
+        Phase 1 (sequential): Collect context for ALL models (even filtered ones)
+                              because dashboards may reference any model.
+        Phase 2 (parallel):   Process filtered models in detail using ThreadPoolExecutor.
+        """
+        # Note: _setup_connections() has already populated self._connections_by_id
+
+        # Phase 1: Collect ALL models and their context (sequential - needed for dashboard lineage)
+        all_models: List[Dict[str, Any]] = []
+        filtered_models: List[Dict[str, Any]] = []
+
+        try:
+            for model in self.client.list_models(page_size=self.config.page_size):
+                model_id = model.get("id")
+                if not model_id:
+                    continue
+
+                all_models.append(model)
+
+                # Extract model metadata
+                model_name = model.get("name") or model_id
+                model_kind = model.get("modelKind")
+                model_layer = self._normalize_model_layer(model_kind)
+                connection_id = model.get("connectionId") or ""
+
+                # Resolve connection context for ALL models (needed for dashboard lineage)
+                conn: Optional[Dict[str, object]] = self._connections_by_id.get(
+                    connection_id
+                )
+                platform = self._resolve_platform_from_connection(
                     connection_id=connection_id,
-                    platform_instance=platform_instance,
-                    inferred=bool(topic.get("views")) and not bool(topic.get("id")),
-                    model_custom_properties={
-                        "modelKind": model_kind or "",
-                        "modelLayer": model_layer,
-                    },
+                    conn=conn,
+                    warn_on_missing=False,  # Don't warn for filtered models
+                    model_id=model_id,
                     model_name=model_name,
                 )
+                database = self._resolve_database_from_connection(connection_id, conn)
+                platform_instance = self._resolve_platform_instance_from_connection(
+                    connection_id
+                )
+
+                # Store context for ALL models so dashboards can reference them
+                self._model_context_by_id[model_id] = {
+                    "connection_id": connection_id,
+                    "platform": platform,
+                    "database": database,
+                    "platform_instance": platform_instance,
+                    "model_kind": model_kind,
+                    "model_layer": model_layer,
+                }
+
+                # Now apply filter - if model doesn't match pattern, skip entity emission
+                if not self.config.model_pattern.allowed(model_id):
+                    self.report.report_dropped(model_id)
+                    continue
+
+                with self.report._report_lock:
+                    self.report.models_scanned += 1
+                filtered_models.append(model)
+
+        except Exception as exc:
+            self.report.warning(
+                title="Models fetch error",
+                message="Failed to fetch models from Omni API",
+                exc=exc,
+            )
+            return
+
+        # Phase 2: Process filtered models in parallel
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            # Submit all model processing tasks
+            future_to_model = {
+                executor.submit(self._process_model_worker, model): model
+                for model in filtered_models
+            }
+
+            # Yield work units as they complete
+            for future in as_completed(future_to_model):
+                try:
+                    work_units = future.result()
+                    yield from work_units
+                except Exception as exc:
+                    model = future_to_model[future]
+                    self.report.warning(
+                        title="Model processing error",
+                        message="Failed to process model",
+                        context=f"model_id={model.get('id')}",
+                        exc=exc,
+                    )
 
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
         """Ingest Omni folder hierarchy as DataHub containers.
@@ -1527,30 +1615,41 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         for topic_urn, view_urns in topic_to_inferred_views.items():
             yield from self._emit_upstream_lineage(topic_urn, view_urns)
 
-    def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
-        for document in self.client.list_documents(
-            page_size=self.config.page_size,
-            include_deleted=self.config.include_deleted,
-        ):
+    def _process_document_worker(
+        self, document: Dict[str, Any]
+    ) -> List[MetadataWorkUnit]:
+        """Process a single document and return work units (thread-safe).
+
+        Extracts all document processing logic into a dedicated worker function
+        that can be called in parallel by ThreadPoolExecutor.
+        """
+        work_units: List[MetadataWorkUnit] = []
+
+        try:
             doc_id = document.get("identifier")
             if not doc_id:
-                continue
+                return []
             if not self.config.document_pattern.allowed(doc_id):
-                self.report.report_dropped(doc_id)
-                continue
-            self.report.documents_scanned += 1
+                with self.report._report_lock:
+                    self.report.report_dropped(doc_id)
+                return []
+
+            with self.report._report_lock:
+                self.report.documents_scanned += 1
 
             has_dashboard = bool(document.get("hasDashboard"))
             if not has_dashboard and not self.config.include_workbook_only:
-                continue
+                return []
 
             dashboard_dataset_urn = make_dataset_urn(
                 self.PLATFORM, doc_id, self.config.env
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_dataset_urn,
-                aspect=SubTypesClass(typeNames=["Dashboard"]),
-            ).as_workunit()
+            work_units.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_dataset_urn,
+                    aspect=SubTypesClass(typeNames=["Dashboard"]),
+                ).as_workunit()
+            )
 
             dashboard_url = (
                 document.get("url")
@@ -1569,18 +1668,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 str(lb.get("name") if isinstance(lb, dict) else lb)
                 for lb in (labels if isinstance(labels, list) else [])
             ]
-            self.report.dashboards_scanned += 1
+            with self.report._report_lock:
+                self.report.dashboards_scanned += 1
 
             if folder_id:
-                yield from self._ensure_inline_folder(
-                    str(folder_id), folder_name, folder_path
+                work_units.extend(
+                    self._ensure_inline_folder(str(folder_id), folder_name, folder_path)
                 )
 
             document_connection_id = str(document.get("connectionId"))
             if document_connection_id:
-                yield from self._ensure_connection_dataset(
-                    document_connection_id,
-                    self._connections_by_id.get(document_connection_id),
+                work_units.extend(
+                    self._ensure_connection_dataset(
+                        document_connection_id,
+                        self._connections_by_id.get(document_connection_id),
+                    )
                 )
 
             fields_by_dashboard: Set[FieldRef] = set()
@@ -1596,18 +1698,20 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             view_to_topic_urns: Dict[str, Set[str]] = {}
 
             if has_dashboard:
-                yield from self._collect_tile_data(
-                    doc_id,
-                    dashboard_url,
-                    dashboard_title,
-                    fields_by_dashboard,
-                    chart_ids,
-                    chart_inputs,
-                    chart_titles,
-                    chart_urls,
-                    dashboard_topics,
-                    dashboard_topic_urns,
-                    view_to_topic_urns,
+                work_units.extend(
+                    self._collect_tile_data(
+                        doc_id,
+                        dashboard_url,
+                        dashboard_title,
+                        fields_by_dashboard,
+                        chart_ids,
+                        chart_inputs,
+                        chart_titles,
+                        chart_urls,
+                        dashboard_topics,
+                        dashboard_topic_urns,
+                        view_to_topic_urns,
+                    )
                 )
                 model_id_from_dashboard = self._current_tile_model_id
 
@@ -1640,13 +1744,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         chart_inputs.setdefault(qp_id, set()).add(topic_urn)
 
             if model_id_from_dashboard and fields_by_dashboard:
-                yield from self._emit_inferred_view_datasets(
-                    model_id=model_id_from_dashboard,
-                    fields_by_dashboard=fields_by_dashboard,
-                    view_to_topic_urns=view_to_topic_urns,
-                    dashboard_dataset_urn=dashboard_dataset_urn,
-                    fine_grained_lineages=fine_grained_lineages,
-                    fine_grained_dedupe=fine_grained_dedupe,
+                work_units.extend(
+                    self._emit_inferred_view_datasets(
+                        model_id=model_id_from_dashboard,
+                        fields_by_dashboard=fields_by_dashboard,
+                        view_to_topic_urns=view_to_topic_urns,
+                        dashboard_dataset_urn=dashboard_dataset_urn,
+                        fine_grained_lineages=fine_grained_lineages,
+                        fine_grained_dedupe=fine_grained_dedupe,
+                    )
                 )
 
             folder_urn: Optional[str] = (
@@ -1656,52 +1762,114 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if folder_id:
                 structural_upstreams.add(self._folder_dataset_urn(folder_id))
             if structural_upstreams or fine_grained_lineages:
-                yield from self._emit_upstream_lineage(
-                    dashboard_dataset_urn,
-                    structural_upstreams,
-                    fine_grained_lineages=fine_grained_lineages,
+                work_units.extend(
+                    self._emit_upstream_lineage(
+                        dashboard_dataset_urn,
+                        structural_upstreams,
+                        fine_grained_lineages=fine_grained_lineages,
+                    )
                 )
 
             chart_urns: List[str] = []
             for qp_id in chart_ids:
                 chart_urn = make_chart_urn(self.PLATFORM, qp_id)
                 chart_urns.append(chart_urn)
-                yield from self._emit_chart(
-                    qp_id=qp_id,
-                    title=chart_titles.get(qp_id, "Omni tile"),
-                    description="Omni workbook tab or dashboard tile.",
-                    external_url=chart_urls.get(qp_id, dashboard_url),
-                    input_urns=sorted(chart_inputs.get(qp_id, set())),
-                    custom_properties={"documentId": doc_id},
-                    owner_id=owner_id,
-                    owner_name=owner_name,
-                    updated_at=document.get("updatedAt"),
+                work_units.extend(
+                    self._emit_chart(
+                        qp_id=qp_id,
+                        title=chart_titles.get(qp_id, "Omni tile"),
+                        description="Omni workbook tab or dashboard tile.",
+                        external_url=chart_urls.get(qp_id, dashboard_url),
+                        input_urns=sorted(chart_inputs.get(qp_id, set())),
+                        custom_properties={"documentId": doc_id},
+                        owner_id=owner_id,
+                        owner_name=owner_name,
+                        updated_at=document.get("updatedAt"),
+                    )
                 )
 
-            yield from self._emit_dashboard(
-                doc_id=doc_id,
-                title=dashboard_title,
-                description="Omni dashboard.",
-                external_url=dashboard_url,
-                chart_urns=chart_urns,
-                custom_properties={
-                    "documentId": doc_id,
-                    "connectionId": str(document.get("connectionId") or ""),
-                    "scope": str(document.get("scope") or ""),
-                    "folderId": str(folder_id or ""),
-                    "folderName": folder_name,
-                    "folderPath": folder_path,
-                    "labels": ",".join(lb for lb in normalized_labels if lb),
-                    "omniEmbedUrl": str(dashboard_url),
-                    "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
-                    "topicNames": ",".join(sorted(dashboard_topics)),
-                    "updatedAt": str(document.get("updatedAt") or ""),
-                },
-                owner_id=owner_id,
-                owner_name=owner_name,
-                folder_urn=folder_urn,
-                updated_at=document.get("updatedAt"),
+            work_units.extend(
+                self._emit_dashboard(
+                    doc_id=doc_id,
+                    title=dashboard_title,
+                    description="Omni dashboard.",
+                    external_url=dashboard_url,
+                    chart_urns=chart_urns,
+                    custom_properties={
+                        "documentId": doc_id,
+                        "connectionId": str(document.get("connectionId") or ""),
+                        "scope": str(document.get("scope") or ""),
+                        "folderId": str(folder_id or ""),
+                        "folderName": folder_name,
+                        "folderPath": folder_path,
+                        "labels": ",".join(lb for lb in normalized_labels if lb),
+                        "omniEmbedUrl": str(dashboard_url),
+                        "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
+                        "topicNames": ",".join(sorted(dashboard_topics)),
+                        "updatedAt": str(document.get("updatedAt") or ""),
+                    },
+                    owner_id=owner_id,
+                    owner_name=owner_name,
+                    folder_urn=folder_urn,
+                    updated_at=document.get("updatedAt"),
+                )
             )
+
+            return work_units
+
+        except Exception as exc:
+            self.report.warning(
+                title="Document processing error",
+                message="Failed to process document",
+                context=f"doc_id={document.get('identifier')}",
+                exc=exc,
+            )
+            return []
+
+    def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
+        """Ingest Omni documents (dashboards/workbooks) in parallel.
+
+        Collects all documents from the API, then processes them in parallel
+        using ThreadPoolExecutor with the configured max_workers.
+        """
+        # Collect all documents first
+        documents: List[Dict[str, Any]] = []
+        try:
+            documents = list(
+                self.client.list_documents(
+                    page_size=self.config.page_size,
+                    include_deleted=self.config.include_deleted,
+                )
+            )
+        except Exception as exc:
+            self.report.warning(
+                title="Documents fetch error",
+                message="Failed to fetch documents from Omni API",
+                exc=exc,
+            )
+            return
+
+        # Process documents in parallel
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            # Submit all document processing tasks
+            future_to_doc = {
+                executor.submit(self._process_document_worker, doc): doc
+                for doc in documents
+            }
+
+            # Yield work units as they complete
+            for future in as_completed(future_to_doc):
+                try:
+                    work_units = future.result()
+                    yield from work_units
+                except Exception as exc:
+                    doc = future_to_doc[future]
+                    self.report.warning(
+                        title="Document processing error",
+                        message="Failed to process document",
+                        context=f"doc_id={doc.get('identifier')}",
+                        exc=exc,
+                    )
 
     # ------------------------------------------------------------------
     # Main entrypoint

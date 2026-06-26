@@ -492,16 +492,25 @@ def test_document_pattern_filters_documents() -> None:
 
 @time_machine.travel(FROZEN_TIME)
 def test_snowflake_names_normalised_to_uppercase() -> None:
-    """Physical Snowflake table URNs must use uppercased identifiers."""
+    """Physical Snowflake table URNs in lineage must use uppercased identifiers.
+
+    Physical datasets are not emitted as entities (BI connector only references them
+    via lineage), so we check the upstream lineage of semantic views.
+    """
     source = _build_source()
     events = _collect_workunits(source)
 
-    physical_urns = [
-        e["entityUrn"]
-        for e in events
-        if "dataPlatform:snowflake" in e.get("entityUrn", "")
-    ]
-    assert physical_urns, "No Snowflake physical dataset URNs emitted"
+    # Collect all Snowflake physical URNs from upstream lineage
+    physical_urns = set()
+    for e in events:
+        if e["aspectName"] == "upstreamLineage":
+            upstreams = e["aspect"].get("upstreams", [])
+            for upstream in upstreams:
+                urn = upstream.get("dataset", "")
+                if "dataPlatform:snowflake" in urn:
+                    physical_urns.add(urn)
+
+    assert physical_urns, "No Snowflake physical dataset URNs in lineage"
     for urn in physical_urns:
         # name part may be prefixed by "platform_instance." — skip that prefix
         name_part = urn.split(",")[1]
