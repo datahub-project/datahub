@@ -6,6 +6,13 @@ namespace com.linkedin.dataset
  * references on a configured upstream platform; absent when the reference is out of
  * scope (platform not configured, feature disabled) or was ingested before the
  * feature was enabled.
+ *
+ * This verdict reflects DataHub's knowledge AT THE TIME THE LINEAGE EDGE WAS
+ * INGESTED, not the current state of the graph. It is a point-in-time record and is
+ * not re-evaluated automatically: e.g. a reference recorded as UNRESOLVED (its target
+ * did not exist yet) keeps that value even after the target is later ingested and the
+ * edge in fact resolves exactly — the verdict only refreshes when the referencing
+ * source is re-ingested.
  */
 enum LineageMatchType {
   /**
