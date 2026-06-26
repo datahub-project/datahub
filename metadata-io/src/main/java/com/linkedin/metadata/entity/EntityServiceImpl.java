@@ -73,6 +73,8 @@ import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.cache.SyncGraphInvalidationBatch;
+import com.linkedin.metadata.graph.cache.service.EntityGraphSyncInvalidationSupport;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -84,6 +86,7 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SyncSearchIndexUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -1005,7 +1008,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
+    invalidateEntityGraphCacheOnSyncIngest(
+        opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
+
     return updateAspectResults;
+  }
+
+  private void invalidateEntityGraphCacheOnSyncIngest(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch aspectsBatch,
+      @Nonnull List<UpdateAspectResult> updateResults) {
+    SyncGraphInvalidationBatch batch =
+        EntityGraphSyncInvalidationSupport.fromSyncIngestBatch(
+            opContext, preProcessHooks, aspectsBatch, updateResults);
+    if (!batch.isEmpty()) {
+      opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
+    }
   }
 
   /**
@@ -1970,24 +1988,36 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
     // for all other types of events should use system metadata rather than the boolean param.
-    boolean isUISource =
-        preProcessHooks.isUiEnabled()
-            && metadataChangeLog.getSystemMetadata() != null
-            && metadataChangeLog.getSystemMetadata().getProperties() != null
-            && UI_SOURCE.equals(
-                metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE));
-    boolean syncIndexUpdate =
+    boolean requiresSyncSearchIndexUpdate =
+        SyncSearchIndexUtils.requiresSyncSearchIndexUpdate(
+            preProcessHooks, opContext, metadataChangeLog.getSystemMetadata());
+    boolean syncIndexUpdateHeader =
         metadataChangeLog.getHeaders() != null
             && metadataChangeLog
                 .getHeaders()
                 .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
                 .equalsIgnoreCase(Boolean.toString(true));
+    boolean syncGated = requiresSyncSearchIndexUpdate || syncIndexUpdateHeader;
 
-    if (updateIndicesService != null && (isUISource || syncIndexUpdate)) {
+    if (updateIndicesService != null && syncGated) {
       updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
-      return true;
+      // Drop stale snapshots as soon as secondary storage reflects the write. Batch invalidation
+      // at the end of ingestAspects remains as a backstop, but must not be the only path — reads
+      // between preprocess and batch completion could otherwise HIT an ACTIVE membership snapshot
+      // missing a just-written edge (e.g. corpGroup INCOMING members after addGroupMembers).
+      invalidateEntityGraphCacheOnSyncWrite(opContext, metadataChangeLog);
     }
-    return false;
+    return syncGated && updateIndicesService != null;
+  }
+
+  private void invalidateEntityGraphCacheOnSyncWrite(
+      @Nonnull OperationContext opContext, @Nonnull MetadataChangeLog metadataChangeLog) {
+    SyncGraphInvalidationBatch batch =
+        EntityGraphSyncInvalidationSupport.fromSyncMetadataChangeLog(
+            opContext, preProcessHooks, metadataChangeLog);
+    if (!batch.isEmpty()) {
+      opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
+    }
   }
 
   @Override
@@ -3221,6 +3251,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       }
       mclsForSideEffects.add(result.toMCL(auditStamp));
       processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
+      if (result.getChangeType() == ChangeType.DELETE) {
+        // Key-aspect / hard delete → entity-wide invalidation (aspectName null in batch).
+        // Intentionally not gated on UI source / sync-index header (unlike ingest/MCL paths):
+        // destructive deletes should invalidate cache immediately rather than wait for TTL.
+        SyncGraphInvalidationBatch invalidationBatch =
+            EntityGraphSyncInvalidationSupport.fromSyncEntityDelete(
+                opContext,
+                entityUrn.toString(),
+                entityUrn.getEntityType(),
+                result.getAspectName(),
+                Boolean.TRUE.equals(result.getKeyAffected()));
+        if (!invalidationBatch.isEmpty()) {
+          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+        }
+      } else if (result.getChangeType() == ChangeType.UPSERT) {
+        SyncGraphInvalidationBatch invalidationBatch =
+            EntityGraphSyncInvalidationSupport.fromSyncAspectRollback(
+                opContext, entityUrn.toString(), entityUrn.getEntityType(), result.getAspectName());
+        if (!invalidationBatch.isEmpty()) {
+          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+        }
+      }
     }
 
     return result;
