@@ -120,13 +120,13 @@ def test_build_browse_path_v2_with_ancestors() -> None:
     ]
 
 
-def test_build_browse_path_v2_ancestor_not_ingested_has_no_urn() -> None:
+def test_build_browse_path_v2_ancestor_not_ingested_is_omitted() -> None:
     parent_metadata = {
         "child": {"parent": {"type": "page_id", "page_id": "parent"}},
         "parent": {"parent": {"type": "page_id", "page_id": "root"}},
         "root": {"parent": {"type": "workspace", "workspace": True}},
     }
-    # Only the child is in scope; ancestors are referenced but not ingested.
+    # Only the child is in scope; ancestors outside the run are not in the path.
     browse_path = NotionHierarchyExtractor.build_browse_path_v2(
         page_id="child",
         parent_metadata=parent_metadata,
@@ -135,9 +135,7 @@ def test_build_browse_path_v2_ancestor_not_ingested_has_no_urn() -> None:
         ingested_page_ids={"child"},
     )
 
-    assert browse_path is not None
-    assert [e.id for e in browse_path.path] == ["Engineering", "API"]
-    assert all(e.urn is None for e in browse_path.path)
+    assert browse_path is None
 
 
 def test_build_browse_path_v2_empty_page_id_returns_none() -> None:
@@ -166,8 +164,8 @@ def test_build_browse_path_v2_no_metadata_map_returns_none() -> None:
     )
 
 
-def test_build_browse_path_v2_without_ingested_set_has_no_urns() -> None:
-    """When the ingested set is omitted, ancestors are labeled but carry no URN."""
+def test_build_browse_path_v2_without_ingested_set_includes_all_ancestors() -> None:
+    """When the ingested set is omitted, all resolved ancestors are included."""
     parent_metadata = {
         "child": {"parent": {"type": "page_id", "page_id": "root"}},
         "root": {"parent": {"type": "workspace", "workspace": True}},
@@ -181,4 +179,42 @@ def test_build_browse_path_v2_without_ingested_set_has_no_urns() -> None:
 
     assert browse_path is not None
     assert [e.id for e in browse_path.path] == ["Engineering"]
-    assert browse_path.path[0].urn is None
+    assert browse_path.path[0].urn == _urn("root")
+
+
+def test_build_browse_path_v2_explicit_root_has_no_ancestors() -> None:
+    """A page explicitly scoped via page_ids is a browse-path root."""
+    parent_metadata = {
+        "scoped-page": {"parent": {"type": "page_id", "page_id": "outside-parent"}},
+        "outside-parent": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="scoped-page",
+        parent_metadata=parent_metadata,
+        urn_builder=_urn,
+        title_resolver=_title,
+        ingested_page_ids={"scoped-page"},
+        browse_path_root_ids={"scoped-page"},
+    )
+
+    assert browse_path is None
+
+
+def test_build_browse_path_v2_explicit_root_anchors_descendants() -> None:
+    parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "scoped-page"}},
+        "scoped-page": {"parent": {"type": "page_id", "page_id": "outside-parent"}},
+        "outside-parent": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="child",
+        parent_metadata=parent_metadata,
+        urn_builder=_urn,
+        title_resolver=_title,
+        ingested_page_ids={"scoped-page", "child"},
+        browse_path_root_ids={"scoped-page"},
+    )
+
+    assert browse_path is not None
+    assert [e.id for e in browse_path.path] == ["scoped-page"]
+    assert browse_path.path[0].urn == _urn("scoped-page")

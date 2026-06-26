@@ -349,6 +349,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # page_id -> emitted document title, used to label browse-path ancestors
         self.notion_page_titles: Dict[str, str] = {}
 
+        # When the user scopes ingestion via page_ids/database_ids, browse paths
+        # are anchored at those roots instead of walking up to un-ingested parents.
+        if config.page_ids or config.database_ids:
+            self._browse_path_root_ids: Set[str] = set(config.page_ids) | set(
+                config.database_ids
+            )
+        else:
+            self._browse_path_root_ids = set()
+
         # Initialize stateful ingestion handler for stale entity removal
 
         # Initialize document state tracking for content-based change detection
@@ -2129,6 +2138,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     urn_builder=self._build_notion_document_urn,
                     title_resolver=self._notion_title_for_page,
                     ingested_page_ids=ingested_page_ids,
+                    browse_path_root_ids=self._browse_path_root_ids or None,
                 )
                 if browse_path_v2:
                     doc._set_aspect(browse_path_v2)
