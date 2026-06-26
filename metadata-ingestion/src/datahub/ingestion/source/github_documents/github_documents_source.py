@@ -61,6 +61,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentStateClass,
@@ -382,6 +383,40 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._source_id_to_title[source_id] = title
         self._source_id_to_parent[source_id] = parent_source_id
 
+    def _browse_path_prefix_entries(self) -> List[BrowsePathEntryClass]:
+        """Build the leading browse-path entries shared by all documents.
+
+        Order (top-most first): configured parent document, organization, then
+        repository. The synthetic repository entry is only added when no
+        repo-root document exists; otherwise that document already provides a
+        (clickable) repository entry in each descendant's ancestor chain and
+        the repo-root document itself must not list itself as a parent.
+        """
+        entries: List[BrowsePathEntryClass] = []
+
+        if self.config.parent_document_urn:
+            entries.append(
+                BrowsePathEntryClass(
+                    id=self.config.parent_document_urn,
+                    urn=self.config.parent_document_urn,
+                )
+            )
+
+        owner_repo = self.config.repository
+        org_name, _, repo_name = owner_repo.partition("/")
+
+        if self.config.include_organization_in_browse_path and org_name:
+            entries.append(BrowsePathEntryClass(id=org_name))
+
+        if (
+            self.config.include_repository_in_browse_path
+            and repo_name
+            and self._repo_root_source_id is None
+        ):
+            entries.append(BrowsePathEntryClass(id=repo_name))
+
+        return entries
+
     def _attach_browse_path(self, doc: Document, source_id: str) -> None:
         """Attach a BrowsePathsV2 aspect describing the document's ancestry.
 
@@ -395,15 +430,20 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 parent_links=self._source_id_to_parent,
                 titles=self._source_id_to_title,
                 urns=self._source_id_to_urn,
-                root_parent_urn=self.config.parent_document_urn,
+                prefix_entries=self._browse_path_prefix_entries(),
             )
             if browse_path:
                 doc._set_aspect(browse_path)
         except Exception as exc:
-            logger.warning(
-                "Failed to build browse path for %s; emitting document without it: %s",
-                source_id,
-                exc,
+            self.report.warning(
+                title="Browse path generation failed",
+                message=(
+                    "Failed to build the browse path for a document; it was "
+                    "emitted without one. Hierarchical navigation may be "
+                    "incomplete for the affected document."
+                ),
+                context=f"source_id={source_id}",
+                exc=exc,
             )
 
     def _resolve_parent_urn(self, parent_source_id: Optional[str]) -> Optional[str]:

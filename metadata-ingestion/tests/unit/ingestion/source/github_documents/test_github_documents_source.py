@@ -473,7 +473,8 @@ def test_browse_path_emitted_for_nested_file(source: GitHubDocumentsSource) -> N
     file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
 
     file_browse_path = browse_paths[urns[file_source_id]]
-    # Ancestors only (root -> immediate parent); the file itself is excluded.
+    # Default flow: the repo-root document provides the repo entry (clickable),
+    # followed by folder ancestors; the file itself is excluded.
     assert [e.urn for e in file_browse_path.path] == [
         urns[repo_source_id],
         urns[guides_dir_source_id],
@@ -493,8 +494,88 @@ def test_browse_path_not_emitted_for_repo_root(source: GitHubDocumentsSource) ->
     browse_paths = _browse_paths_by_urn(workunits)
 
     repo_source_id = make_repo_source_id(owner_repo)
-    # Repo-root document has no ancestors, so it carries no browse path.
+    # Repo-root document has no ancestors (org disabled), so no browse path.
     assert urns[repo_source_id] not in browse_paths
+
+
+def test_browse_path_includes_repo_name_without_root_document() -> None:
+    # When the repo-root document is skipped, a synthetic repo entry keeps the
+    # repository name in the browse path so users aren't confused.
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        create_repo_root_document=False,
+    )
+    source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
+    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+
+    file_browse_path = browse_paths[urns[file_source_id]]
+    assert [e.id for e in file_browse_path.path] == ["docs", "guides"]
+    # Repo entry is synthetic (no document exists for it) -> no URN.
+    assert file_browse_path.path[0].urn is None
+    assert file_browse_path.path[1].urn == urns[guides_dir_source_id]
+
+
+def test_browse_path_includes_org_when_enabled() -> None:
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        include_organization_in_browse_path=True,
+    )
+    source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    repo_source_id = make_repo_source_id("acme/docs")
+    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+
+    file_browse_path = browse_paths[urns[file_source_id]]
+    # Org is the top-most entry; the repo-root document follows (clickable).
+    assert [e.id for e in file_browse_path.path] == ["acme", "docs", "guides"]
+    assert file_browse_path.path[0].urn is None  # org is synthetic
+    assert file_browse_path.path[1].urn == urns[repo_source_id]
+
+
+def test_browse_path_repo_can_be_disabled() -> None:
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        create_repo_root_document=False,
+        include_repository_in_browse_path=False,
+    )
+    source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    file_browse_path = browse_paths[urns[file_source_id]]
+    # No repo-root doc and repo entry disabled -> only folder ancestors.
+    assert [e.id for e in file_browse_path.path] == ["guides"]
 
 
 def test_browse_path_roots_under_configured_parent() -> None:
@@ -519,12 +600,45 @@ def test_browse_path_roots_under_configured_parent() -> None:
     file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
 
     file_browse_path = browse_paths[urns[file_source_id]]
-    # Configured external parent roots the path, followed by in-repo ancestors.
+    # Configured external parent roots the path, then the synthetic repo name
+    # (no repo-root doc in this mode), then in-repo folder ancestors.
     assert file_browse_path.path[0].urn == parent_urn
+    assert [e.id for e in file_browse_path.path] == [
+        "urn:li:document:parent",
+        "docs",
+        "guides",
+    ]
     assert [e.urn for e in file_browse_path.path] == [
         parent_urn,
+        None,
         urns[guides_dir_source_id],
     ]
+
+
+def test_browse_path_failure_reports_warning_and_still_emits(
+    source: GitHubDocumentsSource,
+) -> None:
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    with patch(
+        "datahub.ingestion.source.github_documents.github_documents_source.GitHubHierarchyExtractor.build_browse_path_v2",
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(source.get_workunits())
+
+    # Document is still emitted despite the browse-path failure.
+    infos = _document_infos_by_source_id(workunits)
+    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    assert file_source_id in infos
+
+    # Failure surfaces as a structured warning -> "succeeded with warnings".
+    assert any(
+        warning.title == "Browse path generation failed"
+        for warning in source.report.warnings
+    )
 
 
 def test_file_document_includes_content_hash_and_blob_sha(

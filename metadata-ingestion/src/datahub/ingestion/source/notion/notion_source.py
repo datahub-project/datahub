@@ -1749,9 +1749,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                         if title:
                             self.notion_page_titles[page_id] = title
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to pre-compute title for Notion page {page_id}; "
-                            f"browse-path labels may fall back to the page ID: {e}"
+                        self.report.warning(
+                            title="Browse path label resolution failed",
+                            message=(
+                                "Failed to pre-compute a Notion page title for "
+                                "browse-path labels; ancestor entries may fall "
+                                "back to the raw page ID."
+                            ),
+                            context=f"page_id={page_id}",
+                            exc=e,
                         )
 
                 # Save for second pass
@@ -2127,9 +2133,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 if browse_path_v2:
                     doc._set_aspect(browse_path_v2)
             except Exception as e:
-                logger.warning(
-                    f"Failed to build browse path for Notion page {page_id}; "
-                    f"emitting document without it: {e}"
+                self.report.warning(
+                    title="Browse path generation failed",
+                    message=(
+                        "Failed to build the browse path for a Notion page; it "
+                        "was emitted without one. Hierarchical navigation may be "
+                        "incomplete for the affected page."
+                    ),
+                    context=f"page_id={page_id}",
+                    exc=e,
                 )
 
         # Get document URN for chunking/embedding (convert to string)
