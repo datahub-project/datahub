@@ -410,6 +410,74 @@ def test_extract_notion_parent_urn_with_ingested_pages():
     assert parent_urn is None
 
 
+def _make_notion_source() -> NotionSource:
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
+
+
+def test_build_notion_document_urn_matches_parent_urn():
+    """Browse-path URNs must match the URN derived for parent references."""
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child-page-id": {"parent": {"type": "page_id", "page_id": "parent-page-id"}}
+    }
+    metadata = {"data_source": {"record_locator": {"page_id": "child-page-id"}}}
+
+    parent_urn = source._extract_notion_parent_urn(
+        [], metadata, {"child-page-id", "parent-page-id"}
+    )
+    assert parent_urn == source._build_notion_document_urn("parent-page-id")
+
+
+def test_notion_title_for_page_falls_back_to_page_id():
+    source = _make_notion_source()
+    source.notion_page_titles = {"known": "Known Title"}
+
+    assert source._notion_title_for_page("known") == "Known Title"
+    assert source._notion_title_for_page("unknown") == "unknown"
+
+
+def test_source_emits_hierarchical_browse_path():
+    """The source wiring should produce a BrowsePathsV2 with ancestor URNs/titles."""
+    from datahub.ingestion.source.notion.notion_hierarchy import (
+        NotionHierarchyExtractor,
+    )
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "parent"}},
+        "parent": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source.notion_page_titles = {
+        "parent": "Parent Page",
+        "root": "Root Page",
+    }
+    ingested = {"child", "parent", "root"}
+
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="child",
+        parent_metadata=source.notion_parent_metadata,
+        urn_builder=source._build_notion_document_urn,
+        title_resolver=source._notion_title_for_page,
+        ingested_page_ids=ingested,
+    )
+
+    assert browse_path is not None
+    assert [e.id for e in browse_path.path] == ["Root Page", "Parent Page"]
+    assert browse_path.path[0].urn == source._build_notion_document_urn("root")
+    assert browse_path.path[1].urn == source._build_notion_document_urn("parent")
+
+
 def test_stateful_ingestion_config_disabled_by_default():
     """Test that stateful ingestion is disabled by default (no config set)."""
     config = NotionSourceConfig(
