@@ -40,27 +40,20 @@ class OmniClient:
         )
 
     def _throttle(self) -> None:
-        """Thread-safe rate limiting with sleep outside lock.
-
-        Each thread reserves its time slot by updating _last_request_ts,
-        then sleeps outside the lock so other threads can proceed in parallel.
-        """
-        # Calculate sleep time and reserve next slot while holding lock
+        """Thread-safe rate limiting."""
         with self._throttle_lock:
             now = time.monotonic()
             target_time = self._last_request_ts + self._min_interval
             sleep_seconds = max(0.0, target_time - now)
-            # Reserve the next time slot by updating _last_request_ts
-            # This allows the next thread to calculate its slot while we sleep
-            self._last_request_ts = max(now, target_time)
 
-        # Sleep OUTSIDE the lock so other threads can proceed
-        if sleep_seconds > 0:
-            logger.debug(
-                "Throttling request: sleeping for %.3f seconds to respect rate limit",
-                sleep_seconds,
-            )
-            time.sleep(sleep_seconds)
+            if sleep_seconds > 0:
+                logger.warning(
+                    "Throttling request: sleeping for %.3f seconds to respect rate limit",
+                    sleep_seconds,
+                )
+                time.sleep(sleep_seconds)
+
+            self._last_request_ts = time.monotonic()
 
     def _request(
         self, method: str, path: str, params: Optional[Dict[str, Any]] = None
