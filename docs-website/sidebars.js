@@ -647,6 +647,11 @@ module.exports = {
           id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
           className: "saasOnly",
         },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
+          className: "saasOnly",
+        },
       ],
     },
     {

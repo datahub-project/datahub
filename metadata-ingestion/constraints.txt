@@ -811,7 +811,7 @@ locket==1.0.0
     # via partd
 looker-sdk==25.20.0
     # via acryl-datahub
-lxml==5.4.0
+lxml==6.1.1
     # via
     #   redshift-connector
     #   unstructured
@@ -1394,7 +1394,7 @@ readme-renderer==44.0
     # via twine
 redash-toolbelt==0.1.9
     # via acryl-datahub
-redshift-connector==2.1.12
+redshift-connector==2.1.15
     # via acryl-datahub
 referencing==0.37.0
     # via
