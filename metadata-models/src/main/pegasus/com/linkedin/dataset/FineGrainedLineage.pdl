@@ -57,10 +57,12 @@ record FineGrainedLineage {
   query: optional Urn
 
   /**
-  * How the upstream field references' URNs were resolved against the entities stored
-  * in DataHub. Set by the lineage URN casing normalization processor (EXACT when the
-  * references already matched existing entities, NORMALIZED when any were rewritten to
-  * heal a casing mismatch). Absent when no reconciliation was performed.
+  * Aggregate of how the upstream field references' URNs were resolved against the
+  * entities stored in DataHub. Set by the lineage URN casing normalization processor:
+  * NORMALIZED if any field was rewritten to heal a casing mismatch, else UNRESOLVED if
+  * any could not be resolved, else EXACT. Absent when no reconciliation was performed
+  * (out of scope). Reflects DataHub's knowledge at ingestion time and is not
+  * re-evaluated later; see LineageMatchType.
   */
   matchType: optional LineageMatchType
 }
