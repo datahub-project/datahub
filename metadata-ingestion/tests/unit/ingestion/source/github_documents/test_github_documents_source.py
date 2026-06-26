@@ -23,6 +23,7 @@ from datahub.ingestion.source.github_documents.github_documents_source import (
     compute_file_content_hash,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentSourceTypeClass,
@@ -54,6 +55,17 @@ def _document_infos_by_source_id(workunits: list) -> dict[str, DocumentInfoClass
             if source_id:
                 infos[source_id] = info
     return infos
+
+
+def _browse_paths_by_urn(workunits: list) -> dict[str, BrowsePathsV2Class]:
+    paths: dict[str, BrowsePathsV2Class] = {}
+    for wu in workunits:
+        if not isinstance(wu, MetadataWorkUnit):
+            continue
+        aspect = wu.get_aspect_of_type(BrowsePathsV2Class)
+        if aspect is not None:
+            paths[wu.get_urn()] = aspect
+    return paths
 
 
 def _mock_github_client(
@@ -443,6 +455,76 @@ def test_configured_parent_document_urn_used_for_top_level_files() -> None:
     configured_parent = infos[file_source_id].parentDocument
     assert configured_parent is not None
     assert configured_parent.document == parent_urn
+
+
+def test_browse_path_emitted_for_nested_file(source: GitHubDocumentsSource) -> None:
+    owner_repo = "acme/docs"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    repo_source_id = make_repo_source_id(owner_repo)
+    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
+    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+
+    file_browse_path = browse_paths[urns[file_source_id]]
+    # Ancestors only (root -> immediate parent); the file itself is excluded.
+    assert [e.urn for e in file_browse_path.path] == [
+        urns[repo_source_id],
+        urns[guides_dir_source_id],
+    ]
+    assert [e.id for e in file_browse_path.path] == ["docs", "guides"]
+
+
+def test_browse_path_not_emitted_for_repo_root(source: GitHubDocumentsSource) -> None:
+    owner_repo = "acme/docs"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    repo_source_id = make_repo_source_id(owner_repo)
+    # Repo-root document has no ancestors, so it carries no browse path.
+    assert urns[repo_source_id] not in browse_paths
+
+
+def test_browse_path_roots_under_configured_parent() -> None:
+    parent_urn = "urn:li:document:parent"
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        parent_document_urn=parent_urn,
+    )
+    source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    browse_paths = _browse_paths_by_urn(workunits)
+
+    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
+    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+
+    file_browse_path = browse_paths[urns[file_source_id]]
+    # Configured external parent roots the path, followed by in-repo ancestors.
+    assert file_browse_path.path[0].urn == parent_urn
+    assert [e.urn for e in file_browse_path.path] == [
+        parent_urn,
+        urns[guides_dir_source_id],
+    ]
 
 
 def test_file_document_includes_content_hash_and_blob_sha(

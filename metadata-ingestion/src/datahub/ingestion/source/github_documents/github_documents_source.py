@@ -46,6 +46,9 @@ from datahub.ingestion.source.github_documents.github_documents_config import (
 from datahub.ingestion.source.github_documents.github_documents_report import (
     GitHubDocumentsSourceReport,
 )
+from datahub.ingestion.source.github_documents.github_hierarchy import (
+    GitHubHierarchyExtractor,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -114,6 +117,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
         )
         self._source_id_to_urn: Dict[str, str] = {}
+        # Maps used to reconstruct hierarchical browse paths. Documents are
+        # emitted parent-before-child, so by the time a child is processed all
+        # of its ancestors are already present in these maps.
+        self._source_id_to_title: Dict[str, str] = {}
+        self._source_id_to_parent: Dict[str, Optional[str]] = {}
         self._repo_root_source_id: Optional[str] = (
             None
             if config.parent_document_urn or not config.create_repo_root_document
@@ -230,7 +238,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             parent_document=None,
             custom_properties=custom_properties,
         )
+        self._register_hierarchy(source_id, title, parent_source_id=None)
         self._source_id_to_urn[source_id] = str(doc.urn)
+        self._attach_browse_path(doc, source_id)
         self.report.folders_processed += 1
         yield from doc.as_workunits()
 
@@ -271,7 +281,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             parent_document=parent_urn,
             custom_properties=custom_properties,
         )
+        self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
         self._source_id_to_urn[source_id] = str(doc.urn)
+        self._attach_browse_path(doc, source_id)
         self.report.folders_processed += 1
         yield from doc.as_workunits()
 
@@ -332,7 +344,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             parent_document=parent_urn,
             custom_properties=custom_properties,
         )
+        self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
         self._source_id_to_urn[source_id] = str(doc.urn)
+        self._attach_browse_path(doc, source_id)
         self.report.files_processed += 1
         yield from doc.as_workunits()
 
@@ -360,6 +374,37 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
     def _register_document_for_stale_removal(self, document_urn: str) -> None:
         self.stale_entity_removal_handler.add_entity_to_state("document", document_urn)
+
+    def _register_hierarchy(
+        self, source_id: str, title: str, parent_source_id: Optional[str]
+    ) -> None:
+        """Record a document's title and parent link for browse-path building."""
+        self._source_id_to_title[source_id] = title
+        self._source_id_to_parent[source_id] = parent_source_id
+
+    def _attach_browse_path(self, doc: Document, source_id: str) -> None:
+        """Attach a BrowsePathsV2 aspect describing the document's ancestry.
+
+        Browse paths are a navigation enhancement, not core document data, so any
+        failure here is logged and the document is emitted without one rather
+        than failing ingestion.
+        """
+        try:
+            browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
+                source_id=source_id,
+                parent_links=self._source_id_to_parent,
+                titles=self._source_id_to_title,
+                urns=self._source_id_to_urn,
+                root_parent_urn=self.config.parent_document_urn,
+            )
+            if browse_path:
+                doc._set_aspect(browse_path)
+        except Exception as exc:
+            logger.warning(
+                "Failed to build browse path for %s; emitting document without it: %s",
+                source_id,
+                exc,
+            )
 
     def _resolve_parent_urn(self, parent_source_id: Optional[str]) -> Optional[str]:
         if parent_source_id:
