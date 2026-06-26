@@ -139,6 +139,7 @@ telemetry:
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
   v1AlgorithmEnabled: "${SECRET_SERVICE_V1_ALGORITHM_ENABLED:true}" # Force only v2 algorithm, invalidates all existing v1 encrypted secrets
+  callerGuardMode: "${SECRET_SERVICE_CALLER_GUARD_MODE:ENFORCE}" # ENFORCE (default), AUDIT, or DISABLED (kill-switch)
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -215,6 +216,37 @@ datahub:
         rules: []
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
+
+    # Entity hierarchy graph cache.
+    # Tier 1: application.yaml toggles below (enabled, configFile, configJson; pod-level eviction)
+    # Tier 2: ENTITY_GRAPH_CACHE_CONFIG_FILE — bundled entity-graph-cache.yaml or mounted YAML
+    #         (graph definitions + eviction.nearCache for snapshot IMaps)
+    # Tier 3: ENTITY_GRAPH_CACHE_CONFIG_JSON — JSON overlay merged at startup (like RATE_LIMITS_CONFIG_JSON)
+    entityGraphCache:
+      enabled: ${ENTITY_GRAPH_CACHE_ENABLED:true}
+      configFile:
+        enabled: ${ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED:true}
+        path: ${ENTITY_GRAPH_CACHE_CONFIG_FILE:entity-graph-cache.yaml}
+      configJson: ${ENTITY_GRAPH_CACHE_CONFIG_JSON:}
+      eviction:
+        local:
+          enabled: true
+          maxViews: 16
+          maxEstimatedBytes: 268435456
+        memoryPressure:
+          enabled: true
+          checkIntervalSeconds: 30
+          heapUsageThresholdPercent: 85
+          action: EVICT_LOCAL_LRU
+          cooldownSeconds: 120
+          hysteresisPercent: 5
+        hazelcast:
+          evictionPolicy: MAX_SIZE
+          maxSizePerNode: 32
+          maxSizePolicy: PER_NODE
+          heapMaxSizePercent: 0
+          ttlSeconds: 0
+          backupCount: 1
 
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
@@ -838,6 +870,7 @@ kafka:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
+    reconcileExistingTopicConfigs: ${KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS:false}
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:

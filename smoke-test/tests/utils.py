@@ -273,8 +273,11 @@ def execute_graphql(
     res_data = response.json()
 
     assert res_data, "GraphQL response is empty"
-    assert res_data.get("data") is not None, "GraphQL response.data is None"
-    assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
+    if not expect_errors:
+        assert res_data.get("data") is not None, (
+            f"GraphQL response.data is None. Errors: {res_data.get('errors')}"
+        )
+        assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
 
     return res_data
 

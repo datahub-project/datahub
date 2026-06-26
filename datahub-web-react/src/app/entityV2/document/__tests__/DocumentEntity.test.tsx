@@ -1512,6 +1512,12 @@ describe('Document Profile Rendering', () => {
 
             expect(overrides.lastIngested).toBeUndefined();
         });
+
+        it('should enable browse so documents appear in the platform navigation sidebar', () => {
+            // Documents carry browsePathsV2, so they must be browse-enabled to
+            // surface (with their space/folder hierarchy) in the left-nav browse tree.
+            expect(new DocumentEntity().isBrowseEnabled()).toBe(true);
+        });
     });
 
     describe('Document Profile Sidebar Sections', () => {

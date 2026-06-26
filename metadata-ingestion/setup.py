@@ -300,7 +300,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "GeoAlchemy2<0.19.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     *path_spec_common,
 }
 
@@ -829,6 +829,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -943,8 +944,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
-    "mypy==1.17.1",
+    "ruff==0.15.18",
+    "mypy==2.1.0",
 }
 
 base_dev_requirements = {
@@ -1030,6 +1031,7 @@ base_dev_requirements = {
             "unity-catalog",
             "nifi",
             "notion",
+            "github-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1204,6 +1206,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
+        "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
