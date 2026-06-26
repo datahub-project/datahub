@@ -772,11 +772,9 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [],
     },
     [QUIP]: {
-        fields: [QUIP_ACCESS_TOKEN, QUIP_BASE_URL, QUIP_DOCUMENTS_IMPORT_MODE],
-        filterFields: [QUIP_FOLDER_IDS, QUIP_THREAD_IDS],
+        fields: [QUIP_ACCESS_TOKEN, QUIP_BASE_URL, QUIP_FOLDER_IDS, QUIP_THREAD_IDS, QUIP_DOCUMENTS_IMPORT_MODE],
+        filterFields: [],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
-        filterSectionTooltip:
-            'Control which Quip content is ingested by listing specific folders or threads. Leave empty to auto-discover all accessible folders.',
     },
     [GITHUB_DOCUMENTS]: {
         fields: [
