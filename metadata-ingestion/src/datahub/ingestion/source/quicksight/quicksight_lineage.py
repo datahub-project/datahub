@@ -25,8 +25,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 
-S3_PLATFORM = "s3"
-
 
 class _UpstreamTarget:
     """Resolved upstream-platform coordinates for a single data source.
@@ -153,16 +151,19 @@ class QuickSightLineageExtractor:
         target = self._target_for(entry.get("DataSourceArn", ""))
         if target is None or not target.resolved.s3_manifest_uri:
             return []
-        # The manifest URI already encodes bucket/key; S3 datasets carry no
-        # platform instance.
-        return [
-            builder.make_dataset_urn_with_platform_instance(
-                platform=S3_PLATFORM,
-                name=target.resolved.s3_manifest_uri,
-                platform_instance=None,
-                env=target.env,
-            )
-        ]
+        # QuickSight only exposes the manifest location, not the underlying data
+        # file paths. DataHub's S3 source keys datasets by the data path/prefix,
+        # so a URN built from the manifest key would never match an S3-ingested
+        # dataset; we skip the edge rather than emit dangling lineage.
+        self.report.num_s3_lineage_skipped += 1
+        self.report.warning(
+            title="S3 upstream lineage not emitted",
+            message="QuickSight exposes only the S3 manifest location, not the "
+            "underlying data file paths, so upstream lineage to the S3 dataset "
+            "cannot be resolved reliably and is skipped to avoid dangling edges.",
+            context=target.resolved.s3_manifest_uri,
+        )
+        return []
 
     def _handle_custom_sql(
         self, dataset_urn: str, entry: dict

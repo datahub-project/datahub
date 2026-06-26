@@ -2,7 +2,7 @@
 
 #### Cross-platform lineage
 
-QuickSight Datasets are stitched to their upstream warehouse/database tables so lineage spans from a dashboard down to the source table. The connector resolves the upstream platform from the data source's connection parameters (Athena, Redshift, Snowflake, S3, RDS variants, and more).
+QuickSight Datasets are stitched to their upstream warehouse/database tables so lineage spans from a dashboard down to the source table. The connector resolves the upstream platform from the data source's connection parameters (Athena, Redshift, Snowflake, RDS variants, and more). S3-backed datasets are an exception — see the limitation below.
 
 For the upstream Dataset URNs to line up with the platform's own ingested tables, the env, `platform_instance`, and URN casing must match the upstream connector's recipe. Configure these per data source via `external_data_sources`, keyed by the QuickSight `DataSourceId` (UUID, preferred — it survives renames) with the display name accepted as a fallback.
 
@@ -31,6 +31,10 @@ Folders are a QuickSight Enterprise-edition feature. On Standard-edition account
 #### Definition payloads
 
 Chart (visual) entities are only emitted when `extract_dashboard_definitions` is enabled. Definition payloads are large; disable `extract_dashboard_definitions` / `extract_analysis_definitions` to reduce API cost at the expense of visual-level detail.
+
+#### No upstream lineage for S3-backed datasets
+
+QuickSight only exposes the **manifest file location** for S3 data sources (`DescribeDataSource → S3Parameters.ManifestFileLocation`); neither the data source nor the dataset's `PhysicalTableMap.S3Source` carries the underlying data file/prefix paths. Because DataHub's S3 source keys datasets by the data path/prefix, a URN built from the manifest key (`bucket/manifest.json`) would never match an S3-ingested dataset. The connector therefore **skips** upstream lineage for S3-backed datasets rather than emit a dangling edge (the skip count is reported, and the manifest location is preserved as a custom property on the data source entity). Relational (Athena/Redshift/Snowflake/…) and CustomSql lineage are unaffected.
 
 ### Troubleshooting
 

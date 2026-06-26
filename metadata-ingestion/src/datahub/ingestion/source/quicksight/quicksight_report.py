@@ -35,6 +35,9 @@ class QuickSightSourceReport(StaleEntityRemovalSourceReport):
     num_file_datasets_summary_only: int = 0
     num_unknown_data_source_types: int = 0
     num_sqlglot_parse_failures: int = 0
+    # S3-backed datasets whose upstream lineage was skipped because QuickSight
+    # only exposes the manifest location, not the underlying data file paths.
+    num_s3_lineage_skipped: int = 0
 
     # Folders are an Enterprise-edition feature; record when they are unavailable.
     folders_unsupported: bool = field(default=False)

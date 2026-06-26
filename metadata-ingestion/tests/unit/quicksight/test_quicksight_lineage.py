@@ -113,7 +113,7 @@ def test_unknown_data_source_arn_is_skipped():
     )
 
 
-def test_s3_source_uses_manifest_uri():
+def test_s3_source_skips_lineage_to_avoid_dangling_manifest_urn():
     s3 = ResolvedDataSource(
         arn=_ATHENA_ARN,
         data_source_id="s3-uuid",
@@ -128,10 +128,8 @@ def test_s3_source_uses_manifest_uri():
         _QS_DATASET_URN, {"t1": {"S3Source": {"DataSourceArn": _ATHENA_ARN}}}
     )
 
-    assert lineage is not None
-    upstream = lineage.upstreams[0].dataset
-    assert "dataPlatform:s3" in upstream
-    assert "my-bucket/data/manifest.json" in upstream
+    assert lineage is None
+    assert extractor.report.num_s3_lineage_skipped == 1
 
 
 def test_external_override_applies_platform_instance_and_env():
