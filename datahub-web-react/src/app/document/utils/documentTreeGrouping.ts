@@ -1,82 +1,56 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
-
-import { DataPlatform } from '@types';
-
-/**
- * Resolves a user-facing label for a source platform.
- *
- * Prefers the backend-populated `properties.displayName` ("Google Docs", "Confluence").
- * Falls back to title-casing the raw platform name when display name is missing —
- * `google_docs` becomes `Google Docs`, `confluence` becomes `Confluence`. This is
- * a stopgap so the sidebar reads cleanly even when a platform's metadata aspect
- * hasn't been bootstrapped server-side.
- *
- * @param platform - Source platform
- * @returns Display label suitable for a section header
- */
-export function formatPlatformLabel(platform: DataPlatform): string {
-    const displayName = platform.properties?.displayName;
-    if (displayName) return displayName;
-
-    const name = platform.name || '';
-    return name
-        .split('_')
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-}
-
-export interface DocumentSourceGroup {
-    platform: DataPlatform;
-    nodes: DocumentTreeNode[];
-}
+import { DATAHUB_PLATFORM_URN } from '@app/document/utils/documentTreeFilters';
 
 export interface PartitionedRootNodes {
-    /** Native (DataHub-authored) root documents — rendered under the "DataHub" section. */
+    /**
+     * Root documents that belong to DataHub itself — rendered under the
+     * "DataHub" section.
+     *
+     * The backend resolves a document's `platform` from its data-platform-instance
+     * aspect, defaulting to the DataHub platform when no such aspect exists. So a
+     * document lands here when its platform is the DataHub platform or when it
+     * carries no platform at all (any path to the platform-instance-derived
+     * platform is null) — i.e. there is no external source behind it.
+     */
     native: DocumentTreeNode[];
     /**
-     * External root documents grouped by source platform. Order is determined
-     * by first appearance in the input — callers can sort the input upstream
-     * to control display order deterministically.
-     *
-     * External nodes that have no platform are dropped: without a platform
-     * URN they can't be placed in a source bucket. This is rare in practice
-     * (the GraphQL layer hydrates `platform` for external docs) but the
-     * partitioner is defensive about it.
+     * Every root document sourced from a non-DataHub platform (GitHub, Notion,
+     * Confluence, …), collapsed into a single "Other" bucket regardless of which
+     * specific platform produced it. Order follows first appearance in the input.
      */
-    sourcesByPlatform: DocumentSourceGroup[];
+    other: DocumentTreeNode[];
 }
 
 /**
- * Splits a flat list of root tree nodes into the two layers the sidebar renders:
+ * Splits a flat list of root tree nodes into the two sections the sidebar
+ * renders, keyed on the document's source platform (independent of whether the
+ * document was imported as NATIVE or EXTERNAL):
  *
- *   - `native` — native documents (the curated, DataHub-authored layer, shown
- *      under the "DataHub" section header)
- *   - `sourcesByPlatform` — external documents bucketed by source platform
- *      (Google Docs, Confluence, GitHub, …)
+ *   - `native` — documents on the DataHub platform, or with no platform at all,
+ *      shown under the "DataHub" section header
+ *   - `other` — every document from a non-DataHub platform, collapsed into a
+ *      single "Other" section
+ *
+ * Keying on platform — rather than the NATIVE/EXTERNAL source type — means a
+ * GitHub document imported as NATIVE is still treated as an external source
+ * (its resolved platform is `github`, not `datahub`) and lands in "Other".
  *
  * @param rootNodes - Root nodes from the document tree
- * @returns Native nodes alongside per-platform groups of external nodes
+ * @returns DataHub-platform nodes alongside the collapsed "Other" bucket
  */
 export function partitionRootNodesByLayer(rootNodes: DocumentTreeNode[]): PartitionedRootNodes {
     const native: DocumentTreeNode[] = [];
-    const groupsByUrn = new Map<string, DocumentSourceGroup>();
+    const other: DocumentTreeNode[] = [];
 
     rootNodes.forEach((node) => {
-        if (!node.isExternal) {
-            native.push(node);
-            return;
-        }
-        const { platform } = node;
-        if (!platform?.urn) return;
+        const platformUrn = node.platform?.urn;
 
-        const existing = groupsByUrn.get(platform.urn);
-        if (existing) {
-            existing.nodes.push(node);
+        if (!platformUrn || platformUrn === DATAHUB_PLATFORM_URN) {
+            native.push(node);
         } else {
-            groupsByUrn.set(platform.urn, { platform, nodes: [node] });
+            other.push(node);
         }
     });
 
-    return { native, sourcesByPlatform: [...groupsByUrn.values()] };
+    return { native, other };
 }
