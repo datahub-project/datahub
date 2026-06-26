@@ -98,7 +98,7 @@ class _ModelContext:
 
 
 @dataclass
-class SemanticField:
+class _SemanticField:
     model_id: str
     view_name: str
     field_name: str
@@ -145,7 +145,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         )
         # Internal caches – populated during _ingest_semantic_model and reused
         # later when processing documents/dashboards.
-        self._semantic_fields: Dict[str, SemanticField] = {}
+        self._semantic_fields: Dict[str, _SemanticField] = {}
         self._semantic_dataset_urns: Set[str] = set()
         self._topic_dataset_urns: Set[str] = set()
         self._topic_urn_by_key: Dict[str, str] = {}
@@ -223,7 +223,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             ],
             fineGrainedLineages=fine_grained_lineages or None,
         )
-        self.report.dataset_lineage_edges_emitted += len(upstreams)
+        self.report.increment_counter("dataset_lineage_edges_emitted", len(upstreams))
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=lineage
         ).as_workunit()
@@ -673,7 +673,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             subtype="Connection",
         )
         self._connection_dataset_urns.add(connection_urn)
-        self.report.semantic_datasets_emitted += 1
+        self.report.increment_counter("semantic_datasets_emitted")
 
     # ------------------------------------------------------------------
     # Topic / view ingestion
@@ -698,7 +698,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         if topic_key in self._topic_ingested_keys:
             return
         self._topic_ingested_keys.add(topic_key)
-        self.report.topics_scanned += 1
+        self.report.increment_counter("topics_scanned")
 
         topic_urn = self._topic_dataset_urn(model_id, topic_name)
         self._topic_dataset_urns.add(topic_urn)
@@ -724,7 +724,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties=topic_props,
             subtype=DatasetSubTypes.TOPIC,
         )
-        self.report.semantic_datasets_emitted += 1
+        self.report.increment_counter("semantic_datasets_emitted")
 
         topic_view_urns: Set[str] = set()
         views_raw = topic.get("views", [])
@@ -844,7 +844,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     seen_fields.add(fn)
                 key = self._canonical_semantic_field_key(model_id, view_name, fn)
-                sf = SemanticField(
+                sf = _SemanticField(
                     model_id=model_id,
                     view_name=view_name,
                     field_name=fn,
@@ -884,7 +884,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     "exact" if refs else "derived" if expr else "unresolved"
                 )
                 key = self._canonical_semantic_field_key(model_id, view_name, fn)
-                sf = SemanticField(
+                sf = _SemanticField(
                     model_id=model_id,
                     view_name=view_name,
                     field_name=fn,
@@ -933,7 +933,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 upstreams=view_upstreams,
             )
             topic_view_urns.add(semantic_urn)
-            self.report.semantic_datasets_emitted += 1
+            self.report.increment_counter("semantic_datasets_emitted")
 
         # Topic is built from its views — emit topic upstream lineage
         if topic_view_urns:
@@ -984,8 +984,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             for connection_id, connection in self._connections_by_id.items():
                 if not connection_id:
                     continue
-                with self.report._report_lock:
-                    self.report.connections_scanned += 1
+                self.report.increment_counter("connections_scanned")
                 yield from self._ensure_connection_dataset(connection_id, connection)
 
             self._warn_unmapped_connections(self._connections_by_id)
@@ -1009,6 +1008,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_id = model.get("id")
             if not model_id:
                 return []
+
+            logger.info("Processing model: model_id=%s", model_id)
+            logger.debug("Full model object: %s", model)
 
             # Get pre-populated context
             ctx = self._model_context_by_id.get(model_id)
@@ -1089,8 +1091,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             )
                         )
                         self._model_dataset_urns.add(base_model_urn)
-                        with self.report._report_lock:
-                            self.report.semantic_datasets_emitted += 1
+                        self.report.increment_counter("semantic_datasets_emitted")
 
             model_upstreams_aspect: Optional[UpstreamLineageClass] = None
             if model_upstream_urns:
@@ -1112,8 +1113,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     upstreams=model_upstreams_aspect,
                 )
             )
-            with self.report._report_lock:
-                self.report.semantic_datasets_emitted += 1
+            self.report.increment_counter("semantic_datasets_emitted")
 
             try:
                 model_yaml_payload = self.client.get_model_yaml(model_id)
@@ -1250,8 +1250,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_dropped(model_id)
                     continue
 
-                with self.report._report_lock:
-                    self.report.models_scanned += 1
+                self.report.increment_counter("models_scanned")
                 filtered_models.append(model)
 
         except Exception as exc:
@@ -1264,13 +1263,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
         # Phase 2: Process filtered models in parallel
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            # Submit all model processing tasks
             future_to_model = {
                 executor.submit(self._process_model_worker, model): model
                 for model in filtered_models
             }
 
-            # Yield work units as they complete
             for future in as_completed(future_to_model):
                 try:
                     work_units = future.result()
@@ -1536,7 +1533,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             },
                             subtype=DatasetSubTypes.TOPIC,
                         )
-                        self.report.semantic_datasets_emitted += 1
+                        self.report.increment_counter("semantic_datasets_emitted")
                     chart_inputs[qp_id].add(topic_urn)
                     dashboard_topic_urns.add(topic_urn)
                     # Track which topic each view belongs to
@@ -1595,7 +1592,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     subtype="View",
                     schema_fields=inferred_schema_fields or None,
                 )
-                self.report.semantic_datasets_emitted += 1
+                self.report.increment_counter("semantic_datasets_emitted")
                 # Register this inferred view as upstream of its topic(s)
                 for topic_urn in view_topic_urns:
                     topic_to_inferred_views.setdefault(topic_urn, set()).add(
@@ -1658,13 +1655,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             doc_id = document.get("identifier")
             if not doc_id:
                 return []
+
+            logger.info("Processing document: doc_id=%s", doc_id)
+            logger.debug("Full document object: %s", document)
+
             if not self.config.document_pattern.allowed(doc_id):
                 with self.report._report_lock:
                     self.report.report_dropped(doc_id)
                 return []
 
-            with self.report._report_lock:
-                self.report.documents_scanned += 1
+            self.report.increment_counter("documents_scanned")
 
             has_dashboard = bool(document.get("hasDashboard"))
             if not has_dashboard and not self.config.include_workbook_only:
@@ -1697,8 +1697,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 str(lb.get("name") if isinstance(lb, dict) else lb)
                 for lb in (labels if isinstance(labels, list) else [])
             ]
-            with self.report._report_lock:
-                self.report.dashboards_scanned += 1
+            self.report.increment_counter("dashboards_scanned")
 
             if folder_id:
                 work_units.extend(
@@ -1862,9 +1861,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         using ThreadPoolExecutor with the configured max_workers.
         """
         # Collect all documents first
-        documents: List[Dict[str, Any]] = []
         try:
-            documents = list(
+            documents: List[Dict[str, Any]] = list(
                 self.client.list_documents(
                     page_size=self.config.page_size,
                     include_deleted=self.config.include_deleted,

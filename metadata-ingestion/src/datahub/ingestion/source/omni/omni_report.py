@@ -28,5 +28,16 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
         # Lock for thread-safe counter updates
         self._report_lock = threading.Lock()
 
+    def increment_counter(self, name: str, delta: int = 1) -> None:
+        """Thread-safe counter increment.
+
+        Args:
+            name: Counter attribute name (e.g., "models_scanned")
+            delta: Amount to increment by (default: 1)
+        """
+        with self._report_lock:
+            current = getattr(self, name)
+            setattr(self, name, current + delta)
+
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
