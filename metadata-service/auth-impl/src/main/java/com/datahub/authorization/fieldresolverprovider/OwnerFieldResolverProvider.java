@@ -71,7 +71,7 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
                 .map(Owner::getOwner)
                 .map(Urn::toString)
                 .collect(Collectors.toUnmodifiableSet()))
-        .owners(Set.copyOf(owners))
+        .typedValues(Set.copyOf(owners))
         .build();
   }
 }
