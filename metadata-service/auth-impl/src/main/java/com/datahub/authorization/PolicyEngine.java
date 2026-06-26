@@ -166,7 +166,7 @@ public class PolicyEngine {
 
       // 2. Fetch Actors based on resource ownership.
       if (actorFilter.isResourceOwners() && resource.isPresent()) {
-        Set<Owner> owners = resource.get().getOwners();
+        Set<Owner> owners = resource.get().getTypedValues(EntityFieldType.OWNER);
         users.addAll(userOwners(owners));
         groups.addAll(groupOwners(owners));
       }
@@ -480,7 +480,7 @@ public class PolicyEngine {
     if (spec.getSpec().getEntity().isEmpty()) {
       return Set.of();
     }
-    Stream<Owner> ownersStream = spec.getOwners().stream();
+    Stream<Owner> ownersStream = spec.<Owner>getTypedValues(EntityFieldType.OWNER).stream();
     if (ownershipTypes != null) {
       ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
     }
