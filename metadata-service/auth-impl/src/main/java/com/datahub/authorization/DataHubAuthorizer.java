@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -18,6 +19,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -548,6 +550,15 @@ public class DataHubAuthorizer
           }
         }
 
+        // Sort each privilege's list once at build time: cheapest actor predicates first.
+        // allUsers/allGroups short-circuit instantly; specific users/groups/roles are cheap and
+        // memoized; resourceOwners requires an ownership fetch and goes last.
+        newCache.replaceAll(
+            (privilege, policies) -> {
+              policies.sort(Comparator.comparingInt(PolicyRefreshRunnable::actorMatchCost));
+              return policies;
+            });
+
         writeLock.lock();
         try {
           policyCache.clear();
@@ -565,6 +576,23 @@ public class DataHubAuthorizer
       }
     }
 
+    /**
+     * Cost rank for a policy's actor predicate. Lower cost = earlier in the evaluation list.
+     * allUsers/allGroups can ALLOW without touching the resource or any resolved field. Specific
+     * users/groups/roles are cheap: groups and roles are memoized per request. resourceOwners
+     * requires an ownership fetch and is ranked last.
+     */
+    private static int actorMatchCost(DataHubPolicyInfo policy) {
+      final DataHubActorFilter actors = policy.getActors();
+      if (actors.isAllUsers() || actors.isAllGroups()) {
+        return 0;
+      }
+      if (!actors.isResourceOwners()) {
+        return 1;
+      }
+      return 2;
+    }
+
     private void addPoliciesToCache(
         final Map<String, List<DataHubPolicyInfo>> cache,
         final List<PolicyFetcher.Policy> policies) {
@@ -573,6 +601,9 @@ public class DataHubAuthorizer
 
     private void addPolicyToCache(
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
+      if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {
+        return;
+      }
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {
         List<DataHubPolicyInfo> existingPolicies =
