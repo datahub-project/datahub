@@ -13,6 +13,10 @@ from rdflib import Graph
 from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 from datahub.ingestion.source.rdf.entities.domain.builder import DomainBuilder
 from datahub.ingestion.source.rdf.entities.registry import create_default_registry
+from datahub.ingestion.source.rdf.entities.relationship.extractor import (
+    RelationshipExtractor,
+)
+from datahub.ingestion.source.rdf.ontology.resolver import resolve_ontology
 from datahub.ingestion.source.rdf.rdf_config import RDFSourceConfig
 
 logger = logging.getLogger(__name__)
@@ -58,12 +62,16 @@ class RDFToASTConverter:
         registry = create_default_registry()
         dialect_instance = self._create_dialect_instance()
 
+        # Create DataHubGraph
+        datahub_graph = DataHubGraph()
+
         context = {
             "environment": environment,
             "export_only": export_only,
             "skip_export": skip_export,
             "dialect": dialect_instance,
             "include_provisional": self.config.include_provisional,
+            "datahub_graph": datahub_graph,
         }
 
         # When FIBO dialect is in use, extract ontology-level copyright for terms and term groups
@@ -73,11 +81,7 @@ class RDFToASTConverter:
             fibo_copyright = self._extract_ontology_copyright(graph)
             if fibo_copyright:
                 context["fibo_copyright"] = fibo_copyright
-
-        # Create DataHubGraph
-        datahub_graph = DataHubGraph()
-        if context.get("fibo_copyright"):
-            datahub_graph.metadata["fibo_copyright"] = context["fibo_copyright"]
+                datahub_graph.metadata["fibo_copyright"] = fibo_copyright
 
         # Helper to check if a CLI name should be processed
         def should_process_cli_name(cli_name: str) -> bool:
@@ -93,13 +97,14 @@ class RDFToASTConverter:
                 graph, registry, context
             )
 
-        # Extract relationships
+        # Extract relationships (ontology-gated routing)
         if should_process_cli_name("relationship"):
-            datahub_graph.relationships = self._extract_relationships(
+            datahub_graph.native_relationships = self._extract_relationships(
                 graph, registry, context
             )
+            datahub_graph.relationships = datahub_graph.native_relationships
 
-        # Build domains
+        # Build domains from concept terms only
         datahub_graph.domains = self._build_domains(
             datahub_graph.glossary_terms, context
         )
@@ -233,53 +238,37 @@ class RDFToASTConverter:
     def _extract_relationships(
         self, graph: Graph, registry: Any, context: Dict[str, Any]
     ) -> List[Any]:
-        """Extract relationships from RDF graph."""
+        """Harvest and route relationship triples via the DataHub ontology TBox."""
         entity_type = (
             registry.get_entity_type_from_cli_name("relationship") or "relationship"
         )
         extractor = registry.get_extractor(entity_type)
-
-        if not extractor:
+        if not extractor or not isinstance(extractor, RelationshipExtractor):
             return []
 
         try:
-            rdf_relationships = extractor.extract_all(graph, context)
-            converter = registry.get_converter(entity_type)
-            if not converter:
-                return []
+            ontology = resolve_ontology(self.config.ontology)
+            native, assignments, definitions = extractor.extract_and_route(
+                graph,
+                ontology,
+                skip_owl_axioms=self.config.skip_owl_axioms,
+                context=context,
+            )
 
-            datahub_relationships = []
-            for rdf_rel in rdf_relationships:
-                try:
-                    datahub_rel = converter.convert(rdf_rel, context)
-                    if datahub_rel:
-                        datahub_relationships.append(datahub_rel)
-                except (RuntimeError, ValueError) as e:
-                    rel_source = (
-                        str(rdf_rel.source_urn)
-                        if hasattr(rdf_rel, "source_urn")
-                        else "unknown"
-                    )
-                    rel_target = (
-                        str(rdf_rel.target_urn)
-                        if hasattr(rdf_rel, "target_urn")
-                        else "unknown"
-                    )
-                    self.report.report_failure(
-                        "Failed to convert relationship",
-                        context=f"Source: {rel_source}, Target: {rel_target}",
-                        exc=e,
-                    )
-                    logger.warning(
-                        f"Failed to convert relationship {rel_source} -> {rel_target}: {e}",
-                        exc_info=True,
-                    )
+            datahub_graph = context.get("datahub_graph")
+            if datahub_graph is not None:
+                datahub_graph.native_relationships = native
+                datahub_graph.structured_property_assignments = assignments
+                datahub_graph.structured_property_definitions = definitions
 
             logger.debug(
-                f"Extracted {len(datahub_relationships)} relationships from RDF graph"
+                "Routed relationships: %d native, %d extension assignments, %d SP definitions",
+                len(native),
+                len(assignments),
+                len(definitions),
             )
-            return datahub_relationships
-        except (RuntimeError, ValueError) as e:
+            return native
+        except (RuntimeError, ValueError, OSError) as e:
             self.report.report_failure(
                 "Failed to extract relationships",
                 context=f"Entity type: {entity_type}",
