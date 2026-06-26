@@ -845,6 +845,12 @@ type FeatureFlagsConfig {
   datasetSummaryPageV1: Boolean!
 
   """
+  If turned on, exposes the Metrics page in the nav and enables the /metrics route.
+  The backend Metric entity model is still in development, so this stays off in OSS by default.
+  """
+  showMetricsPage: Boolean!
+
+  """
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
