@@ -26,8 +26,9 @@ _DEFINITION_OWNER_FRAGMENT = """
 """
 
 # Doc/link/schema-bearing MetadataEntry implementations plus scalar entries.
-# Anything not matched here is ignored (its `label` still lands as a custom
-# property via the fallback, but without a value we skip it).
+# Note: LocalFileCodeReference entries are intentionally not surfaced as links —
+# local file paths are not resolvable URLs in DataHub — so only the `url` of a
+# UrlCodeReference is requested below.
 _METADATA_ENTRIES_FRAGMENT = """
     metadataEntries {
       __typename
@@ -44,7 +45,6 @@ _METADATA_ENTRIES_FRAGMENT = """
         codeReferences {
           __typename
           ... on UrlCodeReference { url }
-          ... on LocalFileCodeReference { filePath lineNumber }
         }
       }
       ... on TableSchemaMetadataEntry {
@@ -88,12 +88,13 @@ _ASSET_NODE_FRAGMENT = (
     + _METADATA_ENTRIES_FRAGMENT
 )
 
-# Single round-trip: code locations -> repositories -> jobs + asset nodes.
-# Scoping assets under their repository gives us the code-location name used to
-# build DataFlow/DataJob ids that match the existing push plugin's convention.
+# Lightweight first pass: code locations -> repositories -> jobs. Assets are
+# fetched separately (and paginated) per repository via ASSET_NODES_QUERY, so a
+# repository with tens of thousands of assets does not have to come back in a
+# single response.
 REPOSITORIES_QUERY = (
     """
-query DatahubDagsterIngest {
+query DatahubDagsterRepositories {
   repositoriesOrError {
     __typename
     ... on RepositoryConnection {
@@ -108,7 +109,33 @@ query DatahubDagsterIngest {
     + _DEFINITION_OWNER_FRAGMENT
     + """
         }
-        assetNodes {
+      }
+    }
+    ... on PythonError {
+      message
+      stack
+    }
+  }
+}
+"""
+)
+
+# Cursor-paginated asset fetch for a single repository. `assetNodesConnection`
+# returns `hasMore` + a `cursor` to drive the loop in the client.
+ASSET_NODES_QUERY = (
+    """
+query DatahubDagsterAssets(
+  $selector: RepositorySelector!
+  $cursor: String
+  $limit: Int!
+) {
+  repositoryOrError(repositorySelector: $selector) {
+    __typename
+    ... on Repository {
+      assetNodesConnection(cursor: $cursor, limit: $limit) {
+        cursor
+        hasMore
+        nodes {
 """
     + _ASSET_NODE_FRAGMENT
     + """

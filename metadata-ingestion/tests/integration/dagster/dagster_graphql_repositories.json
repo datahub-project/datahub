@@ -1,0 +1,21 @@
+{
+  "repositoriesOrError": {
+    "__typename": "RepositoryConnection",
+    "nodes": [
+      {
+        "name": "my_repo",
+        "location": { "name": "my_location" },
+        "pipelines": [
+          {
+            "name": "__ASSET_JOB",
+            "description": "Auto-materialization job for analytics assets.",
+            "tags": [{ "key": "schedule", "value": "daily" }],
+            "owners": [
+              { "__typename": "UserDefinitionOwner", "email": "data_eng@example.com" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

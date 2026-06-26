@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Type
-from unittest.mock import MagicMock
+from typing import Any, Dict, List, Optional, Type
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -8,6 +8,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dagster.config import DagsterSourceConfig
 from datahub.ingestion.source.dagster.dagster import DagsterSource
+from datahub.ingestion.source.dagster.dagster_api import DagsterGraphQLClient
 from datahub.ingestion.source.dagster.data_classes import (
     DagsterAsset,
     DagsterAssetMetadata,
@@ -27,11 +28,14 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
     InstitutionalMemoryClass,
+    NumberTypeClass,
     OwnershipClass,
     OwnershipTypeClass,
     SchemaMetadataClass,
+    TimeTypeClass,
     UpstreamLineageClass,
 )
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 
 
 def _build_repository() -> DagsterRepository:
@@ -100,23 +104,37 @@ def _build_repository() -> DagsterRepository:
     )
 
 
-def _make_source(**overrides: Any) -> DagsterSource:
+def _make_source(
+    repos: Optional[List[DagsterRepository]] = None, **overrides: Any
+) -> DagsterSource:
     config = DagsterSourceConfig.parse_obj(
         {"host": "http://localhost:3000", **overrides}
     )
     source = DagsterSource(config, PipelineContext(run_id="dagster-test"))
-    source.client = MagicMock()
-    source.client.get_repositories.return_value = [_build_repository()]
+    client = MagicMock()
+    client.get_repositories.return_value = (
+        repos if repos is not None else [_build_repository()]
+    )
+    source.client = client
     return source
+
+
+def _client_mock(source: DagsterSource) -> MagicMock:
+    """Typed accessor for the mocked client (mypy treats source.client as the real type)."""
+    assert isinstance(source.client, MagicMock)
+    return source.client
 
 
 def _aspects_by_urn(source: DagsterSource) -> Dict[str, List[object]]:
     result: Dict[str, List[object]] = {}
-    for wu in source.get_workunits_internal():
-        mcp = wu.metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert mcp.entityUrn is not None
-        result.setdefault(mcp.entityUrn, []).append(mcp.aspect)
+    # Mirror the real ingestion pipeline, which runs sources under INGESTION
+    # attribution — this routes source-owned descriptions to datasetProperties.
+    with change_default_attribution(KnownAttribution.INGESTION):
+        for wu in source.get_workunits_internal():
+            mcp = wu.metadata
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
+            assert mcp.entityUrn is not None
+            result.setdefault(mcp.entityUrn, []).append(mcp.aspect)
     return result
 
 
@@ -186,6 +204,8 @@ def test_emits_descriptions_ownership_tags_docs_schema() -> None:
 
     props = _find(aspects, DatasetPropertiesClass)[0]
     assert props.description == "Cleaned events."
+    assert props.customProperties["group_name"] == "analytics"
+    assert "__ASSET_JOB" in props.customProperties["job_names"]
 
     ownership = _find(aspects, OwnershipClass)[0]
     owner_urns = {o.owner for o in ownership.owners}
@@ -203,7 +223,13 @@ def test_emits_descriptions_ownership_tags_docs_schema() -> None:
     assert docs.elements[0].url == "https://example.com/runbook"
 
     schema = _find(aspects, SchemaMetadataClass)[0]
-    assert {f.fieldPath for f in schema.fields} == {"id", "ts"}
+    fields = {f.fieldPath: f for f in schema.fields}
+    assert set(fields) == {"id", "ts"}
+    # type mapping + nullability are preserved
+    assert isinstance(fields["id"].type.type, NumberTypeClass)
+    assert fields["id"].nullable is False
+    assert isinstance(fields["ts"].type.type, TimeTypeClass)
+    assert fields["ts"].nullable is True
 
 
 def test_asset_upstream_lineage() -> None:
@@ -260,3 +286,153 @@ def test_cloud_requires_token() -> None:
         DagsterSourceConfig.parse_obj(
             {"host": "https://org.dagster.cloud", "is_cloud": True}
         )
+
+
+def test_asset_lineage_disabled_keeps_column_lineage() -> None:
+    # Coarse edges suppressed, but fine-grained edges still carry their backing
+    # coarse upstream so they render.
+    source = _make_source(include_asset_lineage=False, include_column_lineage=True)
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    raw_urn = source._asset_dataset_urn(["my_db", "my_schema", "raw_events"])
+    lineage = _find(by_urn[events_urn], UpstreamLineageClass)[0]
+    assert lineage.fineGrainedLineages
+    # raw_events is referenced by column lineage, so it remains a coarse upstream
+    assert [u.dataset for u in lineage.upstreams] == [raw_urn]
+
+
+def test_all_lineage_disabled_emits_no_upstream() -> None:
+    source = _make_source(include_asset_lineage=False, include_column_lineage=False)
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    assert not _find(by_urn[events_urn], UpstreamLineageClass)
+
+
+def test_team_prefix_stripped_for_group_owner() -> None:
+    repo = _build_repository()
+    repo.assets[1].owners = [DagsterOwner(team="team:engineering")]
+    source = _make_source(repos=[repo])
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    ownership = _find(by_urn[events_urn], OwnershipClass)[0]
+    assert "urn:li:corpGroup:engineering" in {o.owner for o in ownership.owners}
+
+
+def test_multi_asset_op_groups_io() -> None:
+    # Two assets produced by the same op in the same job -> one DataJob with
+    # both assets as outputs.
+    repo = _build_repository()
+    for asset in repo.assets:
+        asset.op_names = ["shared_op"]
+        asset.job_names = ["shared_job"]
+    source = _make_source(repos=[repo], include_jobs=True)
+    by_urn = _aspects_by_urn(source)
+    job_urn = str(source._datajob_urn("shared_job", "shared_op", "my_location"))
+    io = _find(by_urn[job_urn], DataJobInputOutputClass)[0]
+    assert set(io.outputDatasets) == {
+        source._asset_dataset_urn(["my_db", "my_schema", "raw_events"]),
+        source._asset_dataset_urn(["my_db", "my_schema", "events"]),
+    }
+
+
+def test_asset_pattern_filters() -> None:
+    source = _make_source(asset_pattern={"deny": [".*raw_events"]})
+    by_urn = _aspects_by_urn(source)
+    raw_urn = source._asset_dataset_urn(["my_db", "my_schema", "raw_events"])
+    assert raw_urn not in by_urn
+    assert source.report.assets_filtered == 1
+    assert source.report.assets_scanned == 1
+
+
+def test_job_pattern_filters() -> None:
+    source = _make_source(include_jobs=True, job_pattern={"deny": ["__ASSET_JOB"]})
+    by_urn = _aspects_by_urn(source)
+    assert source.report.jobs_filtered == 1
+    # A filtered job suppresses both the DataFlow and its DataJobs.
+    assert not any("dataFlow" in urn for urn in by_urn)
+    assert not any("dataJob" in urn for urn in by_urn)
+
+
+def test_get_repositories_failure_is_reported() -> None:
+    source = _make_source()
+    _client_mock(source).get_repositories.side_effect = RuntimeError("boom")
+    workunits = list(source.get_workunits_internal())
+    assert workunits == []
+    assert source.report.failures
+
+
+def test_job_url_cloud_includes_deployment() -> None:
+    source = _make_source(
+        host="https://org.dagster.cloud", is_cloud=True, deployment="prod", token="t"
+    )
+    assert source._job_url("my_job") == "https://org.dagster.cloud/prod/jobs/my_job"
+
+
+def test_per_asset_failure_is_isolated() -> None:
+    # One bad asset must not drop the rest of the repository.
+    source = _make_source()
+    original = source._emit_asset
+
+    def flaky(asset: DagsterAsset) -> Any:
+        if asset.key[-1] == "raw_events":
+            raise RuntimeError("bad asset")
+        yield from original(asset)
+
+    with patch.object(source, "_emit_asset", side_effect=flaky):
+        by_urn = _aspects_by_urn(source)
+
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    raw_urn = source._asset_dataset_urn(["my_db", "my_schema", "raw_events"])
+    assert events_urn in by_urn  # the healthy asset still emitted
+    assert raw_urn not in by_urn  # the failing one was skipped
+    assert source.report.warnings
+
+
+def test_per_repository_failure_is_isolated() -> None:
+    source = _make_source()
+    with patch.object(
+        source, "_process_repository", side_effect=RuntimeError("bad repo")
+    ):
+        workunits = list(source.get_workunits_internal())
+    assert workunits == []
+    assert source.report.warnings
+    assert source.report.repositories_scanned == 1
+
+
+def test_op_name_falls_back_to_asset_key() -> None:
+    repo = _build_repository()
+    repo.assets[1].op_names = []  # no op name -> fall back to asset key's last part
+    source = _make_source(repos=[repo], include_jobs=True)
+    by_urn = _aspects_by_urn(source)
+    job_urn = str(source._datajob_urn("__ASSET_JOB", "events", "my_location"))
+    assert job_urn in by_urn
+
+
+def test_include_assets_false_emits_only_jobs() -> None:
+    source = _make_source(include_assets=False, include_jobs=True)
+    by_urn = _aspects_by_urn(source)
+    assert not any(urn.startswith("urn:li:dataset") for urn in by_urn)
+    assert any("dataFlow" in urn for urn in by_urn)
+
+
+def test_custom_ownership_type() -> None:
+    source = _make_source(default_ownership_type="BUSINESS_OWNER")
+    by_urn = _aspects_by_urn(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+    ownership = _find(by_urn[events_urn], OwnershipClass)[0]
+    assert all(o.type == OwnershipTypeClass.BUSINESS_OWNER for o in ownership.owners)
+
+
+def test_source_test_connection_success_and_failure() -> None:
+    config_dict = {"host": "http://localhost:3000"}
+    with patch.object(DagsterGraphQLClient, "test_connection", return_value=None):
+        ok = DagsterSource.test_connection(config_dict)
+    assert ok.basic_connectivity is not None
+    assert ok.basic_connectivity.capable is True
+
+    with patch.object(
+        DagsterGraphQLClient, "test_connection", side_effect=Exception("nope")
+    ):
+        bad = DagsterSource.test_connection(config_dict)
+    assert bad.basic_connectivity is not None
+    assert bad.basic_connectivity.capable is False

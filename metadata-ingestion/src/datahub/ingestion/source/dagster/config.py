@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.metadata.schema_classes import OwnershipTypeClass
+from datahub.utilities.lossy_collections import LossyList
 
 DAGSTER_PLATFORM = "dagster"
 
@@ -72,6 +73,15 @@ class DagsterSourceConfig(
     max_retries: int = Field(
         default=3,
         description="Maximum number of retries for transient HTTP failures (429, 5xx).",
+    )
+
+    asset_page_size: int = Field(
+        default=1000,
+        description=(
+            "Number of assets to fetch per GraphQL request when paginating a "
+            "repository's assets. Lower this if the Dagster webserver times out on "
+            "large repositories."
+        ),
     )
 
     repository_pattern: AllowDenyPattern = Field(
@@ -172,7 +182,7 @@ class DagsterSourceReport(StaleEntityRemovalSourceReport):
     repositories_filtered: int = 0
     jobs_filtered: int = 0
     assets_filtered: int = 0
-    filtered: list = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_repository_filtered(self, name: str) -> None:
         self.repositories_filtered += 1

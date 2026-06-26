@@ -7,7 +7,7 @@ data and never touches GraphQL shapes.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 # A Dagster asset key is an ordered list of path segments, e.g. ["prod", "events"].
 AssetKey = Sequence[str]
@@ -63,7 +63,7 @@ class DagsterColumnLineage:
 class DagsterAssetMetadata:
     """Metadata entries from an asset, normalized by kind."""
 
-    custom_properties: dict = field(default_factory=dict)
+    custom_properties: Dict[str, str] = field(default_factory=dict)
     links: List[DagsterLink] = field(default_factory=list)
     columns: Optional[List[DagsterColumn]] = None
     column_lineage: List[DagsterColumnLineage] = field(default_factory=list)

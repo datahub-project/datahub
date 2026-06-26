@@ -15,6 +15,9 @@ source:
     asset_pattern:
       allow: [".*"]
 
+    # Lower this if the Dagster webserver times out on very large repositories.
+    asset_page_size: 1000
+
     # Feature toggles
     include_assets: true # emit Software-Defined Assets as Datasets
     include_asset_lineage: true # table-level asset -> asset lineage

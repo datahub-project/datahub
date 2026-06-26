@@ -10,13 +10,12 @@
                 "group_name": "analytics",
                 "job_names": "__ASSET_JOB"
             },
-            "name": "raw_events",
             "description": "Raw events landing asset.",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782427385574,
+        "lastObserved": 1782515744309,
         "runId": "dagster-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -166,13 +165,12 @@
                 "group_name": "analytics",
                 "job_names": "__ASSET_JOB"
             },
-            "name": "events",
             "description": "Cleaned and deduplicated events.",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782427385575,
+        "lastObserved": 1782515744310,
         "runId": "dagster-test",
         "lastRunId": "no-run-id-provided"
     }

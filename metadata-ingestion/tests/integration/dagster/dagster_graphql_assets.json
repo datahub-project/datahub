@@ -1,0 +1,108 @@
+{
+  "repositoryOrError": {
+    "__typename": "Repository",
+    "assetNodesConnection": {
+      "cursor": null,
+      "hasMore": false,
+      "nodes": [
+        {
+          "assetKey": { "path": ["my_db", "my_schema", "raw_events"] },
+          "groupName": "analytics",
+          "opNames": ["raw_events"],
+          "jobNames": ["__ASSET_JOB"],
+          "description": "Raw events landing asset.",
+          "computeKind": "python",
+          "kinds": ["python"],
+          "dependencyKeys": [],
+          "dependedByKeys": [{ "path": ["my_db", "my_schema", "events"] }],
+          "owners": [
+            { "__typename": "UserAssetOwner", "email": "data_eng@example.com" }
+          ],
+          "tags": [{ "key": "tier", "value": "bronze" }],
+          "metadataEntries": [
+            {
+              "__typename": "TableSchemaMetadataEntry",
+              "label": "schema",
+              "schema": {
+                "columns": [
+                  {
+                    "name": "event_id",
+                    "type": "int",
+                    "description": "Raw event id",
+                    "constraints": { "nullable": false }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "assetKey": { "path": ["my_db", "my_schema", "events"] },
+          "groupName": "analytics",
+          "opNames": ["events"],
+          "jobNames": ["__ASSET_JOB"],
+          "description": "Cleaned and deduplicated events.",
+          "computeKind": "python",
+          "kinds": ["python"],
+          "dependencyKeys": [{ "path": ["my_db", "my_schema", "raw_events"] }],
+          "dependedByKeys": [],
+          "owners": [
+            { "__typename": "UserAssetOwner", "email": "data_eng@example.com" },
+            { "__typename": "TeamAssetOwner", "team": "platform" }
+          ],
+          "tags": [
+            { "key": "tier", "value": "gold" },
+            { "key": "pii", "value": "" }
+          ],
+          "metadataEntries": [
+            {
+              "__typename": "MarkdownMetadataEntry",
+              "label": "documentation",
+              "mdStr": "# Events\nCleaned events table."
+            },
+            {
+              "__typename": "UrlMetadataEntry",
+              "label": "runbook",
+              "url": "https://example.com/runbook"
+            },
+            {
+              "__typename": "TableSchemaMetadataEntry",
+              "label": "schema",
+              "schema": {
+                "columns": [
+                  {
+                    "name": "event_id",
+                    "type": "int",
+                    "description": "Primary key",
+                    "constraints": { "nullable": false }
+                  },
+                  {
+                    "name": "event_ts",
+                    "type": "timestamp",
+                    "description": "Event time",
+                    "constraints": { "nullable": true }
+                  }
+                ]
+              }
+            },
+            {
+              "__typename": "TableColumnLineageMetadataEntry",
+              "label": "column_lineage",
+              "lineage": [
+                {
+                  "columnName": "event_id",
+                  "columnDeps": [
+                    {
+                      "assetKey": { "path": ["my_db", "my_schema", "raw_events"] },
+                      "columnName": "event_id"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

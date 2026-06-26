@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -39,13 +38,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    AzkabanJobTypeClass,
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
-    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -56,18 +49,19 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OwnerClass,
     OwnershipClass,
-    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
-    SubTypesClass,
     TagAssociationClass,
     TimeTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
+from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -199,26 +193,13 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
 
     # --- shared aspect builders ---
 
-    def _platform_instance_aspect(self) -> DataPlatformInstanceClass:
-        instance = (
-            builder.make_dataplatform_instance_urn(
-                DAGSTER_PLATFORM, self.config.platform_instance
-            )
-            if self.config.platform_instance
-            else None
-        )
-        return DataPlatformInstanceClass(
-            platform=builder.make_data_platform_urn(DAGSTER_PLATFORM),
-            instance=instance,
-        )
-
     def _ownership_aspect(self, owners: List[DagsterOwner]) -> Optional[OwnershipClass]:
         if not self.config.include_ownership or not owners:
             return None
+        # default_ownership_type is validated by config to be a valid
+        # OwnershipTypeClass string value, so it can be used directly.
+        ownership_type = self.config.default_ownership_type
         owner_classes = []
-        ownership_type = OwnershipTypeClass.__dict__.get(
-            self.config.default_ownership_type, self.config.default_ownership_type
-        )
         for owner in owners:
             if owner.email:
                 owner_urn = builder.make_user_urn(owner.email)
@@ -286,7 +267,16 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_repository_filtered(repo.name)
                 continue
             self.report.repositories_scanned += 1
-            yield from self._process_repository(repo)
+            # Isolate per-repository failures so one bad repository does not
+            # abort the entire ingestion run.
+            try:
+                yield from self._process_repository(repo)
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to process repository",
+                    context=repo.name,
+                    exc=e,
+                )
 
     def _process_repository(
         self, repo: DagsterRepository
@@ -295,7 +285,16 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_assets:
             for asset in allowed_assets:
-                yield from self._emit_asset(asset)
+                # Per-asset isolation: a single malformed asset should not drop
+                # the rest of the repository.
+                try:
+                    yield from self._emit_asset(asset)
+                except Exception as e:
+                    self.report.report_warning(
+                        message="Failed to emit asset",
+                        context=".".join(asset.key),
+                        exc=e,
+                    )
 
         # Jobs/ops are implementation artifacts; emit them only when explicitly
         # requested. The asset-to-asset dependency graph is emitted separately
@@ -317,7 +316,12 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_job_filtered(job_name)
                 continue
             self.report.jobs_scanned += 1
-            yield from self._emit_dataflow(job_name, job, repo.location_name)
+            try:
+                yield from self._emit_dataflow(job_name, job, repo.location_name)
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to emit job", context=job_name, exc=e
+                )
 
         yield from self._emit_datajobs(allowed_assets, jobs_by_name, repo.location_name)
 
@@ -333,65 +337,40 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
         return allowed
 
     def _emit_asset(self, asset: DagsterAsset) -> Iterable[MetadataWorkUnit]:
-        urn = self._asset_dataset_urn(asset.key)
-
         custom_properties = dict(asset.metadata.custom_properties)
         if asset.group_name:
             custom_properties["group_name"] = asset.group_name
         if asset.job_names:
             custom_properties["job_names"] = ", ".join(asset.job_names)
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=DatasetPropertiesClass(
-                name=asset.key[-1],
-                description=asset.description if self.config.include_metadata else None,
-                customProperties=custom_properties,
-            ),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=SubTypesClass(typeNames=[ASSET_SUBTYPE])
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=self._platform_instance_aspect()
-        ).as_workunit()
-
         ownership = self._ownership_aspect(asset.owners)
-        if ownership:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=ownership
-            ).as_workunit()
-
         tags = self._tags_aspect(
             asset.tags,
             group_name=asset.group_name,
             kinds=asset.kinds,
             compute_kind=asset.compute_kind,
         )
-        if tags:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=tags
-            ).as_workunit()
+        links = (
+            self._institutional_memory(asset) if self.config.include_metadata else None
+        )
+        schema = self._schema_metadata(asset) if self.config.include_metadata else None
+        upstreams = self._upstream_lineage(asset, self._asset_dataset_urn(asset.key))
 
-        if self.config.include_metadata:
-            links = self._institutional_memory(asset)
-            if links:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn, aspect=links
-                ).as_workunit()
-            schema = self._schema_metadata(asset)
-            if schema:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn, aspect=schema
-                ).as_workunit()
-
-        upstream_lineage = self._upstream_lineage(asset, urn)
-        if upstream_lineage:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=upstream_lineage
-            ).as_workunit()
+        dataset = Dataset(
+            platform=DAGSTER_PLATFORM,
+            name=".".join(asset.key),
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+            subtype=ASSET_SUBTYPE,
+            description=asset.description if self.config.include_metadata else None,
+            custom_properties=custom_properties,
+            owners=ownership.owners if ownership else None,
+            tags=tags.tags if tags else None,
+            links=links.elements if links else None,
+            schema=schema,
+            upstreams=upstreams,
+        )
+        yield from dataset.as_workunits()
 
     def _upstream_lineage(
         self, asset: DagsterAsset, urn: str
@@ -489,33 +468,22 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_dataflow(
         self, job_name: str, job: Optional[DagsterJob], location_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        urn = str(self._dataflow_urn(job_name, location_name))
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=DataFlowInfoClass(
-                name=job_name,
-                description=job.description
-                if job and self.config.include_metadata
-                else None,
-                externalUrl=self._job_url(job_name),
-            ),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=self._platform_instance_aspect()
-        ).as_workunit()
-
-        if job is not None:
-            ownership = self._ownership_aspect(job.owners)
-            if ownership:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn, aspect=ownership
-                ).as_workunit()
-            tags = self._tags_aspect(job.tags)
-            if tags:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn, aspect=tags
-                ).as_workunit()
+        ownership = self._ownership_aspect(job.owners) if job else None
+        tags = self._tags_aspect(job.tags) if job else None
+        dataflow = DataFlow(
+            platform=DAGSTER_PLATFORM,
+            name=f"{self._id_prefix(location_name)}/{job_name}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+            display_name=job_name,
+            description=job.description
+            if job and self.config.include_metadata
+            else None,
+            external_url=self._job_url(job_name),
+            owners=ownership.owners if ownership else None,
+            tags=tags.tags if tags else None,
+        )
+        yield from dataflow.as_workunits()
 
     def _emit_datajobs(
         self,
@@ -538,30 +506,16 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
                     io.inputs.add(self._asset_dataset_urn(upstream_key))
 
         for (job_name, op_name), io in op_io.items():
-            urn = str(self._datajob_urn(job_name, op_name, location_name))
-            flow_urn = str(self._dataflow_urn(job_name, location_name))
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=DataJobInfoClass(
-                    name=op_name,
-                    type=AzkabanJobTypeClass.COMMAND,
-                    flowUrn=flow_urn,
-                    externalUrl=self._job_url(job_name),
-                ),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn, aspect=self._platform_instance_aspect()
-            ).as_workunit()
-
-            # dataJobInputOutput is required for every DataJob, even if empty.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=DataJobInputOutputClass(
-                    inputDatasets=sorted(io.inputs),
-                    outputDatasets=sorted(io.outputs),
-                ),
-            ).as_workunit()
+            datajob = DataJob(
+                name=f"{self._id_prefix(location_name)}/{op_name}",
+                flow_urn=str(self._dataflow_urn(job_name, location_name)),
+                platform_instance=self.config.platform_instance,
+                display_name=op_name,
+                external_url=self._job_url(job_name),
+                inlets=sorted(io.inputs),
+                outlets=sorted(io.outputs),
+            )
+            yield from datajob.as_workunits()
 
     def _job_url(self, job_name: str) -> Optional[str]:
         if self.config.is_cloud and self.config.deployment:

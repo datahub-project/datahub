@@ -27,7 +27,10 @@ from datahub.ingestion.source.dagster.data_classes import (
     DagsterRepository,
     DagsterTag,
 )
-from datahub.ingestion.source.dagster.queries import REPOSITORIES_QUERY
+from datahub.ingestion.source.dagster.queries import (
+    ASSET_NODES_QUERY,
+    REPOSITORIES_QUERY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +94,49 @@ class DagsterGraphQLClient:
         if typename != "RepositoryConnection":
             raise DagsterGraphQLError(f"Unexpected response type: {typename}")
 
-        return [self._parse_repository(node) for node in result.get("nodes", [])]
+        repositories = []
+        for node in result.get("nodes", []):
+            repo = self._parse_repository(node)
+            repo.assets = self._get_assets(repo.name, repo.location_name)
+            repositories.append(repo)
+        return repositories
+
+    def _get_assets(
+        self, repository_name: str, location_name: str
+    ) -> List[DagsterAsset]:
+        """Fetch all assets for one repository, following the connection cursor."""
+        assets: List[DagsterAsset] = []
+        cursor: Optional[str] = None
+        selector = {
+            "repositoryName": repository_name,
+            "repositoryLocationName": location_name,
+        }
+        while True:
+            data = self._execute(
+                ASSET_NODES_QUERY,
+                variables={
+                    "selector": selector,
+                    "cursor": cursor,
+                    "limit": self.config.asset_page_size,
+                },
+            )
+            result = data["repositoryOrError"]
+            typename = result.get("__typename")
+            if typename == "PythonError":
+                raise DagsterGraphQLError(
+                    result.get("message", "Unknown Dagster error")
+                )
+            if typename != "Repository":
+                raise DagsterGraphQLError(f"Unexpected response type: {typename}")
+
+            connection = result["assetNodesConnection"]
+            assets.extend(
+                self._parse_asset(node) for node in connection.get("nodes", [])
+            )
+            if not connection.get("hasMore"):
+                break
+            cursor = connection.get("cursor")
+        return assets
 
     # --- parsing helpers: raw GraphQL -> dataclasses ---
 
@@ -214,10 +259,9 @@ class DagsterGraphQLClient:
             )
             for job in raw.get("pipelines") or []
         ]
-        assets = [self._parse_asset(asset) for asset in raw.get("assetNodes") or []]
+        # Assets are fetched separately (and paginated) in get_repositories.
         return DagsterRepository(
             name=raw["name"],
             location_name=location_name,
             jobs=jobs,
-            assets=assets,
         )
