@@ -478,8 +478,7 @@ public class PolicyEngine {
     if (resourceSpec.getSpec().getEntity().isEmpty()) {
       return Set.of();
     }
-    Stream<Owner> ownersStream =
-        resourceSpec.<Owner>getTypedValues(EntityFieldType.OWNER).stream();
+    Stream<Owner> ownersStream = resourceSpec.<Owner>getTypedValues(EntityFieldType.OWNER).stream();
     if (ownershipTypes != null) {
       ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
     }

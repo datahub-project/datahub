@@ -582,7 +582,8 @@ public class PolicyEngineTest {
                 sharedContext)
             .isGranted());
 
-    // Ownership fetched exactly once across both evaluations, proving FieldResolver.fieldValuesFuture
+    // Ownership fetched exactly once across both evaluations, proving
+    // FieldResolver.fieldValuesFuture
     // memoization makes the removed PolicyEvaluationContext.resourceOwnersByUrn cache redundant.
     assertEquals(ownerFetchCount.get(), 1);
   }
