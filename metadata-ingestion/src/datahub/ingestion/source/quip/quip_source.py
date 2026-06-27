@@ -348,20 +348,18 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
                     }
                 ],
             )
-        except RuntimeError:
+        except Exception as e:
+            # The chunking source raises RuntimeError once the embedding budget is
+            # exhausted; that halts the whole run rather than being a per-document
+            # failure, so propagate it instead of recording an embedding warning.
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}; "
-                "document ingested without embeddings.",
-                exc_info=True,
-            )
-        except Exception:
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}; "
-                "document ingested without embeddings.",
-                exc_info=True,
+            self.report.warning(
+                title="Failed to generate document embeddings",
+                message="Document ingested without embeddings.",
+                context=str(document_urn),
+                exc=e,
             )
 
         self.report.report_thread_processed()
@@ -442,7 +440,10 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         in_scope_folders = set(crawl.folders.keys())
 
         if not crawl.folders and not crawl.thread_parents:
-            logger.warning("No Quip folders or threads found to ingest")
+            self.report.warning(
+                title="No content found",
+                message="No Quip folders or threads were found to ingest.",
+            )
             return
 
         # Emit folder documents first so thread parents resolve.

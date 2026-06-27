@@ -1,24 +1,28 @@
 import logging
 import re
 
+from markdownify import ATX, markdownify as md
+
 logger = logging.getLogger(__name__)
+
+# Quip injects zero-width spaces (U+200B) into cells/paragraphs; strip them so
+# they don't pollute the indexed text or inflate the character count.
+ZERO_WIDTH_SPACE = "\u200b"
+
+_BLANK_LINES = re.compile(r"\n{3,}")
+_HTML_TAG = re.compile(r"<[^>]+>")
+_WHITESPACE = re.compile(r"\s+")
 
 
 def quip_html_to_markdown(html: str) -> str:
-    """Convert Quip thread HTML to Markdown.
-
-    Falls back to whitespace-normalized plain text if conversion fails (e.g. the
-    optional ``markdownify`` dependency is missing).
-    """
+    """Convert Quip thread HTML to Markdown, falling back to plain text on failure."""
     if not html or not html.strip():
         return ""
 
     try:
-        from markdownify import markdownify as md
-
         markdown = md(
             html,
-            heading_style="ATX",
+            heading_style=ATX,
             bullets="-",
             strip=["script", "style"],
         )
@@ -32,15 +36,12 @@ def quip_html_to_markdown(html: str) -> str:
 
 
 def _normalize_markdown(text: str) -> str:
-    # Quip injects zero-width spaces (U+200B) into cells/paragraphs; strip them so
-    # they don't pollute the indexed text or inflate the character count.
-    text = text.replace("\u200b", "")
+    text = text.replace(ZERO_WIDTH_SPACE, "")
     text = text.replace("\r\n", "\n").strip()
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text
+    return _BLANK_LINES.sub("\n\n", text)
 
 
 def _strip_html_tags(html: str) -> str:
-    clean_text = re.sub(r"<[^>]+>", " ", html)
-    clean_text = clean_text.replace("\u200b", "")
-    return re.sub(r"\s+", " ", clean_text).strip()
+    clean_text = _HTML_TAG.sub(" ", html)
+    clean_text = clean_text.replace(ZERO_WIDTH_SPACE, "")
+    return _WHITESPACE.sub(" ", clean_text).strip()
