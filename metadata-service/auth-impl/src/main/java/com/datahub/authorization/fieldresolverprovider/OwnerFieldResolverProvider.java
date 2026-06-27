@@ -13,7 +13,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,7 +29,7 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
 
   @Override
   public List<EntityFieldType> getFieldTypes() {
-    return Collections.singletonList(EntityFieldType.OWNER);
+    return List.of(EntityFieldType.OWNER);
   }
 
   @Override
@@ -54,7 +53,8 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
               opContext,
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
+              Set.of(Constants.OWNERSHIP_ASPECT_NAME),
+              false);
       if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }
