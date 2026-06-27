@@ -448,10 +448,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.include_usage_statistics
                 and self.config.include_column_usage_stats
             )
+            query_usage_enabled = (
+                self.config.include_usage_statistics
+                and self.config.include_query_usage_statistics
+            )
             # Enter the lineage block when any lineage flag is on OR when
             # include_column_usage_stats is enabled (usage is produced by the
             # lineage aggregator in v2 mode and would be silently lost otherwise).
-            if lineage_enabled or column_usage_enabled:
+            if lineage_enabled or column_usage_enabled or query_usage_enabled:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     lineage_wus = self.extract_lineage_v2(
                         connection=connection,

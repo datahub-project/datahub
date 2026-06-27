@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
@@ -49,6 +49,14 @@ from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+
+def _as_utc(timestamp: Optional[datetime]) -> Optional[datetime]:
+    if timestamp is None:
+        return None
+    if timestamp.tzinfo is None:
+        return timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(timezone.utc)
 
 
 class LineageDatasetPlatform(Enum):
@@ -142,6 +150,13 @@ class RedshiftSqlLineage(Closeable):
             self.config.include_usage_statistics
             and self.config.include_column_usage_stats
         )
+        self.generate_query_usage = (
+            self.config.include_usage_statistics
+            and self.config.include_query_usage_statistics
+        )
+        # The unified all-statements feed must run to observe reads/SELECTs, which are
+        # required for per-query usage stats (and for column-level dataset usage).
+        self.run_unified_queries = self.generate_usage or self.generate_query_usage
         lineage_enabled = self.config.lineage_enabled
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
@@ -150,6 +165,7 @@ class RedshiftSqlLineage(Closeable):
             generate_lineage=lineage_enabled,
             generate_queries=self.config.lineage_generate_queries,
             generate_usage_statistics=self.generate_usage,
+            generate_query_usage_statistics=self.generate_query_usage,
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
@@ -524,7 +540,7 @@ class RedshiftSqlLineage(Closeable):
                             default_db=self.database,
                             default_schema=self.config.default_schema,
                             session_id=temp_row.session_id,
-                            timestamp=temp_row.start_time,
+                            timestamp=_as_utc(temp_row.start_time),
                         ),
                         # The "temp table" query actually returns all CREATE TABLE statements, even if they
                         # aren't explicitly a temp table. As such, setting is_known_temp_table=True
@@ -549,7 +565,7 @@ class RedshiftSqlLineage(Closeable):
             LineageMode.SQL_BASED,
             LineageMode.MIXED,
         }:
-            if not self.generate_usage:
+            if not self.run_unified_queries:
                 # Populate lineage by parsing table creating sqls.
                 # Skipped in unified-feed mode: _populate_unified_queries feeds all
                 # queries (reads + writes) once, superseding this narrower feed and
@@ -629,7 +645,7 @@ class RedshiftSqlLineage(Closeable):
 
         # Queries-v2: feed every query (reads + writes) once so this aggregator also
         # produces usage, column usage and Query entities. (insert/create feed skipped above.)
-        if self.generate_usage:
+        if self.run_unified_queries:
             self._populate_unified_queries(connection)
 
         # Populate lineage for external tables.
@@ -682,7 +698,7 @@ class RedshiftSqlLineage(Closeable):
                                     query=text,
                                     default_db=self.database,
                                     default_schema=self.config.default_schema,
-                                    timestamp=row[idx_starttime],
+                                    timestamp=_as_utc(row[idx_starttime]),
                                     user=self._user_urn(row[idx_username]),
                                     session_id=str(row[idx_session_id]),
                                 )
@@ -756,7 +772,7 @@ class RedshiftSqlLineage(Closeable):
                 query=ddl,
                 default_db=self.database,
                 default_schema=self.config.default_schema,
-                timestamp=lineage_row.timestamp,
+                timestamp=_as_utc(lineage_row.timestamp),
                 session_id=lineage_row.session_id,
             )
         )
@@ -798,7 +814,7 @@ class RedshiftSqlLineage(Closeable):
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
-                timestamp=lineage_row.timestamp,
+                timestamp=_as_utc(lineage_row.timestamp),
             ),
             merge_lineage=True,
         )
