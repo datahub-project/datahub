@@ -25,7 +25,7 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
 :::note Docker Resource Allocation
 
 Make sure to allocate enough hardware resources for Docker engine. <br />
-Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 12GB disk space.
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 13GB disk space.
 
 :::
 
@@ -82,9 +82,9 @@ datahub docker quickstart
 ```
 
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
-If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
+If you are curious, the `docker-compose.yml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
-Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](./authentication/introducing-metadata-service-authentication.md) is configured.
+Starting CLI version 1.5 has changed how the signing key for generating tokens via [Metadata Service Authentication](./authentication/introducing-metadata-service-authentication.md) is configured.
 
 Quickstart resolves the values in the following order:
 
@@ -179,11 +179,17 @@ First, configure the CLI to talk to your local DataHub instance:
 datahub init --username datahub --password datahub
 ```
 
-Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, Tableau, dbt, and Spark with lineage, governance, glossary terms, domains, data products, and structured properties:
+Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, and Tableau with lineage, governance, glossary terms, domains, and data products:
 
 ```bash
 datahub datapack load showcase-ecommerce
 ```
+
+:::note
+
+The `datahub datapack` command is currently experimental — its command surface and behavior may change in future releases.
+
+:::
 
 That's it! Now feel free to play around with DataHub!
 
@@ -218,7 +224,7 @@ datahub docker quickstart
 By default, quickstart will install the latest released version of datahub. You can pick a specific version by specifying a release explicitly.
 
 ```bash
-datahub docker quickstart --version v1.2.0
+datahub docker quickstart --version v1.6.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
