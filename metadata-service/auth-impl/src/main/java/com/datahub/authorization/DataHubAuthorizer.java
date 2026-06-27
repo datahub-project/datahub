@@ -12,6 +12,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
@@ -584,13 +585,15 @@ public class DataHubAuthorizer
      */
     private static int actorMatchCost(DataHubPolicyInfo policy) {
       final DataHubActorFilter actors = policy.getActors();
+      final DataHubResourceFilter resources = policy.getResources();
       if (actors.isAllUsers() || actors.isAllGroups()) {
-        return 0;
+        return resources == null ? 0 : 1;
       }
+      boolean hasRoles = actors.getRoles() != null && !actors.getRoles().isEmpty();
       if (!actors.isResourceOwners()) {
-        return 1;
+        return hasRoles ? 2 : 1;
       }
-      return 2;
+      return 3;
     }
 
     private void addPoliciesToCache(
