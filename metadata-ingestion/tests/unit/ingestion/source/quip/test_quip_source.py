@@ -54,6 +54,15 @@ def test_instance_id_falls_back_to_url_hash(ctx: PipelineContext) -> None:
     assert instance_id == _make_source(ctx)._instance_id
 
 
+def test_instance_id_is_cached(ctx: PipelineContext) -> None:
+    source = _make_source(ctx)
+    assert "_instance_id" not in source.__dict__
+    value = source._instance_id
+    # cached_property memoizes on the instance, so the hash is computed once and
+    # reused by the per-folder/per-thread doc-id helpers instead of re-hashing.
+    assert source.__dict__["_instance_id"] == value
+
+
 def test_doc_id_helpers(ctx: PipelineContext) -> None:
     source = _make_source(ctx, platform_instance="acme")
     assert source._thread_doc_id("ABC") == "quip-acme-ABC"
@@ -161,6 +170,54 @@ def test_thread_failure_reported_once(ctx: PipelineContext) -> None:
     # The failure must be counted exactly once, not once per try/except layer.
     assert source.report.threads_failed == 1
     assert len(source.report.failed_threads) == 1
+
+
+def test_thread_failure_reported_once_when_aborting(ctx: PipelineContext) -> None:
+    source = _make_source(
+        ctx, thread_ids=["t1"], advanced={"continue_on_failure": False}
+    )
+    source.client = MagicMock()
+    source.client.get_thread.side_effect = QuipClientError(500, "boom")
+
+    # continue_on_failure=False re-raises, but the thread is still counted once.
+    with pytest.raises(QuipClientError):
+        list(source.get_workunits_internal())
+
+    assert source.report.threads_failed == 1
+    assert len(source.report.failed_threads) == 1
+
+
+def test_embedding_limit_aborts_without_marking_thread_failed(
+    ctx: PipelineContext,
+) -> None:
+    source = _make_source(ctx, thread_ids=["t1"])
+    source.client = MagicMock()
+    source.client.get_thread.return_value = QuipThread.model_validate(
+        {
+            "thread": {
+                "id": "t1",
+                "title": "Doc",
+                "type": "document",
+                "link": "https://q/t1",
+            },
+            "html": "<p>long enough content to comfortably pass the minimum "
+            "text length filter</p>",
+        }
+    )
+    # The document MCP is emitted, then the embedding budget is exhausted: the
+    # chunking source latches its limit flag and raises.
+    chunking = MagicMock()
+    chunking.report.num_documents_limit_reached = True
+    chunking.process_elements_inline.side_effect = RuntimeError("max_documents reached")
+    source.chunking_source = chunking
+
+    with pytest.raises(RuntimeError):
+        list(source.get_workunits_internal())
+
+    # Hitting the embedding budget halts the run but is not a thread failure, so
+    # the already-emitted document must not be counted as failed.
+    assert source.report.threads_failed == 0
+    assert len(source.report.failed_threads) == 0
 
 
 def test_thread_type_filter_skips_unwanted_types(ctx: PipelineContext) -> None:

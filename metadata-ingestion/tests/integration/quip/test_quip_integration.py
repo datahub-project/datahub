@@ -64,6 +64,9 @@ def test_platform_info_emitted(workunits: List[MetadataWorkUnit]) -> None:
     ]
     assert len(platform_infos) == 1
     assert platform_infos[0].displayName == "Quip"
+    # Must match the bootstrap data-platforms.yaml seed so the UI delimiter is
+    # stable before and after the first ingestion run.
+    assert platform_infos[0].datasetNameDelimiter == "."
 
 
 def test_folders_and_threads_ingested(workunits: List[MetadataWorkUnit]) -> None:
