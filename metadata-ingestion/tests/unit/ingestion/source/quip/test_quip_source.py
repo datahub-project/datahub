@@ -4,6 +4,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.quip.quip_client import (
+    QuipClientError,
     QuipFolder,
     QuipThread,
     QuipUser,
@@ -42,15 +43,15 @@ def test_source_initialization(ctx: PipelineContext) -> None:
 
 def test_instance_id_uses_platform_instance(ctx: PipelineContext) -> None:
     source = _make_source(ctx, platform_instance="mycompany")
-    assert source._get_instance_id() == "mycompany"
+    assert source._instance_id == "mycompany"
 
 
 def test_instance_id_falls_back_to_url_hash(ctx: PipelineContext) -> None:
     source = _make_source(ctx)
-    instance_id = source._get_instance_id()
+    instance_id = source._instance_id
     assert len(instance_id) == 8
     # Deterministic for a given base_url.
-    assert instance_id == _make_source(ctx)._get_instance_id()
+    assert instance_id == _make_source(ctx)._instance_id
 
 
 def test_doc_id_helpers(ctx: PipelineContext) -> None:
@@ -146,6 +147,20 @@ def test_thread_limit_stops_crawl_recursion(ctx: PipelineContext) -> None:
     assert crawl.thread_parents == {"t1": "root"}
     assert "sub" not in crawl.folders
     source.client.get_folder.assert_called_once_with("root")
+
+
+def test_thread_failure_reported_once(ctx: PipelineContext) -> None:
+    source = _make_source(
+        ctx, thread_ids=["t1"], advanced={"continue_on_failure": True}
+    )
+    source.client = MagicMock()
+    source.client.get_thread.side_effect = QuipClientError(500, "boom")
+
+    list(source.get_workunits_internal())
+
+    # The failure must be counted exactly once, not once per try/except layer.
+    assert source.report.threads_failed == 1
+    assert len(source.report.failed_threads) == 1
 
 
 def test_thread_type_filter_skips_unwanted_types(ctx: PipelineContext) -> None:

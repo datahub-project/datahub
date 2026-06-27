@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from functools import cached_property
 from typing import Dict, Iterable, List, Optional, Set, Union
 
 from pydantic import BaseModel, Field
@@ -119,16 +120,19 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         config = QuipSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def _get_instance_id(self) -> str:
+    @cached_property
+    def _instance_id(self) -> str:
+        # Constant for the lifetime of the source; cached because the doc-id helpers
+        # below are called for every folder and thread.
         if self.config.platform_instance:
             return self.config.platform_instance
         return hashlib.sha256(self.config.base_url.encode()).hexdigest()[:8]
 
     def _thread_doc_id(self, thread_id: str) -> str:
-        return f"{self.platform}-{self._get_instance_id()}-{thread_id}"
+        return f"{self.platform}-{self._instance_id}-{thread_id}"
 
     def _folder_doc_id(self, folder_id: str) -> str:
-        return f"{self.platform}-{self._get_instance_id()}-folder-{folder_id}"
+        return f"{self.platform}-{self._instance_id}-folder-{folder_id}"
 
     def _discover_root_folder_ids(self) -> List[str]:
         try:
@@ -275,14 +279,8 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         start_time = time.time()
         self.report.report_thread_scanned()
 
-        try:
-            response = self.client.get_thread(thread_id)
-        except QuipClientError as e:
-            self.report.report_thread_failed(thread_id, str(e))
-            if not self.config.advanced.continue_on_failure:
-                raise
-            return
-
+        # Failures here propagate to the caller, which records them exactly once.
+        response = self.client.get_thread(thread_id)
         thread = response.thread
         thread_type = (thread.type or "document").lower()
 
@@ -416,11 +414,12 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
     def _set_platform_instance(self, doc: Document) -> None:
         # Use the low-level _set_aspect (mirrors the Confluence connector) until the
         # Document SDK exposes dataPlatformInstance as a first-class parameter.
+        # Tracked in https://github.com/datahub-project/datahub/issues/18062.
         doc._set_aspect(
             DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
                 instance=make_dataplatform_instance_urn(
-                    self.platform, self._get_instance_id()
+                    self.platform, self._instance_id
                 ),
             )
         )
@@ -431,7 +430,9 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
             aspect=DataPlatformInfoClass(
                 name=self.platform,
                 type=PlatformTypeClass.OTHERS,
-                datasetNameDelimiter="/",
+                # Match the bootstrap data-platforms.yaml seed (".") and the sibling
+                # document connectors so the delimiter is stable before/after first run.
+                datasetNameDelimiter=".",
                 displayName="Quip",
                 logoUrl=QUIP_LOGO_URL,
             ),
@@ -464,11 +465,12 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
                     thread_id, parent_folder_id, in_scope_folders
                 )
             except Exception as e:
+                # An exhausted embedding budget stops the run but is not a thread
+                # failure, so re-raise without recording one.
+                if self.chunking_source.report.num_documents_limit_reached:
+                    raise
                 self.report.report_thread_failed(thread_id, str(e))
-                if (
-                    not self.config.advanced.continue_on_failure
-                    or self.chunking_source.report.num_documents_limit_reached
-                ):
+                if not self.config.advanced.continue_on_failure:
                     raise
 
     def get_report(self) -> QuipSourceReport:
