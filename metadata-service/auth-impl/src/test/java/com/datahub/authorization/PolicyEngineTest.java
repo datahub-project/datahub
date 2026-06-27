@@ -2253,6 +2253,91 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testGetMatchingActorsAllGroupsOnly() throws Exception {
+    // allGroups is set independently of allUsers. Guards against the wildcard flags being
+    // conflated (allGroups must reflect isAllGroups, not isAllUsers).
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN);
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset",
+            RESOURCE_URN,
+            ImmutableSet.of(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    PolicyEngine.PolicyActors actors =
+        _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
+
+    assertFalse(actors.getAllUsers());
+    assertTrue(actors.getAllGroups());
+  }
+
+  @Test
+  public void testGetMatchingActorsAllUsersOnly() throws Exception {
+    // allUsers is set independently of allGroups.
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN);
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset",
+            RESOURCE_URN,
+            ImmutableSet.of(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    PolicyEngine.PolicyActors actors =
+        _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
+
+    assertTrue(actors.getAllUsers());
+    assertFalse(actors.getAllGroups());
+  }
+
+  @Test
   public void testEvaluatePolicyWithSubResourceTagsAllowed() throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
