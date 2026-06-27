@@ -507,7 +507,8 @@ public class PolicyEngineTest {
   }
 
   @Test
-  public void testSharedContextFetchesResourceOwnersOnceAcrossPolicies() throws Exception {
+  public void testResourceOwnersFetchedOnceAcrossPoliciesViaFieldResolverMemoization()
+      throws Exception {
     // An ownership-based policy: the actor matches ONLY via resource ownership (no user/group/role
     // match), so each evaluation reaches the ownership lookup.
     final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
@@ -548,14 +549,7 @@ public class PolicyEngineTest {
                     spec,
                     entitySpec -> {
                       ownerFetchCount.incrementAndGet();
-                      return FieldResolver.FieldValue.builder()
-                          .values(
-                              owners.stream()
-                                  .map(Owner::getOwner)
-                                  .map(Urn::toString)
-                                  .collect(Collectors.toUnmodifiableSet()))
-                          .typedValues(Set.copyOf(owners))
-                          .build();
+                      return ownerFieldValue(owners);
                     })));
 
     // Shared per-request context, mirroring how DataHubAuthorizer reuses one context across the
@@ -2701,6 +2695,18 @@ public class PolicyEngineTest {
     return entityResponse;
   }
 
+  /** Builds the OWNER field value the same way OwnerFieldResolverProvider does in production. */
+  private static FieldResolver.FieldValue ownerFieldValue(Set<Owner> owners) {
+    return FieldResolver.FieldValue.builder()
+        .values(
+            owners.stream()
+                .map(Owner::getOwner)
+                .map(Urn::toString)
+                .collect(Collectors.toUnmodifiableSet()))
+        .typedValues(Set.copyOf(owners))
+        .build();
+  }
+
   public static ResolvedEntitySpec buildEntityResolvers(String entityType, String entityUrn) {
     return buildEntityResolvers(
         entityType,
@@ -2729,17 +2735,7 @@ public class PolicyEngineTest {
             EntityFieldType.URN,
             FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)),
             EntityFieldType.OWNER,
-            FieldResolver.getResolverFromFunction(
-                spec,
-                entitySpec ->
-                    FieldResolver.FieldValue.builder()
-                        .values(
-                            owners.stream()
-                                .map(Owner::getOwner)
-                                .map(Urn::toString)
-                                .collect(Collectors.toUnmodifiableSet()))
-                        .typedValues(Set.copyOf(owners))
-                        .build()),
+            FieldResolver.getResolverFromFunction(spec, entitySpec -> ownerFieldValue(owners)),
             EntityFieldType.DOMAIN,
             FieldResolver.getResolverFromValues(domains),
             EntityFieldType.CONTAINER,
