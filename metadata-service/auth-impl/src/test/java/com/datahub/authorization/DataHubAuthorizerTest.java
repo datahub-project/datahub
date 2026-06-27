@@ -468,7 +468,8 @@ public class DataHubAuthorizerTest {
             any(OperationContext.class),
             any(),
             any(),
-            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME))))
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)),
+            eq(false)))
         .thenReturn(ownershipResponse);
 
     // Mocks to get domains on a resource
