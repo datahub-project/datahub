@@ -7,7 +7,6 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -40,12 +39,9 @@ import org.apache.commons.collections4.map.HashedMap;
 @Slf4j
 public class PolicyEngine {
 
-  private final EntityClient _entityClient;
   private final GroupService _groupService;
 
-  public PolicyEngine(
-      @Nonnull final EntityClient entityClient, @Nonnull final GroupService groupService) {
-    this._entityClient = Objects.requireNonNull(entityClient);
+  public PolicyEngine(@Nonnull final GroupService groupService) {
     this._groupService = Objects.requireNonNull(groupService);
   }
 
@@ -600,6 +596,7 @@ public class PolicyEngine {
     private Set<Urn> roles;
     private SessionActorIdentity sessionActorIdentity;
     private OperationContext opContext;
+
     // Ownership data is cached per ResolvedEntitySpec via FieldResolver.fieldValuesFuture
     // (lazy CompletableFuture), so no separate per-URN owners map is needed here.
 
