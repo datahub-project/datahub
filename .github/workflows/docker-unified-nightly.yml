@@ -3,8 +3,8 @@ name: Nightly Docker Test
 # and if tests pass, tags them as nightly and daily for publishing
 on:
   workflow_dispatch:
-  # schedule:
-  # - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
+  schedule:
+    - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
 
 concurrency:
   group: ${{ github.workflow }}
@@ -116,7 +116,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
@@ -365,7 +365,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
@@ -582,7 +582,7 @@ jobs:
     name: Tag and push head images as nightly
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: [setup, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
+    if: ${{ github.ref_name == github.event.repository.default_branch && needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -630,7 +630,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           artifact_id=$(gh api --paginate "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
           gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
