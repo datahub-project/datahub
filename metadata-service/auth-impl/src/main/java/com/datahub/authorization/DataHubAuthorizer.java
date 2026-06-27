@@ -91,7 +91,7 @@ public class DataHubAuthorizer
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
     this.groupService = Objects.requireNonNull(groupService);
-    policyEngine = new PolicyEngine(entityClient, groupService);
+    policyEngine = new PolicyEngine(groupService);
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
