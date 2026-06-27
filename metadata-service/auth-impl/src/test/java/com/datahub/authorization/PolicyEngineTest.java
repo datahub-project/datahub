@@ -2197,62 +2197,6 @@ public class PolicyEngineTest {
   }
 
   @Test
-  public void testGetMatchingActorsByRoleResourceMatch() throws Exception {
-    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
-    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
-    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
-    dataHubPolicyInfo.setDisplayName("My Test Display");
-    dataHubPolicyInfo.setDescription("My test display!");
-    dataHubPolicyInfo.setEditable(true);
-
-    final DataHubActorFilter actorFilter = new DataHubActorFilter();
-    actorFilter.setResourceOwners(true);
-    actorFilter.setAllUsers(false);
-    actorFilter.setAllGroups(false);
-    actorFilter.setRoles(
-        new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor"))));
-    dataHubPolicyInfo.setActors(actorFilter);
-
-    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(false);
-    resourceFilter.setType("dataset");
-    StringArray resourceUrns = new StringArray();
-    resourceUrns.add(RESOURCE_URN);
-    resourceFilter.setResources(resourceUrns);
-    dataHubPolicyInfo.setResources(resourceFilter);
-
-    ResolvedEntitySpec resourceSpec =
-        buildEntityResolvers(
-            "dataset",
-            RESOURCE_URN,
-            ImmutableSet.of(),
-            Collections.emptySet(),
-            Collections.emptySet(),
-            Collections.emptySet(),
-            Collections.emptySet());
-
-    PolicyEngine.PolicyActors actors =
-        _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
-
-    assertFalse(actors.getAllUsers());
-    assertFalse(actors.getAllGroups());
-
-    assertEquals(actors.getUsers(), ImmutableList.of());
-    assertEquals(actors.getGroups(), ImmutableList.of());
-    assertEquals(
-        actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor")));
-
-    // Verify aspect client called, entity client not called.
-    verify(_entityClient, times(0))
-        .batchGetV2(
-            eq(systemOperationContext),
-            eq(CORP_USER_ENTITY_NAME),
-            eq(Collections.singleton(authorizedUserUrn)),
-            eq(null));
-  }
-
-  @Test
   public void testGetMatchingActorsAllGroupsOnly() throws Exception {
     // allGroups is set independently of allUsers. Guards against the wildcard flags being
     // conflated (allGroups must reflect isAllGroups, not isAllUsers).
@@ -2335,6 +2279,62 @@ public class PolicyEngineTest {
 
     assertTrue(actors.getAllUsers());
     assertFalse(actors.getAllGroups());
+  }
+
+  @Test
+  public void testGetMatchingActorsByRoleResourceMatch() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setRoles(
+        new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor"))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN);
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset",
+            RESOURCE_URN,
+            ImmutableSet.of(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet());
+
+    PolicyEngine.PolicyActors actors =
+        _policyEngine.getMatchingActors(dataHubPolicyInfo, Optional.of(resourceSpec));
+
+    assertFalse(actors.getAllUsers());
+    assertFalse(actors.getAllGroups());
+
+    assertEquals(actors.getUsers(), ImmutableList.of());
+    assertEquals(actors.getGroups(), ImmutableList.of());
+    assertEquals(
+        actors.getRoles(), ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Editor")));
+
+    // Verify aspect client called, entity client not called.
+    verify(_entityClient, times(0))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Collections.singleton(authorizedUserUrn)),
+            eq(null));
   }
 
   @Test
