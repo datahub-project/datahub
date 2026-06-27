@@ -1,3 +1,5 @@
+from contextlib import nullcontext as does_not_raise
+from typing import ContextManager
 from unittest.mock import MagicMock
 
 import pytest
@@ -158,29 +160,27 @@ def test_thread_limit_stops_crawl_recursion(ctx: PipelineContext) -> None:
     source.client.get_folder.assert_called_once_with("root")
 
 
-def test_thread_failure_reported_once(ctx: PipelineContext) -> None:
+@pytest.mark.parametrize(
+    "continue_on_failure, expectation",
+    [
+        pytest.param(True, does_not_raise(), id="continue"),
+        pytest.param(False, pytest.raises(QuipClientError), id="abort"),
+    ],
+)
+def test_thread_failure_reported_once(
+    ctx: PipelineContext,
+    continue_on_failure: bool,
+    expectation: ContextManager[object],
+) -> None:
     source = _make_source(
-        ctx, thread_ids=["t1"], advanced={"continue_on_failure": True}
+        ctx, thread_ids=["t1"], advanced={"continue_on_failure": continue_on_failure}
     )
     source.client = MagicMock()
     source.client.get_thread.side_effect = QuipClientError(500, "boom")
 
-    list(source.get_workunits_internal())
-
-    # The failure must be counted exactly once, not once per try/except layer.
-    assert source.report.threads_failed == 1
-    assert len(source.report.failed_threads) == 1
-
-
-def test_thread_failure_reported_once_when_aborting(ctx: PipelineContext) -> None:
-    source = _make_source(
-        ctx, thread_ids=["t1"], advanced={"continue_on_failure": False}
-    )
-    source.client = MagicMock()
-    source.client.get_thread.side_effect = QuipClientError(500, "boom")
-
-    # continue_on_failure=False re-raises, but the thread is still counted once.
-    with pytest.raises(QuipClientError):
+    # continue_on_failure=False re-raises, but either way the failure is counted
+    # exactly once, not once per try/except layer.
+    with expectation:
         list(source.get_workunits_internal())
 
     assert source.report.threads_failed == 1
@@ -220,41 +220,41 @@ def test_embedding_limit_aborts_without_marking_thread_failed(
     assert len(source.report.failed_threads) == 0
 
 
-def test_thread_type_filter_skips_unwanted_types(ctx: PipelineContext) -> None:
-    source = _make_source(ctx, thread_types=["document"])
-    source.client = MagicMock()
-    source.client.get_thread.return_value = QuipThread.model_validate(
-        {
-            "thread": {
-                "id": "t1",
-                "title": "Chat",
-                "type": "chat",
-                "link": "https://q/t1",
+@pytest.mark.parametrize(
+    "overrides, thread",
+    [
+        pytest.param(
+            {"thread_types": ["document"]},
+            {
+                "thread": {
+                    "id": "t1",
+                    "title": "Chat",
+                    "type": "chat",
+                    "link": "https://q/t1",
+                },
+                "html": "<p>chat content long enough to pass the length filter</p>",
             },
-            "html": "<p>some chat content that is long enough to pass length filter</p>",
-        }
-    )
-
-    workunits = list(source._create_thread_document("t1", None, set()))
-
-    assert workunits == []
-    assert source.report.threads_skipped == 1
-
-
-def test_thread_below_min_length_skipped(ctx: PipelineContext) -> None:
-    source = _make_source(ctx, filtering={"min_text_length": 100})
-    source.client = MagicMock()
-    source.client.get_thread.return_value = QuipThread.model_validate(
-        {
-            "thread": {
-                "id": "t1",
-                "title": "Tiny",
-                "type": "document",
-                "link": "https://q/t1",
+            id="type-not-allowed",
+        ),
+        pytest.param(
+            {"filtering": {"min_text_length": 100}},
+            {
+                "thread": {
+                    "id": "t1",
+                    "title": "Tiny",
+                    "type": "document",
+                    "link": "https://q/t1",
+                },
+                "html": "<p>short</p>",
             },
-            "html": "<p>short</p>",
-        }
-    )
+            id="below-min-length",
+        ),
+    ],
+)
+def test_thread_skipped(ctx: PipelineContext, overrides: dict, thread: dict) -> None:
+    source = _make_source(ctx, **overrides)
+    source.client = MagicMock()
+    source.client.get_thread.return_value = QuipThread.model_validate(thread)
 
     workunits = list(source._create_thread_document("t1", None, set()))
 
