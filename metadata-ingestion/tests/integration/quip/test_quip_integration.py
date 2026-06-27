@@ -14,6 +14,8 @@ from datahub.metadata.schema_classes import (
 )
 from tests.integration.quip.quip_mock import build_fake_client
 
+pytestmark = pytest.mark.integration
+
 
 def _run() -> List[MetadataWorkUnit]:
     config = QuipSourceConfig.model_validate(

@@ -94,11 +94,11 @@ def test_crawl_builds_hierarchy_and_dedupes_threads(ctx: PipelineContext) -> Non
     source.client = MagicMock()
     source.client.get_folder.side_effect = lambda fid: folders[fid]
 
-    found_folders, folder_parents, thread_parents = source._crawl()
+    crawl = source._crawl()
 
-    assert set(found_folders) == {"root", "sub"}
-    assert folder_parents == {"root": None, "sub": "root"}
-    assert thread_parents == {"t1": "root", "t2": "sub"}
+    assert set(crawl.folders) == {"root", "sub"}
+    assert crawl.folder_parents == {"root": None, "sub": "root"}
+    assert crawl.thread_parents == {"t1": "root", "t2": "sub"}
 
 
 def test_crawl_non_recursive_skips_subfolders(ctx: PipelineContext) -> None:
@@ -117,10 +117,35 @@ def test_crawl_non_recursive_skips_subfolders(ctx: PipelineContext) -> None:
     source.client = MagicMock()
     source.client.get_folder.side_effect = lambda fid: folders[fid]
 
-    found_folders, _, thread_parents = source._crawl()
+    crawl = source._crawl()
 
-    assert set(found_folders) == {"root"}
-    assert thread_parents == {"t1": "root"}
+    assert set(crawl.folders) == {"root"}
+    assert crawl.thread_parents == {"t1": "root"}
+
+
+def test_thread_limit_stops_crawl_recursion(ctx: PipelineContext) -> None:
+    folders = {
+        "root": QuipFolder.model_validate(
+            {
+                "folder": {"id": "root", "title": "Root"},
+                "children": [{"thread_id": "t1"}, {"folder_id": "sub"}],
+            }
+        ),
+        "sub": QuipFolder.model_validate(
+            {"folder": {"id": "sub"}, "children": [{"thread_id": "t2"}]}
+        ),
+    }
+    source = _make_source(ctx, folder_ids=["root"], max_threads=1)
+    source.client = MagicMock()
+    source.client.get_folder.side_effect = lambda fid: folders[fid]
+
+    crawl = source._crawl()
+
+    # With a budget of one thread, only the root thread is recorded and the
+    # sub-folder is never fetched once the limit is hit.
+    assert crawl.thread_parents == {"t1": "root"}
+    assert "sub" not in crawl.folders
+    source.client.get_folder.assert_called_once_with("root")
 
 
 def test_thread_type_filter_skips_unwanted_types(ctx: PipelineContext) -> None:

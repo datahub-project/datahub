@@ -1,10 +1,15 @@
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+
+@dataclass(frozen=True)
+class FailedThread:
+    thread_id: str
+    error: str
 
 
 @dataclass
@@ -16,7 +21,7 @@ class QuipSourceReport(StaleEntityRemovalSourceReport):
     threads_processed: int = 0
     threads_skipped: int = 0
     threads_failed: int = 0
-    failed_threads: List[Tuple[str, str]] = field(default_factory=list)
+    failed_threads: LossyList[FailedThread] = field(default_factory=LossyList)
 
     total_text_extracted_bytes: int = 0
 
@@ -44,7 +49,7 @@ class QuipSourceReport(StaleEntityRemovalSourceReport):
 
     def report_thread_failed(self, thread_id: str, error: str) -> None:
         self.threads_failed += 1
-        self.failed_threads.append((thread_id, error))
+        self.failed_threads.append(FailedThread(thread_id=thread_id, error=error))
         self.report_failure(thread_id, f"Failed to process thread: {error}")
 
     def report_text_extracted(self, num_bytes: int) -> None:

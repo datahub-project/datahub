@@ -3,7 +3,9 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
+
+from pydantic import BaseModel, Field
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -61,10 +63,16 @@ EXTRACTION_ALGO_VERSION = "1"
 
 QUIP_LOGO_URL = "assets/platforms/quiplogo.png"
 
-# folder_id -> folder, folder_id -> parent folder_id, thread_id -> parent folder_id
-CrawlResult = Tuple[
-    Dict[str, QuipFolder], Dict[str, Optional[str]], Dict[str, Optional[str]]
-]
+
+class CrawlResult(BaseModel):
+    """Folder tree discovered while crawling Quip."""
+
+    # folder_id -> folder
+    folders: Dict[str, QuipFolder] = Field(default_factory=dict)
+    # folder_id -> parent folder_id (None for root folders)
+    folder_parents: Dict[str, Optional[str]] = Field(default_factory=dict)
+    # thread_id -> shallowest containing folder_id (None for unparented threads)
+    thread_parents: Dict[str, Optional[str]] = Field(default_factory=dict)
 
 
 @platform_name("Quip")
@@ -133,9 +141,7 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         return root_ids
 
     def _crawl(self) -> CrawlResult:
-        folders: Dict[str, QuipFolder] = {}
-        folder_parents: Dict[str, Optional[str]] = {}
-        thread_parents: Dict[str, Optional[str]] = {}
+        crawl = CrawlResult()
 
         root_folder_ids = self.config.folder_ids or (
             self._discover_root_folder_ids() if not self.config.thread_ids else []
@@ -148,15 +154,13 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
                 parent_folder_id=None,
                 depth=0,
                 max_depth=max_depth,
-                folders=folders,
-                folder_parents=folder_parents,
-                thread_parents=thread_parents,
+                crawl=crawl,
             )
 
         for thread_id in self.config.thread_ids:
-            thread_parents.setdefault(thread_id, None)
+            crawl.thread_parents.setdefault(thread_id, None)
 
-        return folders, folder_parents, thread_parents
+        return crawl
 
     def _crawl_folder(
         self,
@@ -164,11 +168,14 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         parent_folder_id: Optional[str],
         depth: int,
         max_depth: int,
-        folders: Dict[str, QuipFolder],
-        folder_parents: Dict[str, Optional[str]],
-        thread_parents: Dict[str, Optional[str]],
+        crawl: CrawlResult,
     ) -> None:
-        if folder_id in folders:
+        if folder_id in crawl.folders:
+            return
+
+        # Once the thread budget is exhausted no further threads will be recorded,
+        # so descending into the rest of the tree only wastes get_folder API calls.
+        if self._thread_limit_reached(len(crawl.thread_parents)):
             return
 
         try:
@@ -177,8 +184,8 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_warning(folder_id, f"Failed to fetch folder: {e}")
             return
 
-        folders[folder_id] = folder
-        folder_parents[folder_id] = parent_folder_id
+        crawl.folders[folder_id] = folder
+        crawl.folder_parents[folder_id] = parent_folder_id
         self.report.report_folder_scanned()
 
         # Assign this folder's own threads before descending so a thread that also
@@ -186,10 +193,10 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
         # behave like tags (a thread can live in many), but DataHub's parentDocument
         # is single-valued, so we keep the first (shallowest) folder seen.
         for child in folder.children:
-            if child.thread_id and child.thread_id not in thread_parents:
-                if self._thread_limit_reached(len(thread_parents)):
-                    continue
-                thread_parents[child.thread_id] = folder_id
+            if child.thread_id and child.thread_id not in crawl.thread_parents:
+                if self._thread_limit_reached(len(crawl.thread_parents)):
+                    break
+                crawl.thread_parents[child.thread_id] = folder_id
 
         if self.config.recursive and depth + 1 <= max_depth:
             for child in folder.children:
@@ -199,9 +206,7 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
                         parent_folder_id=folder_id,
                         depth=depth + 1,
                         max_depth=max_depth,
-                        folders=folders,
-                        folder_parents=folder_parents,
-                        thread_parents=thread_parents,
+                        crawl=crawl,
                     )
 
     def _thread_limit_reached(self, current_count: int) -> bool:
@@ -363,7 +368,9 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
 
         self.report.report_thread_processed()
         self.report.report_text_extracted(len(text))
-        logger.debug(f"Processed thread {thread_id} in {time.time() - start_time:.2f}s")
+        logger.debug(
+            "Processed thread %s in %.2fs", thread_id, time.time() - start_time
+        )
 
     def _build_thread_document(
         self,
@@ -430,19 +437,19 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
             ),
         ).as_workunit()
 
-        folders, folder_parents, thread_parents = self._crawl()
-        in_scope_folders = set(folders.keys())
+        crawl = self._crawl()
+        in_scope_folders = set(crawl.folders.keys())
 
-        if not folders and not thread_parents:
+        if not crawl.folders and not crawl.thread_parents:
             logger.warning("No Quip folders or threads found to ingest")
             return
 
         # Emit folder documents first so thread parents resolve.
         if self.config.hierarchy.folder_mapping.create_parent_docs:
-            for folder_id, folder in folders.items():
+            for folder_id, folder in crawl.folders.items():
                 try:
                     yield from self._create_folder_document(
-                        folder_id, folder, folder_parents
+                        folder_id, folder, crawl.folder_parents
                     )
                 except Exception as e:
                     self.report.report_warning(
@@ -451,7 +458,7 @@ class QuipSource(StatefulIngestionSourceBase, TestableSource):
                     if not self.config.advanced.continue_on_failure:
                         raise
 
-        for thread_id, parent_folder_id in thread_parents.items():
+        for thread_id, parent_folder_id in crawl.thread_parents.items():
             try:
                 yield from self._create_thread_document(
                     thread_id, parent_folder_id, in_scope_folders

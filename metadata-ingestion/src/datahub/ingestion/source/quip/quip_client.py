@@ -22,6 +22,11 @@ class QuipUser(BaseModel):
     desktop_folder_id: Optional[str] = None
     shared_folder_ids: List[str] = Field(default_factory=list)
     group_folder_ids: List[str] = Field(default_factory=list)
+    # Declared so excluding them from root_folder_ids is intentional, not pydantic
+    # silently dropping unknown fields. Archive/starred/trash are not crawled.
+    archive_folder_id: Optional[str] = None
+    starred_folder_id: Optional[str] = None
+    trash_folder_id: Optional[str] = None
 
     @property
     def root_folder_ids(self) -> List[str]:

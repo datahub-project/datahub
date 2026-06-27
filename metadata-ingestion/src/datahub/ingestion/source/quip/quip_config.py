@@ -20,7 +20,6 @@ from datahub.ingestion.source.unstructured.config import (
     DocumentMappingConfig,
     FilteringConfig,
     HierarchyConfig,
-    ProcessingConfig,
 )
 
 
@@ -91,10 +90,6 @@ class QuipSourceConfig(
         description="Optional parent document URN for top-level imported folders.",
     )
 
-    processing: ProcessingConfig = Field(
-        default_factory=ProcessingConfig,
-        description="Document processing configuration.",
-    )
     document_mapping: DocumentMappingConfig = Field(
         default_factory=DocumentMappingConfig,
         description="Configuration for mapping Quip threads to DataHub documents.",
@@ -141,6 +136,15 @@ class QuipSourceConfig(
             raise ValueError("base_url must start with http:// or https://")
         return v
 
+    @field_validator("parent_document_urn")
+    @classmethod
+    def validate_parent_document_urn(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.startswith("urn:li:document:"):
+            raise ValueError(
+                "parent_document_urn must be a document URN (urn:li:document:...)"
+            )
+        return v
+
     @field_validator("platform_instance")
     @classmethod
     def validate_platform_instance(cls, v: Optional[str]) -> Optional[str]:
@@ -164,7 +168,9 @@ class QuipSourceConfig(
     @model_validator(mode="after")
     def set_document_id_pattern(self) -> "QuipSourceConfig":
         # URNs must be stable across runs, so drop the directory component that the
-        # default pattern would otherwise embed.
-        if self.document_mapping.id_pattern == "{source_type}-{directory}-{basename}":
+        # default pattern would otherwise embed. Only rewrite the default pattern,
+        # never a user-customized one.
+        default_id_pattern = DocumentMappingConfig.model_fields["id_pattern"].default
+        if self.document_mapping.id_pattern == default_id_pattern:
             self.document_mapping.id_pattern = "{source_type}-{basename}"
         return self
