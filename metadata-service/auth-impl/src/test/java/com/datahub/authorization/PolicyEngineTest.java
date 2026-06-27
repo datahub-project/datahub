@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -528,17 +529,37 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     ownerPolicy.setResources(resourceFilter);
 
+    // Count how many times the ownership aspect is actually fetched. A single ResolvedEntitySpec
+    // owns a single OWNER FieldResolver; its fieldValuesFuture (Lombok @Getter(lazy=true)) memoizes
+    // the supplier, so the supplier must run at most once regardless of how many policies query it.
+    final Set<Owner> owners = createOwnersSet(true, false);
+    final AtomicInteger ownerFetchCount = new AtomicInteger(0);
+    final EntitySpec spec = new EntitySpec("dataset", RESOURCE_URN);
     final ResolvedEntitySpec resourceSpec =
-        buildEntityResolvers(
-            "dataset",
-            RESOURCE_URN,
-            createOwnersSet(true, false),
-            Set.of(),
-            Set.of(),
-            Set.of(),
-            Set.of());
+        new ResolvedEntitySpec(
+            spec,
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                FieldResolver.getResolverFromValues(Collections.singleton("dataset")),
+                EntityFieldType.URN,
+                FieldResolver.getResolverFromValues(Collections.singleton(RESOURCE_URN)),
+                EntityFieldType.OWNER,
+                FieldResolver.getResolverFromFunction(
+                    spec,
+                    entitySpec -> {
+                      ownerFetchCount.incrementAndGet();
+                      return FieldResolver.FieldValue.builder()
+                          .values(
+                              owners.stream()
+                                  .map(Owner::getOwner)
+                                  .map(Urn::toString)
+                                  .collect(Collectors.toUnmodifiableSet()))
+                          .typedValues(Set.copyOf(owners))
+                          .build();
+                    })));
 
-    // Shared per-request context: the resource-owner cache lives here.
+    // Shared per-request context, mirroring how DataHubAuthorizer reuses one context across the
+    // full policy list for a single authorize() call.
     final PolicyEngine.PolicyEvaluationContext sharedContext =
         _policyEngine.createSeededEvaluationContext(
             Collections.emptyList(), Collections.emptySet());
@@ -567,9 +588,9 @@ public class PolicyEngineTest {
                 sharedContext)
             .isGranted());
 
-    // Ownership fetched exactly once across both evaluations, thanks to the per-context cache
-    // (FieldResolver.fieldValuesFuture (Lombok lazy getter)).
-    // todo check
+    // Ownership fetched exactly once across both evaluations, proving FieldResolver.fieldValuesFuture
+    // memoization makes the removed PolicyEvaluationContext.resourceOwnersByUrn cache redundant.
+    assertEquals(ownerFetchCount.get(), 1);
   }
 
   @Test
