@@ -305,6 +305,72 @@ public class AuthUtil {
                     subResourceSpecs));
   }
 
+  /** Authorizes a request when REST API authorization is enabled. */
+  public static boolean isAPIAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
+    if (AuthUtil.isRestApiAuthorizationEnabled) {
+      return isAuthorized(session, privilegeGroup, resourceSpec, subResources);
+    }
+    return true;
+  }
+
+  /** Returns the tag-specific privilege required to modify tags on an entity. */
+  public static PoliciesConfig.Privilege tagModificationPrivilege(
+      @Nonnull final Urn entityUrn, final boolean fieldLevelTags) {
+    if (fieldLevelTags && DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+      return PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE;
+    }
+    return PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE;
+  }
+
+  /** Either {@code EDIT_ENTITY} or the specific tag privilege is sufficient. */
+  public static DisjunctivePrivilegeGroup tagModificationPrivilegeGroup(
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    return new DisjunctivePrivilegeGroup(
+        List.of(
+            new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+            new ConjunctivePrivilegeGroup(List.of(specificTagPrivilege.getType()))));
+  }
+
+  public static boolean isAuthorizedForTagModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> tagUrns,
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    if (tagUrns.isEmpty()) {
+      return true;
+    }
+    return isAuthorized(
+        session,
+        tagModificationPrivilegeGroup(specificTagPrivilege),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        tagSubResourceSpecs(tagUrns));
+  }
+
+  public static boolean isAPIAuthorizedForTagModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> tagUrns,
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    if (tagUrns.isEmpty()) {
+      return true;
+    }
+    return isAPIAuthorized(
+        session,
+        tagModificationPrivilegeGroup(specificTagPrivilege),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        tagSubResourceSpecs(tagUrns));
+  }
+
+  private static Set<EntitySpec> tagSubResourceSpecs(@Nonnull final Collection<Urn> tagUrns) {
+    return tagUrns.stream()
+        .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+        .collect(Collectors.toSet());
+  }
+
   public static boolean isAPIAuthorizedEntityType(
       @Nonnull final AuthorizationSession session,
       @Nonnull final ApiOperation apiOperation,

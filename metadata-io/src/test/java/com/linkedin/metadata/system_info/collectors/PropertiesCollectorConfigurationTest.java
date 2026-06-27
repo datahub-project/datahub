@@ -150,6 +150,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.setup.preCreateTopics",
           "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
+          "kafka.setup.reconcileExistingTopicConfigs",
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
@@ -214,6 +215,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "secretService.callerGuardMode",
           "kubernetes.serviceHost",
           "kubernetes.operationsApiEnabled",
           "tokenService",
@@ -1160,7 +1162,26 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.gms.rateLimits.endpoint.enabled",
           "datahub.gms.rateLimits.endpoint.hazelcastMapName",
           "datahub.gms.rateLimits.endpoint.rules",
-          "datahub.gms.rateLimits.metrics.detailed"
+          "datahub.gms.rateLimits.metrics.detailed",
+          "datahub.gms.entityGraphCache.enabled",
+          "datahub.gms.entityGraphCache.configFile.enabled",
+          "datahub.gms.entityGraphCache.configFile.path",
+          "datahub.gms.entityGraphCache.configJson",
+          "datahub.gms.entityGraphCache.eviction.local.enabled",
+          "datahub.gms.entityGraphCache.eviction.local.maxViews",
+          "datahub.gms.entityGraphCache.eviction.local.maxEstimatedBytes",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.enabled",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.checkIntervalSeconds",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.heapUsageThresholdPercent",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.action",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.cooldownSeconds",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.hysteresisPercent",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.evictionPolicy",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.maxSizePerNode",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.maxSizePolicy",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.heapMaxSizePercent",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.ttlSeconds",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.backupCount"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

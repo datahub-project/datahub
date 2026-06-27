@@ -1,6 +1,7 @@
 package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -29,6 +30,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -166,7 +169,11 @@ public class GroupServiceTest {
         .thenReturn(_entityResponseMap);
 
     _groupService.addUserToNativeGroup(opContext, USER_URN, _groupUrn);
-    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    assertEquals(
+        UI_SOURCE, proposalCaptor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
     verify(_entityClient).batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
   }
 

@@ -73,9 +73,9 @@ public class BatchMetadataChangeProposalsProcessor {
    * sliced upstream. Equivalent to {@link #consume(OperationContext, List)} with the system
    * context.
    *
-   * <p>The Kafka listener entry ({@link BatchMetadataChangeProposalsKafkaListener}) splits the
-   * inbound batch into affinity slices and calls {@link #consume(OperationContext, List)} once per
-   * slice with that slice's representative context.
+   * <p>The Kafka listener entry ({@link MCPBatchKafkaListenerRegistrar}) splits the inbound batch
+   * into affinity slices and calls {@link #consume(OperationContext, List)} once per slice with
+   * that slice's representative context.
    */
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     consume(systemOperationContext, consumerRecords);
