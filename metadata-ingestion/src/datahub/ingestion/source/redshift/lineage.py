@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
@@ -34,6 +34,7 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
@@ -49,14 +50,6 @@ from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
-
-
-def _as_utc(timestamp: Optional[datetime]) -> Optional[datetime]:
-    if timestamp is None:
-        return None
-    if timestamp.tzinfo is None:
-        return timestamp.replace(tzinfo=timezone.utc)
-    return timestamp.astimezone(timezone.utc)
 
 
 class LineageDatasetPlatform(Enum):
@@ -540,7 +533,7 @@ class RedshiftSqlLineage(Closeable):
                             default_db=self.database,
                             default_schema=self.config.default_schema,
                             session_id=temp_row.session_id,
-                            timestamp=_as_utc(temp_row.start_time),
+                            timestamp=normalize_timestamp_to_utc(temp_row.start_time),
                         ),
                         # The "temp table" query actually returns all CREATE TABLE statements, even if they
                         # aren't explicitly a temp table. As such, setting is_known_temp_table=True
@@ -698,7 +691,9 @@ class RedshiftSqlLineage(Closeable):
                                     query=text,
                                     default_db=self.database,
                                     default_schema=self.config.default_schema,
-                                    timestamp=_as_utc(row[idx_starttime]),
+                                    timestamp=normalize_timestamp_to_utc(
+                                        row[idx_starttime]
+                                    ),
                                     user=self._user_urn(row[idx_username]),
                                     session_id=str(row[idx_session_id]),
                                 )
@@ -772,7 +767,7 @@ class RedshiftSqlLineage(Closeable):
                 query=ddl,
                 default_db=self.database,
                 default_schema=self.config.default_schema,
-                timestamp=_as_utc(lineage_row.timestamp),
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
                 session_id=lineage_row.session_id,
             )
         )
@@ -814,7 +809,7 @@ class RedshiftSqlLineage(Closeable):
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
-                timestamp=_as_utc(lineage_row.timestamp),
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
             ),
             merge_lineage=True,
         )

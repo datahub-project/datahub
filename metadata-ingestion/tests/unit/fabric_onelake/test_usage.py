@@ -8,6 +8,7 @@ from datahub.ingestion.source.fabric.onelake.config import FabricUsageConfig
 from datahub.ingestion.source.fabric.onelake.models import FabricQueryInsightsRow
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
 WORKSPACE_ID = "ws-123"
@@ -325,7 +326,7 @@ def test_handle_row_sets_default_db_to_workspace_item() -> None:
 
 def test_normalize_timestamp_naive_treated_as_utc() -> None:
     naive = datetime(2026, 5, 11, 10, 0, 0)
-    result = FabricUsageExtractor._normalize_timestamp(naive)
+    result = normalize_timestamp_to_utc(naive)
     assert result.tzinfo is timezone.utc
     assert result == datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
 
@@ -333,7 +334,7 @@ def test_normalize_timestamp_naive_treated_as_utc() -> None:
 def test_normalize_timestamp_non_utc_converted_to_utc() -> None:
     ist = timezone(timedelta(hours=5, minutes=30))
     aware = datetime(2026, 5, 11, 15, 30, 0, tzinfo=ist)
-    result = FabricUsageExtractor._normalize_timestamp(aware)
+    result = normalize_timestamp_to_utc(aware)
     assert result.tzinfo == timezone.utc
     # 15:30 IST == 10:00 UTC
     assert result == datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
@@ -341,4 +342,4 @@ def test_normalize_timestamp_non_utc_converted_to_utc() -> None:
 
 def test_normalize_timestamp_already_utc_returns_utc() -> None:
     aware = datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
-    assert FabricUsageExtractor._normalize_timestamp(aware) == aware
+    assert normalize_timestamp_to_utc(aware) == aware

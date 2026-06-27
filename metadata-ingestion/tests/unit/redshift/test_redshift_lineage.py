@@ -12,7 +12,6 @@ from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     LineageDatasetPlatform,
     RedshiftSqlLineage,
-    _as_utc,
     parse_alter_table_rename,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -22,6 +21,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -331,7 +331,7 @@ def test_query_usage_statistics_accepts_naive_utc_timestamps():
     extractor.known_urns = {
         "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
     }
-    ts = _as_utc(datetime(2024, 1, 2, 0, 0, 0))
+    ts = normalize_timestamp_to_utc(datetime(2024, 1, 2, 0, 0, 0))
     extractor.aggregator.add_observed_query(
         ObservedQuery(
             query="select event_id from dev.public.events",
