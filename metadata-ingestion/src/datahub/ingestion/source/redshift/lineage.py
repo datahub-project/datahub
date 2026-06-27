@@ -471,7 +471,10 @@ class RedshiftSqlLineage(Closeable):
             )
 
             table_renames[new_urn] = TableRename(
-                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+                prev_urn,
+                new_urn,
+                query_text,
+                timestamp=normalize_timestamp_to_utc(rename_row.start_time),
             )
 
             # We want to generate lineage for the previous name too.

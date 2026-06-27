@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -354,6 +354,13 @@ def test_normalize_timestamp_to_utc_naive() -> None:
 
 def test_normalize_timestamp_to_utc_from_iso_string() -> None:
     result = normalize_timestamp_to_utc("2024-01-02T10:00:00")
+    assert result == datetime(2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def test_normalize_timestamp_to_utc_converts_non_utc_aware() -> None:
+    ist = timezone(timedelta(hours=5, minutes=30))
+    aware = datetime(2024, 1, 2, 15, 30, 0, tzinfo=ist)
+    result = normalize_timestamp_to_utc(aware)
     assert result == datetime(2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
 
 
