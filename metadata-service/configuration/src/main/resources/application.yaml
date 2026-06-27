@@ -1648,7 +1648,7 @@ businessAttribute:
 metadataChangeProposal:
   consumer:
     batch:
-      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:true}
       size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
