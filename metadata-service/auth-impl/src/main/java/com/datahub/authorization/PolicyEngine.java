@@ -177,7 +177,10 @@ public class PolicyEngine {
       final PolicyEvaluationContext context,
       final List<ResolvedEntitySpec> subResources) {
 
-    // If policy is inactive, simply return DENY.
+    // If policy is inactive, simply return DENY. DataHubAuthorizer.addPolicyToCache already drops
+    // inactive policies at cache-build time, so this guard is redundant for the cached path; it is
+    // kept because evaluatePolicy is public and may be invoked directly with arbitrary policies
+    // (e.g. tests, or default policies that bypass the cache).
     if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Inactive Policy");
     }
@@ -471,11 +474,12 @@ public class PolicyEngine {
         opContext, resolvedActorSpec, requestResource.get(), ownershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(ResolvedEntitySpec spec, List<Urn> ownershipTypes) {
-    if (spec.getSpec().getEntity().isEmpty()) {
+  private Set<String> getOwnersForType(ResolvedEntitySpec resourceSpec, List<Urn> ownershipTypes) {
+    if (resourceSpec.getSpec().getEntity().isEmpty()) {
       return Set.of();
     }
-    Stream<Owner> ownersStream = spec.<Owner>getTypedValues(EntityFieldType.OWNER).stream();
+    Stream<Owner> ownersStream =
+        resourceSpec.<Owner>getTypedValues(EntityFieldType.OWNER).stream();
     if (ownershipTypes != null) {
       ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
     }
