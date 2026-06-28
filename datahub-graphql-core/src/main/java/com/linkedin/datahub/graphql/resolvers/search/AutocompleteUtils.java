@@ -80,20 +80,25 @@ public class AutocompleteUtils {
                         "batchGetAutocompleteResults"))
             .collect(Collectors.toList());
     return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
-        .thenApplyAsync(
-            (res) -> {
-              AutoCompleteMultipleResults result =
-                  new AutoCompleteMultipleResults(sanitizedQuery, new ArrayList<>());
-              List<AutoCompleteResultForEntity> suggestions =
-                  autoCompletesFuture.stream()
-                      .map(CompletableFuture::join)
-                      .filter(
-                          autoCompleteResultForEntity ->
-                              autoCompleteResultForEntity.getSuggestions() != null
-                                  && autoCompleteResultForEntity.getSuggestions().size() > 0)
-                      .collect(Collectors.toList());
-              result.setSuggestions(suggestions);
-              return result;
-            });
+        .thenComposeAsync(
+            (res) ->
+                GraphQLConcurrencyUtils.supplyAsync(
+                    () -> {
+                      AutoCompleteMultipleResults result =
+                          new AutoCompleteMultipleResults(sanitizedQuery, new ArrayList<>());
+                      List<AutoCompleteResultForEntity> suggestions =
+                          autoCompletesFuture.stream()
+                              .map(CompletableFuture::join)
+                              .filter(
+                                  autoCompleteResultForEntity ->
+                                      autoCompleteResultForEntity.getSuggestions() != null
+                                          && autoCompleteResultForEntity.getSuggestions().size()
+                                              > 0)
+                              .collect(Collectors.toList());
+                      result.setSuggestions(suggestions);
+                      return result;
+                    },
+                    AutocompleteUtils.class.getSimpleName(),
+                    "batchGetAutocompleteResults"));
   }
 }
