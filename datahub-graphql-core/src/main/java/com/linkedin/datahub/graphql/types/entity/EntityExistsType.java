@@ -5,16 +5,15 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.execution.DataFetcherResult;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /**
  * {@link LoadableType} that resolves whether a batch of entity urns exist. Backed by {@link
- * EntityService#exists}, which already accepts a set of urns, so multiple {@code exists} fields in a
- * single request are coalesced into one existence check by the DataLoader.
+ * EntityService#exists}, which already accepts a set of urns, so multiple {@code exists} fields in
+ * a single request are coalesced into one existence check by the DataLoader.
  */
 public class EntityExistsType implements LoadableType<Boolean, String> {
 
@@ -37,22 +36,17 @@ public class EntityExistsType implements LoadableType<Boolean, String> {
   @Override
   public List<DataFetcherResult<Boolean>> batchLoad(
       @Nonnull final List<String> keys, @Nonnull final QueryContext context) throws Exception {
-    final Set<Urn> urns = new LinkedHashSet<>();
+    final List<Urn> entityUrns = new ArrayList<>();
     for (String key : keys) {
-      urns.add(Urn.createFromString(key));
+      entityUrns.add(Urn.createFromString(key));
     }
 
-    try {
-      final Set<Urn> existing = _entityService.exists(context.getOperationContext(), urns);
-      return keys.stream()
-          .map(
-              key ->
-                  DataFetcherResult.<Boolean>newResult()
-                      .data(existing.contains(Urn.createFromString(key)))
-                      .build())
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to batch check whether entities exist", e);
-    }
+    final Set<Urn> existing =
+        _entityService.exists(context.getOperationContext(), Set.copyOf(entityUrns));
+    return entityUrns.stream()
+        .map(
+            entityUrn ->
+                DataFetcherResult.<Boolean>newResult().data(existing.contains(entityUrn)).build())
+        .toList();
   }
 }

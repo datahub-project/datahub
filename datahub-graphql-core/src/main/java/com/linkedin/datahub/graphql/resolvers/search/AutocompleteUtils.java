@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +77,7 @@ public class AutocompleteUtils {
                         },
                         AutocompleteUtils.class.getSimpleName(),
                         "batchGetAutocompleteResults"))
-            .collect(Collectors.toList());
+            .toList();
     return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
         .thenComposeAsync(
             (res) ->
@@ -94,11 +93,11 @@ public class AutocompleteUtils {
                                       autoCompleteResultForEntity.getSuggestions() != null
                                           && autoCompleteResultForEntity.getSuggestions().size()
                                               > 0)
-                              .collect(Collectors.toList());
+                              .toList();
                       result.setSuggestions(suggestions);
                       return result;
                     },
                     AutocompleteUtils.class.getSimpleName(),
-                    "batchGetAutocompleteResults"));
+                    "joinAutocompleteResults"));
   }
 }

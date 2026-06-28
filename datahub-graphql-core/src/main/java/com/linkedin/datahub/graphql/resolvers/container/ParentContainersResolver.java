@@ -16,7 +16,6 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 public class ParentContainersResolver
     implements DataFetcher<CompletableFuture<ParentContainersResult>> {
@@ -42,7 +41,7 @@ public class ParentContainersResolver
                 .setContainers(
                     containerUrns.stream()
                         .map(it -> (Container) UrnToEntityMapper.map(context, it))
-                        .collect(Collectors.toList()))
+                        .toList())
                 .build();
           } catch (Exception e) {
             throw new RuntimeException(

@@ -641,8 +641,7 @@ public class GmsGraphQLEngine {
     this.aspectType = new AspectType(entityClient);
     this.entityExistsType = new EntityExistsType(entityService);
     this.loadableEntityExistsTypeResolver =
-        new LoadableTypeResolver<>(
-            entityExistsType, (env) -> ((Entity) env.getSource()).getUrn());
+        new LoadableTypeResolver<>(entityExistsType, (env) -> ((Entity) env.getSource()).getUrn());
     this.connectionType = new DataHubConnectionType(entityClient, secretService);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
@@ -1171,10 +1170,7 @@ public class GmsGraphQLEngine {
                     "getRootGlossaryTerms", new GetRootGlossaryTermsResolver(this.entityClient))
                 .dataFetcher(
                     "getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
-                .dataFetcher(
-                    "entityExists",
-                    new LoadableTypeResolver<>(
-                        entityExistsType, (env) -> env.getArgument("urn")))
+                .dataFetcher("entityExists", getResolver(entityExistsType))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
                 .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
