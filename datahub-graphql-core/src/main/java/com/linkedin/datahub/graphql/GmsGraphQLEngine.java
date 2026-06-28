@@ -1004,7 +1004,7 @@ public class GmsGraphQLEngine {
                               ? container.getContainer().getUrn()
                               : null;
                         }))
-                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver())
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
@@ -1645,6 +1645,21 @@ public class GmsGraphQLEngine {
                           return result != null ? result.getDomains() : null;
                         })))
         .type(
+            "ParentContainersResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "containers",
+                    new EntityTypeBatchResolver(
+                        entityTypes,
+                        (env) -> {
+                          final ParentContainersResult result = env.getSource();
+                          return result != null
+                              ? result.getContainers().stream()
+                                  .map(container -> (Entity) container)
+                                  .collect(Collectors.toList())
+                              : null;
+                        })))
+        .type(
             "EntityRelationshipLegacy",
             typeWiring ->
                 typeWiring.dataFetcher(
@@ -1912,7 +1927,7 @@ public class GmsGraphQLEngine {
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
                     .dataFetcher("runs", new EntityRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                    .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                    .dataFetcher("parentContainers", new ParentContainersResolver())
                     .dataFetcher(
                         "siblingsSearch",
                         new SiblingsSearchResolver(this.entityClient, this.viewService))
@@ -2378,7 +2393,7 @@ public class GmsGraphQLEngine {
                               ? dashboard.getContainer().getUrn()
                               : null;
                         }))
-                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver())
                 .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
@@ -2512,7 +2527,7 @@ public class GmsGraphQLEngine {
                               ? chart.getContainer().getUrn()
                               : null;
                         }))
-                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver())
                 .dataFetcher(
                     "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
@@ -2741,7 +2756,7 @@ public class GmsGraphQLEngine {
                                   ? dataJob.getContainer().getUrn()
                                   : null;
                             }))
-                    .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                    .dataFetcher("parentContainers", new ParentContainersResolver())
                     .dataFetcher("runs", new ExecutionRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -2832,7 +2847,7 @@ public class GmsGraphQLEngine {
                               ? dataFlow.getContainer().getUrn()
                               : null;
                         }))
-                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver())
                 .dataFetcher("runs", new ExecutionRunsResolver(entityClient))
                 .dataFetcher(
                     "health",
@@ -3515,7 +3530,7 @@ public class GmsGraphQLEngine {
                               ? dataProcessInstance.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver())
                 .dataFetcher(
                     "container",
                     new LoadableTypeResolver<>(
