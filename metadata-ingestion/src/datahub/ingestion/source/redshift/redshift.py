@@ -387,6 +387,33 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 context="include_column_usage_stats",
             )
 
+        if (
+            self.config.include_query_usage_statistics
+            and not self.config.include_usage_statistics
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_query_usage_statistics` is enabled but "
+                "`include_usage_statistics` is disabled, so no query usage "
+                "statistics will be produced. Enable `include_usage_statistics` "
+                "to get per-query popularity stats.",
+                context="include_query_usage_statistics",
+            )
+
+        if (
+            self.config.include_usage_statistics
+            and self.config.include_query_usage_statistics
+            and not self.config.lineage_generate_queries
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_query_usage_statistics` is enabled but "
+                "`lineage_generate_queries` is disabled, so no Query entities are "
+                "emitted for the query usage statistics to attach to. Enable "
+                "`lineage_generate_queries` to get per-query popularity stats.",
+                context="include_query_usage_statistics",
+            )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
@@ -448,10 +475,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.include_usage_statistics
                 and self.config.include_column_usage_stats
             )
-            # Enter the lineage block when any lineage flag is on OR when
-            # include_column_usage_stats is enabled (usage is produced by the
+            query_usage_enabled = (
+                self.config.include_usage_statistics
+                and self.config.include_query_usage_statistics
+            )
+            # Enter the lineage block when any lineage flag is on OR when column or
+            # query usage stats are enabled (usage and query usage are produced by the
             # lineage aggregator in v2 mode and would be silently lost otherwise).
-            if lineage_enabled or column_usage_enabled:
+            if lineage_enabled or column_usage_enabled or query_usage_enabled:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     lineage_wus = self.extract_lineage_v2(
                         connection=connection,
@@ -479,7 +510,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     yield from lineage_wus
             else:
                 logger.info(
-                    "Skipping lineage/usage-v2 extraction - all lineage flags are disabled and include_column_usage_stats is off"
+                    "Skipping lineage/usage-v2 extraction - all lineage flags are "
+                    "disabled and neither column usage nor query usage stats are enabled"
                 )
 
         if self.config.include_usage_statistics:

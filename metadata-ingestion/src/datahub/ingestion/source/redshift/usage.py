@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import cachetools
@@ -33,6 +33,7 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
@@ -72,16 +73,8 @@ class RedshiftAccessEvent(BaseModel):
         Pydantic V2 assumes local timezone for naive datetime strings, whereas Pydantic V1 assumed UTC.
         This validator restores V1 behavior to maintain timestamp consistency.
         """
-        if isinstance(v, str):
-            # Parse as naive datetime, then assume UTC (matching V1 behavior)
-            dt = datetime.fromisoformat(v)
-            if dt.tzinfo is None:
-                # Treat naive datetime as UTC (this was the V1 behavior)
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
-        elif isinstance(v, datetime) and v.tzinfo is None:
-            # If we get a naive datetime object, assume UTC
-            return v.replace(tzinfo=timezone.utc)
+        if isinstance(v, (str, datetime)):
+            return normalize_timestamp_to_utc(v)
         return v
 
 

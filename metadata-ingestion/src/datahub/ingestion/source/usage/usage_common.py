@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
 
 import pydantic
@@ -64,6 +65,28 @@ def extract_user_email(user: str) -> Optional[str]:
     if user.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
         user = user.split(":")[-1]
     return user if "@" in user else None
+
+
+def normalize_timestamp_to_utc(
+    ts: Union[datetime, str, None],
+) -> Optional[datetime]:
+    """Coerce a query timestamp to timezone-aware UTC.
+
+    Naive datetimes are treated as UTC (Redshift system tables, Databricks
+    system tables, pyodbc ``datetime2``, etc.). Timezone-aware values are
+    converted to UTC.
+
+    ``SqlParsingAggregator`` compares query timestamps against UTC-aware
+    bucket boundaries from the ingestion config; naive bucket keys never
+    match and query usage stats are dropped as outside the window.
+    """
+    if ts is None:
+        return None
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts)
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(timezone.utc)
 
 
 def make_usage_workunit(

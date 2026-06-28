@@ -116,6 +116,25 @@ def test_access_event_to_preparsed_query():
     assert str(pq.user) == "urn:li:corpuser:alice"
 
 
+def test_access_event_normalizes_non_utc_aware_starttime():
+    # The aggregator compares timestamps against UTC-aware bucket boundaries, so a
+    # non-UTC aware input must be converted to UTC (15:30 IST == 10:00 UTC).
+    event = RedshiftAccessEvent(
+        userid=1,
+        username="alice",
+        query=1,
+        querytxt="select col_a from public.users",
+        tbl=1,
+        database="dev",
+        schema="public",
+        table="users",
+        starttime="2024-01-02T15:30:00+05:30",
+        endtime="2024-01-02T15:30:01+05:30",
+    )
+    assert event.starttime == datetime(2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
+    assert event.endtime == datetime(2024, 1, 2, 10, 0, 1, tzinfo=timezone.utc)
+
+
 def test_usage_user_urn_blank_username_falls_back_to_unknown():
     assert str(_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
 
