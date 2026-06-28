@@ -88,7 +88,6 @@ import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
-import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
@@ -1172,7 +1171,10 @@ public class GmsGraphQLEngine {
                     "getRootGlossaryTerms", new GetRootGlossaryTermsResolver(this.entityClient))
                 .dataFetcher(
                     "getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
-                .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
+                .dataFetcher(
+                    "entityExists",
+                    new LoadableTypeResolver<>(
+                        entityExistsType, (env) -> env.getArgument("urn")))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
                 .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
