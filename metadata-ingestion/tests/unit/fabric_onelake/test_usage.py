@@ -327,6 +327,7 @@ def test_handle_row_sets_default_db_to_workspace_item() -> None:
 def test_normalize_timestamp_naive_treated_as_utc() -> None:
     naive = datetime(2026, 5, 11, 10, 0, 0)
     result = normalize_timestamp_to_utc(naive)
+    assert result is not None
     assert result.tzinfo is timezone.utc
     assert result == datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
 
@@ -335,6 +336,7 @@ def test_normalize_timestamp_non_utc_converted_to_utc() -> None:
     ist = timezone(timedelta(hours=5, minutes=30))
     aware = datetime(2026, 5, 11, 15, 30, 0, tzinfo=ist)
     result = normalize_timestamp_to_utc(aware)
+    assert result is not None
     assert result.tzinfo == timezone.utc
     # 15:30 IST == 10:00 UTC
     assert result == datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)

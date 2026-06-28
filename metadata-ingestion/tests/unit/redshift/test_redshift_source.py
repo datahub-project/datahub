@@ -357,7 +357,9 @@ def test_extract_metadata_skips_lineage_block_when_all_disabled() -> None:
 def _warnings_for(config: RedshiftConfig) -> list[str]:
     source = RedshiftSource(config, ctx=PipelineContext(run_id="test"))
     source._warn_deprecated_configs()
-    return [warning.title for warning in source.report.warnings]
+    return [
+        warning.title for warning in source.report.warnings if warning.title is not None
+    ]
 
 
 def test_warns_when_query_usage_stats_without_usage_statistics() -> None:
