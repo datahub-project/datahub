@@ -21,6 +21,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -268,6 +269,129 @@ def test_table_pattern_filters_aggregator_usage():
     ]
     assert any("public.kept" in urn for urn in usage_urns)
     assert not any("denied" in urn for urn in usage_urns)
+
+
+def test_query_usage_statistics_emitted_without_column_usage():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    assert extractor.generate_query_usage is True
+    assert extractor.run_unified_queries is True
+    assert extractor.generate_usage is False
+    assert extractor.aggregator.generate_query_usage_statistics is True
+
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    query_text = "select event_id from dev.public.events"
+    for _ in range(2):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query=query_text,
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert len(query_usage_aspects) == 1
+    assert query_usage_aspects[0].queryCount == 2
+
+
+def test_query_usage_statistics_accepts_naive_utc_timestamps():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = normalize_timestamp_to_utc(datetime(2024, 1, 2, 0, 0, 0))
+    extractor.aggregator.add_observed_query(
+        ObservedQuery(
+            query="select event_id from dev.public.events",
+            default_db="dev",
+            default_schema="public",
+            timestamp=ts,
+        )
+    )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert len(query_usage_aspects) == 1
+    assert query_usage_aspects[0].queryCount == 1
+
+
+def test_query_usage_statistics_disabled_when_flag_off():
+    """When include_query_usage_statistics=False, the aggregator must not be wired
+    to generate query usage stats and no QueryUsageStatistics aspects are emitted,
+    even though usage statistics are otherwise enabled."""
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=False,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    assert extractor.generate_query_usage is False
+    assert extractor.aggregator.generate_query_usage_statistics is False
+    # Neither column nor query usage is enabled, so the unified feed should not run.
+    assert extractor.run_unified_queries is False
+
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    for _ in range(2):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query="select event_id from dev.public.events",
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert query_usage_aspects == []
 
 
 def test_unified_queries_failure_is_reported_as_failure(monkeypatch):
