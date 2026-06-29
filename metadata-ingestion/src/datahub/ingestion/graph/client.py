@@ -34,9 +34,7 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
     ClientMode,
@@ -165,6 +163,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
@@ -298,7 +297,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
                 tcp_keepalive=session_config.tcp_keepalive,
-            )
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
