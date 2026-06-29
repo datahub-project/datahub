@@ -194,11 +194,12 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/actions",
-        "Source": "https://github.com/acryldata/datahub-actions",
-        "Changelog": "https://github.com/acryldata/datahub-actions/releases",
+        "Documentation": "https://docs.datahub.com/",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
     description="Event-driven action framework for DataHub — trigger automations and workflows in response to real-time metadata changes",

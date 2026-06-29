@@ -256,11 +256,11 @@ def generate_pyproject_toml() -> str:
 
     # Project URLs
     output_lines.append("[project.urls]")
-    output_lines.append('Homepage = "https://docs.datahub.com/"')
-    output_lines.append('Documentation = "https://docs.datahub.com/docs/"')
+    output_lines.append('Homepage = "https://datahub.com/"')
+    output_lines.append('Documentation = "https://docs.datahub.com/"')
     output_lines.append('Source = "https://github.com/datahub-project/datahub"')
     output_lines.append(
-        'Changelog = "https://github.com/datahub-project/datahub/releases"'
+        'Changelog = "https://github.com/acryldata/datahub/releases"'
     )
     output_lines.append('Releases = "https://github.com/acryldata/datahub/releases"')
     output_lines.append("")

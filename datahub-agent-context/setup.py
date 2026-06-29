@@ -94,11 +94,12 @@ dev_requirements = {
 setuptools.setup(
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahub.io/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
     description="MCP tools for AI agents to search and query your DataHub metadata catalog — works with Claude, Cursor, Copilot, and any MCP-compatible AI assistant",

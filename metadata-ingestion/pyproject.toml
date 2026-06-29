@@ -71,10 +71,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://docs.datahub.com/"
-Documentation = "https://docs.datahub.com/docs/"
+Homepage = "https://datahub.com/"
+Documentation = "https://docs.datahub.com/"
 Source = "https://github.com/datahub-project/datahub"
-Changelog = "https://github.com/datahub-project/datahub/releases"
+Changelog = "https://github.com/acryldata/datahub/releases"
 Releases = "https://github.com/acryldata/datahub/releases"
 
 [project.optional-dependencies]
