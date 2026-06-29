@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="S1">
+      <EntityType Name="DIM_DAY">
+        <Key>
+          <PropertyRef Name="DATE_SQL"/>
+        </Key>
+        <Property Name="DATE_SQL" Type="Edm.Date" Nullable="false"/>
+        <Property Name="YEAR_VAL" Type="Edm.Int32" Nullable="true"/>
+        <Property Name="QUARTER_VAL" Type="Edm.Int32" Nullable="true"/>
+        <Property Name="MONTH_VAL" Type="Edm.Int32" Nullable="true"/>
+        <Property Name="MONTH_NAME" Type="Edm.String" Nullable="true"/>
+        <Property Name="WEEK_VAL" Type="Edm.Int32" Nullable="true"/>
+        <Property Name="DAY_OF_WEEK" Type="Edm.Int32" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="S1.DIM_DAY">
+        <Annotation Term="Common.Label" String="Day Dimension Table"/>
+        <Annotation Term="Analytics.Dimension"/>
+        <Annotation Term="Analytics.dimensionType" EnumMember="Analytics.DimensionType/Time"/>
+      </Annotations>
+      <Annotations Target="S1.DIM_DAY/DATE_SQL">
+        <Annotation Term="Common.IsCalendarDate"/>
+        <Annotation Term="Common.Label" String="Calendar Date"/>
+      </Annotations>
+      <Annotations Target="S1.DIM_DAY/YEAR_VAL">
+        <Annotation Term="Common.IsCalendarYear"/>
+      </Annotations>
+      <Annotations Target="S1.DIM_DAY/QUARTER_VAL">
+        <Annotation Term="Common.IsCalendarQuarter"/>
+      </Annotations>
+      <Annotations Target="S1.DIM_DAY/MONTH_VAL">
+        <Annotation Term="Common.IsCalendarMonth"/>
+      </Annotations>
+      <Annotations Target="S1.DIM_DAY/WEEK_VAL">
+        <Annotation Term="Common.IsCalendarWeek"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

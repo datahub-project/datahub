@@ -1,0 +1,375 @@
+{
+  "definitions": {
+    "SAP.TIME.VIEW_DIMENSION_DAY": {
+      "kind": "entity",
+      "elements": {
+        "DATE_SQL": {
+          "key": true,
+          "type": "cds.Date",
+          "@Analytics.dimension": true,
+          "@EndUserText.label": "Date",
+          "@Semantics.date": true,
+          "@ObjectModel.text.element": [
+            {
+              "=": "DAY_INT"
+            }
+          ]
+        },
+        "DATE_SAP": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.date": true,
+          "@EndUserText.label": "Date (String)",
+          "length": 8,
+          "@ObjectModel.text.element": [
+            {
+              "=": "DAY_INT"
+            }
+          ]
+        },
+        "DAY_OF_WEEK": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.dayOfYear": true,
+          "@EndUserText.label": "Day of Week",
+          "length": 2,
+          "@ObjectModel.text.association": {
+            "=": "_DAY_OF_WEEK"
+          }
+        },
+        "CALWEEK": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.yearWeek": true,
+          "@EndUserText.label": "Calendar Week",
+          "length": 6
+        },
+        "CALMONTH": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.yearMonth": true,
+          "@EndUserText.label": "Calendar Month",
+          "@ObjectModel.text.association": {
+            "=": "_MONTH"
+          },
+          "length": 6
+        },
+        "MONTH": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.month": true,
+          "@EndUserText.label": "Month",
+          "length": 2
+        },
+        "CALQUARTER": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.yearQuarter": true,
+          "@EndUserText.label": "Calendar Quarter",
+          "length": 5,
+          "@ObjectModel.text.association": {
+            "=": "_QUARTER"
+          }
+        },
+        "QUARTER": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@EndUserText.label": "Quarter",
+          "length": 2
+        },
+        "YEAR": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.year": true,
+          "@EndUserText.label": "Year",
+          "length": 4
+        },
+        "_DAY_OF_WEEK": {
+          "on": [
+            {
+              "ref": [
+                "DAY_OF_WEEK"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_DAY_OF_WEEK",
+                "ID"
+              ]
+            }
+          ],
+          "target": "SAP.TIME.M_TIME_DIMENSION_TDAY",
+          "type": "cds.Association"
+        },
+        "DAY_INT": {
+          "@EndUserText.label": "Day (Number)",
+          "type": "cds.hana.TINYINT",
+          "@Semantics.text": true
+        },
+        "_MONTH": {
+          "on": [
+            {
+              "ref": [
+                "MONTH"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_MONTH",
+                "ID"
+              ]
+            }
+          ],
+          "target": "SAP.TIME.M_TIME_DIMENSION_TMONTH",
+          "type": "cds.Association"
+        },
+        "_QUARTER": {
+          "on": [
+            {
+              "ref": [
+                "QUARTER"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_QUARTER",
+                "ID"
+              ]
+            }
+          ],
+          "target": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+          "type": "cds.Association"
+        }
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "ref": [
+              "SAP.TIME.M_TIME_DIMENSION"
+            ],
+            "as": "M_TIME_DIMENSION"
+          },
+          "distinct": true,
+          "columns": [
+            {
+              "ref": [
+                "DATE_SQL"
+              ]
+            },
+            {
+              "ref": [
+                "DATE_SAP"
+              ]
+            },
+            {
+              "ref": [
+                "DAY_OF_WEEK"
+              ]
+            },
+            {
+              "ref": [
+                "CALWEEK"
+              ]
+            },
+            {
+              "ref": [
+                "CALMONTH"
+              ]
+            },
+            {
+              "ref": [
+                "MONTH"
+              ]
+            },
+            {
+              "ref": [
+                "CALQUARTER"
+              ]
+            },
+            {
+              "ref": [
+                "YEAR"
+              ]
+            },
+            {
+              "ref": [
+                "QUARTER"
+              ]
+            },
+            {
+              "ref": [
+                "_DAY_OF_WEEK"
+              ]
+            },
+            {
+              "ref": [
+                "DAY_INT"
+              ]
+            },
+            {
+              "ref": [
+                "_MONTH"
+              ]
+            },
+            {
+              "ref": [
+                "_QUARTER"
+              ]
+            }
+          ],
+          "mixin": {
+            "_DAY_OF_WEEK": {
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "DAY_OF_WEEK"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_DAY_OF_WEEK",
+                    "ID"
+                  ]
+                }
+              ],
+              "target": "SAP.TIME.M_TIME_DIMENSION_TDAY",
+              "type": "cds.Association"
+            },
+            "_MONTH": {
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "MONTH"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_MONTH",
+                    "ID"
+                  ]
+                }
+              ],
+              "target": "SAP.TIME.M_TIME_DIMENSION_TMONTH",
+              "type": "cds.Association"
+            },
+            "_QUARTER": {
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "QUARTER"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_QUARTER",
+                    "ID"
+                  ]
+                }
+              ],
+              "target": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+              "type": "cds.Association"
+            }
+          }
+        }
+      },
+      "@EndUserText.label": "Time Dimension - Day",
+      "@Hierarchy.leveled": [
+        {
+          "name": "YQMD",
+          "label": "Year, Quarter, Month, Day",
+          "levels": [
+            {
+              "element": {
+                "=": "YEAR"
+              }
+            },
+            {
+              "element": {
+                "=": "CALQUARTER"
+              }
+            },
+            {
+              "element": {
+                "=": "CALMONTH"
+              }
+            },
+            {
+              "element": {
+                "=": "DATE_SQL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "YMD",
+          "label": "Year, Month, Day",
+          "levels": [
+            {
+              "element": {
+                "=": "YEAR"
+              }
+            },
+            {
+              "element": {
+                "=": "CALMONTH"
+              }
+            },
+            {
+              "element": {
+                "=": "DATE_SQL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "YWD",
+          "label": "Year, Week, Day",
+          "levels": [
+            {
+              "element": {
+                "=": "YEAR"
+              }
+            },
+            {
+              "element": {
+                "=": "CALWEEK"
+              }
+            },
+            {
+              "element": {
+                "=": "DATE_SQL"
+              }
+            }
+          ]
+        }
+      ],
+      "@ObjectModel.modelingPattern": {
+        "#": "ANALYTICAL_DIMENSION"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "ANALYTICAL_PROVIDER"
+        },
+        {
+          "#": "ANALYTICAL_DIMENSION"
+        }
+      ],
+      "@Analytics.dimensionType": "#TIME",
+      "@Internal.Entity.Hidden": true,
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": null
+        }
+      }
+    }
+  }
+}

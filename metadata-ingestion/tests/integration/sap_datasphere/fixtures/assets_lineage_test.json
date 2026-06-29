@@ -1,0 +1,42 @@
+{"value": [
+  {
+    "name": "BASE_TABLE",
+    "label": "Base Table",
+    "spaceName": "LINEAGE_TEST",
+    "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
+    "supportsAnalyticalQueries": false,
+    "hasParameters": false
+  },
+  {
+    "name": "MID_VIEW",
+    "label": "Mid View on Base Table",
+    "spaceName": "LINEAGE_TEST",
+    "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/LINEAGE_TEST/MID_VIEW/$metadata",
+    "supportsAnalyticalQueries": false,
+    "hasParameters": false
+  },
+  {
+    "name": "FED_SNOWFLAKE_CUST",
+    "label": "Federated Snowflake Customers",
+    "spaceName": "LINEAGE_TEST",
+    "assetRelationalMetadataUrl": null,
+    "supportsAnalyticalQueries": false,
+    "hasParameters": false
+  },
+  {
+    "name": "FED_BIGQUERY_BAD",
+    "label": "Federated BigQuery (unmapped)",
+    "spaceName": "LINEAGE_TEST",
+    "assetRelationalMetadataUrl": null,
+    "supportsAnalyticalQueries": false,
+    "hasParameters": false
+  },
+  {
+    "name": "AM_REVENUE",
+    "label": "Revenue Analytic Model",
+    "spaceName": "LINEAGE_TEST",
+    "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/LINEAGE_TEST/AM_REVENUE/$metadata",
+    "supportsAnalyticalQueries": true,
+    "hasParameters": false
+  }
+]}

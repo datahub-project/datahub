@@ -1,0 +1,3130 @@
+[
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Dimension",
+            "description": "A tag applied to dimension columns. Dimensions are categorical attributes used to slice/group facts."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Measure",
+            "description": "A tag applied to measure (metric) columns. Measures are numeric values that are aggregated."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:semantic:currency",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Currency",
+            "description": "Column holds a currency amount per SAP CDS `@Common.IsCurrency`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:semantic:unit",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Unit",
+            "description": "Column holds a unit-of-measure code per SAP CDS `@Common.IsUnit`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:year",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Year",
+            "description": "Column holds a calendar year (YYYY) per SAP CDS `@Common.IsCalendarYear`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:month",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Month",
+            "description": "Column holds a calendar month per SAP CDS `@Common.IsCalendarMonth`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:quarter",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Quarter",
+            "description": "Column holds a calendar quarter per SAP CDS `@Common.IsCalendarQuarter`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:week",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Week",
+            "description": "Column holds a calendar week per SAP CDS `@Common.IsCalendarWeek`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:date",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Date",
+            "description": "Column holds a calendar date per SAP CDS `@Common.IsCalendarDate`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:yearmonth",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "SAP Calendar: Year-Month",
+            "description": "Column holds a calendar year-month per SAP CDS `@Common.IsCalendarYearMonth`."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:396acd4af7f74ac520f16710493133df",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sap-datasphere",
+                "instance": "recorded_tenant",
+                "space": "demo_space"
+            },
+            "name": "DEMO_SPACE",
+            "description": "SAP Datasphere Space: DEMO_SPACE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:396acd4af7f74ac520f16710493133df",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:396acd4af7f74ac520f16710493133df",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Space"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:396acd4af7f74ac520f16710493133df",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "DATE_SQL",
+                    "nullable": false,
+                    "description": "Date [sap_calendar_type=date]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.Date",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:date"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "DATE_SAP",
+                    "nullable": true,
+                    "description": "Date (String) [sap_calendar_type=date]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:date"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY_OF_WEEK",
+                    "nullable": true,
+                    "description": "Day of Week",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALWEEK",
+                    "nullable": true,
+                    "description": "Calendar Week",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALMONTH",
+                    "nullable": true,
+                    "description": "Calendar Month [sap_calendar_type=yearmonth]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:yearmonth"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MONTH",
+                    "nullable": true,
+                    "description": "Month [sap_calendar_type=month]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:month"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALQUARTER",
+                    "nullable": true,
+                    "description": "Calendar Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "QUARTER",
+                    "nullable": true,
+                    "description": "Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YEAR",
+                    "nullable": true,
+                    "description": "Year [sap_calendar_type=year]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:year"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY_INT",
+                    "nullable": true,
+                    "description": "Day (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.Byte",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "supportsAnalyticalQueries": "true",
+                "hasParameters": "false",
+                "exposed_for_consumption": "false",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "Test_Analytic_Model"
+            },
+            "name": "Test Analytic Model",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SQL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),DATE_SQL)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SAP)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),DATE_SAP)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_OF_WEEK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),DAY_OF_WEEK)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALWEEK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),CALWEEK)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),CALMONTH)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),MONTH)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),CALQUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),YEAR)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),QUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_INT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD),DAY_INT)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "supportsAnalyticalQueries": "false",
+                "hasParameters": "false",
+                "exposed_for_consumption": "true",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.VIEW_DIMENSION_DAY",
+                "sap_dimension_type": "Time"
+            },
+            "name": "Time Dimension - Day",
+            "description": "Time Dimension - Day",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Analytic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\n  \"SELECT\": {\n    \"from\": {\n      \"ref\": [\n        \"FINANCE_DATA.SALES_ALL_GE\"\n      ],\n      \"as\": \"FINANCE_DATASALES_A\"\n    },\n    \"columns\": [\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BusinessPartner\"\n        ],\n        \"as\": \"BusinessPartner\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BusinessPartner_Location\"\n        ],\n        \"as\": \"BusinessPartner_Location\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_ORDERID\"\n        ],\n        \"as\": \"BW_ORDERID\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_YEAR\"\n        ],\n        \"as\": \"BW_Athena_YEAR\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_MONTH\"\n        ],\n        \"as\": \"BW_Athena_MONTH\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_SALESAGENT\"\n        ],\n        \"as\": \"BW_SALESAGENT\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_COUNTRY\"\n        ],\n        \"as\": \"BW_Athena_COUNTRY\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_CUSTOMERSTATUS\"\n        ],\n        \"as\": \"BW_Athena_CUSTOMERSTATUS\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_PRODUCT\"\n        ],\n        \"as\": \"BW_Athena_PRODUCT\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_Athena_PRODUCTTYPE\"\n        ],\n        \"as\": \"BW_Athena_PRODUCTTYPE\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Opportunity_Id\"\n        ],\n        \"as\": \"Opportunity_Id\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"ForecastCategory\"\n        ],\n        \"as\": \"ForecastCategory\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"HasOpenActivity\"\n        ],\n        \"as\": \"HasOpenActivity\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"HasOpportunityLineItem\"\n        ],\n        \"as\": \"HasOpportunityLineItem\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"IsClosed\"\n        ],\n        \"as\": \"IsClosed\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"IsDeleted\"\n        ],\n        \"as\": \"IsDeleted\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"IsWon\"\n        ],\n        \"as\": \"IsWon\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"LeadSource\"\n        ],\n        \"as\": \"LeadSource\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"MainCompetitors\"\n        ],\n        \"as\": \"MainCompetitors\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Name\"\n        ],\n        \"as\": \"Name\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"OrderNumber\"\n        ],\n        \"as\": \"OrderNumber\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"OrderNumber__c_0\"\n        ],\n        \"as\": \"OrderNumber__c_0\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Probability\"\n        ],\n        \"as\": \"Probability\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"StageName\"\n        ],\n        \"as\": \"StageName\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Type\"\n        ],\n        \"as\": \"Type\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Sold to party\"\n        ],\n        \"as\": \"Sold to party\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Company Code\"\n        ],\n        \"as\": \"Company Code\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"BusinessPartnerCategory\"\n        ],\n        \"as\": \"BusinessPartnerCategory_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"BusinessPartnerName\"\n        ],\n        \"as\": \"BusinessPartnerName_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"CreationDate\"\n        ],\n        \"as\": \"CreationDate_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"LastChangeDate\"\n        ],\n        \"as\": \"LastChangeDate_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"BusinessPartnerIsBlocked\"\n        ],\n        \"as\": \"BusinessPartnerIsBlocked_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"IsBusinessPurposeCompleted\"\n        ],\n        \"as\": \"IsBusinessPurposeComplet_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"OrganizationBPName1\"\n        ],\n        \"as\": \"OrganizationBPName1_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"InternationalLocationNumber1\"\n        ],\n        \"as\": \"InternationalLocationNum_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"LegalForm\"\n        ],\n        \"as\": \"LegalForm_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"IsNaturalPerson\"\n        ],\n        \"as\": \"IsNaturalPerson_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"BusinessPartnerGrouping\"\n        ],\n        \"as\": \"BusinessPartnerGrouping_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"BusinessPartnerType\"\n        ],\n        \"as\": \"BusinessPartnerType_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"Risk_Class\"\n        ],\n        \"as\": \"Risk_Class_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner\",\n          \"Rating_Payment_Behav\"\n        ],\n        \"as\": \"Rating_Payment_Behav_Busin\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"Country\"\n        ],\n        \"as\": \"Country_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"Region\"\n        ],\n        \"as\": \"Region_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"State\"\n        ],\n        \"as\": \"State_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"City\"\n        ],\n        \"as\": \"City_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"City_Population\"\n        ],\n        \"as\": \"City_Population_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"Average_income_per_head_year\"\n        ],\n        \"as\": \"Average_income_per_head_y_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"Purchasing_Power_per_Year\"\n        ],\n        \"as\": \"Purchasing_Power_per_Year_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"_BusinessPartner_Loc\",\n          \"Location\"\n        ],\n        \"as\": \"Location_Bus1\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_ORDERVALUE\"\n        ],\n        \"as\": \"BW_ORDERVALUE\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_UNITSSOLD\"\n        ],\n        \"as\": \"BW_UNITSSOLD\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"BW_NOCUSTOMERMEETINGS\"\n        ],\n        \"as\": \"BW_NOCUSTOMERMEETINGS\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Athena_Planned_ORDERVALUE\"\n        ],\n        \"as\": \"Athena_Planned_ORDERVALUE\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Sales_Amount\"\n        ],\n        \"as\": \"Sales_Amount\"\n      },\n      {\n        \"ref\": [\n          \"FINANCE_DATASALES_A\",\n          \"Sales_ExpectedRevenue\"\n        ],\n        \"as\": \"Sales_ExpectedRevenue\"\n      }\n    ],\n    \"mixin\": {\n      \"_BusinessPartner\": {\n        \"type\": \"cds.Association\",\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"BusinessPartner\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_BusinessPartner\",\n              \"BusinessPartner\"\n            ]\n          }\n        ],\n        \"target\": \"FINANCE_DATA.BusinessPartner_DIM_GE\"\n      },\n      \"_BusinessPartner_Loc\": {\n        \"type\": \"cds.Association\",\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"BusinessPartner_Location\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_BusinessPartner_Loc\",\n              \"Business Partner from S4/HC\"\n            ]\n          }\n        ],\n        \"target\": \"FINANCE_DATA.Purchasing_Power_DIM_GE\"\n      }\n    }\n  }\n}",
+            "viewLanguage": "CSN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sap:dimension_type:Time"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\n  \"SELECT\": {\n    \"from\": {\n      \"ref\": [\n        \"SAP.TIME.M_TIME_DIMENSION\"\n      ],\n      \"as\": \"M_TIME_DIMENSION\"\n    },\n    \"distinct\": true,\n    \"columns\": [\n      {\n        \"ref\": [\n          \"DATE_SQL\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"DATE_SAP\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"DAY_OF_WEEK\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"CALWEEK\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"CALMONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"MONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"CALQUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"YEAR\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"QUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_DAY_OF_WEEK\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"DAY_INT\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_MONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_QUARTER\"\n        ]\n      }\n    ],\n    \"mixin\": {\n      \"_DAY_OF_WEEK\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"DAY_OF_WEEK\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_DAY_OF_WEEK\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TDAY\",\n        \"type\": \"cds.Association\"\n      },\n      \"_MONTH\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"MONTH\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_MONTH\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TMONTH\",\n        \"type\": \"cds.Association\"\n      },\n      \"_QUARTER\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"QUARTER\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_QUARTER\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TQUARTER\",\n        \"type\": \"cds.Association\"\n      }\n    }\n  }\n}",
+            "viewLanguage": "CSN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "CALQUARTER",
+                    "nullable": false,
+                    "description": "Calendar Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "QUARTER",
+                    "nullable": true,
+                    "description": "Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YEAR",
+                    "nullable": true,
+                    "description": "Year [sap_calendar_type=year]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:year"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD),CALQUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD),QUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD),YEAR)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "supportsAnalyticalQueries": "false",
+                "hasParameters": "false",
+                "exposed_for_consumption": "true",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.VIEW_DIMENSION_QUARTER",
+                "sap_dimension_type": "Time"
+            },
+            "name": "Time Dimension - Quarter",
+            "description": "Time Dimension - Quarter",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sap:dimension_type:Time"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\n  \"SELECT\": {\n    \"from\": {\n      \"ref\": [\n        \"SAP.TIME.M_TIME_DIMENSION\"\n      ],\n      \"as\": \"M_TIME_DIMENSION\"\n    },\n    \"distinct\": true,\n    \"columns\": [\n      {\n        \"ref\": [\n          \"CALQUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"QUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"YEAR\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_QUARTER\"\n        ]\n      }\n    ],\n    \"mixin\": {\n      \"_QUARTER\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"QUARTER\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_QUARTER\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TQUARTER\",\n        \"type\": \"cds.Association\"\n      }\n    }\n  }\n}",
+            "viewLanguage": "CSN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "CALMONTH",
+                    "nullable": false,
+                    "description": "Calendar Month [sap_calendar_type=yearmonth]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:yearmonth"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "MONTH",
+                    "nullable": true,
+                    "description": "Month [sap_calendar_type=month]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:month"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALQUARTER",
+                    "nullable": true,
+                    "description": "Calendar Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "QUARTER",
+                    "nullable": true,
+                    "description": "Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YEAR",
+                    "nullable": true,
+                    "description": "Year [sap_calendar_type=year]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:year"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD),CALMONTH)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD),MONTH)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD),CALQUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD),QUARTER)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD),YEAR)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "supportsAnalyticalQueries": "false",
+                "hasParameters": "false",
+                "exposed_for_consumption": "true",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.VIEW_DIMENSION_MONTH",
+                "sap_dimension_type": "Time"
+            },
+            "name": "Time Dimension - Month",
+            "description": "Time Dimension - Month",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sap:dimension_type:Time"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\n  \"SELECT\": {\n    \"from\": {\n      \"ref\": [\n        \"SAP.TIME.M_TIME_DIMENSION\"\n      ],\n      \"as\": \"M_TIME_DIMENSION\"\n    },\n    \"distinct\": true,\n    \"columns\": [\n      {\n        \"ref\": [\n          \"CALMONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"MONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"CALQUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"QUARTER\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"YEAR\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_MONTH\"\n        ]\n      },\n      {\n        \"ref\": [\n          \"_QUARTER\"\n        ]\n      }\n    ],\n    \"mixin\": {\n      \"_MONTH\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"MONTH\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_MONTH\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TMONTH\",\n        \"type\": \"cds.Association\"\n      },\n      \"_QUARTER\": {\n        \"on\": [\n          {\n            \"ref\": [\n              \"$projection\",\n              \"QUARTER\"\n            ]\n          },\n          \"=\",\n          {\n            \"ref\": [\n              \"_QUARTER\",\n              \"ID\"\n            ]\n          }\n        ],\n        \"target\": \"SAP.TIME.M_TIME_DIMENSION_TQUARTER\",\n        \"type\": \"cds.Association\"\n      }\n    }\n  }\n}",
+            "viewLanguage": "CSN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "YEAR",
+                    "nullable": false,
+                    "description": "Year [sap_calendar_type=year]",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Edm.String",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:sap:calendar:year"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD),YEAR)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "supportsAnalyticalQueries": "false",
+                "hasParameters": "false",
+                "exposed_for_consumption": "true",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.VIEW_DIMENSION_YEAR",
+                "sap_dimension_type": "Time"
+            },
+            "name": "Time Dimension - Year",
+            "description": "Time Dimension - Year",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sap:dimension_type:Time"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\n  \"SELECT\": {\n    \"from\": {\n      \"ref\": [\n        \"SAP.TIME.M_TIME_DIMENSION\"\n      ],\n      \"as\": \"M_TIME_DIMENSION\"\n    },\n    \"distinct\": true,\n    \"columns\": [\n      {\n        \"ref\": [\n          \"YEAR\"\n        ]\n      }\n    ]\n  }\n}",
+            "viewLanguage": "CSN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "MONTH",
+                    "nullable": true,
+                    "description": "Month",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MONTH_INT",
+                    "nullable": true,
+                    "description": "Month (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MONTH_LAST_DAY",
+                    "nullable": true,
+                    "description": "Month Last Day",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "QUARTER",
+                    "nullable": true,
+                    "description": "Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "QUARTER_INT",
+                    "nullable": true,
+                    "description": "Quarter (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "SECOND",
+                    "nullable": true,
+                    "description": "Second",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "SECOND_INT",
+                    "nullable": true,
+                    "description": "Second (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "TZNTSTMPL",
+                    "nullable": true,
+                    "description": "UTC Timestamp (long form)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DECIMAL(21,7)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "TZNTSTMPS",
+                    "nullable": true,
+                    "description": "UTC Timestamp (short form)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DECIMAL(15,0)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WEEK",
+                    "nullable": true,
+                    "description": "Week",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WEEK_INT",
+                    "nullable": true,
+                    "description": "Week (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WEEK_YEAR",
+                    "nullable": true,
+                    "description": "Week Year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(4)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WEEK_YEAR_INT",
+                    "nullable": true,
+                    "description": "Week Year (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YEAR",
+                    "nullable": true,
+                    "description": "Year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(4)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "YEAR_INT",
+                    "nullable": true,
+                    "description": "Year (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MINUTE_INT",
+                    "nullable": true,
+                    "description": "Minute (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MINUTE",
+                    "nullable": true,
+                    "description": "Minute",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HOUR_INT",
+                    "nullable": true,
+                    "description": "Hour (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HOUR",
+                    "nullable": true,
+                    "description": "Hour",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY_OF_WEEK_INT",
+                    "nullable": true,
+                    "description": "Day of Week (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY_OF_WEEK",
+                    "nullable": true,
+                    "description": "Day of Week",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY_INT",
+                    "nullable": true,
+                    "description": "Day (Number)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "TINYINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DAY",
+                    "nullable": true,
+                    "description": "Day",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DATE_SQL",
+                    "nullable": true,
+                    "description": "Date",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DATE_SAP",
+                    "nullable": true,
+                    "description": "Date (String)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(8)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DATETIME_SAP",
+                    "nullable": true,
+                    "description": "Timestamp (String)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(14)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DATETIMESTAMP",
+                    "nullable": true,
+                    "description": "Timestamp",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "TIMESTAMP",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALWEEK",
+                    "nullable": true,
+                    "description": "Calendar Week",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(6)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALQUARTER",
+                    "nullable": true,
+                    "description": "Calendar Quarter",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(5)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CALMONTH",
+                    "nullable": true,
+                    "description": "Calendar Month",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(6)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.M_TIME_DIMENSION",
+                "exposed_for_consumption": "false",
+                "local_table": "true"
+            },
+            "name": "SAP.TIME.M_TIME_DIMENSION",
+            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Local Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "ID",
+                    "nullable": true,
+                    "description": "Identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_DESCRIPTION",
+                    "nullable": true,
+                    "description": "Day Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(50)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_LANGU",
+                    "nullable": true,
+                    "description": "Language",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(5)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.M_TIME_DIMENSION_TDAY",
+                "exposed_for_consumption": "false",
+                "local_table": "true"
+            },
+            "name": "SAP.TIME.M_TIME_DIMENSION_TDAY",
+            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Local Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "ID",
+                    "nullable": true,
+                    "description": "Identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_DESCRIPTION",
+                    "nullable": true,
+                    "description": "Month Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(50)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_LANGU",
+                    "nullable": true,
+                    "description": "Language",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(5)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.M_TIME_DIMENSION_TMONTH",
+                "exposed_for_consumption": "false",
+                "local_table": "true"
+            },
+            "name": "SAP.TIME.M_TIME_DIMENSION_TMONTH",
+            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Local Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "ID",
+                    "nullable": true,
+                    "description": "Identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_DESCRIPTION",
+                    "nullable": true,
+                    "description": "Quarter Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(50)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_LANGU",
+                    "nullable": true,
+                    "description": "Language",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(5)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spaceName": "DEMO_SPACE",
+                "sap_datasphere_space": "DEMO_SPACE",
+                "sap_datasphere_asset": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+                "exposed_for_consumption": "false",
+                "local_table": "true"
+            },
+            "name": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Local Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
+                },
+                {
+                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
+                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:396acd4af7f74ac520f16710493133df",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_day,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_month,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_quarter,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.view_dimension_year,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:date",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:month",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:quarter",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:week",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:year",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:yearmonth",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:semantic:currency",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:semantic:unit",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:dimension_type:Time",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "sap:dimension_type:Time"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
