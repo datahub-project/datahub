@@ -230,12 +230,14 @@ def generate_pyproject_toml() -> str:
     output_lines.append("classifiers = [")
     for c in [
         "Development Status :: 5 - Production/Stable",
+        "Development Status :: 6 - Mature",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
