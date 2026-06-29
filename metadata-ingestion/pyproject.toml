@@ -611,6 +611,8 @@ gcs-slim = [
     "wcmatch<11.0.0",
 ]
 
+github-documents = []
+
 glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -725,6 +727,15 @@ kafka-connect = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+]
+
+kinesis = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "grpcio-tools>=1.44.0,<2.0.0",
+    "grpcio>=1.44.0,<2.0.0",
+    "networkx>=2.6.2,<4.0.0",
+    "urllib3>=1.26,<3.0",
 ]
 
 ldap = [
@@ -1014,7 +1025,7 @@ redshift = [
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "schwifty<2026.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
@@ -1032,7 +1043,7 @@ redshift-slim = [
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pip",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "schwifty<2026.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlglot[c]==30.8.0",
@@ -1460,7 +1471,7 @@ all = [
     "PyYAML>=5.4",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
@@ -1517,7 +1528,7 @@ dev = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1630,7 +1641,7 @@ dev = [
     "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
     "requests==2.32.5,<3.0.0",
@@ -1709,7 +1720,7 @@ docs = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1822,7 +1833,7 @@ docs = [
     "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
     "requests==2.32.5,<3.0.0",
@@ -2027,6 +2038,7 @@ hive-metastore = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMe
 json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
+kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
@@ -2082,6 +2094,7 @@ salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
 demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
+github-documents = "datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
 dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
@@ -2192,6 +2205,10 @@ constraint-dependencies = [
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
     "idna>=3.15,<4.0.0",
+    # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
+    # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
+    # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
+    "PyJWT>=2.13.0,<3.0.0",
 ]
 
 [tool.ruff]

@@ -300,7 +300,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "GeoAlchemy2<0.19.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     *path_spec_common,
 }
 
@@ -718,6 +718,9 @@ plugins: Dict[str, Set[str]] = {
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
+    # (kinesis_schema_registry imports protobuf_util at module load).
+    "kinesis": aws_common | kafka_protobuf,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -829,6 +832,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -910,7 +914,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation]==1.40.0",
     "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
@@ -1005,6 +1009,7 @@ base_dev_requirements = {
             "postgres",
             "sagemaker",
             "kafka",
+            "kinesis",
             "datahub-rest",
             "datahub-lite",
             "presto",
@@ -1030,6 +1035,7 @@ base_dev_requirements = {
             "unity-catalog",
             "nifi",
             "notion",
+            "github-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1148,6 +1154,7 @@ entry_points = {
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
+        "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -1204,6 +1211,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
+        "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",

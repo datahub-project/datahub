@@ -1,26 +1,23 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
-import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ParentContainersResult;
 import com.linkedin.datahub.graphql.types.container.mappers.ContainerMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class ParentContainersResolver
@@ -32,67 +29,39 @@ public class ParentContainersResolver
     _entityClient = entityClient;
   }
 
-  private void aggregateParentContainers(
-      List<Container> containers,
-      String urn,
-      QueryContext context,
-      Set<String> visitedUrns,
-      int depth) {
-    if (depth >= context.getMaxParentDepth() || !visitedUrns.add(urn)) {
-      return;
-    }
-    try {
-      Urn entityUrn = new Urn(urn);
-      EntityResponse entityResponse =
-          _entityClient.getV2(
-              context.getOperationContext(),
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(CONTAINER_ASPECT_NAME));
-
-      if (entityResponse != null
-          && entityResponse.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
-        DataMap dataMap = entityResponse.getAspects().get(CONTAINER_ASPECT_NAME).getValue().data();
-        com.linkedin.container.Container container = new com.linkedin.container.Container(dataMap);
-        Urn containerUrn = container.getContainer();
-        if (containerUrn == null || visitedUrns.contains(containerUrn.toString())) {
-          return;
-        }
-        EntityResponse response =
-            _entityClient.getV2(
-                context.getOperationContext(), containerUrn.getEntityType(), containerUrn, null);
-        if (response != null) {
-          Container mappedContainer = ContainerMapper.map(context, response);
-          containers.add(mappedContainer);
-          aggregateParentContainers(
-              containers, mappedContainer.getUrn(), context, visitedUrns, depth + 1);
-        }
-      }
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to retrieve parent containers from GMS", e);
-    }
-  }
-
   @Override
   public CompletableFuture<ParentContainersResult> get(DataFetchingEnvironment environment) {
 
     final QueryContext context = getQueryContext(environment);
-    final String urn = ((Entity) environment.getSource()).getUrn();
-    final List<Container> containers = new ArrayList<>();
+    final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            Set<String> visitedUrns = new HashSet<>();
-            aggregateParentContainers(containers, urn, context, visitedUrns, 0);
+            List<Urn> parentUrns =
+                BoundHierarchyAccess.orderedParents(
+                    context.getOperationContext(),
+                    HierarchyBindings.containerSpec(context.getOperationContext()),
+                    urn,
+                    context.getMaxParentDepth());
+
+            List<Container> containers = new ArrayList<>();
+            for (Urn parentUrn : parentUrns) {
+              EntityResponse response =
+                  _entityClient.getV2(
+                      context.getOperationContext(), parentUrn.getEntityType(), parentUrn, null);
+              if (response != null) {
+                containers.add(ContainerMapper.map(context, response));
+              }
+            }
+
             final ParentContainersResult result = new ParentContainersResult();
-
-            List<Container> viewable = new ArrayList<>(containers);
-
-            result.setCount(viewable.size());
-            result.setContainers(viewable);
+            result.setCount(containers.size());
+            result.setContainers(containers);
             return result;
-          } catch (DataHubGraphQLException e) {
-            throw new RuntimeException("Failed to load all containers", e);
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to load parent containers for entity %s", urn), e);
           }
         },
         this.getClass().getSimpleName(),

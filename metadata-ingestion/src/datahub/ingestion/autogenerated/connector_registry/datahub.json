@@ -1609,6 +1609,26 @@
       "platform_name": "Google Cloud Storage",
       "support_status": "INCUBATING"
     },
+    "github-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
+      "platform_id": "github",
+      "platform_name": "GitHub",
+      "support_status": "INCUBATING"
+    },
     "glue": {
       "capabilities": [
         {
@@ -2247,6 +2267,50 @@
       "platform_id": "kafka-connect",
       "platform_name": "Kafka Connect",
       "support_status": "CERTIFIED"
+    },
+    "kinesis": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Firehose -> destination lineage",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
+      "platform_id": "kinesis",
+      "platform_name": "Amazon Kinesis Data Streams",
+      "support_status": "INCUBATING"
     },
     "ldap": {
       "capabilities": [
