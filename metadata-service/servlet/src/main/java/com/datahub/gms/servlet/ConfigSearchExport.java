@@ -3,7 +3,10 @@ package com.datahub.gms.servlet;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_ANALYZER;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.datahub.gms.util.CSVWriter;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -13,6 +16,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,19 +45,34 @@ public class ConfigSearchExport extends HttpServlet {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private static OperationContext getOperationContext(WebApplicationContext ctx) {
-    return (OperationContext) ctx.getBean("systemOperationContext");
-  }
-
   private static QueryFilterRewriteChain getQueryFilterRewriteChain(WebApplicationContext ctx) {
     return ctx.getBean(QueryFilterRewriteChain.class);
   }
 
-  private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
-    OperationContext systemOpContext = getOperationContext(ctx);
+  private void writeSearchCsv(
+      WebApplicationContext ctx, HttpServletRequest request, PrintWriter pw) {
+    OperationContext systemOperationContext =
+        ctx.getBean("systemOperationContext", OperationContext.class);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    // When AuthenticationContext is unset (anonymous path, filter not yet run, or tests without a
+    // filter chain), fall back to systemOperationContext so the call still proceeds safely.
+    final OperationContext opContext;
+    if (auth != null) {
+      opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(), request, "configSearchExport", "configSearch"),
+              Authorizer.EMPTY,
+              auth,
+              true);
+    } else {
+      opContext = systemOperationContext;
+    }
     ConfigurationProvider configurationProvider = getConfigProvider(ctx);
     ElasticSearchConfiguration searchConfiguration = configurationProvider.getElasticSearch();
-    EntityRegistry entityRegistry = systemOpContext.getEntityRegistry();
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
     QueryFilterRewriteChain queryFilterRewriteChain = getQueryFilterRewriteChain(ctx);
     SearchServiceConfiguration searchServiceConfiguration =
         configurationProvider.getSearchService();
@@ -92,20 +111,19 @@ public class ConfigSearchExport extends HttpServlet {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
                   SearchRequestHandler.getBuilder(
-                          systemOpContext,
+                          opContext,
                           entitySpec,
                           searchConfiguration,
                           null,
                           queryFilterRewriteChain,
                           searchServiceConfiguration)
                       .getSearchRequest(
-                          getOperationContext(ctx)
-                              .withSearchFlags(
-                                  flags ->
-                                      flags
-                                          .setFulltext(true)
-                                          .setSkipHighlighting(true)
-                                          .setSkipAggregates(true)),
+                          opContext.withSearchFlags(
+                              flags ->
+                                  flags
+                                      .setFulltext(true)
+                                      .setSkipHighlighting(true)
+                                      .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
@@ -269,7 +287,7 @@ public class ConfigSearchExport extends HttpServlet {
     try {
       resp.setContentType("text/csv");
       PrintWriter out = resp.getWriter();
-      writeSearchCsv(ctx, out);
+      writeSearchCsv(ctx, req, out);
       out.flush();
       resp.setStatus(200);
     } catch (Exception e) {

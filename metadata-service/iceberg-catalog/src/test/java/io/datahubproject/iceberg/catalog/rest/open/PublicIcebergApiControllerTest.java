@@ -46,20 +46,20 @@ public class PublicIcebergApiControllerTest
   @Test(expectedExceptions = NotFoundException.class)
   public void testGetConfigPublicReadDisabled() {
     ReflectionTestUtils.setField(controller, "isPublicReadEnabled", false);
-    controller.getConfig("test-warehouse");
+    controller.getConfig(request, "test-warehouse");
   }
 
   @Test(expectedExceptions = NotFoundException.class)
   public void testGetConfigPublicReadDisabledWithEmptyTags() {
     ReflectionTestUtils.setField(controller, "isPublicReadEnabled", true);
     ReflectionTestUtils.setField(controller, "publiclyReadableTag", null);
-    controller.getConfig("test-warehouse");
+    controller.getConfig(request, "test-warehouse");
   }
 
   @Test
   public void testGetConfigValidWarehouse() {
     // String warehouseName = "test-warehouse";
-    ConfigResponse response = controller.getConfig(TEST_PLATFORM);
+    ConfigResponse response = controller.getConfig(request, TEST_PLATFORM);
 
     assertNotNull(response, "Config response should not be null");
     assertNotNull(response.overrides(), "Overrides map should not be null");
@@ -109,7 +109,7 @@ public class PublicIcebergApiControllerTest
           .thenReturn(sampleMetadata);
 
       LoadTableResponse response =
-          controller.loadTable(TEST_PLATFORM, TEST_NAMESPACE, TEST_TABLE, null, null);
+          controller.loadTable(request, TEST_PLATFORM, TEST_NAMESPACE, TEST_TABLE, null, null);
 
       assertNotNull(response, "Load table response should not be null");
     }
@@ -132,7 +132,7 @@ public class PublicIcebergApiControllerTest
     Mockito.when(entityService.getLatestAspect(any(), any(), eq(Constants.GLOBAL_TAGS_ASPECT_NAME)))
         .thenReturn(tags);
 
-    controller.loadTable(TEST_PLATFORM, TEST_NAMESPACE, TEST_TABLE, null, null);
+    controller.loadTable(request, TEST_PLATFORM, TEST_NAMESPACE, TEST_TABLE, null, null);
   }
 
   @Override

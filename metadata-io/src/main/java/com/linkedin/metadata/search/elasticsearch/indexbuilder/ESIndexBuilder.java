@@ -2288,7 +2288,7 @@ public class ESIndexBuilder {
   public int getDataNodeCount(@Nonnull OperationContext opContext) {
     try {
       ClusterHealthResponse health =
-          searchClient.clusterHealth(opContext, new ClusterHealthRequest(), RequestOptions.DEFAULT);
+          searchClient.clusterHealth(new ClusterHealthRequest(), RequestOptions.DEFAULT);
       // Use getNumberOfDataNodes() to count only data nodes (not master/coordinating/ingest)
       // Cost estimation formula: (docCount * shards) / dataNodes
       // Using total nodes inflates denominator, misclassifying LARGE as NORMAL
@@ -2318,9 +2318,7 @@ public class ESIndexBuilder {
       throws IOException {
     try {
       return healthCheckRetry.executeCallable(
-          () ->
-              searchClient.clusterHealth(
-                  opContext, new ClusterHealthRequest(), RequestOptions.DEFAULT));
+          () -> searchClient.clusterHealth(new ClusterHealthRequest(), RequestOptions.DEFAULT));
     } catch (IOException e) {
       throw e;
     } catch (Exception e) {
@@ -2352,7 +2350,7 @@ public class ESIndexBuilder {
             request.level(ClusterHealthRequest.Level.INDICES);
 
             ClusterHealthResponse health =
-                searchClient.clusterHealth(opContext, request, RequestOptions.DEFAULT);
+                searchClient.clusterHealth(request, RequestOptions.DEFAULT);
 
             ClusterIndexHealth indexHealth = health.getIndices().get(indexName);
 

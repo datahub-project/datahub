@@ -102,16 +102,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    String actorUrnStr = auth.getActor().toUrnStr();
+    Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
+                    ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
+            auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          String actorUrnStr = auth.getActor().toUrnStr();
-          Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
-                  auth, true);
 
           if (!isAPIAuthorizedEntityUrns(
                   opContext,
@@ -144,14 +143,13 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtils.toTask(systemOperationContext,
+    Urn resourceUrn = UrnUtils.getUrn(resource);
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-          Urn resourceUrn = UrnUtils.getUrn(resource);
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
 
           if (!isAPIAuthorized(
                   opContext,
@@ -191,7 +189,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 

@@ -10,6 +10,8 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.rest.secure.AbstractIcebergController;
+import io.datahubproject.metadata.context.OperationContext;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -38,13 +40,15 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
   @GetMapping(value = "/v1/config", produces = MediaType.APPLICATION_JSON_VALUE)
   public ConfigResponse getConfig(
+      HttpServletRequest request,
       @RequestParam(value = "warehouse", required = true) String warehouse) {
     log.info("GET CONFIG for warehouse {}", warehouse);
 
     checkPublicEnabled();
 
+    OperationContext opContext = publicOpContext(request, "iceberg-public-getConfig");
     // check that warehouse exists
-    warehouse(warehouse, systemOperationContext);
+    warehouse(warehouse, opContext);
     ConfigResponse response = ConfigResponse.builder().withOverride("prefix", warehouse).build();
     log.info("GET CONFIG response: {}", response);
     return response;
@@ -54,6 +58,7 @@ public class PublicIcebergApiController extends AbstractIcebergController {
       value = "/v1/{prefix}/namespaces/{namespace}/tables/{table}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public LoadTableResponse loadTable(
+      HttpServletRequest request,
       @PathVariable("prefix") String platformInstance,
       @PathVariable("namespace") String namespace,
       @PathVariable("table") String table,
@@ -64,19 +69,20 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
     checkPublicEnabled();
 
-    DataHubIcebergWarehouse warehouse = warehouse(platformInstance, systemOperationContext);
+    OperationContext opContext = publicOpContext(request, "iceberg-public-loadTable");
+    DataHubIcebergWarehouse warehouse = warehouse(platformInstance, opContext);
     Optional<DatasetUrn> datasetUrn = warehouse.getDatasetUrn(tableIdFromString(namespace, table));
     if (datasetUrn.isPresent()) {
       GlobalTags tags =
           (GlobalTags)
-              entityService.getLatestAspect(
-                  systemOperationContext, datasetUrn.get(), GLOBAL_TAGS_ASPECT_NAME);
+              entityService.getLatestAspect(opContext, datasetUrn.get(), GLOBAL_TAGS_ASPECT_NAME);
       if (tags != null && tags.hasTags()) {
         for (TagAssociation tag : tags.getTags()) {
           if (publicTag().equals(tag.getTag())) {
             LoadTableResponse getTableResponse =
                 catalogOperation(
-                    platformInstance,
+                    warehouse,
+                    opContext,
                     catalog ->
                         CatalogHandlers.loadTable(catalog, tableIdFromString(namespace, table)));
 

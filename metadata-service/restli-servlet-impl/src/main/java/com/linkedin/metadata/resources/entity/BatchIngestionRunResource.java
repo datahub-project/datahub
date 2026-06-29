@@ -111,7 +111,7 @@ public class BatchIngestionRunResource
           "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtils.toTask(systemOperationContext,
+      return RestliUtils.toTask(opContext,
           () -> {
 
               try {
@@ -139,13 +139,13 @@ public class BatchIngestionRunResource
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtils.toTask(systemOperationContext,
-        () -> {
-          Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          "list", List.of()), authorizer, auth, true);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "list", List.of()), authorizer, auth, true);
 
+    return RestliUtils.toTask(opContext,
+        () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
                   opContext,
@@ -169,24 +169,23 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication describeAuth = AuthenticationContext.getAuthentication();
+    final OperationContext describeOpContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(describeAuth.getActor().toUrnStr(), getContext(),
+                    "describe", List.of()), authorizer, describeAuth, true);
+
+    if (!AuthUtil.isAPIAuthorized(
+            describeOpContext,
+            ENTITY, READ)) {
+        throw new RestLiServiceException(
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
+    }
+
+    return RestliUtils.toTask(describeOpContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()), authorizer, auth, true);
-
-            if (!AuthUtil.isAPIAuthorized(
-                    opContext,
-                    ENTITY, READ)) {
-                throw new RestLiServiceException(
-                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
-            }
-
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  opContext, runId, includeSoft != null && includeSoft, start, count);
+                  describeOpContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(
@@ -194,7 +193,7 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        entityService.getLatestEnvelopedAspect(opContext,
+                        entityService.getLatestEnvelopedAspect(describeOpContext,
                             urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);

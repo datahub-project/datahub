@@ -193,6 +193,21 @@ public class AbstractIcebergController {
         true);
   }
 
+  /**
+   * Builds a session {@link OperationContext} for anonymous/public endpoints that require no
+   * authorization. Uses {@link Authorizer#EMPTY} so no authorizerChain evaluation is triggered.
+   */
+  protected OperationContext publicOpContext(HttpServletRequest request, String operationName) {
+    Authentication auth = AuthenticationContext.getAuthentication();
+    return OperationContext.asSession(
+        systemOperationContext,
+        RequestContext.builder()
+            .buildOpenapi(auth.getActor().toUrnStr(), request, operationName, "dataset"),
+        Authorizer.EMPTY,
+        auth,
+        true);
+  }
+
   protected DataHubRestCatalog catalog(
       OperationContext operationContext, DataHubIcebergWarehouse warehouse) {
     DataHubRestCatalog catalog =
