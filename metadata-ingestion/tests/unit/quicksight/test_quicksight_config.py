@@ -33,6 +33,30 @@ def test_valid_account_id_accepted():
     assert config.aws_account_id == "064369473231"
 
 
+def test_column_lineage_disabled_when_lineage_off():
+    # include_column_lineage is a no-op without extract_lineage; the validator
+    # disables it (rather than silently dropping edges) so config == behavior.
+    config = QuickSightSourceConfig.model_validate(
+        {
+            "aws_region": "us-east-1",
+            "extract_lineage": False,
+            "include_column_lineage": True,
+        }
+    )
+    assert config.include_column_lineage is False
+
+
+def test_column_lineage_preserved_when_lineage_on():
+    config = QuickSightSourceConfig.model_validate(
+        {
+            "aws_region": "us-east-1",
+            "extract_lineage": True,
+            "include_column_lineage": True,
+        }
+    )
+    assert config.include_column_lineage is True
+
+
 def test_external_data_sources_parsing():
     config = QuickSightSourceConfig.model_validate(
         {

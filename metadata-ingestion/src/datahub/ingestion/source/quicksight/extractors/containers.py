@@ -188,6 +188,7 @@ class ContainersExtractor:
                 message="Falling back to the 'default' namespace "
                 "(namespaces are an Enterprise-edition feature).",
                 context=code,
+                exc=e,
             )
 
         if not namespace_names:
@@ -249,6 +250,7 @@ class ContainersExtractor:
                 message="QuickSight folders could not be listed; folder containers "
                 "and folder-based browse paths will be omitted.",
                 context=code,
+                exc=e,
             )
             return
 
@@ -341,6 +343,12 @@ class ContainersExtractor:
         except Exception as e:
             if graceful_code(e) is None:
                 raise
+            self.report.warning(
+                title="Could not resolve folder ancestry",
+                message="Folder may be placed at the wrong level in the hierarchy.",
+                context=folder_id,
+                exc=e,
+            )
             self._parent_folder_ids_cache[folder_id] = []
             return []
         ancestors = [arn.split("/")[-1] for arn in (folder.get("FolderPath") or [])]

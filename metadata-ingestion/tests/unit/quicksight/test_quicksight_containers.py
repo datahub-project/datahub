@@ -273,6 +273,51 @@ def test_nested_folder_unaffected_by_shared_folders_root():
     assert child_parent == processor._folder_containers["f-parent"].urn
 
 
+def test_parent_folder_ancestry_memoized_one_describe_per_folder():
+    api = _mock_api()
+    api.list_folders.return_value = [
+        {"FolderId": "f-a", "Name": "A"},
+        {"FolderId": "f-b", "Name": "B"},
+    ]
+    api.describe_folder.return_value = {"FolderPath": []}
+    processor = _processor(api)
+    list(processor.get_workunits())
+
+    # DescribeFolder feeds both the emit-ordering sort key and the per-folder
+    # parent lookup; memoization collapses those to one call per folder (not two).
+    assert api.describe_folder.call_count == 2
+    # A subsequent ancestry lookup is served from the cache, not the API.
+    processor._parent_folder_ids("f-a")
+    assert api.describe_folder.call_count == 2
+
+
+def test_folder_ancestry_graceful_failure_warns_and_treats_as_top_level():
+    api = _mock_api()
+    api.list_folders.return_value = [{"FolderId": "f-sales", "Name": "Sales"}]
+    api.describe_folder.side_effect = _client_error("AccessDeniedException")
+    processor = _processor(api)
+    list(processor.get_workunits())
+
+    # DescribeFolder denied on a single folder degrades to a warning (not a
+    # silent drop); the folder is still emitted, rooted at the platform.
+    assert len(processor.report.warnings) == 1
+    assert processor._folder_containers["f-sales"].parent_container is None
+
+
+def test_folder_members_graceful_failure_warns_and_continues():
+    api = _mock_api()
+    api.list_folders.return_value = [{"FolderId": "f-sales", "Name": "Sales"}]
+    api.describe_folder.return_value = {"FolderPath": []}
+    api.list_folder_members.side_effect = _client_error("AccessDeniedException")
+    processor = _processor(api)
+    list(processor.get_workunits())
+
+    # ListFolderMembers denied degrades to a warning; the folder is still
+    # emitted and its assets simply are not nested under it.
+    assert len(processor.report.warnings) == 1
+    assert processor.parent_for("ds-anything") is None
+
+
 def test_folder_key_roots_at_platform_no_ghost_namespace():
     # Regression: QuickSightFolderKey must NOT inherit the namespace key, or the
     # SDK auto-derives foldered assets' browse paths through a namespace container

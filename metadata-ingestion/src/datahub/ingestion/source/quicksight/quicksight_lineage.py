@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
@@ -26,32 +27,46 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 
 
+@dataclass(frozen=True)
 class _UpstreamTarget:
     """Resolved upstream-platform coordinates for a single data source.
 
     Combines the data source's resolved platform/dialect with any per-source
     overrides from ``external_data_sources`` (platform_instance, env, URN
-    casing, SQL-parser default db/schema).
+    casing, SQL-parser default db/schema). Built only via :meth:`create`, which
+    is reached after the caller has guaranteed a non-null platform.
     """
 
-    def __init__(
-        self,
+    resolved: ResolvedDataSource
+    platform: str
+    platform_instance: Optional[str]
+    env: str
+    lowercase: bool
+    default_database: Optional[str]
+    default_schema: Optional[str]
+
+    @classmethod
+    def create(
+        cls,
         resolved: ResolvedDataSource,
         override: Optional[ExternalDataSourceConfig],
         default_env: str,
-    ) -> None:
-        self.resolved = resolved
-        self.platform = resolved.platform
-        self.platform_instance = override.platform_instance if override else None
-        self.env = override.env if override and override.env else default_env
-        self.lowercase = override.convert_urns_to_lowercase if override else False
-        self.default_database = override.default_database if override else None
-        self.default_schema = override.default_schema if override else None
+    ) -> "_UpstreamTarget":
+        assert resolved.platform is not None, "platform guarded by _target_for"
+        return cls(
+            resolved=resolved,
+            platform=resolved.platform,
+            platform_instance=override.platform_instance if override else None,
+            env=override.env if override and override.env else default_env,
+            lowercase=override.convert_urns_to_lowercase if override else False,
+            default_database=override.default_database if override else None,
+            default_schema=override.default_schema if override else None,
+        )
 
     def table_urn(self, table_name: str) -> str:
         name = table_name.lower() if self.lowercase else table_name
         return builder.make_dataset_urn_with_platform_instance(
-            platform=self.platform,  # type: ignore[arg-type]  # guarded by caller
+            platform=self.platform,
             name=name,
             platform_instance=self.platform_instance,
             env=self.env,
@@ -119,10 +134,13 @@ class QuickSightLineageExtractor:
             )
             return None
         if resolved.platform is None:
+            # No DataHub platform mapping (FILE / unsupported SaaS) -> can't build
+            # an upstream URN; count the drop so it's observable per-dataset.
+            self.report.num_lineage_skipped_unsupported_platform += 1
             return None
         external = self.config.external_data_sources
         override = external.get(resolved.data_source_id) or external.get(resolved.name)
-        return _UpstreamTarget(resolved, override, self.config.env)
+        return _UpstreamTarget.create(resolved, override, self.config.env)
 
     def _handle_relational_table(self, entry: dict) -> List[str]:
         target = self._target_for(entry.get("DataSourceArn", ""))
@@ -177,7 +195,7 @@ class QuickSightLineageExtractor:
             query=query,
             default_db=target.default_database,
             default_schema=target.default_schema,
-            platform=target.platform,  # type: ignore[arg-type]  # guarded by _target_for
+            platform=target.platform,
             platform_instance=target.platform_instance,
             env=target.env,
             graph=self.ctx.graph,

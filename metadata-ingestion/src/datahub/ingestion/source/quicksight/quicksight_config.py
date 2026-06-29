@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import TYPE_CHECKING, Dict, Literal, Optional
 
@@ -22,6 +23,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ExternalDataSourceConfig(
@@ -229,4 +232,17 @@ class QuickSightSourceConfig(
         # QuickSight is a regional service; every API call requires a region.
         if not self.aws_region:
             raise ValueError("aws_region is required for the QuickSight source")
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_column_lineage_requires_lineage(self) -> "QuickSightSourceConfig":
+        # Column-level lineage is derived during upstream-lineage extraction, so it
+        # is a no-op when extract_lineage is off. Disable it explicitly (rather than
+        # silently dropping the edges) so the effective behavior matches the config.
+        if self.include_column_lineage and not self.extract_lineage:
+            logger.warning(
+                "include_column_lineage requires extract_lineage; disabling "
+                "include_column_lineage because extract_lineage is False."
+            )
+            self.include_column_lineage = False
         return self

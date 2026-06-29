@@ -22,10 +22,8 @@ _ATHENA_ARN = "arn:aws:quicksight:us-east-1:064369473231:datasource/athena"
 
 def _athena_source() -> ResolvedDataSource:
     return ResolvedDataSource(
-        arn=_ATHENA_ARN,
         data_source_id="athena-uuid",
         name="Athena DS",
-        quicksight_type="ATHENA",
         platform="athena",
         dialect="athena",
     )
@@ -77,10 +75,8 @@ def test_relational_table_drops_athena_default_catalog():
 
 def test_relational_table_keeps_non_default_catalog():
     redshift = ResolvedDataSource(
-        arn=_ATHENA_ARN,
         data_source_id="rs-uuid",
         name="RS",
-        quicksight_type="REDSHIFT",
         platform="redshift",
         dialect="redshift",
     )
@@ -113,12 +109,29 @@ def test_unknown_data_source_arn_is_skipped():
     )
 
 
+def test_unsupported_platform_data_source_drop_is_counted():
+    # A FILE / unsupported SaaS data source resolves to platform=None, so no
+    # upstream URN can be built; the per-dataset drop must bump the report
+    # counter so it is observable (not just the once-per-source map warning).
+    unsupported = ResolvedDataSource(
+        data_source_id="file-uuid",
+        name="Uploaded CSV",
+        platform=None,
+        dialect=None,
+    )
+    extractor = _extractor(data_source_map={_ATHENA_ARN: unsupported})
+    lineage = extractor.get_upstream_lineage(
+        _QS_DATASET_URN, _relational("c", "s", "t")
+    )
+
+    assert lineage is None
+    assert extractor.report.num_lineage_skipped_unsupported_platform == 1
+
+
 def test_s3_source_skips_lineage_to_avoid_dangling_manifest_urn():
     s3 = ResolvedDataSource(
-        arn=_ATHENA_ARN,
         data_source_id="s3-uuid",
         name="S3",
-        quicksight_type="S3",
         platform="s3",
         dialect=None,
         s3_manifest_uri="my-bucket/data/manifest.json",

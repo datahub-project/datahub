@@ -24,10 +24,8 @@ class ResolvedDataSource:
     pick the correct sqlglot dialect for CustomSql parsing.
     """
 
-    arn: str
     data_source_id: str
     name: str
-    quicksight_type: str
     # DataHub platform of the upstream system (None for FILE / unsupported SaaS).
     platform: Optional[str]
     # sqlglot dialect for CustomSql parsing (None when not SQL-backed).
@@ -86,10 +84,8 @@ class DataSourcesExtractor:
             try:
                 data_source = self._describe(data_source_id)
                 self.data_source_map[arn] = ResolvedDataSource(
-                    arn=arn,
                     data_source_id=data_source_id,
                     name=name,
-                    quicksight_type=quicksight_type,
                     platform=platform,
                     dialect=dialect,
                     s3_manifest_uri=self._s3_manifest_uri(data_source),

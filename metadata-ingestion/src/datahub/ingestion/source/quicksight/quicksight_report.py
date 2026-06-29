@@ -38,6 +38,9 @@ class QuickSightSourceReport(StaleEntityRemovalSourceReport):
     # S3-backed datasets whose upstream lineage was skipped because QuickSight
     # only exposes the manifest location, not the underlying data file paths.
     num_s3_lineage_skipped: int = 0
+    # Upstream edges skipped because the data source has no DataHub platform
+    # mapping (FILE / unsupported SaaS); makes the per-dataset drop observable.
+    num_lineage_skipped_unsupported_platform: int = 0
 
     # Folders are an Enterprise-edition feature; record when they are unavailable.
     folders_unsupported: bool = field(default=False)
