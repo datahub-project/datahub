@@ -232,10 +232,11 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="account_id not resolved",
                 message=(
-                    f"sts:GetCallerIdentity returned {code}; URNs will not include "
-                    "AWS account_id. Set platform_instance in the recipe to disambiguate "
+                    "sts:GetCallerIdentity failed; URNs will not include the AWS "
+                    "account_id. Set platform_instance in the recipe to disambiguate "
                     "across accounts, or grant sts:GetCallerIdentity to the principal."
                 ),
+                context=f"sts:GetCallerIdentity returned {code}",
                 exc=e,
             )
             return None

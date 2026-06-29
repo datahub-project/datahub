@@ -97,8 +97,8 @@ class KinesisStreamExtractor:
             self.report.report_stream_failed(stream_name, code)
             self.report.warning(
                 title="Failed to describe stream",
-                message=f"AWS API returned {code}; skipping this stream.",
-                context=f"stream={stream_name}",
+                message="kinesis:DescribeStream failed; skipping this stream.",
+                context=f"stream={stream_name}: returned {code}",
                 exc=e,
             )
             return None

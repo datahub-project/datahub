@@ -153,8 +153,8 @@ class KinesisFirehoseExtractor:
             self.report.report_delivery_stream_failed(name, code)
             self.report.warning(
                 title="Failed to describe delivery stream",
-                message=f"AWS API returned {code}; skipping this delivery stream.",
-                context=f"delivery_stream={name}",
+                message="firehose:DescribeDeliveryStream failed; skipping this delivery stream.",
+                context=f"delivery_stream={name}: returned {code}",
                 exc=e,
             )
             return None
@@ -227,14 +227,15 @@ class KinesisFirehoseExtractor:
             # or unparseable — an unexpected AWS shape. Unlike DirectPut (handled
             # above), this DOES have an upstream we're failing to resolve, so the
             # dropped lineage edge must be surfaced rather than silently skipped.
+            ds_name = str(delivery_desc.get("DeliveryStreamName", ""))
             self.report.warning(
                 title="Unresolved Firehose source stream",
                 message=(
                     "Delivery stream is KinesisStreamAsSource but its "
-                    f"KinesisStreamARN is missing/unparseable ({arn!r}); "
-                    "upstream lineage edge skipped."
+                    "KinesisStreamARN is missing/unparseable; upstream lineage "
+                    "edge skipped."
                 ),
-                context=str(delivery_desc.get("DeliveryStreamName", "")),
+                context=f"delivery_stream={ds_name}: KinesisStreamARN={arn!r}",
             )
             return None
         stream_name = arn.rsplit("/", 1)[-1]
@@ -302,11 +303,8 @@ class KinesisFirehoseExtractor:
             self.report.report_unsupported_destination(dest_type, ds_name)
             self.report.warning(
                 title="Unsupported Firehose destination",
-                message=(
-                    f"Destination type {dest_type} has no handler; "
-                    "lineage edge skipped."
-                ),
-                context=f"delivery_stream={ds_name}",
+                message="Destination type has no handler; lineage edge skipped.",
+                context=f"delivery_stream={ds_name} destination_type={dest_type}",
             )
             return
 
@@ -327,10 +325,10 @@ class KinesisFirehoseExtractor:
             self.report.warning(
                 title="Firehose destination matched handler but produced no URN",
                 message=(
-                    f"{handler_name} matched the destination block but build_urns() "
-                    "returned []. Likely cause: missing or malformed required "
-                    "fields (BucketARN, JDBC URL, Database/Schema/Table, etc.). "
-                    "Lineage edge for this destination is missing."
+                    "A supported destination matched a handler but URN construction "
+                    "returned []. Likely cause: missing or malformed required fields "
+                    "(BucketARN, JDBC URL, Database/Schema/Table, etc.). Lineage edge "
+                    "for this destination is missing."
                 ),
                 context=f"delivery_stream={ds_name} handler={handler_name}",
             )
@@ -358,10 +356,10 @@ class KinesisFirehoseExtractor:
                 self.report.warning(
                     title="Firehose Iceberg destination table skipped",
                     message=(
-                        f"{dropped} Iceberg table config(s) lacked DestinationTableName; "
+                        "Some Iceberg table configs lacked DestinationTableName; "
                         "lineage edge(s) for those tables are missing."
                     ),
-                    context=f"delivery_stream={ds_name}",
+                    context=f"delivery_stream={ds_name}: {dropped} table config(s) dropped",
                 )
 
         # Extended S3 destinations may carry SchemaConfiguration in

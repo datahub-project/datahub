@@ -105,7 +105,8 @@ class TestListStreamNamesErrorHandling:
         # still emit Firehose entities cleanly.
         assert list(ex.report.failures) == []
         warnings_text = " ".join(str(w) for w in ex.report.warnings)
-        assert "Permission denied for Kinesis" in warnings_text
+        assert "Permission denied" in warnings_text
+        assert "Kinesis" in warnings_text
         assert "AccessDeniedException" in warnings_text
 
     def test_mid_pagination_failure_escalates_to_report_failure(self):

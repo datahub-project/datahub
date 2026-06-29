@@ -48,3 +48,18 @@ class TestStreamTags:
 
     def test_no_tags_returns_none(self):
         assert build_global_tags_from_aws_tags([]) is None
+
+    def test_empty_value_tag_emitted_as_key_only_urn(self):
+        # AWS allows key-only tags (empty Value); they must NOT be silently
+        # dropped — emit a key-only urn:li:tag:<Key> instead.
+        global_tags = build_global_tags_from_aws_tags(
+            [{"Key": "pii", "Value": ""}, {"Key": "tier", "Value": "gold"}]
+        )
+        assert global_tags is not None
+        urns = {t.tag for t in global_tags.tags}
+        assert "urn:li:tag:pii" in urns
+        assert "urn:li:tag:tier:gold" in urns
+
+    def test_tag_without_key_is_skipped(self):
+        # A tag with no Key is unusable — skip it (can't form a tag URN).
+        assert build_global_tags_from_aws_tags([{"Key": "", "Value": "x"}]) is None

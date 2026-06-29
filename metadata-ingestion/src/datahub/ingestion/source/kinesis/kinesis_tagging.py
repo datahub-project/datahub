@@ -51,8 +51,8 @@ def fetch_aws_resource_tags(
         code = aws_error_code(e)
         report.warning(
             title="Tag fetch failed",
-            message=f"{api_label} returned {code}; emitting without tags.",
-            context=context,
+            message="Failed to fetch AWS resource tags; emitting entity without tags.",
+            context=f"{context}: {api_label} returned {code}",
             exc=e,
         )
         return []
@@ -63,14 +63,17 @@ def build_global_tags_from_aws_tags(
 ) -> Optional[GlobalTagsClass]:
     """Flatten AWS resource tags to a DataHub GlobalTags aspect.
 
-    Each `{Key, Value}` becomes a `urn:li:tag:{Key}:{Value}`. Returns None when the
-    tag list is empty so callers can decide whether to emit the aspect at all.
+    A `{Key, Value}` becomes `urn:li:tag:{Key}:{Value}`; a key-only tag (AWS
+    allows an empty Value) becomes `urn:li:tag:{Key}` rather than being dropped.
+    Only the Key is required. Returns None when no taggable entries remain so
+    callers can decide whether to emit the aspect at all.
     """
-    if not tags:
-        return None
-    associations = [
-        TagAssociationClass(tag=make_tag_urn(f"{t['Key']}:{t['Value']}"))
-        for t in tags
-        if t.get("Key") and t.get("Value")
-    ]
+    associations: List[TagAssociationClass] = []
+    for t in tags:
+        key = t.get("Key")
+        if not key:
+            continue
+        value = t.get("Value")
+        tag_name = f"{key}:{value}" if value else key
+        associations.append(TagAssociationClass(tag=make_tag_urn(tag_name)))
     return GlobalTagsClass(tags=associations) if associations else None

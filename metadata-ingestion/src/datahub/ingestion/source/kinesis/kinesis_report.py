@@ -135,18 +135,22 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
         code = aws_error_code(exc)
         if pages_fetched == 0:
             self.warning(
-                title=f"Permission denied for {service_label}",
-                message=f"{api_label} returned {code}; skipping {section_label} section entirely.",
+                title="Permission denied listing resources",
+                message="Listing API call was denied; skipping this section entirely.",
+                context=f"{service_label}: {api_label} returned {code}; skipping {section_label} section",
                 exc=exc,
             )
         else:
             self.failure(
-                title=f"{service_label} listing aborted mid-pagination",
+                title="Listing aborted mid-pagination",
                 message=(
-                    f"{api_label} returned {code} after {pages_fetched} page(s). "
-                    f"{resource_plural} beyond this point were NOT scanned. Stateful "
-                    "ingestion may incorrectly soft-delete un-listed streams on the "
-                    "next run; re-run ingestion to recover."
+                    "Listing failed partway through pagination; entities beyond the "
+                    "failure point were NOT scanned. Stateful ingestion may incorrectly "
+                    "soft-delete un-listed entities on the next run; re-run to recover."
+                ),
+                context=(
+                    f"{service_label}: {api_label} returned {code} after "
+                    f"{pages_fetched} page(s); {resource_plural} beyond this point not scanned"
                 ),
                 exc=exc,
             )

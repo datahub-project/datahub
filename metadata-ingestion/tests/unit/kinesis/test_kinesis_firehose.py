@@ -172,7 +172,8 @@ class TestKinesisFirehoseExtractor:
         # No failures recorded; only a warning.
         assert list(ex.report.failures) == []
         warnings_text = " ".join(str(w) for w in ex.report.warnings)
-        assert "Permission denied for Firehose" in warnings_text
+        assert "Permission denied" in warnings_text
+        assert "Firehose" in warnings_text
 
     def test_list_delivery_streams_paginates_via_exclusive_start_name(self):
         """boto3's Firehose client has no paginator. The extractor must implement

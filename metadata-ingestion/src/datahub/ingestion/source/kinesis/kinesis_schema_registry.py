@@ -104,10 +104,11 @@ class KinesisGlueSchemaRegistry:
             self.report.warning(
                 title="GSR Schema Fetch Failed",
                 message=(
-                    f"glue:GetSchemaVersion returned {code}. Emitting stream without schema. "
-                    f"Verify glue:GetSchemaVersion permission and that schema exists in registry."
+                    "glue:GetSchemaVersion failed; emitting stream without schema. "
+                    "Verify glue:GetSchemaVersion permission and that the schema "
+                    "exists in the registry."
                 ),
-                context=f"stream={stream_name} schema={schema_name} registry={self.config.registry_name}",
+                context=f"stream={stream_name} schema={schema_name} registry={self.config.registry_name}: returned {code}",
                 exc=e,
             )
             self.report.report_schema_resolution_failure(stream_name, code)
@@ -166,8 +167,8 @@ class KinesisGlueSchemaRegistry:
             self.report.warning(
                 title="Schema Parse Failed",
                 message=(
-                    f"Could not parse {data_format} schema. Check the schema definition "
-                    f"is valid {data_format}. Stream will be emitted without schemaMetadata."
+                    "Could not parse the GSR schema; check the schema definition is "
+                    "valid for its format. Stream emitted without schemaMetadata."
                 ),
                 context=f"stream={stream_name} format={data_format}",
                 exc=e,
@@ -179,8 +180,8 @@ class KinesisGlueSchemaRegistry:
         self.report.warning(
             title="Unsupported Schema Format",
             message=(
-                f"DataFormat {data_format!r} is not supported (V1 supports AVRO, JSON, PROTOBUF). "
-                f"Stream emitted without schemaMetadata."
+                "Schema DataFormat is not supported (V1 supports AVRO, JSON, "
+                "PROTOBUF). Stream emitted without schemaMetadata."
             ),
             context=f"stream={stream_name} format={data_format}",
         )
