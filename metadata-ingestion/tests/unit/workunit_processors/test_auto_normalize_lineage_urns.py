@@ -62,20 +62,14 @@ def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
 
 def _make_processor(
     schemas: Dict[str, Dict[str, str]],
-    all_urns: Optional[List[str]] = None,
 ) -> Tuple[AutoNormalizeLineageUrnsProcessor, mock.MagicMock, Any]:
-    """Patch provide_schema_resolver to a single seeded resolver; configure snowflake.
+    """Patch provide_schema_resolver to a single seeded snowflake resolver.
 
-    `schemas` maps existing URN -> column schema (what the resolver caches). The
-    complete URN set seen by exact-match (graph.get_urns_by_filter) defaults to the
-    schema keys, but `all_urns` can add schemaless entities that exist without a schema.
+    `schemas` maps existing URN -> column schema. The processor builds its
+    case-insensitive index from the resolver's schema-bearing entities (`get_urns()`),
+    so the keys of `schemas` are exactly the URNs membership/casing resolution sees.
     """
     resolver = _resolver(schemas)
-    # The processor now gets membership from the provider's single scroll (populate_
-    # membership=True). Since provide_schema_resolver is mocked here, seed the resolver's
-    # casing index directly with the complete URN set the bulk scroll would have yielded.
-    for known_urn in schemas if all_urns is None else all_urns:
-        resolver.add_known_urn(known_urn)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -120,9 +114,8 @@ def _upstream_wu(
 def _run(
     schemas: Dict[str, Dict[str, str]],
     wu: MetadataWorkUnit,
-    all_urns: Optional[List[str]] = None,
 ) -> MetadataWorkUnit:
-    processor, _provide, patcher = _make_processor(schemas, all_urns=all_urns)
+    processor, _provide, patcher = _make_processor(schemas)
     try:
         [out] = list(processor.process(iter([wu])))
         return out
@@ -215,19 +208,6 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
-def test_schemaless_exact_entity_is_not_rewritten():
-    # The exact entity exists but has NO schema (absent from the schema cache); a
-    # case-variant exists WITH a schema. Exact match must still win via the complete
-    # URN set, so the reference is never redirected to the differently-cased variant.
-    out = _run(
-        {LOWER: {"amount": "int"}},  # only the lowercase variant has a schema
-        _upstream_wu(UPPER),  # BI references the (schemaless) exact UPPER entity
-        all_urns=[LOWER, UPPER],  # both exist in the warehouse; UPPER is schemaless
-    )
-    assert _stored_upstream(out) == UPPER
-    assert _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.EXACT
-
-
 def test_mixedcase_ambiguous_third_casing_left_unchanged():
     # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB` that matches
     # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged but
@@ -308,7 +288,6 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
 
     resolver = SchemaResolver(platform="mssql", env="PROD", graph=None)
     resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
-    resolver.add_known_urn(mssql_table)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -371,10 +350,8 @@ def test_multi_platform_upstreams_both_healed():
 
     sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     sf_resolver.add_raw_schema_info(sf_real, {"amount": "int"})
-    sf_resolver.add_known_urn(sf_real)
     rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
     rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
-    rs_resolver.add_known_urn(rs_real)
 
     def fake_provide(
         graph,
@@ -429,7 +406,6 @@ def test_platform_urn_form_in_config_is_normalized():
     # Config may specify the platform as a full URN; it must still match the
     # normalized platform parsed from the dataset URN (else: silent no-op).
     resolver = _resolver({LOWER: {"amount": "int"}})
-    resolver.add_known_urn(LOWER)
     provide_mock = mock.MagicMock(return_value=resolver)
     cfg = NormalizeLineageUrnCasingConfig(
         enabled=True,
@@ -462,7 +438,6 @@ def test_platform_instance_is_threaded_through_and_heals():
     )
     resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     resolver.add_raw_schema_info(stored, {"amount": "int"})
-    resolver.add_known_urn(stored)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -488,7 +463,6 @@ def test_platform_instance_is_threaded_through_and_heals():
     # The instance is threaded through to the resolver provider (membership + schema now
     # come from its single bulk scroll, so there is no separate URN-membership query).
     assert provide_mock.call_args.kwargs["platform_instance"] == "my_instance"
-    assert provide_mock.call_args.kwargs["populate_membership"] is True
 
 
 # --- dashboardInfo ----------------------------------------------------------------

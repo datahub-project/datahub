@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -43,9 +44,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Above this many URNs per platform, the upfront catalog scroll is heavy enough (a
-# large, slow bulk fetch) to warrant an explicit heads-up to operators. The index
-# itself is disk-backed, so this is about fetch cost, not resident memory.
+# Above this many URNs per platform, the in-memory case-insensitive index is large
+# enough to warrant an explicit heads-up to operators rather than letting it surface as
+# unexplained memory pressure. (A disk-backed index in the resolver is a planned
+# follow-up; see the schemaless/membership backlog task.)
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 
@@ -68,6 +70,22 @@ class _Resolution:
     schema: Optional[SchemaInfo]  # Cached schema of the resolved entity, if known.
     # EXACT / NORMALIZED / None (no reconciliation performed).
     match_type: Optional[str]
+
+
+@dataclass
+class _Catalog:
+    """A platform's catalog used for casing resolution.
+
+    `index` maps lowercase(urn) -> the real URNs sharing that form, built from the
+    schema-bearing entities the `SchemaResolver` already knows (``get_urns()``). A URN
+    exists exactly iff it appears in its own lowercase bucket. The `resolvers` hold the
+    schemas, used to correct column-name casing. Note: entities that exist in DataHub
+    without a schema are not represented here — reconciling those needs a richer
+    SchemaResolver and is a tracked follow-up.
+    """
+
+    index: Dict[str, List[str]]
+    resolvers: List["SchemaResolver"]
 
 
 def _parent_dataset_urn(field_urn: str) -> Optional[str]:
@@ -115,10 +133,8 @@ class AutoNormalizeLineageUrnsProcessor(
         self._config: List[UpstreamPlatformCasing] = (
             ctx.pipeline_context.flags.normalize_lineage_urn_casing.upstream_platforms
         )
-        # Lazily bulk-initialized resolvers, keyed by normalized platform name. Each
-        # resolver carries its own membership/casing index (fed on first use) plus
-        # schemas; the processor keeps no separate catalog of its own.
-        self._resolvers_by_platform: Dict[str, List[SchemaResolver]] = {}
+        # Lazily bulk-initialized catalogs, keyed by normalized platform name.
+        self._catalog_by_platform: Dict[str, _Catalog] = {}
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -185,19 +201,20 @@ class AutoNormalizeLineageUrnsProcessor(
 
     # --- resolution -------------------------------------------------------------
 
-    def _resolvers_for(self, platform: str) -> List[SchemaResolver]:
-        """Resolvers for every configured entry on this platform, bulk-initialized once.
+    def _get_catalog(self, platform: str) -> _Catalog:
+        """Bulk-initialized catalog for every configured entry on this platform.
 
-        On first use this feeds each resolver its platform's complete URN set — fetched
-        independently of schema presence via ``get_urns_by_filter``, so schemaless
-        entities are included — into the resolver's casing index, so exact-match and
-        ambiguity checks see every real entity, not only the schema-bearing ones.
+        Built from what ``SchemaResolver`` already provides — ``get_urns()``, i.e. the
+        platform's **schema-bearing** entities — so resolution uses the resolver's
+        existing single bulk scroll and adds no framework changes. Entities that exist
+        in DataHub without a schema are therefore not reconciled (a tracked follow-up to
+        enrich SchemaResolver with membership).
         """
         # Deferred import: schema_resolver_provider pulls in sqlglot, which must not
         # be a module-load-time dependency (see the note at the top of this file).
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 
-        if platform not in self._resolvers_by_platform:
+        if platform not in self._catalog_by_platform:
             # Normalize the configured platform: it may be a bare name ("snowflake") or
             # a full URN ("urn:li:dataPlatform:snowflake"), both of which the resolver
             # accepts. `platform` here is the normalized name parsed from the dataset
@@ -209,56 +226,62 @@ class AutoNormalizeLineageUrnsProcessor(
             ]
             if not entries:
                 # Platform not configured: references to it are out of scope. Cache an
-                # empty list (no resolvers -> _resolve_dataset returns no verdict)
+                # empty catalog (no resolvers -> _resolve_dataset returns no verdict)
                 # without logging a misleading "loading" line.
-                self._resolvers_by_platform[platform] = []
-                return self._resolvers_by_platform[platform]
+                self._catalog_by_platform[platform] = _Catalog({}, [])
+                return self._catalog_by_platform[platform]
             # Emitted before the (potentially long, paginated) fetch so operators see a
             # signal during the stall on the first lineage work unit, not only after.
             logger.info(
                 f"Loading '{platform}' catalog from DataHub for lineage casing "
                 f"reconciliation; this may take a while on large warehouses..."
             )
+            index: Dict[str, List[str]] = {}
             resolvers: List[SchemaResolver] = []
-            count = 0
             for entry in entries:
-                # populate_membership=True makes the resolver's single bulk scroll also
-                # record every existing URN (including schemaless ones) in its casing
-                # index — so we don't run a second scroll just to learn membership.
                 resolver = provide_schema_resolver(
                     graph=self._graph,
                     platform=entry.platform,
                     platform_instance=entry.platform_instance,
                     env=entry.env,
-                    populate_membership=True,
                 )
-                count += resolver.known_urn_count()
                 resolvers.append(resolver)
-            # The casing index lives on the resolvers and is disk-backed, so memory
-            # stays bounded; the upfront scroll cost is what scales with the catalog.
-            # Log the size, escalating to WARNING once the fetch is large enough to
-            # matter.
+                # get_urns() is the schema-bearing entity set the resolver already
+                # loaded; fold it into a lowercase index. A URN is "present exactly" iff
+                # it appears in its own lowercase bucket, so no separate set is needed.
+                for existing in resolver.get_urns():
+                    try:
+                        bucket = index.setdefault(lowercase_dataset_urn(existing), [])
+                    except Exception:
+                        continue
+                    if existing not in bucket:
+                        bucket.append(existing)
+            # The index is held in memory for the pipeline's lifetime; log its size,
+            # escalating to WARNING once it's large enough to matter.
+            count = sum(len(bucket) for bucket in index.values())
             message = (
                 f"Loaded {count} '{platform}' dataset URNs for lineage casing "
                 f"reconciliation."
             )
             if count > _CATALOG_SIZE_WARN_THRESHOLD:
                 logger.warning(
-                    f"{message} This is a large catalog and the upfront fetch may be "
-                    f"slow; consider narrowing upstream_platforms "
-                    f"(platform_instance / env) to the assets this source references."
+                    f"{message} This is a large catalog and may use significant memory; "
+                    f"consider narrowing upstream_platforms (platform_instance / env) to "
+                    f"the assets this source references."
                 )
             else:
                 logger.info(message)
-            self._resolvers_by_platform[platform] = resolvers
-        return self._resolvers_by_platform[platform]
+            self._catalog_by_platform[platform] = _Catalog(index, resolvers)
+        return self._catalog_by_platform[platform]
 
     @staticmethod
     def _schema_for(
         urn: str, resolvers: List["SchemaResolver"]
     ) -> Optional[SchemaInfo]:
+        # The URN came from get_urns() (schema-bearing, already cached), so resolve_urn
+        # returns its schema from cache without a graph call.
         for resolver in resolvers:
-            schema = resolver.get_cached_schema_info(urn)
+            _, schema = resolver.resolve_urn(urn)
             if schema is not None:
                 return schema
         return None
@@ -269,9 +292,9 @@ class AutoNormalizeLineageUrnsProcessor(
         Prefers an exact match (don't merge genuinely distinct case-sensitive entities,
         and record it as EXACT); falls back to a unique case-insensitive match (recorded
         as NORMALIZED); leaves the URN unchanged and flags UNRESOLVED when there is no
-        match or an ambiguous collision. Membership comes from the resolver's casing
-        index (schema-independent), so a real but schemaless entity still wins the exact
-        match.
+        match or an ambiguous collision. Membership is the resolver's schema-bearing
+        entities, so a reference to an existing-but-schemaless entity is reported
+        UNRESOLVED (reconciling those is a tracked follow-up).
         """
         try:
             platform = DataPlatformUrn.from_string(
@@ -279,35 +302,33 @@ class AutoNormalizeLineageUrnsProcessor(
             ).platform_name
         except Exception:
             return _Resolution(urn, None, None)
-        resolvers = self._resolvers_for(platform)
-        if not resolvers:
+        catalog = self._get_catalog(platform)
+        if not catalog.resolvers:
             return _Resolution(urn, None, None)
 
-        # Candidates = known URNs sharing this URN's case-insensitive form, unioned
-        # across the platform's resolvers (a platform may have several instance/env
-        # entries). Schemaless entities are included via the casing index.
-        candidates: List[str] = []
-        for resolver in resolvers:
-            for candidate in resolver.find_by_casing(urn):
-                if candidate not in candidates:
-                    candidates.append(candidate)
+        # The lowercase bucket for this URN holds every known entity sharing its
+        # case-insensitive form. Compute it once and derive the verdict from it.
+        try:
+            bucket = catalog.index.get(lowercase_dataset_urn(urn), [])
+        except Exception:
+            return _Resolution(urn, None, None)
 
-        # Exact match wins: the URN itself is a known entity. Don't merge genuinely
+        # Exact match wins: the URN is present in its own bucket. Don't merge genuinely
         # distinct case-sensitive entities. Schema, if any, is for column casing.
-        if urn in candidates:
+        if urn in bucket:
             return _Resolution(
                 urn,
-                self._schema_for(urn, resolvers),
+                self._schema_for(urn, catalog.resolvers),
                 LineageMatchTypeClass.EXACT,
             )
 
         # No exact match: a unique case-insensitive match heals; ambiguity is left alone.
-        others = [c for c in candidates if c != urn]
-        if len(others) == 1:
-            resolved = others[0]
+        candidates = [c for c in bucket if c != urn]
+        if len(candidates) == 1:
+            resolved = candidates[0]
             return _Resolution(
                 resolved,
-                self._schema_for(resolved, resolvers),
+                self._schema_for(resolved, catalog.resolvers),
                 LineageMatchTypeClass.NORMALIZED,
             )
         # On a configured platform but no unique match (none, or an ambiguous casing
