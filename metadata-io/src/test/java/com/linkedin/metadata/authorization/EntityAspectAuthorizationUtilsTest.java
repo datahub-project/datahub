@@ -231,6 +231,118 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testFilterUnauthorizedToRenameDataProduct_returnsEmptyForEmptyInput() {
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, Set.of(), Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToRenameDataProduct_usesProposedProductDomains() {
+    Domains productDomains = new Domains();
+    productDomains.setDomains(new UrnArray(DOMAIN_A));
+    Aspect proposedProductDomains = new Aspect(productDomains.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("domain", DOMAIN_A.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            Set.of(DATA_PRODUCT_URN),
+            Map.of(DATA_PRODUCT_URN, proposedProductDomains));
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToRenameDataProduct_usesPersistedDomainsWhenNoProposed() {
+    Domains productDomains = new Domains();
+    productDomains.setDomains(new UrnArray(DOMAIN_A));
+    Aspect persistedDomains = new Aspect(productDomains.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of(DOMAINS_ASPECT_NAME, persistedDomains)));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("domain", DOMAIN_A.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            Set.of(DATA_PRODUCT_URN),
+            Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToRenameDataProduct_allowsEditOnProductWithoutDomains() {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("dataProduct", DATA_PRODUCT_URN.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            Set.of(DATA_PRODUCT_URN),
+            Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
+
+  @Test
+  public void testFilterUnauthorizedToRenameDataProduct_deniesWithoutPrivilege() {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            Set.of(DATA_PRODUCT_URN),
+            Map.of());
+
+    Assert.assertEquals(unauthorized, Set.of(DATA_PRODUCT_URN));
+  }
+
+  @Test
   public void testIsAuthorizedToChangeDataProductMembership_allowsRemoveViaProductSide() {
     authUtilMockedStatic
         .when(
