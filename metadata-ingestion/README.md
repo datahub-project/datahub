@@ -1,41 +1,93 @@
-# Introduction to Metadata Ingestion
+# acryl-datahub
 
-:::tip Find Integration Source
-Please see our **[Integrations page](https://docs.datahub.com/integrations)** to browse our ingestion sources and filter on their features.
-:::
+**DataHub's ingestion framework and CLI** — extract metadata from 50+ data sources and push it into your DataHub catalog.
 
-## Integration Methods
+## What you can do
 
-DataHub offers three methods for data ingestion:
+- **Ingest metadata** from databases, data warehouses, BI tools, orchestrators, and more
+- **Emit metadata programmatically** using the Python or Java SDK
+- **Transform and filter** metadata in transit using built-in transformers
+- **Schedule and manage** ingestion pipelines via CLI or the DataHub UI
+- **Automate lineage, ownership, tags, and documentation** across your data assets
 
-- [UI Ingestion](../docs/ui-ingestion.md) : Easily configure and execute a metadata ingestion pipeline through the UI.
-- [CLI Ingestion guide](cli-ingestion.md) : Configure the ingestion pipeline using YAML and execute by it through CLI.
-- SDK-based ingestion : Use [Python Emitter](./as-a-library.md) or [Java emitter](../metadata-integration/java/as-a-library.md) to programmatically control the ingestion pipelines.
+## Supported sources
 
-## Types of Integration
+Snowflake · BigQuery · Redshift · dbt · Databricks · Looker · Tableau · Power BI · Airflow · Spark · Kafka · PostgreSQL · MySQL · Hive · Glue · S3 · Iceberg · Unity Catalog · Sigma · Mode · Superset · Metabase · and [many more](https://docs.datahub.com/integrations)
 
-Integration can be divided into two concepts based on the method:
+## Installation
 
-### Push-based Integration
+```bash
+pip install acryl-datahub
+datahub version
+```
 
-Push-based integrations allow you to emit metadata directly from your data systems when metadata changes.
-Examples of push-based integrations include [Airflow](../docs/lineage/airflow.md), [Spark](../metadata-integration/java/acryl-spark-lineage/README.md), [Great Expectations](./integration_docs/great-expectations.md) and [Protobuf Schemas](../metadata-integration/java/datahub-protobuf/README.md). This allows you to get low-latency metadata integration from the "active" agents in your data ecosystem.
+## Quickstart
 
-### Pull-based Integration
+### Pull metadata from a source (recipe)
 
-Pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner.
-Examples of pull-based integrations include BigQuery, Snowflake, Looker, Tableau and many others.
+```yaml
+# snowflake_recipe.yml
+source:
+  type: snowflake
+  config:
+    account_id: my_account
+    username: my_user
+    password: my_password
+    role: DATAHUB_ROLE
+    warehouse: COMPUTE_WH
 
-## Core Concepts
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080
+```
 
-The following are the core concepts related to ingestion:
+```bash
+datahub ingest -c snowflake_recipe.yml
+```
 
-- [Sources](source_overview.md): Data systems from which extract metadata. (e.g. BigQuery, MySQL)
-- [Sinks](sink_overview.md): Destination for metadata (e.g. File, DataHub)
-- [Recipe](recipe_overview.md): The main configuration for ingestion in the form or .yaml file
+### Emit metadata from code (SDK)
 
-For more advanced guides, please refer to the following:
+```python
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
-- [Developing on Metadata Ingestion](./developing.md)
-- [Adding a Metadata Ingestion Source](./adding-source.md)
-- [Using Transformers](./docs/transformer/intro.md)
+emitter = DatahubRestEmitter("http://localhost:8080")
+
+dataset_urn = builder.make_dataset_urn("snowflake", "mydb.schema.table")
+ownership = builder.make_ownership_mce(dataset_urn, ["urn:li:corpuser:jane"])
+emitter.emit(ownership)
+```
+
+### Ingest via the DataHub UI
+
+No CLI required — configure and run ingestion directly from the DataHub UI under **Ingestion → Create new source**.
+
+## Ingestion methods
+
+| Method | Best for |
+|---|---|
+| **CLI + YAML recipe** | Scheduled batch ingestion, CI/CD pipelines |
+| **Python SDK** | Programmatic or event-driven metadata emission |
+| **Java SDK** | JVM-based integrations (Spark, Flink, etc.) |
+| **UI Ingestion** | One-click setup, no code required |
+
+## Key CLI commands
+
+```bash
+datahub ingest -c recipe.yml          # Run an ingestion pipeline
+datahub check graph                   # Verify connectivity to DataHub
+datahub delete --urn <urn>            # Delete a metadata entity
+datahub get --urn <urn>               # Fetch metadata for an entity
+datahub timeline --urn <urn>          # View metadata change history
+datahub migrate                       # Run platform migrations
+```
+
+## Links
+
+- [Documentation](https://docs.datahub.com/)
+- [Integrations catalog](https://docs.datahub.com/integrations)
+- [Quickstart guide](https://docs.datahub.com/docs/quickstart)
+- [Developing a custom source](https://docs.datahub.com/docs/metadata-ingestion/adding-source)
+- [GitHub](https://github.com/datahub-project/datahub)
+- [Slack community](https://datahub.com/slack)
