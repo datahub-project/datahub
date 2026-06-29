@@ -5,15 +5,13 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional
 
 MIN_PRIORITY = 0
 MAX_PRIORITY = 9
 DEFAULT_PRIORITY = 5
 
 DEFAULT_BANDS_JSON = '[{"range":[0,3],"weight":70},{"range":[4,6],"weight":20},{"range":[7,9],"weight":10}]'
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -84,38 +82,6 @@ class PriorityBandConfig:
         for i in range(remainder):
             limits[i % n] += 1
         return limits
-
-
-def weighted_fair_fetch(
-    config: PriorityBandConfig,
-    total_limit: int,
-    fetch_fn: Callable[[int, int, int], List[T]],
-) -> List[T]:
-    """Fetch across bands with weighted fair queuing and greedy redistribution.
-
-    Args:
-        config: Priority band configuration.
-        total_limit: Total rows to fetch across all bands.
-        fetch_fn: ``(min_priority, max_priority, limit) -> rows`` callable.
-    """
-    if total_limit <= 0:
-        return []
-    limits = config.batch_limits(total_limit)
-    results: List[T] = []
-    remaining = total_limit
-    for i, band in enumerate(config.bands):
-        if remaining <= 0:
-            break
-        band_limit = min(limits[i], remaining)
-        if band_limit <= 0:
-            continue
-        fetched = fetch_fn(band.min_priority, band.max_priority, band_limit)
-        results.extend(fetched)
-        remaining -= len(fetched)
-        unused = band_limit - len(fetched)
-        if unused > 0 and i + 1 < len(config.bands):
-            limits[i + 1] += unused
-    return results
 
 
 PRIORITY_BANDS_ENV_VAR = "DATAHUB_PGQUEUE_PRIORITY_BANDS"

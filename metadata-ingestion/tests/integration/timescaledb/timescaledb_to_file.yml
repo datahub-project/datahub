@@ -1,0 +1,27 @@
+source:
+  type: timescaledb
+  config:
+    username: tsdbuser
+    password: tsdbpass
+    host_port: localhost:55432
+    database: tsdb
+
+    emit_timescaledb_metadata: true
+    tag_hypertables: true
+    tag_continuous_aggregates: true
+    include_background_jobs: false
+
+    include_tables: true
+    include_views: true
+    include_view_lineage: true
+    include_view_column_lineage: true
+
+    schema_pattern:
+      allow:
+        - public
+        - analytics
+
+sink:
+  type: file
+  config:
+    filename: "./timescaledb_mces.json"

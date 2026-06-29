@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
@@ -85,7 +86,8 @@ public class AssertionUrnValidationAnnotationTest {
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
     // Default: no entities exist (tests override as needed)
-    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
   }
 
   // ==================== DatasetAssertionInfo Tests ====================
@@ -340,10 +342,10 @@ public class AssertionUrnValidationAnnotationTest {
   }
 
   private void mockEntityExists(Map<Urn, Boolean> existenceMap) {
-    when(mockAspectRetriever.entityExists(any()))
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
         .thenAnswer(
             invocation -> {
-              Set<Urn> requestedUrns = invocation.getArgument(0);
+              Set<Urn> requestedUrns = invocation.getArgument(1);
               Map<Urn, Boolean> result = new HashMap<>();
               for (Urn urn : requestedUrns) {
                 result.put(urn, existenceMap.getOrDefault(urn, false));
@@ -355,7 +357,9 @@ public class AssertionUrnValidationAnnotationTest {
   private List<AspectValidationException> runValidation() {
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(
-            Collections.singletonList(mockBatchItem), mockRetrieverContext);
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
     return result.collect(Collectors.toList());
   }
 }

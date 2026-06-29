@@ -69,7 +69,7 @@ def test_build_prefix_batches_exceeds_max_batch_size():
             1,
         ),
         # Production column-fetch parameters.
-        ([f"NAME_{i:05d}" for i in range(50000)], 10000, 5),
+        ([f"NAME_{i:05d}" for i in range(50000)], 10000, 6),
         # Pathological: many tiny groups that all want to pair up.
         ([f"{c}{i}" for c in "ABCDEFGHIJ" for i in range(3)], 10, 1),
         ([f"{c}{i}" for c in "ABCDEFGHIJ" for i in range(3)], 10, 3),

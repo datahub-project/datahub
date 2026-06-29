@@ -1,5 +1,6 @@
 import { Steps } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
@@ -51,11 +52,18 @@ const NextButtonContainer = styled.div`
     margin-right: 12px;
 `;
 
+const MODAL_BODY_STYLE = {
+    paddingLeft: '0px',
+    paddingRight: '0px',
+};
+
 /**
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
 export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
@@ -90,7 +98,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
-            title: 'Choose Policy Type',
+            title: t('stepChoosePolicyType'),
             content: (
                 <PolicyTypeForm
                     policyType={policy.type}
@@ -107,7 +115,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
 
     // Step 2: Select privileges step.
     const privilegeStep = () => ({
-        title: 'Configure Privileges',
+        title: t('stepConfigurePrivileges'),
         content: (
             <PolicyPrivilegeForm
                 focusPolicyUrn={focusPolicyUrn}
@@ -131,7 +139,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
-            title: 'Assign Users & Groups',
+            title: t('stepAssignUsersGroups'),
             content: (
                 <PolicyActorForm
                     policyType={policy.type}
@@ -169,16 +177,13 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
+                title={isEditing ? t('editPolicyModalTitle') : t('createPolicyModalTitle')}
                 open={open}
                 onCancel={onClose}
                 closable
                 width={750}
                 buttons={[]}
-                bodyStyle={{
-                    paddingLeft: '0px',
-                    paddingRight: '0px',
-                }}
+                bodyStyle={MODAL_BODY_STYLE}
             >
                 <StepsWrapper>
                     <Steps current={activeStepIndex}>
@@ -192,19 +197,19 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                     <PrevButtonContainer>
                         {activeStepIndex > 0 && (
                             <Button variant="outline" color="gray" onClick={() => prev()}>
-                                Previous
+                                {tc('previous')}
                             </Button>
                         )}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                            <Button id="nextButton" onClick={() => next()}>
-                                Next
+                            <Button id="nextButton" data-testid="next-button" onClick={() => next()}>
+                                {tc('next')}
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                            <Button id="saveButton" onClick={onSavePolicy}>
-                                Save
+                            <Button id="saveButton" data-testid="save-button" onClick={onSavePolicy}>
+                                {tc('save')}
                             </Button>
                         )}
                     </NextButtonContainer>
@@ -219,9 +224,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                     setShowConfirmationModal(false);
                     onClose();
                 }}
-                modalTitle="Exit Policy Editor"
-                modalText="Are you sure you want to exit policy editor? All changes will be lost"
-                confirmButtonText="Yes"
+                modalTitle={t('exitEditorTitle')}
+                modalText={t('exitEditorText')}
+                confirmButtonText={tc('yes')}
             />
         </ClickOutside>
     );

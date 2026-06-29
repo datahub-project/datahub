@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: "Image tag in the container registry to pull/scan. Default is `head` (DataHub’s published branch image tag; see `MAIN_BRANCH_TAG` in docker helpers). Examples: head, latest, or a release tag."
+        description: "Image tag in the container registry to pull/scan. Default is `quickstart` (coordinated compose tag after smoke tests on master). Examples: quickstart, sha-abc1234, or a release tag."
         required: true
         type: string
-        default: head
+        default: quickstart
       scan_profile:
         description: "Profile key (see `.github/security-scan-profiles.*.json`)."
         required: true
@@ -77,7 +77,7 @@ concurrency:
 
 # workflow_dispatch fills github.event.inputs; workflow_run does not — resolve defaults for automated runs.
 env:
-  RESOLVED_DOCKER_TAG: ${{ github.event_name == 'workflow_run' && 'head' || github.event.inputs.docker_tag }}
+  RESOLVED_DOCKER_TAG: ${{ github.event_name == 'workflow_run' && 'quickstart' || github.event.inputs.docker_tag }}
   RESOLVED_SCAN_PROFILE: ${{ github.event_name == 'workflow_run' && 'allImages' || github.event.inputs.scan_profile }}
   RESOLVED_VARIANT_SCOPE: ${{ github.event_name == 'workflow_run' && 'all' || github.event.inputs.variant_scope }}
   RESOLVED_SCAN_SEVERITY_LEVELS: ${{ github.event_name == 'workflow_run' && 'CRITICAL,HIGH' || github.event.inputs.scan_severity_levels }}
@@ -135,7 +135,7 @@ jobs:
           fi
 
       - name: Checkout (minimal)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.ref_name }}
           fetch-tags: true
@@ -217,7 +217,7 @@ jobs:
             ' "${CFG}")"
           } >> "${GITHUB_OUTPUT}"
 
-      # Linear ref label: use the repo default branch when scanning image tags `head` or `latest`
+      # Linear ref label: use the repo default branch when scanning image tags `quickstart` or `latest`
       # (nightly / default tip); otherwise use the provided docker tag as a tag ref (e.g. release).
       # Container pulls always use RESOLVED_DOCKER_TAG.
       - name: Resolve git ref (Linear)
@@ -240,7 +240,7 @@ jobs:
             exit 1
           fi
           lt="$(printf '%s' "${scan_tag}" | tr '[:upper:]' '[:lower:]')"
-          if [[ "${lt}" == "head" || "${lt}" == "latest" ]]; then
+          if [[ "${lt}" == "quickstart" || "${lt}" == "head" || "${lt}" == "latest" ]]; then
             {
               echo "kind=branch"
               echo "name=${default_branch}"
@@ -255,7 +255,7 @@ jobs:
               echo "github_ref=refs/tags/${scan_tag}"
               echo "sha=${commit}"
             } >> "$GITHUB_OUTPUT"
-            echo "::notice::Linear ref label: image tag ${scan_tag} (not head/latest)"
+            echo "::notice::Linear ref label: image tag ${scan_tag} (not quickstart/head/latest)"
           fi
 
       - &ecr_login
@@ -391,7 +391,7 @@ jobs:
         run: |
           set -euo pipefail
           # One workflow matrix leg per *repository* (the ref without the last ":tag" segment). Tag variants
-          # (e.g. :head vs :head-slim) are scanned on the same runner, serially, per scanner. Different repos stay parallel.
+          # (e.g. :quickstart vs :quickstart-slim) are scanned on the same runner, serially, per scanner. Different repos stay parallel.
           m="$(
             jq -Rs 'split("\n")
               | map(select(length > 0))
@@ -419,7 +419,7 @@ jobs:
 
       - name: Upload image list
         if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: security-scan-image-list
           path: image-list.txt
@@ -464,7 +464,7 @@ jobs:
       DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
     steps:
       - name: Checkout (Trivy config)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.ref_name }}
           fetch-tags: true
@@ -485,7 +485,7 @@ jobs:
         run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
 
       - name: Restore Trivy vulnerability DB cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/trivy
           key: trivy-vuln-db-${{ runner.os }}-${{ steps.trivy-db-cache.outputs.week }}
@@ -583,7 +583,7 @@ jobs:
 
       - name: Upload Trivy reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: security-scan-trivy--${{ steps.trivy-art.outputs.slug }}
           path: scan-reports/trivy
@@ -757,7 +757,7 @@ jobs:
 
       - name: Upload Grype reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: security-scan-grype--${{ steps.grype-art.outputs.slug }}
           path: grype-artifact
@@ -784,7 +784,7 @@ jobs:
     steps:
       # Cone checkout of `.github/scripts` for the sync entrypoint and `utils/` imports.
       - name: Checkout (sync script)
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.ref_name }}
           fetch-tags: true
@@ -799,7 +799,7 @@ jobs:
 
       - name: Download Trivy report artifacts (per-image matrix)
         if: env.RESOLVED_SCAN_WITH_TRIVY == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: security-scan-trivy--*
           merge-multiple: true
@@ -807,7 +807,7 @@ jobs:
 
       - name: Download Grype report artifacts (per-image matrix)
         if: env.RESOLVED_SCAN_WITH_GRYPE == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: security-scan-grype--*
           merge-multiple: true
@@ -815,7 +815,7 @@ jobs:
 
       - name: Download Trivy raw report artifacts (per-image matrix)
         if: env.RESOLVED_SCAN_WITH_TRIVY == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: security-scan-trivy-raw--*
           merge-multiple: true
@@ -823,7 +823,7 @@ jobs:
 
       - name: Download Grype raw report artifacts (per-image matrix)
         if: env.RESOLVED_SCAN_WITH_GRYPE == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: security-scan-grype-raw--*
           merge-multiple: true

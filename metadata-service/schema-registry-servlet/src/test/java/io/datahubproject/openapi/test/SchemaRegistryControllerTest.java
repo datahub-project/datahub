@@ -2,6 +2,7 @@ package io.datahubproject.openapi.test;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.systemContextNoSearchAuthorization;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -137,7 +138,9 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
 
-    _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
+    _producer
+        .produceMetadataChangeProposal(systemContextNoSearchAuthorization(), entityUrn, gmce)
+        .get(10, TimeUnit.SECONDS);
     // Wait for message to be consumed and deserialized
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -185,7 +188,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
 
     _producer
-        .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
+        .produceMetadataChangeLog(
+            systemContextNoSearchAuthorization(), entityUrn, aspectSpec, metadataChangeLog)
         .get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -216,7 +220,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
     _producer
-        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "testPEConsumption", platformEvent)
+        .producePlatformEvent(
+            systemContextNoSearchAuthorization(),
+            CHANGE_EVENT_PLATFORM_EVENT_NAME,
+            "testPEConsumption",
+            platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = getLatch("testPEConsumption").await(10, TimeUnit.SECONDS);

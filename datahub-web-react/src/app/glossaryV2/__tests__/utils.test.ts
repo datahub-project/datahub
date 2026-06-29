@@ -1,6 +1,7 @@
 import {
     ROOT_NODES,
     ROOT_TERMS,
+    deriveGlossaryLabelFromUrn,
     getGlossaryRootToUpdate,
     getParentNodeToUpdate,
     updateGlossarySidebar,
@@ -52,5 +53,26 @@ describe('glossary utils tests', () => {
         const setUrnsToUpdate = vi.fn();
         updateGlossarySidebar(parentNodesToUpdate, urnsToUpdate, setUrnsToUpdate);
         expect(setUrnsToUpdate).toHaveBeenCalledWith([...urnsToUpdate, ...parentNodesToUpdate]);
+    });
+
+    describe('deriveGlossaryLabelFromUrn', () => {
+        it('returns the leaf segment after the last dot for nested terms', () => {
+            // Glossary URNs encode hierarchy after the type prefix; only the leaf is the user-
+            // facing name (the rest comes from the entity's parentNodes when hydrated).
+            expect(deriveGlossaryLabelFromUrn('urn:li:glossaryTerm:Adoption.HighRisk')).toBe('HighRisk');
+            expect(deriveGlossaryLabelFromUrn('urn:li:glossaryNode:Classification.Personal.Identifiable')).toBe(
+                'Identifiable',
+            );
+        });
+
+        it('returns the full id when the URN has no dot-encoded hierarchy', () => {
+            expect(deriveGlossaryLabelFromUrn('urn:li:glossaryTerm:Confidential')).toBe('Confidential');
+        });
+
+        it('falls back to the full input when it is not a colon-prefixed URN', () => {
+            // Defensive: in practice callers always pass a real URN, but the helper should never
+            // throw on a malformed string — it's a last-resort label fallback.
+            expect(deriveGlossaryLabelFromUrn('Confidential')).toBe('Confidential');
+        });
     });
 });

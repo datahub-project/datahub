@@ -29,5 +29,7 @@ public class EbeanConfiguration {
   private String batchGetMethod;
   private Integer queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
 
+  private ReadPoolConfiguration readPool;
+
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }

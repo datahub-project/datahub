@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -143,8 +144,10 @@ public class StructuredPropertyUtils {
    * @return guranteed facet name
    */
   public static Optional<String> toStructuredPropertyFacetName(
-      @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
-    return lookupDefinitionFromFilterOrFacetName(fieldOrFacetName, aspectRetriever)
+      @Nullable OperationFingerprint opContext,
+      @Nonnull String fieldOrFacetName,
+      @Nullable AspectRetriever aspectRetriever) {
+    return lookupDefinitionFromFilterOrFacetName(opContext, fieldOrFacetName, aspectRetriever)
         .map(
             urnDefinition -> {
               switch (getLogicalValueType(urnDefinition.getSecond())) {
@@ -172,7 +175,9 @@ public class StructuredPropertyUtils {
    */
   public static Optional<Pair<Urn, StructuredPropertyDefinition>>
       lookupDefinitionFromFilterOrFacetName(
-          @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
+          @Nullable OperationFingerprint opContext,
+          @Nonnull String fieldOrFacetName,
+          @Nullable AspectRetriever aspectRetriever) {
     if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
       // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
       // subfield (.keyword etc)
@@ -181,9 +186,12 @@ public class StructuredPropertyUtils {
       // FQN Maps directly to URN with urn:li:structuredProperties:FQN
       Urn urn = toURNFromFQN(fqn);
 
+      // Route through the OperationFingerprint-aware overload — tenant-scoped impls partition
+      // by opContext; the default delegates to the legacy method when opContext is null.
       Map<Urn, Map<String, Aspect>> result =
           Objects.requireNonNull(aspectRetriever)
               .getLatestAspectObjects(
+                  opContext,
                   Collections.singleton(urn),
                   Collections.singleton(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
       Optional<Aspect> definition =
@@ -238,9 +246,11 @@ public class StructuredPropertyUtils {
    * @return elasticsearch type
    */
   public static Set<String> toElasticsearchFieldType(
-      @Nonnull String fieldName, @Nullable AspectRetriever aspectRetriever) {
+      @Nullable OperationFingerprint opContext,
+      @Nonnull String fieldName,
+      @Nullable AspectRetriever aspectRetriever) {
     LogicalValueType logicalValueType =
-        lookupDefinitionFromFilterOrFacetName(fieldName, aspectRetriever)
+        lookupDefinitionFromFilterOrFacetName(opContext, fieldName, aspectRetriever)
             .map(definition -> getLogicalValueType(definition.getValue()))
             .orElse(LogicalValueType.STRING);
 
@@ -260,12 +270,14 @@ public class StructuredPropertyUtils {
   }
 
   public static void validateStructuredPropertyFQN(
-      @Nonnull Collection<String> fullyQualifiedNames, @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable OperationFingerprint opContext,
+      @Nonnull Collection<String> fullyQualifiedNames,
+      @Nonnull AspectRetriever aspectRetriever) {
     Set<Urn> structuredPropertyUrns =
         fullyQualifiedNames.stream()
             .map(StructuredPropertyUtils::toURNFromFQN)
             .collect(Collectors.toSet());
-    Set<Urn> removedUrns = getRemovedUrns(structuredPropertyUrns, aspectRetriever);
+    Set<Urn> removedUrns = getRemovedUrns(opContext, structuredPropertyUrns, aspectRetriever);
     if (!removedUrns.isEmpty()) {
       throw new IllegalArgumentException(
           String.format("Cannot filter on deleted Structured Property %s", removedUrns));
@@ -283,7 +295,9 @@ public class StructuredPropertyUtils {
   }
 
   public static void validateFilter(
-      @Nullable Filter filter, @Nullable AspectRetriever aspectRetriever) {
+      @Nullable OperationFingerprint opContext,
+      @Nullable Filter filter,
+      @Nullable AspectRetriever aspectRetriever) {
 
     if (filter == null) {
       return;
@@ -312,7 +326,7 @@ public class StructuredPropertyUtils {
     }
 
     if (!fqns.isEmpty()) {
-      validateStructuredPropertyFQN(fqns, Objects.requireNonNull(aspectRetriever));
+      validateStructuredPropertyFQN(opContext, fqns, Objects.requireNonNull(aspectRetriever));
     }
   }
 
@@ -343,9 +357,12 @@ public class StructuredPropertyUtils {
     return date.compareTo(MIN_DATE) >= 0 && date.compareTo(MAX_DATE) <= 0;
   }
 
-  private static Set<Urn> getRemovedUrns(Set<Urn> urns, @Nonnull AspectRetriever aspectRetriever) {
+  private static Set<Urn> getRemovedUrns(
+      @Nullable OperationFingerprint opContext,
+      Set<Urn> urns,
+      @Nonnull AspectRetriever aspectRetriever) {
     return aspectRetriever
-        .getLatestAspectObjects(urns, ImmutableSet.of(STATUS_ASPECT_NAME))
+        .getLatestAspectObjects(opContext, urns, ImmutableSet.of(STATUS_ASPECT_NAME))
         .entrySet()
         .stream()
         .filter(
@@ -362,12 +379,14 @@ public class StructuredPropertyUtils {
    */
   @Nonnull
   public static Set<Urn> getMissingPropertyDefinitionUrns(
-      @Nonnull Set<Urn> propertyUrns, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull Set<Urn> propertyUrns,
+      @Nonnull AspectRetriever aspectRetriever) {
     if (propertyUrns.isEmpty()) {
       return Collections.emptySet();
     }
 
-    final Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(propertyUrns);
+    final Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(opContext, propertyUrns);
     final Set<Urn> existing =
         propertyUrns.stream()
             .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
@@ -379,7 +398,7 @@ public class StructuredPropertyUtils {
     if (!existing.isEmpty()) {
       final Map<Urn, Map<String, Aspect>> definitionAspects =
           aspectRetriever.getLatestAspectObjects(
-              existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+              opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
       existing.stream()
           .filter(
               propertyUrn ->
@@ -398,6 +417,7 @@ public class StructuredPropertyUtils {
    */
   @Nonnull
   public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull OperationFingerprint opContext,
       @Nonnull StructuredProperties structuredProperties,
       @Nonnull AspectRetriever aspectRetriever) {
     if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
@@ -406,6 +426,7 @@ public class StructuredPropertyUtils {
 
     final Set<Urn> missingPropertyUrns =
         getMissingPropertyDefinitionUrns(
+            opContext,
             structuredProperties.getProperties().stream()
                 .map(StructuredPropertyValueAssignment::getPropertyUrn)
                 .collect(Collectors.toSet()),
@@ -430,14 +451,17 @@ public class StructuredPropertyUtils {
    *     properties and whether values were filtered
    */
   public static Map<Urn, Boolean> filterSoftDelete(
-      Map<Urn, StructuredProperties> properties, AspectRetriever aspectRetriever) {
+      @Nullable OperationFingerprint opContext,
+      Map<Urn, StructuredProperties> properties,
+      AspectRetriever aspectRetriever) {
     final Set<Urn> structuredPropertiesUrns =
         properties.values().stream()
             .flatMap(structuredProperties -> structuredProperties.getProperties().stream())
             .map(StructuredPropertyValueAssignment::getPropertyUrn)
             .collect(Collectors.toSet());
 
-    final Set<Urn> removedUrns = getRemovedUrns(structuredPropertiesUrns, aspectRetriever);
+    final Set<Urn> removedUrns =
+        getRemovedUrns(opContext, structuredPropertiesUrns, aspectRetriever);
 
     return properties.entrySet().stream()
         .map(

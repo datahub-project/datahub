@@ -1,4 +1,3 @@
-import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -6,40 +5,37 @@ import styled from 'styled-components';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain as DomainEntity, EntityType } from '@types';
+import { Domain as DomainEntity, EntityType, MetadataAttribution } from '@types';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
+    color: ${(props) => props.theme.colors.text};
+
+    &:hover,
+    &:focus,
+    &:active {
+        color: ${(props) => props.theme.colors.text};
+    }
 `;
 
 const DomainWrapper = styled.span`
     display: inline-block;
 `;
 
-const CloseButton = styled.div`
+const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
-    :hover {
-        cursor: pointer;
-    }
-    && {
-        color: ${(props) => props.theme.colors.icon};
-    }
-`;
-
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        font-size: 10px;
-    }
 `;
 
 const StyledTag = styled.div<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: start;
-    gap: 6px;
+    gap: 4px;
 `;
 
 interface DomainContentProps {
@@ -50,21 +46,27 @@ interface DomainContentProps {
     tagStyle?: any | undefined;
     fontSize?: number;
     iconSize?: number;
+    iconFontSize?: number;
 }
 
-function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize, iconSize }: DomainContentProps) {
+function DomainContent({
+    domain,
+    name,
+    closable,
+    onClose,
+    tagStyle,
+    fontSize,
+    iconSize,
+    iconFontSize,
+}: DomainContentProps) {
     const entityRegistry = useEntityRegistry();
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
     return (
         <StyledTag style={tagStyle} fontSize={fontSize} data-testid={`domain-${displayName}`}>
-            <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={16} />
+            <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
             {displayName}
-            {closable && (
-                <CloseButton onClick={onClose} data-testid="remove-icon">
-                    <StyledCloseOutlined />
-                </CloseButton>
-            )}
+            {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );
 }
@@ -77,7 +79,10 @@ type Props = {
     tagStyle?: any | undefined;
     readOnly?: boolean;
     fontSize?: number;
+    iconSize?: number;
+    iconFontSize?: number;
     enableTooltip?: boolean;
+    attribution?: MetadataAttribution | null;
 };
 
 export const DomainLink = ({
@@ -88,15 +93,19 @@ export const DomainLink = ({
     tagStyle,
     readOnly,
     fontSize,
+    iconSize,
+    iconFontSize,
     enableTooltip = true,
+    attribution,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const urn = domain?.urn;
+    const previewContext = attribution ? { propagationDetails: { attribution } } : undefined;
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+            <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
                 <DomainWrapper>
                     <DomainContent
                         domain={domain}
@@ -105,6 +114,8 @@ export const DomainLink = ({
                         onClose={onClose}
                         tagStyle={tagStyle}
                         fontSize={fontSize}
+                        iconSize={iconSize}
+                        iconFontSize={iconFontSize}
                     />
                 </DomainWrapper>
             </HoverEntityTooltip>
@@ -112,7 +123,7 @@ export const DomainLink = ({
     }
 
     return (
-        <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+        <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)} {...linkProps}>
                 <DomainContent
                     domain={domain}
@@ -121,6 +132,8 @@ export const DomainLink = ({
                     onClose={onClose}
                     tagStyle={tagStyle}
                     fontSize={fontSize}
+                    iconSize={iconSize}
+                    iconFontSize={iconFontSize}
                 />
             </DomainLinkContainer>
         </HoverEntityTooltip>

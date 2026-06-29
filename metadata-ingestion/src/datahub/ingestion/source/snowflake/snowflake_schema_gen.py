@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import sqlglot
 import sqlglot.expressions
@@ -45,7 +45,10 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SNOWFLAKE_MAX_QUERY_BYTES,
+    SnowflakeQuery,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SCHEMA_PARALLELISM,
@@ -151,7 +154,7 @@ logger = logging.getLogger(__name__)
 
 # https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
 # TODO: Move to the standardized types in sql_types.py
-SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
+SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
     "DATE": DateType,
     "BIGINT": NumberType,
     "BINARY": BytesType,
@@ -586,6 +589,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             schema_name=schema_name, db_name=db_name, domain=domain
         )
 
+    @staticmethod
+    def _resolve_input_kind(kind: str) -> SnowflakeObjectDomain:
+        # DYNAMIC_TABLE_GRAPH_HISTORY INPUTS.kind is underscored uppercase
+        # (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values are
+        # space-separated lowercase. Unknown kinds fall back to TABLE so we
+        # still emit lineage.
+        normalized = kind.lower().replace("_", " ")
+        try:
+            return SnowflakeObjectDomain(normalized)
+        except ValueError:
+            return SnowflakeObjectDomain.TABLE
+
     def _process_tables(
         self,
         tables: List[SnowflakeTable],
@@ -596,21 +611,57 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
-                # Handle dynamic table definitions for lineage
-                if (
-                    isinstance(table, SnowflakeDynamicTable)
-                    and table.definition
-                    and self.aggregator
-                ):
+                if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
                     table_identifier = self.identifiers.get_dataset_identifier(
                         table.name, schema_name, db_name
                     )
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn(table_identifier),
-                        view_definition=table.definition,
-                        default_db=db_name,
-                        default_schema=schema_name,
-                    )
+                    downstream_urn = self.identifiers.gen_dataset_urn(table_identifier)
+
+                    if table.definition:
+                        self.aggregator.add_view_definition(
+                            view_urn=downstream_urn,
+                            view_definition=table.definition,
+                            default_db=db_name,
+                            default_schema=schema_name,
+                        )
+                    else:
+                        self.report.num_dynamic_tables_missing_definition += 1
+                        self.structured_reporter.info(
+                            title="Dynamic table definition unavailable — column-level lineage skipped",
+                            message=(
+                                "The DDL for this dynamic table could not be retrieved; "
+                                "table-level lineage will be produced from INPUTS but "
+                                "column-level lineage requires the MONITOR privilege on the dynamic table."
+                            ),
+                            context=f"{db_name}.{schema_name}.{table.name}",
+                        )
+                        # Fall back to table-level lineage from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS
+                        # when DDL is unavailable. Skipped when DDL is present because SQL parsing
+                        # produces accurate column-level lineage; identity CLL from INPUTS would be
+                        # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
+                        for upstream_input in table.upstream_tables:
+                            upstream_qualified_name = upstream_input.name
+                            upstream_domain = self._resolve_input_kind(
+                                upstream_input.kind
+                            )
+                            upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
+                                upstream_qualified_name
+                            )
+                            if not self.filters.is_dataset_pattern_allowed(
+                                upstream_identifier, upstream_domain
+                            ):
+                                logger.debug(
+                                    f"Skipping dynamic table upstream {upstream_qualified_name}: "
+                                    f"filtered by database/schema/table pattern"
+                                )
+                                continue
+                            self.aggregator.add_known_lineage_mapping(
+                                upstream_urn=self.identifiers.gen_dataset_urn(
+                                    upstream_identifier
+                                ),
+                                downstream_urn=downstream_urn,
+                                lineage_type=DatasetLineageTypeClass.VIEW,
+                            )
 
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
@@ -969,16 +1020,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 self.report.report_entity_scanned(table_identifier)
 
+                # Always apply the canonical pattern filter client-side. With
+                # pushdown the server has already narrowed by allow + best-effort
+                # deny, so this is the mandatory backstop that catches any deny
+                # pattern the server query couldn't fit (allow is then a no-op).
+                # Without pushdown it is the only filter.
                 if self.config.push_down_metadata_patterns:
+                    allowed = self._is_table_allowed(db_name, schema_name, table.name)
+                else:
+                    allowed = self.filters.filter_config.table_pattern.allowed(
+                        table_identifier
+                    )
+
+                if allowed:
                     tables.append(table)
                 else:
-                    # Filter in Python when pushdown is disabled
-                    if not self.filters.filter_config.table_pattern.allowed(
-                        table_identifier
-                    ):
-                        self.report.report_dropped(table_identifier)
-                    else:
-                        tables.append(table)
+                    self.report.report_dropped(table_identifier)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -1338,6 +1395,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from add_structured_properties_to_entity_wu(
                     dataset_urn,
                     self._format_tags_as_structured_properties(table.tags),
+                    write_mode=self.config.structured_properties_write_mode,
                 )
             else:
                 tag_associations = [
@@ -1514,6 +1572,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self._format_tags_as_structured_properties(
                     table.column_tags[column_name]
                 ),
+                write_mode=self.config.structured_properties_write_mode,
             )
 
     def _build_json_props(
@@ -2559,6 +2618,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             table_filter = SnowflakeQuery.build_table_filter(
                 self.filters.filter_config.table_pattern
             )
+            # The composed filter must fit in a single query (we don't page it —
+            # paging would re-scan the whole schema's metadata per page). If the
+            # pattern list is so large the filter alone exceeds the per-query byte
+            # limit, drop the server-side filter and fall back to fetching every
+            # table and filtering client-side (the mandatory client-side pass in
+            # fetch_tables_for_schema already does this). Correct, just slower —
+            # and at that scale (a pattern list large enough to blow the query
+            # limit) client-side is typically faster than pushdown anyway, since
+            # information_schema cost is dominated by the metadata scan, not by how
+            # many rows the filter returns.
+            if len(table_filter.encode()) > SNOWFLAKE_MAX_QUERY_BYTES:
+                logger.warning(
+                    "Composed table_pattern filter for %s is %d bytes, over "
+                    "Snowflake's ~%d-byte query limit; falling back to fetching all "
+                    "tables and filtering client-side (slower). Narrow the "
+                    "schema_pattern or table_pattern to keep pushdown server-side.",
+                    db_name,
+                    len(table_filter.encode()),
+                    SNOWFLAKE_MAX_QUERY_BYTES,
+                )
+                table_filter = ""
 
         tables = self.data_dictionary.get_tables_for_database(
             db_name,

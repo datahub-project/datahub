@@ -1,0 +1,61 @@
+// Shared configuration for local Python venv installs that use `uv`.
+// Apply this script in any Python module's build.gradle:
+//
+//   apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
+//
+// Mirrors the Docker-side wiring in gradle/docker/python-docker.gradle so that local
+// `uv pip install ...` invocations resolve packages from the same profile and use the
+// same credentials as image builds.
+//
+// Sets these env vars on every Exec task in the project (uv reads them natively):
+//   UV_CONFIG_FILE -> docker/snippets/uv/profiles/<uvProfile>.toml, falling back to
+//                     profiles/default.toml when uvProfile is unset or the resolved
+//                     file is missing. default.toml is checked in, so the env var is
+//                     always exported with a valid path in OSS checkouts.
+//   NETRC          -> $DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc (if either exists).
+//
+// Existing UV_CONFIG_FILE / NETRC values in the parent environment are honored and
+// inherited as-is — we skip setting them rather than re-exporting the same value.
+
+def uvProfile = gradle.ext['datahub.dependencies.python.uvProfile']
+def profilesDir = "${rootProject.projectDir}/docker/snippets/uv/profiles"
+def uvConfigPath = {
+  if (System.getenv("UV_CONFIG_FILE") != null) {
+    return null
+  }
+  if (uvProfile) {
+    def candidate = new File("${profilesDir}/${uvProfile}.toml")
+    if (candidate.exists()) {
+      return candidate.absolutePath
+    }
+  }
+  def fallback = new File("${profilesDir}/default.toml")
+  return fallback.exists() ? fallback.absolutePath : null
+}()
+
+def netrcPath = {
+  if (System.getenv("NETRC") != null) {
+    return null
+  }
+  def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
+  def file = new File(path)
+  return file.exists() ? file.absolutePath : null
+}()
+
+if (uvConfigPath) {
+  logger.lifecycle("[python-uv] ${project.path}: UV_CONFIG_FILE=${uvConfigPath}")
+}
+if (netrcPath) {
+  logger.lifecycle("[python-uv] ${project.path}: NETRC=${netrcPath}")
+}
+
+if (uvConfigPath || netrcPath) {
+  tasks.withType(Exec).configureEach {
+    if (uvConfigPath) {
+      environment 'UV_CONFIG_FILE', uvConfigPath
+    }
+    if (netrcPath) {
+      environment 'NETRC', netrcPath
+    }
+  }
+}

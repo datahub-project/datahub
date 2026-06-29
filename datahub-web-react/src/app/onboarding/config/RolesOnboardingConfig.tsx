@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -8,29 +9,33 @@ export const ROLES_INTRO_ID = 'roles-intro';
 export const RolesOnboardingConfig: OnboardingStep[] = [
     {
         id: ROLES_INTRO_ID,
-        title: 'Roles',
+        title: <Trans i18nKey="onboarding:roles.introTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Welcome to DataHub <strong>Roles</strong>!
+                    <Trans i18nKey="onboarding:roles.introWelcome" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Roles</strong> are the recommended way to manage permissions on DataHub.
+                    <Trans i18nKey="onboarding:roles.introDescription1" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    DataHub currently supports three out-of-the-box Roles: <strong>Admin</strong>,{' '}
-                    <strong>Editor</strong> and <strong>Reader</strong>.
+                    <Trans i18nKey="onboarding:roles.introDescription2" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Roles</strong> and the different permissions for each Role{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authorization/roles"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:roles.learnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authorization/roles"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),

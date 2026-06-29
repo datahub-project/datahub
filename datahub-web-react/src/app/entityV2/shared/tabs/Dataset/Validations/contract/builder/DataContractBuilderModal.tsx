@@ -1,5 +1,6 @@
 import { Modal } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { DataContractBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
 import { DataContractBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
@@ -29,8 +30,9 @@ type Props = {
  * This component is a modal used for constructing new Data Contracts
  */
 export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
+    const titleText = isEditing ? t('contractBuilder.titleEdit') : t('contractBuilder.newContractTitle');
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
@@ -59,8 +61,8 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModal(false)}
                 handleConfirm={() => onCancel?.()}
-                modalTitle="Exit Editor"
-                modalText="Are you sure you want to exit the editor? All changes will be lost"
+                modalTitle={t('contractBuilder.exitEditor')}
+                modalText={t('contractBuilder.areYouSureExit')}
             />
         </ClickOutside>
     );

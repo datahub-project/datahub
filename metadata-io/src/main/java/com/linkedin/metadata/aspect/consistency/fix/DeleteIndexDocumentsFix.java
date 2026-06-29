@@ -157,7 +157,7 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
     // This is intentionally last because system metadata is how orphans are detected.
     // If we delete it first and other deletions fail, we can't detect and retry.
     try {
-      esSystemMetadataDAO.deleteByUrn(urnStr);
+      esSystemMetadataDAO.deleteByUrn(opContext, urnStr);
       log.debug("Deleted from system metadata index: {}", urnStr);
       successCount++;
     } catch (Exception e) {

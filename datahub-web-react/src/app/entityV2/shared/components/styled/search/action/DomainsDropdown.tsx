@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
@@ -16,6 +17,7 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DomainsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isUnsetModalVisible, setIsUnsetModalVisible] = useState(false);
 
@@ -31,7 +33,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed Domain!', duration: 2 });
+                    message.success({ content: t('searchActions.domain.removedSuccess'), duration: 2 });
                     refetch?.();
                 }
                 setIsUnsetModalVisible(false);
@@ -40,7 +42,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove assets from Domain: \n ${e.message || ''}`,
+                        content: t('searchActions.domain.removeError', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -50,16 +52,16 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
     return (
         <>
             <ActionDropdown
-                name="Domain"
+                name={t('searchActions.domain.name')}
                 actions={[
                     {
-                        title: 'Set Domain',
+                        title: t('searchActions.domain.setTitle'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Domain',
+                        title: t('searchActions.domain.unsetTitle'),
                         onClick: () => {
                             setIsUnsetModalVisible(true);
                         },
@@ -80,8 +82,8 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                 isOpen={isUnsetModalVisible}
                 handleClose={() => setIsUnsetModalVisible(false)}
                 handleConfirm={batchUnsetDomains}
-                modalTitle="Domain will be removed for the selected assets"
-                modalText="Are you sure you want to unset Domain for these assets?"
+                modalTitle={t('searchActions.domain.removeConfirmTitle')}
+                modalText={t('searchActions.domain.removeConfirmText')}
             />
         </>
     );

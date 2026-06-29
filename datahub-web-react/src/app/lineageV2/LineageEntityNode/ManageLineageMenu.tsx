@@ -3,6 +3,7 @@ import { Popover } from '@components';
 import { Button, Dropdown, Menu } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,9 +15,6 @@ import { EntityType, LineageDirection } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
-const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity.";
-const DOWNSTREAM_DISABLED_TEXT = 'Make this entity your home to make downstream edits.';
-const UPSTREAM_DISABLED_TEXT = 'Make this entity your home to make upstream edits.';
 
 const Wrapper = styled.div`
     border-radius: 4px;
@@ -70,6 +68,7 @@ interface Props {
 }
 
 export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
+    const { t } = useTranslation('lineage');
     const { displayedMenuNode, setDisplayedMenuNode } = useContext(LineageDisplayContext);
     const isMenuVisible = displayedMenuNode === node.urn;
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -138,7 +137,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
                 <Dropdown
                     open={isMenuVisible}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
-                    getPopupContainer={(t) => t.parentElement || t}
+                    getPopupContainer={(triggerNode) => triggerNode.parentElement || triggerNode}
                     overlay={
                         <Menu>
                             {isManualLineageSupported && (
@@ -149,14 +148,18 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
                                         disabled={isUpstreamDisabled}
                                     >
                                         <Popover
-                                            content={!canEditLineage ? UNAUTHORIZED_TEXT : UPSTREAM_DISABLED_TEXT}
+                                            content={
+                                                !canEditLineage
+                                                    ? t('manageLineage.unauthorized')
+                                                    : t('manageLineage.upstreamDisabled')
+                                            }
                                             overlayStyle={
                                                 isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }
                                             }
                                         >
                                             <MenuItemContent data-testid="edit-upstream-lineage">
                                                 <ArrowLeftOutlined />
-                                                &nbsp; Edit Upstream
+                                                &nbsp; {t('manageLineage.editUpstream')}
                                             </MenuItemContent>
                                         </Popover>
                                     </StyledMenuItem>
@@ -167,12 +170,16 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
                                     >
                                         <Popover
                                             placement="bottom"
-                                            content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard)}
+                                            content={getDownstreamDisabledPopoverContent(
+                                                !!canEditLineage,
+                                                isDashboard,
+                                                t,
+                                            )}
                                             overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
                                         >
                                             <MenuItemContent data-testid="edit-downstream-lineage">
                                                 <ArrowRightOutlined />
-                                                &nbsp; Edit Downstream
+                                                &nbsp; {t('manageLineage.editDownstream')}
                                             </MenuItemContent>
                                         </Popover>
                                     </StyledMenuItem>
@@ -196,14 +203,18 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
     );
 }
 
-function getDownstreamDisabledPopoverContent(canEditLineage: boolean, isDashboard: boolean) {
+function getDownstreamDisabledPopoverContent(
+    canEditLineage: boolean,
+    isDashboard: boolean,
+    t: (key: string) => string,
+) {
     let text = '';
     if (!canEditLineage) {
-        text = UNAUTHORIZED_TEXT;
+        text = t('manageLineage.unauthorized');
     } else if (isDashboard) {
-        text = 'Dashboard entities have no downstream lineage';
+        text = t('manageLineage.dashboardNoDownstream');
     } else {
-        text = DOWNSTREAM_DISABLED_TEXT;
+        text = t('manageLineage.downstreamDisabled');
     }
     return <PopoverContent>{text}</PopoverContent>;
 }

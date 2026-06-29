@@ -45,7 +45,7 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
   <a href="https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme">
     <img src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social" alt="Join Slack" />
   </a>
-  <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
+  <a href="https://www.youtube.com/@DataHubCloud">
     <img src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=social&logo=youtube&label=Subscribe" alt="YouTube Subscribers" />
   </a>
   <a href="https://datahub.com/blog/">
@@ -68,7 +68,7 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
   <a href="https://demo.datahub.com"><b>Live Demo</b></a> •
   <a href="https://docs.datahub.com"><b>Documentation</b></a> •
   <a href="https://datahub.com/slack"><b>Slack Community</b></a> •
-  <a href="https://www.youtube.com/@datahubproject"><b>YouTube</b></a>
+  <a href="https://www.youtube.com/@DataHubCloud"><b>YouTube</b></a>
 </p>
 
 <p align="center">
@@ -234,7 +234,7 @@ See the [Quick Start](#-quick-start-60-seconds) section below for full instructi
 
 **▶️ Watch DataHub in Action:**
 
-- [5-Minute Product Tour](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w) (YouTube)
+- [YouTube Channel](https://www.youtube.com/@DataHubCloud) (YouTube)
 - [Try Live Demo](https://demo.datahub.com) (No installation required)
 
 ---
@@ -290,8 +290,11 @@ Best for advanced users who want to modify the core codebase or run directly fro
 git clone https://github.com/datahub-project/datahub.git
 cd datahub
 
-# Start all services with docker-compose
-./docker/quickstart.sh
+# One-time setup (Python CLI + dev tooling)
+scripts/dev/datahub-dev.sh setup
+
+# Start DataHub (Gradle profiles under docker/profiles)
+scripts/dev/datahub-dev.sh start
 
 # Access DataHub at http://localhost:9002
 # Default credentials: datahub / datahub
@@ -407,35 +410,20 @@ config = DatahubClientConfig(server="http://localhost:8080")
 graph = DataHubGraph(config)
 
 # Search for datasets containing "customer"
-# Returns up to 10 most relevant results
-results = graph.search(
-    entity="dataset",
+urns = graph.get_urns_by_filter(
+    entity_types=["dataset"],
     query="customer",
-    count=10
 )
 
-# Process and display results
-for result in results:
-    print(f"Found: {result.entity.urn}")
-    print(f"  Name: {result.entity.name}")
-    print(f"  Platform: {result.entity.platform}")
-    print(f"  Description: {result.entity.properties.description}")
-    print("---")
+for urn in urns:
+    print(f"Found: {urn}")
 
 # Example output:
 # Found: urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customer_profiles,PROD)
-#   Name: customer_profiles
-#   Platform: snowflake
-#   Description: Aggregated customer data from CRM and transactions
-# ---
+# Found: urn:li:dataset:(urn:li:dataPlatform:bigquery,marketing.customer_segments,PROD)
 ```
 
-**Response format:** Each result contains:
-
-- `urn`: Unique resource identifier for the dataset
-- `name`: Human-readable dataset name
-- `platform`: Source platform (snowflake, bigquery, etc.)
-- `properties`: Additional metadata (description, tags, owners, etc.)
+**Response format:** Each result is a URN string uniquely identifying the dataset. Use the URN to fetch full metadata via the GraphQL or REST API.
 
 </details>
 
@@ -740,12 +728,12 @@ DataHub is part of a rich ecosystem of tools and integrations.
 
 ### Official Repositories
 
-| Repository                                                            | Description                                                     | Links                                            |
-| --------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
-| **[datahub](https://github.com/datahub-project/datahub)**             | Core platform: metadata model, services, connectors, and web UI | [Docs](https://docs.datahub.com/docs/quickstart) |
-| **[datahub-actions](https://github.com/acryldata/datahub-actions)**   | Framework for responding to metadata changes in real-time       | [Guide](https://docs.datahub.com/docs/actions)   |
-| **[datahub-helm](https://github.com/acryldata/datahub-helm)**         | Production-ready Helm charts for Kubernetes deployment          | [Charts](https://helm.datahubproject.io/)        |
-| **[static-assets](https://github.com/datahub-project/static-assets)** | Logos, images, and brand assets for DataHub                     | -                                                |
+| Repository                                                            | Description                                                     | Links                                                          |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| **[datahub](https://github.com/datahub-project/datahub)**             | Core platform: metadata model, services, connectors, and web UI | [Docs](https://docs.datahub.com/docs/quickstart)               |
+| **[datahub-actions](https://github.com/acryldata/datahub-actions)**   | Framework for responding to metadata changes in real-time       | [Guide](https://docs.datahub.com/docs/actions)                 |
+| **[datahub-helm](https://github.com/acryldata/datahub-helm)**         | Production-ready Helm charts for Kubernetes deployment          | [Charts](https://artifacthub.io/packages/helm/datahub/datahub) |
+| **[static-assets](https://github.com/datahub-project/static-assets)** | Logos, images, and brand assets for DataHub                     | -                                                              |
 
 ### Community Plugins & Integrations
 
@@ -781,11 +769,11 @@ Join thousands of data practitioners building with DataHub!
 
 **Next Town Hall:**
 
-- 🎟️ [Register for the next Town Hall](https://luma.com/zp3h4ex8)
+- 🎟️ [Register for the next Town Hall](https://luma.com/1vz73xnf)
 
 **Last Town Hall:**
 
-- 📺 [Powering AI Agents with DataHub Context](https://youtu.be/dqZNV09yvA0?si=IWUKhLm0Xa_PoYsy) (January 2026)
+- 📺 [Context to Action with Grab, dltHub, and iFood](https://youtu.be/GsnX7edN6Rw) (May 2026)
 
 [→ View all past recordings](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
 
@@ -793,11 +781,11 @@ Join thousands of data practitioners building with DataHub!
 
 | Channel                | Purpose                                  | Link                                                                         |
 | ---------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| **Slack Community**    | Real-time chat, questions, announcements | [Join 14,000+ members](https://datahub.com/slack)                            |
+| **Slack Community**    | Real-time chat, questions, announcements | [Join 15,000+ members](https://datahub.com/slack)                            |
 | **GitHub Discussions** | Technical discussions, feature requests  | [Start a Discussion](https://github.com/datahub-project/datahub/discussions) |
 | **GitHub Issues**      | Bug reports, feature requests            | [Open an Issue](https://github.com/datahub-project/datahub/issues)           |
 | **Stack Overflow**     | Technical Q&A (tag: `datahub`)           | [Ask a Question](https://stackoverflow.com/questions/tagged/datahub)         |
-| **YouTube**            | Tutorials, demos, talks                  | [Subscribe](https://www.youtube.com/@datahubproject)                         |
+| **YouTube**            | Tutorials, demos, talks                  | [Subscribe](https://www.youtube.com/@DataHubCloud)                           |
 | **LinkedIn**           | Company updates, blogs                   | [Follow Us](https://linkedin.com/company/datahubproject)                     |
 | **Twitter/X**          | Quick updates, community highlights      | [Follow @datahubproject](https://twitter.com/datahubproject)                 |
 
@@ -811,7 +799,7 @@ Join thousands of data practitioners building with DataHub!
 - **[DataHub Quickstart](https://docs.datahub.com/docs/quickstart)** - Get started in 15 minutes
 - **[API Documentation](https://docs.datahub.com/docs/api/datahub-apis)** - GraphQL & REST API reference
 - **[Architecture Guide](https://docs.datahub.com/docs/architecture/architecture)** - Deep dive into internals
-- **[Video Tutorials](https://www.youtube.com/@datahubproject)** - Step-by-step guides
+- **[Video Tutorials](https://www.youtube.com/@DataHubCloud)** - Step-by-step guides
 
 ---
 
@@ -848,19 +836,19 @@ Browse [Good First Issues](https://github.com/datahub-project/datahub/labels/goo
 
 ### 🔗 Important Links
 
-| Resource                  | URL                                                |
-| ------------------------- | -------------------------------------------------- |
-| 📖 Official Documentation | https://docs.datahub.com                           |
-| 🏠 Project Website        | https://datahub.com                                |
-| 🌐 Live Demo              | https://demo.datahub.com                           |
-| 📊 Roadmap                | https://feature-requests.datahubproject.io/roadmap |
-| 🗓️ Town Hall Schedule     | https://docs.datahub.com/docs/townhalls            |
-| 💬 Slack Community        | https://datahub.com/slack                          |
-| 📺 YouTube Channel        | https://youtube.com/@datahubproject                |
-| 📝 Blog                   | https://datahub.com/blog/                          |
-| 🔗 LinkedIn               | https://www.linkedin.com/company/72009941          |
-| 🐦 Twitter/X              | https://twitter.com/datahubproject                 |
-| 🔒 Security               | https://docs.datahub.com/docs/security             |
+| Resource                  | URL                                               |
+| ------------------------- | ------------------------------------------------- |
+| 📖 Official Documentation | https://docs.datahub.com                          |
+| 🏠 Project Website        | https://datahub.com                               |
+| 🌐 Live Demo              | https://demo.datahub.com                          |
+| 📊 Feature Requests       | https://support.datahub.com/hc/en-us/requests/new |
+| 🗓️ Town Hall Schedule     | https://docs.datahub.com/docs/townhalls           |
+| 💬 Slack Community        | https://datahub.com/slack                         |
+| 📺 YouTube Channel        | https://www.youtube.com/@DataHubCloud             |
+| 📝 Blog                   | https://datahub.com/blog/                         |
+| 🔗 LinkedIn               | https://www.linkedin.com/company/72009941         |
+| 🐦 Twitter/X              | https://twitter.com/datahubproject                |
+| 🔒 Security               | https://docs.datahub.com/docs/security            |
 
 ---
 
@@ -869,7 +857,7 @@ Browse [Good First Issues](https://github.com/datahub-project/datahub/labels/goo
 DataHub is open source software released under the **[Apache License 2.0](https://github.com/datahub-project/datahub/blob/master/LICENSE)**.
 
 ```
-Copyright 2015-2025 LinkedIn Corporation
+Copyright 2015-2026 LinkedIn Corporation
 Copyright 2025-Present DataHub Project Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");

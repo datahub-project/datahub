@@ -26,6 +26,14 @@ The capability area is organized around three jobs:
 
 Catch issues as close to the source as possible.
 
+### Supported platforms
+
+Active query runs on the major cloud warehouses; ingestion-driven assertions work on any platform that reports the relevant aspect.
+
+👉 **[See supported platforms](/docs/managed-datahub/observe/assertions.md#capabilities-at-a-glance)**
+
+### Capabilities
+
 - **[Data Observability Agent](/docs/managed-datahub/observe/data-health-dashboard.md#data-observability-agent-private-beta)** — an AI assistant that scans your data landscape and provisions the right assertions for the right tables in minutes, not weeks. Tell it which slice of your data matters most (or let it figure that out from usage and ownership signals), and it creates Freshness, Volume, Field, and other checks automatically — closing coverage gaps without manual setup per table. _DataHub Cloud only. Private Beta._
 - **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues queries against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — from dbt, Great Expectations, Snowflake DMFs, or any custom source pushed via the SDK.
   - [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) — has the table updated recently?

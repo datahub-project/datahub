@@ -214,15 +214,15 @@ class TestSnowflakeDataDictionary:
 
         The original code took `batch[0]` from each batch returned by
         build_prefix_batches, assuming `max_groups_in_batch=1` meant one
-        group per batch. The packer's off-by-one (separately addressed
-        later in this series) silently let two groups land in one batch,
-        so every other prefix range was dropped. Construct a workload
-        that forces the packer to pair groups: one large group ("A")
-        that occupies a batch alone, and several small follow-on groups
-        that fit two-per-batch.
+        group per batch. The packer's off-by-one silently let two groups
+        land in one batch, so every other prefix range was dropped.
+        Construct a workload that forces the packer to pair groups: one
+        large group ("A") that occupies a batch alone, and several small
+        follow-on groups that fit two-per-batch.
         """
-        # 990 names under "A" plus 55 each under B and C => packer produces
-        # [[A], [B, C]]; the buggy code would skip the C group.
+        # 990 names under "A" plus 55 each under B and C. Under the old
+        # packer, B and C landed in one batch [[A], [B, C]] and the old
+        # batch[0]-only caller silently dropped C. Both fixes prevent that.
         view_names = (
             [f"A_VIEW_{i:04d}" for i in range(990)]
             + [f"B_VIEW_{i:02d}" for i in range(55)]

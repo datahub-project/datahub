@@ -1330,6 +1330,9 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment entityApplication on ApplicationAssociation {
@@ -1802,6 +1805,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditLinks
     canEditOwners
     canEditAssertions
+    canEditAssertionOwners
     canEditIncidents
     canEditDeprecation
     canEditSchemaFieldTags

@@ -1,5 +1,5 @@
 import { ApiOutlined } from '@ant-design/icons';
-import cronstrue from 'cronstrue';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,6 +9,7 @@ import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
+import { cronToString } from '@utils/cronstrue';
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
@@ -40,8 +41,12 @@ const getStyledIconComponent = (type: AssertionType) => {
 
 export const ASSERTION_INFO = [
     {
-        name: 'Freshness',
-        description: 'Define & monitor your expectations about when this dataset should be updated',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.freshness');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.freshness');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
@@ -49,8 +54,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'Volume',
-        description: 'Define & monitor your expectations about the size of this dataset',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.volume');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.volume');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
@@ -58,8 +67,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'Column',
-        description: 'Define & monitor your expectations about the values in a column',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.column');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.column');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
@@ -68,8 +81,12 @@ export const ASSERTION_INFO = [
         requiresConnectionSupportedByMonitors: false,
     },
     {
-        name: 'Schema',
-        description: "Define & monitor your expectations about the table's columns and their types",
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.schema');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.schema');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
@@ -77,8 +94,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'SQL',
-        description: 'Define & monitor your expectations using custom SQL rules',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.sql');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.sql');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
@@ -87,8 +108,12 @@ export const ASSERTION_INFO = [
         requiresConnectionSupportedByMonitors: true,
     },
     {
-        name: 'Other',
-        description: 'Other assertions that are defined and maintained outside of DataHub.',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.other');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.other');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
@@ -199,7 +224,7 @@ export const getCronAsText = (interval: string, options: { verbose: boolean } = 
     if (interval) {
         try {
             return {
-                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose }))}.`,
+                text: `${lowerFirstLetter(cronToString(interval, { verbose }))}.`,
                 error: false,
             };
         } catch (e) {

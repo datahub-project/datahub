@@ -1,8 +1,7 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import dataHubLogo from '@images/datahublogo.png';
 
@@ -15,7 +14,7 @@ const Section = styled.div`
 const TitleText = styled(Typography.Text)`
     font-size: 18px;
     margin-left: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TitleSection = styled.div`
@@ -42,17 +41,20 @@ const ResourceListItem = styled.li`
 
 const resources = [
     {
+        /* untranslated-text */
         label: 'DataHub Project',
         path: 'https://docs.datahub.com',
         shouldOpenInNewTab: true,
         description: 'DataHub Project website',
     },
     {
+        /* untranslated-text */
         label: 'DataHub Docs',
         path: 'https://docs.datahub.com/docs',
         shouldOpenInNewTab: true,
     },
     {
+        /* untranslated-text */
         label: 'DataHub GitHub',
         path: 'https://github.com/datahub-project/datahub',
         shouldOpenInNewTab: true,
@@ -60,6 +62,7 @@ const resources = [
 ];
 
 export const ErrorSection = (): JSX.Element => {
+    const { t } = useTranslation('shared.error');
     const themeConfig = useTheme();
     const themeLogo = themeConfig.assets.logoUrl || dataHubLogo;
 
@@ -71,14 +74,12 @@ export const ErrorSection = (): JSX.Element => {
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
-                    <Typography.Title level={2}>Something went wrong.</Typography.Title>
-                    <DetailParagraph type="secondary">
-                        An unexpected error occurred. Please try again later, or reach out to your administrator
-                    </DetailParagraph>
+                    <Typography.Title level={2}>{t('section.title')}</Typography.Title>
+                    <DetailParagraph type="secondary">{t('section.description')}</DetailParagraph>
                 </MessageSection>
                 <div>
                     <DetailParagraph type="secondary">
-                        <b>Need support?</b> Check out these resources:
+                        <Trans t={t} i18nKey="section.needSupport" components={{ bold: <b /> }} />
                     </DetailParagraph>
                     <ResourceList>
                         {resources.map((resource) => (
