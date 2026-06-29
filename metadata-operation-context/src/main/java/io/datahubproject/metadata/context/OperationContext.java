@@ -13,6 +13,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -408,6 +409,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Nonnull
   public AspectRetriever getAspectRetriever() {
     return retrieverContext.getAspectRetriever();
+  }
+
+  @Nonnull
+  public EntityGraphCache getEntityGraphCache() {
+    return retrieverContext.getEntityGraphCache();
   }
 
   /**

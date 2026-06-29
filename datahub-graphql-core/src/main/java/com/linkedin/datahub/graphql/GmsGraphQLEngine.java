@@ -978,7 +978,9 @@ public class GmsGraphQLEngine {
         "Container",
         typeWiring ->
             typeWiring
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -3095,12 +3097,14 @@ public class GmsGraphQLEngine {
             "GlossaryTerm",
             typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService)))
         .type(
             "GlossaryNode",
             typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)));
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService)));
   }
 
   private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
@@ -3109,10 +3113,12 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
-                .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+                .dataFetcher("parentDomains", new ParentDomainsResolver())
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(

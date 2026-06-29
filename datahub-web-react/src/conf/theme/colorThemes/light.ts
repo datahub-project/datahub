@@ -21,7 +21,7 @@ const lightTheme: ColorTheme = {
     bgHover: colors.gray400,
     text: colors.gray800,
     textSecondary: colors.gray700,
-    textTertiary: colors.gray600,
+    textTertiary: colors.gray700,
     textBrand: colors.violet600,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,

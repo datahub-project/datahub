@@ -1,7 +1,7 @@
 import { Popover } from '@components';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DatasetAssertionLogicModal } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionLogicModal';
@@ -13,7 +13,6 @@ import {
     AssertionRunEvent,
     AssertionStdAggregation,
     AssertionStdOperator,
-    AssertionStdParameters,
     DatasetAssertionInfo,
     DatasetAssertionScope,
     SchemaFieldRef,
@@ -51,310 +50,153 @@ type Props = {
     lastEvaluation?: AssertionRunEvent;
 };
 
+// Literal-union key parts. Keeping these as unions (not `string`) lets the composed
+// `datasetDescription.${aggregation}.${operator}` key resolve to a finite key union, so the keys stay
+// statically checkable once i18next typed resources (i18next.d.ts) are re-enabled.
+type AggregationKey =
+    | 'columnCount'
+    | 'columns'
+    | 'schemaNativeColumns'
+    | 'rowCount'
+    | 'rows'
+    | 'uniqueCount'
+    | 'uniqueProportion'
+    | 'nullCount'
+    | 'nullProportion'
+    | 'min'
+    | 'max'
+    | 'mean'
+    | 'median'
+    | 'stddev'
+    | 'columnValues'
+    | 'dataset';
+
+type OperatorKey =
+    | 'between'
+    | 'equalTo'
+    | 'contains'
+    | 'in'
+    | 'notNull'
+    | 'greaterThan'
+    | 'greaterThanOrEqualTo'
+    | 'lessThan'
+    | 'lessThanOrEqualTo'
+    | 'startsWith'
+    | 'endsWith'
+    | 'native'
+    | 'fallback';
+
+// Shared <Trans> components map; `bold` matches the <bold> tags in the description translation keys.
+const boldComponents = { bold: <Typography.Text strong /> };
+
 /**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
- * for Assertions on Dataset Schemas.
+ * Resolves the aggregation portion of the description key, plus the column value(s) it interpolates.
  *
- * Schema assertions require an aggregation.
+ * The full description key is `datasetDescription.<aggregation>.<operator>` — one complete sentence
+ * per (aggregation, operator) pair so translators control word order across the whole phrase rather
+ * than across concatenated fragments.
  */
-/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
-const getSchemaAggregationText = (
-    aggregation: AssertionStdAggregation | undefined | null,
-    fields: Array<SchemaFieldRef> | undefined | null,
-) => {
-    switch (aggregation) {
-        case AssertionStdAggregation.ColumnCount:
-            return <Typography.Text>Dataset column count is</Typography.Text>;
-        case AssertionStdAggregation.Columns:
-            return <Typography.Text>Dataset columns are</Typography.Text>;
-        case AssertionStdAggregation.Native: {
-            const fieldNames = fields?.map((field) => decodeSchemaField(field.path)) || [];
-            return (
-                <Typography.Text>
-                    Dataset columns <Typography.Text strong>{JSON.stringify(fieldNames)}</Typography.Text> are
-                </Typography.Text>
-            );
-        }
-        default:
-            console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
-            return <Typography.Text>Dataset columns are</Typography.Text>;
-    }
-};
-/* eslint-enable i18next/no-literal-string */
-
-/**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
- * for Assertions on Dataset Rows
- *
- * Row assertions require an aggregation.
- */
-/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
-const getRowsAggregationText = (aggregation: AssertionStdAggregation | undefined | null) => {
-    switch (aggregation) {
-        case AssertionStdAggregation.RowCount:
-            return <Typography.Text>Dataset row count is</Typography.Text>;
-        case AssertionStdAggregation.Native:
-            return <Typography.Text>Dataset rows are</Typography.Text>;
-        default:
-            console.error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
-            return <Typography.Text>Dataset rows are</Typography.Text>;
-    }
-};
-/* eslint-enable i18next/no-literal-string */
-
-/**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
- * for Assertions on Dataset Columns
- */
-/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
-const getColumnAggregationText = (
-    aggregation: AssertionStdAggregation | undefined | null,
-    field: SchemaFieldRef | undefined,
-) => {
-    let columnText = decodeSchemaField(field?.path || '');
-    if (field === undefined) {
-        columnText = 'undefined';
-        console.error(`Invalid field provided for Dataset Assertion with scope Column ${JSON.stringify(field)}`);
-    }
-    switch (aggregation) {
-        // Hybrid Aggregations
-        case AssertionStdAggregation.UniqueCount: {
-            return (
-                <Typography.Text>
-                    Unique value count for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.UniquePropotion: {
-            return (
-                <Typography.Text>
-                    Unique value proportion for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.NullCount: {
-            return (
-                <Typography.Text>
-                    Null count for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.NullProportion: {
-            return (
-                <Typography.Text>
-                    Null proportion for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        // Numeric Aggregations
-        case AssertionStdAggregation.Min: {
-            return (
-                <Typography.Text>
-                    Minimum value for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.Max: {
-            return (
-                <Typography.Text>
-                    Maximum value for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.Mean: {
-            return (
-                <Typography.Text>
-                    Mean value for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.Median: {
-            return (
-                <Typography.Text>
-                    Median value for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        case AssertionStdAggregation.Stddev: {
-            return (
-                <Typography.Text>
-                    Standard deviation for column <Typography.Text strong>{columnText}</Typography.Text> is
-                </Typography.Text>
-            );
-        }
-        // Native Aggregations
-        case AssertionStdAggregation.Native: {
-            return (
-                <Typography.Text>
-                    Column <Typography.Text strong>{columnText}</Typography.Text> values are
-                </Typography.Text>
-            );
-        }
-        default:
-            // No aggregation on the column at hand. Treat the column as a set of values.
-            return (
-                <Typography.Text>
-                    Column <Typography.Text strong>{columnText}</Typography.Text> values are
-                </Typography.Text>
-            );
-    }
-};
-/* eslint-enable i18next/no-literal-string */
-
-/**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
- */
-/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
-const getAggregationText = (
+const getAggregationDescriptor = (
     scope: DatasetAssertionScope | undefined | null,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
-) => {
+): { key: AggregationKey; column?: string; columns?: string } => {
     switch (scope) {
         case DatasetAssertionScope.DatasetSchema:
-            return getSchemaAggregationText(aggregation, fields);
+            switch (aggregation) {
+                case AssertionStdAggregation.ColumnCount:
+                    return { key: 'columnCount' };
+                case AssertionStdAggregation.Columns:
+                    return { key: 'columns' };
+                case AssertionStdAggregation.Native:
+                    return {
+                        key: 'schemaNativeColumns',
+                        columns: JSON.stringify(fields?.map((field) => decodeSchemaField(field.path)) || []),
+                    };
+                default:
+                    console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
+                    return { key: 'columns' };
+            }
         case DatasetAssertionScope.DatasetRows:
-            return getRowsAggregationText(aggregation);
-        case DatasetAssertionScope.DatasetColumn:
-            return getColumnAggregationText(aggregation, fields?.length === 1 ? fields[0] : undefined);
+            switch (aggregation) {
+                case AssertionStdAggregation.RowCount:
+                    return { key: 'rowCount' };
+                case AssertionStdAggregation.Native:
+                    return { key: 'rows' };
+                default:
+                    console.error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
+                    return { key: 'rows' };
+            }
+        case DatasetAssertionScope.DatasetColumn: {
+            const field = fields?.length === 1 ? fields[0] : undefined;
+            let column = decodeSchemaField(field?.path || '');
+            if (field === undefined) {
+                column = 'undefined';
+                console.error(
+                    `Invalid field provided for Dataset Assertion with scope Column ${JSON.stringify(field)}`,
+                );
+            }
+            switch (aggregation) {
+                case AssertionStdAggregation.UniqueCount:
+                    return { key: 'uniqueCount', column };
+                case AssertionStdAggregation.UniquePropotion:
+                    return { key: 'uniqueProportion', column };
+                case AssertionStdAggregation.NullCount:
+                    return { key: 'nullCount', column };
+                case AssertionStdAggregation.NullProportion:
+                    return { key: 'nullProportion', column };
+                case AssertionStdAggregation.Min:
+                    return { key: 'min', column };
+                case AssertionStdAggregation.Max:
+                    return { key: 'max', column };
+                case AssertionStdAggregation.Mean:
+                    return { key: 'mean', column };
+                case AssertionStdAggregation.Median:
+                    return { key: 'median', column };
+                case AssertionStdAggregation.Stddev:
+                    return { key: 'stddev', column };
+                // Native + any other column aggregation: treat the column as a set of values.
+                default:
+                    return { key: 'columnValues', column };
+            }
+        }
         default:
             console.error(`Unsupported Dataset Assertion scope ${scope} provided`);
-            return 'Dataset is';
+            return { key: 'dataset' };
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
-/**
- * Returns the React Component to render for the operator portion of the Assertion Description
- */
-/* eslint-disable i18next/no-literal-string -- (untranslated-text) Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
-const getOperatorText = (
-    op: AssertionStdOperator | undefined,
-    parameters: AssertionStdParameters | undefined,
-    nativeType: string | undefined,
-) => {
+// Resolves the operator portion of the description key.
+const getOperatorKey = (op: AssertionStdOperator | undefined): OperatorKey => {
     switch (op) {
-        // Hybrid Operators
-        case AssertionStdOperator.Between: {
-            return (
-                <Typography.Text>
-                    between{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.minValue)} </Typography.Text>
-                    and <Typography.Text strong>{getFormattedParameterValue(parameters?.maxValue)}</Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.EqualTo: {
-            const operatorText = 'equal to';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)}</Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.Contain: {
-            const operatorText = 'contains';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.In: {
-            const operatorText = 'in';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.NotNull: {
-            const operatorText = 'not null';
-            return <Typography.Text strong>{operatorText}</Typography.Text>;
-        }
-        // Numeric Operators
-        case AssertionStdOperator.GreaterThan: {
-            const operatorText = 'greater than';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.GreaterThanOrEqualTo: {
-            const operatorText = 'greater than or equal to';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.LessThan: {
-            const operatorText = 'less than';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.LessThanOrEqualTo: {
-            const operatorText = 'less than or equal to';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        // String Operators
-        case AssertionStdOperator.StartWith: {
-            const operatorText = 'starts with';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)}</Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.EndWith: {
-            const operatorText = 'ends with';
-            return (
-                <Typography.Text>
-                    {operatorText}{' '}
-                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
-                </Typography.Text>
-            );
-        }
-        case AssertionStdOperator.Native: {
-            return (
-                <Typography.Text>
-                    passing assertion <Typography.Text strong>{nativeType}</Typography.Text>
-                </Typography.Text>
-            );
-        }
+        case AssertionStdOperator.Between:
+            return 'between';
+        case AssertionStdOperator.EqualTo:
+            return 'equalTo';
+        case AssertionStdOperator.Contain:
+            return 'contains';
+        case AssertionStdOperator.In:
+            return 'in';
+        case AssertionStdOperator.NotNull:
+            return 'notNull';
+        case AssertionStdOperator.GreaterThan:
+            return 'greaterThan';
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            return 'greaterThanOrEqualTo';
+        case AssertionStdOperator.LessThan:
+            return 'lessThan';
+        case AssertionStdOperator.LessThanOrEqualTo:
+            return 'lessThanOrEqualTo';
+        case AssertionStdOperator.StartWith:
+            return 'startsWith';
+        case AssertionStdOperator.EndWith:
+            return 'endsWith';
+        case AssertionStdOperator.Native:
+            return 'native';
         default:
-            return (
-                <Typography.Text>
-                    passing operator{' '}
-                    <Typography.Text strong>
-                        {op} with value ${getFormattedParameterValue(parameters?.value)}
-                    </Typography.Text>
-                </Typography.Text>
-            );
+            return 'fallback';
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 const TOOLTIP_MAX_WIDTH = 440;
 
@@ -369,15 +211,28 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } =
         assertionInfo ?? {};
     const [isLogicVisible, setIsLogicVisible] = useState(false);
-    /**
-     * Build a description component from a) input (aggregation, inputs) b) the operator text
-     */
+
+    // Build the full-sentence description key from the aggregation + operator dimensions.
+    const agg = getAggregationDescriptor(scope, aggregation, fields);
+    const operatorKey = getOperatorKey(operator || undefined);
     const descriptionFragment = (
         <>
             {description || (
                 <Typography.Text>
-                    {getAggregationText(scope, aggregation, fields)}{' '}
-                    {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
+                    <Trans
+                        t={t}
+                        i18nKey={`datasetDescription.${agg.key}.${operatorKey}`}
+                        values={{
+                            column: agg.column ?? '',
+                            columns: agg.columns ?? '',
+                            value: getFormattedParameterValue(parameters?.value),
+                            minValue: getFormattedParameterValue(parameters?.minValue),
+                            maxValue: getFormattedParameterValue(parameters?.maxValue),
+                            nativeType: nativeType ?? '',
+                            operator: operator ?? '',
+                        }}
+                        components={boldComponents}
+                    />
                 </Typography.Text>
             )}
         </>
