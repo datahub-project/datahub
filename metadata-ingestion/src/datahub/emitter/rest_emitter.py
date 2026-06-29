@@ -790,6 +790,11 @@ class DataHubRestEmitter(Closeable, Emitter):
     ) -> Optional[TraceData]:
         if async_flag is True:
             emit_mode = EmitMode.ASYNC
+        elif async_flag is False:
+            # Deprecated async_flag takes precedence over the default emit mode, so an
+            # explicit async_flag=False still forces sync even when the emitter's
+            # default is ASYNC (e.g. plugin emitters).
+            emit_mode = EmitMode.SYNC_PRIMARY
         elif emit_mode is None:
             emit_mode = self._default_emit_mode
 
