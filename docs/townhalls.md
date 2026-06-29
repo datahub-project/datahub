@@ -4,11 +4,15 @@ Join us for community gatherings where we discuss roadmap updates, demo new feat
 
 ## 🗓️ Next Town Hall
 
-[Register for the June Town Hall](https://luma.com/1vz73xnf)
+[Register for the July Town Hall](https://luma.com/77lmmyb5)
 
 ---
 
 ## 📺 Recent Town Halls
+
+**June 2026: Inside the Context Platform feat. TiDB / PingCAP**
+
+- 📺 [Watch recording](https://www.youtube.com/watch?v=JboXwGIz54k)
 
 **May 2026: Context to Action with Grab, dltHub, and iFood**
 

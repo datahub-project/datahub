@@ -23,6 +23,11 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
+          type: "doc",
+          label: "Use Docs with AI",
+          id: "docs/use-docs-with-ai",
+        },
+        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -1342,6 +1347,7 @@ module.exports = {
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/gms-rate-limiting",
+        "docs/deploy/gms-entity-graph-cache",
         "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",

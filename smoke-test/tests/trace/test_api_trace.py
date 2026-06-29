@@ -4,7 +4,7 @@ import time
 import pytest
 from opensearchpy import OpenSearch
 
-from tests.utils import delete_urns, wait_for_writes_to_sync
+from tests.utils import delete_urn, delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 es = OpenSearch(["http://localhost:9200"])
@@ -189,9 +189,14 @@ def test_overwritten_async_write(auth_session):
     }
 
 
-def test_missing_elasticsearch_async_write(auth_session):
+def test_missing_elasticsearch_async_write(auth_session, graph_client):
     urn = generated_urns["apiTraceDroppedElasticsearch"]
     aspect_name = "status"
+
+    # Ensure a clean slate — pytest reruns reuse module-scoped fixtures and leave
+    # the urn behind after a partial failure, turning the next write into a NO_OP.
+    delete_urn(graph_client, urn)
+    wait_for_writes_to_sync()
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v3/entity/dataset",
@@ -239,6 +244,7 @@ def test_missing_elasticsearch_async_write(auth_session):
 
     # Simulate dropped write
     delete_elasticsearch_system_metadata(urn)
+    wait_until_system_metadata_deleted(urn)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -486,3 +492,22 @@ def delete_elasticsearch_system_metadata(urn, timeout=10, refresh_interval=1):
         )
 
     time.sleep(refresh_interval)
+
+
+def wait_until_system_metadata_deleted(urn, timeout=30, poll_interval=1):
+    index_name = "system_metadata_service_v1"
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        es.indices.refresh(index=index_name)
+        count = es.count(index=index_name, body={"query": {"term": {"urn": urn}}})[
+            "count"
+        ]
+        if count == 0:
+            return
+
+        time.sleep(poll_interval)
+
+    raise AssertionError(
+        f"Timed out waiting for system metadata to be deleted for urn {urn}"
+    )

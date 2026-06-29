@@ -113,6 +113,44 @@ class TitleExtractor:
 
         return None
 
+    @staticmethod
+    def _looks_like_source_id(value: str) -> bool:
+        """Return True if a string is a bare 32-char hex ID (e.g. a Notion page ID).
+
+        Notion's connector hardcodes per-page filenames to ``{page_id}.html`` and
+        does not expose the page's title property, so the filename fallback would
+        otherwise surface a raw page ID as the document title. Detecting that shape
+        lets us skip it in favor of a human-readable fallback.
+        """
+        stripped = value.strip().replace("-", "")
+        if len(stripped) != 32:
+            return False
+        try:
+            int(stripped, 16)
+            return True
+        except ValueError:
+            return False
+
+    def _extract_title_from_content(
+        self, elements: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Pull a title from content, preferring real headings over body text."""
+        # Prefer explicit Title/Header elements (real page headings).
+        for elem_type in ("Title", "Header"):
+            for elem in elements:
+                if elem.get("type") == elem_type:
+                    text = elem.get("text", "").strip()
+                    if text:
+                        return text
+
+        # Last resort: first non-empty text block, so we never emit a raw ID.
+        for elem in elements:
+            text = elem.get("text", "").strip()
+            if text:
+                return text
+
+        return None
+
     def extract_title(
         self,
         elements: List[Dict[str, Any]],
@@ -138,18 +176,17 @@ class TitleExtractor:
                 if title:
                     logger.debug(f"Extracted title from Notion URL: {title}")
 
-        # Then try content extraction
+        # Then try content extraction (headings first, then leading text)
         if not title and self.config.extract_from_content:
-            # Find first Title element
-            for elem in elements:
-                if elem.get("type") == "Title":
-                    title = elem.get("text", "").strip()
-                    if title:
-                        break
+            title = self._extract_title_from_content(elements)
 
-        # Finally fall back to filename
-        if not title and self.config.fallback_to_filename:
-            # Use filename without extension
+        # Fall back to filename, but never surface a raw source ID (e.g. a Notion
+        # page ID) as the title — that is worse than no title at all.
+        if (
+            not title
+            and self.config.fallback_to_filename
+            and not self._looks_like_source_id(os.path.splitext(filename)[0])
+        ):
             title = os.path.splitext(filename)[0]
 
         if not title:
