@@ -192,6 +192,45 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedToRenameDataProduct_allowsManageOnDomain() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("domain", DOMAIN_A.toString()))))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+            mockAuthSession, DATA_PRODUCT_URN, Set.of(DOMAIN_A)));
+  }
+
+  @Test
+  public void testIsAuthorizedToRenameDataProduct_allowsEditOnProduct() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("dataProduct", DATA_PRODUCT_URN.toString()))))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+            mockAuthSession, DATA_PRODUCT_URN, Set.of()));
+  }
+
+  @Test
+  public void testIsAuthorizedToRenameDataProduct_deniesWithoutPrivilege() {
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+            mockAuthSession, DATA_PRODUCT_URN, Set.of(DOMAIN_A)));
+  }
+
+  @Test
   public void testIsAuthorizedToChangeDataProductMembership_allowsRemoveViaProductSide() {
     authUtilMockedStatic
         .when(
