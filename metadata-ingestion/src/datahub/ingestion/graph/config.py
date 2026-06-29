@@ -39,6 +39,15 @@ class DatahubClientConfig(ConfigModel):
     client_key_path: Optional[str] = None
     disable_ssl_verification: bool = False
     openapi_ingestion: Optional[bool] = None
+    # Opt this client into marker-aware sync routing: a batch is upgraded to
+    # explicit async=false (synchronous) if any of its MCPs carries an emit-mode
+    # marker requesting sync (emitModeMarker=sync) in its system metadata;
+    # otherwise the configured emit_mode is honored unchanged. It only ever
+    # forces more synchronicity, never less. Never implicit. The marker is read,
+    # not produced, here: a producer must populate the emitModeMarker
+    # system-metadata property on writes that must remain synchronous (e.g. via a
+    # custom aspect mutator/validator or an upstream processing step).
+    respect_mcp_sync_marker: Optional[bool] = None
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
