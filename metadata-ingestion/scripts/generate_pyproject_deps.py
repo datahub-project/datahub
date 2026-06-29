@@ -223,7 +223,9 @@ def generate_pyproject_toml() -> str:
     output_lines.append("[project]")
     output_lines.append('name = "acryl-datahub"')
     output_lines.append('dynamic = ["version"]')
-    output_lines.append('description = "DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog"')
+    output_lines.append(
+        'description = "DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog"'
+    )
     output_lines.append('readme = "README.md"')
     output_lines.append('license = "Apache-2.0"')
     output_lines.append('requires-python = ">=3.10"')
@@ -260,9 +262,7 @@ def generate_pyproject_toml() -> str:
     output_lines.append('Homepage = "https://datahub.com/"')
     output_lines.append('Documentation = "https://docs.datahub.com/"')
     output_lines.append('Source = "https://github.com/datahub-project/datahub"')
-    output_lines.append(
-        'Changelog = "https://github.com/acryldata/datahub/releases"'
-    )
+    output_lines.append('Changelog = "https://github.com/acryldata/datahub/releases"')
     output_lines.append('Releases = "https://github.com/acryldata/datahub/releases"')
     output_lines.append("")
 
