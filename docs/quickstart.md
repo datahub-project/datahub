@@ -9,6 +9,8 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
 
 :::
 
+> **Already running DataHub?** If you're upgrading an existing install, check [Managing Your Local Instance](#managing-your-local-instance) before running quickstart — some versions need upgrade steps first.
+
 ## Prerequisites
 
 - Install **Docker** and **Docker Compose** v2 for your platform.
