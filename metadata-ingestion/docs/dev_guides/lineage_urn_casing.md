@@ -47,8 +47,8 @@ When enabled, a work unit processor inspects each source's lineage aspects befor
 DataHub and reconciles the casing of **upstream warehouse references** against the casing DataHub
 already stores:
 
-- For each configured upstream platform, it bulk-loads that platform's existing URNs (and schemas) from
-  DataHub once per run, so resolution happens locally without a round trip per reference.
+- For each configured upstream platform, it bulk-loads that platform's existing schema-bearing entities
+  from DataHub once per run, so resolution happens locally without a round trip per reference.
 - For every upstream reference, it looks for the existing entity that matches **ignoring case**:
   - If an entity with the **exact** URN already exists, the reference is left unchanged (recorded as an
     exact match). This ensures genuinely distinct entities on case-sensitive platforms are never merged.
@@ -186,15 +186,19 @@ actually exact or broken.
 - **Collision-safe but conservative.** On case-sensitive platforms where two genuinely different tables
   differ only by case, ambiguous references are left unchanged rather than risk merging distinct
   entities.
-- **Loads the upstream platform's full catalog on first use.** The feature does a **single** bulk scroll
-  per configured upstream platform that yields every dataset URN together with its schema (when present),
-  populating both the case-insensitive index and the column schemas in one pass — so resolution is then
-  fully local (no per-reference round trips). The index is **disk-backed** (SQLite via `FileBackedDict`),
-  so memory stays bounded by the cache rather than growing with the warehouse — but on very large
-  warehouses (hundreds of thousands to millions of tables) the upfront scroll itself is still heavy. The
-  number of URNs loaded per platform is logged at `INFO` (`Loaded N '<platform>' dataset URNs ...`) so you
-  can gauge it. Scope `upstream_platforms` to the platforms (and, where possible, `platform_instance` /
-  `env`) the BI source actually references.
+- **Reconciles against schema-bearing entities only.** Membership/casing comes from what the
+  `SchemaResolver` already loads — the platform's entities that have a schema in DataHub. A reference to a
+  warehouse table that **exists but has no schema** (more common on schemaless platforms like Kafka or
+  DynamoDB than on Snowflake/BigQuery) is therefore left unchanged and reported `UNRESOLVED`. Covering
+  schemaless entities needs a richer `SchemaResolver` and is a tracked follow-up.
+- **Loads the upstream platform's catalog on first use.** For each configured upstream platform the
+  resolver bulk-fetches its schema-bearing entities, and the processor builds an in-memory
+  case-insensitive index over them — so resolution is then fully local (no per-reference round trips). On
+  very large warehouses (hundreds of thousands to millions of tables) this index is the processor's main
+  memory cost; the number of URNs loaded per platform is logged at `INFO`
+  (`Loaded N '<platform>' dataset URNs ...`) so you can gauge it. Scope `upstream_platforms` to the
+  platforms (and, where possible, `platform_instance` / `env`) the BI source actually references. (A
+  disk-backed index is a planned follow-up.)
 - **Platform-instance casing is normalized on the heal path.** The case-insensitive match lowercases the
   entire dataset-name segment of the URN, which **includes** any `platform_instance` prefix. So a
   reference like `MyInstance.db.schema.table` can heal to a stored `myinstance.db.schema.table` entity —

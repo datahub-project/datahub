@@ -963,15 +963,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
-        include_schemaless: bool = False,
-    ) -> Iterable[Tuple[str, Optional["GraphQLSchemaMetadata"]]]:
+    ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
         """Fetch schema info for datasets that match all of the given filters.
 
-        :param include_schemaless: when True, also yield datasets that exist but have
-            no schema, as ``(urn, None)``. The default (False) preserves the original
-            behavior of yielding only schema-bearing datasets, so existing callers are
-            unaffected. Lets one scroll serve both schema and membership needs.
-        :return: An iterable of (urn, schema info or None) tuples that match the filters.
+        :return: An iterable of (urn, schema info) tuple that match the filters.
         """
         types = self._get_types(["dataset"])
 
@@ -1029,9 +1024,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
-            schema_metadata = entity.get("schemaMetadata")
-            if include_schemaless or schema_metadata:
-                yield entity["urn"], schema_metadata
+            if entity.get("schemaMetadata"):
+                yield entity["urn"], entity["schemaMetadata"]
 
     def get_urns_by_filter(
         self,
