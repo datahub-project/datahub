@@ -43,9 +43,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Above this many URNs per platform, the in-memory lowercase index is large enough
-# (order of hundreds of MB) to warrant an explicit heads-up to operators rather than
-# letting it surface as unexplained memory pressure / OOM.
+# Above this many URNs per platform, the upfront catalog scroll is heavy enough (a
+# large, slow bulk fetch) to warrant an explicit heads-up to operators. The index
+# itself is disk-backed, so this is about fetch cost, not resident memory.
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 
@@ -237,18 +237,18 @@ class AutoNormalizeLineageUrnsProcessor(
                     resolver.add_known_urn(existing)
                     count += 1
                 resolvers.append(resolver)
-            # The casing index lives on the resolvers and is held in memory for the
-            # pipeline's lifetime. On very large warehouses this is the processor's main
-            # memory cost; log the size, escalating to WARNING once it's large enough to
+            # The casing index lives on the resolvers and is disk-backed, so memory
+            # stays bounded; the upfront scroll cost is what scales with the catalog.
+            # Log the size, escalating to WARNING once the fetch is large enough to
             # matter.
             message = (
                 f"Loaded {count} '{platform}' dataset URNs for lineage casing "
-                f"reconciliation (held in memory for the pipeline's lifetime)."
+                f"reconciliation."
             )
             if count > _CATALOG_SIZE_WARN_THRESHOLD:
                 logger.warning(
-                    f"{message} This is a large catalog and may use significant "
-                    f"memory; consider narrowing upstream_platforms "
+                    f"{message} This is a large catalog and the upfront fetch may be "
+                    f"slow; consider narrowing upstream_platforms "
                     f"(platform_instance / env) to the assets this source references."
                 )
             else:
