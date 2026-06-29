@@ -20,20 +20,20 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
 
     # Entity counts
     streams_scanned: int = 0
-    delivery_streams_scanned: int = 0
+    firehose_streams_scanned: int = 0
 
     # Filtered entities (pattern-based)
     filtered_streams: LossyList[str] = field(default_factory=LossyList)
-    filtered_delivery_streams: LossyList[str] = field(default_factory=LossyList)
+    filtered_firehose_streams: LossyList[str] = field(default_factory=LossyList)
 
     # Recoverable error contexts
     streams_failed: LossyList[str] = field(default_factory=LossyList)
-    delivery_streams_failed: LossyList[str] = field(default_factory=LossyList)
+    firehose_streams_failed: LossyList[str] = field(default_factory=LossyList)
     unsupported_destinations: LossyList[str] = field(default_factory=LossyList)
     # Distinct from unsupported_destinations: the handler MATCHED but couldn't
     # build a URN (e.g. malformed BucketARN, unparseable JDBC URL, missing
-    # Snowflake db/schema/table). Records "<delivery_stream>: <handler_name>"
-    # so users can debug "Firehose DataJob exists but no lineage edge".
+    # Snowflake db/schema/table). Records "<firehose_stream>: <handler_name>"
+    # so users can debug "Firehose DataFlow exists but no lineage edge".
     destination_parse_failures: LossyList[str] = field(default_factory=LossyList)
     schema_resolution_failures: LossyList[str] = field(default_factory=LossyList)
 
@@ -71,32 +71,32 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
     def report_stream_filtered(self, stream_name: str) -> None:
         self.filtered_streams.append(stream_name)
 
-    def report_delivery_stream_scanned(self) -> None:
-        self.delivery_streams_scanned += 1
+    def report_firehose_stream_scanned(self) -> None:
+        self.firehose_streams_scanned += 1
 
-    def report_delivery_stream_filtered(self, delivery_stream_name: str) -> None:
-        self.filtered_delivery_streams.append(delivery_stream_name)
+    def report_firehose_stream_filtered(self, firehose_stream_name: str) -> None:
+        self.filtered_firehose_streams.append(firehose_stream_name)
 
     def report_stream_failed(self, stream_name: str, reason: str) -> None:
         self.streams_failed.append(f"{stream_name}: {reason}")
 
-    def report_delivery_stream_failed(
-        self, delivery_stream_name: str, reason: str
+    def report_firehose_stream_failed(
+        self, firehose_stream_name: str, reason: str
     ) -> None:
-        self.delivery_streams_failed.append(f"{delivery_stream_name}: {reason}")
+        self.firehose_streams_failed.append(f"{firehose_stream_name}: {reason}")
 
     def report_unsupported_destination(
-        self, destination_type: str, delivery_stream_name: str
+        self, destination_type: str, firehose_stream_name: str
     ) -> None:
         self.unsupported_destinations.append(
-            f"{delivery_stream_name}: type={destination_type}"
+            f"{firehose_stream_name}: type={destination_type}"
         )
 
     def report_destination_parse_failure(
-        self, delivery_stream_name: str, handler_name: str
+        self, firehose_stream_name: str, handler_name: str
     ) -> None:
         self.destination_parse_failures.append(
-            f"{delivery_stream_name}: handler={handler_name}"
+            f"{firehose_stream_name}: handler={handler_name}"
         )
 
     def report_schema_resolution_failure(self, stream_name: str, reason: str) -> None:
@@ -106,9 +106,9 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
         self.firehose_glue_schema_lineage_emitted += 1
 
     def report_firehose_glue_schema_skipped(
-        self, delivery_stream_name: str, reason: str
+        self, firehose_stream_name: str, reason: str
     ) -> None:
-        self.firehose_glue_schema_skipped.append(f"{delivery_stream_name}: {reason}")
+        self.firehose_glue_schema_skipped.append(f"{firehose_stream_name}: {reason}")
 
     def report_gsr_naming_convention_miss(self, stream_name: str) -> None:
         self.gsr_naming_convention_misses.append(stream_name)

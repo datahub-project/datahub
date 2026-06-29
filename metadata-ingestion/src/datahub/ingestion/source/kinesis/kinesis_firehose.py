@@ -50,11 +50,12 @@ logger = logging.getLogger(__name__)
 
 
 class KinesisFirehoseExtractor:
-    """Extract Kinesis Firehose delivery streams as a DataFlow + DataJobs.
+    """Extract Amazon Data Firehose streams.
 
-    One DataFlow per region; one DataJob per delivery stream. Lineage edges
-    (source Kinesis stream -> destination platform) are built via the
-    destination handler registry in kinesis_firehose_destinations.
+    Each Firehose stream is modeled as its own DataFlow containing a single
+    "delivery" DataJob that carries the lineage edges (source Kinesis stream ->
+    destination platform), built via the destination handler registry in
+    kinesis_firehose_destinations.
     """
 
     def __init__(
@@ -67,27 +68,32 @@ class KinesisFirehoseExtractor:
         self.report = report
         self._firehose: "FirehoseClient" = config.make_client(session, "firehose")
 
-    def _flow_id(self) -> str:
-        # One Firehose DataFlow per region. flow_id is just the region — the
-        # orchestrator (FIREHOSE_PLATFORM_NAME, "kinesis-firehose") already
-        # identifies the platform, so a "-firehose" suffix here would be redundant.
+    # Each Firehose stream is modeled as its own DataFlow (the pipeline), with a
+    # single "delivery" DataJob inside it that carries the source->destination
+    # lineage — mirroring the Glue source (one DataFlow per Glue job, DataJobs for
+    # its steps). Two unrelated Firehose streams are NOT co-tasks of one flow.
+    _DELIVERY_JOB_ID = "delivery"
+
+    def _flow_id(self, firehose_stream_name: str) -> str:
+        # flow_id includes the region because Firehose stream names are unique only
+        # within an account+region; the account is carried by platform_instance.
         region = self.config.aws_config.aws_region
         assert region is not None  # validated (raises) in KinesisSource.__init__
-        return region
+        return f"{region}.{firehose_stream_name}"
 
-    def dataflow_urn(self) -> str:
+    def dataflow_urn(self, firehose_stream_name: str) -> str:
         return make_data_flow_urn(
             orchestrator=FIREHOSE_PLATFORM_NAME,
-            flow_id=self._flow_id(),
+            flow_id=self._flow_id(firehose_stream_name),
             cluster=self.config.env,
             platform_instance=self.config.platform_instance,
         )
 
-    def datajob_urn(self, delivery_stream_name: str) -> str:
+    def datajob_urn(self, firehose_stream_name: str) -> str:
         return make_data_job_urn(
             orchestrator=FIREHOSE_PLATFORM_NAME,
-            flow_id=self._flow_id(),
-            job_id=delivery_stream_name,
+            flow_id=self._flow_id(firehose_stream_name),
+            job_id=self._DELIVERY_JOB_ID,
             cluster=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -139,10 +145,10 @@ class KinesisFirehoseExtractor:
             pages_fetched += 1
             names = resp.get("DeliveryStreamNames", []) or []
             for name in names:
-                if self.config.delivery_stream_pattern.allowed(name):
+                if self.config.firehose_stream_pattern.allowed(name):
                     yield name
                 else:
-                    self.report.report_delivery_stream_filtered(name)
+                    self.report.report_firehose_stream_filtered(name)
             if not resp.get("HasMoreDeliveryStreams") or not names:
                 break
             exclusive_start = names[-1]
@@ -158,34 +164,14 @@ class KinesisFirehoseExtractor:
             return resp["DeliveryStreamDescription"]
         except (ClientError, BotoCoreError) as e:
             code = aws_error_code(e)
-            self.report.report_delivery_stream_failed(name, code)
+            self.report.report_firehose_stream_failed(name, code)
             self.report.warning(
-                title="Failed to describe delivery stream",
-                message="firehose:DescribeDeliveryStream failed; skipping this delivery stream.",
-                context=f"delivery_stream={name}: returned {code}",
+                title="Failed to describe Firehose stream",
+                message="firehose:DescribeDeliveryStream failed; skipping this Firehose stream.",
+                context=f"firehose_stream={name}: returned {code}",
                 exc=e,
             )
             return None
-
-    def get_dataflow_workunit(self) -> Iterable[MetadataWorkUnit]:
-        flow_urn = self.dataflow_urn()
-        region = self.config.aws_config.aws_region
-        yield MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=DataFlowInfoClass(
-                name="AWS Kinesis Firehose",
-                description=f"Kinesis Data Firehose in region {region}",
-                externalUrl=f"https://console.aws.amazon.com/firehose/home?region={region}",
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=self._platform_instance_aspect(),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=SubTypesClass(typeNames=[DataFlowSubTypes.KINESIS_FIREHOSE.value]),
-        ).as_workunit()
 
     def _destination_urn(
         self, platform: DestinationPlatform, name: str, env: Optional[str] = None
@@ -403,39 +389,61 @@ class KinesisFirehoseExtractor:
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Emit DataJob aspects (info, platform-instance, sub-types) and, when
-        `include_table_lineage` is True, dataJobInputOutput edges per delivery
-        stream. Also emits globalTags MCPs against the DataJob URN when AWS
-        resource tags are present.
+        """Emit, per Firehose stream: a DataFlow (the stream itself) and its single
+        delivery DataJob. Covers DataFlowInfo / DataJobInfo, the platform-instance
+        and sub-type aspects, the dataJobInputOutput lineage edge (when
+        `include_table_lineage`), and globalTags from AWS resource tags.
         """
+        region = self.config.aws_config.aws_region
         for name in self.list_delivery_streams():
             desc = self.describe_delivery_stream(name)
             if desc is None:
                 continue
-            self.report.report_delivery_stream_scanned()
+            self.report.report_firehose_stream_scanned()
+            flow_urn = self.dataflow_urn(name)
             job_urn = self.datajob_urn(name)
-            region = self.config.aws_config.aws_region
+            external_url = (
+                f"https://console.aws.amazon.com/firehose/home?region={region}"
+                f"#/details/{name}"
+            )
+
+            # DataFlow = the Firehose stream (the pipeline).
             yield MetadataChangeProposalWrapper(
-                entityUrn=job_urn,
-                aspect=DataJobInfoClass(
+                entityUrn=flow_urn,
+                aspect=DataFlowInfoClass(
                     name=name,
-                    type="STREAM_DELIVERY",
-                    description=f"Firehose delivery stream {name}",
-                    customProperties=self._custom_properties(desc),
-                    externalUrl=(
-                        f"https://console.aws.amazon.com/firehose/home?region={region}"
-                        f"#/details/{name}"
-                    ),
+                    description=f"Amazon Data Firehose stream {name}",
+                    externalUrl=external_url,
                 ),
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
+                entityUrn=flow_urn, aspect=self._platform_instance_aspect()
+            ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=flow_urn,
+                aspect=SubTypesClass(
+                    typeNames=[DataFlowSubTypes.KINESIS_FIREHOSE_STREAM.value]
+                ),
+            ).as_workunit()
+
+            # DataJob = the single delivery step within the stream (carries lineage).
+            yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
-                aspect=self._platform_instance_aspect(),
+                aspect=DataJobInfoClass(
+                    name="Delivery",
+                    type="STREAM_DELIVERY",
+                    description=f"Delivery for Firehose stream {name}",
+                    customProperties=self._custom_properties(desc),
+                    externalUrl=external_url,
+                ),
+            ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn, aspect=self._platform_instance_aspect()
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=SubTypesClass(
-                    typeNames=[DataJobSubTypes.KINESIS_FIREHOSE_DELIVERY_STREAM.value]
+                    typeNames=[DataJobSubTypes.KINESIS_FIREHOSE_DELIVERY.value]
                 ),
             ).as_workunit()
             if self.config.include_table_lineage:
@@ -443,13 +451,11 @@ class KinesisFirehoseExtractor:
                     entityUrn=job_urn,
                     aspect=self.build_input_output(desc),
                 ).as_workunit()
-            # Tags. DataJob has no SDK V2 wrapper yet — emit as a direct MCP
-            # against the DataJob URN. (Ownership is derived from these tags by
-            # the extract_ownership_from_tags transformer, not by this source.)
-            # fetch_tags() already returns [] when extract_tags is disabled, and
+            # Tags on the DataJob. (Ownership is derived from these tags by the
+            # extract_ownership_from_tags transformer, not by this source.)
+            # fetch_tags() returns [] when extract_tags is disabled, and
             # build_global_tags_from_aws_tags([]) returns None — no extra guard.
-            tags = self.fetch_tags(name)
-            global_tags = build_global_tags_from_aws_tags(tags)
+            global_tags = build_global_tags_from_aws_tags(self.fetch_tags(name))
             if global_tags is not None:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn, aspect=global_tags

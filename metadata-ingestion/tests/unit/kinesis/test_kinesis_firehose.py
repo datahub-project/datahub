@@ -28,23 +28,21 @@ def _make_extractor() -> KinesisFirehoseExtractor:
 
 
 class TestKinesisFirehoseExtractor:
-    def test_dataflow_urn_uses_firehose_platform(self):
-        """DataFlow's orchestrator is "kinesis-firehose", not "kinesis". AWS treats
-        KDS and KDF as separate services with separate API namespaces / IAM prefixes /
-        ARN formats; putting Firehose entities under their own platform makes the
-        cross-service lineage edge (Stream(kinesis) -> DataJob(kinesis-firehose) ->
-        S3(s3)) visually distinct in the lineage viewer.
+    def test_dataflow_urn_is_per_firehose_stream(self):
+        """Each Firehose stream is its own DataFlow (orchestrator "kinesis-firehose",
+        not "kinesis"). flow_id is region-qualified (<region>.<stream>) because stream
+        names are unique only within an account+region.
         """
         ex = _make_extractor()
-        urn = ex.dataflow_urn()
-        assert urn == "urn:li:dataFlow:(kinesis-firehose,us-east-1,PROD)"
+        urn = ex.dataflow_urn("events-to-s3")
+        assert urn == "urn:li:dataFlow:(kinesis-firehose,us-east-1.events-to-s3,PROD)"
 
-    def test_datajob_urn_under_dataflow(self):
+    def test_datajob_urn_is_delivery_under_stream_flow(self):
         ex = _make_extractor()
         urn = ex.datajob_urn("events-to-s3")
         assert (
             urn
-            == "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,us-east-1,PROD),events-to-s3)"
+            == "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,us-east-1.events-to-s3,PROD),delivery)"
         )
 
     def test_dataflow_dataplatforminstance_aspect_uses_proper_urn(self):
@@ -63,7 +61,19 @@ class TestKinesisFirehoseExtractor:
         ex = KinesisFirehoseExtractor(
             config=config, report=KinesisSourceReport(), session=MagicMock()
         )
-        wus = list(ex.get_dataflow_workunit())
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.return_value = {
+            "DeliveryStreamNames": ["events-to-s3"],
+            "HasMoreDeliveryStreams": False,
+        }
+        firehose_mock.describe_delivery_stream.return_value = {
+            "DeliveryStreamDescription": {
+                "DeliveryStreamName": "events-to-s3",
+                "DeliveryStreamType": "DirectPut",
+                "DeliveryStreamARN": "arn:aws:firehose:us-east-1:000000000000:deliverystream/events-to-s3",
+            }
+        }
+        wus = list(ex.get_workunits())
         # The kinesis source only emits MCPWs; narrow with isinstance so
         # `.aspect` is reachable, then narrow the aspect itself by class.
         instance_aspects = [
@@ -72,19 +82,18 @@ class TestKinesisFirehoseExtractor:
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
             and isinstance(wu.metadata.aspect, DataPlatformInstanceClass)
         ]
-        assert instance_aspects, "DataFlow must emit a DataPlatformInstance aspect"
-        first_aspect = instance_aspects[0]
-        assert isinstance(first_aspect, DataPlatformInstanceClass)
-        instance_urn = first_aspect.instance
-        assert instance_urn is not None and instance_urn.startswith(
-            "urn:li:dataPlatformInstance:"
-        ), f"instance must be a dataPlatformInstance URN, got: {instance_urn!r}"
+        assert instance_aspects, "must emit DataPlatformInstance aspects (flow + job)"
+        for aspect in instance_aspects:
+            assert isinstance(aspect, DataPlatformInstanceClass)
+            assert aspect.instance is not None and aspect.instance.startswith(
+                "urn:li:dataPlatformInstance:"
+            ), f"instance must be a dataPlatformInstance URN, got: {aspect.instance!r}"
 
-    def test_filters_apply_to_delivery_streams(self):
+    def test_filters_apply_to_firehose_streams(self):
         config = KinesisSourceConfig.model_validate(
             {
                 "aws_config": {"aws_region": "us-east-1"},
-                "delivery_stream_pattern": {"deny": ["^_.*"]},
+                "firehose_stream_pattern": {"deny": ["^_.*"]},
             }
         )
         report = KinesisSourceReport()
@@ -102,7 +111,7 @@ class TestKinesisFirehoseExtractor:
         kept = list(ex.list_delivery_streams())
         assert "events-to-s3" in kept
         assert "_audit_pipe" not in kept
-        assert any("_audit_pipe" in str(x) for x in report.filtered_delivery_streams)
+        assert any("_audit_pipe" in str(x) for x in report.filtered_firehose_streams)
 
     def test_list_delivery_streams_access_denied_yields_empty_with_warning(self):
         ex = _make_extractor()
@@ -128,7 +137,7 @@ class TestKinesisFirehoseExtractor:
         assert result is None
         assert any(
             "locked-delivery-stream" in str(x)
-            for x in ex.report.delivery_streams_failed
+            for x in ex.report.firehose_streams_failed
         )
 
     def test_mid_pagination_failure_escalates_to_report_failure(self):

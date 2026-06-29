@@ -243,61 +243,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207354,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Firehose"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207353,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)",
     "changeType": "UPSERT",
@@ -323,25 +268,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1",
-            "name": "AWS Kinesis Firehose",
-            "description": "Kinesis Data Firehose in region us-east-1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779895264505,
-        "runId": "kinesis-2026_05_27-17_21_03-f0nx8d",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)",
     "changeType": "UPSERT",
@@ -354,23 +280,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1779797207344,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kinesis-firehose",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207353,
         "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
         "lastRunId": "no-run-id-provided"
     }
@@ -419,85 +328,21 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
+    "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/events-to-s3",
-                "delivery_stream_status": "CREATING",
-                "delivery_stream_type": "KinesisStreamAsSource",
-                "version_id": "1"
-            },
+            "customProperties": {},
             "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/events-to-s3",
             "name": "events-to-s3",
-            "description": "Firehose delivery stream events-to-s3",
-            "type": {
-                "string": "STREAM_DELIVERY"
-            }
+            "description": "Amazon Data Firehose stream events-to-s3"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1779895264513,
-        "runId": "kinesis-2026_05_27-17_21_03-f0nx8d",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kinesis-firehose",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207361,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Firehose Delivery Stream"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207361,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/events/,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207361,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
+        "lastObserved": 1782737532951,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -525,6 +370,124 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Firehose Stream"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532951,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kinesis-firehose",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532951,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/events-to-s3",
+                "delivery_stream_status": "CREATING",
+                "delivery_stream_type": "KinesisStreamAsSource",
+                "version_id": "1"
+            },
+            "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/events-to-s3",
+            "name": "Delivery",
+            "description": "Delivery for Firehose stream events-to-s3",
+            "type": {
+                "string": "STREAM_DELIVERY"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532961,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kinesis-firehose",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532962,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Delivery"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532962,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/events/,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532962,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)",
     "changeType": "UPSERT",
@@ -536,27 +499,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1779797207344,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207361,
         "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
         "lastRunId": "no-run-id-provided"
     }
@@ -587,69 +529,8 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Stream"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207344,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/clicks-to-s3",
-                "delivery_stream_status": "CREATING",
-                "delivery_stream_type": "KinesisStreamAsSource",
-                "version_id": "1"
-            },
-            "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/clicks-to-s3",
-            "name": "clicks-to-s3",
-            "description": "Firehose delivery stream clicks-to-s3",
-            "type": {
-                "string": "STREAM_DELIVERY"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779895264519,
-        "runId": "kinesis-2026_05_27-17_21_03-f0nx8d",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -663,63 +544,46 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
+        "lastObserved": 1782737532951,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532962,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "Firehose Delivery Stream"
+                "Stream"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/clicks/,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kinesis-firehose",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1779797207364,
+        "lastObserved": 1779797207344,
         "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
         "lastRunId": "no-run-id-provided"
     }
@@ -741,8 +605,65 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532963,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kinesis-firehose",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532963,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/clicks-to-s3",
+            "name": "clicks-to-s3",
+            "description": "Amazon Data Firehose stream clicks-to-s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532963,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -751,8 +672,178 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1779797207365,
-        "runId": "kinesis-2026_05_26-14_06_46-s7cdvm",
+        "lastObserved": 1782737532969,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Firehose Stream"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532963,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/clicks-to-s3",
+                "delivery_stream_status": "CREATING",
+                "delivery_stream_type": "KinesisStreamAsSource",
+                "version_id": "1"
+            },
+            "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/clicks-to-s3",
+            "name": "Delivery",
+            "description": "Delivery for Firehose stream clicks-to-s3",
+            "type": {
+                "string": "STREAM_DELIVERY"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532968,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532969,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kinesis-firehose",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis-firehose,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532968,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532970,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532970,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Delivery"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532969,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/clicks/,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532969,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782737532969,
+        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
         "lastRunId": "no-run-id-provided"
     }
 }

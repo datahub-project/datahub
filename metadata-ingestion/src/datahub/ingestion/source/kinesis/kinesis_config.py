@@ -193,11 +193,11 @@ class KinesisSourceConfig(
 
     include_firehose: bool = Field(
         default=True,
-        description="Extract Kinesis Data Firehose (KDF) delivery streams.",
+        description="Extract Amazon Data Firehose streams.",
     )
-    delivery_stream_pattern: AllowDenyPattern = Field(
+    firehose_stream_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns for which Firehose delivery streams to include.",
+        description="Regex patterns for which Firehose streams to include.",
     )
 
     include_table_lineage: bool = Field(

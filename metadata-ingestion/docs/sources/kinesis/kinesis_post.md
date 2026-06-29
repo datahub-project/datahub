@@ -48,7 +48,7 @@ Three knobs are available per destination platform:
 
 #### Glue table lineage (Firehose format conversion)
 
-When a Firehose delivery stream has **Parquet/ORC format conversion** enabled, its `SchemaConfiguration` references a Glue table that defines the output schema. The connector surfaces this as an additional upstream input on the Firehose DataJob:
+When a Firehose stream has **Parquet/ORC format conversion** enabled, its `SchemaConfiguration` references a Glue table that defines the output schema. The connector surfaces this as an additional upstream input on the Firehose delivery DataJob:
 
 - The source Kinesis stream remains an input (existing behavior).
 - The destination S3 path remains an output (existing behavior).
@@ -67,9 +67,9 @@ destination_platform_map:
 
 This whole behavior is gated by the `include_table_lineage` flag — when that's off, no Glue lineage is emitted.
 
-#### Filtering streams and delivery streams
+#### Filtering streams and Firehose streams
 
-`stream_pattern` and `delivery_stream_pattern` use the standard DataHub `AllowDenyPattern` shape. A common deny rule excludes internal / audit / debug streams:
+`stream_pattern` and `firehose_stream_pattern` use the standard DataHub `AllowDenyPattern` shape. A common deny rule excludes internal / audit / debug streams:
 
 ```yaml
 stream_pattern:
@@ -128,7 +128,7 @@ Unlike Kafka + Confluent Schema Registry — which defines a standardized `Topic
 
 Some organizations adopt "schema name == stream name" as an internal convention, but it's not AWS best practice. If your organization follows that convention, set `use_naming_convention: true`. Otherwise, declare your known associations in `stream_schema_map` — that's the most predictable mode.
 
-(For **Firehose** delivery streams with Parquet/ORC format conversion, AWS _does_ define a relationship via `SchemaConfiguration` — see [Glue table lineage](#glue-table-lineage-firehose-format-conversion) above. That extraction is on by default and unaffected by this flag.)
+(For **Firehose** streams with Parquet/ORC format conversion, AWS _does_ define a relationship via `SchemaConfiguration` — see [Glue table lineage](#glue-table-lineage-firehose-format-conversion) above. That extraction is on by default and unaffected by this flag.)
 
 ### Limitations
 
@@ -188,7 +188,7 @@ If the cluster reports `disk.watermark.low` exceeded, free disk space and re-ind
 **`AccessDeniedException` on `kinesis:ListStreams`.**
 The IAM identity used by the recipe is missing the `KinesisDataStreamsRead` permissions in the [AWS IAM Permissions](#aws-iam-permissions) section. A first-page denial is logged as a warning and skips the KDS section (the user may intentionally have Firehose-only IAM); a mid-pagination failure escalates to `report.failure` to prevent stateful soft-deletion of un-listed streams.
 
-**Firehose section is silently empty even though delivery streams exist.**
+**Firehose section is silently empty even though Firehose streams exist.**
 The IAM identity is missing `firehose:ListDeliveryStreams` and/or `firehose:DescribeDeliveryStream` — Kinesis Data Streams permissions don't cover Firehose. A missing Firehose permission is logged as a warning (_"Permission denied for Firehose"_) rather than a failure; check the ingestion run report.
 
 **Schema not found for a stream.**

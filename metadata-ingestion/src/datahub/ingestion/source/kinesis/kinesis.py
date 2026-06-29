@@ -65,10 +65,11 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
     """DataHub ingestion source for AWS Kinesis.
 
     Catalogs **Kinesis Data Streams (KDS)** as DataHub Datasets (subtype
-    ``Stream``) and **Kinesis Data Firehose (KDF)** delivery streams as
-    DataJobs under one regional DataFlow per recipe. AWS resource tags
-    become DataHub ``globalTags`` (ownership can be derived from those tags
-    with the ``extract_ownership_from_tags`` transformer). Optionally,
+    ``Stream``) and **Amazon Data Firehose** streams as DataFlows (subtype
+    ``Firehose Stream``), each containing a single ``Delivery`` DataJob.
+    AWS resource tags become DataHub ``globalTags`` (ownership can be derived
+    from those tags with the ``extract_ownership_from_tags`` transformer).
+    Optionally,
     schemas registered in AWS Glue Schema Registry are attached to streams
     via the ``schemaMetadata`` aspect (Avro, JSON, and Protobuf are
     supported).
@@ -181,10 +182,10 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Defer the regional Container until at least one KDS stream materialises.
-        # DataFlows (Firehose) live directly under platform_instance — they're NOT
-        # children of the region container — so an account+region with only Firehose
-        # delivery streams (no KDS) would otherwise emit an empty Region container
-        # that just clutters the catalog navigation.
+        # Each Firehose stream is its own DataFlow (not a child of the region
+        # container), so an account+region with only Firehose streams (no KDS)
+        # would otherwise emit an empty Region container that just clutters the
+        # catalog navigation.
         region_container_emitted = False
         if self.config.include_streams:
             for wu in self.stream_extractor.get_workunits():
@@ -193,7 +194,6 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
                     region_container_emitted = True
                 yield wu
         if self.config.include_firehose:
-            yield from self.firehose_extractor.get_dataflow_workunit()
             yield from self.firehose_extractor.get_workunits()
 
     def _emit_region_container(self) -> Iterable[MetadataWorkUnit]:

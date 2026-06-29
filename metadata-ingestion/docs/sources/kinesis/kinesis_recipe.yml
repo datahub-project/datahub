@@ -27,9 +27,9 @@ source:
       deny:
         - "^_.*"
 
-    # --- Kinesis Data Firehose (KDF) ----------------------------------
+    # --- Amazon Data Firehose -----------------------------------------
     include_firehose: true
-    delivery_stream_pattern:
+    firehose_stream_pattern:
       allow:
         - ".*"
     include_table_lineage: true

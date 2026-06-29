@@ -202,13 +202,13 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
-    # AWS Kinesis
-    KINESIS_FIREHOSE = "Firehose"
+    # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
+    KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
-    # AWS Kinesis
-    KINESIS_FIREHOSE_DELIVERY_STREAM = "Firehose Delivery Stream"
+    # Amazon Data Firehose — the single delivery step within a Firehose stream.
+    KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

@@ -2,17 +2,17 @@
 
 :::info Looking for Amazon Data Firehose (formerly Kinesis Data Firehose)?
 
-You're in the right place — Firehose delivery streams are ingested by this same `kinesis` connector. See the `kinesis-firehose` platform section below.
+You're in the right place — Firehose streams are ingested by this same `kinesis` connector. See the `kinesis-firehose` platform section below.
 :::
 
 This connector ingests both AWS streaming services with one recipe, one IAM policy, and one ingestion job:
 
 - **`kinesis`** (display name: _Amazon Kinesis Data Streams_) — KDS streams are emitted as **Datasets** (`Stream` subtype) under a regional Container, with `StreamARN`, shard count, retention, encryption, and stream mode in custom properties, AWS resource tags as DataHub tags, and (optionally) `schemaMetadata` resolved from AWS Glue Schema Registry.
-- **`kinesis-firehose`** (display name: _Amazon Data Firehose_) — Firehose delivery streams are emitted as **DataJobs** (`Firehose Delivery Stream` subtype) under one regional **DataFlow** per recipe (`Firehose` subtype), with `dataJobInputOutput` edges drawing lineage from the source Kinesis stream to the destination platform. Six destinations are supported: S3, Redshift, OpenSearch/Elasticsearch, Snowflake, Apache Iceberg, and MongoDB.
+- **`kinesis-firehose`** (display name: _Amazon Data Firehose_) — each Firehose stream is emitted as its own **DataFlow** (`Firehose Stream` subtype) containing a single **DataJob** (`Delivery` subtype), whose `dataJobInputOutput` edges draw lineage from the source Kinesis stream to the destination platform. Six destinations are supported: S3, Redshift, OpenSearch/Elasticsearch, Snowflake, Apache Iceberg, and MongoDB.
 
-Cross-service lineage (e.g. `KDS Stream → Firehose Delivery Stream → S3`) is rendered in the DataHub lineage viewer as edges crossing platform boundaries, making the data flow immediately legible.
+Cross-service lineage (e.g. `KDS Stream → Firehose stream → S3`) is rendered in the DataHub lineage viewer as edges crossing platform boundaries, making the data flow immediately legible.
 
-The connector is API-based (boto3 + AWS IAM SigV4) and **region-scoped per recipe** — a multi-region setup runs multiple recipes, one per region. The region is encoded in dataset names and the Firehose DataFlow id, so multiple regions of the same account share one `platform_instance` (the account ID, by default) without colliding on URN.
+The connector is API-based (boto3 + AWS IAM SigV4) and **region-scoped per recipe** — a multi-region setup runs multiple recipes, one per region. The region is encoded in dataset names and Firehose DataFlow ids, so multiple regions of the same account share one `platform_instance` (the account ID, by default) without colliding on URN.
 
 ### Prerequisites
 
