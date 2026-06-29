@@ -1122,7 +1122,7 @@ The following environment variables are used in the codebase but may not be expl
 
 | Environment Variable                          | Default    | Description                                    | Components        |
 | --------------------------------------------- | ---------- | ---------------------------------------------- | ----------------- |
-| `MCP_CONSUMER_BATCH_ENABLED`                  | `false`    | Enable MCP consumer batch processing           | GMS, MCE Consumer |
+| `MCP_CONSUMER_BATCH_ENABLED`                  | `true`     | Enable MCP consumer batch processing           | GMS, MCE Consumer |
 | `MCP_CONSUMER_BATCH_SIZE`                     | `15744000` | MCP consumer batch size                        | GMS, MCE Consumer |
 | `MCP_VALIDATION_IGNORE_UNKNOWN`               | `true`     | Ignore unknown fields in MCP validation        | GMS, MCE Consumer |
 | `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS`        | `true`     | Enable privilege constraints in MCP validation | GMS, MCE Consumer |
