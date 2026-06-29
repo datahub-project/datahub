@@ -1,4 +1,5 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
+
 # acryl-datahub
 
 **DataHub's ingestion framework and CLI** — pull metadata from 50+ data sources into your catalog, or push it programmatically from your own pipelines and applications.
@@ -70,12 +71,12 @@ No CLI required — configure and run ingestion directly from the DataHub UI und
 
 ## Ingestion methods
 
-| Method | Best for |
-|---|---|
-| **CLI + YAML recipe** | Scheduled batch ingestion, CI/CD pipelines |
-| **Python SDK** | Programmatic or event-driven metadata emission |
-| **Java SDK** | JVM-based integrations (Spark, Flink, etc.) |
-| **UI Ingestion** | One-click setup, no code required |
+| Method                | Best for                                       |
+| --------------------- | ---------------------------------------------- |
+| **CLI + YAML recipe** | Scheduled batch ingestion, CI/CD pipelines     |
+| **Python SDK**        | Programmatic or event-driven metadata emission |
+| **Java SDK**          | JVM-based integrations (Spark, Flink, etc.)    |
+| **UI Ingestion**      | One-click setup, no code required              |
 
 ## Key CLI commands
 

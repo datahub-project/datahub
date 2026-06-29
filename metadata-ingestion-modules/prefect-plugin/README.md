@@ -1,4 +1,5 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
+
 # prefect-datahub
 
 **Automatic lineage and run metadata from Prefect into DataHub** — captures flow structure, task inputs/outputs, and run history with minimal setup.
@@ -55,12 +56,12 @@ def my_pipeline():
 
 ## Configuration options
 
-| Option | Default | Description |
-|---|---|---|
-| `datahub_rest_url` | `http://localhost:8080` | DataHub GMS URL |
-| `env` | `PROD` | Environment tag for assets |
-| `platform_instance` | `None` | Platform instance for assets |
-| `token` | `None` | Auth token (if GMS auth is enabled) |
+| Option              | Default                 | Description                         |
+| ------------------- | ----------------------- | ----------------------------------- |
+| `datahub_rest_url`  | `http://localhost:8080` | DataHub GMS URL                     |
+| `env`               | `PROD`                  | Environment tag for assets          |
+| `platform_instance` | `None`                  | Platform instance for assets        |
+| `token`             | `None`                  | Auth token (if GMS auth is enabled) |
 
 ## Links
 

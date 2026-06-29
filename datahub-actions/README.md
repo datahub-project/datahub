@@ -1,4 +1,5 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
+
 # acryl-datahub-actions
 
 **Event-driven automation for DataHub** — react to metadata changes in real time and trigger workflows, notifications, or custom logic.
@@ -49,12 +50,12 @@ datahub actions -c my_action.yml
 
 ## Key concepts
 
-| Concept | Description |
-|---|---|
-| **Source** | Where events come from (currently: Kafka) |
-| **Filter** | Narrow down which events trigger the action |
-| **Transformer** | Optionally reshape or enrich events |
-| **Action** | What to do — call an API, send a message, run code |
+| Concept         | Description                                        |
+| --------------- | -------------------------------------------------- |
+| **Source**      | Where events come from (currently: Kafka)          |
+| **Filter**      | Narrow down which events trigger the action        |
+| **Transformer** | Optionally reshape or enrich events                |
+| **Action**      | What to do — call an API, send a message, run code |
 
 ## Supported events
 

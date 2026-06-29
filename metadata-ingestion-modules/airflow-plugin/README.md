@@ -1,4 +1,5 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
+
 # acryl-datahub-airflow-plugin
 
 **Automatic lineage and run metadata from Apache Airflow into DataHub** — captures DAG structure, task inputs/outputs, and run history with no manual instrumentation.
@@ -12,10 +13,10 @@
 
 ## Version compatibility
 
-| Airflow Version | Support |
-|---|---|
-| 3.0+ | ✅ Fully supported |
-| 2.x | ❌ Use `acryl-datahub-airflow-plugin <= 1.6.0` |
+| Airflow Version | Support                                        |
+| --------------- | ---------------------------------------------- |
+| 3.0+            | ✅ Fully supported                             |
+| 2.x             | ❌ Use `acryl-datahub-airflow-plugin <= 1.6.0` |
 
 ## Installation
 
@@ -48,11 +49,11 @@ The plugin activates automatically — no changes to your DAG code required.
 
 ## Key configuration options
 
-| Option | Default | Description |
-|---|---|---|
-| `enable_extractors` | `True` | Enhance OpenLineage extractors |
-| `patch_sql_parser` | `True` | Use DataHub's SQL parser for column-level lineage |
-| `enable_multi_statement_sql_parsing` | `False` | Resolve temp tables across multi-statement tasks |
+| Option                               | Default | Description                                       |
+| ------------------------------------ | ------- | ------------------------------------------------- |
+| `enable_extractors`                  | `True`  | Enhance OpenLineage extractors                    |
+| `patch_sql_parser`                   | `True`  | Use DataHub's SQL parser for column-level lineage |
+| `enable_multi_statement_sql_parsing` | `False` | Resolve temp tables across multi-statement tasks  |
 
 ## Links
 
