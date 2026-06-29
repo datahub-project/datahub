@@ -95,7 +95,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # schema without changing _schema_cache's None semantics (which SQL parsing
         # relies on). Maps lowercase(urn) -> the real URNs sharing that form. Populated
         # on demand via add_known_urn(); empty (and free) for resolvers that never use it.
-        self._casing_index: Dict[str, List[str]] = {}
+        # Disk-backed (like _schema_cache) so a large warehouse's catalog does not sit
+        # in memory; a distinct tablename keeps it separate on the shared connection.
+        self._casing_index: FileBackedDict[List[str]] = FileBackedDict(
+            shared_connection=shared_conn,
+            tablename="casing_index",
+        )
 
     @property
     def platform(self) -> str:
@@ -173,9 +178,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             key = lowercase_dataset_urn(urn)
         except Exception:
             return
-        bucket = self._casing_index.setdefault(key, [])
+        # Read-modify-write: the index is disk-backed, so re-assign to persist the
+        # change (and to mark the cache entry dirty). Most keys hold a single URN;
+        # the list only grows when genuinely distinct case-variants collide.
+        bucket = self._casing_index.get(key) or []
         if urn not in bucket:
             bucket.append(urn)
+            self._casing_index[key] = bucket
 
     def find_by_casing(self, urn: str) -> List[str]:
         """Return known URNs whose lowercase form matches `urn`'s.
@@ -184,7 +193,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         upstream lineage references against the casing DataHub already stores.
         """
         try:
-            return list(self._casing_index.get(lowercase_dataset_urn(urn), []))
+            return list(self._casing_index.get(lowercase_dataset_urn(urn)) or [])
         except Exception:
             return []
 
@@ -402,6 +411,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def close(self) -> None:
         self._schema_cache.close()
+        self._casing_index.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
