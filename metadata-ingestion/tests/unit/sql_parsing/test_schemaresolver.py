@@ -531,3 +531,20 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+def test_casing_index_membership_and_lookup() -> None:
+    # The membership/casing index (used by lineage URN casing reconciliation) is
+    # separate from the schema cache and tracks existence regardless of schema.
+    r = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+    upper = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.TABLE,PROD)"
+    lower = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+    other = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.other,PROD)"
+
+    r.add_known_urn(upper)
+    assert upper in r.find_by_casing(upper)  # exact match present in its own bucket
+    assert r.find_by_casing(lower) == [upper]  # a different casing resolves to it
+    assert r.find_by_casing(other) == []  # unknown -> no candidates
+
+    r.add_known_urn(lower)  # both casings now exist
+    assert set(r.find_by_casing(upper)) == {upper, lower}  # ambiguous -> both returned

@@ -24,6 +24,7 @@ from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             extra_columns={"is_missing": lambda v: v is None},
         )
 
+        # Membership / casing index for lineage URN casing reconciliation, kept
+        # separate from _schema_cache so it can track entities that exist *without* a
+        # schema without changing _schema_cache's None semantics (which SQL parsing
+        # relies on). Maps lowercase(urn) -> the real URNs sharing that form. Populated
+        # on demand via add_known_urn(); empty (and free) for resolvers that never use it.
+        self._casing_index: Dict[str, List[str]] = {}
+
     @property
     def platform(self) -> str:
         return self._platform
@@ -153,6 +161,32 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         bulk initialization. Used to correct column casing in fine-grained lineage.
         """
         return self._schema_cache.get(urn)
+
+    def add_known_urn(self, urn: str) -> None:
+        """Record that `urn` exists (schema-bearing or not), for casing reconciliation.
+
+        Feeds the membership/casing index used by the lineage URN casing processor.
+        Kept separate from the schema cache so a schemaless entity can be marked as
+        existing without affecting schema-cache (`None`) semantics.
+        """
+        try:
+            key = lowercase_dataset_urn(urn)
+        except Exception:
+            return
+        bucket = self._casing_index.setdefault(key, [])
+        if urn not in bucket:
+            bucket.append(urn)
+
+    def find_by_casing(self, urn: str) -> List[str]:
+        """Return known URNs whose lowercase form matches `urn`'s.
+
+        Includes `urn` itself when it is a known exact match. Used to reconcile
+        upstream lineage references against the casing DataHub already stores.
+        """
+        try:
+            return list(self._casing_index.get(lowercase_dataset_urn(urn), []))
+        except Exception:
+            return []
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         """Resolve a table to its URN and (best-effort) schema.
