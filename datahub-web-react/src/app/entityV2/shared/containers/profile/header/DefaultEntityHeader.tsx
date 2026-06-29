@@ -1,3 +1,5 @@
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -6,7 +8,6 @@ import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityD
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
@@ -16,9 +17,12 @@ import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sideba
 import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
+import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
@@ -95,6 +99,21 @@ const HeaderIconsWrapper = styled.span`
     margin-right: 8px;
 `;
 
+const IconWrapper = styled.div<{ $clickable: boolean }>`
+    margin-right: 12px;
+    border-radius: 10px;
+    ${(props) =>
+        props.$clickable &&
+        `
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+
+        &:hover {
+            opacity: 0.85;
+        }
+    `}
+`;
+
 type Props = {
     urn: string;
     entityType: EntityType;
@@ -128,21 +147,42 @@ export const DefaultEntityHeader = ({
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
+    const generateDomainColor = useGenerateDomainColorFromPalette();
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
+
+    const isGlossaryNode = entityType === EntityType.GlossaryNode;
+    const isGlossaryTerm = entityType === EntityType.GlossaryTerm;
+    const isGlossaryEntity = isGlossaryNode || isGlossaryTerm;
+    const isDomainEntity = entityType === EntityType.Domain;
+
+    // The color currently displayed in the UI: prefer the saved colorHex, otherwise the
+    // deterministic palette color we generate from the URN. We pass this into the picker so
+    // editing always starts from "the color you see" — not the gray default.
+    //
+    // For glossary terms and nodes we route through the canonical
+    // `resolveGlossaryEntityColor` so an entity with no explicitly-picked color inherits its
+    // root group's color (matching the sidebar, list cards, and the term-pill rendered on
+    // associated entities). Without this, the header would jump straight to a palette slot
+    // derived from the entity's own URN and look unrelated to the group on its own profile.
+    let resolvedCurrentColor: string | undefined;
+    if (isGlossaryTerm || isGlossaryNode) {
+        resolvedCurrentColor = resolveGlossaryEntityColor(
+            { urn, parentNodes: entityData?.parentNodes ?? null, displayProperties },
+            generateGlossaryColor,
+        );
+    } else if (isDomainEntity) {
+        resolvedCurrentColor = displayProperties?.colorHex || generateDomainColor(urn);
+    } else {
+        resolvedCurrentColor = displayProperties?.colorHex || undefined;
+    }
 
     const contextPath = getParentEntities(entityData, entityType);
     return (
         <>
             <Row>
-                {!loading && (entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
-                    <GlossaryPreviewCardDecoration
-                        urn={urn}
-                        entityData={entityData}
-                        displayProperties={displayProperties}
-                    />
-                )}
                 <LeftColumn>
                     <EntityBackButton />
                     {(loading && <EntityTitleLoadingSection />) || (
@@ -154,26 +194,34 @@ export const DefaultEntityHeader = ({
                                         platforms={platforms as DataPlatform[]}
                                     />
                                 </HeaderIconsWrapper>
-                                {(isIconEditable || isColorEditable) && (
-                                    <div
-                                        style={{
-                                            cursor: 'pointer',
-                                            marginRight: 12,
-                                        }}
+                                {(isGlossaryEntity || isDomainEntity) && (
+                                    <IconWrapper
+                                        $clickable={!!(isIconEditable || isColorEditable)}
+                                        onClick={
+                                            isIconEditable || isColorEditable
+                                                ? () => setShowIconPicker(true)
+                                                : undefined
+                                        }
                                     >
-                                        <DomainColoredIcon
-                                            onClick={() => setShowIconPicker(true)}
-                                            domain={entityData as Domain}
-                                        />
-                                    </div>
+                                        {isGlossaryEntity ? (
+                                            <GlossaryColoredIcon
+                                                color={resolvedCurrentColor || ''}
+                                                icon={isGlossaryTerm ? BookmarkSimple : BookmarksSimple}
+                                                size={40}
+                                            />
+                                        ) : (
+                                            <DomainColoredIcon domain={entityData as Domain} />
+                                        )}
+                                    </IconWrapper>
                                 )}
                                 {showIconPicker && (
                                     <IconColorPicker
                                         name={entityRegistry.getDisplayName(entityType, entityData)}
                                         open={showIconPicker}
                                         onClose={() => setShowIconPicker(false)}
-                                        color={displayProperties?.colorHex}
+                                        color={resolvedCurrentColor}
                                         icon={displayProperties?.icon?.name}
+                                        showIcon={!!isIconEditable}
                                     />
                                 )}
                                 <EntityDetailsContainer>

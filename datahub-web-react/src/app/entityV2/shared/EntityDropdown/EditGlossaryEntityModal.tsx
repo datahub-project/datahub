@@ -1,7 +1,8 @@
-import { Editor, Input, Modal, toast } from '@components';
+import { ColorPicker, Editor, Input, Modal, toast } from '@components';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components/macro';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -12,8 +13,13 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 
-import { useUpdateDescriptionMutation, useUpdateNameMutation } from '@graphql/mutations.generated';
+import {
+    useUpdateDescriptionMutation,
+    useUpdateDisplayPropertiesMutation,
+    useUpdateNameMutation,
+} from '@graphql/mutations.generated';
 import { EntityType } from '@types';
 
 interface Props {
@@ -30,18 +36,26 @@ function EditGlossaryEntityModal({ urn, entityType, entityData, onClose, refetch
     const { t: tcf } = useTranslation('common.feedback');
     const { t: tcl } = useTranslation('common.labels');
     const refetch = useRefetch();
+    const theme = useTheme();
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
 
     const initialName = entityData?.properties?.name || entityData?.name || '';
     const initialDescription = entityData?.properties?.description || '';
+    // Resolve the existing color so the picker opens on "the color you currently see" rather
+    // than the gray placeholder. Falls back to the deterministic palette color seeded from
+    // the URN — same chain the sidebar/header use.
+    const initialColor = entityData?.displayProperties?.colorHex || generateGlossaryColor(urn);
 
     const [stagedName, setStagedName] = useState<string>(initialName);
     const [nameTouched, setNameTouched] = useState(false);
     const [stagedDocumentation, setStagedDocumentation] = useState<string>(initialDescription);
+    const [stagedColor, setStagedColor] = useState<string>(initialColor);
     const [submitting, setSubmitting] = useState(false);
 
     const [updateName] = useUpdateNameMutation();
     const [updateDescription] = useUpdateDescriptionMutation();
+    const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
 
     const entityName =
         entityType === EntityType.GlossaryTerm
@@ -69,6 +83,9 @@ function EditGlossaryEntityModal({ urn, entityType, entityData, onClose, refetch
                 }),
             );
         }
+        if (stagedColor !== initialColor) {
+            tasks.push(updateDisplayProperties({ variables: { urn, input: { colorHex: stagedColor } } }));
+        }
 
         if (tasks.length === 0) {
             onClose();
@@ -84,8 +101,8 @@ function EditGlossaryEntityModal({ urn, entityType, entityData, onClose, refetch
             });
             refetch();
             if (isInGlossaryContext) {
-                // Nudge the glossary browser so the parent's children re-render with the latest
-                // values.
+                // Nudge the glossary browser so the parent's children (and any inherited
+                // colors) re-render with the latest values.
                 const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
                 updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
             }
@@ -148,6 +165,13 @@ function EditGlossaryEntityModal({ urn, entityType, entityData, onClose, refetch
                         hideBorder
                     />
                 </EditorContainer>
+            </Field>
+            <Field>
+                <ColorPicker
+                    label={`${tcl('color')} ${tcl('optional')}`}
+                    initialColor={initialColor || theme.colors.colorPickerDefault}
+                    onChange={setStagedColor}
+                />
             </Field>
         </Modal>
     );
