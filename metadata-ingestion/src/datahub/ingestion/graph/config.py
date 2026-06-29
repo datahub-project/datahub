@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from typing import Dict, List, Optional
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
@@ -9,6 +9,7 @@ from datahub.configuration.env_vars import (
     get_rest_sink_default_tcp_keepalive,
 )
 from datahub.emitter.emit_mode import EmitMode
+from datahub.ingestion.auth.registry import AuthConfig
 
 
 class ClientMode(Enum):
@@ -26,6 +27,7 @@ class DatahubClientConfig(ConfigModel):
 
     server: str
     token: Optional[str] = None
+    auth: Optional[AuthConfig] = None
     timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
@@ -44,5 +46,11 @@ class DatahubClientConfig(ConfigModel):
     # Default emit mode for emit calls that don't pass one. None falls back to the
     # emitter's global default. Not used by the `datahub-rest` sink (it has `mode`).
     default_emit_mode: Optional[EmitMode] = None
+
+    @model_validator(mode="after")
+    def _validate_auth_exclusive(self) -> "DatahubClientConfig":
+        if self.token is not None and self.auth is not None:
+            raise ValueError("Provide either 'token' or 'auth', not both.")
+        return self
 
     model_config = ConfigDict(extra="ignore")
