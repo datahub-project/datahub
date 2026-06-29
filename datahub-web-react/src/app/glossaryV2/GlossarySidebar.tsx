@@ -13,14 +13,13 @@ import styled from 'styled-components/macro';
 import type { ItemType } from '@components/components/Menu/types';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import GlossarySearch from '@app/glossaryV2/GlossarySearch';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getCollapsedGlossaryItems } from '@app/glossaryV2/utils';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -256,30 +255,22 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
     const { entityData } = useGlossaryEntityData();
     const selectedEntityUrn = entityData?.urn;
 
-    const collapsedItems = useMemo(() => {
-        const nodes = nodesData?.getRootGlossaryNodes?.nodes ?? [];
-        const terms = termsData?.getRootGlossaryTerms?.terms ?? [];
-        const sortedNodes = [...nodes].sort((a, b) => sortGlossaryNodes(entityRegistry, a, b));
-        const sortedTerms = [...terms].sort((a, b) => sortGlossaryTerms(entityRegistry, a, b));
-        // Root-level entities have no parent, so inheriting from a parent isn't possible here —
-        // fall back directly to a palette color seeded by the entity's own urn.
-        return [
-            ...sortedNodes.map((node) => ({
-                urn: node.urn,
-                type: node.type,
-                name: node.properties?.name || node.urn,
-                color: node.displayProperties?.colorHex || generateColor(node.urn),
-                Icon: BookmarksSimple,
-            })),
-            ...sortedTerms.map((term) => ({
-                urn: term.urn,
-                type: term.type,
-                name: term.properties?.name || term.urn,
-                color: term.displayProperties?.colorHex || generateColor(term.urn),
-                Icon: BookmarkSimple,
-            })),
-        ];
-    }, [nodesData, termsData, entityRegistry, generateColor]);
+    // Stabilize via useMemo so downstream useMemos / passed-prop arrays don't see a fresh `[]`
+    // each render — that would defeat memoization in `GlossaryBrowser` and re-fire its
+    // `displayedNodes` / `displayedTerms` derivations every tick.
+    const rootNodes = useMemo(() => nodesData?.getRootGlossaryNodes?.nodes ?? [], [nodesData]);
+    const rootTerms = useMemo(() => termsData?.getRootGlossaryTerms?.terms ?? [], [termsData]);
+
+    const collapsedItems = useMemo(
+        () =>
+            getCollapsedGlossaryItems({
+                nodes: rootNodes,
+                terms: rootTerms,
+                entityRegistry,
+                generateColor,
+            }),
+        [rootNodes, rootTerms, entityRegistry, generateColor],
+    );
 
     // Sidebar "+" opens a dropdown that lets users pick Term Group vs Term, since DataHub
     // allows root-level terms and the single-button shortcut hid that workflow. Icons match
@@ -389,7 +380,11 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                             <HomeNavLabel $isSelected={isHomeSelected}>{t('sidebar.home')}</HomeNavLabel>
                         </HomeNavLink>
                         <ThinDivider />
-                        <GlossaryBrowser openToEntity />
+                        {/* Pass the already-fetched root data down so `GlossaryBrowser` skips its
+                         * own copy of these two queries. The sidebar still owns the queries here
+                         * because the create modals call `refetchData={refetchForNodes/Terms}`
+                         * once a root entity is created. */}
+                        <GlossaryBrowser openToEntity rootNodes={rootNodes} rootTerms={rootTerms} />
                     </Content>
                 )}
             </SidebarContainer>

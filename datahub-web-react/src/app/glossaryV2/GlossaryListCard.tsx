@@ -6,7 +6,8 @@ import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 import { Tooltip } from '@src/alchemy-components';
 
 import { DisplayProperties, EntityType, Maybe } from '@types';
@@ -111,14 +112,20 @@ const GlossaryListCard = (props: Props) => {
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const isNode = type === EntityType.GlossaryNode;
-    // Priority: the child's own saved colorHex > the parent (current page) entity's color
-    // > a deterministic palette color derived from the parent's URN. Falling back to the
-    // parent's URN (rather than the child's) matches the sidebar tree's inheritance, so a
-    // child without an explicit color renders the same swatch wherever it appears.
-    const parentColor = entityData?.displayProperties?.colorHex;
-    const parentUrn = entityData?.urn;
-    const glossaryColor = displayProperties?.colorHex || parentColor || generateColor(parentUrn || urn);
-    const Icon = isNode ? BookmarksSimple : BookmarkSimple;
+    // Route through the canonical resolver so children render the same color here, in the
+    // sidebar, and in the header. The currently-viewed entity is the immediate parent for
+    // this card — pass its resolved color as `inheritedColor` so children without their own
+    // explicit color inherit the parent's identity rather than landing on a palette slot
+    // derived from their own URN.
+    const inheritedColor = entityData
+        ? entityData.displayProperties?.colorHex || generateColor(entityData.urn ?? urn)
+        : undefined;
+    const glossaryColor = resolveGlossaryEntityColor(
+        { urn, displayProperties: displayProperties ?? null },
+        generateColor,
+        { inheritedColor },
+    );
+    const Icon = getGlossaryEntityIcon(type);
 
     return (
         <EntityDetailsWrapper>

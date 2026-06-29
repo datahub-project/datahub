@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
 
@@ -171,15 +171,16 @@ export function buildTermTreeOptions({
     // Emit a chain of ancestor headers (root → leaf), skipping any already-seen URNs so a
     // shared ancestor only appears once.
     //
-    // Every node in the chain inherits the *root* node's color, even if a descendant has its own
-    // `displayProperties.colorHex`. This mirrors the glossary sidebar (`NodeItem` propagates
-    // `iconColor` down through recursion), where a child of "Adoption" reads the same pink
-    // bookmark icon as Adoption itself rather than its own URN-hashed color. Term rows already
-    // pick up the root color via `topNode` below — this brings node headers in line.
+    // Each header routes through `resolveGlossaryEntityColor` with the root's color as
+    // `inheritedColor`. This matches the sidebar's `NodeItem` recursion (where a descendant's
+    // own `displayProperties.colorHex` wins first, then it inherits the parent's resolved
+    // color) and `DefaultEntityHeader` (same chain). The previous behavior — "root color wins
+    // even when a descendant has its own colorHex" — diverged from the sidebar and made the
+    // modal picker look out-of-sync with the entity page.
     const emitNodeChain = (chain: GlossaryNode[]) => {
         if (chain.length === 0) return;
         const rootNode = chain[0];
-        const subtreeColor = rootNode.displayProperties?.colorHex || getFallbackColor(rootNode.urn);
+        const subtreeColor = resolveGlossaryEntityColor(rootNode, getFallbackColor);
         chain.forEach((node, depth) => {
             if (seenNodeUrns.has(node.urn)) return;
             seenNodeUrns.add(node.urn);
@@ -188,7 +189,7 @@ export function buildTermTreeOptions({
                 label: getDisplayName(node),
                 isNode: true,
                 depth,
-                color: subtreeColor,
+                color: resolveGlossaryEntityColor(node, getFallbackColor, { inheritedColor: subtreeColor }),
                 ancestorUrns: chain.slice(0, depth).map((n) => n.urn),
             });
         });
@@ -221,13 +222,10 @@ export function buildTermTreeOptions({
                 emitNodeChain(reversedParents);
                 const termDepth = reversedParents.length;
                 const topNode = reversedParents[0];
-                // Color priority mirrors `getGlossaryTermColor`: the term's own `colorHex` wins,
-                // then the root parent's, then a palette hash of the root URN, then the term URN.
-                const termColor =
-                    term.displayProperties?.colorHex ||
-                    (topNode
-                        ? topNode.displayProperties?.colorHex || getFallbackColor(topNode.urn)
-                        : getFallbackColor(term.urn));
+                // Route through the canonical resolver — own colorHex wins, then the inherited
+                // root color, then the resolver's own fallback (parentNodes → palette).
+                const inheritedColor = topNode ? resolveGlossaryEntityColor(topNode, getFallbackColor) : undefined;
+                const termColor = resolveGlossaryEntityColor(term, getFallbackColor, { inheritedColor });
                 result.push({
                     value: term.urn,
                     label: getDisplayName(term),

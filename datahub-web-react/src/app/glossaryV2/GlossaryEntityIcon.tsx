@@ -1,20 +1,21 @@
-import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
-import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React from 'react';
 
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import {
+    GlossaryEntityColorInput,
+    resolveGlossaryEntityColor,
+    useGenerateGlossaryColorFromPalette,
+} from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 
-import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
+import { GlossaryNode, GlossaryTerm } from '@types';
 
 /**
- * Minimal shape required to render a glossary entity's icon. Accepts anything
- * that carries the urn, type, and the optional fields used for color resolution.
- * `parentNodes` is only consulted for terms (so a term can inherit its parent
- * node's color); nodes resolve from their own `displayProperties` plus a
- * deterministic palette fallback.
+ * Minimal shape required to render a glossary entity's icon. Re-exported through
+ * `GlossaryEntityColorInput` plus `type`, so the icon component accepts anything that carries the
+ * URN, type, and the optional fields used for color resolution.
  */
-type GlossaryEntityLike = Pick<GlossaryTerm | GlossaryNode, 'urn' | 'type' | 'displayProperties' | 'parentNodes'>;
+type GlossaryEntityLike = GlossaryEntityColorInput & Pick<GlossaryTerm | GlossaryNode, 'type'>;
 
 interface Props {
     entity: GlossaryEntityLike;
@@ -26,25 +27,20 @@ interface Props {
 }
 
 /**
- * Entity-aware icon for glossary terms and nodes. Resolves the entity's color
- * using the same chain the sidebar and entity header use:
- *   - term: own `displayProperties.colorHex` → root parent's color → palette
- *   - node: own `displayProperties.colorHex` → palette from its urn
- *
- * Pairs with `BookmarkSimple` (term) or `BookmarksSimple` (node), matching the
- * Phosphor icons used by the glossary browser sidebar.
+ * Entity-aware icon for glossary terms and nodes. Routes color through the canonical
+ * {@link resolveGlossaryEntityColor} and icon through {@link getGlossaryEntityIcon} so the
+ * sidebar, list cards, entity header, and autocomplete all render the same color/icon pair for
+ * a given entity.
  */
 export default function GlossaryEntityIcon({ entity, size = 24, iconSize, radius, className }: Props) {
     const generateColor = useGenerateGlossaryColorFromPalette();
-    const isTerm = entity.type === EntityType.GlossaryTerm;
-    const color = isTerm
-        ? getGlossaryTermColor(entity as Pick<GlossaryTerm, 'urn' | 'parentNodes' | 'displayProperties'>, generateColor)
-        : entity.displayProperties?.colorHex || generateColor(entity.urn);
+    const color = resolveGlossaryEntityColor(entity, generateColor);
+    const Icon = getGlossaryEntityIcon(entity.type);
 
     return (
         <GlossaryColoredIcon
             color={color}
-            icon={isTerm ? BookmarkSimple : BookmarksSimple}
+            icon={Icon}
             size={size}
             iconSize={iconSize}
             radius={radius}

@@ -216,8 +216,17 @@ function GlossaryBrowser(props: Props) {
     }, [fetchedTerms, optimisticRootTerm]);
 
     const entityRegistry = useEntityRegistry();
-    const sortedNodes = displayedNodes.slice().sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
-    const sortedTerms = displayedTerms.slice().sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+    // Memoize so we don't allocate fresh sorted arrays on every render — `NodeItem` and
+    // `TermItem` props would otherwise change identity every tick and defeat any downstream
+    // memoization.
+    const sortedNodes = useMemo(
+        () => displayedNodes.slice().sort((a, b) => sortGlossaryNodes(entityRegistry, a, b)),
+        [displayedNodes, entityRegistry],
+    );
+    const sortedTerms = useMemo(
+        () => displayedTerms.slice().sort((a, b) => sortGlossaryTerms(entityRegistry, a, b)),
+        [displayedTerms, entityRegistry],
+    );
 
     // Drop the optimistic root entry once the canonical fetched data contains the URN, so
     // displayedNodes flips from `[optimistic, ...fetchedNodes]` to plain `fetchedNodes` (which
@@ -249,17 +258,20 @@ function GlossaryBrowser(props: Props) {
         }
     }, [refreshBrowser, refetchNodes, refetchTerms]);
 
-    // if node(s) or term(s) need to be refreshed at the root level, check if these special cases are in `urnsToUpdate`
+    // If node(s) or term(s) need to be refreshed at the root level, check if these special
+    // cases are in `urnsToUpdate`. Functional setter (not `urnsToUpdate.filter(...)`) so we
+    // don't strip the wrong subset when multiple updates are queued in the same render —
+    // `urnsToUpdate` from the closure can be stale by the time React applies our update.
     useEffect(() => {
         if (urnsToUpdate.includes(ROOT_NODES)) {
             refetchNodes();
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_NODES));
+            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_NODES));
         }
         if (urnsToUpdate.includes(ROOT_TERMS)) {
             refetchTerms();
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_TERMS));
+            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_TERMS));
         }
-    });
+    }, [urnsToUpdate, setUrnsToUpdate, refetchNodes, refetchTerms]);
 
     return (
         <BrowserWrapper>

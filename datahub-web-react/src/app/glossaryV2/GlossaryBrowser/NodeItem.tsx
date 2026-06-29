@@ -1,5 +1,4 @@
 import { Pill } from '@components';
-import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
@@ -12,8 +11,15 @@ import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import {
+    TreeRowContainer,
+    TreeRowIconSlot,
+    TreeRowLeftContent,
+    TreeRowTitle,
+} from '@app/glossaryV2/GlossaryBrowser/treeRow.styles';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Loader } from '@src/alchemy-components';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
@@ -22,65 +28,15 @@ import { GlossaryNodeFragment } from '@graphql/fragments.generated';
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 // --- Row chrome -------------------------------------------------------------
-// Matches `DomainNode` (and through it, `DocumentTreeItem`) so the three
-// tree sidebars (Glossary, Domains, Documents) read as siblings: 38px row,
-// 6px radius, brand-gradient text on selected, neutral hover background +
-// focus shadow, level-based left indent (8 + depth * 16).
+// `RowContainer` / `LeftContent` / `IconSlot` / `Title` live in
+// `treeRow.styles.ts` (shared with `TermItem` so the two leaf-row types in
+// the glossary tree stay visually identical). Caret button and right-content
+// wrappers are local to this file since terms don't render them.
 
 const ItemWrapper = styled.div`
     display: flex;
     flex-direction: column;
     position: relative;
-`;
-
-const RowContainer = styled.div<{ $level: number; $isSelected: boolean }>`
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
-    min-height: 38px;
-    height: 38px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background-color 0.15s ease;
-    margin: 0 2px 2px 2px;
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.bgSelectedSubtle};
-        box-shadow: ${props.theme.colors.shadowFocusBrand};
-    `}
-
-    ${(props) =>
-        !props.$isSelected &&
-        `
-        &:hover {
-            background: ${props.theme.colors.bgHover};
-            box-shadow: ${props.theme.colors.shadowFocus};
-        }
-    `}
-`;
-
-const LeftContent = styled.div`
-    display: flex;
-    align-items: center;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-`;
-
-// 24x20 icon slot — same size and gutter `DomainNode` / `DocumentTreeItem`
-// use, so vertical alignment matches across all three sidebars.
-const IconSlot = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 20px;
-    margin-right: 8px;
-    flex-shrink: 0;
 `;
 
 // Caret button is rendered inside the IconSlot when the node has children
@@ -104,22 +60,10 @@ const ExpandButton = styled.button`
     }
 `;
 
-const Title = styled.span<{ $isSelected: boolean }>`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textSecondary};
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.brandGradientSelected};
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
+// Node rows render a child-count pill on the right when collapsed. Terms
+// don't have children, so this stays local to NodeItem.
+const RowContainer = styled(TreeRowContainer)`
+    justify-content: space-between;
 `;
 
 const RightContent = styled.div`
@@ -234,10 +178,12 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    // A node's own saved displayProperties.colorHex (set via the header color picker)
-    // takes precedence over a color inherited from a parent node, which in turn beats the
-    // deterministic palette fallback. This keeps the sidebar in sync with the entity header.
-    const glossaryColor = node.displayProperties?.colorHex || iconColor || generateColor(node.urn);
+    // Route through the canonical resolver so the sidebar agrees with the entity header,
+    // list cards, and modal picker on what color this node should render. `iconColor` is the
+    // resolved color the parent NodeItem passed us during its own render; the resolver folds it
+    // into the precedence chain as `inheritedColor`.
+    const glossaryColor = resolveGlossaryEntityColor(node, generateColor, { inheritedColor: iconColor });
+    const NodeIcon = getGlossaryEntityIcon(EntityType.GlossaryNode);
 
     const showCaret = hasChildren && (areChildrenVisible || isHovered);
 
@@ -256,7 +202,7 @@ function NodeItem(props: Props) {
                 </ExpandButton>
             );
         }
-        return <GlossaryColoredIcon color={glossaryColor} icon={BookmarksSimple} size={20} iconSize={12} />;
+        return <GlossaryColoredIcon color={glossaryColor} icon={NodeIcon} size={20} iconSize={12} />;
     };
 
     const displayName = entityRegistry.getDisplayName(node.type, node);
@@ -271,10 +217,10 @@ function NodeItem(props: Props) {
                 onMouseLeave={() => setIsHovered(false)}
                 data-testid={`glossary-sidebar-node-${node.urn}`}
             >
-                <LeftContent>
-                    <IconSlot>{renderLeadingGlyph()}</IconSlot>
-                    <Title $isSelected={isRowSelected}>{displayName}</Title>
-                </LeftContent>
+                <TreeRowLeftContent>
+                    <TreeRowIconSlot>{renderLeadingGlyph()}</TreeRowIconSlot>
+                    <TreeRowTitle $isSelected={isRowSelected}>{displayName}</TreeRowTitle>
+                </TreeRowLeftContent>
                 {hasChildren && !areChildrenVisible && (
                     <RightContent>
                         <Pill label={`${noOfChildren}`} size="sm" />

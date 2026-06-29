@@ -122,9 +122,13 @@ function IconColorPicker({
                 toast.success(t('iconPicker.updateSuccess'), { duration: 2 });
             })
             .catch((e: unknown) => {
-                if (e instanceof Error) {
-                    toast.error(t('iconPicker.updateFailed', { message: e.message || '' }), { duration: 3 });
-                }
+                // Surface a toast for both real `Error`s and any other rejection value (string,
+                // GraphQL error array, undefined). The previous shape silently swallowed the
+                // failure when the rejection wasn't an `Error` instance, leaving the user with
+                // no feedback. Fall back to an empty message in that case so the toast still
+                // renders with the localized title.
+                const message = e instanceof Error ? e.message || '' : '';
+                toast.error(t('iconPicker.updateFailed', { message }), { duration: 3 });
             });
         onChangeColor?.(stagedColor);
         if (showIcon) onChangeIcon?.(stagedIcon);

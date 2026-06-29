@@ -1,11 +1,16 @@
 import { ColorPicker, Editor, Input, Modal, toast } from '@components';
 import DOMPurify from 'dompurify';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components/macro';
+import { useTheme } from 'styled-components/macro';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import {
+    EditorContainer,
+    Field,
+    useGlossaryNameValidation,
+} from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -16,24 +21,6 @@ import {
     useUpdateNameMutation,
 } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
-
-const Field = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 20px;
-
-    &:last-child {
-        margin-bottom: 0;
-    }
-`;
-
-const EditorContainer = styled.div`
-    height: 200px;
-    overflow: auto;
-    border: 1px solid ${(p) => p.theme.colors.border};
-    border-radius: 12px;
-`;
 
 interface Props {
     urn: string;
@@ -75,12 +62,7 @@ function EditGlossaryEntityModal({ urn, entityType, entityData, onClose, refetch
             ? t('glossaryTerm', { defaultValue: 'Glossary Term' })
             : t('glossary', { defaultValue: 'Glossary' });
 
-    const nameValidationError = useMemo<string | undefined>(() => {
-        const trimmed = stagedName.trim();
-        if (!trimmed) return t('createGlossary.nameRequired', { entityName });
-        if (trimmed.length > 100) return t('createGlossary.nameMaxLengthError');
-        return undefined;
-    }, [stagedName, entityName, t]);
+    const nameValidationError = useGlossaryNameValidation(stagedName, entityName);
 
     const saveDisabled = !!nameValidationError || submitting;
 

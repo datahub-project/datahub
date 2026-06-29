@@ -2,7 +2,7 @@ import { ColorPicker, Editor, Input, Modal, Text, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components/macro';
@@ -11,9 +11,15 @@ import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import {
+    EditorContainer,
+    Field,
+    useGlossaryNameValidation,
+} from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -22,18 +28,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
-import { DataHubPageModuleType, EntityType } from '@types';
-
-const Field = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 20px;
-
-    &:last-child {
-        margin-bottom: 0;
-    }
-`;
+import { DataHubPageModuleType, Entity, EntityType, GlossaryNode } from '@types';
 
 const FieldLabel = styled.div`
     display: flex;
@@ -48,13 +43,6 @@ const OptionalHint = styled(Text).attrs({ type: 'span', weight: 'normal' })`
 const HelperText = styled(Text).attrs({ type: 'p' })`
     color: ${(p) => p.theme.colors.textSecondary};
     margin: 0 0 8px 0;
-`;
-
-const EditorContainer = styled.div`
-    height: 200px;
-    overflow: auto;
-    border: 1px solid ${(p) => p.theme.colors.border};
-    border-radius: 12px;
 `;
 
 const AdvancedHeader = styled.button`
@@ -101,6 +89,16 @@ function CreateGlossaryEntityModal(props: Props) {
     const [nameTouched, setNameTouched] = useState(false);
     const [idTouched, setIdTouched] = useState(false);
     const [selectedParentUrn, setSelectedParentUrn] = useState<string>(props.isCloning ? '' : entityData.urn);
+    // The hydrated parent entity (or `null` when the user clears the picker, or the form is
+    // creating at the root). Tracked alongside `selectedParentUrn` so we can synthesize a
+    // correct `parentNodes` chain on the optimistic sidebar entry and inherit the parent's
+    // resolved color in the color picker.
+    const [selectedParentEntity, setSelectedParentEntity] = useState<GlossaryNode | null>(() => {
+        if (props.isCloning) return null;
+        const parent = entityData.entityData;
+        if (!parent?.urn) return null;
+        return parent as unknown as GlossaryNode;
+    });
     const [documentation, setDocumentation] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [selectedColor, setSelectedColor] = useState<string>(theme.colors.colorPickerDefault);
@@ -109,18 +107,13 @@ function CreateGlossaryEntityModal(props: Props) {
     // gray placeholder and overriding it.
     const [colorWasPicked, setColorWasPicked] = useState(false);
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
-    // Tracks the selected parent's effective color so the color picker can pre-fill from it.
-    // Mirrors the sidebar/header resolution chain: parent's explicit `displayProperties.colorHex`
-    // first, then the deterministic palette color seeded from the parent's urn — otherwise the
-    // picker would stay on the default whenever the parent only has a palette-derived color.
+    // Effective color of the currently-selected parent, used to pre-fill the color picker.
     // Once the user explicitly picks a color (`colorWasPicked === true`), changes here no longer
     // move the picker.
-    const [parentColor, setParentColor] = useState<string | undefined>(() => {
-        if (props.isCloning) return undefined;
-        const parent = entityData.entityData;
-        if (!parent?.urn) return undefined;
-        return parent.displayProperties?.colorHex || generateGlossaryColor(parent.urn);
-    });
+    const parentColor = useMemo<string | undefined>(() => {
+        if (!selectedParentEntity?.urn) return undefined;
+        return selectedParentEntity.displayProperties?.colorHex || generateGlossaryColor(selectedParentEntity.urn);
+    }, [selectedParentEntity, generateGlossaryColor]);
     const refetch = useRefetch();
     const history = useHistory();
     const { reloadByKeyType } = useReloadableContext();
@@ -131,13 +124,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const showColorPicker = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
 
-    // Validation rules: matches what the antd Form.Item rules used to enforce.
-    const nameValidationError = useMemo<string | undefined>(() => {
-        const trimmed = stagedName.trim();
-        if (!trimmed) return t('createGlossary.nameRequired', { entityName });
-        if (trimmed.length > 100) return t('createGlossary.nameMaxLengthError');
-        return undefined;
-    }, [stagedName, entityName, t]);
+    const nameValidationError = useGlossaryNameValidation(stagedName, entityName);
 
     const idValidationError = useMemo<string | undefined>(() => {
         if (!stagedId) return undefined;
@@ -147,12 +134,17 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const createButtonDisabled = !!nameValidationError || !!idValidationError;
 
+    // Seed the clone form once `entityData.entityData` is hydrated — but only the first time,
+    // so a later cache refresh that mutates `entityData.entityData`'s reference doesn't stomp
+    // on whatever the user has typed into the name / documentation fields in the meantime.
+    const clonePrefillApplied = useRef(false);
     useEffect(() => {
-        if (props.isCloning && entityData.entityData) {
-            const { properties } = entityData.entityData;
-            if (properties?.name) setStagedName(properties.name);
-            if (properties?.description) setDocumentation(properties.description);
-        }
+        if (clonePrefillApplied.current) return;
+        if (!props.isCloning || !entityData.entityData) return;
+        const { properties } = entityData.entityData;
+        if (properties?.name) setStagedName(properties.name);
+        if (properties?.description) setDocumentation(properties.description);
+        clonePrefillApplied.current = true;
     }, [props.isCloning, entityData.entityData]);
 
     function createGlossaryEntity() {
@@ -188,7 +180,32 @@ function CreateGlossaryEntityModal(props: Props) {
                         console.error('Failed to set glossary color after creation', e);
                     });
                 }
-                setTimeout(() => {
+
+                // Push the optimistic sidebar entry immediately — same chain as V2. Includes the
+                // root case (`!selectedParentUrn`) so the new root node/term shows up in the
+                // sidebar without waiting for the search index.
+                if (isInGlossaryContext && newEntityUrn) {
+                    const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                    updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                    const optimistic = buildOptimisticGlossaryEntity({
+                        urn: newEntityUrn,
+                        entityType,
+                        name: stagedName,
+                        description: sanitizedDescription || null,
+                        colorHex: showColorPicker && colorWasPicked ? selectedColor : undefined,
+                        parent: selectedParentUrn ? selectedParentEntity : null,
+                    });
+                    setNodeToNewEntity((currData) => ({
+                        ...currData,
+                        [nodeToUpdate]: optimistic as unknown as Entity,
+                    }));
+                }
+
+                // Defer the analytics event, success toast, refetch, and clone-redirect by
+                // `GLOSSARY_SEARCH_INDEX_REFRESH_MS` so the refetch sees the new entity in the
+                // search index. Fire-and-forget — every callback below targets parent contexts
+                // (analytics, refetch, history) that outlive the modal.
+                window.setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateGlossaryEntityEvent,
                         entityType,
@@ -201,31 +218,6 @@ function CreateGlossaryEntityModal(props: Props) {
                         { duration: 2 },
                     );
                     refetch();
-                    if (isInGlossaryContext) {
-                        // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
-                        updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
-                        if (selectedParentUrn && newEntityUrn) {
-                            // Carry the picked color into the optimistic sidebar entry so the new
-                            // node renders with the correct color immediately. Without this, the
-                            // sidebar falls back to the inherited parent color and only corrects
-                            // itself once the search index refetch catches up — which is racy.
-                            const optimisticDisplayProperties =
-                                showColorPicker && colorWasPicked ? { colorHex: selectedColor } : null;
-                            setNodeToNewEntity((currData) => ({
-                                ...currData,
-                                [selectedParentUrn]: {
-                                    urn: newEntityUrn,
-                                    type: entityType,
-                                    properties: {
-                                        name: stagedName,
-                                        description: sanitizedDescription || null,
-                                    },
-                                    displayProperties: optimisticDisplayProperties,
-                                },
-                            }));
-                        }
-                    }
                     if (refetchData) {
                         refetchData();
                     }
@@ -236,12 +228,12 @@ function CreateGlossaryEntityModal(props: Props) {
                                 : res.data?.createGlossaryNode;
                         history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
-                    // Reload modules
-                    // ChildHierarchy - to update contents module as new term/node could change it
+                    // ChildHierarchy module needs to refresh since a new term/node can change the
+                    // contents shown on the parent's hierarchy view.
                     reloadByKeyType([
                         getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
                     ]);
-                }, 2000);
+                }, GLOSSARY_SEARCH_INDEX_REFRESH_MS);
             })
             .catch((e) => {
                 toast.error(t('createGlossary.error', { errorMessage: e.message || '' }), { duration: 3 });
@@ -292,13 +284,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 <NodeParentSelect
                     selectedParentUrn={selectedParentUrn}
                     setSelectedParentUrn={setSelectedParentUrn}
-                    onSelectParent={(parent) =>
-                        setParentColor(
-                            parent
-                                ? parent.displayProperties?.colorHex || generateGlossaryColor(parent.urn)
-                                : undefined,
-                        )
-                    }
+                    onSelectParent={setSelectedParentEntity}
                 />
             </Field>
             <Field>

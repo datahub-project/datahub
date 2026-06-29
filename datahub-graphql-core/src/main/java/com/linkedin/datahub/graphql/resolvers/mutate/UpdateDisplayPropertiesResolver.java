@@ -39,19 +39,20 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
     final QueryContext context = environment.getContext();
     Urn targetUrn = Urn.createFromString(urn);
 
-    log.info(
+    // Debug-level so a successful color/icon change doesn't add noise to a production log
+    // stream. Errors keep their existing log.error and authorization failures still throw.
+    log.debug(
         "Updating display properties. urn: {} input: {}", targetUrn.toString(), input.toString());
-
-    if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
-      throw new IllegalArgumentException(
-          String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
-    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // displayProperties is shared across domains and glossary entities. Authorize
           // based on the target entity type so a glossary editor can change a term/node
           // color without also having MANAGE_DOMAINS, and vice versa.
+          //
+          // Authorize BEFORE the existence check so an unauthorized actor can't probe whether a
+          // URN exists by toggling the request and inspecting the error message
+          // ("does not exist" vs "Unauthorized").
           final String entityType = targetUrn.getEntityType();
           final boolean authorized;
           if (Constants.GLOSSARY_TERM_ENTITY_NAME.equals(entityType)
@@ -65,6 +66,11 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
           if (!authorized) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+
+          if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
+            throw new IllegalArgumentException(
+                String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
           }
 
           try {

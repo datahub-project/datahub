@@ -109,11 +109,16 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
     useEffect(() => {
         if (entityUrn && urnsToUpdate.includes(entityUrn)) {
             refetch(getGlossaryChildrenScrollInput(entityUrn, scrollId));
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== entityUrn));
+            // Functional setter so we don't strip the wrong subset when multiple parents are
+            // signaled in `urnsToUpdate` for the same render — `urnsToUpdate` from the closure
+            // may not include them all by the time React commits this update.
+            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== entityUrn));
         }
     }, [entityUrn, urnsToUpdate, setUrnsToUpdate, refetch, scrollId]);
 
-    // update when new entity is added
+    // update when new entity is added.
+    // Intentionally excludes `data` from the deps — it's not read in the body and including it
+    // would re-run on every scroll-merge tick, racing with the optimistic insertion below.
     useEffect(() => {
         if (entityUrn && nodeToNewEntity[entityUrn] && !dataUrnsSet.has(nodeToNewEntity[entityUrn].urn)) {
             const newEntity = nodeToNewEntity[entityUrn];
@@ -125,7 +130,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
                 return newState;
             });
         }
-    }, [entityUrn, nodeToNewEntity, setNodeToNewEntity, dataUrnsSet, data]);
+    }, [entityUrn, nodeToNewEntity, setNodeToNewEntity, dataUrnsSet]);
 
     // update when entity is removed
     useEffect(() => {
