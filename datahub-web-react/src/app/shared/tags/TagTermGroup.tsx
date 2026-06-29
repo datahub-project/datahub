@@ -2,8 +2,9 @@
 // gated on `useBusinessAttributesFlag`) over to the V2 `app/sharedV2/tags/TagTermGroup` and delete
 // this V1 file. The V1 UI was removed in #16680, but this file was left behind because the
 // BusinessAttributes list page is behind a feature flag and was missed by that cleanup sweep.
+import { Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button, Typography } from 'antd';
+import { Button } from 'antd';
 import React, { useMemo, useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -176,16 +177,16 @@ export default function TagTermGroup({
                 );
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
-                <Typography.Paragraph type="secondary">
+                <Text color="textSecondary">
                     {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
-                </Typography.Paragraph>
+                </Text>
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
-                <Typography.Paragraph type="secondary">
+                <Text color="textSecondary">
                     {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                     {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
-                </Typography.Paragraph>
+                </Text>
             )}
             {canAddTag && !readOnly && (
                 <NoElementButton
