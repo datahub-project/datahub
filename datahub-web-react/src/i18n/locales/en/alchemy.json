@@ -56,6 +56,8 @@
     "loadedVideo.error": "Failed to load video",
     "loadedVideo.unsupportedFallback": "Your browser doesn't support HTML5 video. Here's a <anchor>link to the video</anchor> instead.",
     "noData": "No Data",
+    "pagination.nextPage": "Next page",
+    "pagination.previousPage": "Previous page",
     "radio.label": "Label",
     "resizablePills.moreHiddenCount_one": "{{count}} more item hidden",
     "resizablePills.moreHiddenCount_other": "{{count}} more items hidden",

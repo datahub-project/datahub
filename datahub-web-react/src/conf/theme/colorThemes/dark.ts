@@ -21,7 +21,7 @@ const darkTheme: ColorTheme = {
     bgHover: colors.gray1000,
     text: colors.gray200,
     textSecondary: colors.gray300,
-    textTertiary: colors.gray400,
+    textTertiary: colors.gray500,
     textBrand: colors.violet500,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,

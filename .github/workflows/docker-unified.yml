@@ -51,7 +51,7 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  PLAYWRIGHT_SHARD_COUNT: "5"
+  PLAYWRIGHT_SHARD_COUNT: "8"
 
 permissions:
   contents: read

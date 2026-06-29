@@ -601,6 +601,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
+    "azure-auth": {"azure-identity>=1.21.0,<2.0.0"},
     "azure-data-factory": azure_data_factory,
     "fabric-data-factory": {
         "azure-core>=1.38.0,<2.0.0",
@@ -718,6 +719,9 @@ plugins: Dict[str, Set[str]] = {
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
+    # (kinesis_schema_registry imports protobuf_util at module load).
+    "kinesis": aws_common | kafka_protobuf,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -911,7 +915,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation]==1.40.0",
     "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
@@ -1006,6 +1010,7 @@ base_dev_requirements = {
             "postgres",
             "sagemaker",
             "kafka",
+            "kinesis",
             "datahub-rest",
             "datahub-lite",
             "presto",
@@ -1107,6 +1112,11 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "datahub.token_provider.plugins": [
+        "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
+        "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
+        "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+    ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
     ],
@@ -1150,6 +1160,7 @@ entry_points = {
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
+        "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
