@@ -45,5 +45,6 @@ Results from every Checkpoint run will appear in DataHub under the dataset's **V
 ## Links
 
 - [Full documentation](https://docs.datahub.com/docs/metadata-ingestion/integration_docs/great-expectations)
+- [Great Expectations](https://greatexpectations.io/)
 - [GitHub](https://github.com/datahub-project/datahub)
 - [Slack community](https://datahub.com/slack)

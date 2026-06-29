@@ -57,5 +57,6 @@ The plugin activates automatically — no changes to your DAG code required.
 ## Links
 
 - [Full documentation](https://docs.datahub.com/docs/lineage/airflow)
+- [Apache Airflow](https://airflow.apache.org/)
 - [GitHub](https://github.com/datahub-project/datahub)
 - [Slack community](https://datahub.com/slack)
