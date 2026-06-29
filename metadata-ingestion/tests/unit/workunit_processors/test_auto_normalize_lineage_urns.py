@@ -21,6 +21,7 @@ from datahub.ingestion.workunit_processors.auto_normalize_lineage_urns import (
 )
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
+    ChartInfoClass,
     DashboardInfoClass,
     DataJobInputOutputClass,
     DatasetSnapshotClass,
@@ -521,6 +522,33 @@ def test_dashboard_info_unresolved_ref_is_counted():
         assert _dashboard_aspect(out).datasets == [UPPER]  # left unchanged
         assert processor.report.num_refs_unresolved == 1
         assert processor.report.num_refs_unchanged == 0
+    finally:
+        patcher.stop()
+
+
+def test_chart_info_inputs_and_edges_are_healed():
+    # Direct-query BI tools (Superset/Mode/Redash) point charts straight at warehouse
+    # tables, so chartInfo inputs/inputEdges are upstream refs and get healed.
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
+    try:
+        wu = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:chart:(superset,chart_1)",
+            aspect=ChartInfoClass(
+                title="c",
+                description="",
+                lastModified=ChangeAuditStampsClass(),
+                inputs=[UPPER],
+                inputEdges=[EdgeClass(destinationUrn=UPPER)],
+            ),
+        ).as_workunit()
+        [out] = list(processor.process(iter([wu])))
+        chart = out.get_aspect_of_type(ChartInfoClass)
+        assert chart is not None
+        assert chart.inputs == [LOWER]  # input dataset healed
+        edges = chart.inputEdges
+        assert (
+            edges is not None and edges[0].destinationUrn == LOWER
+        )  # input edge healed
     finally:
         patcher.stop()
 
