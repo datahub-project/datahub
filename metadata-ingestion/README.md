@@ -1,12 +1,16 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 # acryl-datahub
 
-**DataHub's ingestion framework and CLI** — extract metadata from 50+ data sources and push it into your DataHub catalog.
+**DataHub's ingestion framework and CLI** — pull metadata from 50+ data sources into your catalog, or push it programmatically from your own pipelines and applications.
+
+**Pull-based** integrations crawl your data systems on a schedule: Snowflake, BigQuery, dbt, Looker, Airflow, and many more.
+
+**Push-based** integrations let you emit metadata directly from code as it happens: Python SDK, Java SDK, Spark, Great Expectations, and others.
 
 ## What you can do
 
-- **Ingest metadata** from databases, data warehouses, BI tools, orchestrators, and more
-- **Emit metadata programmatically** using the Python or Java SDK
+- **Pull metadata** from databases, warehouses, BI tools, and orchestrators using 50+ ready-made connectors
+- **Push metadata** programmatically using the Python or Java SDK
 - **Transform and filter** metadata in transit using built-in transformers
 - **Schedule and manage** ingestion pipelines via CLI or the DataHub UI
 - **Automate lineage, ownership, tags, and documentation** across your data assets
