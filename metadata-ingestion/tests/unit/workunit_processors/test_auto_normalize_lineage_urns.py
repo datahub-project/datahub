@@ -353,14 +353,7 @@ def test_multi_platform_upstreams_both_healed():
     rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
     rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
 
-    def fake_provide(
-        graph,
-        platform,
-        platform_instance,
-        env,
-        batch_size=100,
-        populate_membership=False,
-    ):
+    def fake_provide(graph, platform, platform_instance, env, batch_size=100):
         return sf_resolver if platform == "snowflake" else rs_resolver
 
     cfg = NormalizeLineageUrnCasingConfig(
