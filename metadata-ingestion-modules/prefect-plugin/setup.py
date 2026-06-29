@@ -25,8 +25,7 @@ rest_common = {"requests", "requests_file"}
 
 base_requirements = {
     # Actual dependencies.
-    # Temporary pinning to 2.0.0 until we can upgrade to 3.0.0
-    "prefect >= 2.0.0,<3.0.0",
+    "prefect >= 3.0.0,<4.0.0",
     # Pin asyncpg to a version compatible with Python 3.13
     "asyncpg>=0.30.0",
     *rest_common,
@@ -58,9 +57,7 @@ dev_requirements = {
     "coverage>=5.1",
     "ruff==0.11.7",
     "mypy==1.17.1",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10",
+    "pydantic>=2.0.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -75,7 +72,7 @@ dev_requirements = {
 }
 
 entry_points = {
-    "prefect.block": "prefect-datahub = prefect_datahub.prefect_datahub:DatahubEmitter"
+    "prefect.collections": "prefect-datahub = prefect_datahub.datahub_emitter"
 }
 
 

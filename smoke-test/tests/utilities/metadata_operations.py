@@ -298,6 +298,8 @@ def search_across_lineage(
     direction: str = "UPSTREAM",
     query: str = "*",
     count: int = 10,
+    degree: Optional[int] = None,
+    skip_cache: bool = False,
 ) -> Dict[str, Any]:
     """Search across lineage from a given entity."""
     graphql_query = """
@@ -328,6 +330,21 @@ def search_across_lineage(
             "count": count,
         }
     }
+    if degree is not None:
+        variables["input"]["orFilters"] = [
+            {
+                "and": [
+                    {
+                        "field": "degree",
+                        "condition": "EQUAL",
+                        "values": [str(degree)],
+                        "negated": False,
+                    }
+                ]
+            }
+        ]
+    if skip_cache:
+        variables["input"]["searchFlags"] = {"skipCache": True}
 
     res_data = execute_graphql(auth_session, graphql_query, variables)
     return res_data["data"]["searchAcrossLineage"]

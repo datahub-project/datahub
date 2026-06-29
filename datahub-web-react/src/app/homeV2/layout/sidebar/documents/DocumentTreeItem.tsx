@@ -1,14 +1,20 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileDashed } from '@phosphor-icons/react/dist/csr/FileDashed';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
+
+import { DataPlatform } from '@types';
 
 const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     position: relative;
@@ -78,7 +84,10 @@ const ExpandButton = styled.button<{ $isVisible: boolean }>`
     }
 `;
 
-const IconWrapper = styled.div<{ $isSelected: boolean }>`
+// Dashed (draft/proposed) icons can't use the selected-state gradient: it paints the icon body
+// solid via `fill: url(...)`, which visually erases the dashed outline. They fall back to the
+// brand color so the dash pattern stays visible.
+const IconWrapper = styled.div<{ $isSelected: boolean; $useGradientFill: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -86,10 +95,12 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     flex-shrink: 0;
 
     && svg {
-        ${(props) =>
-            props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.textTertiary};`}
+        ${(props) => {
+            if (!props.$isSelected) return `color: ${props.theme.colors.icon};`;
+            if (props.$useGradientFill)
+                return `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`;
+            return `color: ${props.theme.colors.iconBrand};`;
+        }}
     }
 `;
 
@@ -125,6 +136,12 @@ const ActionButton = styled(Button)`
     }
 `;
 
+/** Resolves the Phosphor icon component for a tree row given its branch/published state. */
+function pickTreeIcon({ hasChildren, isUnpublished }: { hasChildren: boolean; isUnpublished: boolean }) {
+    if (hasChildren) return isUnpublished ? FolderDashed : Folder;
+    return isUnpublished ? FileDashed : FileText;
+}
+
 interface DocumentTreeItemProps {
     urn: string;
     title: string;
@@ -133,6 +150,9 @@ interface DocumentTreeItemProps {
     isExpanded: boolean;
     isSelected: boolean;
     isLoading?: boolean;
+    isUnpublished?: boolean; // Any non-PUBLISHED state — renders the dashed Phosphor variant (native docs only)
+    isExternal?: boolean; // External-source doc — renders the platform logo (via DocumentSourceLogo) instead of the Phosphor folder/file
+    platform?: DataPlatform | null; // Source platform; only consumed when isExternal is true
     onToggleExpand: () => void;
     onClick: () => void;
     onCreateChild: (parentUrn: string) => void;
@@ -150,6 +170,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     isExpanded,
     isSelected,
     isLoading,
+    isUnpublished = false,
+    isExternal = false,
+    platform = null,
     onToggleExpand,
     onClick,
     onCreateChild,
@@ -158,6 +181,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
@@ -190,26 +215,43 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     data-testid={`document-tree-expand-button-${urn}`}
                     $isVisible
                     onClick={handleExpandClick}
-                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                    aria-label={isExpanded ? tc('collapse') : tc('expand')}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                    {!isLoading && isExpanded && (
-                        <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />
-                    )}
-                    {!isLoading && !isExpanded && (
-                        <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />
-                    )}
+                    {!isLoading && isExpanded && <CaretDown color={theme.colors.icon} size={16} weight="bold" />}
+                    {!isLoading && !isExpanded && <CaretRight color={theme.colors.icon} size={16} weight="bold" />}
                 </ExpandButton>
             );
         }
 
+        // External docs render the source platform's logo (transparent, no color extraction —
+        // see DocumentSourceLogo and the PluginLogo precedent). Hover-to-caret behavior above
+        // is preserved because `showExpandButton` evaluates before this branch — only the
+        // resting-state glyph changes.
+        if (isExternal && platform) {
+            // Fallback when no logoUrl can be resolved is the regular folder/file glyph —
+            // visually consistent with the rest of the tree if the platform is unknown.
+            const FallbackIcon = pickTreeIcon({ hasChildren, isUnpublished: false });
+            return (
+                <IconWrapper className="tree-item-icon" $isSelected={false} $useGradientFill={false}>
+                    <DocumentSourceLogo
+                        platform={platform}
+                        size={16}
+                        fallback={<FallbackIcon size={20} weight="regular" />}
+                    />
+                </IconWrapper>
+            );
+        }
+
+        // Unpublished docs render as dashed variants. The `fill` weight on a dashed icon
+        // collapses the dash pattern into a solid shape, so dashed icons stay `regular` even
+        // when selected (the selected color is applied through IconWrapper).
+        const Icon = pickTreeIcon({ hasChildren, isUnpublished });
+        const iconWeight = isSelected && !isUnpublished ? 'fill' : 'regular';
+
         return (
-            <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
-                {hasChildren ? (
-                    <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
-                ) : (
-                    <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
-                )}
+            <IconWrapper className="tree-item-icon" $isSelected={isSelected} $useGradientFill={!isUnpublished}>
+                <Icon size={20} weight={iconWeight} />
             </IconWrapper>
         );
     };
@@ -243,7 +285,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         />
                     )}
                     {!hideCreate && (
-                        <Tooltip title="New document" placement="bottom" showArrow={false}>
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton
                                 icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
                                 variant="text"

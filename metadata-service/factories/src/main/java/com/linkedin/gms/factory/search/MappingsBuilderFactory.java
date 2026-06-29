@@ -30,10 +30,12 @@ public class MappingsBuilderFactory {
   @Bean("legacyMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
-  protected MappingsBuilder createLegacyMappingsBuilder(ConfigurationProvider configProvider) {
+  protected MappingsBuilder createLegacyMappingsBuilder(
+      ConfigurationProvider configProvider,
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    log.info("Creating LegacyMappingsBuilder bean");
-    return new V2MappingsBuilder(entityIndexConfig);
+    log.info("Creating LegacyMappingsBuilder bean (engineType={})", searchClient.getEngineType());
+    return new V2MappingsBuilder(entityIndexConfig, searchClient.partialNgramConfig());
   }
 
   @Bean("multiEntityMappingsBuilder")

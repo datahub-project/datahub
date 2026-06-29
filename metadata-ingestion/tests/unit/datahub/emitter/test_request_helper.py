@@ -200,6 +200,20 @@ def test_from_mcp_async_flag():
     assert "async=false" in request.url
 
 
+def test_from_mcp_forwards_mcp_headers():
+    """MCP-level headers (e.g. If-None-Match) are forwarded into the OpenAPI payload."""
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:chart:(test,test)",
+        aspect=CHART_INFO,
+        headers={"If-None-Match": "*"},
+    )
+
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
+
+    assert request is not None
+    assert request.payload[0]["chartInfo"]["headers"] == {"If-None-Match": "*"}
+
+
 def test_from_mcp_search_sync_flag():
     """Test that search_sync_flag adds the appropriate header to the request only when async_flag is False"""
     mcp = MetadataChangeProposalWrapper(

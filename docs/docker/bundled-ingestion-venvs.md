@@ -53,6 +53,8 @@ Docker substitutes **`${BUNDLED_VENV_PLUGINS}`** from the parent image so you ne
 
 **Locked** (**`*-locked`**) images remove **`uv`**/**`pip`**—do not use them as the base for this flow.
 
+**Security hardening:** Trust boundaries for executor workloads, why locked images remove runtime package managers, and how to steer installs through an internal PyPI mirror are covered in [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
+
 ### Remote Executor (`datahub-executor`)
 
 Same **`ENV`** + **`RUN`** pattern if your image includes **`/opt/datahub/bundled-venv-build/`**. Otherwise see below or ask DataHub Cloud for a custom image. Deploy help: [Configuring Remote Executor](/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md).
@@ -79,5 +81,6 @@ Maintainers: **`docker/datahub-actions/Dockerfile`** + **`--build-arg`** (see Do
 
 ## Related documentation
 
+- [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md)
 - [Ingestion Executor](/docs/actions/actions/executor.md)
 - [Docker development](/docs/docker/development.md)

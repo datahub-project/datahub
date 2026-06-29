@@ -17,6 +17,13 @@ used as inputs to DataHub Cloud [Freshness Assertions](/docs/managed-datahub/obs
 
 This guide will show you how to report and query Operations for a Dataset.
 
+## Supported Sources
+
+Some ingestion sources can automatically capture operations from native audit logs, query history, table history, or object
+timestamps. The table below lists sources that emit dataset-level DataHub `operation` aspects during ingestion.
+
+{{ inline /docs/generated/ingestion/operation_capture_support_table.md.snippet }}
+
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.

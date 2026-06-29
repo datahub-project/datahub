@@ -83,7 +83,8 @@ class OpenApiRequest:
             url = f"{gms_server}/openapi/v3/entity/{mcp.entityType}/{mcp.entityUrn}"
         else:
             if mcp.aspect:
-                mcp_headers = {}
+                headers = getattr(mcp, "headers", None)
+                mcp_headers = dict(headers) if headers else {}
 
                 if not async_flag and search_sync_flag:
                     mcp_headers["X-DataHub-Sync-Index-Update"] = "true"

@@ -63,22 +63,11 @@ def test_airflow_provider_info():
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
-    from packaging import version
-
-    from datahub_airflow_plugin._airflow_shims import AIRFLOW_VERSION
-
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
-    # Root-level example DAGs use Airflow 2 APIs and don't work on Airflow 3
-    # Airflow 3 should use the airflow3/ subdirectory
-    if AIRFLOW_VERSION >= version.parse("3.0.0"):
-        pytest.skip(
-            "Example DAGs in this folder use Airflow 2 APIs. Airflow 3 uses airflow3/ subdirectory."
-        )
-
-    # Note: the .airflowignore file skips the snowflake DAG and version-specific subdirectories.
+    # Note: the .airflowignore file skips the snowflake DAG.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
@@ -184,6 +173,85 @@ def test_hook_airflow_ui(hook):
     hook.get_ui_field_behaviour()
 
 
+def test_datajob_url_link_taskinstance_rejected_with_migration_message():
+    """Users upgrading from Airflow 2 may still have `datajob_url_link=taskinstance`
+    in airflow.cfg — the removed Airflow 2 URL format. Confirm the plugin fails fast
+    with a migration-friendly error rather than an opaque pydantic enum error."""
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "taskinstance" if key == "datajob_url_link" else fallback
+        ),
+    ):
+        with pytest.raises(ValueError, match="taskinstance"):
+            get_lineage_config()
+
+
+def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
+    """BaseHook moved into the Task SDK (airflow.sdk.bases.hook) in Airflow 3.1.
+    On Airflow 3.0.x it is only importable from airflow.hooks.base, so
+    hooks/datahub.py imports it via a try/except. Simulate the 3.0 surface
+    (airflow.sdk without BaseHook) and re-import the module to prove the
+    fallback branch keeps DatahubRestHook working — this guards 3.0 support
+    even though the unit suite itself runs on a newer Airflow."""
+    import importlib
+    import sys
+    import types
+
+    # airflow.hooks.base exposes BaseHook via a lazy shim mypy can't see on 3.1+.
+    # Keep this on one line so the inline ignore lands on the line mypy flags.
+    from airflow.hooks.base import BaseHook  # type: ignore[attr-defined]
+
+    import datahub_airflow_plugin.hooks.datahub as hook_module
+
+    # Replace airflow.sdk with a stub that lacks BaseHook so
+    # `from airflow.sdk import BaseHook` raises ImportError, as on Airflow 3.0.x.
+    stub_sdk = types.ModuleType("airflow.sdk")
+    monkeypatch.setitem(sys.modules, "airflow.sdk", stub_sdk)
+    try:
+        importlib.reload(hook_module)
+        assert hook_module.BaseHook is BaseHook
+        assert issubclass(hook_module.DatahubRestHook, BaseHook)
+    finally:
+        # Restore the real (3.1+) import surface for the rest of the suite.
+        monkeypatch.undo()
+        importlib.reload(hook_module)
+
+
+def test_get_base_url_prefers_api_over_webserver():
+    """_get_base_url should prefer Airflow 3's `[api] base_url` over the legacy
+    `[webserver] base_url`, then fall back to localhost. The integration suite
+    only sets `[api]`, so the precedence and the webserver fallback are unit-tested
+    here."""
+    from datahub_airflow_plugin.client.airflow_generator import _get_base_url
+
+    def conf_get(values):
+        return lambda section, key, fallback=None: values.get((section, key), fallback)
+
+    cases = [
+        # both set -> api wins
+        (
+            {
+                ("api", "base_url"): "http://api:8080",
+                ("webserver", "base_url"): "http://web:8080",
+            },
+            "http://api:8080",
+        ),
+        # only webserver set -> webserver fallback
+        ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # neither set -> localhost default
+        ({}, "http://localhost:8080"),
+    ]
+    for values, expected in cases:
+        with mock.patch(
+            "datahub_airflow_plugin.client.airflow_generator.conf.get",
+            side_effect=conf_get(values),
+        ):
+            assert _get_base_url() == expected
+
+
 def test_entities():
     assert (
         Dataset("snowflake", "mydb.schema.tableConsumed").urn
@@ -268,20 +336,17 @@ def test_get_lineage_config_reads_per_dag_filter_str():
     assert cfg.should_emit_datajob_lineage("other_dag") is True
 
 
-def _import_listener_modules():
-    """Import both listener modules. Skip if Airflow runtime not available."""
+def _import_listener_module():
+    """Import the listener module. Skip if Airflow runtime not available."""
     try:
-        from datahub_airflow_plugin.airflow2 import datahub_listener as a2_listener
-        from datahub_airflow_plugin.airflow3 import datahub_listener as a3_listener
+        from datahub_airflow_plugin import datahub_listener as listener_module
     except Exception as e:
-        pytest.skip(f"Airflow listener modules unavailable: {e}")
-    return a2_listener, a3_listener
+        pytest.skip(f"Airflow listener module unavailable: {e}")
+    return listener_module
 
 
-@pytest.mark.parametrize("airflow_version", ["airflow2", "airflow3"])
-def test_listener_extract_lineage_skips_when_dag_denied(airflow_version):
-    a2, a3 = _import_listener_modules()
-    listener_module = a2 if airflow_version == "airflow2" else a3
+def test_listener_extract_lineage_skips_when_dag_denied():
+    listener_module = _import_listener_module()
 
     listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
     listener.config = _make_lineage_config(filter_str='{"deny": ["denied_dag"]}')
@@ -298,10 +363,8 @@ def test_listener_extract_lineage_skips_when_dag_denied(airflow_version):
     datajob.outlets.append.assert_not_called()
 
 
-@pytest.mark.parametrize("airflow_version", ["airflow2", "airflow3"])
-def test_listener_extract_lineage_skips_when_global_disabled(airflow_version):
-    a2, a3 = _import_listener_modules()
-    listener_module = a2 if airflow_version == "airflow2" else a3
+def test_listener_extract_lineage_skips_when_global_disabled():
+    listener_module = _import_listener_module()
 
     listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
     listener.config = _make_lineage_config(enable_datajob_lineage=False)
@@ -318,20 +381,17 @@ def test_listener_extract_lineage_skips_when_global_disabled(airflow_version):
 
 
 @pytest.mark.parametrize(
-    ("airflow_version", "dag_id", "expected_generate_lineage"),
+    ("dag_id", "expected_generate_lineage"),
     [
-        ("airflow2", "allowed_dag", True),
-        ("airflow2", "denied_dag", False),
-        ("airflow3", "allowed_dag", True),
-        ("airflow3", "denied_dag", False),
+        ("allowed_dag", True),
+        ("denied_dag", False),
     ],
 )
 def test_listener_generate_and_emit_datajob_passes_filter_to_generate_mcp(
-    airflow_version, dag_id, expected_generate_lineage
+    dag_id, expected_generate_lineage
 ):
     """Verify generate_mcp is called with generate_lineage gated on the per-DAG filter."""
-    a2, a3 = _import_listener_modules()
-    listener_module = a2 if airflow_version == "airflow2" else a3
+    listener_module = _import_listener_module()
 
     listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
     listener.config = _make_lineage_config(filter_str='{"deny": ["denied_dag"]}')
@@ -340,7 +400,6 @@ def test_listener_generate_and_emit_datajob_passes_filter_to_generate_mcp(
     listener.config.capture_ownership_info = False
     listener.config.materialize_iolets = False
 
-    # Stub emitter access used by both listener variants.
     emitter = mock.MagicMock()
     listener._emitter = emitter
     listener._make_emit_callback = mock.MagicMock(return_value=None)
@@ -353,22 +412,18 @@ def test_listener_generate_and_emit_datajob_passes_filter_to_generate_mcp(
     task_instance = mock.MagicMock(task=task)
     dagrun = mock.MagicMock()
 
-    patches = [
-        mock.patch.object(listener, "_extract_lineage"),
-        mock.patch.object(
-            listener_module.AirflowGenerator,
-            "generate_datajob",
-            return_value=datajob,
-        ),
-    ]
-    if airflow_version == "airflow3":
-        patches.append(
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(listener, "_extract_lineage"))
+        stack.enter_context(
+            mock.patch.object(
+                listener_module.AirflowGenerator,
+                "generate_datajob",
+                return_value=datajob,
+            )
+        )
+        stack.enter_context(
             mock.patch.object(listener, "_get_emitter", return_value=emitter)
         )
-
-    with contextlib.ExitStack() as stack:
-        for p in patches:
-            stack.enter_context(p)
         listener._generate_and_emit_datajob(
             dagrun=dagrun,
             task=task,

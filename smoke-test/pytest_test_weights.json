@@ -576,7 +576,7 @@
     "duration": "19.512s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_graph_relationships",
+    "testId": "tests.graph.test_graph_client::test_graph_relationships",
     "duration": "19.510s"
   },
   {
@@ -716,7 +716,7 @@
     "duration": "10.260s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_get_aspect_v2",
+    "testId": "tests.graph.test_graph_client::test_get_aspect_v2",
     "duration": "10.257s"
   },
   {
@@ -1740,7 +1740,7 @@
     "duration": "0.024s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_get_entities_v3",
+    "testId": "tests.graph.test_graph_client::test_get_entities_v3",
     "duration": "0.023s"
   },
   {

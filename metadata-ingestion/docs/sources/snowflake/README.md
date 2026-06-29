@@ -30,12 +30,24 @@ Read on if you are interested in ingesting Snowflake metadata using the **datahu
 
 ## Concept Mapping
 
-While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
+| Snowflake Concept               | DataHub Entity (Subtype)                                     | Notes                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Account                         | Platform Instance                                            | Top-level scope; all URNs include the configured platform instance.                                                                 |
+| Database                        | Container (DATABASE)                                         | Top-level namespace. Ingested with description, tags, and Snowsight URL.                                                            |
+| Schema                          | Container (SCHEMA)                                           | Nested under its Database container.                                                                                                |
+| Table                           | Dataset (TABLE)                                              | Includes regular, Iceberg, and hybrid tables. Schema, PKs/FKs, tags, and descriptions are extracted.                                |
+| Dynamic Table                   | Dataset (DYNAMIC TABLE)                                      | Includes target lag, SQL definition, and lineage to source tables.                                                                  |
+| View                            | Dataset (VIEW)                                               | Standard, materialized, and secure views. View definition is captured.                                                              |
+| Semantic View                   | Dataset (SEMANTIC VIEW)                                      | Columns classified as DIMENSION, FACT, or METRIC. Column-level lineage to physical tables is extracted.                             |
+| Stream                          | Dataset (SNOWFLAKE STREAM)                                   | Change-data-capture stream. Adds `METADATA$ACTION`, `METADATA$ISUPDATE`, `METADATA$ROW_ID` columns and lineage to the source table. |
+| External Table                  | Dataset (TABLE)                                              | Lineage to the backing cloud storage location is emitted when available.                                                            |
+| Internal Stage                  | Container (SNOWFLAKE STAGE) + Dataset (SNOWFLAKE STAGE DATA) | Emits both a Container (organizational) and a Dataset (for the resident data).                                                      |
+| External Stage                  | Container (SNOWFLAKE STAGE)                                  | Container only; the backing cloud storage asset (S3/GCS/Azure) is referenced via lineage.                                           |
+| Task                            | DataFlow (SNOWFLAKE TASK GROUP) + DataJob (SNOWFLAKE TASK)   | One DataFlow per schema; each task is a DataJob. Predecessor relationships appear as DataJob inputs.                                |
+| Pipe                            | DataFlow (SNOWFLAKE PIPE GROUP) + DataJob (SNOWFLAKE PIPE)   | One DataFlow per schema; each pipe is a DataJob linking a stage to a target table via lineage.                                      |
+| Streamlit App                   | Dashboard (STREAMLIT)                                        | App name, owner, and Snowsight URL captured as custom properties.                                                                   |
+| Column / field                  | SchemaField                                                  | Column type, nullability, descriptions, and tags are extracted where available.                                                     |
+| Role                            | CorpGroup                                                    | Ownership roles are mapped to `urn:li:corpGroup:{role_name}`.                                                                       |
+| Tag                             | Tag or Structured Property                                   | Controlled by `extract_tags` config. Tags support database/schema/table/column inheritance.                                         |
+| Table- and column-level lineage | Lineage edges                                                | Extracted from view definitions, dynamic table definitions, and SQL query history.                                                  |
+| Query operations and usage      | DatasetUsageStatistics, Operation                            | Per-dataset query counts, user access patterns, and DML operation metrics.                                                          |

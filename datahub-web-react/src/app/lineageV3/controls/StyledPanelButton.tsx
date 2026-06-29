@@ -7,10 +7,10 @@ export const StyledPanelButton = styled(Button)`
     display: flex;
     align-items: center;
     width: 100%;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
 
     &:hover {
-        color: ${(props) => props.theme.colors.textBrand};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 
     .anticon {

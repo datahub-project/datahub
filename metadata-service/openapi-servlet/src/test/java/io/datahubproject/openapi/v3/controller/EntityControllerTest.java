@@ -21,7 +21,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +49,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -86,6 +84,7 @@ import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -96,16 +95,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -128,12 +127,14 @@ import org.testng.annotations.Test;
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private EntityController entityController;
   @Autowired private MockMvc mockMvc;
-  @Autowired private SearchService mockSearchService;
-  @Autowired private EntityService<?> mockEntityService;
-  @Autowired private TimeseriesAspectService mockTimeseriesAspectService;
+  @Autowired private AuthorizerChain authorizerChain;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private OperationContext opContext;
-  @MockBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private EntityServiceImpl mockEntityService;
+  @MockitoBean private SearchService mockSearchService;
+  @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
+  @MockitoBean private SystemTelemetryContext systemTelemetryContext;
 
   @Captor private ArgumentCaptor<AspectsBatch> batchCaptor;
 
@@ -268,6 +269,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testDeleteEntity() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,4,PROD)");
 
     // test delete entity
@@ -457,10 +461,6 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class EntityControllerTestConfig {
-    @MockBean public EntityServiceImpl entityService;
-    @MockBean public SearchService searchService;
-    @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public SystemTelemetryContext systemTelemetryContext;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -491,16 +491,10 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
-    }
-
-    @Bean
-    public TimeseriesAspectService timeseriesAspectService() {
-      return timeseriesAspectService;
     }
   }
 

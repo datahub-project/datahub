@@ -40,7 +40,7 @@ public interface ElasticSearchIndexed {
       boolean dryRun) {
     try {
       for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
-        getIndexBuilder().tweakReplicas(config, dryRun);
+        getIndexBuilder().tweakReplicas(opContext, config, dryRun);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);

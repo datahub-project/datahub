@@ -1,5 +1,6 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domainV2/nestedDomains/domainNavigator/DomainNode';
@@ -34,15 +35,16 @@ export default function DomainNavigator({
     unhideSidebar,
     variant = 'select',
 }: Props) {
+    const { t } = useTranslation('governance.domain');
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
     const theme = useTheme();
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Loading Domains failed." showIcon type="error" />}
+            {error && <Alert message={t('navigator.loadError')} showIcon type="error" />}
             {hasInitialized && domains.length === 0 && (
                 <Empty
-                    description="No Domains Found"
+                    description={t('navigator.empty')}
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     style={{ color: theme.colors.textTertiary }}
                 />

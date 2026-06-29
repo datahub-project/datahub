@@ -351,7 +351,10 @@ public class EntitySearchServiceTest {
     }
 
     @Override
-    public boolean validateAndSwapAlias(@NonNull String aliasName, @NonNull String newBackingIndex)
+    public boolean validateAndSwapAlias(
+        @NonNull OperationContext opContext,
+        @NonNull String aliasName,
+        @NonNull String newBackingIndex)
         throws Exception {
       return false;
     }

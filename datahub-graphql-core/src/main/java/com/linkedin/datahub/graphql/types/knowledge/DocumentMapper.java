@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -54,10 +55,30 @@ public class DocumentMapper {
 
     // Map Document Info aspect
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    if (envelopedInfo != null) {
-      result.setInfo(
-          mapDocumentInfo(
-              new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data()), entityUrn));
+    final com.linkedin.knowledge.DocumentInfo docInfo =
+        envelopedInfo != null
+            ? new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data())
+            : null;
+
+    // Compute lastIngested for external documents only. Prefer a proper run-based time, but fall
+    // back to lastObserved from documentInfo's systemMetadata because datahub writes with
+    // DEFAULT_RUN_ID (which produces no run record).
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    if (lastIngested == null && docInfo != null) {
+      final boolean isExternal =
+          docInfo.hasSource()
+              && docInfo.getSource().hasSourceType()
+              && "EXTERNAL".equals(docInfo.getSource().getSourceType().name());
+      if (isExternal
+          && envelopedInfo.hasSystemMetadata()
+          && envelopedInfo.getSystemMetadata().hasLastObserved()) {
+        lastIngested = envelopedInfo.getSystemMetadata().getLastObserved();
+      }
+    }
+    result.setLastIngested(lastIngested);
+
+    if (docInfo != null) {
+      result.setInfo(mapDocumentInfo(docInfo, entityUrn));
     }
 
     // Map Document Settings aspect

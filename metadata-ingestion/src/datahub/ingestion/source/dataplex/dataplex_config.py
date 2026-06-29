@@ -120,7 +120,9 @@ class DataplexConfig(
     Project selection (`project_ids`, `project_labels`, `project_id_pattern`) is
     inherited from `GcpProjectFilterConfig` and consumed by the shared
     `resolve_gcp_projects` helper. Auto-discovery (when `project_ids` is empty)
-    requires `roles/resourcemanager.folderViewer` on the parent folder/organization.
+    uses Cloud Resource Manager `search_projects` and only requires
+    `resourcemanager.projects.get` (e.g. `roles/browser`) on the candidate
+    projects — no folder/org-level grant is needed.
     """
 
     credential: Optional[GCPCredential] = Field(
@@ -226,8 +228,9 @@ class DataplexConfig(
         description=(
             "Whether to ingest term-to-asset associations via the Dataplex lookupEntryLinks API. "
             "For each ingested term, all entries_locations are queried per project to find linked "
-            "assets. Requires roles/resourcemanager.projectViewer on all configured projects to "
-            "resolve GCP project numbers needed by the lookupEntryLinks API."
+            "assets. Requires a role granting resourcemanager.projects.get (e.g. roles/browser) "
+            "on all configured projects to resolve GCP project numbers needed by the "
+            "lookupEntryLinks API."
         ),
     )
 

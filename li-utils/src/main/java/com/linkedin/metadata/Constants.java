@@ -27,6 +27,16 @@ public class Constants {
   public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
   public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
+
+  /**
+   * Optional {@link com.linkedin.mxe.MetadataChangeLog#getHeaders() MetadataChangeLog} header: the
+   * {@code metadata_aspect.version} column for the row this event describes. {@link
+   * #ASPECT_LATEST_VERSION} is the latest materialized row; pgSearch indexing should ignore rows
+   * with any other version.
+   */
+  public static final String MCL_HEADER_DATABASE_ASPECT_VERSION =
+      "X-DataHub-Database-Aspect-Version";
+
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
@@ -434,8 +444,10 @@ public class Constants {
   public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
+  public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
+  public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 

@@ -1,13 +1,15 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Avatar } from '@components';
+import { Avatar, Tooltip } from '@components';
 import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
+import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -88,10 +90,12 @@ type Props = {
     urn: string;
     pageSize: number;
     isExternalGroup: boolean;
+    externalGroupType?: string;
     onChangeMembers?: () => void;
 };
 
-export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeMembers }: Props) {
+export default function GroupMembers({ urn, pageSize, isExternalGroup, externalGroupType, onChangeMembers }: Props) {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
 
     const [page, setPage] = useState(1);
@@ -119,7 +123,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed Group Member!', duration: 2 });
+                    message.success({ content: t('group.removedMemberSuccess'), duration: 2 });
                     // Hack to deal with eventual consistency
                     setTimeout(() => {
                         // Reload the page.
@@ -130,7 +134,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove group member: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('group.removeMemberError', { error: e.message || '' }), duration: 3 });
             });
     };
 
@@ -156,7 +160,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                 disabled: true,
                 label: (
                     <span>
-                        <UserAddOutlined /> Make owner
+                        <UserAddOutlined /> {t('group.makeOwner')}
                     </span>
                 ),
             },
@@ -166,7 +170,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                 onClick: () => setMemberToRemove(urnID),
                 label: (
                     <span>
-                        <UserDeleteOutlined /> Remove from Group
+                        <UserDeleteOutlined /> {t('group.removeFromGroup')}
                     </span>
                 ),
             },
@@ -176,18 +180,30 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember
-                    type="text"
-                    disabled={isExternalGroup}
-                    onClick={onClickEditMembers}
-                    data-testid="add-group-member-button"
+                <Tooltip
+                    showArrow={false}
+                    title={isExternalGroup ? getExternalGroupMembershipTooltip(externalGroupType) : null}
                 >
-                    <UserAddOutlined />
-                    <AddMemberText>Add Member</AddMemberText>
-                </AddMember>
+                    {/*
+                     * Wrapper needed so the Tooltip has a hover target: antd's `disabled`
+                     * Buttons get `pointer-events: none`, which swallows mouse events and
+                     * prevents the Tooltip from firing when disabled.
+                     */}
+                    <div style={{ display: 'inline-block', cursor: isExternalGroup ? 'not-allowed' : 'auto' }}>
+                        <AddMember
+                            type="text"
+                            disabled={isExternalGroup}
+                            onClick={onClickEditMembers}
+                            data-testid="add-group-member-button"
+                        >
+                            <UserAddOutlined />
+                            <AddMemberText>{t('group.addMember')}</AddMemberText>
+                        </AddMember>
+                    </div>
+                </Tooltip>
             </Row>
             <GroupMemberWrapper>
-                {groupMembers.length === 0 && <NoGroupMembers description="No members in this group yet." />}
+                {groupMembers.length === 0 && <NoGroupMembers description={t('group.noMembersInGroupEmpty')} />}
                 {groupMembers
                     ? groupMembers.map((item) => {
                           const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);
@@ -239,8 +255,8 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                 isOpen={!!memberToRemove}
                 handleClose={() => setMemberToRemove(null)}
                 handleConfirm={() => removeGroupMember(memberToRemove as string)}
-                modalTitle="Confirm Group Member Removal"
-                modalText="Are you sure you want to remove this user from the group?"
+                modalTitle={t('group.confirmMemberRemovalTitle')}
+                modalText={t('group.confirmMemberRemovalBody')}
             />
         </>
     );

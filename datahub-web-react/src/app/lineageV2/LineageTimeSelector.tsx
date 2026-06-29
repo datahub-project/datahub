@@ -1,7 +1,9 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Space, Typography } from 'antd';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DatePicker from '@utils/DayjsDatePicker';
@@ -41,6 +43,8 @@ type Props = {
 };
 
 export default function LineageTimeSelector({ onChange, startTimeMillis, endTimeMillis }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
     const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? dayjs(startTimeMillis) : null);
     const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? dayjs(endTimeMillis) : null);
     const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -84,7 +88,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     return (
         <>
             {showText ? ( // Conditionally render All Time selection
-                <Tooltip title="Filter lineage edges by observed date" placement="topLeft" showArrow={false}>
+                <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
                     <Button type="text" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
                         <Typography.Text>
@@ -108,7 +112,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         renderExtraFooter={() => (
                             <ConfirmButtonWrapper>
                                 <ConfirmButton type="text" onClick={() => handleOpenChange(false)}>
-                                    <b>Confirm</b>
+                                    {tcAction('confirm')}
                                 </ConfirmButton>
                             </ConfirmButtonWrapper>
                         )}
@@ -128,20 +132,20 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
 
 function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return 'All Time';
+        return i18next.t('lineage:timeSelector.allTime');
     }
 
     if (!startDate && endDate) {
-        return `Until ${endDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.until', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
         const dayDiff = dayjs().diff(startDate, 'days');
         if (dayDiff <= 30) {
-            return `Last ${dayDiff} days`;
+            return i18next.t('lineage:timeSelector.lastNDays', { count: dayDiff });
         }
-        return `From ${startDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.from', { date: startDate.format('ll') });
     }
 
-    return 'Unknown time range';
+    return i18next.t('lineage:timeSelector.unknownRange');
 }

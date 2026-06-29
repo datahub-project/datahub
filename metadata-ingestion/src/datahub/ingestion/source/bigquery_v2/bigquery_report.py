@@ -69,12 +69,18 @@ class BigQueryQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
     num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_queries_by_region: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
     num_total_queries: int = 0
     num_unique_queries: int = 0
 
     num_discovered_tables: Optional[int] = None
     inferred_temp_tables: LossySet[str] = field(default_factory=LossySet)
+
+    region_qualifiers_configured: List[str] = field(default_factory=list)
+    region_qualifiers_auto_discovered: List[str] = field(default_factory=list)
+    region_qualifiers_used: List[str] = field(default_factory=list)
+    discovered_locations_unparseable: LossyList[str] = field(default_factory=LossyList)
 
 
 @dataclass
@@ -191,5 +197,6 @@ class BigQueryV2Report(
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
     num_skipped_external_table_lineage: int = 0
+    num_biglake_datasets_skipped_for_region_autodetect: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None

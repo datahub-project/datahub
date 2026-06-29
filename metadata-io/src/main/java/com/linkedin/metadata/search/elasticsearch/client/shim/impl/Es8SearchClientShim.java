@@ -79,16 +79,19 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.TransportOptions;
 import co.elastic.clients.transport.rest_client.RestClientOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -104,6 +107,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -240,6 +244,22 @@ import org.opensearch.search.suggest.SuggestionBuilder;
 @Slf4j
 public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<?>>
     implements ElasticSearchClientShim<ElasticsearchClient> {
+
+  /**
+   * ES8+ silently strips {@code doc_values: false} from {@code search_as_you_type} fields on
+   * round-trip. Including it in the authored mapping creates a permanent diff against what the
+   * cluster returns and triggers a reindex on every system update cycle, so we omit it here.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4");
+
+  /**
+   * ES8 injects {@code type: custom} on custom analyzers when settings are persisted, but authored
+   * V2 index settings omit {@code type} on analyzer definitions.
+   */
+  public static final String INJECTED_CUSTOM_ANALYZER_TYPE = "custom";
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final SearchEngineType engineType;
@@ -440,7 +460,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse search(
-      @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     SearchSourceBuilder searchSourceBuilder = searchRequest.source();
     Map<String, Aggregation> aggregationMap =
         convertAggregations(searchSourceBuilder.aggregations());
@@ -539,7 +562,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (aggregations == null) {
       return Collections.emptyMap();
     }
-    JsonNode mappings = objectMapper.readTree(aggregations.toString());
+    JsonNode mappings = objectMapper.readTree(normalizeQueryJson(aggregations.toString()));
     return mappings.properties().stream()
         .collect(
             Collectors.toMap(
@@ -679,7 +702,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public SearchResponse scroll(
-      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
@@ -687,14 +712,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClearScrollResponse clearScroll(
-      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ClearScrollRequest clearScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     throw new UnsupportedOperationException("Scroll is unused, not implemented for ES8 Shim.");
   }
 
   @Nonnull
   @Override
-  public CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
+  public CountResponse count(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CountRequest countRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.CountRequest esCountRequest =
         new co.elastic.clients.elasticsearch.core.CountRequest.Builder()
@@ -752,7 +782,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ExplainResponse explain(
-      @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ExplainRequest explainRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.ExplainRequest esExplainRequest =
         new co.elastic.clients.elasticsearch.core.ExplainRequest.Builder()
             .id(explainRequest.id())
@@ -773,7 +806,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   // Document operations
   @Nonnull
   @Override
-  public GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
+  public GetResponse getDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetRequest getRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.GetRequest esGetRequest =
         new co.elastic.clients.elasticsearch.core.GetRequest.Builder()
@@ -792,7 +828,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public IndexResponse indexDocument(
-      @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull IndexRequest indexRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.IndexRequest<JsonNode> esIndexRequest =
         new co.elastic.clients.elasticsearch.core.IndexRequest.Builder<JsonNode>()
             .index(indexRequest.index())
@@ -813,7 +852,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public DeleteResponse deleteDocument(
-      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteRequest deleteRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteRequest esDeleteRequest =
         new co.elastic.clients.elasticsearch.core.DeleteRequest.Builder()
             .id(deleteRequest.id())
@@ -835,7 +877,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public BulkByScrollResponse deleteByQuery(
-      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.core.DeleteByQueryRequest esDeleteByQueryRequest =
         convertDeleteByQueryRequest(deleteByQueryRequest, true);
@@ -880,7 +924,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public CreatePitResponse createPit(
-      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreatePitRequest createPitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     OpenPointInTimeRequest esCreatePitRequest =
         new OpenPointInTimeRequest.Builder()
@@ -917,7 +963,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public DeletePitResponse deletePit(
-      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeletePitRequest deletePitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     List<String> pitIds = deletePitRequest.getPitIds();
     List<DeletePitInfo> deletePitInfos = new ArrayList<>();
@@ -950,7 +998,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public CreateIndexResponse createIndex(
-      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreateIndexRequest createIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
@@ -975,7 +1025,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public GetIndexResponse getIndex(GetIndexRequest getIndexRequest, RequestOptions options)
+  public GetIndexResponse getIndex(
+      @Nonnull OperationFingerprint opContext,
+      GetIndexRequest getIndexRequest,
+      RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.GetIndexRequest esGetIndexRequest =
         new co.elastic.clients.elasticsearch.indices.GetIndexRequest.Builder()
@@ -1063,7 +1116,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options)
+  public ResizeResponse cloneIndex(
+      @Nonnull OperationFingerprint opContext, ResizeRequest resizeRequest, RequestOptions options)
       throws IOException {
     CloneIndexRequest esCloneIndexRequest =
         new CloneIndexRequest.Builder()
@@ -1081,7 +1135,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse deleteIndex(
-      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteIndexRequest deleteIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.DeleteIndexRequest esDeleteIndexRequest =
         new co.elastic.clients.elasticsearch.indices.DeleteIndexRequest.Builder()
@@ -1101,7 +1157,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Override
   public boolean indexExists(
-      @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetIndexRequest getIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.ExistsRequest esIndexRequest =
         new co.elastic.clients.elasticsearch.indices.ExistsRequest.Builder()
@@ -1113,7 +1171,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse putIndexMapping(
-      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull PutMappingRequest putMappingRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     Map<String, Object> mappings =
         objectMapper.readValue(putMappingRequest.source().utf8ToString(), new TypeReference<>() {});
@@ -1156,7 +1216,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetMappingsResponse getIndexMapping(
-      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetMappingsRequest getMappingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetMappingRequest esGetMappingRequest =
         new GetMappingRequest.Builder().index(Arrays.asList(getMappingsRequest.indices())).build();
@@ -1172,7 +1234,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetSettingsResponse getIndexSettings(
-      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetSettingsRequest getSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetIndicesSettingsRequest esGetSettingRequest =
         new GetIndicesSettingsRequest.Builder()
@@ -1199,7 +1263,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexSettings(
-      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateSettingsRequest updateSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     PutIndicesSettingsRequest esPutSettingsRequest =
         new PutIndicesSettingsRequest.Builder()
@@ -1218,7 +1284,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public RefreshResponse refreshIndex(
-      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull RefreshRequest refreshRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.indices.RefreshRequest esRefreshRequest =
         new co.elastic.clients.elasticsearch.indices.RefreshRequest.Builder()
             .index(
@@ -1238,7 +1307,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public GetAliasesResponse getIndexAliases(
-      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetAliasesRequest getAliasesRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     GetAliasRequest esGetAliasRequest =
         new GetAliasRequest.Builder()
@@ -1273,7 +1344,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexAliases(
-      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      IndicesAliasesRequest indicesAliasesRequest,
+      RequestOptions options)
+      throws IOException {
     UpdateAliasesRequest esUpdateAliasesRequest =
         new UpdateAliasesRequest.Builder()
             .actions(
@@ -1303,7 +1377,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
+  public AnalyzeResponse analyzeIndex(
+      @Nonnull OperationFingerprint opContext, AnalyzeRequest request, RequestOptions options)
       throws IOException {
     co.elastic.clients.elasticsearch.indices.AnalyzeRequest esAnalyzeRequest =
         new co.elastic.clients.elasticsearch.indices.AnalyzeRequest.Builder()
@@ -1362,7 +1437,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      ClusterHealthRequest healthRequest,
+      RequestOptions options)
+      throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
   }
@@ -1423,6 +1501,54 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     return engineType;
   }
 
+  /** ES8-specific index analysis settings comparison rules for reindex detection. */
+  public static final class IndexSettingsComparison {
+    private IndexSettingsComparison() {}
+
+    @Nonnull
+    public static Set<String> storedNamesForComparison(
+        @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+      Set<String> names = new HashSet<>(storedSettings.names());
+      if (!targetSettings.containsKey("type") && names.remove("type")) {
+        String typeValue = storedSettings.get("type");
+        if (typeValue == null || !INJECTED_CUSTOM_ANALYZER_TYPE.equalsIgnoreCase(typeValue)) {
+          names.add("type");
+        }
+      }
+      return names;
+    }
+
+    public static boolean valuesEqual(@Nullable Object targetValue, @Nullable String storedValue) {
+      if (com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison.Strict.INSTANCE
+          .indexSettingValuesEqual(targetValue, storedValue)) {
+        return true;
+      }
+      if (targetValue == null || storedValue == null) {
+        return false;
+      }
+      return targetValue.toString().equalsIgnoreCase(storedValue);
+    }
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
+  }
+
+  @Nonnull
+  @Override
+  public Set<String> indexSettingNamesForComparison(
+      @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+    return IndexSettingsComparison.storedNamesForComparison(targetSettings, storedSettings);
+  }
+
+  @Override
+  public boolean indexSettingValuesEqual(
+      @Nullable Object targetValue, @Nullable String storedValue) {
+    return IndexSettingsComparison.valuesEqual(targetValue, storedValue);
+  }
+
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
@@ -1479,7 +1605,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public RawResponse performLowLevelRequest(Request request) throws IOException {
+  public RawResponse performLowLevelRequest(
+      @Nonnull OperationFingerprint opContext, Request request) throws IOException {
     Response esResponse =
         ElasticsearchRestClientAdapter.performRequest(
             ((RestClientTransport) client._transport()).restClient(),
@@ -1495,7 +1622,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public BulkByScrollResponse updateByQuery(
-      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateByQueryRequest updateByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     co.elastic.clients.elasticsearch.core.UpdateByQueryRequest esUpdateByQueryRequest =
         new co.elastic.clients.elasticsearch.core.UpdateByQueryRequest.Builder()
             .index(Arrays.asList(updateByQueryRequest.indices()))
@@ -1561,7 +1691,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String submitDeleteByQueryTask(
-      DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     DeleteByQueryResponse deleteByQueryResponse =
         withTransportOptions(options)
             .deleteByQuery(convertDeleteByQueryRequest(deleteByQueryRequest, false));
@@ -1570,7 +1703,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
+  public String submitReindexTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
 
     Query query = null;
@@ -1791,7 +1927,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (osQuery == null) {
       return null;
     }
-    String jsonString = osQuery.toString();
+    String jsonString = normalizeQueryJson(osQuery.toString());
     return Query.of(
         q ->
             q.withJson(
@@ -1800,12 +1936,21 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private Rescore convertRescore(RescorerBuilder<?> rescorerBuilder) {
-    String jsonString = rescorerBuilder.toString();
+    String jsonString = normalizeQueryJson(rescorerBuilder.toString());
     return Rescore.of(
         q ->
             q.withJson(
                 jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
                 jacksonJsonpMapper));
+  }
+
+  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
+  private String normalizeQueryJson(String jsonString) {
+    try {
+      return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);
+    } catch (JsonProcessingException e) {
+      return jsonString;
+    }
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {
@@ -1869,7 +2014,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   @Nonnull
   @Override
-  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
+      throws IOException {
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
     // The ES8 typed client treats a comma-joined index string as a single index name and
@@ -1932,7 +2079,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
-  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) throws IOException {
     Map<String, Object> document = buildEmbeddingsDocument(batch);
 
     co.elastic.clients.elasticsearch.core.IndexRequest<Map<String, Object>> req =

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalVal
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
 import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -70,21 +71,34 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Nonnull private AspectPluginConfig config;
 
+  /**
+   * When true, skip validation for assignments whose definition is missing and reject writes that
+   * would retain no valid assignments (aligned with {@link
+   * com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator}).
+   */
+  private boolean dropMissingPropertyValuesWithWarning = false;
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validateProposedUpserts(
+        operationContext,
         mcpItems.stream()
             .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
             .collect(Collectors.toList()),
-        retrieverContext.getAspectRetriever());
+        retrieverContext.getAspectRetriever(),
+        dropMissingPropertyValuesWithWarning);
   }
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return validateImmutable(
+        operationContext,
         changeMCPs.stream()
             .filter(
                 i ->
@@ -95,18 +109,61 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   public static Stream<AspectValidationException> validateProposedUpserts(
-      @Nonnull Collection<BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever) {
+    return validateProposedUpserts(operationContext, mcpItems, aspectRetriever, false);
+  }
+
+  public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean dropMissingPropertyValuesWithWarning) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(mcpItems, aspectRetriever, exceptions, false);
+        fetchPropertyAspects(operationContext, mcpItems, aspectRetriever, exceptions, false);
 
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
+      StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
+      Set<Urn> missingPropertyUrns = Collections.emptySet();
+      if (dropMissingPropertyValuesWithWarning) {
+        final int assignmentCountBefore =
+            structuredProperties.hasProperties() ? structuredProperties.getProperties().size() : 0;
+        if (assignmentCountBefore > 0) {
+          final Pair<StructuredProperties, Set<Urn>> filtered =
+              StructuredPropertyUtils.filterMissingPropertyDefinitions(
+                  operationContext, structuredProperties, aspectRetriever);
+          missingPropertyUrns = filtered.getSecond();
+          final boolean noValidAssignmentsRemain =
+              filtered.getFirst().getProperties() == null
+                  || filtered.getFirst().getProperties().isEmpty();
+          if (noValidAssignmentsRemain && !missingPropertyUrns.isEmpty()) {
+            exceptions.addException(
+                i,
+                String.format(
+                    "Structured properties write rejected for %s: no valid property assignments"
+                        + " remain after removing values for non-existent properties: %s",
+                    i.getUrn(), missingPropertyUrns));
+            continue;
+          }
+        }
+      }
+
       for (StructuredPropertyValueAssignment structuredPropertyValueAssignment :
-          i.getAspect(StructuredProperties.class).getProperties()) {
+          structuredProperties.getProperties()) {
 
         Urn propertyUrn = structuredPropertyValueAssignment.getPropertyUrn();
+        if (dropMissingPropertyValuesWithWarning && missingPropertyUrns.contains(propertyUrn)) {
+          log.warn(
+              "Skipping validation for non-existent structured property definition {} on {}",
+              propertyUrn,
+              i.getUrn());
+          continue;
+        }
+
         Map<String, Aspect> propertyAspects =
             allStructuredPropertiesAspects.getOrDefault(propertyUrn, Collections.emptyMap());
 
@@ -122,31 +179,30 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               String.format(
                   "Unexpected null value found for %s Structured Property Definition.",
                   propertyUrn));
+          continue;
         }
 
         log.debug(
             "Retrieved property definition for {}. {}", propertyUrn, structuredPropertyDefinition);
-        if (structuredPropertyDefinition != null) {
-          PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
-          // Check cardinality
-          if (structuredPropertyDefinition.getCardinality() == PropertyCardinality.SINGLE) {
-            if (values.size() > 1) {
-              exceptions.addException(
-                  i,
-                  "Property: "
-                      + propertyUrn
-                      + " has cardinality 1, but multiple values were assigned: "
-                      + values);
-            }
+        PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
+        // Check cardinality
+        if (structuredPropertyDefinition.getCardinality() == PropertyCardinality.SINGLE) {
+          if (values.size() > 1) {
+            exceptions.addException(
+                i,
+                "Property: "
+                    + propertyUrn
+                    + " has cardinality 1, but multiple values were assigned: "
+                    + values);
           }
+        }
 
-          // Check values
-          for (PrimitivePropertyValue value : values) {
-            validateType(i, propertyUrn, structuredPropertyDefinition, value)
-                .ifPresent(exceptions::addException);
-            validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
-                .ifPresent(exceptions::addException);
-          }
+        // Check values
+        for (PrimitivePropertyValue value : values) {
+          validateType(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
+          validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
         }
       }
     }
@@ -155,11 +211,13 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   public static Stream<AspectValidationException> validateImmutable(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull AspectRetriever aspectRetriever) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     final Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(changeMCPs, aspectRetriever, exceptions, true);
+        fetchPropertyAspects(operationContext, changeMCPs, aspectRetriever, exceptions, true);
 
     Set<Urn> immutablePropertyUrns =
         allStructuredPropertiesAspects.keySet().stream()
@@ -402,6 +460,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       AspectRetriever aspectRetriever,
       @Nonnull ValidationExceptionCollection exceptions,
@@ -420,6 +479,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       return Collections.emptyMap();
     } else {
       return aspectRetriever.getLatestAspectObjects(
+          operationContext,
           validPropertyUrns,
           ImmutableSet.of(
               Constants.STATUS_ASPECT_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));

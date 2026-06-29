@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -18,6 +19,7 @@ const Title = styled.div`
 `;
 
 export default function SourceDescription() {
+    const { t } = useTranslation('entity.profile.documentation');
     const { entityData } = useEntityData();
     const platformName = getPlatformNameFromEntityData(entityData);
     const sourceDescription = entityData?.properties?.description;
@@ -26,7 +28,11 @@ export default function SourceDescription() {
 
     return (
         <SourceDescriptionWrapper>
-            <Title>{platformName ? <span>{platformName}</span> : <>Source</>} Documentation:</Title>
+            <Title>
+                {platformName
+                    ? t('platformDocumentationTitle', { platform: platformName })
+                    : t('sourceDocumentationTitle')}
+            </Title>
             <DescriptionSection description={sourceDescription} lineLimit={LINE_LIMIT} isExpandable />
         </SourceDescriptionWrapper>
     );

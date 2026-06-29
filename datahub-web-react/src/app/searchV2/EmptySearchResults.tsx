@@ -1,6 +1,7 @@
 import { RocketOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { useCallback } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -22,17 +23,19 @@ const Section = styled.div`
     margin-bottom: 16px;
 `;
 
-function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | null) {
-    let text = '';
+// Each branch maps to a complete translation key so the whole sentence — including the
+// refine-link wording — is translated as one unit, rather than interpolating an English fragment.
+function getRefineSuggestionKey(filters: FacetFilterInput[], viewUrn?: string | null): string | null {
     if (filters.length && viewUrn) {
-        text = 'clearing all filters and selected view';
-    } else if (filters.length) {
-        text = 'clearing all filters';
-    } else if (viewUrn) {
-        text = 'clearing the selected view';
+        return 'emptyResults.trySuggestionClearFiltersAndView';
     }
-
-    return text;
+    if (filters.length) {
+        return 'emptyResults.trySuggestionClearFilters';
+    }
+    if (viewUrn) {
+        return 'emptyResults.trySuggestionClearView';
+    }
+    return null;
 }
 
 interface Props {
@@ -40,11 +43,12 @@ interface Props {
 }
 
 export default function EmptySearchResults({ suggestions }: Props) {
+    const { t } = useTranslation('search');
     const { query, filters, viewUrn } = useGetSearchQueryInputs();
     const history = useHistory();
     const userContext = useUserContext();
     const suggestText = suggestions.length > 0 ? suggestions[0].text : '';
-    const refineSearchText = getRefineSearchText(filters, viewUrn);
+    const refineSuggestionKey = getRefineSuggestionKey(filters, viewUrn);
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -65,25 +69,29 @@ export default function EmptySearchResults({ suggestions }: Props) {
 
     return (
         <NoDataContainer>
-            <Section>No results found for &quot;{query}&quot;</Section>
-            {refineSearchText && (
-                <>
-                    Try <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
-                    {suggestText && (
-                        <>
-                            or searching for <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
-                        </>
-                    )}
-                </>
+            <Section>{t('emptyResults.noResultsFound', { query })}</Section>
+            {refineSuggestionKey && (
+                <Trans
+                    t={t}
+                    i18nKey={refineSuggestionKey}
+                    values={{ suggestText }}
+                    components={{
+                        refineLink: <SuggestedText onClick={clearFiltersAndView} />,
+                        suggestLink: <SuggestedText onClick={searchForSuggestion} />,
+                    }}
+                />
             )}
-            {!refineSearchText && suggestText && (
-                <>
-                    Did you mean <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
-                </>
+            {!refineSuggestionKey && suggestText && (
+                <Trans
+                    t={t}
+                    i18nKey="emptyResults.didYouMean"
+                    values={{ suggestText }}
+                    components={{ suggestion: <SuggestedText onClick={searchForSuggestion} /> }}
+                />
             )}
-            {!refineSearchText && !suggestText && (
+            {!refineSuggestionKey && !suggestText && (
                 <Button onClick={onClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                    <RocketOutlined /> {t('emptyResults.exploreAll')}
                 </Button>
             )}
         </NoDataContainer>

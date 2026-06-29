@@ -17,6 +17,8 @@ export const SchemaAssertionDescription = ({ assertionInfo }: Props) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
+    /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchText is a hardcoded English fragment ('exactly match'/'include')
+       interpolated mid-sentence; full sentence must be a single translation key */
     return (
         <div>
             <Typography.Text>
@@ -27,4 +29,5 @@ export const SchemaAssertionDescription = ({ assertionInfo }: Props) => {
             )}
         </div>
     );
+    /* eslint-enable i18next/no-literal-string */
 };

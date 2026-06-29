@@ -74,6 +74,11 @@ record FieldValuesAssertion {
     }
 
     /**
+    * Optional configuration for assigning severities to failed field values assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
+
+    /**
     * Whether to ignore or allow nulls when running the values assertion. (i.e.
     * consider only non-null values) using operators OTHER than the IS_NULL operator.
     *

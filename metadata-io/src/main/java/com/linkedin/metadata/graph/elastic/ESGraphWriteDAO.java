@@ -40,7 +40,8 @@ public class ESGraphWriteDAO {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
+  public void upsertDocument(
+      @Nonnull OperationContext opContext, @Nonnull String docId, @Nonnull String document) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -55,7 +56,7 @@ public class ESGraphWriteDAO {
     // so remove+add pairs on the same edge land on the same bulk processor thread.
     // Otherwise same-docId writes race on OpenSearch's seqNo and retryOnConflict
     // cannot converge — the losing write is silently dropped.
-    bulkProcessor.add(docId, updateRequest);
+    bulkProcessor.add(opContext, docId, updateRequest);
   }
 
   /**
@@ -63,7 +64,7 @@ public class ESGraphWriteDAO {
    *
    * @param docId the ID of the document
    */
-  public void deleteDocument(@Nonnull String docId) {
+  public void deleteDocument(@Nonnull OperationContext opContext, @Nonnull String docId) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -71,7 +72,7 @@ public class ESGraphWriteDAO {
     final DeleteRequest deleteRequest =
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId);
     // Route by docId — see upsertDocument above.
-    bulkProcessor.add(docId, deleteRequest);
+    bulkProcessor.add(opContext, docId, deleteRequest);
   }
 
   @Nullable
@@ -97,19 +98,21 @@ public class ESGraphWriteDAO {
         buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
     return bulkProcessor
-        .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
+        .deleteByQuery(opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME))
         .orElse(null);
   }
 
   @Nullable
   public BulkByScrollResponse updateByQuery(
-      @Nonnull Script script, @Nonnull final QueryBuilder query) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Script script,
+      @Nonnull final QueryBuilder query) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return null;
     }
     return bulkProcessor
-        .updateByQuery(script, query, indexConvention.getIndexName(INDEX_NAME))
+        .updateByQuery(opContext, script, query, indexConvention.getIndexName(INDEX_NAME))
         .orElse(null);
   }
 }
