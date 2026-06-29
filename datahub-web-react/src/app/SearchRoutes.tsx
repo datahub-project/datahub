@@ -63,7 +63,7 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
-    const { showMetricsPage } = config.featureFlags;
+    const { metricsEnabled } = config.featureFlags;
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
     const renderAnalyticsPage = () => {
@@ -90,7 +90,7 @@ export const SearchRoutes = (): JSX.Element => {
                         render={() => <EntityPageV2 entityType={entity.type} />}
                     />
                 ))}
-                {showMetricsPage && <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />}
+                {metricsEnabled && <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />}
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}

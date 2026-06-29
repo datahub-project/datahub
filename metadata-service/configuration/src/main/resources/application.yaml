@@ -1396,7 +1396,7 @@ featureFlags:
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
-  showMetricsPage: ${SHOW_METRICS_PAGE:false} # If turned on, exposes the Metrics page in the nav and enables the /metrics route. Backend Metric entity model is in development (see PR #18047); flag stays off until the entity ships.
+  metricsEnabled: ${METRICS_ENABLED:false} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and downstream backend wiring once the Metric entity ships). Defaults off in OSS while the feature is in development.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar

@@ -281,7 +281,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
-            .setShowMetricsPage(_featureFlags.isShowMetricsPage())
+            .setMetricsEnabled(_featureFlags.isMetricsEnabled())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
