@@ -22,11 +22,17 @@ pip install acryl-datahub-dagster-plugin
 Add the DataHub sensor to your Dagster project:
 
 ```python
-from datahub_dagster_plugin.sensors.datahub_sensors import DatahubSensors
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub_dagster_plugin.sensors.datahub_sensors import (
+    DatahubDagsterSourceConfig,
+    make_datahub_sensor,
+)
 
-datahub_sensor = DatahubSensors(
-    datahub_rest_url="http://localhost:8080"
-).make_datahub_sensor()
+config = DatahubDagsterSourceConfig(
+    datahub_client_config=DatahubClientConfig(server="http://localhost:8080"),
+    dagster_url="http://localhost:3000",
+)
+datahub_sensor = make_datahub_sensor(config=config)
 ```
 
 Register it alongside your jobs and assets in your `Definitions`:

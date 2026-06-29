@@ -55,14 +55,15 @@ datahub ingest -c snowflake_recipe.yml
 ### Emit metadata from code (SDK)
 
 ```python
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.sdk import DataHubClient, Dataset
 
-emitter = DatahubRestEmitter("http://localhost:8080")
+client = DataHubClient.from_env()
 
-dataset_urn = builder.make_dataset_urn("snowflake", "mydb.schema.table")
-ownership = builder.make_ownership_mce(dataset_urn, ["urn:li:corpuser:jane"])
-emitter.emit(ownership)
+dataset = Dataset(platform="snowflake", name="mydb.schema.table")
+dataset.set_description("My table description")
+dataset.set_owners(["urn:li:corpuser:jane"])
+
+client.entities.upsert(dataset)
 ```
 
 ### Ingest via the DataHub UI
@@ -82,7 +83,7 @@ No CLI required — configure and run ingestion directly from the DataHub UI und
 
 ```bash
 datahub ingest -c recipe.yml          # Run an ingestion pipeline
-datahub check graph                   # Verify connectivity to DataHub
+datahub check server-config           # Verify connectivity to DataHub
 datahub delete --urn <urn>            # Delete a metadata entity
 datahub get --urn <urn>               # Fetch metadata for an entity
 datahub timeline --urn <urn>          # View metadata change history
