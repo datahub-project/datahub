@@ -87,7 +87,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub prefect block to capture executions and send to Datahub",
+    description="DataHub Prefect plugin — automatically capture flow lineage and run metadata from Prefect workflows into your DataHub catalog",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

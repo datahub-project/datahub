@@ -201,7 +201,7 @@ setuptools.setup(
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },
     license="Apache-2.0",
-    description="An action framework to work with DataHub real time changes.",
+    description="Event-driven action framework for DataHub — trigger automations and workflows in response to real-time metadata changes",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

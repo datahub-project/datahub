@@ -101,7 +101,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
-    description="DataHub Agent Context - MCP Tools for AI Agents",
+    description="MCP tools for AI agents to search and query your DataHub metadata catalog — works with Claude, Cursor, Copilot, and any MCP-compatible AI assistant",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

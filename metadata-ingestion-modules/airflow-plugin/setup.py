@@ -117,7 +117,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub Airflow plugin to capture executions and send to Datahub",
+    description="DataHub Airflow plugin — automatically capture pipeline lineage, run history, and task metadata from Apache Airflow",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

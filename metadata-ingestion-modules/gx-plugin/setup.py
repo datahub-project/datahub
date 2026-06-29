@@ -105,7 +105,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub GX plugin to capture executions and send to Datahub",
+    description="DataHub Great Expectations plugin — send data quality assertion results from GX checkpoints into your DataHub catalog",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

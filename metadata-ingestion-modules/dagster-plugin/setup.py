@@ -97,7 +97,7 @@ setuptools.setup(
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub Dagster plugin to capture executions and send to Datahub",
+    description="DataHub Dagster plugin — automatically capture asset lineage, run history, and job metadata from Dagster pipelines",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[

@@ -1304,7 +1304,7 @@ setuptools.setup(
         "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="A CLI to work with DataHub metadata",
+    description="DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog",
     long_description="""\
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
