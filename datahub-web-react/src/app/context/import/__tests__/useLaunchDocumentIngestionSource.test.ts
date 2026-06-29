@@ -5,6 +5,7 @@ import '@app/context/import/__tests__/testSetup';
 import { buildConfluenceDocumentsIngestionState } from '@app/context/import/buildConfluenceDocumentsIngestionState';
 import { buildGitHubDocumentsIngestionState } from '@app/context/import/buildGitHubDocumentsIngestionState';
 import { buildNotionDocumentsIngestionState } from '@app/context/import/buildNotionDocumentsIngestionState';
+import { buildQuipDocumentsIngestionState } from '@app/context/import/buildQuipDocumentsIngestionState';
 import { useLaunchDocumentIngestionSource } from '@app/context/import/hooks/useLaunchDocumentIngestionSource';
 import { ImportSourceType } from '@app/context/import/import.types';
 
@@ -15,7 +16,7 @@ vi.mock('@app/ingestV2/source/multiStepBuilder/hooks/useLaunchIngestionSourceCre
 }));
 
 describe('useLaunchDocumentIngestionSource', () => {
-    it('launches github, notion, and confluence builders', () => {
+    it('launches github, notion, confluence, and quip builders', () => {
         const { result } = renderHook(() => useLaunchDocumentIngestionSource());
 
         result.current({ source: ImportSourceType.GITHUB });
@@ -34,6 +35,12 @@ describe('useLaunchDocumentIngestionSource', () => {
         expect(mockLaunch).toHaveBeenCalledWith({
             sourceType: 'confluence',
             initialBuilderState: buildConfluenceDocumentsIngestionState(),
+        });
+
+        result.current({ source: ImportSourceType.QUIP });
+        expect(mockLaunch).toHaveBeenCalledWith({
+            sourceType: 'quip',
+            initialBuilderState: buildQuipDocumentsIngestionState(),
         });
     });
 });

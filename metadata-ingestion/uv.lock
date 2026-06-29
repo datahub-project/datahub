@@ -1484,6 +1484,17 @@ qlik-sense = [
     { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
 ]
+quip = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "google-auth" },
+    { name = "graphql-core" },
+    { name = "jsonpath-ng" },
+    { name = "markdownify" },
+    { name = "unstructured", extra = ["md"] },
+    { name = "unstructured-ingest" },
+    { name = "urllib3" },
+]
 rdf = [
     { name = "rdflib" },
     { name = "requests" },
@@ -1970,6 +1981,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'mysql'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'notion'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'postgres'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'quip'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
@@ -2001,6 +2013,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'mysql'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'notion'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'postgres'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'quip'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sagemaker'", specifier = "!=1.23.0,<2.0.0" },
@@ -2227,6 +2240,7 @@ requires-dist = [
     { name = "google-auth", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'notion'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-auth", marker = "extra == 'quip'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'unstructured'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-cloud-aiplatform", marker = "extra == 'all'", specifier = ">=1.80.0,<2.0.0" },
     { name = "google-cloud-aiplatform", marker = "extra == 'dev'", specifier = ">=1.80.0,<2.0.0" },
@@ -2283,6 +2297,7 @@ requires-dist = [
     { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'quip'", specifier = ">=3.0.0,<4.0.0" },
     { name = "greenlet", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'athena'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'bigquery'", specifier = "<4.0.0" },
@@ -2363,6 +2378,7 @@ requires-dist = [
     { name = "jsonpath-ng", marker = "extra == 'dev'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'docs'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'notion'", specifier = "==1.7.0" },
+    { name = "jsonpath-ng", marker = "extra == 'quip'", specifier = "==1.7.0" },
     { name = "jsonpath-ng", marker = "extra == 'unstructured'", specifier = "==1.7.0" },
     { name = "jsonpickle", marker = "extra == 'dev'", specifier = "<5.0.0" },
     { name = "jsonpickle", marker = "extra == 'docs'", specifier = "<5.0.0" },
@@ -2397,6 +2413,7 @@ requires-dist = [
     { name = "markdownify", marker = "extra == 'confluence'", specifier = ">=0.14.1,<2.0.0" },
     { name = "markdownify", marker = "extra == 'dev'", specifier = ">=0.14.1,<2.0.0" },
     { name = "markdownify", marker = "extra == 'docs'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'quip'", specifier = ">=0.14.1,<2.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
     { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
@@ -3295,8 +3312,10 @@ requires-dist = [
     { name = "unstructured", extras = ["md"], marker = "extra == 'dev'", specifier = "==0.18.24" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'docs'", specifier = "==0.18.24" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'notion'", specifier = "==0.18.24" },
+    { name = "unstructured", extras = ["md"], marker = "extra == 'quip'", specifier = "==0.18.24" },
     { name = "unstructured", extras = ["md"], marker = "extra == 'unstructured'", specifier = "==0.18.24" },
     { name = "unstructured-ingest", marker = "extra == 'datahub-documents'", specifier = "==0.7.2" },
+    { name = "unstructured-ingest", marker = "extra == 'quip'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", marker = "extra == 'unstructured'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["confluence"], marker = "extra == 'confluence'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'all'", specifier = "==0.7.2" },
@@ -3325,6 +3344,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'quip'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
@@ -3371,7 +3391,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quip", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"

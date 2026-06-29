@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Optional
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_document_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -304,7 +305,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
         source_id = make_file_source_id(owner_repo, file_path)
         doc_id = normalize_document_id(source_id)
-        document_urn = f"urn:li:document:{doc_id}"
+        document_urn = make_document_urn(doc_id)
         content_hash = compute_file_content_hash(content)
 
         if self._should_skip_unchanged_file(document_urn, content_hash):

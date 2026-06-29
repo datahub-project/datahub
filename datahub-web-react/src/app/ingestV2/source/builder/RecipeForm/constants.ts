@@ -93,6 +93,7 @@ import {
     CONFLUENCE_DOCUMENTS_IMPORT_MODE,
     GITHUB_DOCUMENTS_IMPORT_MODE,
     NOTION_DOCUMENTS_IMPORT_MODE,
+    QUIP_DOCUMENTS_IMPORT_MODE,
 } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
     DORIS,
@@ -280,6 +281,12 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
+    QUIP_ACCESS_TOKEN,
+    QUIP_BASE_URL,
+    QUIP_FOLDER_IDS,
+    QUIP_THREAD_IDS,
+} from '@app/ingestV2/source/builder/RecipeForm/quip';
+import {
     RDF_DIALECT,
     RDF_ENVIRONMENT,
     RDF_EXTENSIONS,
@@ -374,6 +381,7 @@ import {
     NOTION,
     OKTA,
     POWER_BI,
+    QUIP,
     RDF,
     SAC,
     VERTICA,
@@ -762,6 +770,11 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS, NOTION_DOCUMENTS_IMPORT_MODE],
         filterFields: [],
         advancedFields: [],
+    },
+    [QUIP]: {
+        fields: [QUIP_ACCESS_TOKEN, QUIP_BASE_URL, QUIP_FOLDER_IDS, QUIP_THREAD_IDS, QUIP_DOCUMENTS_IMPORT_MODE],
+        filterFields: [],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
     },
     [GITHUB_DOCUMENTS]: {
         fields: [

@@ -15,6 +15,7 @@ from atlassian import Confluence
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_document_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -741,7 +742,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             DataHub document URN with format: urn:li:document:confluence-{instance_id}-{page_id}
         """
         instance_id = self._get_instance_id()
-        return f"urn:li:document:{self.platform}-{instance_id}-{page_id}"
+        return make_document_urn(f"{self.platform}-{instance_id}-{page_id}")
 
     def _extract_parent_urn(
         self, page: Dict[str, Any], ingested_page_ids: Set[str]
@@ -1072,7 +1073,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
         # Get document URN for chunking/embedding
-        document_urn = f"urn:li:document:{doc_id}"
+        document_urn = make_document_urn(doc_id)
 
         try:
             yield from self.chunking_source.process_elements_inline(

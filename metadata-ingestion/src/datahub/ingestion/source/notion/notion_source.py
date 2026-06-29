@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 
+from datahub.emitter.mce_builder import make_document_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -2030,7 +2031,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             directory="",
             metadata={"source_record_locator": f"page_id={page_id}"},
         )
-        return f"urn:li:document:{doc_id}"
+        return make_document_urn(doc_id)
 
     def _inject_notion_url(self, metadata: Dict[str, Any]) -> Optional[str]:
         """Resolve a page's Notion URL and inject it into ``data_source``.
@@ -2071,7 +2072,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Build document URN early (needed for state tracking)
         # Use the same logic as document_builder to ensure consistency
         doc_id = f"notion.{page_id}"
-        document_urn = f"urn:li:document:{doc_id}"
+        document_urn = make_document_urn(doc_id)
 
         # Check if we should process this document (content/config changed)
         if not self._should_process_document(document_urn, text_content, page_id):

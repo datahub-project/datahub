@@ -1003,6 +1003,12 @@
     "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
   },
+  "quip": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "Quip is Salesforce's collaborative documents, spreadsheets, and slides workspace. Ingest threads and folders as DataHub Documents with semantic search support.",
+    "img_path": "img/logos/platforms/quip.png"
+  },
   "github-documents": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",

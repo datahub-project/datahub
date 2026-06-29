@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
+from datahub.emitter.mce_builder import make_document_urn
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
 logger = logging.getLogger(__name__)
@@ -78,9 +79,9 @@ class ConfluenceHierarchyExtractor:
             - Without instance_id: urn:li:document:{platform}-{page_id}
         """
         if instance_id:
-            return f"urn:li:document:{platform}-{instance_id}-{parent_id}"
+            return make_document_urn(f"{platform}-{instance_id}-{parent_id}")
         else:
-            return f"urn:li:document:{platform}-{parent_id}"
+            return make_document_urn(f"{platform}-{parent_id}")
 
     @staticmethod
     def extract_space_key(page_metadata: Dict[str, Any]) -> Optional[str]:

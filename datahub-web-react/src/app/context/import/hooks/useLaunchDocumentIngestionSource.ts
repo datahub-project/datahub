@@ -12,6 +12,10 @@ import {
     NOTION_INGESTION_SOURCE_TYPE,
     buildNotionDocumentsIngestionState,
 } from '@app/context/import/buildNotionDocumentsIngestionState';
+import {
+    QUIP_INGESTION_SOURCE_TYPE,
+    buildQuipDocumentsIngestionState,
+} from '@app/context/import/buildQuipDocumentsIngestionState';
 import { ImportSourceType } from '@app/context/import/import.types';
 import { useLaunchIngestionSourceCreate } from '@app/ingestV2/source/multiStepBuilder/hooks/useLaunchIngestionSourceCreate';
 
@@ -41,6 +45,12 @@ export function useLaunchDocumentIngestionSource() {
                     launchIngestionSourceCreate({
                         sourceType: CONFLUENCE_INGESTION_SOURCE_TYPE,
                         initialBuilderState: buildConfluenceDocumentsIngestionState(),
+                    });
+                    break;
+                case ImportSourceType.QUIP:
+                    launchIngestionSourceCreate({
+                        sourceType: QUIP_INGESTION_SOURCE_TYPE,
+                        initialBuilderState: buildQuipDocumentsIngestionState(),
                     });
                     break;
                 default:

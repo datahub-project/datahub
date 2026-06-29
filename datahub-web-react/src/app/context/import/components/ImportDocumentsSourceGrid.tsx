@@ -15,6 +15,7 @@ import { Text } from '@src/alchemy-components';
 import confluenceLogo from '@images/confluencelogo.svg';
 import githubLogo from '@images/githublogo.png';
 import notionLogo from '@images/notionlogo.png';
+import quipLogo from '@images/quiplogo.png';
 
 type ImportDocumentsSourceGridProps = {
     canImportFromScheduledSources: boolean;
@@ -53,6 +54,11 @@ export default function ImportDocumentsSourceGrid({
                         <SourceLogo src={confluenceLogo} alt={t('context.import.confluenceAlt')} />
                         <Text weight="semiBold">{t('context.import.confluenceTitle')}</Text>
                         <HelperText>{t('context.import.confluenceDescription')}</HelperText>
+                    </SourceCard>
+                    <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.QUIP)}>
+                        <SourceLogo src={quipLogo} alt={t('context.import.quipAlt')} />
+                        <Text weight="semiBold">{t('context.import.quipTitle')}</Text>
+                        <HelperText>{t('context.import.quipDescription')}</HelperText>
                     </SourceCard>
                 </>
             )}

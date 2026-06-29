@@ -1363,7 +1363,7 @@ export interface DeleteDocumentEvent extends BaseEvent {
  */
 export interface ImportDocumentsEvent extends BaseEvent {
     type: EventType.ImportDocumentsEvent;
-    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE' | 'QUIP';
     createdCount: number;
     updatedCount: number;
     failedCount: number;

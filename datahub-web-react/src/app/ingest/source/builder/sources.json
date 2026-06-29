@@ -391,6 +391,14 @@
         "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true"
     },
     {
+        "urn": "urn:li:dataPlatform:quip",
+        "name": "quip",
+        "displayName": "Quip",
+        "description": "Import threads and folders from Quip as Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/quip/",
+        "recipe": "source:\n  type: quip\n  config:\n    access_token: null\n    base_url: \"https://platform.quip.com\"\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:confluence",
         "name": "confluence",
         "displayName": "Confluence",

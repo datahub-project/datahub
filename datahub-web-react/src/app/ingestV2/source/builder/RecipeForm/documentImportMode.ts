@@ -35,6 +35,7 @@ export function createDocumentImportModeField(defaultMode: DocumentImportModeVal
 export const GITHUB_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('NATIVE');
 export const NOTION_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
 export const CONFLUENCE_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
+export const QUIP_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
 
 /** @deprecated Use source-specific import mode fields instead. */
 export const DOCUMENT_IMPORT_MODE = GITHUB_DOCUMENTS_IMPORT_MODE;

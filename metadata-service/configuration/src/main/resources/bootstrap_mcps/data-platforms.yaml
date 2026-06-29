@@ -1047,6 +1047,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:quip
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: quip
+    displayName: Quip
+    type: OTHERS
+    logoUrl: "assets/platforms/quiplogo.png"
 - entityUrn: urn:li:dataPlatform:github
   entityType: dataPlatform
   aspectName: dataPlatformInfo

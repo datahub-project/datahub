@@ -50,6 +50,7 @@ import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import prestoLogo from '@images/prestologo.png';
 import qlikLogo from '@images/qliklogo.png';
+import quipLogo from '@images/quiplogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
@@ -192,6 +193,8 @@ const SPARK = 'spark';
 const SPARK_URN = `urn:li:dataPlatform:${SPARK}`;
 const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+export const QUIP = 'quip';
+const QUIP_URN = `urn:li:dataPlatform:${QUIP}`;
 const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
 const SAGE_MAKER = 'sagemaker';
@@ -288,6 +291,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
+    [QUIP_URN]: quipLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
     [CASSANDRA_URN]: cassandraLogo,

@@ -543,6 +543,16 @@ confluence_common = {
     "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
+quip_common = {
+    # Quip threads are fetched directly over the REST API with `requests` (a core
+    # dependency); we only add markdownify to convert thread HTML to Markdown for
+    # chunking/retrieval.
+    "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation (strip_unsupported_fields) when fetching
+    # semantic search config from older DataHub servers that lack vertexProviderConfig.
+    "graphql-core>=3.0.0,<4.0.0",
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -829,6 +839,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "quip": quip_common,
     "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
@@ -1031,6 +1042,7 @@ base_dev_requirements = {
             "unity-catalog",
             "nifi",
             "notion",
+            "quip",
             "github-documents",
             "vertica",
             "mode",
@@ -1206,6 +1218,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
+        "quip = datahub.ingestion.source.quip.quip_source:QuipSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",

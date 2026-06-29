@@ -1,0 +1,35 @@
+# Quip to DataHub ingestion recipe
+#
+# The Quip source automatically:
+# - Auto-discovers the folders accessible to your token (private, desktop,
+#   shared, group) and recursively crawls them
+# - Ingests all thread types (documents, spreadsheets, slides, chats)
+# - Reproduces the Quip folder hierarchy as parent-child Document relationships
+# - Uses embeddings and chunking if configured on the DataHub server
+#
+# Prerequisites:
+# 1. Generate a Personal Access Token at <base_url>/dev/token
+#    (e.g. https://quip.com/dev/token)
+# 2. Set the QUIP_ACCESS_TOKEN environment variable
+#
+# Install: pip install 'acryl-datahub[quip]'
+# Run: datahub ingest -c quip_to_datahub.yml
+
+source:
+  type: quip
+  config:
+    access_token: "${QUIP_ACCESS_TOKEN}"
+    # Use https://platform.quip-amazon.com for enterprise sites
+    base_url: "https://platform.quip.com"
+
+    # Optional: limit to specific folders instead of auto-discovery
+    # folder_ids:
+    #   - "AbCdEfGhIjKl"
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

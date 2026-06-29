@@ -27,6 +27,7 @@ const SCHEDULED_SOURCES = new Set<ImportSourceType>([
     ImportSourceType.GITHUB,
     ImportSourceType.NOTION,
     ImportSourceType.CONFLUENCE,
+    ImportSourceType.QUIP,
 ]);
 
 export default function ImportDocumentsModal({

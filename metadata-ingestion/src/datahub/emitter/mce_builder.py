@@ -408,6 +408,12 @@ def make_data_product_urn(data_product_id: str) -> str:
     return f"urn:li:dataProduct:{data_product_id}"
 
 
+def make_document_urn(document_id: str) -> str:
+    if document_id.startswith("urn:li:document:"):
+        return document_id
+    return f"urn:li:document:{document_id}"
+
+
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
