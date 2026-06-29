@@ -1306,7 +1306,7 @@ setuptools.setup(
     license="Apache-2.0",
     description="DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog",
     classifiers=[
-        "Development Status :: 6 - Mature",
+        "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
