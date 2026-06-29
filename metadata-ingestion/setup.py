@@ -1305,13 +1305,6 @@ setuptools.setup(
     },
     license="Apache-2.0",
     description="DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog",
-    long_description="""\
-The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
-as well as an integration framework for pulling/pushing metadata from external systems.
-
-See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
-""",
-    long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 6 - Mature",
         "Programming Language :: Python",
