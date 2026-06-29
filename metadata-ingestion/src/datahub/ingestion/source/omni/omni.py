@@ -142,6 +142,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             api_key=config.api_key,
             timeout_seconds=config.timeout_seconds,
             max_requests_per_minute=config.max_requests_per_minute,
+            report=self.report.client_report,
         )
         # Internal caches – populated during _ingest_semantic_model and reused
         # later when processing documents/dashboards.
