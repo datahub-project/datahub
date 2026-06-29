@@ -180,52 +180,54 @@ const StructuredPropsFormSection = ({
                     />
                 </Form.Item>
             </RowContainer>
-            <RowContainer>
-                <FieldLabel>
-                    <FlexContainer>
-                        {t('allowedPlatforms.title')}
-                        <Tooltip title={t('allowedPlatforms.tooltip')} showArrow={false}>
-                            <Icon icon={Info} color="iconBrand" size="lg" />
-                        </Tooltip>
-                    </FlexContainer>
-                    {isEditMode && (
-                        <SubTextContainer>
-                            <Text size="sm" weight="medium">
-                                <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
-                                    {t('addOnly')}
-                                </Tooltip>
-                            </Text>
-                        </SubTextContainer>
-                    )}
-                </FieldLabel>
-                <Tooltip
-                    title={!formValues?.allowedPlatforms?.length && t('allowedPlatforms.anyTooltip')}
-                    showArrow={false}
-                >
-                    <Form.Item name={ALLOWED_PLATFORMS_FIELD}>
-                        <SimpleSelect<PlatformOption>
-                            options={platformOptions}
-                            onUpdate={(values) =>
-                                isEditMode
-                                    ? handleSelectUpdateChange(ALLOWED_PLATFORMS_FIELD, values)
-                                    : handleSelectChange(ALLOWED_PLATFORMS_FIELD, values)
-                            }
-                            placeholder={t('allowedPlatforms.anyPlaceholder')}
-                            isMultiSelect
-                            showSearch
-                            values={formValues?.allowedPlatforms}
-                            disabledValues={disabledAllowedPlatformValues}
-                            width="full"
-                            renderCustomOptionText={(option) => (
-                                <PlatformOptionLabel>
-                                    <PlatformIcon platform={option.platform} size={16} styles={{ padding: 0 }} />
-                                    <span>{option.label}</span>
-                                </PlatformOptionLabel>
-                            )}
-                        />
-                    </Form.Item>
-                </Tooltip>
-            </RowContainer>
+            {!(isEditMode && !selectedProperty?.definition?.allowedPlatforms?.length) && (
+                <RowContainer>
+                    <FieldLabel>
+                        <FlexContainer>
+                            {t('allowedPlatforms.title')}
+                            <Tooltip title={t('allowedPlatforms.tooltip')} showArrow={false}>
+                                <Icon icon={Info} color="iconBrand" size="lg" />
+                            </Tooltip>
+                        </FlexContainer>
+                        {isEditMode && (
+                            <SubTextContainer>
+                                <Text size="sm" weight="medium">
+                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                        {t('addOnly')}
+                                    </Tooltip>
+                                </Text>
+                            </SubTextContainer>
+                        )}
+                    </FieldLabel>
+                    <Tooltip
+                        title={!formValues?.allowedPlatforms?.length && t('allowedPlatforms.anyTooltip')}
+                        showArrow={false}
+                    >
+                        <Form.Item name={ALLOWED_PLATFORMS_FIELD}>
+                            <SimpleSelect<PlatformOption>
+                                options={platformOptions}
+                                onUpdate={(values) =>
+                                    isEditMode
+                                        ? handleSelectUpdateChange(ALLOWED_PLATFORMS_FIELD, values)
+                                        : handleSelectChange(ALLOWED_PLATFORMS_FIELD, values)
+                                }
+                                placeholder={t('allowedPlatforms.anyPlaceholder')}
+                                isMultiSelect
+                                showSearch
+                                values={formValues?.allowedPlatforms}
+                                disabledValues={disabledAllowedPlatformValues}
+                                width="full"
+                                renderCustomOptionText={(option) => (
+                                    <PlatformOptionLabel>
+                                        <PlatformIcon platform={option.platform} size={16} styles={{ padding: 0 }} />
+                                        <span>{option.label}</span>
+                                    </PlatformOptionLabel>
+                                )}
+                            />
+                        </Form.Item>
+                    </Tooltip>
+                </RowContainer>
+            )}
         </>
     );
 };
