@@ -67,10 +67,18 @@ class KinesisFirehoseExtractor:
         self.report = report
         self._firehose: "FirehoseClient" = config.make_client(session, "firehose")
 
+    def _flow_id(self) -> str:
+        # One Firehose DataFlow per region. flow_id is just the region — the
+        # orchestrator (FIREHOSE_PLATFORM_NAME, "kinesis-firehose") already
+        # identifies the platform, so a "-firehose" suffix here would be redundant.
+        region = self.config.aws_config.aws_region
+        assert region is not None  # validated (raises) in KinesisSource.__init__
+        return region
+
     def dataflow_urn(self) -> str:
         return make_data_flow_urn(
             orchestrator=FIREHOSE_PLATFORM_NAME,
-            flow_id=f"{self.config.aws_config.aws_region}-firehose",
+            flow_id=self._flow_id(),
             cluster=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -78,7 +86,7 @@ class KinesisFirehoseExtractor:
     def datajob_urn(self, delivery_stream_name: str) -> str:
         return make_data_job_urn(
             orchestrator=FIREHOSE_PLATFORM_NAME,
-            flow_id=f"{self.config.aws_config.aws_region}-firehose",
+            flow_id=self._flow_id(),
             job_id=delivery_stream_name,
             cluster=self.config.env,
             platform_instance=self.config.platform_instance,

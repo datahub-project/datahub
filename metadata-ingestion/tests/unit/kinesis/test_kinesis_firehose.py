@@ -37,14 +37,14 @@ class TestKinesisFirehoseExtractor:
         """
         ex = _make_extractor()
         urn = ex.dataflow_urn()
-        assert urn == "urn:li:dataFlow:(kinesis-firehose,us-east-1-firehose,PROD)"
+        assert urn == "urn:li:dataFlow:(kinesis-firehose,us-east-1,PROD)"
 
     def test_datajob_urn_under_dataflow(self):
         ex = _make_extractor()
         urn = ex.datajob_urn("events-to-s3")
         assert (
             urn
-            == "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,us-east-1-firehose,PROD),events-to-s3)"
+            == "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,us-east-1,PROD),events-to-s3)"
         )
 
     def test_dataflow_dataplatforminstance_aspect_uses_proper_urn(self):

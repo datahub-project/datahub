@@ -244,7 +244,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD)",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -260,7 +260,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD)",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -281,7 +281,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD)",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -324,7 +324,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD)",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -360,7 +360,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD)",
+    "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -420,7 +420,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -447,7 +447,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -464,7 +464,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -482,7 +482,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -542,7 +542,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -606,7 +606,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -622,7 +622,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -649,7 +649,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -670,7 +670,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -688,7 +688,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -709,7 +709,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),clicks-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),clicks-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -742,7 +742,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1-firehose,PROD),events-to-s3)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1,PROD),events-to-s3)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
