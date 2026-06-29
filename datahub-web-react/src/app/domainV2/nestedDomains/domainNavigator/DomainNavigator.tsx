@@ -2,7 +2,7 @@ import { Alert, EmptyState } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
-import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { House } from '@phosphor-icons/react/dist/csr/House';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
@@ -136,10 +136,6 @@ const SectionHeader = styled.button<{ $level: number }>`
     font-family: Mulish;
     font-size: 14px;
     font-weight: 700;
-
-    &:hover {
-        background: ${(props) => props.theme.colors.bgHover};
-    }
 `;
 
 const SectionHeaderLabel = styled.span`
@@ -249,7 +245,7 @@ export default function DomainNavigator({
                     data-testid="domain-sidebar-overview"
                 >
                     <OverviewIconSlot $isCollapsed={!!isCollapsed}>
-                        <SquaresFour
+                        <House
                             size={18}
                             weight={isOnOverview ? 'fill' : 'regular'}
                             color={isOnOverview ? theme.colors.iconBrand : theme.colors.icon}
