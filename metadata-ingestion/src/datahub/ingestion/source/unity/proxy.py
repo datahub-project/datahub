@@ -1024,15 +1024,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
                 for table_name in [source_full_name, target_full_name]:
-                    if (
-                        table_name
-                        and table_name.startswith(f"{catalog}.")
-                        and table_name not in result_dict
-                    ):
-                        result_dict[table_name] = TableLineageInfo()
+                    if table_name and table_name.startswith(f"{catalog}."):
+                        result_dict.for_mutation(
+                            table_name,
+                            default=TableLineageInfo(),
+                        )
 
                 # Process upstream relationships (target table gets upstreams)
                 if target_full_name and target_full_name.startswith(f"{catalog}."):
+                    target_lineage = result_dict.for_mutation(target_full_name)
+
                     # Handle table upstreams
                     if (
                         source_type in ["TABLE", "VIEW"]
@@ -1043,7 +1044,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             source_type=source_type,
                             last_updated=last_updated,
                         )
-                        result_dict[target_full_name].upstreams.append(upstream)
+                        target_lineage.upstreams.append(upstream)
 
                     # Handle external upstreams (PATH type)
                     elif source_type == "PATH":
@@ -1052,9 +1053,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             source_type=source_type,
                             last_updated=last_updated,
                         )
-                        result_dict[target_full_name].external_upstreams.append(
-                            external_upstream
-                        )
+                        target_lineage.external_upstreams.append(external_upstream)
 
                     # Handle upstream notebooks (notebook -> table)
                     elif entity_type == "NOTEBOOK":
@@ -1062,9 +1061,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             id=entity_id,
                             last_updated=last_updated,
                         )
-                        result_dict[target_full_name].upstream_notebooks.append(
-                            notebook_ref
-                        )
+                        target_lineage.upstream_notebooks.append(notebook_ref)
 
                 # Process downstream relationships (source table gets downstream notebooks)
                 if (
@@ -1072,13 +1069,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     and source_full_name
                     and source_full_name.startswith(f"{catalog}.")
                 ):
+                    source_lineage = result_dict.for_mutation(source_full_name)
                     notebook_ref = NotebookReference(
                         id=entity_id,
                         last_updated=last_updated,
                     )
-                    result_dict[source_full_name].downstream_notebooks.append(
-                        notebook_ref
-                    )
+                    source_lineage.downstream_notebooks.append(notebook_ref)
 
             return result_dict
         except Exception as e:
@@ -1126,9 +1122,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
             for row in rows:
-                result_dict.setdefault(row["target_table_schema"], {}).setdefault(
-                    row["target_table_name"], {}
-                ).setdefault(row["target_column_name"], []).append(
+                schema_lineage = result_dict.for_mutation(row["target_table_schema"], default={})
+                table_lineage = schema_lineage.setdefault(row["target_table_name"], {})
+                column_lineage = table_lineage.setdefault(row["target_column_name"], [])
+                column_lineage.append(
                     # make fields look like the response from the older HTTP API
                     {
                         "catalog_name": row["source_table_catalog"],
