@@ -71,6 +71,11 @@ def _make_processor(
     schema keys, but `all_urns` can add schemaless entities that exist without a schema.
     """
     resolver = _resolver(schemas)
+    # The processor now gets membership from the provider's single scroll (populate_
+    # membership=True). Since provide_schema_resolver is mocked here, seed the resolver's
+    # casing index directly with the complete URN set the bulk scroll would have yielded.
+    for known_urn in schemas if all_urns is None else all_urns:
+        resolver.add_known_urn(known_urn)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -79,9 +84,6 @@ def _make_processor(
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.graph.get_urns_by_filter.return_value = list(
-        schemas if all_urns is None else all_urns
-    )
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -306,6 +308,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
 
     resolver = SchemaResolver(platform="mssql", env="PROD", graph=None)
     resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
+    resolver.add_known_urn(mssql_table)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -368,14 +371,20 @@ def test_multi_platform_upstreams_both_healed():
 
     sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     sf_resolver.add_raw_schema_info(sf_real, {"amount": "int"})
+    sf_resolver.add_known_urn(sf_real)
     rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
     rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
+    rs_resolver.add_known_urn(rs_real)
 
-    def fake_provide(graph, platform, platform_instance, env, batch_size=100):
+    def fake_provide(
+        graph,
+        platform,
+        platform_instance,
+        env,
+        batch_size=100,
+        populate_membership=False,
+    ):
         return sf_resolver if platform == "snowflake" else rs_resolver
-
-    def fake_urns(entity_types, platform, platform_instance=None, env=None, **kwargs):
-        return [sf_real] if platform == "snowflake" else [rs_real]
 
     cfg = NormalizeLineageUrnCasingConfig(
         enabled=True,
@@ -386,7 +395,6 @@ def test_multi_platform_upstreams_both_healed():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.graph.get_urns_by_filter.side_effect = fake_urns
     pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -421,6 +429,7 @@ def test_platform_urn_form_in_config_is_normalized():
     # Config may specify the platform as a full URN; it must still match the
     # normalized platform parsed from the dataset URN (else: silent no-op).
     resolver = _resolver({LOWER: {"amount": "int"}})
+    resolver.add_known_urn(LOWER)
     provide_mock = mock.MagicMock(return_value=resolver)
     cfg = NormalizeLineageUrnCasingConfig(
         enabled=True,
@@ -443,8 +452,8 @@ def test_platform_urn_form_in_config_is_normalized():
 
 def test_platform_instance_is_threaded_through_and_heals():
     # When an upstream platform is configured with a platform_instance, that instance
-    # must be passed to both the resolver and the URN-membership query, and an
-    # instance-qualified reference must heal against the stored instance-qualified URN.
+    # must be passed to the resolver provider, and an instance-qualified reference must
+    # heal against the stored instance-qualified URN.
     stored = make_dataset_urn_with_platform_instance(
         "snowflake", "DB.SCHEMA.TABLE", "my_instance", "PROD"
     )
@@ -453,6 +462,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     )
     resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     resolver.add_raw_schema_info(stored, {"amount": "int"})
+    resolver.add_known_urn(stored)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = NormalizeLineageUrnCasingConfig(
@@ -475,11 +485,10 @@ def test_platform_instance_is_threaded_through_and_heals():
         [out] = list(processor.process(iter([_upstream_wu(referenced)])))
 
     assert _stored_upstream(out) == stored
+    # The instance is threaded through to the resolver provider (membership + schema now
+    # come from its single bulk scroll, so there is no separate URN-membership query).
     assert provide_mock.call_args.kwargs["platform_instance"] == "my_instance"
-    assert (
-        pipeline_ctx.graph.get_urns_by_filter.call_args.kwargs["platform_instance"]
-        == "my_instance"
-    )
+    assert provide_mock.call_args.kwargs["populate_membership"] is True
 
 
 # --- dashboardInfo ----------------------------------------------------------------

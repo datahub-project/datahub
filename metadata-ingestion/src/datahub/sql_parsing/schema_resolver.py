@@ -197,6 +197,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         except Exception:
             return []
 
+    def known_urn_count(self) -> int:
+        """Number of distinct lowercase keys in the casing index (≈ known URNs).
+
+        A cheap size signal for callers that want to log/threshold the catalog; not an
+        exact URN count when case-variants collide (rare).
+        """
+        return len(self._casing_index)
+
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         """Resolve a table to its URN and (best-effort) schema.
 
