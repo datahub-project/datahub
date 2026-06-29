@@ -1,6 +1,7 @@
 import {
     ROOT_NODES,
     ROOT_TERMS,
+    buildOptimisticGlossaryEntity,
     deriveGlossaryLabelFromUrn,
     getGlossaryRootToUpdate,
     getParentNodeToUpdate,
@@ -8,7 +9,7 @@ import {
 } from '@app/glossaryV2/utils';
 import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '@src/Mocks';
 
-import { EntityType } from '@types';
+import { EntityType, GlossaryNode } from '@types';
 
 const glossaryTermWithParent = {
     ...glossaryTerm1,
@@ -53,6 +54,53 @@ describe('glossary utils tests', () => {
         const setUrnsToUpdate = vi.fn();
         updateGlossarySidebar(parentNodesToUpdate, urnsToUpdate, setUrnsToUpdate);
         expect(setUrnsToUpdate).toHaveBeenCalledWith([...urnsToUpdate, ...parentNodesToUpdate]);
+    });
+
+    describe('buildOptimisticGlossaryEntity', () => {
+        it('returns the basic properties from the input', () => {
+            const result = buildOptimisticGlossaryEntity({
+                urn: 'urn:li:glossaryTerm:new',
+                entityType: EntityType.GlossaryTerm,
+                name: 'New Term',
+                description: null,
+            });
+            expect(result.properties).toEqual({ name: 'New Term', description: null });
+            expect(result.type).toBe(EntityType.GlossaryTerm);
+            expect(result.urn).toBe('urn:li:glossaryTerm:new');
+        });
+
+        it('synthesizes a direct-parent → root chain when a parent is provided', () => {
+            // Mirrors the GraphQL parentNodes ordering (direct-parent first, then ancestors)
+            // so downstream consumers read the same root for the optimistic entry that they
+            // will for the canonical entry once the search index catches up.
+            const grandparent = {
+                urn: 'urn:li:glossaryNode:grand',
+                type: EntityType.GlossaryNode,
+            } as unknown as GlossaryNode;
+            const parent = {
+                urn: 'urn:li:glossaryNode:direct',
+                type: EntityType.GlossaryNode,
+                parentNodes: { count: 1, nodes: [grandparent] },
+            } as unknown as GlossaryNode;
+
+            const result = buildOptimisticGlossaryEntity({
+                urn: 'urn:li:glossaryTerm:new',
+                entityType: EntityType.GlossaryTerm,
+                name: 'New Term',
+                parent,
+            });
+            expect(result.parentNodes?.count).toBe(2);
+            expect(result.parentNodes?.nodes.map((n) => n.urn)).toEqual([parent.urn, grandparent.urn]);
+        });
+
+        it('returns null parentNodes when no parent is provided (root create)', () => {
+            const result = buildOptimisticGlossaryEntity({
+                urn: 'urn:li:glossaryNode:new-root',
+                entityType: EntityType.GlossaryNode,
+                name: 'New Root',
+            });
+            expect(result.parentNodes).toBeNull();
+        });
     });
 
     describe('deriveGlossaryLabelFromUrn', () => {

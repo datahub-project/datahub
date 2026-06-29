@@ -1,8 +1,8 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Modal } from '@components';
-import { Button, Collapse, Form, Input, Typography, message } from 'antd';
+import { Editor, Input, Modal, Text, toast } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
@@ -10,10 +10,15 @@ import styled from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
-import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import {
+    EditorContainer,
+    Field,
+    useGlossaryNameValidation,
+} from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -21,18 +26,41 @@ import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
-import { DataHubPageModuleType, EntityType } from '@types';
+import { DataHubPageModuleType, Entity, EntityType, GlossaryNode } from '@types';
 
-const StyledItem = styled(Form.Item)`
-    margin-bottom: 0;
+const FieldLabel = styled.div`
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
 `;
 
-const OptionalWrapper = styled.span`
-    font-weight: normal;
+const OptionalHint = styled(Text).attrs({ type: 'span', weight: 'normal' })`
+    color: ${(p) => p.theme.colors.textTertiary};
 `;
 
-const StyledButton = styled(Button)`
-    padding: 0;
+const HelperText = styled(Text).attrs({ type: 'p' })`
+    color: ${(p) => p.theme.colors.textSecondary};
+    margin: 0 0 8px 0;
+`;
+
+const AdvancedHeader = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    background: transparent;
+    border: 0;
+    color: ${(p) => p.theme.colors.textSecondary};
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+        color: ${(p) => p.theme.colors.text};
+    }
+`;
+
+const AdvancedBody = styled.div`
+    padding-top: 8px;
 `;
 
 interface Props {
@@ -50,14 +78,25 @@ function CreateGlossaryEntityModal(props: Props) {
     const { t: tcl } = useTranslation('common.labels');
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
-    const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
-    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
+    const entityName = entityRegistry.getEntityName(entityType);
+
+    const [stagedId, setStagedId] = useState<string>('');
     const [stagedName, setStagedName] = useState('');
+    const [nameTouched, setNameTouched] = useState(false);
+    const [idTouched, setIdTouched] = useState(false);
     const [selectedParentUrn, setSelectedParentUrn] = useState<string>(props.isCloning ? '' : entityData.urn);
+    // The hydrated parent entity (or `null` when the user clears the picker, or the form is
+    // creating at the root). Tracked alongside `selectedParentUrn` so we can synthesize a
+    // correct `parentNodes` chain on the optimistic sidebar entry.
+    const [selectedParentEntity, setSelectedParentEntity] = useState<GlossaryNode | null>(() => {
+        if (props.isCloning) return null;
+        const parent = entityData.entityData;
+        if (!parent?.urn) return null;
+        return parent as unknown as GlossaryNode;
+    });
     const [documentation, setDocumentation] = useState('');
-    const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
-    const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const refetch = useRefetch();
     const history = useHistory();
     const { reloadByKeyType } = useReloadableContext();
@@ -65,20 +104,28 @@ function CreateGlossaryEntityModal(props: Props) {
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
 
+    const nameValidationError = useGlossaryNameValidation(stagedName, entityName);
+
+    const idValidationError = useMemo<string | undefined>(() => {
+        if (!stagedId) return undefined;
+        if (!validateCustomUrnId(stagedId)) return t('createGlossary.idInvalid');
+        return undefined;
+    }, [stagedId, t]);
+
+    const createButtonDisabled = !!nameValidationError || !!idValidationError;
+
+    // Seed the clone form once `entityData.entityData` is hydrated — but only the first time,
+    // so a later cache refresh that mutates `entityData.entityData`'s reference doesn't stomp
+    // on whatever the user has typed into the name / documentation fields in the meantime.
+    const clonePrefillApplied = useRef(false);
     useEffect(() => {
-        if (props.isCloning && entityData.entityData) {
-            const { properties } = entityData.entityData;
-
-            if (properties?.name) {
-                setStagedName(properties.name);
-                form.setFieldValue('name', properties.name);
-            }
-
-            if (properties?.description) {
-                setDocumentation(properties.description);
-            }
-        }
-    }, [props.isCloning, entityData.entityData, form]);
+        if (clonePrefillApplied.current) return;
+        if (!props.isCloning || !entityData.entityData) return;
+        const { properties } = entityData.entityData;
+        if (properties?.name) setStagedName(properties.name);
+        if (properties?.description) setDocumentation(properties.description);
+        clonePrefillApplied.current = true;
+    }, [props.isCloning, entityData.entityData]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -88,7 +135,7 @@ function CreateGlossaryEntityModal(props: Props) {
         mutation({
             variables: {
                 input: {
-                    id: stagedId?.length ? stagedId : undefined,
+                    id: stagedId.length ? stagedId : undefined,
                     name: stagedName,
                     parentNode: selectedParentUrn || null,
                     description: sanitizedDescription || null,
@@ -96,41 +143,46 @@ function CreateGlossaryEntityModal(props: Props) {
             },
         })
             .then((res) => {
-                message.loading({ content: tf('updating'), duration: 2 });
-                setTimeout(() => {
+                toast.loading(tf('updating'), { duration: 2 });
+                const dataKey = entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
+                const newEntityUrn = res.data?.[dataKey] as string | undefined;
+
+                // Push the optimistic sidebar entry immediately — same chain as V2. Includes the
+                // root case (`!selectedParentUrn`) so the new root node/term shows up in the
+                // sidebar without waiting for the search index.
+                if (isInGlossaryContext && newEntityUrn) {
+                    const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                    updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                    const optimistic = buildOptimisticGlossaryEntity({
+                        urn: newEntityUrn,
+                        entityType,
+                        name: stagedName,
+                        description: sanitizedDescription || null,
+                        parent: selectedParentUrn ? selectedParentEntity : null,
+                    });
+                    setNodeToNewEntity((currData) => ({
+                        ...currData,
+                        [nodeToUpdate]: optimistic as unknown as Entity,
+                    }));
+                }
+
+                // Defer the analytics event, success toast, refetch, and clone-redirect by
+                // `GLOSSARY_SEARCH_INDEX_REFRESH_MS` so the refetch sees the new entity in the
+                // search index. Fire-and-forget — every callback below targets parent contexts
+                // (analytics, refetch, history) that outlive the modal.
+                window.setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateGlossaryEntityEvent,
                         entityType,
                         parentNodeUrn: selectedParentUrn || undefined,
                     });
-                    message.success({
-                        content: t('createGlossary.success', {
+                    toast.success(
+                        t('createGlossary.success', {
                             entityName: entityRegistry.getEntityName(entityType),
                         }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                     refetch();
-                    if (isInGlossaryContext) {
-                        // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
-                        updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
-                        if (selectedParentUrn) {
-                            const dataKey =
-                                entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
-                            const newEntityUrn = res.data[dataKey];
-                            setNodeToNewEntity((currData) => ({
-                                ...currData,
-                                [selectedParentUrn]: {
-                                    urn: newEntityUrn,
-                                    type: entityType,
-                                    properties: {
-                                        name: stagedName,
-                                        description: sanitizedDescription || null,
-                                    },
-                                },
-                            }));
-                        }
-                    }
                     if (refetchData) {
                         refetchData();
                     }
@@ -141,23 +193,17 @@ function CreateGlossaryEntityModal(props: Props) {
                                 : res.data?.createGlossaryNode;
                         history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
-                    // Reload modules
-                    // ChildHierarchy - to update contents module as new term/node could change it
+                    // ChildHierarchy module needs to refresh since a new term/node can change the
+                    // contents shown on the parent's hierarchy view.
                     reloadByKeyType([
                         getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
                     ]);
-                }, 2000);
+                }, GLOSSARY_SEARCH_INDEX_REFRESH_MS);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('createGlossary.error', { errorMessage: e.message || '' }), duration: 3 });
+                toast.error(t('createGlossary.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
         onClose();
-    }
-
-    function addDocumentation(description: string) {
-        setDocumentation(description);
-        setIsDocumentationModalVisible(false);
     }
 
     return (
@@ -180,114 +226,74 @@ function CreateGlossaryEntityModal(props: Props) {
                 },
             ]}
         >
-            <Form
-                form={form}
-                initialValues={{
-                    parent: selectedParentUrn,
-                }}
-                layout="vertical"
-                onFieldsChange={() =>
-                    setCreateButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))
-                }
-            >
-                <Form.Item label={<Typography.Text strong>{tcl('name')}</Typography.Text>}>
-                    <StyledItem
-                        data-testid="create-glossary-entity-modal-name"
-                        name="name"
-                        rules={[
-                            {
-                                required: true,
-                                message: t('createGlossary.nameRequired', {
-                                    entityName: entityRegistry.getEntityName(entityType),
-                                }),
-                            },
-                            { whitespace: true },
-                            { min: 1, max: 100 },
-                        ]}
-                        hasFeedback
-                    >
-                        <Input autoFocus value={stagedName} onChange={(event) => setStagedName(event.target.value)} />
-                    </StyledItem>
-                </Form.Item>
-                <Form.Item
-                    label={
-                        <Typography.Text strong>
-                            <Trans
-                                t={t}
-                                i18nKey="createGlossary.parentLabel"
-                                components={{ optional: <OptionalWrapper /> }}
-                            />
-                        </Typography.Text>
-                    }
-                >
-                    <StyledItem name="parent">
-                        <NodeParentSelect
-                            selectedParentUrn={selectedParentUrn}
-                            setSelectedParentUrn={setSelectedParentUrn}
+            <Field data-testid="create-glossary-entity-modal-name">
+                <Input
+                    label={tcl('name')}
+                    autoFocus
+                    placeholder={t('createGlossary.namePlaceholder')}
+                    value={stagedName}
+                    setValue={(v) => {
+                        setStagedName(v);
+                        setNameTouched(true);
+                    }}
+                    isRequired
+                    error={nameTouched ? nameValidationError : undefined}
+                />
+            </Field>
+            <Field>
+                <FieldLabel>
+                    <Text weight="bold">
+                        <Trans t={t} i18nKey="createGlossary.parentLabel" components={{ optional: <OptionalHint /> }} />
+                    </Text>
+                </FieldLabel>
+                <NodeParentSelect
+                    selectedParentUrn={selectedParentUrn}
+                    setSelectedParentUrn={setSelectedParentUrn}
+                    onSelectParent={setSelectedParentEntity}
+                />
+            </Field>
+            <Field>
+                <FieldLabel>
+                    <Text weight="bold">
+                        <Trans
+                            t={t}
+                            i18nKey="createGlossary.documentationLabel"
+                            components={{ optional: <OptionalHint /> }}
                         />
-                    </StyledItem>
-                </Form.Item>
-                <StyledItem
-                    label={
-                        <Typography.Text strong>
-                            <Trans
-                                t={t}
-                                i18nKey="createGlossary.documentationLabel"
-                                components={{ optional: <OptionalWrapper /> }}
-                            />
-                        </Typography.Text>
-                    }
-                >
-                    <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
-                        <EditOutlined />
-                        {documentation ? t('createGlossary.editDocumentation') : t('createGlossary.addDocumentation')}
-                    </StyledButton>
-                    {isDocumentationModalVisible && (
-                        <DescriptionModal
-                            title={t('createGlossary.addDocumentation')}
-                            onClose={() => setIsDocumentationModalVisible(false)}
-                            onSubmit={addDocumentation}
-                            description={documentation}
+                    </Text>
+                </FieldLabel>
+                <EditorContainer>
+                    <Editor
+                        content={documentation}
+                        onChange={setDocumentation}
+                        dataTestId="create-glossary-documentation-editor"
+                        hideBorder
+                    />
+                </EditorContainer>
+            </Field>
+            <AdvancedHeader type="button" onClick={() => setShowAdvanced((prev) => !prev)}>
+                {showAdvanced ? <CaretDown size={14} /> : <CaretRight size={14} />}
+                {t('createGlossary.advanced')}
+            </AdvancedHeader>
+            {showAdvanced && (
+                <AdvancedBody>
+                    <Field>
+                        <HelperText>{t('createGlossary.idHelp')}</HelperText>
+                        <Input
+                            label={t('createGlossary.idLabel', {
+                                entityName: entityRegistry.getEntityName(props.entityType),
+                            })}
+                            placeholder={t('createGlossary.idPlaceholder')}
+                            value={stagedId}
+                            setValue={(v) => {
+                                setStagedId(v);
+                                setIdTouched(true);
+                            }}
+                            error={idTouched ? idValidationError : undefined}
                         />
-                    )}
-                </StyledItem>
-                <Collapse ghost>
-                    <Collapse.Panel
-                        header={<Typography.Text type="secondary">{t('createGlossary.advanced')}</Typography.Text>}
-                        key="1"
-                    >
-                        <Form.Item
-                            label={
-                                <Typography.Text strong>
-                                    {t('createGlossary.idLabel', {
-                                        entityName: entityRegistry.getEntityName(props.entityType),
-                                    })}
-                                </Typography.Text>
-                            }
-                        >
-                            <Typography.Paragraph>{t('createGlossary.idHelp')}</Typography.Paragraph>
-                            <Form.Item
-                                name="id"
-                                rules={[
-                                    () => ({
-                                        validator(_, value) {
-                                            if (value && validateCustomUrnId(value)) {
-                                                return Promise.resolve();
-                                            }
-                                            return Promise.reject(new Error(t('createGlossary.idInvalid')));
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <Input
-                                    placeholder={t('createGlossary.idPlaceholder')}
-                                    onChange={(event) => setStagedId(event.target.value)}
-                                />
-                            </Form.Item>
-                        </Form.Item>
-                    </Collapse.Panel>
-                </Collapse>
-            </Form>
+                    </Field>
+                </AdvancedBody>
+            )}
         </Modal>
     );
 }
