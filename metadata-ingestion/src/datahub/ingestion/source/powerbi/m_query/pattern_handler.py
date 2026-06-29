@@ -1524,8 +1524,9 @@ class NativeQueryLineage(AbstractLineage):
 
 # Two-tier platforms whose connector URNs are schema.table. Their ODBC
 # navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
-# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource).
-ODBC_TWO_TIER_PLATFORMS = {"hive"}
+# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
+# the enum so a platform-name rename can't silently disable the catalog drop.
+ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
 
 
 class OdbcLineage(AbstractLineage):
