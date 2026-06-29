@@ -1,6 +1,6 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 
-# acryl-datahub-airflow-plugin
+# DataHub Airflow Plugin
 
 **Automatic lineage and run metadata from Apache Airflow into DataHub** — captures DAG structure, task inputs/outputs, and run history with no manual instrumentation.
 

@@ -1,6 +1,6 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 
-# acryl-datahub-actions
+# DataHub Actions
 
 **Event-driven automation for DataHub** — react to metadata changes in real time and trigger workflows, notifications, or custom logic.
 

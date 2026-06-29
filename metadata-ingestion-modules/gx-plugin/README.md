@@ -1,6 +1,6 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 
-# acryl-datahub-gx-plugin
+# DataHub Great Expectations (GX) Plugin
 
 **Send Great Expectations data quality results into DataHub** — surface assertion outcomes alongside your dataset metadata so teams can see data health at a glance.
 

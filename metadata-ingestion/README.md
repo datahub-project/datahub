@@ -1,6 +1,6 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 
-# acryl-datahub
+# DataHub SDK and CLI
 
 **DataHub's ingestion framework and CLI** — pull metadata from 50+ data sources into your catalog, or push it programmatically from your own pipelines and applications.
 

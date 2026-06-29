@@ -1,6 +1,6 @@
 <!-- PyPI long description. Keep concise, feature-discovery-first. -->
 
-# prefect-datahub
+# DataHub Prefect Plugin
 
 **Automatic lineage and run metadata from Prefect into DataHub** — captures flow structure, task inputs/outputs, and run history with minimal setup.
 
