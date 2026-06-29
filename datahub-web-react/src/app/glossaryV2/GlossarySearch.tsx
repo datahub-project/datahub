@@ -1,5 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { SearchBar } from '@components';
+import { Loader, SearchBar } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -95,7 +94,7 @@ function GlossarySearch() {
                     <ResultsWrapper>
                         {loading && (
                             <LoadingWrapper>
-                                <LoadingOutlined />
+                                <Loader size="md" />
                             </LoadingWrapper>
                         )}
                         {!loading &&

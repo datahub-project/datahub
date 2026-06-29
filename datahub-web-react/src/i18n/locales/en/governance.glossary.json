@@ -16,5 +16,6 @@
     "section.termGroups": "Term Groups",
     "sidebar.collapse": "Collapse Glossary",
     "sidebar.expand": "Expand Glossary",
-    "sidebar.home": "Home"
+    "sidebar.home": "Glossary Home",
+    "sidebar.section.allTerms": "All Glossary Terms"
 }

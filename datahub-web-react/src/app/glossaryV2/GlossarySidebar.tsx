@@ -5,7 +5,6 @@ import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { House } from '@phosphor-icons/react/dist/csr/House';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Divider } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
@@ -17,6 +16,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import GlossarySearch from '@app/glossaryV2/GlossarySearch';
@@ -97,9 +97,9 @@ const CreateButton = styled(Button)`
     }
 `;
 
-const ThinDivider = styled(Divider)`
-    margin: 0;
-    padding: 0;
+const ThinDivider = styled.div`
+    height: 1px;
+    background: ${(props) => props.theme.colors.border};
 `;
 
 const Content = styled.div`
@@ -109,6 +109,10 @@ const Content = styled.div`
     flex: 1;
 `;
 
+// Custom 6px scrollbar — without this, the OS default (~15px on macOS) takes
+// space only on the right and pushes the centered icon column visibly left.
+// Uses the semantic `scrollbarThumb` / `scrollbarThumbHover` / `scrollbarTrack`
+// tokens (gray100 → gray500 on hover) so it stays subtle by default.
 const CollapsedList = styled.div`
     display: flex;
     flex-direction: column;
@@ -118,6 +122,26 @@ const CollapsedList = styled.div`
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: ${(props) => props.theme.colors.scrollbarTrack};
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: ${(props) => props.theme.colors.scrollbarThumb};
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: ${(props) => `${props.theme.colors.scrollbarThumb} ${props.theme.colors.scrollbarTrack}`};
 `;
 
 const CollapsedItemLink = styled(Link)<{ $isSelected?: boolean }>`
@@ -140,13 +164,16 @@ const CollapsedItemLink = styled(Link)<{ $isSelected?: boolean }>`
 // a subtle selected background + brand-tinted focus shadow when active, and a neutral
 // hover background + neutral focus shadow otherwise. Horizontal margin (12px) matches
 // the HeaderRow's `padding: 12px` so the row sits flush with the title + actions above.
+// Bottom margin (12px) matches the 12px gutters used by HeaderRow / SearchInputWrapper
+// so the gap between this row and the ThinDivider below is visually consistent with
+// the rest of the sidebar's spacing rhythm (was 8px, looked too tight).
 const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
     position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 4px 8px;
-    margin: 0 12px 8px;
+    margin: 0 12px 12px;
     min-height: 38px;
     height: 38px;
     border-radius: 6px;
@@ -223,6 +250,11 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
+    // Drives the selected-state highlight on collapsed icons so the active
+    // term/group is visually identified even with the sidebar collapsed —
+    // mirrors how the expanded tree highlights via `entityData?.urn`.
+    const { entityData } = useGlossaryEntityData();
+    const selectedEntityUrn = entityData?.urn;
 
     const collapsedItems = useMemo(() => {
         const nodes = nodesData?.getRootGlossaryNodes?.nodes ?? [];
@@ -320,7 +352,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                                 color="gray"
                                 size="lg"
                                 isCircle
-                                icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft }}
+                                icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft, color: 'icon' }}
                                 isActive={!isCollapsed}
                                 onClick={() => setIsCollapsed((prev) => !prev)}
                                 data-testid="glossary-sidebar-toggle"
@@ -338,7 +370,10 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                         </Tooltip>
                         {collapsedItems.map((item) => (
                             <Tooltip key={item.urn} title={item.name} placement="right" showArrow={false}>
-                                <CollapsedItemLink to={entityRegistry.getEntityUrl(item.type, item.urn)}>
+                                <CollapsedItemLink
+                                    to={entityRegistry.getEntityUrl(item.type, item.urn)}
+                                    $isSelected={selectedEntityUrn === item.urn}
+                                >
                                     <GlossaryColoredIcon color={item.color} icon={item.Icon} size={32} iconSize={16} />
                                 </CollapsedItemLink>
                             </Tooltip>
