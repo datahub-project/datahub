@@ -430,7 +430,10 @@ class KinesisFirehoseExtractor:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataJobInfoClass(
-                    name="Delivery",
+                    # Display name is qualified with the stream so it's unambiguous in
+                    # search / flat lists; the job_id stays "delivery" (the stream is
+                    # already encoded in the parent DataFlow URN).
+                    name=f"{name} Delivery",
                     type="STREAM_DELIVERY",
                     description=f"Delivery for Firehose stream {name}",
                     customProperties=self._custom_properties(desc),

@@ -418,7 +418,7 @@
                 "version_id": "1"
             },
             "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/events-to-s3",
-            "name": "Delivery",
+            "name": "events-to-s3 Delivery",
             "description": "Delivery for Firehose stream events-to-s3",
             "type": {
                 "string": "STREAM_DELIVERY"
@@ -426,8 +426,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782737532961,
-        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastObserved": 1782739815162,
+        "runId": "kinesis-2026_06_29-15_30_13-o6v2pg",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -709,7 +709,7 @@
                 "version_id": "1"
             },
             "externalUrl": "https://console.aws.amazon.com/firehose/home?region=us-east-1#/details/clicks-to-s3",
-            "name": "Delivery",
+            "name": "clicks-to-s3 Delivery",
             "description": "Delivery for Firehose stream clicks-to-s3",
             "type": {
                 "string": "STREAM_DELIVERY"
@@ -717,8 +717,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782737532968,
-        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastObserved": 1782739815170,
+        "runId": "kinesis-2026_06_29-15_30_13-o6v2pg",
         "lastRunId": "no-run-id-provided"
     }
 },
