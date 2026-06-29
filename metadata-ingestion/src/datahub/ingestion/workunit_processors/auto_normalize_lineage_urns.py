@@ -222,20 +222,17 @@ class AutoNormalizeLineageUrnsProcessor(
             resolvers: List[SchemaResolver] = []
             count = 0
             for entry in entries:
+                # populate_membership=True makes the resolver's single bulk scroll also
+                # record every existing URN (including schemaless ones) in its casing
+                # index — so we don't run a second scroll just to learn membership.
                 resolver = provide_schema_resolver(
                     graph=self._graph,
                     platform=entry.platform,
                     platform_instance=entry.platform_instance,
                     env=entry.env,
+                    populate_membership=True,
                 )
-                for existing in self._graph.get_urns_by_filter(
-                    entity_types=["dataset"],
-                    platform=entry.platform,
-                    platform_instance=entry.platform_instance,
-                    env=entry.env,
-                ):
-                    resolver.add_known_urn(existing)
-                    count += 1
+                count += resolver.known_urn_count()
                 resolvers.append(resolver)
             # The casing index lives on the resolvers and is disk-backed, so memory
             # stays bounded; the upfront scroll cost is what scales with the catalog.
