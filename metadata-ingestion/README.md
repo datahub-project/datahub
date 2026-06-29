@@ -82,12 +82,16 @@ No CLI required — configure and run ingestion directly from the DataHub UI und
 ## Key CLI commands
 
 ```bash
+datahub init                          # Connect to a DataHub instance (interactive)
+datahub init --username datahub --password datahub  # Quickstart with local defaults
 datahub ingest -c recipe.yml          # Run an ingestion pipeline
-datahub check server-config           # Verify connectivity to DataHub
-datahub delete --urn <urn>            # Delete a metadata entity
+datahub search "my table"             # Search for entities by keyword
+datahub search "*" --filter platform=snowflake --filter entity_type=dataset
+datahub graphql --list-operations     # Explore all available GraphQL operations
+datahub graphql --query "{ me { corpUser { urn } } }"  # Run a GraphQL query
 datahub get --urn <urn>               # Fetch metadata for an entity
+datahub delete --urn <urn>            # Delete a metadata entity
 datahub timeline --urn <urn>          # View metadata change history
-datahub migrate                       # Run platform migrations
 ```
 
 ## Links
