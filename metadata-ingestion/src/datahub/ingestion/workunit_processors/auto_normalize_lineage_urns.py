@@ -23,6 +23,7 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
+    ChartInfoClass,
     DashboardInfoClass,
     DataJobInputOutputClass,
     EdgeClass,
@@ -160,6 +161,10 @@ class AutoNormalizeLineageUrnsProcessor(
                 if datajob is not None:
                     self._normalize_datajob_io(datajob)
                     self._write_back(wu, datajob)
+                chart = wu.get_aspect_of_type(ChartInfoClass)
+                if chart is not None:
+                    self._normalize_chart_info(chart)
+                    self._write_back(wu, chart)
             except Exception as e:
                 self.report.num_exceptions += 1
                 logger.warning(
@@ -413,6 +418,15 @@ class AutoNormalizeLineageUrnsProcessor(
         self._heal_dataset_edges(aspect.inputDatasetEdges or [])
         for fine_grained in aspect.fineGrainedLineages or []:
             self._normalize_fine_grained_upstreams(fine_grained)
+
+    def _normalize_chart_info(self, aspect: ChartInfoClass) -> None:
+        # A chart's `inputs` / `inputEdges` are the upstream datasets it reads from.
+        # For BI tools that query the warehouse directly (e.g. Superset, Mode, Redash,
+        # Metabase) these point straight at warehouse tables, so casing mismatches
+        # there break lineage just like any other upstream reference.
+        if aspect.inputs:
+            aspect.inputs = self._heal_dataset_urns(aspect.inputs)
+        self._heal_dataset_edges(aspect.inputEdges or [])
 
     def _heal_dataset_urns(self, urns: List[str]) -> List[str]:
         healed: List[str] = []

@@ -72,7 +72,8 @@ warehouse itself reported.
 | `dataJobInputOutput` inputs (`inputDatasets`, `inputDatasetEdges`, `fineGrainedLineages`) | ✅ table-level **and** column-name casing      |
 | `dataJobInputOutput` outputs (`outputDatasets`, `outputDatasetEdges`)                     | ❌ left unchanged (the job's own outputs)      |
 | `dataJobInputOutput` `inputDatasetFields` / `outputDatasetFields`                         | ❌ not yet covered (use `fineGrainedLineages`) |
-| `chartInfo` (`inputs`, `inputEdges`), the `inputFields` aspect                            | ❌ not yet covered                             |
+| `chartInfo` upstream datasets (`inputs`, `inputEdges`)                                    | ✅ table-level                                 |
+| `chartInfo` `inputFields` aspect (column-level)                                           | ❌ not yet covered                             |
 | `dataProcessInstance` lineage (run inputs/outputs)                                        | ❌ not yet covered                             |
 
 `dataJobInputOutput` covers the dbt / Airflow / Spark warehouse-upstream path: a job's **inputs** are
@@ -90,7 +91,8 @@ paths are intentionally **out of scope** for this iteration and treated as incre
 
 - `dataJobInputOutput.inputDatasetFields` / `outputDatasetFields` — column-level lists separate from
   `fineGrainedLineages`; most connectors emit fine-grained lineage, which **is** covered.
-- `chartInfo` upstream datasets (`inputs` / `inputEdges`) and the `inputFields` aspect.
+- `chartInfo` `inputFields` aspect (column-level for charts/dashboards) — the chart's dataset-level
+  inputs **are** covered; only the column-level field references are not.
 - `dataProcessInstance` run-level lineage.
 
 Adding any of these is incremental: every reference funnels through one resolver, so a new aspect is just
