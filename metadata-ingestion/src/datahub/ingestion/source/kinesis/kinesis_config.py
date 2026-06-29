@@ -44,7 +44,7 @@ DestinationPlatform = Literal[
 # typos at typecheck time: `make_client(session, "firhose")` fails the
 # Literal check instead of returning a misconfigured boto3 client whose
 # first API call surfaces an unhelpful botocore error.
-AwsService = Literal["kinesis", "firehose", "glue", "sts"]
+AwsService = Literal["kinesis", "firehose", "glue"]
 
 
 class DestinationPlatformDetail(ConfigModel):

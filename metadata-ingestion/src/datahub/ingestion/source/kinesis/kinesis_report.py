@@ -42,7 +42,7 @@ class KinesisSourceReport(StaleEntityRemovalSourceReport):
     include_firehose: bool = False
     glue_schema_registry_enabled: bool = False
 
-    # Identity resolved at source init via sts:GetCallerIdentity. Populated only when the
+    # Account id derived at source init from a resource ARN. Populated only when the
     # user did not set platform_instance explicitly; lets users see which account the
     # connector actually hit when diagnosing "zero streams returned" scenarios.
     account_id: Optional[str] = None

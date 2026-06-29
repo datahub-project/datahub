@@ -209,37 +209,66 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _resolve_account_id(self) -> Optional[str]:
-        """Call sts:GetCallerIdentity to discover the AWS account_id.
+        """Derive the AWS account_id from a resource ARN (no sts:GetCallerIdentity).
 
-        Returns the account_id on success. On any boto3/AWS failure, emits a warning
-        and returns None so the caller can fall back to None platform_instance — the
-        connector still works, but URNs may collide across accounts.
+        AWS ARNs are ``arn:aws:<svc>:<region>:<account>:<resource>`` — the account is
+        field 4. Reading it off a resource's own ARN needs no extra IAM permission
+        (it reuses the kinesis/firehose read access the connector already requires)
+        and reflects the account the *resources* live in, which stays correct under
+        cross-account role assumption — unlike sts:GetCallerIdentity, which returns
+        the caller's account. Returns None (with a warning) when no resource is
+        available or the lookup fails, so the connector degrades to an unset
+        platform_instance rather than crashing __init__.
         """
         # Catch BotoCoreError too: NoCredentialsError, EndpointConnectionError,
-        # ConnectTimeoutError, ProfileNotFound and similar non-API errors would
-        # otherwise crash __init__ with an unhandled traceback. We instead
-        # degrade gracefully — the user sees the same actionable warning and
-        # ingestion proceeds with platform_instance=None.
+        # ProfileNotFound and similar non-API errors would otherwise crash __init__.
         try:
-            # Route through make_client so a configured aws_endpoint_url applies to
-            # STS too (consistent with every other client) — important when pointing
-            # at a non-default endpoint, where public STS would otherwise resolve a
-            # real account id that doesn't match the data source.
-            sts = self.config.make_client(self._session, "sts")
-            return sts.get_caller_identity()["Account"]
+            arn = self._first_resource_arn()
         except (ClientError, BotoCoreError) as e:
             code = aws_error_code(e)
             self.report.warning(
                 title="account_id not resolved",
                 message=(
-                    "sts:GetCallerIdentity failed; URNs will not include the AWS "
-                    "account_id. Set platform_instance in the recipe to disambiguate "
-                    "across accounts, or grant sts:GetCallerIdentity to the principal."
+                    "Could not read a resource ARN to derive the AWS account_id; "
+                    "URNs will not include it. Set platform_instance in the recipe "
+                    "to disambiguate across accounts."
                 ),
-                context=f"sts:GetCallerIdentity returned {code}",
+                context=f"resource listing returned {code}",
                 exc=e,
             )
             return None
+
+        if arn:
+            parts = arn.split(":")
+            if len(parts) >= 5 and parts[4]:
+                return parts[4]
+        return None
+
+    def _first_resource_arn(self) -> Optional[str]:
+        """Return one Kinesis stream ARN (preferred) or Firehose delivery-stream ARN,
+        used solely to derive the account_id. Raises ClientError/BotoCoreError on
+        AWS failure (handled by the caller)."""
+        if self.config.include_streams:
+            kinesis = self.config.make_client(self._session, "kinesis")
+            resp = kinesis.list_streams(Limit=1)
+            for summary in resp.get("StreamSummaries") or []:
+                if summary.get("StreamARN"):
+                    return summary["StreamARN"]
+            # Older API shape returns only names — describe one to get its ARN.
+            names = resp.get("StreamNames") or []
+            if names:
+                return kinesis.describe_stream(StreamName=names[0])[
+                    "StreamDescription"
+                ]["StreamARN"]
+        if self.config.include_firehose:
+            firehose = self.config.make_client(self._session, "firehose")
+            resp = firehose.list_delivery_streams(Limit=1)
+            names = resp.get("DeliveryStreamNames") or []
+            if names:
+                return firehose.describe_delivery_stream(DeliveryStreamName=names[0])[
+                    "DeliveryStreamDescription"
+                ]["DeliveryStreamARN"]
+        return None
 
     def _region_key(self) -> KinesisRegionKey:
         region = self.config.aws_config.aws_region

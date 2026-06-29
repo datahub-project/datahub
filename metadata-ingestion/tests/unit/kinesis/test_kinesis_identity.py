@@ -1,11 +1,11 @@
 """Tests for platform_instance / account_id resolution at source __init__.
 
 The connector resolves an effective platform_instance at init time:
-  - explicit config.platform_instance wins (no AWS call)
-  - otherwise, sts:GetCallerIdentity provides the account_id, which becomes the
+  - explicit config.platform_instance wins (no resolution lookup)
+  - otherwise, the AWS account_id is parsed from a resource ARN (field 4 of a
+    ListStreams / DescribeStream / DescribeDeliveryStream ARN) and becomes the
     platform_instance (region is encoded in the dataset name / DataFlow id, not here)
-  - sts denial leaves platform_instance unset; a warning is recorded so users know
-    why their URNs lack the account_id segment
+  - a failed/empty lookup leaves platform_instance unset, with a warning
 """
 
 from typing import Any
@@ -28,48 +28,47 @@ def _config(**overrides: Any) -> KinesisSourceConfig:
     return KinesisSourceConfig.model_validate(base)
 
 
+def _session_with_kinesis(kinesis_mock: MagicMock) -> MagicMock:
+    """A mock boto3 session whose client('kinesis') returns kinesis_mock; any other
+    service returns a fresh MagicMock."""
+    session = MagicMock()
+    session.client.side_effect = lambda service, **kw: (
+        kinesis_mock if service == "kinesis" else MagicMock()
+    )
+    return session
+
+
 class TestPlatformInstanceResolution:
     @patch(
         "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
     )
-    def test_explicit_platform_instance_wins_and_no_sts_call_is_made(
-        self, mock_session
-    ):
-        """When the user sets platform_instance explicitly, the connector must NOT
-        call sts:GetCallerIdentity — the user's value is authoritative and the call
-        would be wasted IAM surface area.
-        """
-        mock_session.return_value = MagicMock()
-        config = _config(platform_instance="prod-east")
-        source = KinesisSource(config, _ctx())
+    def test_explicit_platform_instance_wins_without_lookup(self, mock_session):
+        """When platform_instance is set explicitly, the connector must NOT make an
+        account-resolution lookup — the user's value is authoritative."""
+        kinesis_mock = MagicMock()
+        mock_session.return_value = _session_with_kinesis(kinesis_mock)
+        source = KinesisSource(_config(platform_instance="prod-east"), _ctx())
         assert source.config.platform_instance == "prod-east"
-        # Verify sts was never asked for caller identity
-        sts_calls = [
-            c
-            for c in mock_session.return_value.client.call_args_list
-            if c.args and c.args[0] == "sts"
-        ]
-        assert sts_calls == [], (
-            "sts client must not be constructed when platform_instance is explicit"
-        )
+        kinesis_mock.list_streams.assert_not_called()
 
     @patch(
         "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
     )
-    def test_unset_platform_instance_falls_back_to_account_id_alone(self, mock_session):
-        """Without explicit platform_instance, fall back to the AWS account_id alone.
-        Region is NOT folded into platform_instance — that would double-encode the
-        region (once at platform_instance level, once at the Region container level)
-        in the navigation tree. Region collision safety is handled by encoding region
-        into the dataset URN's name (`<region>.<stream>`) and the DataFlow's flow_id.
-        """
-        mock_sts = MagicMock()
-        mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
-        mock_session.return_value.client.side_effect = lambda service, **kw: (
-            mock_sts if service == "sts" else MagicMock()
-        )
-        config = _config()
-        source = KinesisSource(config, _ctx())
+    def test_account_id_derived_from_stream_arn(self, mock_session):
+        """Without explicit platform_instance, the account_id is parsed from a
+        resource ARN (field 4) and used as the platform_instance. Region is NOT
+        folded in — collision safety lives in the dataset name / DataFlow id."""
+        kinesis_mock = MagicMock()
+        kinesis_mock.list_streams.return_value = {
+            "StreamSummaries": [
+                {
+                    "StreamName": "events",
+                    "StreamARN": "arn:aws:kinesis:us-east-1:123456789012:stream/events",
+                }
+            ]
+        }
+        mock_session.return_value = _session_with_kinesis(kinesis_mock)
+        source = KinesisSource(_config(), _ctx())
         assert source.config.platform_instance == "123456789012"
         assert source.report.account_id == "123456789012"
         assert source.report.platform_instance_resolved == "123456789012"
@@ -77,24 +76,38 @@ class TestPlatformInstanceResolution:
     @patch(
         "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
     )
-    def test_sts_denial_yields_warning_and_leaves_platform_instance_unset(
+    def test_account_id_derived_via_describe_when_only_names_returned(
         self, mock_session
     ):
-        """If sts:GetCallerIdentity is denied (unusual but possible with tightly
-        scoped IAM), the connector must NOT crash. It logs a warning so the user
-        knows URNs won't include account_id, then continues with platform_instance=None.
-        """
-        mock_sts = MagicMock()
-        mock_sts.get_caller_identity.side_effect = ClientError(
+        """Older ListStreams responses return only StreamNames; the connector then
+        describes one stream to read its ARN."""
+        kinesis_mock = MagicMock()
+        kinesis_mock.list_streams.return_value = {"StreamNames": ["events"]}
+        kinesis_mock.describe_stream.return_value = {
+            "StreamDescription": {
+                "StreamARN": "arn:aws:kinesis:us-east-1:123456789012:stream/events"
+            }
+        }
+        mock_session.return_value = _session_with_kinesis(kinesis_mock)
+        source = KinesisSource(_config(), _ctx())
+        assert source.config.platform_instance == "123456789012"
+
+    @patch(
+        "datahub.ingestion.source.kinesis.kinesis_config.AwsConnectionConfig.get_session"
+    )
+    def test_lookup_failure_yields_warning_and_leaves_platform_instance_unset(
+        self, mock_session
+    ):
+        """If the account-resolution lookup is denied/unavailable, the connector must
+        NOT crash — it warns and continues with platform_instance=None."""
+        kinesis_mock = MagicMock()
+        kinesis_mock.list_streams.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "no"}},
-            "GetCallerIdentity",
+            "ListStreams",
         )
-        mock_session.return_value.client.side_effect = lambda service, **kw: (
-            mock_sts if service == "sts" else MagicMock()
-        )
-        config = _config()
-        source = KinesisSource(config, _ctx())
+        mock_session.return_value = _session_with_kinesis(kinesis_mock)
+        source = KinesisSource(_config(), _ctx())
         assert source.config.platform_instance is None
         assert source.report.account_id is None
         warnings_text = " ".join(str(w) for w in source.report.warnings)
-        assert "account_id" in warnings_text or "sts:GetCallerIdentity" in warnings_text
+        assert "account_id" in warnings_text
