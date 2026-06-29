@@ -1,13 +1,12 @@
 import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileIcon } from '@components/components/FileNode/FileIcon';
 import { FileNodeProps } from '@components/components/FileNode/types';
-import { Text } from '@components/components/Text';
 import { Tooltip } from '@components/components/Tooltip';
 import { getFontSize } from '@components/theme/utils';
 
@@ -44,13 +43,14 @@ const CloseButton = styled(Button)`
     padding: 0;
 `;
 
-const FileName = styled(Text)`
+const FileName = styled.span`
     color: ${({ theme }) => theme.colors.textBrand};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
     min-width: 0;
+    margin: 0;
 `;
 
 export function FileNode({
@@ -90,6 +90,13 @@ export function FileNode({
 
     const fontSize = useMemo(() => getFontSize(size), [size]);
 
+    const fileNameRef = useRef<HTMLSpanElement>(null);
+    const [isTruncated, setIsTruncated] = useState(false);
+    useEffect(() => {
+        const el = fileNameRef.current;
+        if (el) setIsTruncated(el.scrollWidth > el.clientWidth);
+    }, [fileName, loading, t]);
+
     if (!fileName) return null;
 
     if (loading) {
@@ -97,8 +104,8 @@ export function FileNode({
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
                     <Loading height={18} width={20} marginTop={0} />
-                    <Tooltip title={fileName}>
-                        <FileName type="span">{t('fileNode.uploading', { fileName })}</FileName>
+                    <Tooltip title={isTruncated ? fileName : undefined}>
+                        <FileName ref={fileNameRef}>{t('fileNode.uploading', { fileName })}</FileName>
                     </Tooltip>
                 </FileDetails>
             </Container>
@@ -109,8 +116,8 @@ export function FileNode({
         <Container $border={border} className={className} $fontSize={fontSize}>
             <FileDetails onClick={clickHandler}>
                 <FileIcon extension={extension} />
-                <Tooltip title={fileName}>
-                    <FileName type="span">{fileName}</FileName>
+                <Tooltip title={isTruncated ? fileName : undefined}>
+                    <FileName ref={fileNameRef}>{fileName}</FileName>
                 </Tooltip>
 
                 {hasRightContent && <SpaceFiller />}

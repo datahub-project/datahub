@@ -150,12 +150,12 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <Form.Item
                     tooltip={t('schedule.enableTooltip')}
                     label={
-                        <Typography.Text strong>
+                        <Text type="span" weight="bold">
                             {t('schedule.runOnSchedule')}{' '}
                             <Text type="span" color="textSecondary">
                                 {t('schedule.recommended')}
                             </Text>
-                        </Typography.Text>
+                        </Text>
                     }
                 >
                     <Switch checked={scheduleEnabled} onChange={(v) => setScheduleEnabled(v)} />
