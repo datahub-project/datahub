@@ -2878,7 +2878,7 @@ class TestAsyncUnlessSyncIngest:
         return DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=False,
-            special_respect_mcp_sync_marker=True,
+            respect_mcp_sync_marker=True,
         )
 
     def _emit_and_get_payload(
@@ -2927,7 +2927,7 @@ class TestAsyncUnlessSyncIngest:
         emitter = DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=True,
-            special_respect_mcp_sync_marker=True,
+            respect_mcp_sync_marker=True,
         )
         url = self._emit_openapi_and_get_url(emitter, EmitMode.SYNC_PRIMARY)
         assert "async=false" in url
@@ -2936,7 +2936,7 @@ class TestAsyncUnlessSyncIngest:
         emitter = DataHubRestEmitter(
             MOCK_GMS_ENDPOINT,
             openapi_ingestion=True,
-            special_respect_mcp_sync_marker=True,
+            respect_mcp_sync_marker=True,
         )
         url = self._emit_openapi_and_get_url(
             emitter, EmitMode.ASYNC, mcp=self._sync_demanding_mcp()

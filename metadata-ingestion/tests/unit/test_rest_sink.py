@@ -471,7 +471,7 @@ def test_sync_origin_opt_in_passed_through_in_all_modes():
             DatahubRestSinkConfig(
                 server="http://localhost:8080",
                 mode=mode,
-                special_respect_mcp_sync_marker=True,
+                respect_mcp_sync_marker=True,
             )
         )
-        assert emitter.special_respect_mcp_sync_marker is True
+        assert emitter.respect_mcp_sync_marker is True

@@ -47,7 +47,7 @@ class DatahubClientConfig(ConfigModel):
     # producer must populate the syncIngest system-metadata property on writes
     # that must remain synchronous (e.g. via a custom aspect mutator/validator
     # or an upstream processing step).
-    special_respect_mcp_sync_marker: Optional[bool] = None
+    respect_mcp_sync_marker: Optional[bool] = None
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None

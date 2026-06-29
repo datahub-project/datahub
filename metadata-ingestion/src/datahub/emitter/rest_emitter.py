@@ -495,7 +495,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_key_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
-        special_respect_mcp_sync_marker: Optional[bool] = None,
+        respect_mcp_sync_marker: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
@@ -529,7 +529,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         # syncIngest system-metadata property on the MCPs that must remain
         # synchronous (e.g. via a custom aspect mutator/validator, or an upstream
         # processing step).
-        self.special_respect_mcp_sync_marker = special_respect_mcp_sync_marker is True
+        self.respect_mcp_sync_marker = respect_mcp_sync_marker is True
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
@@ -715,7 +715,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         upgraded to synchronous. This only ever forces more synchronicity, never
         less, so it is safe regardless of the configured emit_mode.
         """
-        if self.special_respect_mcp_sync_marker and any(
+        if self.respect_mcp_sync_marker and any(
             has_sync_ingest_marker(mcp) for mcp in mcps
         ):
             return False
