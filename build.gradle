@@ -246,7 +246,7 @@ project.ext.externalDependency = [
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
     'jettyJmx': "org.eclipse.jetty:jetty-jmx:$jettyVersion",
     'jettison': 'org.codehaus.jettison:jettison:1.5.4',
-    'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
+    'jgrapht': 'org.jgrapht:jgrapht-core:1.5.3',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
@@ -327,8 +327,8 @@ project.ext.externalDependency = [
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
-    // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+ (see shiro.apache.org/security-reports.html)
-    'shiroCore': 'org.apache.shiro:shiro-core:2.1.0',
+    // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+; CVE-2026-49268 (DefaultLdapRealm LDAP DN injection): 2.2.1+
+    'shiroCore': 'org.apache.shiro:shiro-core:2.2.1',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
