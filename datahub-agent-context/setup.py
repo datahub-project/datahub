@@ -23,15 +23,12 @@ with open("./src/datahub_agent_context/_version.py") as fp:
 
 _version: str = package_metadata["__version__"]
 
-# The CLI version is borrowed from the server version and is not reflective of
-# the Python code, so semantic versioning does not apply. Rather than self-pinning
-# acryl-datahub to this package's own (server-derived) version -- which can point
-# at a version that was never published as a stable wheel (e.g. 1.6.0.7, which
-# only had rc builds) -- pin published wheels to a known-good stable release and
-# bump it explicitly when we need newer functionality. During local/dev builds
-# the pin is omitted so the editable acryl-datahub from this monorepo resolves.
+# Pin acryl-datahub to a known-good stable release (see __acryl_datahub_pin__ in
+# _version.py) for published wheels instead of self-pinning to this package's own
+# server-derived version. During local/dev builds the pin is omitted so the
+# editable acryl-datahub from this monorepo resolves.
 _datahub_pin = (
-    "==1.6.0.6"
+    f"=={package_metadata['__acryl_datahub_pin__']}"
     if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
     else ""
 )
