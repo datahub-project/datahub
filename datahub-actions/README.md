@@ -1,4 +1,4 @@
-<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
+<!-- PyPI long description. Keep concise, feature-discovery-first. -->
 # acryl-datahub-actions
 
 **Event-driven automation for DataHub** — react to metadata changes in real time and trigger workflows, notifications, or custom logic.

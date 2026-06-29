@@ -1,4 +1,4 @@
-<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
+<!-- PyPI long description. Keep concise, feature-discovery-first. -->
 # acryl-datahub-airflow-plugin
 
 **Automatic lineage and run metadata from Apache Airflow into DataHub** — captures DAG structure, task inputs/outputs, and run history with no manual instrumentation.

@@ -1,4 +1,4 @@
-<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
+<!-- PyPI long description. Keep concise, feature-discovery-first. -->
 # datahub-agent-context
 
 **MCP tools for AI agents to search and query your DataHub metadata catalog** — works with Claude, Cursor, Copilot, and any MCP-compatible AI assistant.

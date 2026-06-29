@@ -1,4 +1,4 @@
-<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
+<!-- PyPI long description. Keep concise, feature-discovery-first. -->
 # acryl-datahub-dagster-plugin
 
 **Automatic lineage and run metadata from Dagster into DataHub** — captures asset definitions, job runs, and dataset-level lineage with no manual instrumentation.
