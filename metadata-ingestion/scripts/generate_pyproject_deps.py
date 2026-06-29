@@ -229,7 +229,6 @@ def generate_pyproject_toml() -> str:
     output_lines.append('requires-python = ">=3.10"')
     output_lines.append("classifiers = [")
     for c in [
-        "Development Status :: 5 - Production/Stable",
         "Development Status :: 6 - Mature",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",

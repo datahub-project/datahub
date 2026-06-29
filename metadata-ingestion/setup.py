@@ -1313,7 +1313,6 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 5 - Production/Stable",
         "Development Status :: 6 - Mature",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",

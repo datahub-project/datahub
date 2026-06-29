@@ -92,7 +92,6 @@ setuptools.setup(
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 5 - Production/Stable",
         "Development Status :: 6 - Mature",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
