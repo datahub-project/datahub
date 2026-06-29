@@ -455,12 +455,11 @@ jobs:
 
           run_both=false
           run_pytest=false
-          run_cypress=false
 
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
             run_both=true
           elif [[ "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            run_cypress=true
+            : # Cypress was previously run for frontend-only changes; now skipped (deprecated)
           elif [[ "${{ needs.setup.outputs.connector_source_only }}" == 'true' ]]; then
             # Connector-only changes (source implementations, their tests, docs) don't affect
             # smoke tests. Smoke tests exercise the platform via CLI/SDK/APIs, not individual
@@ -476,11 +475,9 @@ jobs:
             echo "pytest_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
           fi
 
-          if [[ "$run_both" == 'true' || "$run_cypress" == 'true' ]]; then
-            echo "cypress_matrix={\"include\":[$cypress_items]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "cypress_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
-          fi
+          # Cypress deprecated 2026-06-30: ~90% of tests migrated to Playwright.
+          # Always emit empty matrix so the cypress_tests job is permanently skipped.
+          echo "cypress_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
 
   java_integration_tests:
     name: Java SDK V2 Integration Tests
