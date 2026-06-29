@@ -2864,12 +2864,12 @@ class TestWeightedRetry:
             assert retry_count == 6
 
 
-class TestAsyncUnlessSyncIngest:
+class TestAsyncUnlessSyncMarker:
     """Marker-aware sync routing requires explicit per-client opt-in (config /
     constructor — never implicit). When opted in, a batch is upgraded to
-    synchronous if any of its MCPs carries the syncIngest marker; otherwise the
-    configured emit_mode is honored unchanged. It only ever forces more
-    synchronicity, never less. The async parameter is always explicit, so
+    synchronous if any of its MCPs carries an emit-mode marker requesting sync;
+    otherwise the configured emit_mode is honored unchanged. It only ever forces
+    more synchronicity, never less. The async parameter is always explicit, so
     server-side ingest resolution is untouched; default-off keeps the existing
     wire format."""
 
@@ -2950,7 +2950,7 @@ class TestAsyncUnlessSyncIngest:
         return MetadataChangeProposalWrapper(
             entityUrn="urn:li:dataset:(test,sync_demanded,PROD)",
             aspect=Status(removed=False),
-            systemMetadata=SystemMetadataClass(properties={"syncIngest": "true"}),
+            systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "sync"}),
         )
 
     def test_default_sends_explicit_async_false(self):
@@ -2973,21 +2973,21 @@ class TestAsyncUnlessSyncIngest:
         )
         assert payload.get("async") == "false"
 
-    def test_sync_ingest_marker_keeps_request_sync(self, restli_emitter):
+    def test_sync_marker_keeps_request_sync(self, restli_emitter):
         payload = self._emit_and_get_payload(
             restli_emitter, EmitMode.SYNC_PRIMARY, mcp=self._sync_demanding_mcp()
         )
         assert payload.get("async") == "false"
 
-    def test_sync_ingest_marker_case_insensitive(self, restli_emitter):
-        # A non-canonical "True" (e.g. from an externally-generated MCP) is still
+    def test_sync_marker_case_insensitive(self, restli_emitter):
+        # A non-canonical "Sync" (e.g. from an externally-generated MCP) is still
         # honored — the marker read is case/whitespace tolerant.
         from datahub.metadata.schema_classes import SystemMetadataClass
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn="urn:li:dataset:(test,sync_demanded_caps,PROD)",
             aspect=Status(removed=False),
-            systemMetadata=SystemMetadataClass(properties={"syncIngest": "True"}),
+            systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "Sync"}),
         )
         payload = self._emit_and_get_payload(
             restli_emitter, EmitMode.SYNC_PRIMARY, mcp=mcp

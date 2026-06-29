@@ -65,7 +65,7 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import (
     OpenApiRequest,
-    has_sync_ingest_marker,
+    has_sync_emit_marker,
     make_curl_command,
 )
 from datahub.emitter.response_helper import (
@@ -522,13 +522,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         )
         # Marker-aware sync routing: enabled only when set explicitly via config
         # or constructor, never implicit. When enabled, a batch is upgraded to
-        # synchronous if any of its MCPs carries the syncIngest marker in its
-        # system metadata; otherwise the configured emit_mode is honored
-        # unchanged. This only ever forces more synchronicity, never less. The
-        # marker is read, not produced, here: a producer must populate the
-        # syncIngest system-metadata property on the MCPs that must remain
-        # synchronous (e.g. via a custom aspect mutator/validator, or an upstream
-        # processing step).
+        # synchronous if any of its MCPs carries an emit-mode marker requesting
+        # sync (emitModeMarker=sync) in its system metadata; otherwise the
+        # configured emit_mode is honored unchanged. This only ever forces more
+        # synchronicity, never less. The marker is read, not produced, here: a
+        # producer must populate the emitModeMarker system-metadata property on
+        # the MCPs that must remain synchronous (e.g. via a custom aspect
+        # mutator/validator, or an upstream processing step).
         self.respect_mcp_sync_marker = respect_mcp_sync_marker is True
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
@@ -711,12 +711,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         Resolve the async flag actually sent on the wire. The default is exactly
         emit_mode.is_async — the historical wire format, unchanged. The one
         exception: when the client has opted in to marker-aware sync routing and
-        any MCP in this batch carries the syncIngest marker, the whole batch is
-        upgraded to synchronous. This only ever forces more synchronicity, never
-        less, so it is safe regardless of the configured emit_mode.
+        any MCP in this batch carries an emit-mode marker requesting sync, the
+        whole batch is upgraded to synchronous. This only ever forces more
+        synchronicity, never less, so it is safe regardless of the configured
+        emit_mode.
         """
         if self.respect_mcp_sync_marker and any(
-            has_sync_ingest_marker(mcp) for mcp in mcps
+            has_sync_emit_marker(mcp) for mcp in mcps
         ):
             return False
         return emit_mode.is_async

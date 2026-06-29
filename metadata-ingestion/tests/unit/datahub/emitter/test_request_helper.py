@@ -5,10 +5,10 @@ import pytest
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import (
-    SYNC_INGEST_KEY,
+    EMIT_MODE_MARKER_KEY,
     OpenApiRequest,
-    has_sync_ingest_marker,
-    is_sync_ingest_marker_value,
+    has_sync_emit_marker,
+    is_sync_marker_value,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
@@ -313,18 +313,19 @@ def test_from_mcp_search_sync_flag():
 @pytest.mark.parametrize(
     "value,expected",
     [
-        ("true", True),
-        ("True", True),
-        ("  TRUE  ", True),
-        ("false", False),
+        ("sync", True),
+        ("Sync", True),
+        ("  SYNC  ", True),
+        ("async", False),
+        ("true", False),
         ("", False),
         (None, False),
         (True, False),
         (1, False),
     ],
 )
-def test_is_sync_ingest_marker_value(value, expected):
-    assert is_sync_ingest_marker_value(value) is expected
+def test_is_sync_marker_value(value, expected):
+    assert is_sync_marker_value(value) is expected
 
 
 def _status_mcp(system_metadata=None):
@@ -335,16 +336,16 @@ def _status_mcp(system_metadata=None):
     )
 
 
-def test_has_sync_ingest_marker_present():
-    mcp = _status_mcp(SystemMetadataClass(properties={SYNC_INGEST_KEY: "true"}))
-    assert has_sync_ingest_marker(mcp) is True
+def test_has_sync_emit_marker_present():
+    mcp = _status_mcp(SystemMetadataClass(properties={EMIT_MODE_MARKER_KEY: "sync"}))
+    assert has_sync_emit_marker(mcp) is True
 
 
-def test_has_sync_ingest_marker_absent():
-    assert has_sync_ingest_marker(_status_mcp()) is False
-    assert has_sync_ingest_marker(_status_mcp(SystemMetadataClass())) is False
+def test_has_sync_emit_marker_absent():
+    assert has_sync_emit_marker(_status_mcp()) is False
+    assert has_sync_emit_marker(_status_mcp(SystemMetadataClass())) is False
     assert (
-        has_sync_ingest_marker(
+        has_sync_emit_marker(
             _status_mcp(SystemMetadataClass(properties={"other": "x"}))
         )
         is False
