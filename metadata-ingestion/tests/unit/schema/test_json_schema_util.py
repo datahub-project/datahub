@@ -928,3 +928,93 @@ def test_json_schema_ref_loop_in_definitions():
     # Both should be RecordType
     assert isinstance(fields[0].type.type, RecordTypeClass)
     assert isinstance(fields[1].type.type, RecordTypeClass)
+
+
+def test_json_schema_complex_recursive_refs_with_oneof():
+    """
+    Test for issue #14358: Complex JSON Schema with recursive $refs and nested oneOf
+
+    This tests the complex case from the GitHub issue that causes significant performance
+    degradation due to the combination of:
+    - Recursive $ref references (condition -> condition)
+    - Nested oneOf structures within the recursive definition
+    - Multiple reference paths (both condition property and conditions array)
+
+    This schema should be processed successfully but may result in schema truncation
+    due to the explosive expansion of the recursive structure.
+    """
+    # Load schema from test data file
+    schema_file_path = (
+        Path(__file__).parent
+        / "test_data"
+        / "test_json_schema_complex_recursive_refs_with_oneof.json"
+    )
+    with open(schema_file_path) as f:
+        schema = json.load(f)
+
+    # Process the schema
+    fields = json_schema_to_schema_fields(schema)
+
+    # Extract field paths for comparison
+    field_paths = [f.fieldPath for f in fields]
+
+    # Expected field paths based on the complex recursive structure
+    # Due to the explosive growth (200k+ fields), we test for key structural patterns
+    expected_field_paths = [
+        "[version=2.0].[type=object].[type=object].group",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition.[type=enum].operator",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition.[type=union].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition.[type=union].[type=union].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition.[type=union].[type=union].[type=union_0].condition",
+        "[version=2.0].[type=object].[type=object].group.[type=array].filter.[type=union].[type=union].[type=union_0].condition.[type=union].[type=union].[type=union_1].condition",
+    ]
+
+    # Log field paths for debugging
+    logger.info(f"Generated {len(field_paths)} field paths")
+    if logger.isEnabledFor(logging.DEBUG):
+        log_field_paths(fields)
+
+    # Basic structural assertions - the schema should process successfully
+    assert len(fields) > 0, "Schema processing should produce at least some fields"
+    assert_fields_are_valid(fields)
+
+    # Verify key structural elements are present
+    assert any("group" in path for path in field_paths), "Should contain group field"
+    assert any("filter" in path for path in field_paths), "Should contain filter field"
+    assert any("condition" in path for path in field_paths), (
+        "Should contain condition field"
+    )
+    assert any("operator" in path for path in field_paths), (
+        "Should contain operator field"
+    )
+
+    # Some fields should be marked as recursive due to the $ref loops
+    recursive_fields = [f for f in fields if f.recursive]
+    assert len(recursive_fields) > 0, (
+        "Should have some recursive fields due to $ref loops"
+    )
+
+    # Due to the complex recursive nature with nested oneOf, expect explosive field growth
+    # This demonstrates the performance issue: simple recursion generates ~2 fields,
+    # but complex recursion with oneOf generates 200k+ fields
+    assert len(fields) >= 100000, (
+        f"Expected substantial field generation (100k+), got {len(fields)}"
+    )
+
+    # Verify the core structural field paths are present
+    for expected_path in expected_field_paths:
+        assert expected_path in field_paths, (
+            f"Missing expected field path: {expected_path}"
+        )
+
+    # Verify the specific pattern that demonstrates the issue
+    assert len([p for p in field_paths if "union_0" in p]) > 1000, (
+        "Should have many union_0 paths"
+    )
+    assert len([p for p in field_paths if "union_1" in p]) > 1000, (
+        "Should have many union_1 paths"
+    )
