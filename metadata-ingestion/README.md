@@ -1,3 +1,4 @@
+<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
 # acryl-datahub
 
 **DataHub's ingestion framework and CLI** — extract metadata from 50+ data sources and push it into your DataHub catalog.

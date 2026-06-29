@@ -1,3 +1,4 @@
+<!-- PyPI long description. Keep concise, feature-discovery-first. acryl-datahub ≤700 words, others ≤400. -->
 # acryl-datahub-gx-plugin
 
 **Send Great Expectations data quality results into DataHub** — surface assertion outcomes alongside your dataset metadata so teams can see data health at a glance.
