@@ -243,6 +243,7 @@ class TestConfigUtils:
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
                     "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
@@ -295,6 +296,7 @@ class TestConfigUtils:
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
                     "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 },
                 "other": {"setting": "value"},
             }
@@ -327,6 +329,7 @@ class TestConfigUtils:
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
                     "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config

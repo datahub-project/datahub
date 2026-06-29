@@ -4,11 +4,18 @@ from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
+from botocore.exceptions import (
+    ClientError,
+    ConnectTimeoutError,
+    EndpointConnectionError,
+    NoCredentialsError,
+)
 from moto import mock_aws
 
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     AwsEnvironment,
+    aws_error_code,
     detect_aws_environment,
     get_current_identity,
     get_instance_metadata_token,
@@ -653,3 +660,30 @@ class TestAwsCommon:
 
             # Both roles should have been assumed
             assert mock_assume_role.call_count == 2
+
+
+class TestAwsErrorCode:
+    def test_client_error_returns_aws_error_code_from_response_body(self):
+        e = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "denied"}},
+            "ListStreams",
+        )
+        assert aws_error_code(e) == "AccessDeniedException"
+
+    def test_client_error_with_missing_code_returns_empty_string(self):
+        # Defensive: callsites pass the result into f-strings — must never raise KeyError.
+        e = ClientError({"Error": {"Message": "no code"}}, "ListStreams")
+        assert aws_error_code(e) == ""
+
+    def test_botocore_errors_return_class_name(self):
+        # BotoCoreError subclasses carry no structured code; the class name is the
+        # next-best stable identifier.
+        assert aws_error_code(NoCredentialsError()) == "NoCredentialsError"
+        assert (
+            aws_error_code(EndpointConnectionError(endpoint_url="https://x"))
+            == "EndpointConnectionError"
+        )
+        assert (
+            aws_error_code(ConnectTimeoutError(endpoint_url="https://x"))
+            == "ConnectTimeoutError"
+        )
