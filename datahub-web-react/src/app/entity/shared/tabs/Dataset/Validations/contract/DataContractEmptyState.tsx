@@ -43,14 +43,14 @@ const Actions = styled.div`
 
 const CreateButton = styled(Button)`
     margin-right: 12px;
-    border-color: ${(props) => props.theme.styles['primary-color']};
-    color: ${(props) => props.theme.styles['primary-color']};
+    border-color: ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
     letter-spacing: 2px;
     text-transform: uppercase;
     &&:hover {
         color: ${(props) => props.theme.colors.textOnFillDefault};
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
 `;
 

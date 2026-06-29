@@ -33,6 +33,7 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    KINESIS_STREAM = "Stream"
     SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
@@ -48,6 +49,7 @@ class DatasetSubTypes(StrEnum):
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    CUBE = "Cube"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -58,6 +60,8 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
+    # AWS Kinesis
+    KINESIS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -91,6 +95,8 @@ class DatasetContainerSubTypes(StrEnum):
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
+    # Cube
+    CUBE_DEPLOYMENT = "Cube Deployment"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -196,9 +202,13 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
+    KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
+    # Amazon Data Firehose — the single delivery step within a Firehose stream.
+    KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

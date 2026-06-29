@@ -98,7 +98,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void addEdge(@Nonnull final Edge edge) {
+  public void addEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -226,16 +226,16 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void upsertEdge(final Edge edge) {
+  public void upsertEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    addEdge(edge);
+    addEdge(opContext, edge);
   }
 
   @Override
-  public void removeEdge(final Edge edge) {
+  public void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -748,9 +748,11 @@ public class Neo4jGraphService implements GraphService {
           String destUrnString = typeDest.values().get(1).asNode().get("urn").asString();
           Urn destUrn = createFromString(destUrnString);
           if (removeMode.equals("0")) {
-            removeEdge(new Edge(destUrn, urn, relationshipType, null, null, null, null, null));
+            removeEdge(
+                opContext, new Edge(destUrn, urn, relationshipType, null, null, null, null, null));
           } else {
-            removeEdge(new Edge(urn, destUrn, relationshipType, null, null, null, null, null));
+            removeEdge(
+                opContext, new Edge(urn, destUrn, relationshipType, null, null, null, null, null));
           }
         }
       }
@@ -773,7 +775,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void clear() {
+  public void clear(@Nonnull OperationContext opContext) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;

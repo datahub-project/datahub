@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
     documentToTreeNode,
+    extractDocumentCreator,
     extractUrnsFromMarkdown,
     hasBalancedParens,
     isAllowedRelatedAssetUrn,
+    isDocumentUnpublished,
+    isExternalDocument,
+    resolveActorDisplayName,
     sortDocumentsByCreationTime,
 } from '@app/document/utils/documentUtils';
 
-import { Document } from '@types';
+import { DataPlatform, Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
 // Helper to create minimal valid Document for testing
 // Uses 'as any' to allow partial documents in tests (consistent with other test files)
@@ -55,6 +59,10 @@ describe('documentUtils', () => {
                 parentUrn: 'urn:li:document:parent',
                 hasChildren: true,
                 children: undefined,
+                isUnpublished: false, // No status state on the fixture → defaults to published
+                isExternal: false, // No info.source on the fixture → defaults to native
+                platform: null, // No platform on the fixture
+                creator: null, // No created actor on the fixture
             });
         });
 
@@ -139,6 +147,187 @@ describe('documentUtils', () => {
             const result = documentToTreeNode(doc, true);
 
             expect(result.children).toBeUndefined();
+        });
+
+        it('should mark isUnpublished true when info.status.state is UNPUBLISHED', () => {
+            const unpublishedDoc = createTestDocument({
+                info: { status: { state: DocumentState.Unpublished } } as any,
+            });
+            const publishedDoc = createTestDocument({
+                info: { status: { state: DocumentState.Published } } as any,
+            });
+
+            expect(documentToTreeNode(unpublishedDoc, false).isUnpublished).toBe(true);
+            expect(documentToTreeNode(publishedDoc, false).isUnpublished).toBe(false);
+        });
+
+        it('should carry isExternal and platform through to the tree node', () => {
+            const platform = {
+                urn: 'urn:li:dataPlatform:notion',
+                type: EntityType.DataPlatform,
+                properties: { logoUrl: 'http://example.com/notion.png' },
+            } as DataPlatform;
+            const externalDoc = createTestDocument({
+                platform,
+                info: { source: { sourceType: DocumentSourceType.External } } as any,
+            });
+            const nativeDoc = createTestDocument({
+                platform,
+                info: { source: { sourceType: DocumentSourceType.Native } } as any,
+            });
+
+            const externalNode = documentToTreeNode(externalDoc, false);
+            expect(externalNode.isExternal).toBe(true);
+            expect(externalNode.platform).toEqual(platform);
+
+            const nativeNode = documentToTreeNode(nativeDoc, false);
+            expect(nativeNode.isExternal).toBe(false);
+            // Platform is still carried even on native docs — it's just not
+            // consumed visually when isExternal is false.
+            expect(nativeNode.platform).toEqual(platform);
+        });
+
+        it('should populate creator from the created actor', () => {
+            const doc = createTestDocument({
+                info: {
+                    created: {
+                        actor: {
+                            urn: 'urn:li:corpuser:jane',
+                            type: EntityType.CorpUser,
+                            properties: { displayName: 'Jane Doe' },
+                            editableProperties: { pictureLink: 'http://example.com/jane.png' },
+                        },
+                    },
+                } as any,
+            });
+
+            const result = documentToTreeNode(doc, false);
+            expect(result.creator).toEqual({
+                urn: 'urn:li:corpuser:jane',
+                type: EntityType.CorpUser,
+                displayName: 'Jane Doe',
+                pictureLink: 'http://example.com/jane.png',
+            });
+        });
+    });
+
+    describe('resolveActorDisplayName', () => {
+        it('should prefer editableProperties.displayName over everything else', () => {
+            expect(
+                resolveActorDisplayName({
+                    urn: 'urn:li:corpuser:jane',
+                    editableProperties: { displayName: 'Jane the Override' },
+                    properties: { displayName: 'Jane the Canonical', fullName: 'Jane Doe' },
+                    info: { displayName: 'Jane the Legacy' },
+                    username: 'jane',
+                }),
+            ).toBe('Jane the Override');
+        });
+
+        it('should fall back through properties.displayName, info.displayName, fullName, firstName+lastName, username, name, urn', () => {
+            expect(resolveActorDisplayName({ properties: { displayName: 'Canonical' } })).toBe('Canonical');
+            expect(resolveActorDisplayName({ info: { displayName: 'Legacy' } })).toBe('Legacy');
+            expect(resolveActorDisplayName({ properties: { fullName: 'Jane Doe' } })).toBe('Jane Doe');
+            expect(resolveActorDisplayName({ properties: { firstName: 'Jane', lastName: 'Doe' } })).toBe('Jane Doe');
+            expect(resolveActorDisplayName({ username: 'jane' })).toBe('jane');
+            expect(resolveActorDisplayName({ name: 'engineering' })).toBe('engineering');
+            expect(resolveActorDisplayName({ urn: 'urn:li:corpuser:jane' })).toBe('urn:li:corpuser:jane');
+        });
+
+        it('should return an empty string for null/undefined actor', () => {
+            expect(resolveActorDisplayName(null)).toBe('');
+            expect(resolveActorDisplayName(undefined)).toBe('');
+        });
+    });
+
+    describe('extractDocumentCreator', () => {
+        it('should return null when no actor is present', () => {
+            expect(extractDocumentCreator(null)).toBeNull();
+            expect(extractDocumentCreator(undefined)).toBeNull();
+            expect(extractDocumentCreator({})).toBeNull();
+            expect(extractDocumentCreator({ info: null })).toBeNull();
+            expect(extractDocumentCreator({ info: { created: null } })).toBeNull();
+            expect(extractDocumentCreator({ info: { created: { actor: null } } })).toBeNull();
+        });
+
+        it('should return null when the actor lacks urn or type', () => {
+            expect(extractDocumentCreator({ info: { created: { actor: { urn: 'urn:li:corpuser:x' } } } })).toBeNull();
+            expect(extractDocumentCreator({ info: { created: { actor: { type: EntityType.CorpUser } } } })).toBeNull();
+        });
+
+        it('should resolve displayName and pictureLink', () => {
+            expect(
+                extractDocumentCreator({
+                    info: {
+                        created: {
+                            actor: {
+                                urn: 'urn:li:corpuser:jane',
+                                type: EntityType.CorpUser,
+                                properties: { displayName: 'Jane Doe' },
+                                editableProperties: { pictureLink: 'http://example.com/jane.png' },
+                            },
+                        },
+                    },
+                }),
+            ).toEqual({
+                urn: 'urn:li:corpuser:jane',
+                type: EntityType.CorpUser,
+                displayName: 'Jane Doe',
+                pictureLink: 'http://example.com/jane.png',
+            });
+        });
+
+        it('should default pictureLink to null when not provided', () => {
+            const result = extractDocumentCreator({
+                info: {
+                    created: {
+                        actor: {
+                            urn: 'urn:li:corpuser:jane',
+                            type: EntityType.CorpUser,
+                            properties: { displayName: 'Jane Doe' },
+                        },
+                    },
+                },
+            });
+            expect(result?.pictureLink).toBeNull();
+        });
+    });
+
+    describe('isDocumentUnpublished', () => {
+        it('should return true for UNPUBLISHED state', () => {
+            expect(isDocumentUnpublished({ info: { status: { state: DocumentState.Unpublished } } })).toBe(true);
+        });
+
+        it('should return false for PUBLISHED state', () => {
+            expect(isDocumentUnpublished({ info: { status: { state: DocumentState.Published } } })).toBe(false);
+        });
+
+        it('should return false when status info is missing', () => {
+            expect(isDocumentUnpublished(null)).toBe(false);
+            expect(isDocumentUnpublished(undefined)).toBe(false);
+            expect(isDocumentUnpublished({})).toBe(false);
+            expect(isDocumentUnpublished({ info: null })).toBe(false);
+            expect(isDocumentUnpublished({ info: { status: null } })).toBe(false);
+            expect(isDocumentUnpublished({ info: { status: { state: null } } })).toBe(false);
+        });
+    });
+
+    describe('isExternalDocument', () => {
+        it('should return true when source.sourceType is EXTERNAL', () => {
+            expect(isExternalDocument({ info: { source: { sourceType: DocumentSourceType.External } } })).toBe(true);
+        });
+
+        it('should return false when source.sourceType is NATIVE', () => {
+            expect(isExternalDocument({ info: { source: { sourceType: DocumentSourceType.Native } } })).toBe(false);
+        });
+
+        it('should return false when source or sourceType is missing', () => {
+            expect(isExternalDocument(null)).toBe(false);
+            expect(isExternalDocument(undefined)).toBe(false);
+            expect(isExternalDocument({})).toBe(false);
+            expect(isExternalDocument({ info: null })).toBe(false);
+            expect(isExternalDocument({ info: { source: null } })).toBe(false);
+            expect(isExternalDocument({ info: { source: { sourceType: null } } })).toBe(false);
         });
     });
 

@@ -130,6 +130,16 @@
     displayName: Dataplex
     type: OTHERS
     logoUrl: "assets/platforms/dataplexlogo.svg"
+- entityUrn: urn:li:dataPlatform:documentdb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: documentdb
+    displayName: DocumentDB
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/documentdblogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -219,6 +229,26 @@
     displayName: Kafka Connect
     type: OTHERS
     logoUrl: "assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis
+    displayName: Amazon Kinesis Data Streams
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/kinesislogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis-firehose
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis-firehose
+    displayName: Amazon Data Firehose
+    type: OTHERS
+    logoUrl: "assets/platforms/kinesisfirehoselogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -299,6 +329,16 @@
     displayName: Matillion
     type: OTHERS
     logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:cube
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cube
+    displayName: Cube
+    type: OTHERS
+    logoUrl: "assets/platforms/cubelogo.png"
 - entityUrn: urn:li:dataPlatform:odcs
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1027,6 +1067,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:github
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: github
+    displayName: GitHub
+    type: OTHERS
+    logoUrl: "assets/platforms/githublogo.png"
 - entityUrn: urn:li:dataPlatform:fabric
   entityType: dataPlatform
   aspectName: dataPlatformInfo

@@ -1,18 +1,33 @@
-import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, SearchBar, Tooltip } from '@components';
+import { Avatar, Button, Loader, SearchBar, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+import { SimpleSelect } from '@components/components/Select/SimpleSelect';
+
+import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
+import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
+import { useDocumentFilters } from '@app/document/DocumentFiltersContext';
+import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
+import {
+    DEFAULT_STATUS_FILTER,
+    DocumentStatusFilter,
+    getAvailablePlatforms,
+    getDistinctCreators,
+} from '@app/document/utils/documentTreeFilters';
+import { decodeUrn } from '@app/entityV2/shared/utils';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -24,6 +39,11 @@ import { DocumentSourceType, DocumentState, EntityType } from '@types';
 
 const SIDEBAR_TRANSITION_MS = 300;
 export const SIDEBAR_COLLAPSED_WIDTH = 63;
+
+// URN prefix used to identify AI-agent actors. Documents authored by an agent
+// are filtered out of the Author multi-select in OSS — agents aren't a first-
+// class concept here, so they would render as orphan "human" rows.
+const AI_AGENT_URN_PREFIX = 'urn:li:aiAgent:';
 
 const SidebarContainer = styled.div<{
     $width: number;
@@ -44,8 +64,8 @@ const SidebarContainer = styled.div<{
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
- margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
- box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+ margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '5px 0px 5px 5px'};
+ box-shadow: ${props.theme.colors.shadowSm};
  `}
 `;
 
@@ -92,15 +112,30 @@ const SearchInputWrapper = styled.div`
     padding: 12px;
 `;
 
-const SearchIcon = styled(SearchOutlined)`
-    color: ${(props) => props.theme.colors.textSecondary};
-    padding: 16px;
+// Two SimpleSelects packed to the start of the row directly under the search bar.
+// Padding matches SearchInputWrapper so the row aligns with the search field above.
+// Each select uses `width="fit-content"` so labels/values size to content rather than
+// stretching to fill the row.
+const FiltersRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 12px 12px 12px;
+`;
+
+const SearchIconButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    font-size: 20px;
+    padding: 16px 0;
+    border: none;
+    background: transparent;
     cursor: pointer;
+    color: ${(props) => props.theme.colors.icon};
 
     &:hover {
-        color: ${(props) => props.theme.colors.hyperlinks};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 `;
 
@@ -130,6 +165,16 @@ const EmptyState = styled.div`
     text-align: center;
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
+`;
+
+// Row used to pair a platform logo with its label inside the Source filter's
+// multi-select dropdown. SimpleSelect renders option icons natively only in
+// single-select mode, so the multi-select Source filter has to supply its own
+// option renderer (`renderCustomOptionText`) — this is the layout it returns.
+const SourceOptionRow = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const TreeContainer = styled.div`
@@ -179,10 +224,32 @@ export default function ContextSidebar({
     const [searchInput, setSearchInput] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
+    const {
+        status: statusFilter,
+        selectedAuthorUrns,
+        selectedPlatformUrns,
+        setStatus: setStatusFilter,
+        setSelectedAuthorUrns,
+        setSelectedPlatformUrns,
+    } = useDocumentFilters();
     const { createDocument } = useCreateDocumentTreeMutation();
-    const { expandNode, getNode } = useDocumentTree();
+    const { expandNode, getNode, nodes } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
+
+    const importParentDocumentUrn = useMemo(() => {
+        if (!isEntityProfile) {
+            return undefined;
+        }
+        const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
+        const match = matchPath<{ urn: string }>(location.pathname, { path: documentPath });
+        if (!match?.params.urn) {
+            return undefined;
+        }
+        return decodeUrn(match.params.urn);
+    }, [entityRegistry, isEntityProfile, location.pathname]);
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
 
@@ -221,6 +288,58 @@ export default function ContextSidebar({
         [expandNode, getNode],
     );
 
+    // Status filter: static enum-like list, mutually exclusive.
+    const statusOptions = useMemo(
+        () => [
+            { value: 'all', label: t('context.statusFilter.all') },
+            { value: 'published', label: t('context.statusFilter.published') },
+            { value: 'unpublished', label: t('context.statusFilter.unpublished') },
+        ],
+        [t],
+    );
+
+    // Author filter: fully dynamic — one row per distinct human creator present
+    // in the currently-loaded tree. Agent actors (`urn:li:aiAgent:*`) are
+    // filtered out: agents aren't a first-class concept in OSS, so showing them
+    // here would surface URNs as orphan rows.
+    const nodeList = useMemo(() => Array.from(nodes.values()), [nodes]);
+    const distinctCreators = useMemo(
+        () => getDistinctCreators(nodeList).filter((c) => !c.urn.startsWith(AI_AGENT_URN_PREFIX)),
+        [nodeList],
+    );
+    const authorOptions = useMemo(
+        () =>
+            distinctCreators.map((creator) => ({
+                value: creator.urn,
+                label: creator.displayName,
+                creator,
+            })),
+        [distinctCreators],
+    );
+
+    // Source filter: fully dynamic — one row per platform present in the
+    // currently-loaded tree. Native DataHub docs carry the DataHub platform
+    // already, so there's no separate "native" sentinel row to merge in.
+    const availablePlatforms = useMemo(() => getAvailablePlatforms(nodeList), [nodeList]);
+    const sourceOptions = useMemo(
+        () =>
+            availablePlatforms.map((platform) => ({
+                value: platform.urn,
+                label: entityRegistry.getDisplayName(EntityType.DataPlatform, platform),
+                icon: <DocumentSourceLogo platform={platform} size={16} />,
+            })),
+        [availablePlatforms, entityRegistry],
+    );
+
+    const filterSelection = useMemo(
+        () => ({
+            status: statusFilter,
+            selectedAuthorUrns: selectedAuthorUrns.length > 0 ? selectedAuthorUrns : null,
+            selectedPlatformUrns: selectedPlatformUrns.length > 0 ? selectedPlatformUrns : null,
+        }),
+        [statusFilter, selectedAuthorUrns, selectedPlatformUrns],
+    );
+
     const handleCreateDocument = useCallback(
         async (parentDocumentUrn?: string) => {
             if (!canCreateDocuments) return;
@@ -257,6 +376,8 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
+    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
+
     return (
         <SidebarContainer
             $width={width}
@@ -268,6 +389,12 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
+                    {!isCollapsed && canCreateDocuments && (
+                        <ImportDocumentsButton
+                            onSuccess={handleImportSuccess}
+                            parentDocumentUrn={importParentDocumentUrn}
+                        />
+                    )}
                     {!isCollapsed && (
                         <Tooltip
                             title={
@@ -308,7 +435,13 @@ export default function ContextSidebar({
             {/* Search Section */}
             <SearchWrapper>
                 {isCollapsed ? (
-                    <SearchIcon onClick={onExpandSidebar} data-testid="context-sidebar-search-icon" />
+                    <SearchIconButton
+                        onClick={onExpandSidebar}
+                        data-testid="context-sidebar-search-icon"
+                        aria-label={t('context.searchDocumentsAriaLabel')}
+                    >
+                        <MagnifyingGlass size={20} weight="regular" />
+                    </SearchIconButton>
                 ) : (
                     <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                         <SearchInputWrapper>
@@ -322,7 +455,7 @@ export default function ContextSidebar({
                         </SearchInputWrapper>
                         {searchLoading && isSearchBarFocused && isSearching && (
                             <LoadingWrapper>
-                                <LoadingOutlined />
+                                <Loader size="md" />
                             </LoadingWrapper>
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length === 0 && (
@@ -366,10 +499,78 @@ export default function ContextSidebar({
             </SearchWrapper>
 
             {!isCollapsed && (
+                <FiltersRow>
+                    <SimpleSelect
+                        size="sm"
+                        width="fit-content"
+                        showClear={false}
+                        placeholder={t('context.statusFilter.placeholder')}
+                        // Use the 'default' label variant (single-select with no
+                        // pill / no static "Status:" prefix) so the trigger reads
+                        // as the live value — "All", "Published", or "Unpublished".
+                        // The Author and Source multi-selects keep the labeled
+                        // variant because their selection isn't a single word.
+                        selectLabelProps={{ variant: 'default' }}
+                        options={statusOptions}
+                        values={[statusFilter]}
+                        onUpdate={(values) =>
+                            setStatusFilter((values[0] as DocumentStatusFilter) || DEFAULT_STATUS_FILTER)
+                        }
+                        dataTestId="context-sidebar-status-filter"
+                    />
+                    <SimpleSelect
+                        size="sm"
+                        width="fit-content"
+                        isMultiSelect
+                        isDisabled={authorOptions.length === 0}
+                        placeholder={t('context.authorFilter.placeholder')}
+                        selectLabelProps={{ variant: 'labeled', label: t('context.authorFilter.label') }}
+                        options={authorOptions}
+                        values={selectedAuthorUrns}
+                        onUpdate={setSelectedAuthorUrns}
+                        renderCustomOptionText={(option) => {
+                            const { creator } = option as (typeof authorOptions)[number];
+                            return (
+                                <Avatar
+                                    name={creator.displayName}
+                                    imageUrl={creator.pictureLink ?? undefined}
+                                    type={creator.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                                    showInPill
+                                    size="sm"
+                                />
+                            );
+                        }}
+                        dataTestId="context-sidebar-author-filter"
+                    />
+                    <SimpleSelect
+                        size="sm"
+                        width="fit-content"
+                        isMultiSelect
+                        isDisabled={sourceOptions.length === 0}
+                        placeholder={t('context.sourceFilter.placeholder')}
+                        selectLabelProps={{ variant: 'labeled', label: t('context.sourceFilter.label') }}
+                        options={sourceOptions}
+                        values={selectedPlatformUrns}
+                        onUpdate={setSelectedPlatformUrns}
+                        renderCustomOptionText={(option) => (
+                            <SourceOptionRow>
+                                {option.icon}
+                                <span>{option.label}</span>
+                            </SourceOptionRow>
+                        )}
+                        dataTestId="context-sidebar-source-filter"
+                    />
+                </FiltersRow>
+            )}
+
+            {!isCollapsed && (
                 <>
                     <ThinDivider />
                     <TreeContainer>
-                        <DocumentTree onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)} />
+                        <DocumentTree
+                            onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
+                            filterSelection={filterSelection}
+                        />
                     </TreeContainer>
                 </>
             )}

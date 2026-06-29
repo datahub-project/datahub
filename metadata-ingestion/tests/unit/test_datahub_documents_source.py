@@ -3,7 +3,7 @@
 import hashlib
 import json
 import sys
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -18,7 +18,15 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
     DataHubDocumentsSource,
 )
+from datahub.ingestion.source.datahub_documents.document_chunking_state import (
+    DocumentChunkingCheckpointState,
+)
+from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
+    DocumentChunkingStatefulIngestionConfig,
+    DocumentChunkingStateHandler,
+)
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
@@ -668,6 +676,31 @@ class TestStateStorage:
         )
         return mock
 
+    @staticmethod
+    def _make_state_handler(
+        *,
+        stateful_ingestion: DocumentChunkingStatefulIngestionConfig,
+        is_configured: bool = True,
+        last_checkpoint: Optional[Checkpoint] = None,
+        current_checkpoint: Optional[Checkpoint] = None,
+    ) -> DocumentChunkingStateHandler:
+        state_provider = Mock()
+        state_provider.is_stateful_ingestion_configured.return_value = is_configured
+        state_provider.get_last_checkpoint.return_value = last_checkpoint
+        state_provider.get_current_checkpoint.return_value = current_checkpoint
+
+        source = Mock()
+        source.state_provider = state_provider
+        source_config = Mock()
+        source_config.stateful_ingestion = stateful_ingestion
+
+        return DocumentChunkingStateHandler(
+            source=source,
+            config=source_config,
+            pipeline_name="test-pipeline",
+            run_id="current-run",
+        )
+
     def test_batch_mode_stores_document_hashes(self, ctx, config, mock_graph):
         """Test that batch mode stores document hashes in state."""
         with mock_graph:
@@ -843,6 +876,140 @@ class TestStateStorage:
             assert doc_hash == "hash1"
             assert event_offset == "offset-123"
 
+    def test_new_checkpoint_starts_from_previous_state(self):
+        """Skipped documents must keep their hashes in the next committed checkpoint."""
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={
+                "urn:li:document:1": {
+                    "content_hash": "hash1",
+                    "last_processed": "2026-06-16T00:00:00",
+                }
+            },
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        last_checkpoint = Checkpoint(
+            job_name="document_chunking",
+            pipeline_name="test-pipeline",
+            run_id="previous-run",
+            state=previous_state,
+        )
+
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            last_checkpoint=last_checkpoint,
+        )
+
+        checkpoint = handler.create_checkpoint()
+
+        assert checkpoint is not None
+        assert checkpoint.state.document_state == previous_state.document_state
+        assert checkpoint.state.event_offsets == previous_state.event_offsets
+
+        checkpoint.state.document_state["urn:li:document:1"]["content_hash"] = "changed"
+        assert (
+            previous_state.document_state["urn:li:document:1"]["content_hash"]
+            == "hash1"
+        )
+
+    def test_new_checkpoint_without_previous_state_starts_empty(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True)
+        )
+
+        checkpoint = handler.create_checkpoint()
+
+        assert checkpoint is not None
+        assert checkpoint.state.document_state == {}
+        assert checkpoint.state.event_offsets == {}
+
+    def test_new_checkpoint_returns_none_when_disabled(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            is_configured=False,
+        )
+
+        assert handler.create_checkpoint() is None
+
+    def test_new_checkpoint_returns_none_when_ignoring_new_state(self):
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                enabled=True,
+                ignore_new_state=True,
+            )
+        )
+
+        assert handler.create_checkpoint() is None
+
+    def test_state_handler_reads_and_updates_checkpoint_state(self):
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={
+                "urn:li:document:1": {
+                    "content_hash": "hash1",
+                    "last_processed": "2026-06-16T00:00:00",
+                }
+            },
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        current_state = DocumentChunkingCheckpointState()
+
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(enabled=True),
+            last_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="previous-run",
+                state=previous_state,
+            ),
+            current_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="current-run",
+                state=current_state,
+            ),
+        )
+
+        assert handler.get_last_state() == previous_state
+        assert handler.get_document_hash("urn:li:document:1") == "hash1"
+        assert handler.get_document_hash("urn:li:document:missing") is None
+        assert (
+            handler.get_event_offset("MetadataChangeLog_Versioned_v1") == "offset-123"
+        )
+
+        handler.update_document_state(
+            "urn:li:document:2", "hash2", "2026-06-16T01:00:00"
+        )
+        handler.update_event_offset("MetadataChangeLog_Versioned_v2", "offset-456")
+
+        assert current_state.document_state["urn:li:document:2"] == {
+            "content_hash": "hash2",
+            "last_processed": "2026-06-16T01:00:00",
+        }
+        assert current_state.event_offsets["MetadataChangeLog_Versioned_v2"] == (
+            "offset-456"
+        )
+
+    def test_state_handler_can_ignore_old_state(self):
+        previous_state = DocumentChunkingCheckpointState(
+            document_state={"urn:li:document:1": {"content_hash": "hash1"}},
+            event_offsets={"MetadataChangeLog_Versioned_v1": "offset-123"},
+        )
+        handler = self._make_state_handler(
+            stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                enabled=True,
+                ignore_old_state=True,
+            ),
+            last_checkpoint=Checkpoint(
+                job_name="document_chunking",
+                pipeline_name="test-pipeline",
+                run_id="previous-run",
+                state=previous_state,
+            ),
+        )
+
+        assert handler.get_last_state() is None
+        assert handler.get_document_hash("urn:li:document:1") is None
+        assert handler.get_event_offset("MetadataChangeLog_Versioned_v1") is None
+
     def test_fallback_preserves_existing_offsets(self, ctx, config, mock_graph):
         """Test that fallback to batch mode preserves existing event offsets."""
         import requests
@@ -1012,8 +1179,10 @@ class TestSourceTypeFiltering:
         )
         return mock
 
-    def test_default_config_processes_all_native(self, ctx, config, mock_graph):
-        """Test that default config (empty platform_filter) processes all NATIVE documents."""
+    def test_default_config_processes_native_and_external(
+        self, ctx, config, mock_graph
+    ):
+        """By default (empty platform_filter) both NATIVE and EXTERNAL documents are processed."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -1030,7 +1199,7 @@ class TestSourceTypeFiltering:
             should_process = source._should_process_by_source_type(entity, info)
             assert should_process is True
 
-            # EXTERNAL document should be skipped
+            # EXTERNAL document is now also processed by default
             entity_external: dict[str, Any] = {
                 "urn": "urn:li:document:external1",
                 "info": {
@@ -1043,7 +1212,47 @@ class TestSourceTypeFiltering:
             should_process_external = source._should_process_by_source_type(
                 entity_external, info_external
             )
-            assert should_process_external is False
+            assert should_process_external is True
+
+    def test_external_skipped_when_include_external_disabled(self, ctx, mock_graph):
+        """EXTERNAL documents are skipped when include_external_documents is False."""
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            include_external_documents=False,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            entity_external: dict[str, Any] = {
+                "urn": "urn:li:document:external1",
+                "info": {"source": {"sourceType": "EXTERNAL"}},
+            }
+            assert (
+                source._should_process_by_source_type(
+                    entity_external, entity_external["info"]
+                )
+                is False
+            )
+
+            # NATIVE still processed
+            entity_native: dict[str, Any] = {
+                "urn": "urn:li:document:native1",
+                "info": {"source": {"sourceType": "NATIVE"}},
+            }
+            assert (
+                source._should_process_by_source_type(
+                    entity_native, entity_native["info"]
+                )
+                is True
+            )
 
     def test_platform_filter_processes_native_and_external(self, ctx, mock_graph):
         """Test that platform_filter processes NATIVE + EXTERNAL from specified platforms."""
@@ -1537,10 +1746,10 @@ class TestConfigFingerprintInHash:
             # Hashes should be different due to different max_characters
             assert hash1 != hash2
 
-    def test_batch_mode_filters_by_source_type(self, ctx, mock_graph):
-        """Test that batch mode filters documents by source type."""
+    def test_batch_mode_processes_native_and_external_by_default(self, ctx, mock_graph):
+        """Batch mode processes both NATIVE and EXTERNAL documents by default."""
         config = DataHubDocumentsSourceConfig(
-            platform_filter=None,  # Default: all NATIVE
+            platform_filter=None,  # Default: NATIVE + EXTERNAL
             datahub={"server": "http://test-server:8080"},
             embedding={
                 "provider": "bedrock",
@@ -1557,7 +1766,8 @@ class TestConfigFingerprintInHash:
 
             # Mock GraphQL to return both NATIVE and EXTERNAL documents
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1581,7 +1791,7 @@ class TestConfigFingerprintInHash:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1590,9 +1800,13 @@ class TestConfigFingerprintInHash:
             ):
                 documents = source._fetch_documents_graphql()
 
-                # Should only return NATIVE document (EXTERNAL filtered out)
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:native1"
+                # Both NATIVE and EXTERNAL documents are returned by default
+                assert len(documents) == 2
+                urns = {doc["urn"] for doc in documents}
+                assert urns == {
+                    "urn:li:document:native1",
+                    "urn:li:document:external1",
+                }
 
     def test_batch_mode_with_platform_filter(self, ctx, mock_graph):
         """Test batch mode with platform filter includes EXTERNAL from specified platforms."""
@@ -1614,7 +1828,8 @@ class TestConfigFingerprintInHash:
 
             # Mock GraphQL to return documents from different platforms
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1646,7 +1861,7 @@ class TestConfigFingerprintInHash:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1702,7 +1917,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1721,7 +1937,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1741,7 +1957,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1752,7 +1969,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1770,7 +1987,7 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response: dict[str, Any] = {"search": None}
+            mock_response: dict[str, Any] = {"scrollAcrossEntities": None}
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=mock_response
@@ -1846,7 +2063,8 @@ class TestPartialEntityHandling:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_response = {
-                "search": {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
                     "searchResults": [
                         {
                             "entity": {
@@ -1883,7 +2101,7 @@ class TestPartialEntityHandling:
                                 },
                             }
                         },
-                    ]
+                    ],
                 }
             }
 
@@ -1920,12 +2138,12 @@ class TestMaxDocumentsLimit:
         return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
 
     def test_default_max_documents(self, ctx, config):
-        """Test that max_documents defaults to 10000."""
+        """Test that max_documents defaults to 100000."""
         with patch(
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
-            assert source.chunking_source.config.max_documents == 10000
+            assert source.chunking_source.config.max_documents == 100000
 
     def test_max_documents_limit_raises_error(self, ctx, config):
         """Test that RuntimeError is raised when max_documents limit is hit."""
@@ -2314,3 +2532,1027 @@ class TestDataHubGraphInitialization:
             # Verify source uses the context graph
             assert source.graph is mock_ctx_graph
             assert source.graph is not mock_graph_class.return_value
+
+
+class TestFetchDocumentsPagination:
+    """Test that _fetch_documents_graphql paginates through all pages via scrollAcrossEntities."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["*"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _make_entity(self, i: int) -> dict:
+        return {
+            "entity": {
+                "urn": f"urn:li:document:doc-{i}",
+                "info": {
+                    "source": {"sourceType": "NATIVE"},
+                    "contents": {"text": f"Document {i} with sufficient text content."},
+                },
+            }
+        }
+
+    def _make_scroll_page(
+        self, start: int, count: int, next_scroll_id: Any = None
+    ) -> dict:
+        return {
+            "scrollAcrossEntities": {
+                "nextScrollId": next_scroll_id,
+                "searchResults": [
+                    self._make_entity(i) for i in range(start, start + count)
+                ],
+            }
+        }
+
+    def test_paginates_across_multiple_pages(self, ctx, config, mock_graph):
+        """Fetching >1000 documents issues multiple GraphQL calls and returns all results."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            responses = [
+                self._make_scroll_page(0, 1000, next_scroll_id="cursor-1"),
+                self._make_scroll_page(1000, 200, next_scroll_id=None),
+            ]
+
+            with patch.object(
+                source.graph, "execute_graphql", side_effect=responses
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            assert len(documents) == 1200
+            assert mock_execute.call_count == 2
+
+            first_scroll_id = mock_execute.call_args_list[0][0][1]["scrollId"]
+            second_scroll_id = mock_execute.call_args_list[1][0][1]["scrollId"]
+            assert first_scroll_id is None
+            assert second_scroll_id == "cursor-1"
+
+    def test_stops_when_no_next_scroll_id(self, ctx, config, mock_graph):
+        """A single page with no nextScrollId issues only one call."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            response = self._make_scroll_page(0, 1000, next_scroll_id=None)
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            assert len(documents) == 1000
+            assert mock_execute.call_count == 1
+
+    def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
+        """Document backfills request hidden-lifecycle stages so hidden documents are included."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            response = self._make_scroll_page(0, 0, next_scroll_id=None)
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                source._fetch_documents_graphql()
+
+            query = mock_execute.call_args[0][0]
+            assert "includeHiddenLifecycleStages: true" in query
+
+    def test_empty_result_set(self, ctx, config, mock_graph):
+        """Zero documents returns empty list after one call."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            response: dict[str, Any] = {
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
+                    "searchResults": [],
+                }
+            }
+
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            assert documents == []
+            assert mock_execute.call_count == 1
+
+    def test_three_pages(self, ctx, config, mock_graph):
+        """Three-page fetch collects all documents and threads scroll cursors correctly."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            responses = [
+                self._make_scroll_page(0, 1000, next_scroll_id="cursor-1"),
+                self._make_scroll_page(1000, 1000, next_scroll_id="cursor-2"),
+                self._make_scroll_page(2000, 500, next_scroll_id=None),
+            ]
+
+            with patch.object(
+                source.graph, "execute_graphql", side_effect=responses
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            assert len(documents) == 2500
+            assert mock_execute.call_count == 3
+            scroll_ids = [c[0][1]["scrollId"] for c in mock_execute.call_args_list]
+            assert scroll_ids == [None, "cursor-1", "cursor-2"]
+
+    def test_raw_page_size_used_as_start_advance(self, ctx, config, mock_graph):
+        """Pagination advances by raw page size even when some results are filtered client-side.
+
+        This test locks in that start is advanced by the number of results returned from the
+        server, not the number that pass client-side filters. Using filtered count would cause
+        pages to be requested at wrong offsets or loop incorrectly.
+        """
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Page 1: 1000 results, 800 pass client filters (200 have empty text).
+            # Page 2: remaining results with no next scroll id.
+            page1_results = [self._make_entity(i) for i in range(800)]
+            # Add 200 entities with empty text that will be filtered out
+            for i in range(800, 1000):
+                page1_results.append(
+                    {
+                        "entity": {
+                            "urn": f"urn:li:document:doc-{i}",
+                            "info": {
+                                "source": {"sourceType": "NATIVE"},
+                                "contents": {"text": ""},
+                            },
+                        }
+                    }
+                )
+
+            responses = [
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1",
+                        "searchResults": page1_results,
+                    }
+                },
+                self._make_scroll_page(1000, 300, next_scroll_id=None),
+            ]
+
+            with patch.object(
+                source.graph, "execute_graphql", side_effect=responses
+            ) as mock_execute:
+                documents = source._fetch_documents_graphql()
+
+            # 800 from page 1 (200 filtered) + 300 from page 2
+            assert len(documents) == 1100
+            assert mock_execute.call_count == 2
+            # Second call must use the cursor from page 1, not a derived offset
+            assert mock_execute.call_args_list[1][0][1]["scrollId"] == "cursor-1"
+
+
+def _make_config(**overrides: Any) -> DataHubDocumentsSourceConfig:
+    base: dict[str, Any] = dict(
+        platform_filter=["*"],
+        datahub={"server": "http://test-server:8080"},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        min_text_length=10,
+        stateful_ingestion={"enabled": False},
+        locking={"enabled": False},
+    )
+    base.update(overrides)
+    return DataHubDocumentsSourceConfig(**base)
+
+
+class TestScrollPaginationConfig:
+    """Test configurable scroll batch size and inter-page delay."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def test_scroll_batch_size_passed_to_graphql(self, ctx, mock_graph):
+        config = _make_config(scroll_batch_size=250)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            response: dict[str, Any] = {
+                "scrollAcrossEntities": {"nextScrollId": None, "searchResults": []}
+            }
+            with patch.object(
+                source.graph, "execute_graphql", return_value=response
+            ) as mock_execute:
+                source._fetch_documents_graphql()
+            assert mock_execute.call_args[0][1]["batchSize"] == 250
+
+    def test_scroll_delay_sleeps_between_pages(self, ctx, mock_graph):
+        config = _make_config(scroll_delay_seconds=0.5)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            responses = [
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1",
+                        "searchResults": [],
+                    }
+                },
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [],
+                    }
+                },
+            ]
+            with (
+                patch.object(source.graph, "execute_graphql", side_effect=responses),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                source._fetch_documents_graphql()
+            # Sleep happens before the second page only (not before the first).
+            mock_sleep.assert_called_once_with(0.5)
+
+    def test_no_delay_when_zero(self, ctx, mock_graph):
+        config = _make_config(scroll_delay_seconds=0.0)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            responses = [
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1",
+                        "searchResults": [],
+                    }
+                },
+                {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [],
+                    }
+                },
+            ]
+            with (
+                patch.object(source.graph, "execute_graphql", side_effect=responses),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                source._fetch_documents_graphql()
+            mock_sleep.assert_not_called()
+
+
+class TestIndexDelay:
+    """Test per-indexed-document write throttling."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _doc(self, urn: str) -> dict[str, Any]:
+        return {
+            "urn": urn,
+            "text": "Some sufficiently long document text content here.",
+            "source_type": "NATIVE",
+        }
+
+    def test_index_delay_sleeps_after_each_indexed_document(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5)
+        docs = [self._doc("urn:li:document:a"), self._doc("urn:li:document:b")]
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            fake_wu = Mock()
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda d: iter([fake_wu]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            assert mock_sleep.call_count == 2
+            mock_sleep.assert_called_with(0.5)
+
+    def test_index_delay_skips_unchanged_documents(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5, incremental={"enabled": True})
+        docs = [
+            self._doc("urn:li:document:unchanged"),
+            self._doc("urn:li:document:new"),
+        ]
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            fake_wu = Mock()
+
+            def should_process(urn: str, text: str) -> bool:
+                return urn.endswith(":new")
+
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(source, "_should_process", side_effect=should_process),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda d: iter([fake_wu]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_called_once_with(0.5)
+
+    def test_no_index_delay_when_zero(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.0)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source,
+                    "_fetch_documents_graphql",
+                    return_value=[self._doc("urn:li:document:a")],
+                ),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    return_value=iter([Mock()]),
+                ),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_not_called()
+
+    def test_no_index_delay_when_document_produces_no_workunits(self, ctx, mock_graph):
+        config = _make_config(index_delay_seconds=0.5)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source,
+                    "_fetch_documents_graphql",
+                    return_value=[self._doc("urn:li:document:empty")],
+                ),
+                patch.object(source, "_process_single_document", return_value=iter([])),
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
+                ) as mock_sleep,
+            ):
+                list(source._process_batch_mode())
+            mock_sleep.assert_not_called()
+
+
+class TestSkipIfSemanticContentExists:
+    """Test that EXTERNAL documents already indexed by their own source are left untouched.
+
+    Some sources (Notion/Confluence) emit semanticContent themselves. For EXTERNAL documents
+    an existing aspect means the source owns indexing, so we skip them and do NOT record them
+    in our state. We only take ownership of EXTERNAL documents the source did not index. NATIVE
+    documents are never skipped this way.
+    """
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    @staticmethod
+    def _semantic_aspect(model_key: str) -> Any:
+        from datahub.metadata.schema_classes import (
+            EmbeddingModelDataClass,
+            SemanticContentClass,
+        )
+
+        return SemanticContentClass(
+            embeddings={
+                model_key: EmbeddingModelDataClass(
+                    modelVersion="bedrock/cohere.embed-english-v3",
+                    generatedAt=0,
+                    chunkingStrategy="by_title",
+                    totalChunks=1,
+                    chunks=[],
+                )
+            }
+        )
+
+    def test_external_with_aspect_not_in_state_is_owned_by_source(
+        self, ctx, mock_graph
+    ):
+        """EXTERNAL + has aspect + not in state -> source owns it, we skip."""
+        config = (
+            _make_config()
+        )  # skip_external_if_semantic_content_exists defaults to True
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            model_key = source.chunking_source.get_model_embedding_key()
+            assert model_key is not None
+            with patch.object(
+                source.graph,
+                "get_aspect",
+                return_value=self._semantic_aspect(model_key),
+            ):
+                assert source._is_indexed_by_source("urn:li:document:ext", True) is True
+
+    def test_external_without_aspect_is_not_owned(self, ctx, mock_graph):
+        """EXTERNAL + no aspect -> the source did not index it; we take ownership."""
+        config = _make_config()
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            with patch.object(source.graph, "get_aspect", return_value=None):
+                assert (
+                    source._is_indexed_by_source("urn:li:document:ext", True) is False
+                )
+
+    def test_native_never_owned_by_source(self, ctx, mock_graph):
+        """NATIVE documents are never skipped via the source-owned path; aspect not read."""
+        config = _make_config()
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            with patch.object(source.graph, "get_aspect") as mock_get:
+                assert (
+                    source._is_indexed_by_source("urn:li:document:native", False)
+                    is False
+                )
+            mock_get.assert_not_called()
+
+    def test_external_in_state_is_not_skipped(self, ctx, mock_graph):
+        """When state already tracks the doc we own it; re-embed without reading the aspect."""
+        config = _make_config()
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {"urn:li:document:ext": {"content_hash": "old"}}
+            with patch.object(source.graph, "get_aspect") as mock_get:
+                assert (
+                    source._is_indexed_by_source("urn:li:document:ext", True) is False
+                )
+            mock_get.assert_not_called()
+
+    def test_force_reprocess_disables_source_ownership_skip(self, ctx, mock_graph):
+        """force_reprocess re-embeds everything; the existence check is skipped."""
+        config = _make_config(
+            incremental={"enabled": True, "force_reprocess": True},
+        )
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            with patch.object(source.graph, "get_aspect") as mock_get:
+                assert (
+                    source._is_indexed_by_source("urn:li:document:ext", True) is False
+                )
+            mock_get.assert_not_called()
+
+    def test_skip_disabled_by_config(self, ctx, mock_graph):
+        config = _make_config(skip_external_if_semantic_content_exists=False)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            with patch.object(source.graph, "get_aspect") as mock_get:
+                assert (
+                    source._is_indexed_by_source("urn:li:document:ext", True) is False
+                )
+            mock_get.assert_not_called()
+
+    def test_processes_when_aspect_absent(self, ctx, mock_graph):
+        config = _make_config()
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with patch.object(source.graph, "get_aspect", return_value=None):
+                assert (
+                    source._has_existing_semantic_content("urn:li:document:new")
+                    is False
+                )
+
+    def test_batch_skips_external_indexed_doc_without_seeding_state(
+        self, ctx, mock_graph
+    ):
+        """Integration: an externally-indexed EXTERNAL doc is skipped and never enters state."""
+        config = _make_config(incremental={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            model_key = source.chunking_source.get_model_embedding_key()
+            assert model_key is not None
+            doc = {
+                "urn": "urn:li:document:ext-indexed",
+                "text": "Some sufficiently long document text content here.",
+                "source_type": "EXTERNAL",
+            }
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=[doc]),
+                patch.object(
+                    source.graph,
+                    "get_aspect",
+                    return_value=self._semantic_aspect(model_key),
+                ),
+                patch.object(source, "_process_single_document") as mock_proc,
+            ):
+                list(source._process_batch_mode())
+
+            mock_proc.assert_not_called()
+            assert source.report.num_documents_skipped_existing_embeddings == 1
+            # Ownership is NOT claimed: the doc must not be recorded in our state.
+            assert doc["urn"] not in source.document_state
+
+    def test_batch_takes_ownership_of_unindexed_external_doc(self, ctx, mock_graph):
+        """Integration: an EXTERNAL doc the source did not index is processed and recorded."""
+        config = _make_config(incremental={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.document_state = {}
+            doc = {
+                "urn": "urn:li:document:ext-new",
+                "text": "Some sufficiently long document text content here.",
+                "source_type": "EXTERNAL",
+            }
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=[doc]),
+                patch.object(source.graph, "get_aspect", return_value=None),
+                patch.object(
+                    source, "_process_single_document", return_value=iter([])
+                ) as mock_proc,
+            ):
+                list(source._process_batch_mode())
+
+            mock_proc.assert_called_once()
+            assert source.report.num_documents_skipped_existing_embeddings == 0
+            # Ownership claimed: recorded in state so future changes are re-embedded.
+            assert doc["urn"] in source.document_state
+
+
+class TestDocumentIndexingLock:
+    """Test the dataHubStepState-based distributed lock."""
+
+    @staticmethod
+    def _props(status, owner, expires_at_ms):
+        from datahub.metadata.schema_classes import (
+            AuditStampClass,
+            DataHubStepStatePropertiesClass,
+        )
+
+        return DataHubStepStatePropertiesClass(
+            properties={
+                "status": status,
+                # Ownership is keyed on the per-execution owner token; run_id is retained
+                # only for human-readable debugging.
+                "owner": owner,
+                "run_id": "pipeline-run",
+                "acquired_at_ms": "0",
+                "expires_at_ms": str(expires_at_ms),
+            },
+            lastModified=AuditStampClass(time=0, actor="urn:li:corpuser:test"),
+        )
+
+    def _make_lock(self, graph, renewal_interval_seconds=300):
+        from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
+            DocumentIndexingLock,
+        )
+
+        lock = DocumentIndexingLock(
+            graph=graph,
+            lock_id="test-lock",
+            run_id="run-A",
+            ttl_seconds=1800,
+            renewal_interval_seconds=renewal_interval_seconds,
+        )
+        # Production derives owner from run_id + a uuid (unique per execution). Pin it here
+        # so tests can assert ownership deterministically; the literal "owner" values passed
+        # to _props line up with this.
+        lock.owner = "run-A"
+        return lock
+
+    def test_acquire_when_free_cold_start(self):
+        from datahub.emitter.rest_emitter import EmitMode
+        from datahub.metadata.schema_classes import ChangeTypeClass
+
+        graph = Mock()
+        graph.exists.return_value = False
+        graph.get_aspect.side_effect = [
+            None,
+            self._props("running", "run-A", 9999999999999),
+        ]
+        graph.emit_mcps = Mock()
+        graph.emit_mcp = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+
+        graph.emit_mcps.assert_called_once()
+        mcps = graph.emit_mcps.call_args.args[0]
+        assert len(mcps) == 2
+        assert mcps[0].changeType == ChangeTypeClass.CREATE_ENTITY
+        assert mcps[0].headers == {"If-None-Match": "*"}
+        assert mcps[1].changeType == ChangeTypeClass.CREATE
+        assert mcps[1].headers == {"If-None-Match": "*"}
+        assert graph.emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
+        graph.emit_mcp.assert_not_called()
+
+    def test_acquire_when_free_takeover_upserts(self):
+        """When the lock entity already exists, acquisition uses UPSERT not CREATE."""
+        from datahub.emitter.rest_emitter import EmitMode
+
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("released", "run-old", 1),
+            self._props("running", "run-A", 9999999999999),
+        ]
+        graph.emit_mcps = Mock()
+        graph.emit_mcp = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+
+        graph.emit_mcps.assert_not_called()
+        graph.emit_mcp.assert_called_once()
+        assert graph.emit_mcp.call_args.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
+
+    def test_blocked_when_active_lease_held_by_other(self):
+        graph = Mock()
+        graph.get_aspect.return_value = self._props("running", "run-B", 9999999999999)
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        lock = self._make_lock(graph)
+        assert lock.acquire() is False
+        # A held lock performs no writes of either kind (no UPSERT, no CREATE).
+        graph.emit_mcp.assert_not_called()
+        graph.emit_mcps.assert_not_called()
+
+    def test_reentrant_when_active_lease_held_by_self(self):
+        """Lock present but held by this same execution (same owner) -> re-entrant success."""
+        graph = Mock()
+        graph.get_aspect.return_value = self._props("running", "run-A", 9999999999999)
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        lock = self._make_lock(graph)
+        assert lock.acquire() is True
+        graph.emit_mcp.assert_not_called()
+        graph.emit_mcps.assert_not_called()
+
+    def test_distinct_executions_with_same_run_id_do_not_reenter(self):
+        """A second execution must NOT re-enter a lease just because run_id matches.
+
+        Managed ingestion reuses the same pipeline run_id across scheduled runs of a
+        source. Ownership is therefore keyed on a per-execution owner token (run_id +
+        uuid), so a fresh execution sees the active lease as held-by-other and is blocked
+        rather than extending it.
+        """
+        from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
+            DocumentIndexingLock,
+        )
+
+        # Two locks built with the SAME run_id, as happens for two scheduled runs.
+        lock_a = DocumentIndexingLock(
+            graph=Mock(), lock_id="test-lock", run_id="same-run", ttl_seconds=1800
+        )
+        lock_b = DocumentIndexingLock(
+            graph=Mock(), lock_id="test-lock", run_id="same-run", ttl_seconds=1800
+        )
+        assert lock_a.owner != lock_b.owner
+
+        # lock_b starts and finds lock_a's active lease. It must be blocked, not re-entrant.
+        graph = Mock()
+        graph.get_aspect.return_value = self._props(
+            "running", lock_a.owner, 9999999999999
+        )
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+        lock_b.graph = graph
+
+        assert lock_b.acquire() is False
+        graph.emit_mcp.assert_not_called()
+        graph.emit_mcps.assert_not_called()
+
+    def test_takes_over_expired_lease(self):
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("running", "run-B", 1),  # expired
+            self._props("running", "run-A", 9999999999999),
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+        graph.emit_mcp.assert_called_once()
+
+    def test_loses_race_on_reread(self):
+        graph = Mock()
+        graph.exists.return_value = False
+        graph.get_aspect.side_effect = [
+            None,
+            self._props("running", "run-B", 9999999999999),  # someone else won
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is False
+        graph.emit_mcps.assert_called_once()
+        graph.emit_mcp.assert_not_called()
+
+    def test_release_marks_released(self):
+        graph = Mock()
+        graph.exists.return_value = False
+        graph.get_aspect.side_effect = [
+            None,
+            self._props("running", "run-A", 9999999999999),
+            self._props("running", "run-A", 9999999999999),  # read in release()
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+            lock.release()
+
+        # One emit_mcps for cold-start acquire, one emit_mcp for release.
+        assert graph.emit_mcps.call_count == 1
+        assert graph.emit_mcp.call_count == 1
+        released_aspect = graph.emit_mcp.call_args_list[0].args[0].aspect
+        assert released_aspect.properties["status"] == "released"
+
+    def test_release_noop_when_not_acquired(self):
+        graph = Mock()
+        graph.emit_mcp = Mock()
+        lock = self._make_lock(graph)
+        lock.release()
+        graph.emit_mcp.assert_not_called()
+
+    def test_release_does_not_clobber_other_owner(self):
+        """If another run took over after our lease expired, release() must not overwrite it."""
+        graph = Mock()
+        graph.exists.return_value = False
+        graph.get_aspect.side_effect = [
+            None,
+            self._props("running", "run-A", 9999999999999),  # confirm we acquired
+            self._props(
+                "running", "run-B", 9999999999999
+            ),  # read in release(): now run-B
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph)
+            assert lock.acquire() is True
+            lock.release()
+
+        # Cold-start acquire used emit_mcps; release must NOT write a released lease
+        # because run-B now owns the lock.
+        graph.emit_mcp.assert_not_called()
+
+    def test_heartbeat_renews_after_interval(self):
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("released", "run-old", 1),
+            self._props("running", "run-A", 9999999999999),
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            # Renewal interval of 0 => every heartbeat renews.
+            lock = self._make_lock(graph, renewal_interval_seconds=0)
+            assert lock.acquire() is True
+            assert graph.emit_mcp.call_count == 1  # takeover UPSERT
+
+            lock.heartbeat()
+            assert graph.emit_mcp.call_count == 2  # renewed
+
+            # Acquisition time is preserved across renewals; only expiry advances.
+            acquire_aspect = graph.emit_mcp.call_args_list[0].args[0].aspect
+            renew_aspect = graph.emit_mcp.call_args_list[1].args[0].aspect
+            assert (
+                acquire_aspect.properties["acquired_at_ms"]
+                == renew_aspect.properties["acquired_at_ms"]
+            )
+
+    def test_heartbeat_throttled_within_interval(self):
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("released", "run-old", 1),
+            self._props("running", "run-A", 9999999999999),
+        ]
+        graph.emit_mcp = Mock()
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            # Large interval => heartbeat right after acquire is throttled (no write).
+            lock = self._make_lock(graph, renewal_interval_seconds=3600)
+            assert lock.acquire() is True
+            assert graph.emit_mcp.call_count == 1
+            lock.heartbeat()
+            assert graph.emit_mcp.call_count == 1  # throttled, no extra write
+
+    def test_heartbeat_noop_when_not_acquired(self):
+        graph = Mock()
+        graph.emit_mcp = Mock()
+        lock = self._make_lock(graph)
+        lock.heartbeat()
+        graph.emit_mcp.assert_not_called()
+
+    def test_heartbeat_swallows_write_failure(self):
+        """A transient renewal failure must not propagate; the TTL still has margin."""
+        graph = Mock()
+        graph.exists.return_value = True
+        graph.get_aspect.side_effect = [
+            self._props("released", "run-old", 1),
+            self._props("running", "run-A", 9999999999999),
+        ]
+        # First emit_mcp (takeover) succeeds; the heartbeat renewal raises.
+        graph.emit_mcp = Mock(side_effect=[None, Exception("transient GMS error")])
+        graph.emit_mcps = Mock()
+
+        with patch(
+            "datahub.ingestion.source.datahub_documents.document_indexing_lock.time.sleep"
+        ):
+            lock = self._make_lock(graph, renewal_interval_seconds=0)
+            assert lock.acquire() is True
+            assert graph.emit_mcp.call_count == 1
+            # Should not raise even though the renewal write fails.
+            lock.heartbeat()
+            assert graph.emit_mcp.call_count == 2
+
+    def test_lease_is_active_states(self):
+        """The is_active predicate distinguishes the three lock conditions."""
+        from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
+            _LeaseState,
+            _now_ms,
+        )
+
+        future = _now_ms() + 60_000
+        past = _now_ms() - 60_000
+
+        # Fields: status, owner, run_id, acquired_at_ms, expires_at_ms.
+        # Lock present: held and not yet expired.
+        assert _LeaseState("running", "owner-A", "run-A", 0, future).is_active is True
+        # Lock expired: held but TTL elapsed.
+        assert _LeaseState("running", "owner-A", "run-A", 0, past).is_active is False
+        # No lock: lease was released.
+        assert _LeaseState("released", "owner-A", "run-A", 0, future).is_active is False
+        # Held with no expiry recorded -> treated as active (fail safe).
+        assert _LeaseState("running", "owner-A", "run-A", 0, None).is_active is True
+
+
+class TestLockIntegrationWithSource:
+    """Test lock wiring into the source's run lifecycle."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def test_run_skipped_when_lock_not_acquired(self, ctx, mock_graph):
+        config = _make_config(locking={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is not None
+            with (
+                patch.object(source.lock, "acquire", return_value=False),
+                patch.object(source.lock, "release") as mock_release,
+                patch.object(source, "_process_batch_mode") as mock_batch,
+            ):
+                workunits = list(source.get_workunits_internal())
+
+            assert workunits == []
+            assert source.report.lock_skipped_run is True
+            mock_batch.assert_not_called()
+            mock_release.assert_not_called()
+
+    def test_run_proceeds_and_releases_when_lock_acquired(self, ctx, mock_graph):
+        config = _make_config(locking={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is not None
+            with (
+                patch.object(source.lock, "acquire", return_value=True),
+                patch.object(source.lock, "release") as mock_release,
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=[]
+                ) as mock_fetch,
+            ):
+                list(source.get_workunits_internal())
+
+            mock_fetch.assert_called_once()
+            mock_release.assert_called_once()
+
+    def test_lock_disabled_means_no_lock(self, ctx, mock_graph):
+        config = _make_config(locking={"enabled": False})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is None
+
+    def test_default_lock_id_from_source_urn_is_clean(self, mock_graph):
+        from datahub.metadata.urns import DataHubStepStateUrn
+
+        # In managed ingestion pipeline_name is the ingestion source URN.
+        ctx = PipelineContext(
+            run_id="test-run",
+            pipeline_name="urn:li:dataHubIngestionSource:datahub-documents",
+        )
+        config = _make_config(locking={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is not None
+            lock_id = str(source.lock.urn).split(":", 3)[-1]
+            # No nested-URN colons leaked into the lock id.
+            assert ":" not in lock_id
+            assert lock_id == "document-indexing-lock-datahub-documents"
+            # And the resulting URN round-trips cleanly.
+            assert (
+                str(DataHubStepStateUrn(lock_id))
+                == "urn:li:dataHubStepState:document-indexing-lock-datahub-documents"
+            )
+
+    def test_default_lock_id_falls_back_without_pipeline_name(self):
+        # When no pipeline name is available, the lock id falls back to a safe default.
+        assert (
+            DataHubDocumentsSource._default_lock_id(None)
+            == "document-indexing-lock-default"
+        )
+
+    def test_custom_lock_id_overrides_default(self, mock_graph):
+        ctx = PipelineContext(
+            run_id="test-run",
+            pipeline_name="urn:li:dataHubIngestionSource:datahub-documents",
+        )
+        config = _make_config(locking={"enabled": True, "lock_id": "my-custom-lock"})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.lock is not None
+            assert str(source.lock.urn) == "urn:li:dataHubStepState:my-custom-lock"

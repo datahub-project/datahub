@@ -155,6 +155,7 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
 `;
 
 const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: boolean }) => {
+    const { t } = useTranslation('entity.shared.containers');
     const textRef = React.useRef<HTMLSpanElement>(null);
     const [isOverflowing, setIsOverflowing] = React.useState(false);
 
@@ -165,8 +166,8 @@ const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: b
         }
     }, [text]);
 
-    // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) computed tooltip fallback based on external tab name
-    const tooltipText = text === 'Props' ? 'Structured Properties' : text;
+    const tooltipText =
+        text === t('sidebar.tabs.propsAbbreviation') ? t('sidebar.tabs.structuredPropertiesTooltip') : text;
 
     return (
         <Tooltip title={isOverflowing ? tooltipText : null} placement="right">
