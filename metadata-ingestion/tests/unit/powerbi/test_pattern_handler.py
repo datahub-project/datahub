@@ -700,6 +700,34 @@ def test_odbc_three_tier_platform_keeps_database():
     ]
 
 
+def test_odbc_two_tier_platform_with_no_schema():
+    """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
+    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
+    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
+    must be skipped with a warning instead."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI

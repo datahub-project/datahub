@@ -1839,13 +1839,19 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        if (
-            data_platform in ODBC_TWO_TIER_PLATFORMS
-            and schema_name is not None
-            and table_name is not None
-        ):
-            # Drop the pseudo-catalog database_name for two-tier platforms.
-            qualified_table_name = f"{schema_name}.{table_name}"
+        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+            if schema_name is not None:
+                # Drop the pseudo-catalog database_name for two-tier platforms.
+                qualified_table_name = f"{schema_name}.{table_name}"
+            else:
+                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
+                # schema; emitting it would produce a dangling URN. Surface instead.
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                )
+                return Lineage.empty()
         elif (
             database_name is not None
             and schema_name is not None
