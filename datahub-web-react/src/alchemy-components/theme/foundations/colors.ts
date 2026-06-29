@@ -23,7 +23,7 @@ const colors = {
         1500: '#F9FAFC', // bg surface
         1600: '#F5F6FA', // bg of new nav
         1700: '#5F6685', // secondary text
-        1800: '#8088A3', // tertiary text, disabled text, placeholder text, icon
+        1800: '#68708b', // tertiary text, disabled text, placeholder text, icon
         1900: '#A3A7B9',
         2000: '#1E2338', // dark bg-suface
         2100: '#171B2B', // dark bg

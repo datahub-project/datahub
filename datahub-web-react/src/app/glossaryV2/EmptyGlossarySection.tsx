@@ -34,7 +34,7 @@ function EmptyGlossarySection(props: Props) {
                 description={
                     <>
                         <Typography.Title level={4}>{title}</Typography.Title>
-                        <Typography.Paragraph type="secondary">{description}</Typography.Paragraph>
+                        <Typography.Paragraph>{description}</Typography.Paragraph>
                     </>
                 }
             >
