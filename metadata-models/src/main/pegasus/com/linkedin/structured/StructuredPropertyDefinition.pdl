@@ -81,6 +81,23 @@ record StructuredPropertyDefinition {
     entityTypes: array[Urn]
 
     /**
+    * An optional list of data platforms that this property is restricted to. If specified, the property
+    * can only be assigned to entities that belong to one of these data platforms. If not specified,
+    * the property can be assigned to entities on any data platform.
+    */
+    @Searchable = {
+      "/*": {
+        "fieldName": "allowedPlatforms"
+      }
+    }
+    @UrnValidation = {
+      "exist": true,
+      "strict": true,
+      "entityTypes": [ "dataPlatform" ],
+    }
+    allowedPlatforms: optional array[Urn]
+
+    /**
     * The description of the property. This is the description that will be shown in the UI.
     */
     description: optional string

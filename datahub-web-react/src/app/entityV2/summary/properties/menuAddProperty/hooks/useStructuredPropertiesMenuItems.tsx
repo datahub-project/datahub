@@ -22,6 +22,8 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
 
     const { structuredProperties, loading } = useStructuredProperties(debouncedQuery);
 
+    console.log('HERE', { structuredProperties });
+
     useDebounce(() => setDebouncedQuery(query), DEBOUNCE_SEARCH_MS, [query]);
 
     const onMenuItemClick = useCallback(
