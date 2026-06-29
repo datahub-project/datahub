@@ -23,7 +23,7 @@ public class Pair<S, T> {
   }
 
   public T getValue() {
-    return _second;
+    return getSecond();
   }
 
   @SuppressWarnings("unchecked")
