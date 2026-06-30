@@ -731,7 +731,15 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
-        "docs/managed-datahub/release-notes/v_2_0_0",
+        {
+          type: "category",
+          label: "v2.0.0",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/release-notes/v_2_0_0",
+          },
+          items: ["docs/managed-datahub/release-notes/v_2_0_0_blog"],
+        },
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
