@@ -131,10 +131,10 @@ const ViewStructuredPropsDrawer = ({
                             {allowedPlatforms.map((platform, index) => {
                                 const displayName = platform.properties?.displayName || platform.name || platform.urn;
                                 return (
-                                    <>
+                                    <React.Fragment key={platform.urn}>
                                         <Text color="gray">{displayName}</Text>
                                         {index < allowedPlatforms.length - 1 && <VerticalDivider type="vertical" />}
-                                    </>
+                                    </React.Fragment>
                                 );
                             })}
                         </ItemsList>

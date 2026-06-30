@@ -2,6 +2,8 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { DataPlatform, EntityType } from '@src/types.generated';
 
+const PLATFORMS_TO_FETCH = 200; // we have ~70+ platforms today, want to make sure we fetch all of them here
+
 export type PlatformOption = {
     label: string;
     value: string;
@@ -17,7 +19,7 @@ export default function useAvailablePlatforms(): PlatformOption[] {
                 types: [EntityType.DataPlatform],
                 query: '*',
                 start: 0,
-                count: 200,
+                count: PLATFORMS_TO_FETCH,
                 searchFlags: { skipCache: false },
             },
         },
