@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
@@ -95,8 +96,10 @@ public class GraphQLController {
 
   /**
    * Part B heavy-resolver gate. When the front gate admitted the request, consumes each configured
-   * heavy top-level resolver's bucket (in query order); on the first denial it releases the
-   * front-gate lease — so a held capacity slot doesn't leak when we reject here — and returns that
+   * heavy top-level resolver's bucket (in query order); on the first denial it unwinds the front
+   * gate — releasing the held capacity slot and refunding the scoped-chain tokens ({@code
+   * actorUrn}/{@code clientClass}) the request already consumed — so a request rejected here
+   * neither leaks a capacity slot nor permanently burns the actor's scoped quota, and returns that
    * denial. Otherwise returns the original decision unchanged. Package-private + static so the
    * wiring is unit-testable without the full request pipeline.
    */
@@ -104,7 +107,9 @@ public class GraphQLController {
       @Nonnull RateLimitEngine rateLimitEngine,
       @Nonnull RateLimitDecision frontGateDecision,
       @Nonnull List<String> topLevelFields,
-      boolean systemActor) {
+      boolean systemActor,
+      @Nullable String actorUrn,
+      @Nullable ClientClass clientClass) {
     if (!frontGateDecision.isAllowed()) {
       return frontGateDecision;
     }
@@ -113,6 +118,7 @@ public class GraphQLController {
           rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
       if (heavyDecision != null && !heavyDecision.isAllowed()) {
         rateLimitEngine.release(rateLimitEngine.toLease(frontGateDecision), false);
+        rateLimitEngine.refundScopedChain(actorUrn, clientClass);
         return heavyDecision;
       }
     }
@@ -220,7 +226,8 @@ public class GraphQLController {
       rateLimitActorUrn = systemActor ? null : actorUrn;
     }
 
-    // Classify from the frontend-stamped header (authoritative, unspoofable). Absent → NON_BROWSER.
+    // Classify from the frontend-stamped header (advisory; trusted on the frontend-proxied hop, and
+    // only applied when clientClassEnabled=true). Absent → NON_BROWSER.
     ClientClass clientClass =
         ClientClassifier.fromRequestSource(
             request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));
@@ -243,7 +250,12 @@ public class GraphQLController {
     // lease before we reject.
     rateLimitDecision =
         applyHeavyResolverGate(
-            rateLimitEngine, rateLimitDecision, rlq.topLevelFields(), systemActor);
+            rateLimitEngine,
+            rateLimitDecision,
+            rlq.topLevelFields(),
+            systemActor,
+            rateLimitActorUrn,
+            clientClass);
     if (!rateLimitDecision.isAllowed()) {
       return tooManyRequests(rateLimitDecision, mapper);
     }

@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 public class GraphQLControllerTest {
 
   private static final List<String> ONE_HEAVY = List.of("searchAcrossEntities");
+  private static final String ACTOR = "urn:li:corpuser:tester";
 
   @Test
   public void testFrontGateDenialShortCircuitsHeavyGate() {
@@ -31,12 +32,13 @@ public class GraphQLControllerTest {
     RateLimitDecision frontGate = denied("scoped:actor");
 
     RateLimitDecision result =
-        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false, ACTOR, null);
 
     // A request already denied at the front gate is returned untouched; the heavy gate never runs.
     assertSame(result, frontGate);
     verify(engine, never()).consumeHeavyResolver(any(), anyBoolean());
     verify(engine, never()).release(any(), anyBoolean());
+    verify(engine, never()).refundScopedChain(any(), any());
   }
 
   @Test
@@ -46,15 +48,16 @@ public class GraphQLControllerTest {
     RateLimitDecision frontGate = allowed();
 
     RateLimitDecision result =
-        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false, ACTOR, null);
 
     assertSame(result, frontGate);
     verify(engine).consumeHeavyResolver("searchAcrossEntities", false);
     verify(engine, never()).release(any(), anyBoolean());
+    verify(engine, never()).refundScopedChain(any(), any());
   }
 
   @Test
-  public void testHeavyResolverDenialReleasesLeaseAndReturnsDenial() {
+  public void testHeavyResolverDenialReleasesLeaseAndRefundsScopedAndReturnsDenial() {
     RateLimitEngine engine = mock(RateLimitEngine.class);
     RateLimitDecision frontGate = allowed();
     RateLimitDecision heavyDenied = denied("scoped:op:searchAcrossEntities");
@@ -63,11 +66,14 @@ public class GraphQLControllerTest {
     when(engine.toLease(frontGate)).thenReturn(lease);
 
     RateLimitDecision result =
-        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false, ACTOR, null);
 
     assertSame(result, heavyDenied);
-    // The front-gate slot is released so it doesn't leak when the request is rejected here.
+    // Rejecting here unwinds the front gate: release the capacity slot AND refund the scoped
+    // tokens,
+    // so a request that didn't get through doesn't permanently burn the actor's quota.
     verify(engine).release(lease, false);
+    verify(engine).refundScopedChain(ACTOR, null);
   }
 
   @Test
@@ -79,11 +85,13 @@ public class GraphQLControllerTest {
     when(engine.toLease(any())).thenReturn(mock(RateLimitLease.class));
 
     RateLimitDecision result =
-        GraphQLController.applyHeavyResolverGate(engine, allowed(), List.of("a", "b"), false);
+        GraphQLController.applyHeavyResolverGate(
+            engine, allowed(), List.of("a", "b"), false, ACTOR, null);
 
     assertSame(result, bDenied);
     verify(engine).consumeHeavyResolver("a", false);
     verify(engine).consumeHeavyResolver("b", false);
+    verify(engine).refundScopedChain(ACTOR, null);
   }
 
   @Test
@@ -91,7 +99,7 @@ public class GraphQLControllerTest {
     RateLimitEngine engine = mock(RateLimitEngine.class);
     when(engine.consumeHeavyResolver(any(), anyBoolean())).thenReturn(null);
 
-    GraphQLController.applyHeavyResolverGate(engine, allowed(), ONE_HEAVY, true);
+    GraphQLController.applyHeavyResolverGate(engine, allowed(), ONE_HEAVY, true, ACTOR, null);
 
     verify(engine).consumeHeavyResolver("searchAcrossEntities", true);
   }

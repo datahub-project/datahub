@@ -25,6 +25,7 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotSerializer;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatusSerializer;
+import com.linkedin.metadata.ratelimit.EndpointRateLimitStore;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -223,6 +224,18 @@ public class CacheConfig {
     mapConfig.setEvictionConfig(evictionConfig);
 
     return mapConfig;
+  }
+
+  @Bean
+  @Conditional(RateLimitEndpointEnabledCondition.class)
+  public MapConfig rateLimitGlobalBucketsMapConfig() {
+    // The fleet-wide ceiling lives under a single "global" key, so this map needs no eviction (it
+    // would only ever hold one entry, and evicting it would reset the cross-tenant ceiling under
+    // active load). Registered explicitly for an owner backup so the ceiling survives a node loss.
+    return new MapConfig()
+        .setName(EndpointRateLimitStore.GLOBAL_MAP_NAME)
+        .setBackupCount(1)
+        .setAsyncBackupCount(0);
   }
 
   @Bean

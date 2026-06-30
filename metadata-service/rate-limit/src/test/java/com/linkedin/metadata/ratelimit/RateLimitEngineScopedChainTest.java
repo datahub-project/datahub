@@ -64,6 +64,48 @@ public class RateLimitEngineScopedChainTest {
   }
 
   @Test
+  public void testClassBucketSkippedWhenClientClassDisabled() {
+    RateLimitProperties config = scopedConfig();
+    // Class discrimination off: the scoped class step must be skipped entirely, so a (spoofable)
+    // BROWSER header cannot route a caller into the browser bucket — nor can it be charged the sdk
+    // one. Here the browser bucket is capacity-1; with the gate off, a second BROWSER request must
+    // still pass because the class step never runs.
+    config.setClientClassEnabled(false);
+    enable(config.getScoped().getBrowser(), 1);
+    RateLimitEngine engine = engine(config);
+
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.BROWSER).isAllowed());
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.BROWSER).isAllowed());
+  }
+
+  @Test
+  public void testRefundScopedChainRestoresConsumedTokens() {
+    RateLimitProperties config = scopedConfig();
+    enable(config.getScoped().getActor(), 1);
+    RateLimitEngine engine = engine(config);
+
+    // Spend the single actor token.
+    assertTrue(graphql(engine, "getMe", ALICE, null).isAllowed());
+    // Refund it (as the heavy-resolver gate does when it rejects a request that already passed the
+    // scoped chain), so the next request is not falsely denied by a quota a rejected request
+    // burned.
+    engine.refundScopedChain(ALICE, null);
+    assertTrue(graphql(engine, "getMe", ALICE, null).isAllowed());
+  }
+
+  @Test
+  public void testRefundScopedChainIsNoOpWhenRefundDisabled() {
+    RateLimitProperties config = scopedConfig();
+    config.getScoped().setRefundDisabled(true);
+    enable(config.getScoped().getActor(), 1);
+    RateLimitEngine engine = engine(config);
+
+    assertTrue(graphql(engine, "getMe", ALICE, null).isAllowed());
+    engine.refundScopedChain(ALICE, null); // refunds disabled → no-op
+    assertFalse(graphql(engine, "getMe", ALICE, null).isAllowed());
+  }
+
+  @Test
   public void testGlobalBucketIsFleetWideAcrossActors() {
     RateLimitProperties config = scopedConfig();
     enable(config.getScoped().getGlobal(), 1);
@@ -278,6 +320,8 @@ public class RateLimitEngineScopedChainTest {
     config.getCapacity().setEnabled(false);
     config.getCapacity().getGraphql().setPathPattern(GRAPHQL_PATH);
     config.getEndpoint().setEnabled(false);
+    // Class (browser/sdk) buckets only apply when client-class discrimination is enabled.
+    config.setClientClassEnabled(true);
     RateLimitProperties.ScopedLimits scoped = config.getScoped();
     scoped.setEnabled(true);
     scoped.getActor().setDisabled(true);

@@ -222,7 +222,10 @@ final class CompiledRateLimitRule {
     if (patternCompare != 0) {
       return patternCompare;
     }
-    // At equal path specificity, a class-scoped rule outranks a class-agnostic one.
+    // At equal path specificity, a class-scoped rule outranks a class-agnostic one. Deliberate:
+    // even when client-class selection is disabled (null class is a wildcard, so both rules match),
+    // the more specific class-scoped rule wins — i.e. a stricter class rule still applies rather
+    // than the looser catch-all. Asserted by RuleSelector/CompiledRateLimitRule tests.
     int classCompare = Boolean.compare(left.isClientClassScoped(), right.isClientClassScoped());
     if (classCompare != 0) {
       return classCompare;

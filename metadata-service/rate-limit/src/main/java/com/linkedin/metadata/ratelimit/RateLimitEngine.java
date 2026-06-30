@@ -1,7 +1,10 @@
 package com.linkedin.metadata.ratelimit;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hazelcast.core.HazelcastInstance;
+import com.linkedin.metadata.config.ratelimit.RateLimitConfigValidator;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.config.ratelimit.RateLimitRuleType;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
@@ -78,7 +81,9 @@ public class RateLimitEngine {
     warnIfMisconfiguredPaths(config);
     warnIfMisconfiguredLimiters();
     validatePerActorRules(config);
-    validateScopedConfig(config);
+    // Scoped-chain sizing validation is owned by RateLimitConfigValidator (single source of truth);
+    // delegate here so it runs even when the engine is constructed outside the factory path.
+    RateLimitConfigValidator.validateScoped(config);
   }
 
   private void validatePerActorRules(RateLimitProperties config) {
@@ -235,6 +240,26 @@ public class RateLimitEngine {
             .writeValueAsString(Map.of("error", "Rate limit exceeded"))
             .getBytes(StandardCharsets.UTF_8);
     response.getOutputStream().write(body);
+    // Flush so the 429 body is committed even if nothing downstream closes the stream (the filter
+    // returns immediately after this without continuing the chain).
+    response.getOutputStream().flush();
+  }
+
+  /**
+   * Config view for the read-only ops endpoint with internal isolation identifiers redacted: {@code
+   * tenantId} and {@code endpoint.hazelcastMapName} name the shared-infra namespace/keys, so even
+   * behind the system-operations privilege there's no reason to expose them (and in a shared
+   * multi-tenant GMS it would let a privileged tenant admin learn another tenant's key prefix).
+   */
+  @Nonnull
+  public JsonNode getRedactedConfig() {
+    ObjectNode node = objectMapper.valueToTree(config);
+    node.remove("tenantId");
+    JsonNode endpoint = node.get("endpoint");
+    if (endpoint instanceof ObjectNode) {
+      ((ObjectNode) endpoint).remove("hazelcastMapName");
+    }
+    return node;
   }
 
   @Nonnull
@@ -418,7 +443,7 @@ public class RateLimitEngine {
       return null;
     }
 
-    List<ScopedStep> steps = buildScopedSteps(ctx, scoped);
+    List<ScopedStep> steps = buildScopedSteps(ctx.actorUrn(), ctx.clientClass(), scoped);
     List<ScopedStep> consumed = new ArrayList<>(steps.size());
     for (ScopedStep step : steps) {
       ConsumptionProbe probe =
@@ -444,6 +469,28 @@ public class RateLimitEngine {
   }
 
   /**
+   * Refunds the scoped-chain tokens a request consumed at the front gate. Called when a later,
+   * out-of-band gate (the heavy-resolver gate, applied by the GraphQL controller after the chain
+   * has already admitted the request) rejects it — so a rejected request doesn't permanently burn
+   * the actor/class/global quota, mirroring the chain's own refund-on-deny. No-op when the chain is
+   * inactive or refunds are disabled. The steps are rebuilt from the request's actor/class (the
+   * same deterministic inputs {@link #buildScopedSteps} used at consume time); {@code refundScoped}
+   * caps at capacity, so refunding a token can never overflow a bucket.
+   */
+  public void refundScopedChain(@Nullable String actorUrn, @Nullable ClientClass clientClass) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (endpointStore == null
+        || scoped == null
+        || !scoped.isEnabled()
+        || scoped.isRefundDisabled()) {
+      return;
+    }
+    for (ScopedStep step : buildScopedSteps(actorUrn, clientClass, scoped)) {
+      endpointStore.refundScoped(step.key(), step.limits(), 1, step.global());
+    }
+  }
+
+  /**
    * Builds the ordered narrow → broad steps for this request. Disabled limiters and absent
    * dimensions (no actor on REST, unclassified client, non-heavy resolver) are skipped.
    * Tenant-scoped keys are prefixed with the tenant id; only {@code global} is un-prefixed and
@@ -451,21 +498,27 @@ public class RateLimitEngine {
    */
   @Nonnull
   private List<ScopedStep> buildScopedSteps(
-      @Nonnull RateLimitContext ctx, @Nonnull RateLimitProperties.ScopedLimits scoped) {
+      @Nullable String actorUrn,
+      @Nullable ClientClass rawClientClass,
+      @Nonnull RateLimitProperties.ScopedLimits scoped) {
     String tenant = config.getTenantId();
     List<ScopedStep> steps = new ArrayList<>(4);
 
-    if (ctx.actorUrn() != null && !scoped.getActor().isDisabled()) {
+    if (actorUrn != null && !scoped.getActor().isDisabled()) {
       steps.add(
           new ScopedStep(
-              tenantKey(tenant, "actor:" + ctx.actorUrn()),
-              scoped.getActor(),
-              false,
-              "scoped:actor"));
+              tenantKey(tenant, "actor:" + actorUrn), scoped.getActor(), false, "scoped:actor"));
     }
 
-    if (ctx.clientClass() != null) {
-      boolean browser = ctx.clientClass() == ClientClass.BROWSER;
+    // Gate the class step on clientClassEnabled, exactly like rule selection
+    // (effectiveClientClass).
+    // The client class is derived from a request header that is only trusted on the
+    // frontend-proxied
+    // hop; when class discrimination is disabled we must NOT split scoped traffic by it either,
+    // otherwise a direct-to-GMS caller could claim the more generous bucket by spoofing the header.
+    ClientClass clientClass = effectiveClientClass(rawClientClass);
+    if (clientClass != null) {
+      boolean browser = clientClass == ClientClass.BROWSER;
       RateLimitProperties.BucketLimits classLimits =
           browser ? scoped.getBrowser() : scoped.getSdk();
       if (!classLimits.isDisabled()) {
@@ -497,9 +550,10 @@ public class RateLimitEngine {
    * the query it already parsed); it consumes that resolver's tenant-scoped bucket ({@code
    * {tenantId}:op:{resolver}}). Returns a deny decision when the bucket is exhausted, or {@code
    * null} when the scoped chain is inactive, the resolver isn't configured as heavy, or the bucket
-   * allows. Standalone — no refund and no link to the front-gate chain: a request that already
-   * passed the front gate legitimately spent its request-level budget, so a heavy-resolver block
-   * here does not roll those tokens back.
+   * allows. This method only consumes the resolver bucket; it does not itself touch the scoped
+   * chain. When it denies, the GraphQL controller unwinds the front gate it already passed —
+   * releasing the capacity slot and calling {@link #refundScopedChain} — so a request rejected here
+   * doesn't permanently burn the actor/class/global quota.
    *
    * <p>{@code systemActor} lets the internal system principal bypass resolvers configured with
    * {@code exemptSystemActor=true}, so high-volume internal traffic isn't throttled where that's
@@ -544,45 +598,6 @@ public class RateLimitEngine {
         return null;
       }
       throw e;
-    }
-  }
-
-  private void validateScopedConfig(@Nonnull RateLimitProperties config) {
-    RateLimitProperties.ScopedLimits scoped = config.getScoped();
-    if (scoped == null || !scoped.isEnabled()) {
-      return;
-    }
-    validateScopedBucket("scoped.actor", scoped.getActor());
-    validateScopedBucket("scoped.browser", scoped.getBrowser());
-    validateScopedBucket("scoped.sdk", scoped.getSdk());
-    validateScopedBucket("scoped.global", scoped.getGlobal());
-    if (scoped.getHeavyResolvers() != null) {
-      scoped
-          .getHeavyResolvers()
-          .forEach((name, limits) -> validateScopedBucket("scoped.heavyResolvers." + name, limits));
-    }
-  }
-
-  private static void validateScopedBucket(
-      @Nonnull String path, @Nullable RateLimitProperties.BucketLimits limits) {
-    if (limits == null) {
-      throw new IllegalStateException(path + " must be set when the scoped chain is enabled");
-    }
-    if (limits.isDisabled()) {
-      return;
-    }
-    if (limits.getCapacity() <= 0
-        || limits.getRefillTokens() <= 0
-        || limits.getRefillPeriodSeconds() <= 0) {
-      throw new IllegalStateException(
-          path
-              + " requires capacity>0, refillTokens>0, refillPeriodSeconds>0 when enabled (got "
-              + limits.getCapacity()
-              + "/"
-              + limits.getRefillTokens()
-              + "/"
-              + limits.getRefillPeriodSeconds()
-              + ")");
     }
   }
 

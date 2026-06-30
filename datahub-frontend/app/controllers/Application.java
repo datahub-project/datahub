@@ -50,7 +50,10 @@ public class Application extends Controller {
       Set.of("/openapi/swagger-ui", "/openapi/v3/api-docs");
   // Stamped on every proxied request so GMS can rate-limit browser vs programmatic traffic
   // differently. Browser = authenticated UI session (signed cookie); SDK = bearer/programmatic.
-  // Client-supplied values are stripped before re-stamping, so it cannot be spoofed.
+  // Client-supplied values are stripped before re-stamping, so the value is trustworthy ON THIS
+  // HOP only. It is advisory: callers that reach GMS directly (bypassing this proxy) can set the
+  // header themselves, so GMS treats client class as a hint and applies class buckets only when
+  // RATE_LIMITS_CLIENT_CLASS_ENABLED=true.
   private static final String REQUEST_SOURCE_HEADER = "X-DataHub-Request-Source";
   private static final String REQUEST_SOURCE_BROWSER = "BROWSER";
   private static final String REQUEST_SOURCE_SDK = "SDK";

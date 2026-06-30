@@ -23,10 +23,12 @@ public final class ClientClassifier {
 
   /**
    * Primary classification path: maps the frontend-stamped {@link #REQUEST_SOURCE_HEADER} to a
-   * {@link ClientClass}. {@code "BROWSER"} (an authenticated UI session, set by Play from a signed
-   * session cookie — unspoofable by clients) → {@link ClientClass#BROWSER}; anything else (absent,
-   * blank, {@code "SDK"}, or any direct-to-GMS request) → {@link ClientClass#NON_BROWSER}, the
-   * safe/tight default.
+   * {@link ClientClass}. {@code "BROWSER"} (an authenticated UI session — Play strips any
+   * client-supplied value and re-stamps it from a signed session cookie, so it is trustworthy on
+   * the frontend-proxied hop) → {@link ClientClass#BROWSER}; anything else (absent, blank, {@code
+   * "SDK"}, or any direct-to-GMS request) → {@link ClientClass#NON_BROWSER}, the safe/tight
+   * default. Advisory only: a caller reaching GMS directly can set this header, so class buckets
+   * apply only when {@code RATE_LIMITS_CLIENT_CLASS_ENABLED=true} (see {@link ClientClass}).
    *
    * <p>Generic by design — call it from any enforcement point (GraphQL gate, servlet filter) with
    * the raw header value; the caller only needs {@code request.getHeader(REQUEST_SOURCE_HEADER)}.

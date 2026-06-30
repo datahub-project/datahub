@@ -38,7 +38,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return;
     }
 
-    // Classify from the frontend-stamped header (authoritative, unspoofable). Absent → NON_BROWSER.
+    // Classify from the frontend-stamped header (advisory; trusted on the frontend-proxied hop, and
+    // only applied when clientClassEnabled=true). Absent → NON_BROWSER.
     ClientClass clientClass =
         ClientClassifier.fromRequestSource(
             request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));

@@ -154,6 +154,9 @@ public class RateLimitAbuseScenarioTest {
   }
 
   private RateLimitEngine engine(RateLimitProperties config) {
+    // Single-node isolated Hazelcast: bucket consumption is exact, so the tests can assert precise
+    // allowed/denied counts (== capacity). Across a real multi-node cluster, near-simultaneous
+    // consumes can briefly admit slightly more, so a multi-node assertion would be <= capacity.
     hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     return new RateLimitEngine(
         config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
@@ -166,6 +169,8 @@ public class RateLimitAbuseScenarioTest {
     config.getCapacity().setEnabled(false);
     config.getCapacity().getGraphql().setPathPattern(GRAPHQL_PATH);
     config.getEndpoint().setEnabled(false);
+    // Class (browser/sdk) buckets only apply when client-class discrimination is enabled.
+    config.setClientClassEnabled(true);
     RateLimitProperties.ScopedLimits scoped = config.getScoped();
     scoped.setEnabled(true);
     scoped.getActor().setDisabled(true);

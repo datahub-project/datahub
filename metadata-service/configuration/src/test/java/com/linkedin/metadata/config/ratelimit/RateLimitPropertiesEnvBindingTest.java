@@ -42,7 +42,7 @@ public class RateLimitPropertiesEnvBindingTest {
     } catch (Exception e) {
       throw new IllegalStateException("failed to load " + RESOURCE, e);
     }
-    return Binder.get(environment).bind(PREFIX, RateLimitProperties.class).orElseThrow();
+    return Binder.get(environment).bind(PREFIX, RateLimitProperties.class).get();
   }
 
   @Test

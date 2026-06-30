@@ -28,7 +28,7 @@ final class EndpointRateLimitStore {
    * {@code global} scope is one counter across the whole fleet. Tenant-scoped buckets live in the
    * tenant map ({@link #distributedProxyManager}, named per-tenant via {@code hazelcastMapName}).
    */
-  private static final String GLOBAL_MAP_NAME = "gmsRateLimitGlobalBuckets";
+  public static final String GLOBAL_MAP_NAME = "gmsRateLimitGlobalBuckets";
 
   private final Map<String, RegisteredEndpointBucket> buckets = new HashMap<>();
   private final ProxyManager<String> distributedProxyManager;

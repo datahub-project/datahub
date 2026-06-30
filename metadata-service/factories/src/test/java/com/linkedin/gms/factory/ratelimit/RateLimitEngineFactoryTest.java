@@ -8,6 +8,7 @@ import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import org.springframework.core.env.StandardEnvironment;
 import org.testng.annotations.Test;
 
 public class RateLimitEngineFactoryTest {
@@ -25,7 +26,8 @@ public class RateLimitEngineFactoryTest {
     OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     RateLimitEngine engine =
-        factory.rateLimitEngine(gmsConfiguration, null, null, operationContext);
+        factory.rateLimitEngine(
+            gmsConfiguration, null, null, operationContext, new StandardEnvironment());
     RateLimitFilter filter = factory.rateLimitFilter(engine);
 
     assertNotNull(engine);

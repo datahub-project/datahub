@@ -30,6 +30,9 @@ datahub:
       # Scoped chain bucket SIZES (the toggles scoped.enabled / scoped.refundDisabled are in
       # application.yaml). Each size is env-overridable per deployment; set `disabled: true` on a
       # bucket to turn just that one off. Enforced only when scoped.enabled=true.
+      # NOTE: one env var per bucket drives BOTH capacity and refillTokens (so the bucket holds N
+      # tokens and refills N per period — a flat N/period rate). To set an independent refill rate
+      # (capacity != refillTokens), override the bucket in a mounted RATE_LIMITS_CONFIG_FILE.
       scoped:
         # Per-actor (tenant-scoped) — {tenantId}:actor:{urn}. Fairness; one actor can't flood.
         actor:

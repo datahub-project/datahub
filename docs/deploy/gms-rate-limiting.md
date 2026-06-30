@@ -199,9 +199,11 @@ Bundled defaults live under **`datahub.gms.rateLimits`** in `application.yaml` (
 
 ## Per-actor rate limiting
 
-When `perActor: true` is set on an **endpoint** (token-bucket) rule, GMS maintains a **separate Bucket4j bucket per authenticated actor URN** rather than a single shared bucket for the rule. Each actor's quota is independent: one heavy API consumer cannot deplete another actor's tokens.
+Per-actor GraphQL throttling is provided by the **scoped chain's actor bucket** (`scoped:actor`, keyed `{tenantId}:actor:{urn}`), enabled with `scoped.enabled=true`. There is **no bundled per-actor endpoint rule** — `endpoint.rules` is empty by default, and there are no `RATE_LIMITS_PER_ACTOR_*` env vars.
 
-**Constraints:**
+A lower-level **`perActor` endpoint-rule** mechanism still exists for advanced, manual per-path use: setting `perActor: true` on an **endpoint** (token-bucket) rule makes GMS keep a separate Bucket4j bucket per authenticated actor URN rather than one shared bucket. You author such a rule yourself (in a mounted config file); nothing enables it by default. Prefer the scoped actor bucket for ordinary per-actor GraphQL throttling.
+
+**Constraints (for a hand-authored `perActor` endpoint rule):**
 
 - `perActor` is supported **only** on `endpoint.rules[]`. Setting it on a `capacity.rules[]` entry causes GMS to refuse to start with `IllegalStateException`.
 - Per-actor sharding applies to the **GraphQL POST path only** (`/api/graphql` by default). A `perActor` rule on a non-GraphQL path logs a warning at startup and falls back to pass-through (no per-actor bucket is consulted).
@@ -214,25 +216,6 @@ The internal system principal (actor URN matching `DATAHUB_SYSTEM_CLIENT_ID`, de
 **Bucket lifecycle in Hazelcast:**
 
 Per-actor bucket entries are stored under a composite Hazelcast key `{ruleId}:actor:{actorUrn}`. Entries are evicted after `bucketMaxIdleSeconds` of inactivity (default 300 s, `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`). An LRU size cap of `bucketMaxSize` entries per node prevents unbounded Hazelcast memory growth (default 100 000, `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`).
-
-**Bundled default — `graphql-per-actor-default`:**
-
-`application.yaml` ships a bundled per-actor rule for the GraphQL path that is active whenever `endpoint.enabled=true`:
-
-```yaml
-endpoint:
-  rules:
-    - id: graphql-per-actor-default
-      enabled: true # RATE_LIMITS_PER_ACTOR_ENABLED
-      pathPattern: /api/graphql # RATE_LIMITS_PER_ACTOR_PATH
-      methods: [POST]
-      perActor: true
-      capacity: 1000 # RATE_LIMITS_PER_ACTOR_CAPACITY
-      refillTokens: 1000 # RATE_LIMITS_PER_ACTOR_REFILL_TOKENS
-      refillPeriodSeconds: 60 # RATE_LIMITS_PER_ACTOR_REFILL_PERIOD
-```
-
-Default behavior: each authenticated user may issue up to 1 000 GraphQL POST requests per 60-second window. The system actor is exempt.
 
 **Merge behavior when overriding via a mounted config file:**
 
@@ -257,30 +240,32 @@ datahub:
 
 **Observability for per-actor rules:**
 
-The `gms.rate_limit.endpoint.remaining` metric is **not registered** for `perActor` rules. The ruleId-keyed shared bucket is never consumed by per-actor requests, so its gauge would always read full and mislead operators. Monitor per-actor denials via `gms.rate_limit.requests{outcome=deny,rule_id=graphql-per-actor-default}` instead.
+The `gms.rate_limit.endpoint.remaining` metric is **not registered** for `perActor` rules. The ruleId-keyed shared bucket is never consumed by per-actor requests, so its gauge would always read full and mislead operators. Monitor per-actor denials via `gms.rate_limit.requests{outcome=deny,rule_id=<your-rule-id>}` instead.
 
-**Example — minimal per-actor GraphQL throttle:**
+**Example — hand-authored per-actor GraphQL throttle** (mounted config file; nothing like this ships by default — prefer `scoped:actor`):
 
 ```yaml
-rateLimits:
-  endpoint:
-    enabled: true
-    rules:
-      - id: graphql-per-actor-default
+datahub:
+  gms:
+    rateLimits:
+      endpoint:
         enabled: true
-        pathPattern: /api/graphql
-        methods: [POST]
-        perActor: true
-        capacity: 500
-        refillTokens: 500
-        refillPeriodSeconds: 60
+        rules:
+          - id: graphql-per-actor
+            enabled: true
+            pathPattern: /api/graphql
+            methods: [POST]
+            perActor: true
+            capacity: 500
+            refillTokens: 500
+            refillPeriodSeconds: 60
 ```
 
 > **Planned (not yet available):** An `agentClass` dimension (distinguishing browser UI sessions from SDK/CLI callers) and per-actor coverage for Rest.li / OpenAPI paths are under consideration. Behavior documented here reflects the current implementation only.
 
 ## Configuration reference
 
-Bundled defaults (including the per-actor GraphQL rule shipped in `application.yaml`):
+Bundled defaults (toggles in `application.yaml`; policy — rule lists, scoped bucket sizes — in `rate-limit-config.yaml`). No per-actor endpoint rule ships; `endpoint.rules` is empty:
 
 ```yaml
 rateLimits:
@@ -308,15 +293,16 @@ rateLimits:
     hazelcastMapName: gmsRateLimitEndpointBuckets # RATE_LIMITS_ENDPOINT_HAZELCAST_MAP
     bucketMaxIdleSeconds: 300 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS
     bucketMaxSize: 100000 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE
-    rules:
-      - id: graphql-per-actor-default
-        enabled: true # RATE_LIMITS_PER_ACTOR_ENABLED
-        pathPattern: /api/graphql # RATE_LIMITS_PER_ACTOR_PATH
-        methods: [POST]
-        perActor: true
-        capacity: 1000 # RATE_LIMITS_PER_ACTOR_CAPACITY
-        refillTokens: 1000 # RATE_LIMITS_PER_ACTOR_REFILL_TOKENS
-        refillPeriodSeconds: 60 # RATE_LIMITS_PER_ACTOR_REFILL_PERIOD
+    rules: []
+  scoped:
+    enabled: false # RATE_LIMITS_SCOPED_ENABLED
+    refundDisabled: false # RATE_LIMITS_SCOPED_REFUND_DISABLED
+    # Bucket sizes (env-overridable per deployment) live in rate-limit-config.yaml:
+    actor: { capacity: 2000, refillTokens: 2000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_ACTOR_CAPACITY
+    browser: { capacity: 5000, refillTokens: 5000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_BROWSER_CAPACITY
+    sdk: { capacity: 500, refillTokens: 500, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_SDK_CAPACITY
+    global: { capacity: 20000, refillTokens: 20000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_GLOBAL_CAPACITY
+    heavyResolvers: {} # per-resolver buckets; add via mounted file
   metrics:
     detailed: false
 ```
@@ -348,11 +334,11 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets` | Hazelcast map name for endpoint buckets                                                                                                             |
 | `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`         | `300`                         | Idle eviction window (seconds) for per-actor bucket entries                                                                                         |
 | `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`                 | `100000`                      | LRU size cap for endpoint bucket entries per Hazelcast node                                                                                         |
-| `RATE_LIMITS_PER_ACTOR_ENABLED`                        | `true`                        | Enable the bundled `graphql-per-actor-default` rule                                                                                                 |
-| `RATE_LIMITS_PER_ACTOR_PATH`                           | `/api/graphql`                | Path for the bundled per-actor rule                                                                                                                 |
-| `RATE_LIMITS_PER_ACTOR_CAPACITY`                       | `1000`                        | Token bucket size for each actor's GraphQL quota                                                                                                    |
-| `RATE_LIMITS_PER_ACTOR_REFILL_TOKENS`                  | `1000`                        | Tokens added per refill period for each actor                                                                                                       |
-| `RATE_LIMITS_PER_ACTOR_REFILL_PERIOD`                  | `60`                          | Refill period in seconds for the per-actor GraphQL rule                                                                                             |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                       | Enable the scoped chain (per-actor → class → global)                                                                                               |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                        | Per-actor (`scoped:actor`) bucket size — the per-actor GraphQL throttle                                                                            |
+| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                    |
+| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                        |
+| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                |
 
 ### Tier 2 — override policy file
 
@@ -419,7 +405,8 @@ Author **logical paths** in config (`/api/graphql`, `/auth/signUp`). GMS strips 
 | `capacity.graphql`                     | Capacity | GraphQL POST adaptive in-flight per pod                    | UI load ceiling                       |
 | `capacity.rules[]`                     | Capacity | Finer adaptive in-flight pool (replaces broader match)     | `searchAcrossEntities`                |
 | `endpoint.rules[]` (`perActor: false`) | Endpoint | Shared token-bucket rate per refill window (cluster-wide)  | `/auth/signUp`, `batchIngest`         |
-| `endpoint.rules[]` (`perActor: true`)  | Endpoint | Per-actor token-bucket; each user has an independent quota | `graphql-per-actor-default` (bundled) |
+| `scoped:actor`                         | Scoped   | Per-actor token-bucket; each authenticated actor has an independent quota | per-actor GraphQL throttle (default model) |
+| `endpoint.rules[]` (`perActor: true`)  | Endpoint | Per-actor token-bucket on a hand-authored rule (advanced; none ships)     | manual per-path rule                  |
 
 See [Capacity limits (adaptive in-flight)](#capacity-limits-adaptive-in-flight) and [Endpoint limits (token bucket)](#endpoint-limits-token-bucket) for selection, pooling, and planning details.
 
@@ -433,10 +420,13 @@ Prometheus metrics (tagged by `rule_id`, `type`, `outcome`, and optionally `grap
 | `gms.rate_limit.adaptive.limit`     | Current Gradient2 ceiling |
 | `gms.rate_limit.adaptive.inflight`  | In-flight gauge           |
 | `gms.rate_limit.endpoint.remaining` | Token bucket headroom     |
+| `gms.rate_limit.fail_open`          | Fail-open events (eval threw, request allowed because `failOpen=true`), tagged by `stage` |
 
 `gms.rate_limit.requests` sets `graphql_operation` to the resolved operation name **only when an operation-scoped rule matched** (a rule with `graphqlOperationNames`); otherwise `none`. This bounds metric cardinality — arbitrary client-supplied operation names on the general GraphQL pool are not tagged.
 
-Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`, endpoint remaining near zero on auth rules. For capacity planning, sum `gms.rate_limit.adaptive.inflight` across `rule_id` tags on a pod — each tag is an independent pool.
+**Sampling — important for reading `outcome=allow`:** to keep hot-path overhead low, **allowed** requests are recorded at a 1-in-100 sample rate, while **denied** requests are always recorded. So `gms.rate_limit.requests{outcome=allow}` undercounts actual allowed traffic by ~100× — multiply by 100 for an approximate volume, and never compute an exact allow/deny ratio from the raw counters. Deny-based alerting is unaffected (denials are exact). Set `RATE_LIMITS_METRICS_DETAILED=true` (`metrics.detailed`) to disable sampling and record every request (higher cardinality/overhead — use selectively).
+
+Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`, endpoint remaining near zero on auth rules. **Alert on any sustained `gms.rate_limit.fail_open` rate** — fail-open means rate-limit evaluation is throwing (e.g. Hazelcast connectivity loss) and requests are passing unlimited, so the protection is effectively off until it clears; there is no circuit-breaker, so this metric is the signal to investigate. For capacity planning, sum `gms.rate_limit.adaptive.inflight` across `rule_id` tags on a pod — each tag is an independent pool.
 
 **Inspection API** (`Manage System Operations` privilege):
 

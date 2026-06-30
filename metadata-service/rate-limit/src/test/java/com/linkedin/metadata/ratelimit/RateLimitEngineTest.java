@@ -8,6 +8,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.ratelimit.CapacityLimitConfig;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
@@ -421,6 +422,23 @@ public class RateLimitEngineTest {
         engine
             .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
             .isAllowed());
+  }
+
+  @Test
+  public void testRedactedConfigOmitsInternalIdentifiers() {
+    RateLimitProperties config = capacityOnlyConfig();
+    config.setTenantId("acme");
+    config.getEndpoint().setHazelcastMapName("secret-map-name");
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, ObjectMapperContext.defaultMapper);
+
+    JsonNode redacted = engine.getRedactedConfig();
+    assertFalse(redacted.has("tenantId"), "tenantId must be redacted from /config");
+    assertFalse(
+        redacted.get("endpoint").has("hazelcastMapName"),
+        "endpoint.hazelcastMapName must be redacted from /config");
+    // Non-sensitive config is still present.
+    assertTrue(redacted.get("capacity").get("enabled").asBoolean());
   }
 
   private RateLimitProperties perActorEndpointConfig(int capacity) {

@@ -33,10 +33,80 @@ public final class RateLimitConfigValidator {
     validateCapacityRules(config.getCapacity().getRules(), graphqlPath, validationErrors);
     validateEndpointRules(config.getEndpoint().getRules(), graphqlPath, validationErrors);
     validateRetryAfterConfig(config, validationErrors);
+    validateTenantId(config, validationErrors);
+    collectScopedErrors(config, validationErrors);
 
     if (!validationErrors.isEmpty()) {
       throw new IllegalStateException(
           "Invalid rate limit configuration: " + String.join("; ", validationErrors));
+    }
+  }
+
+  /**
+   * Validates only the scoped chain, throwing on any problem. Construction-time entry point for the
+   * engine so scoped sizing is checked even when the engine is built without going through the
+   * factory path (e.g. in tests); the factory path covers it via {@link #validate}.
+   */
+  public static void validateScoped(RateLimitProperties config) {
+    List<String> validationErrors = new ArrayList<>();
+    collectScopedErrors(config, validationErrors);
+    if (!validationErrors.isEmpty()) {
+      throw new IllegalStateException(
+          "Invalid rate limit configuration: " + String.join("; ", validationErrors));
+    }
+  }
+
+  private static void validateTenantId(RateLimitProperties config, List<String> validationErrors) {
+    String tenantId = config.getTenantId();
+    if (tenantId != null && tenantId.contains(":")) {
+      validationErrors.add(
+          "tenantId must not contain ':' — it is the bucket-key namespace separator, so a ':' in "
+              + "the value breaks tenant isolation; got '"
+              + tenantId
+              + "'");
+    }
+  }
+
+  private static void collectScopedErrors(
+      RateLimitProperties config, List<String> validationErrors) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (scoped == null || !scoped.isEnabled()) {
+      return;
+    }
+    checkScopedBucket("scoped.actor", scoped.getActor(), validationErrors);
+    checkScopedBucket("scoped.browser", scoped.getBrowser(), validationErrors);
+    checkScopedBucket("scoped.sdk", scoped.getSdk(), validationErrors);
+    checkScopedBucket("scoped.global", scoped.getGlobal(), validationErrors);
+    if (scoped.getHeavyResolvers() != null) {
+      scoped
+          .getHeavyResolvers()
+          .forEach(
+              (name, limits) ->
+                  checkScopedBucket("scoped.heavyResolvers." + name, limits, validationErrors));
+    }
+  }
+
+  private static void checkScopedBucket(
+      String path, RateLimitProperties.BucketLimits limits, List<String> validationErrors) {
+    if (limits == null) {
+      validationErrors.add(path + " must be set when the scoped chain is enabled");
+      return;
+    }
+    if (limits.isDisabled()) {
+      return;
+    }
+    if (limits.getCapacity() <= 0
+        || limits.getRefillTokens() <= 0
+        || limits.getRefillPeriodSeconds() <= 0) {
+      validationErrors.add(
+          path
+              + " requires capacity>0, refillTokens>0, refillPeriodSeconds>0 when enabled (got "
+              + limits.getCapacity()
+              + "/"
+              + limits.getRefillTokens()
+              + "/"
+              + limits.getRefillPeriodSeconds()
+              + ")");
     }
   }
 

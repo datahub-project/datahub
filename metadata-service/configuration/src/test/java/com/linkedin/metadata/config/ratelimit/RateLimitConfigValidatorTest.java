@@ -56,4 +56,62 @@ public class RateLimitConfigValidatorTest {
     config.getEndpoint().getRules().add(rule);
     assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
   }
+
+  @Test
+  public void testNegativeMinRetryAfterFails() {
+    RateLimitProperties config = validConfig();
+    config.setMinRetryAfterSeconds(-1);
+    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+  }
+
+  @Test
+  public void testCapacityRuleZeroInitialLimitFails() {
+    RateLimitProperties config = validConfig();
+    config
+        .getCapacity()
+        .getRules()
+        .add(
+            RateLimitProperties.Rule.builder()
+                .id("bad-capacity")
+                .pathPattern("/api/graphql")
+                .methods(List.of("POST"))
+                .initialLimit(0)
+                .maxLimit(100)
+                .build());
+    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+  }
+
+  @Test
+  public void testGraphqlOperationNamesOnNonGraphqlPathFails() {
+    RateLimitProperties config = validConfig();
+    config
+        .getEndpoint()
+        .getRules()
+        .add(
+            RateLimitProperties.Rule.builder()
+                .id("bad-op")
+                .pathPattern("/auth/signUp") // not the graphql path
+                .methods(List.of("POST"))
+                .graphqlOperationNames(List.of("searchAcrossEntities"))
+                .capacity(10)
+                .refillTokens(10)
+                .refillPeriodSeconds(60)
+                .build());
+    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+  }
+
+  @Test
+  public void testScopedEnabledBucketWithZeroCapacityFails() {
+    RateLimitProperties config = validConfig();
+    // Enabling the chain with the default (capacity-0, not-disabled) actor bucket must fail.
+    config.getScoped().setEnabled(true);
+    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+  }
+
+  @Test
+  public void testTenantIdContainingColonFails() {
+    RateLimitProperties config = validConfig();
+    config.setTenantId("tenant:evil");
+    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+  }
 }
