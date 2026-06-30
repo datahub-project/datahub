@@ -100,9 +100,9 @@ def _make_source(
         patch.object(cc, "DocumentChunkingSourceConfig", return_value=MagicMock()),
         patch.object(cs, "DocumentChunkingSource", return_value=mock_chunking),
     ):
-        src = GoogleDriveSource(cfg, ctx)
+        source = GoogleDriveSource(cfg, ctx)
 
-    return src
+    return source
 
 
 # ===========================================================================
@@ -198,26 +198,26 @@ class TestFolderIdStripValidator:
 
 class TestSelectedMimeTypes:
     def test_docs_only_by_default(self) -> None:
-        src = _make_source()
-        assert src._selected_mime_types() == [MIME_GOOGLE_DOC]
+        source = _make_source()
+        assert source._selected_mime_types() == [MIME_GOOGLE_DOC]
 
     def test_docs_and_slides(self) -> None:
-        src = _make_source({"include_slides": True})
-        types = src._selected_mime_types()
+        source = _make_source({"include_slides": True})
+        types = source._selected_mime_types()
         assert MIME_GOOGLE_DOC in types
         assert MIME_GOOGLE_SLIDES in types
         assert MIME_GOOGLE_SHEETS not in types
 
     def test_all_three_types(self) -> None:
-        src = _make_source({"include_slides": True, "include_sheets": True})
-        types = src._selected_mime_types()
+        source = _make_source({"include_slides": True, "include_sheets": True})
+        types = source._selected_mime_types()
         assert MIME_GOOGLE_DOC in types
         assert MIME_GOOGLE_SLIDES in types
         assert MIME_GOOGLE_SHEETS in types
 
     def test_no_docs_no_types(self) -> None:
-        src = _make_source({"include_docs": False})
-        assert src._selected_mime_types() == []
+        source = _make_source({"include_docs": False})
+        assert source._selected_mime_types() == []
 
 
 # ===========================================================================
@@ -229,7 +229,7 @@ class TestDedupAndTrashedFiles:
     """The source deduplicates by file ID and excludes trashed entries via get_workunits_internal."""
 
     def _run_workunits(
-        self, src: GoogleDriveSource, files: List[Dict[str, Any]]
+        self, source: GoogleDriveSource, files: List[Dict[str, Any]]
     ) -> List[str]:
         """Drive _list_all_accessible_files to return *files*, run the main loop,
         return the file IDs that were actually ingested (reached _ingest_file)."""
@@ -242,40 +242,40 @@ class TestDedupAndTrashedFiles:
             return iter([])
 
         with (
-            patch.object(src, "_list_all_accessible_files", return_value=files),
-            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
-            patch.object(src, "_ingest_file", side_effect=fake_ingest_file),
+            patch.object(source, "_list_all_accessible_files", return_value=files),
+            patch.object(source, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(source, "_ingest_file", side_effect=fake_ingest_file),
         ):
-            list(src.get_workunits_internal())
+            list(source.get_workunits_internal())
 
         return ingested_ids
 
     def test_duplicate_ids_are_deduplicated(self) -> None:
-        src = _make_source()
+        source = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
         ]
-        ingested = self._run_workunits(src, files)
+        ingested = self._run_workunits(source, files)
         assert ingested.count("file1") == 1
 
     def test_trashed_files_are_excluded(self) -> None:
-        src = _make_source()
+        source = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
             {"id": "file2", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
         ]
-        ingested = self._run_workunits(src, files)
+        ingested = self._run_workunits(source, files)
         assert "file1" in ingested
         assert "file2" not in ingested
 
     def test_all_trashed_yields_empty(self) -> None:
-        src = _make_source()
+        source = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
             {"id": "file2", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
         ]
-        ingested = self._run_workunits(src, files)
+        ingested = self._run_workunits(source, files)
         assert ingested == []
 
 
@@ -286,18 +286,18 @@ class TestDedupAndTrashedFiles:
 
 class TestBuildDocId:
     def test_doc_id_contains_file_id(self) -> None:
-        src = _make_source({"platform_instance": "my-org"})
-        doc_id = src._build_doc_id("FILEID123")
+        source = _make_source({"platform_instance": "my-org"})
+        doc_id = source._build_doc_id("FILEID123")
         assert "FILEID123" in doc_id
         assert doc_id.startswith("google-drive-")
 
     def test_doc_id_stable_across_calls(self) -> None:
-        src = _make_source({"platform_instance": "stable-instance"})
-        assert src._build_doc_id("XYZ") == src._build_doc_id("XYZ")
+        source = _make_source({"platform_instance": "stable-instance"})
+        assert source._build_doc_id("XYZ") == source._build_doc_id("XYZ")
 
     def test_doc_id_differs_for_different_files(self) -> None:
-        src = _make_source({"platform_instance": "test"})
-        assert src._build_doc_id("A") != src._build_doc_id("B")
+        source = _make_source({"platform_instance": "test"})
+        assert source._build_doc_id("A") != source._build_doc_id("B")
 
 
 # ===========================================================================
@@ -307,24 +307,24 @@ class TestBuildDocId:
 
 class TestParseTimestamp:
     def test_iso_timestamp_with_z_suffix(self) -> None:
-        src = _make_source()
-        result = src._parse_timestamp("2024-06-15T10:30:00Z")
+        source = _make_source()
+        result = source._parse_timestamp("2024-06-15T10:30:00Z")
         assert result is not None
         assert result.year == 2024
         assert result.month == 6
         assert result.day == 15
 
     def test_none_returns_none(self) -> None:
-        src = _make_source()
-        assert src._parse_timestamp(None) is None
+        source = _make_source()
+        assert source._parse_timestamp(None) is None
 
     def test_empty_string_returns_none(self) -> None:
-        src = _make_source()
-        assert src._parse_timestamp("") is None
+        source = _make_source()
+        assert source._parse_timestamp("") is None
 
     def test_invalid_string_returns_none(self) -> None:
-        src = _make_source()
-        assert src._parse_timestamp("not-a-date") is None
+        source = _make_source()
+        assert source._parse_timestamp("not-a-date") is None
 
 
 # ===========================================================================
@@ -334,30 +334,30 @@ class TestParseTimestamp:
 
 class TestBuildCustomProperties:
     def test_returns_expected_keys(self) -> None:
-        src = _make_source()
+        source = _make_source()
         file_meta: Dict[str, Any] = {
             "id": "file123",
             "mimeType": MIME_GOOGLE_DOC,
             "owners": [{"emailAddress": "owner@example.com", "displayName": "Owner"}],
             "lastModifyingUser": {"emailAddress": "modifier@example.com"},
         }
-        props = src._build_custom_properties(file_meta, content_hash="abc123")
+        props = source._build_custom_properties(file_meta, content_hash="abc123")
         assert props["file_id"] == "file123"
         assert props["owner_email"] == "owner@example.com"
         assert props["content_hash"] == "abc123"
         assert "extraction_algo_version" in props
 
     def test_missing_owners_yields_empty_strings(self) -> None:
-        src = _make_source()
+        source = _make_source()
         file_meta: Dict[str, Any] = {"id": "file456", "mimeType": MIME_GOOGLE_DOC}
-        props = src._build_custom_properties(file_meta, content_hash="hash")
+        props = source._build_custom_properties(file_meta, content_hash="hash")
         assert props["owner_email"] == ""
         assert props["owner_name"] == ""
 
     def test_missing_last_modifying_user_yields_empty_string(self) -> None:
-        src = _make_source()
+        source = _make_source()
         file_meta: Dict[str, Any] = {"id": "file789", "mimeType": MIME_GOOGLE_DOC}
-        props = src._build_custom_properties(file_meta, content_hash="hash")
+        props = source._build_custom_properties(file_meta, content_hash="hash")
         assert props["last_modifying_user_email"] == ""
 
 
@@ -381,12 +381,12 @@ class TestListFilesInFolder:
             ],
             "nextPageToken": None,
         }
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         # Non-recursive so we don't recurse into subfolder
-        files = src._list_files_in_folder("root-folder", recursive=False)
+        files = source._list_files_in_folder("root-folder", recursive=False)
         # Folder itself should NOT appear in the file results
         assert all(f["mimeType"] != MIME_GOOGLE_FOLDER for f in files)
-        assert src.report.folders_discovered == 1
+        assert source.report.folders_discovered == 1
 
     def test_docs_in_folder_are_returned(self) -> None:
         mock_drive = MagicMock()
@@ -401,11 +401,11 @@ class TestListFilesInFolder:
             ],
             "nextPageToken": None,
         }
-        src = _make_source(mock_drive=mock_drive)
-        files = src._list_files_in_folder("folder-id", recursive=False)
+        source = _make_source(mock_drive=mock_drive)
+        files = source._list_files_in_folder("folder-id", recursive=False)
         assert len(files) == 1
         assert files[0]["id"] == "doc1"
-        assert src.report.files_discovered == 1
+        assert source.report.files_discovered == 1
 
     def test_pagination_fetches_all_pages(self) -> None:
         mock_drive = MagicMock()
@@ -434,8 +434,8 @@ class TestListFilesInFolder:
                 "nextPageToken": None,
             },
         ]
-        src = _make_source(mock_drive=mock_drive)
-        files = src._list_files_in_folder("folder-id", recursive=False)
+        source = _make_source(mock_drive=mock_drive)
+        files = source._list_files_in_folder("folder-id", recursive=False)
         assert len(files) == 2
         assert {f["id"] for f in files} == {"doc1", "doc2"}
 
@@ -485,7 +485,7 @@ class TestCollectFolderAncestors:
 
         mock_drive.files().get.side_effect = fake_get
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
 
         file_metadata: Dict[str, Any] = {
             "id": "my-doc-id",
@@ -493,7 +493,7 @@ class TestCollectFolderAncestors:
             "mimeType": MIME_GOOGLE_DOC,
             "parents": ["parent-folder-id"],
         }
-        ancestors = src._collect_folder_ancestors(file_metadata)
+        ancestors = source._collect_folder_ancestors(file_metadata)
 
         # Must find both ancestors (root first, then parent)
         assert len(ancestors) == 2
@@ -502,14 +502,14 @@ class TestCollectFolderAncestors:
 
     def test_no_ancestors_when_file_has_no_parents(self) -> None:
         """A file with no parents yields an empty ancestor list."""
-        src = _make_source()
+        source = _make_source()
         file_metadata: Dict[str, Any] = {
             "id": "orphan-doc",
             "name": "Orphan",
             "mimeType": MIME_GOOGLE_DOC,
             "parents": [],
         }
-        ancestors = src._collect_folder_ancestors(file_metadata)
+        ancestors = source._collect_folder_ancestors(file_metadata)
         assert ancestors == []
 
 
@@ -520,33 +520,33 @@ class TestCollectFolderAncestors:
 
 class TestIngestFileShortText:
     def test_file_shorter_than_minimum_is_skipped(self) -> None:
-        src = _make_source({"filtering": {"min_text_length": 100}})
+        source = _make_source({"filtering": {"min_text_length": 100}})
         # _extract_text returns a short string
-        with patch.object(src, "_extract_text", return_value="hi"):
-            with patch.object(src, "_ingest_folder_chain", return_value=(None, [])):
+        with patch.object(source, "_extract_text", return_value="hi"):
+            with patch.object(source, "_ingest_folder_chain", return_value=(None, [])):
                 list(
-                    src._ingest_file(
+                    source._ingest_file(
                         {"id": "f1", "name": "Short", "mimeType": MIME_GOOGLE_DOC},
                         set(),
                     )
                 )
-        assert src.report.docs_skipped_too_short == 1
-        assert src.report.docs_processed == 0
+        assert source.report.docs_skipped_too_short == 1
+        assert source.report.docs_processed == 0
 
     def test_file_above_minimum_is_processed(self) -> None:
-        src = _make_source({"filtering": {"min_text_length": 5}})
+        source = _make_source({"filtering": {"min_text_length": 5}})
         long_text = "x" * 100
         with (
-            patch.object(src, "_extract_text", return_value=long_text),
-            patch.object(src, "_ingest_folder_chain", return_value=(None, [])),
-            patch.object(src, "_build_document") as mock_build,
-            patch.object(src, "_add_platform_instance"),
+            patch.object(source, "_extract_text", return_value=long_text),
+            patch.object(source, "_ingest_folder_chain", return_value=(None, [])),
+            patch.object(source, "_build_document") as mock_build,
+            patch.object(source, "_add_platform_instance"),
         ):
             mock_doc = MagicMock()
             mock_doc.as_workunits.return_value = []
             mock_build.return_value = mock_doc
             list(
-                src._ingest_file(
+                source._ingest_file(
                     {
                         "id": "f2",
                         "name": "Long",
@@ -556,18 +556,18 @@ class TestIngestFileShortText:
                     set(),
                 )
             )
-        assert src.report.docs_skipped_too_short == 0
-        assert src.report.docs_processed == 1
+        assert source.report.docs_skipped_too_short == 0
+        assert source.report.docs_processed == 1
 
     def test_empty_text_reports_failure(self) -> None:
-        src = _make_source()
-        with patch.object(src, "_extract_text", return_value=None):
+        source = _make_source()
+        with patch.object(source, "_extract_text", return_value=None):
             list(
-                src._ingest_file(
+                source._ingest_file(
                     {"id": "f3", "name": "Empty", "mimeType": MIME_GOOGLE_DOC}, set()
                 )
             )
-        assert src.report.docs_failed == 1
+        assert source.report.docs_failed == 1
 
 
 # ===========================================================================
@@ -577,8 +577,8 @@ class TestIngestFileShortText:
 
 class TestGetInstanceId:
     def test_explicit_platform_instance_is_used(self) -> None:
-        src = _make_source({"platform_instance": "my-custom-instance"})
-        assert src._get_instance_id() == "my-custom-instance"
+        source = _make_source({"platform_instance": "my-custom-instance"})
+        assert source._get_instance_id() == "my-custom-instance"
 
     def test_adc_fallback_is_deterministic(self) -> None:
         """Without credentials, the instance ID is derived from the string 'adc'."""
@@ -601,7 +601,9 @@ class TestGetInstanceId:
 class TestGetCredentials:
     def test_service_account_key_file_path(self) -> None:
         """When service_account_key_file is set, from_service_account_file is called."""
-        src = _make_source({"credentials": {"service_account_key_file": "/key.json"}})
+        source = _make_source(
+            {"credentials": {"service_account_key_file": "/key.json"}}
+        )
 
         mock_creds = MagicMock()
         # Patch the real google.oauth2.service_account.Credentials method directly
@@ -610,7 +612,7 @@ class TestGetCredentials:
             "google.oauth2.service_account.Credentials.from_service_account_file",
             return_value=mock_creds,
         ) as mock_from_file:
-            result = src._get_credentials()
+            result = source._get_credentials()
 
         mock_from_file.assert_called_once_with(
             "/key.json", scopes=["https://www.googleapis.com/auth/drive.readonly"]
@@ -624,14 +626,16 @@ class TestGetCredentials:
         key_data = {"type": "service_account", "project_id": "my-project"}
         key_json_str = json.dumps(key_data)
 
-        src = _make_source({"credentials": {"service_account_key_json": key_json_str}})
+        source = _make_source(
+            {"credentials": {"service_account_key_json": key_json_str}}
+        )
 
         mock_creds = MagicMock()
         with patch(
             "google.oauth2.service_account.Credentials.from_service_account_info",
             return_value=mock_creds,
         ) as mock_from_info:
-            result = src._get_credentials()
+            result = source._get_credentials()
 
         mock_from_info.assert_called_once_with(
             key_data, scopes=["https://www.googleapis.com/auth/drive.readonly"]
@@ -640,7 +644,7 @@ class TestGetCredentials:
 
     def test_adc_fallback(self) -> None:
         """When no service account is configured, google.auth.default is called."""
-        src = _make_source()  # no credentials configured
+        source = _make_source()  # no credentials configured
 
         mock_adc_creds = MagicMock()
 
@@ -649,7 +653,7 @@ class TestGetCredentials:
         with patch(
             "google.auth.default", return_value=(mock_adc_creds, None)
         ) as mock_default:
-            result = src._get_credentials()
+            result = source._get_credentials()
 
         mock_default.assert_called_with(
             scopes=["https://www.googleapis.com/auth/drive.readonly"]
@@ -713,11 +717,11 @@ class TestListAllAccessibleFiles:
                 "nextPageToken": None,
             },
         ]
-        src = _make_source(mock_drive=mock_drive)
-        files = src._list_all_accessible_files()
+        source = _make_source(mock_drive=mock_drive)
+        files = source._list_all_accessible_files()
         assert len(files) == 2
         assert {f["id"] for f in files} == {"doc1", "doc2"}
-        assert src.report.files_discovered == 2
+        assert source.report.files_discovered == 2
 
     def test_empty_drive_returns_empty_list(self) -> None:
         mock_drive = MagicMock()
@@ -725,8 +729,8 @@ class TestListAllAccessibleFiles:
             "files": [],
             "nextPageToken": None,
         }
-        src = _make_source(mock_drive=mock_drive)
-        files = src._list_all_accessible_files()
+        source = _make_source(mock_drive=mock_drive)
+        files = source._list_all_accessible_files()
         assert files == []
 
 
@@ -760,13 +764,13 @@ class TestContentExport:
         mock_http = MagicMock()
         mock_http.MediaIoBaseDownload = self._make_downloader_mock(markdown_bytes)
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
             # Also need to patch errors to avoid import issues
             mock_errors = MagicMock()
             mock_errors.HttpError = type("HttpError", (Exception,), {"resp": None})
             with patch.dict(sys.modules, {"googleapiclient.errors": mock_errors}):
-                result = src._export_doc_as_markdown("file-id-1")
+                result = source._export_doc_as_markdown("file-id-1")
 
         assert result == "# Hello\n\nThis is markdown."
 
@@ -785,12 +789,12 @@ class TestContentExport:
         mock_errors.HttpError = FakeHttpError
         mock_http.MediaIoBaseDownload.side_effect = FakeHttpError("forbidden")
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(
             sys.modules,
             {"googleapiclient.http": mock_http, "googleapiclient.errors": mock_errors},
         ):
-            result = src._export_doc_as_markdown("file-id-1")
+            result = source._export_doc_as_markdown("file-id-1")
 
         assert result is None
 
@@ -803,9 +807,9 @@ class TestContentExport:
         mock_http = MagicMock()
         mock_http.MediaIoBaseDownload = self._make_downloader_mock(html_bytes)
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
-            result = src._export_doc_as_html("file-id-2")
+            result = source._export_doc_as_html("file-id-2")
 
         assert result == "<html><body><p>Hello</p></body></html>"
 
@@ -815,9 +819,9 @@ class TestContentExport:
         mock_http = MagicMock()
         mock_http.MediaIoBaseDownload.side_effect = Exception("connection error")
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
-            result = src._export_doc_as_html("file-id-2")
+            result = source._export_doc_as_html("file-id-2")
 
         assert result is None
 
@@ -830,9 +834,9 @@ class TestContentExport:
         mock_http = MagicMock()
         mock_http.MediaIoBaseDownload = self._make_downloader_mock(text_bytes)
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
-            result = src._export_as_plain_text("file-id-3")
+            result = source._export_as_plain_text("file-id-3")
 
         assert result == "Slide 1\nSlide 2"
 
@@ -842,69 +846,77 @@ class TestContentExport:
         mock_http = MagicMock()
         mock_http.MediaIoBaseDownload.side_effect = Exception("timeout")
 
-        src = _make_source(mock_drive=mock_drive)
+        source = _make_source(mock_drive=mock_drive)
         with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
-            result = src._export_as_plain_text("file-id-3")
+            result = source._export_as_plain_text("file-id-3")
 
         assert result is None
 
     def test_extract_text_doc_returns_markdown(self) -> None:
         """_extract_text for a Doc returns markdown when available."""
-        src = _make_source()
-        with patch.object(src, "_export_doc_as_markdown", return_value="# Doc content"):
-            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+        source = _make_source()
+        with patch.object(
+            source, "_export_doc_as_markdown", return_value="# Doc content"
+        ):
+            result = source._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
         assert result == "# Doc content"
 
     def test_extract_text_doc_falls_back_to_html(self) -> None:
         """_extract_text falls back to HTML→markdown when markdown export fails."""
-        src = _make_source()
+        source = _make_source()
         # Create a real html2text-like converter
         mock_converter = MagicMock()
         mock_converter.handle.return_value = "Converted markdown"
-        src._html_converter = mock_converter
+        source._html_converter = mock_converter
 
         with (
-            patch.object(src, "_export_doc_as_markdown", return_value=None),
-            patch.object(src, "_export_doc_as_html", return_value="<p>Hello</p>"),
+            patch.object(source, "_export_doc_as_markdown", return_value=None),
+            patch.object(source, "_export_doc_as_html", return_value="<p>Hello</p>"),
         ):
-            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+            result = source._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
 
         assert result == "Converted markdown"
         mock_converter.handle.assert_called_once_with("<p>Hello</p>")
 
     def test_extract_text_doc_falls_back_to_plain_text(self) -> None:
         """_extract_text falls back to plain text when both markdown and html fail."""
-        src = _make_source()
-        src._html_converter = None  # No HTML converter
+        source = _make_source()
+        source._html_converter = None  # No HTML converter
 
         with (
-            patch.object(src, "_export_doc_as_markdown", return_value=None),
-            patch.object(src, "_export_as_plain_text", return_value="plain text"),
+            patch.object(source, "_export_doc_as_markdown", return_value=None),
+            patch.object(source, "_export_as_plain_text", return_value="plain text"),
         ):
-            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+            result = source._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
 
         assert result == "plain text"
 
     def test_extract_text_slides_uses_plain_text(self) -> None:
         """_extract_text for Slides uses _export_as_plain_text."""
-        src = _make_source({"include_slides": True})
-        with patch.object(src, "_export_as_plain_text", return_value="Slide content"):
-            result = src._extract_text({"id": "slide1", "mimeType": MIME_GOOGLE_SLIDES})
+        source = _make_source({"include_slides": True})
+        with patch.object(
+            source, "_export_as_plain_text", return_value="Slide content"
+        ):
+            result = source._extract_text(
+                {"id": "slide1", "mimeType": MIME_GOOGLE_SLIDES}
+            )
         assert result == "Slide content"
 
     def test_extract_text_sheets_uses_plain_text(self) -> None:
         """_extract_text for Sheets uses _export_as_plain_text."""
-        src = _make_source({"include_sheets": True})
+        source = _make_source({"include_sheets": True})
         with patch.object(
-            src, "_export_as_plain_text", return_value="col1,col2\nval1,val2"
+            source, "_export_as_plain_text", return_value="col1,col2\nval1,val2"
         ):
-            result = src._extract_text({"id": "sheet1", "mimeType": MIME_GOOGLE_SHEETS})
+            result = source._extract_text(
+                {"id": "sheet1", "mimeType": MIME_GOOGLE_SHEETS}
+            )
         assert result == "col1,col2\nval1,val2"
 
     def test_extract_text_unknown_mime_returns_none(self) -> None:
         """_extract_text for an unknown MIME type returns None."""
-        src = _make_source()
-        result = src._extract_text({"id": "other1", "mimeType": "application/pdf"})
+        source = _make_source()
+        result = source._extract_text({"id": "other1", "mimeType": "application/pdf"})
         assert result is None
 
 
@@ -920,10 +932,10 @@ class TestBuildDocument:
             DocumentImportMode,
         )
 
-        src = _make_source({"document_import_mode": "EXTERNAL"})
-        assert src.config.document_import_mode == DocumentImportMode.EXTERNAL
+        source = _make_source({"document_import_mode": "EXTERNAL"})
+        assert source.config.document_import_mode == DocumentImportMode.EXTERNAL
 
-        doc = src._build_document(
+        doc = source._build_document(
             doc_id="test-doc-id",
             title="Test Doc",
             text="Some content",
@@ -942,10 +954,10 @@ class TestBuildDocument:
             DocumentImportMode,
         )
 
-        src = _make_source({"document_import_mode": "NATIVE"})
-        assert src.config.document_import_mode == DocumentImportMode.NATIVE
+        source = _make_source({"document_import_mode": "NATIVE"})
+        assert source.config.document_import_mode == DocumentImportMode.NATIVE
 
-        doc = src._build_document(
+        doc = source._build_document(
             doc_id="test-doc-id-native",
             title="Native Doc",
             text="Some native content",
@@ -964,15 +976,15 @@ class TestBuildDocument:
             DocumentImportMode,
         )
 
-        src = _make_source({"document_import_mode": "EXTERNAL"})
-        assert src.config.document_import_mode == DocumentImportMode.EXTERNAL
+        source = _make_source({"document_import_mode": "EXTERNAL"})
+        assert source.config.document_import_mode == DocumentImportMode.EXTERNAL
 
         folder_meta = {
             "id": "folder123",
             "name": "My Folder",
             "webViewLink": "https://drive.google.com/drive/folders/folder123",
         }
-        doc = src._build_folder_document(
+        doc = source._build_folder_document(
             folder_metadata=folder_meta,
             parent_urn=None,
         )
@@ -981,12 +993,12 @@ class TestBuildDocument:
     def test_build_folder_document_native_mode(self) -> None:
         """_build_folder_document in NATIVE mode creates a native folder doc."""
 
-        src = _make_source({"document_import_mode": "NATIVE"})
+        source = _make_source({"document_import_mode": "NATIVE"})
         folder_meta = {
             "id": "folder456",
             "name": "Native Folder",
         }
-        doc = src._build_folder_document(
+        doc = source._build_folder_document(
             folder_metadata=folder_meta,
             parent_urn=None,
         )
@@ -1003,8 +1015,8 @@ class TestEmitPlatformMetadata:
         """_emit_platform_metadata yields at least one MetadataWorkUnit."""
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
-        src = _make_source()
-        workunits = list(src._emit_platform_metadata())
+        source = _make_source()
+        workunits = list(source._emit_platform_metadata())
         assert len(workunits) == 1
         assert isinstance(workunits[0], MetadataWorkUnit)
 
@@ -1017,8 +1029,8 @@ class TestEmitPlatformMetadata:
 class TestIngestFolderChain:
     def test_ingest_folders_disabled_returns_none_and_empty(self) -> None:
         """When ingest_folders=False, returns (None, [])."""
-        src = _make_source({"ingest_folders": False})
-        parent_urn, workunits = src._ingest_folder_chain(
+        source = _make_source({"ingest_folders": False})
+        parent_urn, workunits = source._ingest_folder_chain(
             {"id": "file1", "parents": ["folder1"]}, set()
         )
         assert parent_urn is None
@@ -1026,9 +1038,9 @@ class TestIngestFolderChain:
 
     def test_ingest_folders_no_ancestors_returns_none(self) -> None:
         """When ingest_folders=True but no ancestors found, returns (None, [])."""
-        src = _make_source({"ingest_folders": True})
-        with patch.object(src, "_collect_folder_ancestors", return_value=[]):
-            parent_urn, workunits = src._ingest_folder_chain(
+        source = _make_source({"ingest_folders": True})
+        with patch.object(source, "_collect_folder_ancestors", return_value=[]):
+            parent_urn, workunits = source._ingest_folder_chain(
                 {"id": "file1", "parents": []}, set()
             )
         assert parent_urn is None
@@ -1036,7 +1048,7 @@ class TestIngestFolderChain:
 
     def test_ingest_folder_chain_emits_folder_workunits(self) -> None:
         """When ancestors exist, workunits are emitted and parent_urn is set correctly."""
-        src = _make_source({"ingest_folders": True})
+        source = _make_source({"ingest_folders": True})
 
         folder_meta = {
             "id": "folder1",
@@ -1050,11 +1062,13 @@ class TestIngestFolderChain:
         mock_doc.as_workunits.return_value = [mock_wu]
 
         with (
-            patch.object(src, "_collect_folder_ancestors", return_value=[folder_meta]),
-            patch.object(src, "_build_folder_document", return_value=mock_doc),
-            patch.object(src, "_add_platform_instance"),
+            patch.object(
+                source, "_collect_folder_ancestors", return_value=[folder_meta]
+            ),
+            patch.object(source, "_build_folder_document", return_value=mock_doc),
+            patch.object(source, "_add_platform_instance"),
         ):
-            parent_urn, workunits = src._ingest_folder_chain(
+            parent_urn, workunits = source._ingest_folder_chain(
                 {"id": "file1", "parents": ["folder1"]}, set()
             )
 
@@ -1062,11 +1076,11 @@ class TestIngestFolderChain:
         assert "folder1" in parent_urn
         assert len(workunits) == 1
         assert workunits[0] is mock_wu
-        assert src.report.folders_ingested == 1
+        assert source.report.folders_ingested == 1
 
     def test_ingest_folder_chain_skips_already_emitted_folders(self) -> None:
         """Folders already in already_emitted_folders are not re-emitted."""
-        src = _make_source({"ingest_folders": True})
+        source = _make_source({"ingest_folders": True})
 
         folder_meta = {
             "id": "folder1",
@@ -1077,10 +1091,12 @@ class TestIngestFolderChain:
         already_emitted: set = {"folder1"}
 
         with (
-            patch.object(src, "_collect_folder_ancestors", return_value=[folder_meta]),
-            patch.object(src, "_build_folder_document") as mock_build,
+            patch.object(
+                source, "_collect_folder_ancestors", return_value=[folder_meta]
+            ),
+            patch.object(source, "_build_folder_document") as mock_build,
         ):
-            parent_urn, workunits = src._ingest_folder_chain(
+            parent_urn, workunits = source._ingest_folder_chain(
                 {"id": "file1", "parents": ["folder1"]}, already_emitted
             )
 
@@ -1097,7 +1113,7 @@ class TestIngestFolderChain:
 class TestGetWorkunitsInternal:
     def test_folder_ids_path_calls_list_files_in_folder(self) -> None:
         """When folder_ids is set, _list_files_in_folder is called for each folder."""
-        src = _make_source({"folder_ids": ["folder-abc", "folder-xyz"]})
+        source = _make_source({"folder_ids": ["folder-abc", "folder-xyz"]})
 
         ingested_ids: List[str] = []
 
@@ -1111,18 +1127,18 @@ class TestGetWorkunitsInternal:
             return iter([])
 
         with (
-            patch.object(src, "_list_files_in_folder", side_effect=fake_list_folder),
-            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
-            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+            patch.object(source, "_list_files_in_folder", side_effect=fake_list_folder),
+            patch.object(source, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(source, "_ingest_file", side_effect=fake_ingest),
         ):
-            list(src.get_workunits_internal())
+            list(source.get_workunits_internal())
 
         assert "file-from-folder-abc" in ingested_ids
         assert "file-from-folder-xyz" in ingested_ids
 
     def test_max_documents_limits_files_processed(self) -> None:
         """max_documents caps the number of files passed to _ingest_file."""
-        src = _make_source({"max_documents": 2})
+        source = _make_source({"max_documents": 2})
 
         files = [{"id": f"file{i}", "mimeType": MIME_GOOGLE_DOC} for i in range(5)]
 
@@ -1135,17 +1151,17 @@ class TestGetWorkunitsInternal:
             return iter([])
 
         with (
-            patch.object(src, "_list_all_accessible_files", return_value=files),
-            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
-            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+            patch.object(source, "_list_all_accessible_files", return_value=files),
+            patch.object(source, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(source, "_ingest_file", side_effect=fake_ingest),
         ):
-            list(src.get_workunits_internal())
+            list(source.get_workunits_internal())
 
         assert len(ingested_ids) == 2
 
     def test_document_limit_reached_stops_ingestion(self) -> None:
         """When chunking_source.report.num_documents_limit_reached, ingestion stops."""
-        src = _make_source()
+        source = _make_source()
 
         files = [{"id": f"file{i}", "mimeType": MIME_GOOGLE_DOC} for i in range(5)]
         ingested_ids: List[str] = []
@@ -1159,15 +1175,15 @@ class TestGetWorkunitsInternal:
             ingested_ids.append(file_metadata["id"])
             call_count += 1
             if call_count >= 2:
-                src.chunking_source.report.num_documents_limit_reached = True
+                source.chunking_source.report.num_documents_limit_reached = True
             return iter([])
 
         with (
-            patch.object(src, "_list_all_accessible_files", return_value=files),
-            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
-            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+            patch.object(source, "_list_all_accessible_files", return_value=files),
+            patch.object(source, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(source, "_ingest_file", side_effect=fake_ingest),
         ):
-            list(src.get_workunits_internal())
+            list(source.get_workunits_internal())
 
         # Should stop after 2 files (limit triggered after second file)
         assert len(ingested_ids) <= 3  # at most 3, limit check before next iteration
@@ -1180,18 +1196,18 @@ class TestGetWorkunitsInternal:
 
 class TestGetReportAndClose:
     def test_get_report_returns_report(self) -> None:
-        src = _make_source()
-        report = src.get_report()
-        assert report is src.report
+        source = _make_source()
+        report = source.get_report()
+        assert report is source.report
 
     def test_close_does_not_raise(self) -> None:
-        src = _make_source()
+        source = _make_source()
         with patch.object(
-            type(src).__mro__[1], "close", return_value=None, create=True
+            type(source).__mro__[1], "close", return_value=None, create=True
         ):
             # close calls super().close(); just verify it doesn't error
             try:
-                src.close()
+                source.close()
             except Exception as e:
                 pytest.fail(f"close() raised an exception: {e}")
 
@@ -1265,9 +1281,9 @@ class TestTestConnection:
 class TestAddPlatformInstance:
     def test_add_platform_instance_sets_aspect(self) -> None:
         """_add_platform_instance calls _set_aspect on the document."""
-        src = _make_source({"platform_instance": "test-instance"})
+        source = _make_source({"platform_instance": "test-instance"})
         mock_doc = MagicMock()
-        src._add_platform_instance(mock_doc)
+        source._add_platform_instance(mock_doc)
         mock_doc._set_aspect.assert_called_once()
 
 
@@ -1279,23 +1295,23 @@ class TestAddPlatformInstance:
 class TestIngestFileChunking:
     def test_chunking_error_does_not_fail_document(self) -> None:
         """If process_elements_inline raises a non-limit Exception, the doc is still processed."""
-        src = _make_source({"filtering": {"min_text_length": 1}})
+        source = _make_source({"filtering": {"min_text_length": 1}})
         long_text = "x" * 100
-        src.chunking_source.process_elements_inline.side_effect = Exception(  # type: ignore[attr-defined]
+        source.chunking_source.process_elements_inline.side_effect = Exception(  # type: ignore[attr-defined]
             "embedding error"
         )
 
         with (
-            patch.object(src, "_extract_text", return_value=long_text),
-            patch.object(src, "_ingest_folder_chain", return_value=(None, [])),
-            patch.object(src, "_build_document") as mock_build,
-            patch.object(src, "_add_platform_instance"),
+            patch.object(source, "_extract_text", return_value=long_text),
+            patch.object(source, "_ingest_folder_chain", return_value=(None, [])),
+            patch.object(source, "_build_document") as mock_build,
+            patch.object(source, "_add_platform_instance"),
         ):
             mock_doc = MagicMock()
             mock_doc.as_workunits.return_value = []
             mock_build.return_value = mock_doc
             list(
-                src._ingest_file(
+                source._ingest_file(
                     {
                         "id": "f-chunk",
                         "name": "Chunky",
@@ -1307,16 +1323,16 @@ class TestIngestFileChunking:
             )
 
         # Document should still be processed (embeddings just skipped)
-        assert src.report.docs_processed == 1
+        assert source.report.docs_processed == 1
 
     def test_continue_on_failure_false_re_raises(self) -> None:
         """When continue_on_failure=False, exceptions in _ingest_file are re-raised."""
-        src = _make_source({"advanced": {"continue_on_failure": False}})
+        source = _make_source({"advanced": {"continue_on_failure": False}})
 
-        with patch.object(src, "_extract_text", side_effect=RuntimeError("boom")):
+        with patch.object(source, "_extract_text", side_effect=RuntimeError("boom")):
             with pytest.raises(RuntimeError, match="boom"):
                 list(
-                    src._ingest_file(
+                    source._ingest_file(
                         {"id": "f-err", "name": "Error", "mimeType": MIME_GOOGLE_DOC},
                         set(),
                     )
@@ -1324,14 +1340,14 @@ class TestIngestFileChunking:
 
     def test_continue_on_failure_true_records_failure(self) -> None:
         """When continue_on_failure=True, exceptions are swallowed and failure is recorded."""
-        src = _make_source({"advanced": {"continue_on_failure": True}})
+        source = _make_source({"advanced": {"continue_on_failure": True}})
 
-        with patch.object(src, "_extract_text", side_effect=ValueError("bad value")):
+        with patch.object(source, "_extract_text", side_effect=ValueError("bad value")):
             list(
-                src._ingest_file(
+                source._ingest_file(
                     {"id": "f-cont", "name": "Continue", "mimeType": MIME_GOOGLE_DOC},
                     set(),
                 )
             )
 
-        assert src.report.docs_failed == 1
+        assert source.report.docs_failed == 1
