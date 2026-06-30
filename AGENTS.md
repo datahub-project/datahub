@@ -722,6 +722,7 @@ datahub graphql --agent-context
 ## Cypress Tests (Deprecated)
 
 Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
+
 - **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
 - **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
 - The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
