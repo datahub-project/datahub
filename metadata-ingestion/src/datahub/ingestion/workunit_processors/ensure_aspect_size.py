@@ -489,21 +489,14 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         full_statement = query_properties.statement.value
         original_statement_size = len(full_statement)
 
-        # The aspect's overhead (everything except the statement body) plus the
-        # JSON-escaped statement value must fit under the limit. We deliberately
-        # trim the statement in *raw characters* but measure the *serialized JSON*
-        # size, because JSON escaping (\n, \", control chars, non-ASCII) inflates
-        # the wire size well beyond the raw character count. The previous
-        # implementation compared a raw character count against a byte-based
-        # reduction target — a unit mismatch that made the guard give up and emit
-        # oversized aspects, which GMS then rejected with a 400.
-        #
-        # Compute the fixed overhead once with an empty statement value so each
-        # binary-search step only has to JSON-encode the candidate string rather
-        # than re-serialize the whole aspect.
+        # Trim the statement in raw characters but bound it by the serialized JSON
+        # size: escaping (\n, \", control chars, non-ASCII) inflates the wire size
+        # past the raw length, so a raw-vs-byte comparison undercounts and lets
+        # oversized aspects through (GMS then rejects them with a 400).
+        # Measure the non-statement overhead once so each search step only has to
+        # encode the candidate string, not re-serialize the whole aspect.
         query_properties.statement.value = ""
         empty_overhead = self._query_properties_serialized_size(query_properties)
-        # `empty_overhead` includes the 2 bytes for the empty value's quotes.
         overhead_without_value = empty_overhead - len(json.dumps(""))
 
         def candidate_value(retained: int) -> str:
@@ -530,9 +523,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         query_properties.statement.value = candidate_value(retained_length)
 
-        # If even an empty statement body can't make the aspect fit, the
-        # non-statement fields (name/description) are themselves over budget.
-        # Shed them as a last resort so the write still succeeds.
+        # If even an empty statement can't make it fit, the other fields are over
+        # budget on their own; drop them as a last resort.
         dropped_fields: List[str] = []
         if self._query_properties_serialized_size(query_properties) >= max_payload_size:
             if query_properties.name:

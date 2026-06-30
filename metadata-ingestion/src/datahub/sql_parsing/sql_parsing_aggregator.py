@@ -96,13 +96,9 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
 
-# Composite queries (built by merging a temp-table chain into one synthetic
-# query) concatenate every constituent statement with no natural size bound. A
-# pipeline that writes to a temp table thousands of times in one session can
-# balloon the merged text to hundreds of MB, which then overflows the GMS
-# payload limit. Cap the merged statement so it can never single-handedly fail a
-# run. The EnsureAspectSizeProcessor remains the final safety net for the wire
-# limit; this cap just keeps the in-memory text sane.
+# A composite query concatenates every statement in a temp-table chain with no
+# size bound; a session that writes to a temp table many times can grow the
+# merged text to hundreds of MB and overflow the GMS payload limit. Cap it here.
 MAX_COMPOSITE_QUERY_STATEMENT_CHARS = int(
     os.environ.get("DATAHUB_MAX_COMPOSITE_QUERY_STATEMENT_CHARS", str(5 * 1024 * 1024))
 )
