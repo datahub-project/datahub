@@ -557,9 +557,7 @@ class DatahubSensors:
                 ),
             )
         )
-        context.log.info(
-            f"Emitted siblings: {dagster_urn.urn()} <-> {table_urn.urn()}"
-        )
+        context.log.info(f"Emitted siblings: {dagster_urn.urn()} <-> {table_urn.urn()}")
 
     def process_asset_observation(
         self,
