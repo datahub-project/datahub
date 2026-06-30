@@ -1813,6 +1813,17 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             _use_qvci = self.config.use_qvci
             _use_dbc_columns_for_views = self.config.use_dbc_columns_for_views
             _tables_needing_extraction = self._tables_needing_column_extraction
+
+            # The patched dialect functions below run with a TeradataDialect instance
+            # as `self` (SQLAlchemy calls them via Inspector -> dialect), not this
+            # source. They read `self.report` to record run-level metrics (columns
+            # processed, extraction failures, tables missing from cache, column
+            # extraction duration, etc.). The dialect has no report of its own, so
+            # without this attach those `getattr/hasattr(self, "report")` checks are
+            # always False and the metrics silently stay at 0. Attach the source's
+            # report to the dialect class so the metrics are actually populated.
+            setattr(TeradataDialect, "report", self.report)  # noqa: B010
+
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",

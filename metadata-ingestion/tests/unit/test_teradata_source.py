@@ -27,6 +27,7 @@ from datahub.ingestion.source.sql.teradata import (
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
+    TeradataDialect,
     TeradataReport,
     TeradataSource,
     TeradataTable,
@@ -2457,6 +2458,21 @@ class TestIncrementalColumnExtraction:
         assert len(warnings) == 1
         assert "mydb.dropped_table" in str(warnings[0].context)
         mock_dialect.get_schema_columns.assert_not_called()
+
+    def test_source_report_is_reachable_from_dialect(self) -> None:
+        """The patched dialect column/PK functions run with a TeradataDialect
+        instance as ``self`` (SQLAlchemy invokes them via the Inspector), so they
+        can only record metrics if the source's report is attached to the dialect.
+        Without this wiring every ``getattr/hasattr(self, "report")`` check inside
+        those functions is False and metrics silently stay at 0 in production."""
+        source = _create_source()
+        try:
+            assert TeradataDialect.report is source.report
+        finally:
+            # The report is attached to the shared dialect class, so drop it to
+            # avoid leaking this source's report into later tests.
+            if hasattr(TeradataDialect, "report"):
+                delattr(TeradataDialect, "report")
 
 
 class TestDbcColumnsForViews:
