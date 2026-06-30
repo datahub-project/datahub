@@ -202,14 +202,14 @@ public class OpenLineageEventToDatahubTest {
     ConnectionInstanceDetail glue =
         conf.getConnectionInstanceMap().get("arn:aws:glue:us-east-1:111122223333");
     assertNotNull(glue);
-    assertEquals("domain_a", glue.getPlatformInstance());
-    assertEquals(Optional.of("PROD"), glue.getEnv());
+    assertEquals(Optional.of("domain_a"), glue.getPlatformInstance());
+    assertEquals(Optional.of(FabricType.PROD), glue.getEnv());
 
     // Same map, a non-Glue connection keyed by its OpenLineage namespace.
     ConnectionInstanceDetail snowflake =
         conf.getConnectionInstanceMap().get("snowflake://acme-prod");
     assertNotNull(snowflake);
-    assertEquals("snow_prod", snowflake.getPlatformInstance());
+    assertEquals(Optional.of("snow_prod"), snowflake.getPlatformInstance());
     assertEquals(Optional.empty(), snowflake.getEnv());
   }
 
@@ -627,7 +627,7 @@ public class OpenLineageEventToDatahubTest {
     Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
     connections.put(
         "arn:aws:glue:us-west-2:123456789012",
-        ConnectionInstanceDetail.builder().platformInstance("domain_a").build());
+        ConnectionInstanceDetail.builder().platformInstance(Optional.of("domain_a")).build());
     builder.connectionInstanceMap(connections);
 
     String olEvent =
@@ -668,7 +668,7 @@ public class OpenLineageEventToDatahubTest {
     Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
     connections.put(
         "hive://metastore.example.com:9083",
-        ConnectionInstanceDetail.builder().platformInstance("hive_core").build());
+        ConnectionInstanceDetail.builder().platformInstance(Optional.of("hive_core")).build());
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder()
             .fabricType(FabricType.PROD)
@@ -740,7 +740,7 @@ public class OpenLineageEventToDatahubTest {
     Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
     connections.put(
         "postgres://pg.example.com:5432",
-        ConnectionInstanceDetail.builder().platformInstance("pg_core").build());
+        ConnectionInstanceDetail.builder().platformInstance(Optional.of("pg_core")).build());
     builder.connectionInstanceMap(connections);
 
     Optional<DatasetUrn> urn =
@@ -749,6 +749,58 @@ public class OpenLineageEventToDatahubTest {
     assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:postgres,pg_core.mydb.public.orders,PROD)",
         urn.get().toString());
+  }
+
+  @Test
+  public void testConnectionInstanceEnvOverridesGlobalFabric() throws URISyntaxException {
+    // A per-connection env must win over the job-global fabricType, otherwise the URN's fabric
+    // won't match the one the upstream's own connector emits and the lineage edge dangles.
+    OpenLineage.InputDataset inputDataset =
+        new OpenLineage.InputDatasetBuilder()
+            .namespace("postgres://pg.example.com:5432")
+            .name("mydb.public.orders")
+            .build();
+
+    Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
+    connections.put(
+        "postgres://pg.example.com:5432",
+        ConnectionInstanceDetail.builder()
+            .platformInstance(Optional.of("pg_core"))
+            .env(Optional.of(FabricType.PROD))
+            .build());
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.DEV) // global default deliberately differs from the connection
+            .connectionInstanceMap(connections)
+            .build();
+
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(inputDataset, config);
+    assertTrue(urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,pg_core.mydb.public.orders,PROD)",
+        urn.get().toString());
+  }
+
+  @Test
+  public void testConnectionInstanceMapEnvNormalizedAndValidated() {
+    // env is normalized (case-insensitive) and validated at parse time: a lowercase value is
+    // accepted; an unparseable value is dropped (left empty) rather than silently corrupting URNs.
+    Config datahubConfig =
+        ConfigFactory.parseString(
+            "metadata.dataset.connections {\n"
+                + "  \"postgres://h1:5432\" { platformInstance = \"a\", env = \"prod\" }\n"
+                + "  \"postgres://h2:5432\" { platformInstance = \"b\", env = \"NONSENSE\" }\n"
+                + "}");
+
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
+
+    assertEquals(
+        Optional.of(FabricType.PROD),
+        conf.getConnectionInstanceMap().get("postgres://h1:5432").getEnv());
+    assertEquals(
+        Optional.empty(), conf.getConnectionInstanceMap().get("postgres://h2:5432").getEnv());
   }
 
   @Test

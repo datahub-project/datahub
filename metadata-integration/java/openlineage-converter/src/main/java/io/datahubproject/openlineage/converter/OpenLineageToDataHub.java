@@ -260,8 +260,11 @@ public class OpenLineageToDataHub {
     if (connectionKey != null && mappingConfig.isLowerCaseDatasetUrns()) {
       connectionKey = connectionKey.toLowerCase();
     }
-    String platformInstance = getPlatformInstance(mappingConfig, platform, connectionKey);
-    FabricType env = getEnv(mappingConfig, platform, connectionKey);
+    // Resolve the per-connection detail once; both platform_instance and env key off it.
+    ConnectionInstanceDetail connectionDetail =
+        connectionKey == null ? null : mappingConfig.getConnectionInstanceMap().get(connectionKey);
+    String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
+    FabricType env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
@@ -298,18 +301,11 @@ public class OpenLineageToDataHub {
   }
 
   private static FabricType getEnv(
-      DatahubOpenlineageConfig mappingConfig, String platform, String connectionKey) {
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
     FabricType fabricType = mappingConfig.getFabricType();
-    if (connectionKey != null) {
-      ConnectionInstanceDetail detail = mappingConfig.getConnectionInstanceMap().get(connectionKey);
-      if (detail != null && detail.getEnv().isPresent()) {
-        try {
-          return FabricType.valueOf(detail.getEnv().get());
-        } catch (IllegalArgumentException e) {
-          log.warn(
-              "Invalid environment value for connection {}: {}", connectionKey, detail.getEnv());
-        }
-      }
+    if (detail != null && detail.getEnv().isPresent()) {
+      // env is validated to a FabricType at config-load time, so it is used directly here.
+      return detail.getEnv().get();
     }
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
@@ -320,7 +316,7 @@ public class OpenLineageToDataHub {
             fabricType = FabricType.valueOf(pathSpec.getEnv().get());
             return fabricType;
           } catch (IllegalArgumentException e) {
-            log.warn("Invalid environment value: {}", pathSpec.getEnv());
+            log.warn("Invalid environment value: {}", pathSpec.getEnv().get());
           }
         }
       }
@@ -329,16 +325,13 @@ public class OpenLineageToDataHub {
   }
 
   private static String getPlatformInstance(
-      DatahubOpenlineageConfig mappingConfig, String platform, String connectionKey) {
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
     // Cross-platform lineage: resolve the upstream connection's instance first via an explicit
     // connection->instance mapping, so datasets from different accounts/regions/hosts in one job
     // get
     // distinct, correct URNs instead of collapsing to a single instance.
-    if (connectionKey != null) {
-      ConnectionInstanceDetail detail = mappingConfig.getConnectionInstanceMap().get(connectionKey);
-      if (detail != null && detail.getPlatformInstance() != null) {
-        return detail.getPlatformInstance();
-      }
+    if (detail != null && detail.getPlatformInstance().isPresent()) {
+      return detail.getPlatformInstance().get();
     }
     // Use the platform instance from the path spec if it is present otherwise use the one from the
     // commonDatasetPlatformInstance

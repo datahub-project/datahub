@@ -250,10 +250,28 @@ public class SparkConfigParser {
       ConnectionInstanceDetail.ConnectionInstanceDetailBuilder detailBuilder =
           ConnectionInstanceDetail.builder();
       if (connectionConfig.hasPath(PLATFORM_INSTANCE_KEY)) {
-        detailBuilder.platformInstance(connectionConfig.getString(PLATFORM_INSTANCE_KEY));
+        detailBuilder.platformInstance(
+            Optional.of(connectionConfig.getString(PLATFORM_INSTANCE_KEY)));
       }
       if (connectionConfig.hasPath(FABRIC_TYPE_KEY)) {
-        detailBuilder.env(Optional.ofNullable(connectionConfig.getString(FABRIC_TYPE_KEY)));
+        String envValue = connectionConfig.getString(FABRIC_TYPE_KEY);
+        try {
+          // Normalize + validate the env at config-load time so a bad value is reported once,
+          // loudly, with the exact recipe path — instead of being silently dropped to the job
+          // default fabric per dataset during URN construction (which would emit URNs under the
+          // wrong env and dangle lineage with no actionable signal).
+          detailBuilder.env(Optional.of(FabricType.valueOf(envValue.toUpperCase())));
+        } catch (IllegalArgumentException e) {
+          log.error(
+              "Invalid env '{}' for connection '{}' (under {}.\"{}\".{}); must be one of {}. "
+                  + "Ignoring this connection's env; its datasets will use the job default fabric.",
+              envValue,
+              namespace,
+              DATASET_CONNECTIONS_KEY,
+              namespace,
+              FABRIC_TYPE_KEY,
+              Arrays.toString(FabricType.values()));
+        }
       }
       map.put(namespace, detailBuilder.build());
     }
