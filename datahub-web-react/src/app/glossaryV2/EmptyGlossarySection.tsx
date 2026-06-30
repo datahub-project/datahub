@@ -45,12 +45,14 @@ function EmptyGlossarySection(props: Props) {
                     label: t('empty.addTerm'),
                     icon: { icon: Plus },
                     onClick: onAddTerm,
+                    dataTestId: 'add-term-button',
                 }}
                 secondaryAction={{
                     label: t('empty.addTermGroup'),
                     icon: { icon: Plus },
                     variant: 'secondary',
                     onClick: onAddtermGroup,
+                    dataTestId: 'add-term-group-button',
                 }}
             />
         </CenteredWrapper>
