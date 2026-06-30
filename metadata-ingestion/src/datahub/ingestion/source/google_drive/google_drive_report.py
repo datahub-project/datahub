@@ -18,7 +18,6 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
 
     # Document processing
     docs_processed: int = 0
-    docs_skipped_unchanged: int = 0
     docs_skipped_too_short: int = 0
     docs_failed: int = 0
 
@@ -43,9 +42,6 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     def report_doc_processed(self, text_length: int) -> None:
         self.docs_processed += 1
         self.total_text_bytes += text_length
-
-    def report_doc_skipped_unchanged(self) -> None:
-        self.docs_skipped_unchanged += 1
 
     def report_doc_skipped_too_short(
         self, file_id: str, length: int, minimum: int

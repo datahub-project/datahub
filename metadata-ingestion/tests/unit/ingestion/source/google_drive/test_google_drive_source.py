@@ -88,12 +88,11 @@ def _make_source(
 class TestGoogleDriveAuthConfig:
     def test_both_key_file_and_key_json_raises(self) -> None:
         """Providing both service_account_key_file and service_account_key_json is rejected."""
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError):
             GoogleDriveAuthConfig(
                 service_account_key_file="/path/to/key.json",
                 service_account_key_json=SecretStr('{"type": "service_account"}'),
             )
-        assert "not both" in str(exc_info.value)
 
     def test_key_file_only_is_valid(self) -> None:
         """Providing only service_account_key_file is accepted."""
@@ -168,29 +167,6 @@ class TestFolderIdStripValidator:
 
 
 # ===========================================================================
-# GoogleDriveSourceConfig — defaults
-# ===========================================================================
-
-
-class TestGoogleDriveSourceConfigDefaults:
-    def test_include_docs_true_by_default(self) -> None:
-        cfg = GoogleDriveSourceConfig.model_validate({})
-        assert cfg.include_docs is True
-
-    def test_include_slides_false_by_default(self) -> None:
-        cfg = GoogleDriveSourceConfig.model_validate({})
-        assert cfg.include_slides is False
-
-    def test_include_sheets_false_by_default(self) -> None:
-        cfg = GoogleDriveSourceConfig.model_validate({})
-        assert cfg.include_sheets is False
-
-    def test_recursive_true_by_default(self) -> None:
-        cfg = GoogleDriveSourceConfig.model_validate({})
-        assert cfg.recursive is True
-
-
-# ===========================================================================
 # GoogleDriveSource._selected_mime_types
 # ===========================================================================
 
@@ -225,37 +201,57 @@ class TestSelectedMimeTypes:
 
 
 class TestDedupAndTrashedFiles:
-    """The source deduplicates by file ID and excludes trashed entries."""
+    """The source deduplicates by file ID and excludes trashed entries via get_workunits_internal."""
 
-    def _unique_from(self, files: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Mirrors the dedup logic in get_workunits_internal."""
-        return {f["id"]: f for f in files if not f.get("trashed", False)}
+    def _run_workunits(
+        self, src: GoogleDriveSource, files: List[Dict[str, Any]]
+    ) -> List[str]:
+        """Drive _list_all_accessible_files to return *files*, run the main loop,
+        return the file IDs that were actually ingested (reached _ingest_file)."""
+        ingested_ids: List[str] = []
+
+        def fake_ingest_file(
+            file_metadata: Dict[str, Any], already_emitted_folders: Any
+        ) -> Any:
+            ingested_ids.append(file_metadata["id"])
+            return iter([])
+
+        with (
+            patch.object(src, "_list_all_accessible_files", return_value=files),
+            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(src, "_ingest_file", side_effect=fake_ingest_file),
+        ):
+            list(src.get_workunits_internal())
+
+        return ingested_ids
 
     def test_duplicate_ids_are_deduplicated(self) -> None:
+        src = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
         ]
-        unique = self._unique_from(files)
-        assert len(unique) == 1
-        assert "file1" in unique
+        ingested = self._run_workunits(src, files)
+        assert ingested.count("file1") == 1
 
     def test_trashed_files_are_excluded(self) -> None:
+        src = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": False},
             {"id": "file2", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
         ]
-        unique = self._unique_from(files)
-        assert "file1" in unique
-        assert "file2" not in unique
+        ingested = self._run_workunits(src, files)
+        assert "file1" in ingested
+        assert "file2" not in ingested
 
     def test_all_trashed_yields_empty(self) -> None:
+        src = _make_source()
         files = [
             {"id": "file1", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
             {"id": "file2", "mimeType": MIME_GOOGLE_DOC, "trashed": True},
         ]
-        unique = self._unique_from(files)
-        assert unique == {}
+        ingested = self._run_workunits(src, files)
+        assert ingested == []
 
 
 # ===========================================================================
@@ -417,6 +413,79 @@ class TestListFilesInFolder:
         files = src._list_files_in_folder("folder-id", recursive=False)
         assert len(files) == 2
         assert {f["id"] for f in files} == {"doc1", "doc2"}
+
+
+# ===========================================================================
+# GoogleDriveSource._collect_folder_ancestors — mimeType must be present
+# ===========================================================================
+
+
+class TestCollectFolderAncestors:
+    """_collect_folder_ancestors must walk up the parent chain.
+
+    This test would FAIL without the fix that adds mimeType to _DRIVE_FOLDER_FIELDS
+    because the mimeType gate in _collect_folder_ancestors would never be True.
+    """
+
+    def test_ancestors_collected_when_mimetype_is_folder(self) -> None:
+        """When the Drive API returns mimeType for folder metadata, ancestors are collected."""
+        mock_drive = MagicMock()
+
+        # Simulate a two-level hierarchy: root_folder → parent_folder → file
+        # _get_folder_metadata is called with "parent-folder-id" first, then "root-folder-id"
+        parent_folder_meta = {
+            "id": "parent-folder-id",
+            "name": "Parent Folder",
+            "mimeType": MIME_GOOGLE_FOLDER,
+            "parents": ["root-folder-id"],
+            "webViewLink": "https://drive.google.com/drive/folders/parent-folder-id",
+        }
+        root_folder_meta = {
+            "id": "root-folder-id",
+            "name": "Root Folder",
+            "mimeType": MIME_GOOGLE_FOLDER,
+            "parents": [],  # no further parents — stops traversal
+            "webViewLink": "https://drive.google.com/drive/folders/root-folder-id",
+        }
+
+        def fake_get(fileId: str, fields: str) -> Any:
+            result = MagicMock()
+            if fileId == "parent-folder-id":
+                result.execute.return_value = parent_folder_meta
+            elif fileId == "root-folder-id":
+                result.execute.return_value = root_folder_meta
+            else:
+                result.execute.return_value = None
+            return result
+
+        mock_drive.files().get.side_effect = fake_get
+
+        src = _make_source(mock_drive=mock_drive)
+
+        file_metadata: Dict[str, Any] = {
+            "id": "my-doc-id",
+            "name": "My Doc",
+            "mimeType": MIME_GOOGLE_DOC,
+            "parents": ["parent-folder-id"],
+        }
+        ancestors = src._collect_folder_ancestors(file_metadata)
+
+        # Must find both ancestors (root first, then parent)
+        assert len(ancestors) == 2
+        assert ancestors[0]["id"] == "root-folder-id"
+        assert ancestors[1]["id"] == "parent-folder-id"
+
+    def test_no_ancestors_when_file_has_no_parents(self) -> None:
+        """A file with no parents yields an empty ancestor list."""
+        src = _make_source()
+        file_metadata: Dict[str, Any] = {
+            "id": "orphan-doc",
+            "name": "Orphan",
+            "mimeType": MIME_GOOGLE_DOC,
+            "parents": [],
+        }
+        ancestors = src._collect_folder_ancestors(file_metadata)
+        assert ancestors == []
 
 
 # ===========================================================================

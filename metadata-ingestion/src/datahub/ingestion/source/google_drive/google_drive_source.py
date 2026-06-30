@@ -91,7 +91,7 @@ _DRIVE_FILE_FIELDS = (
     "id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,"
     "lastModifyingUser,owners,starred,trashed,size"
 )
-_DRIVE_FOLDER_FIELDS = "id,name,parents,webViewLink"
+_DRIVE_FOLDER_FIELDS = "id,name,mimeType,parents,webViewLink"
 
 # Bump when the export/parsing algorithm changes to force re-ingestion
 EXTRACTION_ALGO_VERSION = "1"

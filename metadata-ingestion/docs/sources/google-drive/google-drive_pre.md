@@ -36,11 +36,11 @@ See [Semantic Search Configuration](../../../how-to/semantic-search-configuratio
 
 ##### 4. Stateful Ingestion
 
-Supports smart incremental updates via stateful ingestion:
+Supports incremental updates via stateful ingestion:
 
-- **Content Change Detection**: Only reprocesses documents when content or embeddings config changes
-- **Deletion Detection**: Automatically removes stale entities from DataHub
-- **State Persistence**: Maintains processing state between runs to skip unchanged documents
+- **Deletion Detection**: Automatically removes stale entities from DataHub when files are deleted from Drive
+- **Embedding Deduplication**: Skips embedding regeneration for documents whose content hash is unchanged between runs (every document is re-emitted each run; only the embedding step is skipped for unchanged content)
+- **State Persistence**: Maintains ingestion state between runs
 
 #### Related Documentation
 

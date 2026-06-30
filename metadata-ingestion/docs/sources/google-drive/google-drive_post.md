@@ -105,17 +105,17 @@ The `document_import_mode` field controls how documents are stored:
 
 ##### Stateful Ingestion Details
 
-The source uses content-based change detection:
+The source uses content-based change detection for embeddings and tracks URNs for deletion:
 
-- Calculates a SHA-256 hash of document content combined with the embedding configuration
-- Compares the hash with the previous run to detect changes
-- Only reprocesses documents when the hash changes
-- Tracks all emitted URNs to detect deletions
+- Every document is re-emitted as a Document entity on each run
+- A SHA-256 `content_hash` (based on `modifiedTime` and extraction algorithm version) is stored as a custom property on each Document entity
+- The downstream embedding/chunking step reads this hash and skips regenerating embeddings when the hash is unchanged — only the embedding step is skipped for unchanged content, not the document emission itself
+- All emitted URNs are tracked so that files deleted from Drive are automatically soft-deleted from DataHub
 
 This means:
 
-- **First run**: Processes all documents
-- **Subsequent runs**: Only processes new or changed documents
+- **First run**: Processes all documents and generates embeddings
+- **Subsequent runs**: Re-emits all Document entities; skips embedding regeneration for documents whose content hash is unchanged
 - **Deleted files**: Automatically soft-deleted from DataHub
 
 #### Performance Tuning
@@ -123,10 +123,10 @@ This means:
 ##### Rate Limiting
 
 ```yaml
-requests_per_minute: 60 # Default matches the standard Drive API user quota
+requests_per_minute: 60 # Connector default — adjust based on your project's quota
 ```
 
-Increase or decrease based on your project's quota. If you hit `429 Too Many Requests` errors, lower this value.
+The connector default is 60 requests per minute. Google's Drive API user quota is typically much higher, but organisational or project-level quotas may be stricter. If you hit `429 Too Many Requests` errors, lower this value.
 
 ##### Filtering
 
@@ -148,7 +148,7 @@ Module behaviour is constrained by source APIs, permissions, and metadata expose
 
 #### Google Drive API Limits
 
-- **Rate Limits**: Default user quota is 12,000 requests per minute; organisational quotas may differ
+- **Rate Limits**: The connector default is 60 requests per minute (`requests_per_minute`); Google's actual Drive API quota varies by project and organisation
 - **Export Limits**: Google imposes a 10 MB export limit per file; very large documents may be truncated
 - **Attachments**: Binary file attachments (PDFs, images, Office files) are not ingested — only native Google Workspace files are supported
 
