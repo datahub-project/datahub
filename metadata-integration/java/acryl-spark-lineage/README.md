@@ -348,20 +348,28 @@ scheme, so you never put the platform in the key or value; you only supply `plat
 optionally `env`). This must equal the `platform_instance` the upstream platform's own DataHub
 connector uses, otherwise the lineage edge will dangle.
 
-**Namespace key format per platform** (follows the [OpenLineage dataset naming spec](https://openlineage.io/docs/spec/naming)):
+**Namespace key format per platform.** The key is exactly the `namespace` string OpenLineage emits
+for that dataset, which generally follows the [OpenLineage dataset naming spec](https://openlineage.io/docs/spec/naming).
+A few namespaces are produced by the OpenLineage Spark/JDBC integration rather than listed in the
+naming-spec page (noted below); when in doubt, read the emitted namespace from a debug log (see the
+last note) and use it verbatim.
 
 | Platform              | `connections` key (namespace)               | Example                                      |
 | --------------------- | ------------------------------------------- | -------------------------------------------- |
 | AWS Glue              | `arn:aws:glue:{region}:{account}`           | `arn:aws:glue:us-east-1:111122223333`        |
 | Snowflake             | `snowflake://{org}-{account}`               | `snowflake://acme-prod`                      |
 | Redshift              | `redshift://{cluster}.{region}:{port}`      | `redshift://wh.us-east-1:5439`               |
-| Athena                | `awsathena://athena.{region}.amazonaws.com` | `awsathena://athena.us-east-1.amazonaws.com` |
+| Athena¹               | `awsathena://athena.{region}.amazonaws.com` | `awsathena://athena.us-east-1.amazonaws.com` |
 | Postgres              | `postgres://{host}:{port}`                  | `postgres://pg.internal:5432`                |
 | MySQL                 | `mysql://{host}:{port}`                     | `mysql://mysql.internal:3306`                |
-| MSSQL                 | `sqlserver://{host}:{port}`                 | `sqlserver://mssql.internal:1433`            |
+| MSSQL / SQL Server²   | `sqlserver://{host}:{port}`                 | `sqlserver://mssql.internal:1433`            |
 | Hive / Hive metastore | `hive://{host}:{port}`                      | `hive://metastore.internal:9083`             |
-| Trino / Presto        | `trino://{host}:{port}`                     | `trino://trino.internal:8080`                |
+| Trino / Presto¹       | `trino://{host}:{port}`                     | `trino://trino.internal:8080`                |
 | Kafka                 | `kafka://{bootstrap}:{port}`                | `kafka://broker.internal:9092`               |
+
+¹ Not listed on the naming-spec page; the scheme is what the OpenLineage integration emits.
+² SQL Server JDBC sources are emitted by OpenLineage as `sqlserver://…`, not the `mssql://…` form
+shown on the naming-spec page — use the `sqlserver://` key.
 
 Notes:
 

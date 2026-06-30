@@ -25,6 +25,7 @@ import io.datahubproject.openlineage.dataset.PathSpec;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -642,6 +643,45 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:glue,domain_a.my_glue_database.my_glue_table,DEV)",
           dataset.getUrn().toString());
     }
+  }
+
+  @Test
+  public void testConnectionInstanceMapSymlinkKeyLowerCasedWhenLowerCaseUrns()
+      throws URISyntaxException {
+    // A symlinked (e.g. Hive) upstream whose connection namespace has a mixed-case host. With
+    // lowerCaseUrns the dataset namespace is lowercased, so the connection-map lookup key must be
+    // too — otherwise the mixed-case symlink-derived key misses a lowercase map entry and the
+    // platform_instance is silently dropped.
+    OpenLineage ol = new OpenLineage(URI.create("https://test"));
+    OpenLineage.SymlinksDatasetFacet symlinks =
+        ol.newSymlinksDatasetFacet(
+            List.of(
+                ol.newSymlinksDatasetFacetIdentifiers(
+                    "hive://Metastore.Example.com:9083", "mydb.orders", "TABLE")));
+    OpenLineage.InputDataset inputDataset =
+        ol.newInputDatasetBuilder()
+            .namespace("hive://Metastore.Example.com:9083")
+            .name("mydb.orders")
+            .facets(ol.newDatasetFacetsBuilder().symlinks(symlinks).build())
+            .build();
+
+    Map<String, ConnectionInstanceDetail> connections = new HashMap<>();
+    connections.put(
+        "hive://metastore.example.com:9083",
+        ConnectionInstanceDetail.builder().platformInstance("hive_core").build());
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .lowerCaseDatasetUrns(true)
+            .connectionInstanceMap(connections)
+            .build();
+
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(inputDataset, config);
+    assertTrue(urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:hive,hive_core.mydb.orders,PROD)",
+        urn.get().toString());
   }
 
   @Test

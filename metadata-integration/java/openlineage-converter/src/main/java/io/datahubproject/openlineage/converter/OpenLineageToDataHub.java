@@ -254,6 +254,12 @@ public class OpenLineageToDataHub {
     // namespace via the same protocol-dispatching utility.
     String connectionKey =
         connectionKeyOverride != null ? connectionKeyOverride : toConnectionKey(namespace);
+    // When URNs are lowercased the dataset namespace is too (above), so the lookup key must match.
+    // The symlink override is derived from the raw symlink namespace, which skips that lowercasing,
+    // so normalize here to keep both paths consistent (matters for mixed-case hosts, e.g. Hive).
+    if (connectionKey != null && mappingConfig.isLowerCaseDatasetUrns()) {
+      connectionKey = connectionKey.toLowerCase();
+    }
     String platformInstance = getPlatformInstance(mappingConfig, platform, connectionKey);
     FabricType env = getEnv(mappingConfig, platform, connectionKey);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
