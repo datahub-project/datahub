@@ -8,7 +8,7 @@ import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assert
 
 import { Assertion, AssertionRunStatus, EntityType } from '@types';
 
-const StyledLaunchOutlined = styled(ArrowUpRight)`
+const StyledArrowUpRight = styled(ArrowUpRight)`
     display: flex;
 `;
 
@@ -49,7 +49,7 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
             key="external-url"
             tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
-            icon={<StyledLaunchOutlined size={16} />}
+            icon={<StyledArrowUpRight size={16} />}
             isExpandedView={isExpandedView}
             actionName={t('action.viewExternalPlatform')}
         />
