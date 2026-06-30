@@ -2431,6 +2431,33 @@ class TestIncrementalColumnExtraction:
 
         mock_dialect.get_schema_columns.assert_called_once()
 
+    def test_optimized_get_columns_reports_table_missing_from_cache(self) -> None:
+        """A table listed during discovery but absent from the cache (e.g. dropped
+        before column extraction) is reported, not silently logged."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.report = TeradataReport()
+
+        tables_cache: Dict[str, List[TeradataTable]] = {"mydb": []}
+
+        result = optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "dropped_table",
+            "mydb",
+            tables_cache=tables_cache,
+            tables_needing_extraction=None,
+        )
+
+        # Behaviour is unchanged: still returns no columns without a hard failure.
+        assert result == []
+        # But the run report now surfaces a count and the affected name.
+        assert mock_dialect.report.num_tables_missing_from_cache == 1
+        warnings = list(mock_dialect.report.warnings)
+        assert len(warnings) == 1
+        assert "mydb.dropped_table" in str(warnings[0].context)
+        mock_dialect.get_schema_columns.assert_not_called()
+
 
 class TestDbcColumnsForViews:
     """#2 — bulk dbc.ColumnsV for views with HELP fallback for derived columns."""
