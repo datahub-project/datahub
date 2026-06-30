@@ -1411,3 +1411,22 @@ class TestVerifyFolderAccess:
 
         assert source._verify_folder_access("missing-folder") is False
         assert len(source.report.failures) >= 1
+
+
+# ===========================================================================
+# Domain-wide delegation (_maybe_delegate)
+# ===========================================================================
+class TestDomainWideDelegation:
+    def test_delegation_impersonates_user_when_configured(self) -> None:
+        source = _make_source({"delegated_user_email": "user@example.com"})
+        creds = MagicMock()
+        result = source._maybe_delegate(creds)
+        creds.with_subject.assert_called_once_with("user@example.com")
+        assert result is creds.with_subject.return_value
+
+    def test_no_delegation_returns_credentials_unchanged(self) -> None:
+        source = _make_source({})  # delegated_user_email defaults to None
+        creds = MagicMock()
+        result = source._maybe_delegate(creds)
+        creds.with_subject.assert_not_called()
+        assert result is creds

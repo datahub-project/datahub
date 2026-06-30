@@ -92,7 +92,27 @@ If you are running on Google Cloud infrastructure or have run `gcloud auth appli
 
 The authenticated account (service account or user) must have **Viewer** (or higher) access to every folder and file you want to ingest. **Share each folder directly with the service account's email** (e.g. `datahub-drive-reader@<project>.iam.gserviceaccount.com`).
 
-> **Important:** A service account is a distinct identity in the `*.iam.gserviceaccount.com` domain — it is **not** a member of your Google Workspace organization. As a result, "anyone in your organization with the link" sharing does **not** grant the service account access; the folder must be shared with the service account's email address explicitly. This connector reads only what is shared with the authenticated account and does not currently support domain-wide delegation (user impersonation).
+> **Important:** A service account is a distinct identity in the `*.iam.gserviceaccount.com` domain — it is **not** a member of your Google Workspace organization. As a result, "anyone in your organization with the link" sharing does **not** grant the service account access; either share the folder with the service account's email address explicitly, or use **domain-wide delegation** (below) to impersonate a Workspace user.
+
+##### Option B: Domain-Wide Delegation (ingest an organization's Drive)
+
+Instead of sharing each folder with the service account, you can have the service account **impersonate a Workspace user** so it reads that user's Drive (and content shared across the organization) directly. Set `delegated_user_email` in the recipe:
+
+```yaml
+source:
+  type: google-drive
+  config:
+    credentials:
+      service_account_key_file: "/path/to/service-account.json"
+    delegated_user_email: "admin@your-company.com"
+```
+
+This requires a Workspace admin to authorize the service account for domain-wide delegation:
+
+1. In the **Google Workspace Admin console → Security → API controls → Domain-wide delegation**, add the service account's **client ID**.
+2. Grant it the OAuth scope `https://www.googleapis.com/auth/drive.readonly`.
+
+Delegation only applies to service-account auth (it is ignored for Application Default Credentials).
 
 ##### Troubleshooting: "Folder not accessible"
 

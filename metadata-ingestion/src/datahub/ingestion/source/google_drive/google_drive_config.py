@@ -155,6 +155,20 @@ class GoogleDriveSourceConfig(
         description="Authentication configuration for the Google Drive API.",
     )
 
+    delegated_user_email: Optional[str] = Field(
+        default=None,
+        description=(
+            "Email of a Google Workspace user for the service account to "
+            "impersonate via domain-wide delegation. When set, the connector "
+            "reads that user's Drive (and content shared across the "
+            "organization) without each folder being shared with the service "
+            "account directly. Requires the service account to have domain-wide "
+            "delegation authorized for the Drive scope in the Workspace admin "
+            "console. Only applies to service-account auth (ignored for "
+            "Application Default Credentials)."
+        ),
+    )
+
     # ---------------------------------------------------------------------------
     # Scope / content selection
     # ---------------------------------------------------------------------------
