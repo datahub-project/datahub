@@ -11,6 +11,7 @@ export function useLanguageSync(): void {
         i18next.changeLanguage(localeConfig.lang);
         // setDayjsLocale resolves after the locale chunk loads; ignore the promise — dayjs falls
         // back to its current locale until then, and a later language change supersedes this one.
+        // eslint-disable-next-line no-void
         void setDayjsLocale(localeConfig.dayjs);
     }, [localeConfig.lang, localeConfig.dayjs]);
 }
