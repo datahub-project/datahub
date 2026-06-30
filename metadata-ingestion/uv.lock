@@ -538,7 +538,7 @@ dev = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -732,7 +732,7 @@ docs = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -1496,6 +1496,13 @@ qlik-sense = [
     { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
 ]
+quicksight = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "patchy" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "urllib3" },
+]
 rdf = [
     { name = "rdflib" },
     { name = "requests" },
@@ -1984,6 +1991,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'mysql'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'notion'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'postgres'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'quicksight'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
@@ -1991,8 +1999,8 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'tidb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'timescaledb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
     { name = "botocore", marker = "extra == 'all'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'aws-secret-manager'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
@@ -2016,6 +2024,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'mysql'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'notion'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'postgres'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'quicksight'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sagemaker'", specifier = "!=1.23.0,<2.0.0" },
@@ -2614,6 +2623,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'presto'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'presto-on-hive'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'qlik-sense'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'quicksight'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'redash'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'redshift'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'redshift-slim'", specifier = "==2.8.0" },
@@ -3124,6 +3134,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'presto'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'presto-on-hive'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'qlik-sense'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'quicksight'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'redash'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift-slim'", specifier = "==30.8.0" },
@@ -3344,6 +3355,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'quicksight'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
@@ -3390,7 +3402,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -4362,6 +4374,9 @@ kinesis = [
 ]
 lakeformation = [
     { name = "mypy-boto3-lakeformation" },
+]
+quicksight = [
+    { name = "mypy-boto3-quicksight" },
 ]
 s3 = [
     { name = "mypy-boto3-s3" },
@@ -8827,6 +8842,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3f/ff/0334c8edc30f7815729f1aac5eba10fc2223fd4f1f4ac1d293d97e1599ef/mypy_boto3_lakeformation-1.40.55.tar.gz", hash = "sha256:21c501b9f867af719f809d051bf253c28d0480d641b602af4dde93b72b6d5914", size = 35048, upload-time = "2025-10-17T19:44:36.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/93/ef9d120ea497e57954e0dedb0f750fa328fa440e4d8d95e625258daf5691/mypy_boto3_lakeformation-1.40.55-py3-none-any.whl", hash = "sha256:fac1163ae7c264634bba7d73f8240e690995bc3476c301f7cbd20d76cffef61d", size = 39656, upload-time = "2025-10-17T19:44:34.282Z" },
+]
+
+[[package]]
+name = "mypy-boto3-quicksight"
+version = "1.40.49"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/39/4425ed64dc3b59e9bd4ff1695d1eb849de03b4adfff1c0352d7137c1c641/mypy_boto3_quicksight-1.40.49.tar.gz", hash = "sha256:b24cf91c595744886a79f30e48df25be1980baef823810bf865f181896b05d22", size = 180463, upload-time = "2025-10-09T19:26:47.546Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/cf/9ddfcafc8d94f9b85a5366c7ab942c18826a2baae8e58e734ae4fa98ae95/mypy_boto3_quicksight-1.40.49-py3-none-any.whl", hash = "sha256:5fdf2460722a152360ee10bca22f0563882eca58fc56b54bb6619ddf63511e11", size = 181832, upload-time = "2025-10-09T19:26:41.989Z" },
 ]
 
 [[package]]
