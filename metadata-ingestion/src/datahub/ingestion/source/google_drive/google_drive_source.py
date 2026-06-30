@@ -796,7 +796,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 type=PlatformTypeClass.OTHERS,
                 datasetNameDelimiter="/",
                 displayName="Google Drive",
-                logoUrl="https://www.gstatic.com/images/branding/product/2x/drive_48dp.png",
+                logoUrl="assets/platforms/googledrivelogo.png",
             ),
         ).as_workunit()
 
