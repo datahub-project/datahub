@@ -21,11 +21,11 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearC
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotSerializer;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatusSerializer;
-import com.linkedin.metadata.ratelimit.EndpointRateLimitStore;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -233,7 +233,7 @@ public class CacheConfig {
     // would only ever hold one entry, and evicting it would reset the cross-tenant ceiling under
     // active load). Registered explicitly for an owner backup so the ceiling survives a node loss.
     return new MapConfig()
-        .setName(EndpointRateLimitStore.GLOBAL_MAP_NAME)
+        .setName(RateLimitProperties.Endpoint.GLOBAL_HAZELCAST_MAP_NAME)
         .setBackupCount(1)
         .setAsyncBackupCount(0);
   }

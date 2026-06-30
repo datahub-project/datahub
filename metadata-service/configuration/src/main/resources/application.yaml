@@ -178,65 +178,32 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
-    # GMS HTTP service rate limiting (disabled by default).
+    # GMS HTTP service rate limiting — SWITCH PANEL (disabled by default).
+    # Only the on/off switches live here. The full policy — retry tuning, excludedPaths, tenantId,
+    # capacity limits, REST/auth rules, scoped bucket sizes, and the heavy-resolver map — lives in
+    # rate-limit-config.yaml, which CommonApplicationConfig @PropertySource's so it binds into the
+    # same datahub.gms.rateLimits.* tree and resolves ${ENV} placeholders.
+    # endpoint.enabled / scoped.enabled MUST stay here: the early Hazelcast bootstrap @Conditional
+    # reads them before the policy file's @PropertySource is guaranteed loaded.
     # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
     # Guide: docs/deploy/gms-rate-limiting.md
-    #
-    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
-    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
-    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
     rateLimits:
-      # Master kill switch for ALL rate limiting. false bypasses every limiter regardless of the
-      # per-layer flags below — the single "turn it all off" control.
+      # Master kill switch for ALL rate limiting.
       enabled: ${RATE_LIMITS_ENABLED:true}
+      # Allow requests through when a limiter throws unexpectedly.
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
-      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
-      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
-      # Namespaces every tenant-scoped bucket key (e.g. {tenantId}:actor:{urn}) so shared
-      # Hazelcast/ES/MySQL infra stays isolated across deployments. Set to the deployment's
-      # global.id (the ES index prefix). Empty = single un-namespaced scope (OSS / non-isolated).
-      tenantId: ${RATE_LIMITS_TENANT_ID:}
-      # When true, rules with clientTypes (browser/non_browser) are selected by the request's
-      # User-Agent classification. Advisory only; off by default for safe rollout.
+      # Select rules by browser/non-browser class. Advisory; off by default.
       clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false}
-      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      # The per-request POLICY (scoped bucket sizes, heavy-resolver map, REST/auth rule lists) lives
-      # in rate-limit-config.yaml, which CommonApplicationConfig @PropertySource's so it binds here
-      # and resolves ${ENV} placeholders. Mount a file at RATE_LIMITS_CONFIG_FILE to layer
-      # per-deployment overrides (e.g. per-customer heavy resolvers) on top of the bundled defaults.
-      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      # Adaptive in-flight limits (Gradient2, per-pod). Limits/pools are in rate-limit-config.yaml.
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
-        default:
-          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
-          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
-          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
-          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
-        graphql:
-          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
-          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
-          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
-          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
-          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
-          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        # Per-path capacity rules are policy — defined in rate-limit-config.yaml, not here.
-      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+      # Cluster-wide token buckets (Bucket4j/Hazelcast). Knobs/rules are in rate-limit-config.yaml.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
-        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        # Idle window for per-actor bucket entries in Hazelcast (idle eviction, not TTL).
-        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
-        # LRU per-node backstop on bucket entry count.
-        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
-        # Per-path endpoint rules are policy — defined in rate-limit-config.yaml, not here.
-      # Scoped bucket chain (primary multi-dimensional model): per-actor -> class (browser/sdk) ->
-      # fleet global, plus per-resolver heavy buckets. Only the toggles live here (env-overridable so
-      # they can be flipped per deployment / in an incident). The bucket SIZES, per-bucket disables,
-      # and heavy-resolver rules are policy and live in rate-limit-config.yaml (Spring-loaded via
-      # @PropertySource), where their ${ENV} placeholders are resolved per deployment.
+      # Scoped chain (per-actor -> class -> fleet-global). Sizes/heavy resolvers are in
+      # rate-limit-config.yaml; only the switches are here.
       scoped:
         enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
-        # Refund upstream buckets when a later stage denies (default on). Set true to disable.
         refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}

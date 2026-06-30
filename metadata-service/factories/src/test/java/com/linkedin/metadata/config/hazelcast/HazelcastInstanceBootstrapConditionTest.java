@@ -17,7 +17,7 @@ public class HazelcastInstanceBootstrapConditionTest {
 
   @Test
   public void testSearchCacheHazelcastEnablesInstance() {
-    assertTrue(evaluate("hazelcast", "false", "false"));
+    assertTrue(evaluate("hazelcast", "false", "false", "false"));
   }
 
   @Test

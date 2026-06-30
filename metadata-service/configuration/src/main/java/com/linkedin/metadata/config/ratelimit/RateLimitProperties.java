@@ -110,6 +110,13 @@ public class RateLimitProperties {
   public static class Endpoint {
     public static final String DEFAULT_HAZELCAST_MAP_NAME = "gmsRateLimitEndpointBuckets";
 
+    /**
+     * Hazelcast map holding the single cross-tenant {@code global} scoped bucket (fleet-wide
+     * ceiling). Fixed (not configurable) and separate from the per-tenant endpoint map. Referenced
+     * by EndpointRateLimitStore and by CacheConfig's MapConfig bean.
+     */
+    public static final String GLOBAL_HAZELCAST_MAP_NAME = "gmsRateLimitGlobalBuckets";
+
     /** When true, enforce cluster-wide token-bucket (Bucket4j) endpoint limits via Hazelcast. */
     @Builder.Default private boolean enabled = false;
 

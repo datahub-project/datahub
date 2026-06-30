@@ -6,23 +6,52 @@
 # RATE_LIMITS_SCOPED_* env vars (one file, different env → different limits), no per-tenant copy.
 #
 # What lives where, and why:
-#   - application.yaml keeps the toggles (enabled / scoped.enabled / refundDisabled), the capacity
-#     sub-pools, and the endpoint Hazelcast knobs (hazelcastMapName / bucketMaxIdleSeconds /
-#     bucketMaxSize). Those are read EARLY — the Hazelcast bootstrap @Conditional and CacheConfig
-#     @Value run before property-source ordering across config classes is guaranteed — so they must
-#     stay in the always-present application.yaml.
-#   - this file holds the per-request POLICY only: scoped bucket sizes, the heavy-resolver map, and
-#     the optional REST/auth rule lists.
+#   - application.yaml keeps ONLY the switches (enabled / failOpen / clientClassEnabled / the three
+#     layer *.enabled / scoped.refundDisabled / metrics.detailed). endpoint.enabled and
+#     scoped.enabled must stay there because the early Hazelcast bootstrap @Conditional reads them
+#     before this file's @PropertySource is guaranteed loaded.
+#   - this file holds everything else — the values/policy: retry tuning, excludedPaths, tenantId,
+#     capacity limits/pools, endpoint Hazelcast knobs, REST/auth rule lists, scoped bucket sizes,
+#     and the heavy-resolver map. So "is a layer on?" -> application.yaml; "what are the numbers?"
+#     -> here.
 #
 # Per-customer heavy resolvers: mount a file at RATE_LIMITS_CONFIG_FILE; it is layered on top
 # (higher precedence — map entries like heavyResolvers merge, scalars override).
 datahub:
   gms:
     rateLimits:
+      # Retry-After behavior (capacity uses the minimum as-is; endpoint may return a longer wait).
+      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
+      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
+      # Namespaces every tenant-scoped bucket key (e.g. {tenantId}:actor:{urn}) so a shared
+      # Hazelcast/ES store stays isolated across deployments. Set to the deployment's global.id.
+      # Empty = single un-namespaced scope (standalone OSS).
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      # Adaptive in-flight (Gradient2) pools — per pod. Enforced only when capacity.enabled.
       capacity:
+        default:
+          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
+          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
+        graphql:
+          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
+          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
+          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
+          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
         # Per-path capacity (Gradient2) rules. Empty by default; enforced only when capacity.enabled.
         rules: []
+      # Cluster-wide token buckets (Bucket4j/Hazelcast). The endpoint.enabled switch is in
+      # application.yaml; these knobs configure the Hazelcast bucket map (read by CacheConfig).
       endpoint:
+        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
+        # Idle eviction window (not TTL) for bucket entries in Hazelcast.
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        # LRU per-node backstop on bucket entry count.
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
         # Per-path REST/auth token-bucket rules (e.g. signup, oauth register). Per-actor GraphQL
         # throttling is NOT a rule — it's the scoped chain's actor bucket. Empty by default; enforced
         # only when endpoint.enabled.
