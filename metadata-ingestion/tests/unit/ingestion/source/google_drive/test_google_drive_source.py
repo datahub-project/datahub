@@ -473,7 +473,7 @@ class TestCollectFolderAncestors:
             "webViewLink": "https://drive.google.com/drive/folders/root-folder-id",
         }
 
-        def fake_get(fileId: str, fields: str) -> Any:
+        def fake_get(fileId: str, fields: str, **kwargs: Any) -> Any:
             result = MagicMock()
             if fileId == "parent-folder-id":
                 result.execute.return_value = parent_folder_meta

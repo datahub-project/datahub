@@ -361,6 +361,10 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
                     pageSize=200,
                     pageToken=page_token,
+                    # Required to enumerate files that live in or are shared via
+                    # Shared Drives; without these, such files are invisible.
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
                 )
                 .execute()
             )
@@ -400,6 +404,9 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
                     pageSize=200,
                     pageToken=page_token,
+                    # Include Shared Drive content (invisible without these flags).
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
                 )
                 .execute()
             )
@@ -419,7 +426,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             self._rate_limit()
             return (
                 self._drive_service.files()
-                .get(fileId=folder_id, fields=_DRIVE_FOLDER_FIELDS)
+                .get(
+                    fileId=folder_id,
+                    fields=_DRIVE_FOLDER_FIELDS,
+                    supportsAllDrives=True,
+                )
                 .execute()
             )
         except Exception as e:
@@ -954,6 +965,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     q="trashed = false",
                     fields="files(id,name)",
                     pageSize=1,
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
                 )
                 .execute()
             )
