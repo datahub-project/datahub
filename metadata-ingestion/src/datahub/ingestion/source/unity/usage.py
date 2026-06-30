@@ -1,7 +1,6 @@
 import logging
 import pathlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Callable, Iterable, List, Optional, Set, TypeVar
 
 from databricks.sdk.service.sql import QueryStatementType
@@ -16,6 +15,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -130,14 +130,6 @@ class UnityCatalogUsageExtractor:
             self.config.end_time,
             include_operational_stats=include_ops,
         )
-
-    @staticmethod
-    def _normalize_timestamp(ts: Optional[datetime]) -> Optional[datetime]:
-        if ts is None:
-            return None
-        if ts.tzinfo is not None:
-            return ts.astimezone(timezone.utc)
-        return ts.replace(tzinfo=timezone.utc)
 
     def _user_urn(self, query: Query) -> Optional[CorpUserUrn]:
         if not query.user_name:
@@ -277,7 +269,7 @@ class UnityCatalogUsageExtractor:
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
-        ts = self._normalize_timestamp(query.start_time)
+        ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
 
@@ -323,7 +315,7 @@ class UnityCatalogUsageExtractor:
         aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query_text,
-                timestamp=self._normalize_timestamp(query.start_time),
+                timestamp=normalize_timestamp_to_utc(query.start_time),
                 user=self._user_urn(query),
                 default_db=default_db,
                 default_schema=None,

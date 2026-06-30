@@ -781,7 +781,7 @@ Join thousands of data practitioners building with DataHub!
 
 | Channel                | Purpose                                  | Link                                                                         |
 | ---------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| **Slack Community**    | Real-time chat, questions, announcements | [Join 14,000+ members](https://datahub.com/slack)                            |
+| **Slack Community**    | Real-time chat, questions, announcements | [Join 15,000+ members](https://datahub.com/slack)                            |
 | **GitHub Discussions** | Technical discussions, feature requests  | [Start a Discussion](https://github.com/datahub-project/datahub/discussions) |
 | **GitHub Issues**      | Bug reports, feature requests            | [Open an Issue](https://github.com/datahub-project/datahub/issues)           |
 | **Stack Overflow**     | Technical Q&A (tag: `datahub`)           | [Ask a Question](https://stackoverflow.com/questions/tagged/datahub)         |

@@ -131,7 +131,7 @@ Enable one or both. Sub-pools (`capacity.default.enabled`, `capacity.graphql.ena
 
 Endpoint limits always use Bucket4j with shared Hazelcast buckets when `endpoint.enabled=true`. Limits are **cluster totals** — `capacity` and `refill*` apply across all GMS replicas, not per pod.
 
-Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. A `HazelcastInstance` is also created when `searchService.cacheImplementation=hazelcast` (search cache — separate from rate limiting).
+Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. Bucket state is stored in `rateLimits.endpoint.hazelcastMapName` (default `gmsRateLimitEndpointBuckets`). Configure cluster connectivity via `searchService.hazelcast.*` / `SEARCH_SERVICE_HAZELCAST_*` in [Environment Variables — Search](./environment-vars.md#search-service-configuration).
 
 **Planning limits:** Configure `capacity` / `refill*` as cluster-wide caps (e.g. 200 sign-ups/minute total across the fleet).
 

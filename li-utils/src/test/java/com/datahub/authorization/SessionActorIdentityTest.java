@@ -103,4 +103,27 @@ public class SessionActorIdentityTest {
     assertEquals(merged.size(), 3);
     assertTrue(merged.containsAll(List.of(sharedGroup, corpOnly, nativeOnly)));
   }
+
+  @Test
+  public void constructor_retainsCorpAndNativeGroupsSeparately() {
+    Urn corpGroup = UrnUtils.getUrn("urn:li:corpGroup:corp");
+    Urn nativeGroup = UrnUtils.getUrn("urn:li:corpGroup:native");
+
+    SessionActorIdentity identity =
+        new SessionActorIdentity(ACTOR_URN, List.of(corpGroup), List.of(nativeGroup), Set.of());
+
+    assertEquals(identity.getCorpGroups(), List.of(corpGroup));
+    assertEquals(identity.getNativeGroups(), List.of(nativeGroup));
+    assertEquals(identity.getGroups(), List.of(corpGroup, nativeGroup));
+  }
+
+  @Test
+  public void legacyConstructor_treatsAllGroupsAsCorp() {
+    SessionActorIdentity identity =
+        new SessionActorIdentity(ACTOR_URN, List.of(GROUP_URN), Set.of(DIRECT_ROLE));
+
+    assertEquals(identity.getCorpGroups(), List.of(GROUP_URN));
+    assertTrue(identity.getNativeGroups().isEmpty());
+    assertEquals(identity.getGroups(), List.of(GROUP_URN));
+  }
 }
