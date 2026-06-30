@@ -439,6 +439,39 @@ class TestListFilesInFolder:
         assert len(files) == 2
         assert {f["id"] for f in files} == {"doc1", "doc2"}
 
+    def test_http_error_mid_pagination_returns_partial_results(
+        self, missing_google_stubs: Dict[str, MagicMock]
+    ) -> None:
+        """An HttpError on a later page returns files discovered so far, not a raise."""
+
+        class FakeHttpError(Exception):
+            def __init__(self) -> None:
+                self.resp = type("Resp", (), {"status": 500})()
+
+        missing_google_stubs["googleapiclient.errors"].HttpError = FakeHttpError
+
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.side_effect = [
+            {
+                "files": [
+                    {
+                        "id": "doc1",
+                        "mimeType": MIME_GOOGLE_DOC,
+                        "name": "Doc1",
+                        "trashed": False,
+                    }
+                ],
+                "nextPageToken": "TOKEN",
+            },
+            FakeHttpError(),
+        ]
+        source = _make_source(mock_drive=mock_drive)
+
+        files = source._list_files_in_folder("folder-id", recursive=False)
+
+        assert [f["id"] for f in files] == ["doc1"]
+        assert len(source.report.failures) >= 1
+
 
 # ===========================================================================
 # GoogleDriveSource._collect_folder_ancestors — mimeType must be present
@@ -511,6 +544,34 @@ class TestCollectFolderAncestors:
         }
         ancestors = source._collect_folder_ancestors(file_metadata)
         assert ancestors == []
+
+
+# ===========================================================================
+# GoogleDriveSource._get_folder_metadata — inaccessible ancestor must be
+# reported, not silently swallowed
+# ===========================================================================
+
+
+class TestGetFolderMetadata:
+    def test_http_error_returns_none_and_reports_warning(
+        self, missing_google_stubs: Dict[str, MagicMock]
+    ) -> None:
+        """An HttpError fetching folder metadata returns None and records a warning."""
+
+        class FakeHttpError(Exception):
+            def __init__(self) -> None:
+                self.resp = type("Resp", (), {"status": 403})()
+
+        missing_google_stubs["googleapiclient.errors"].HttpError = FakeHttpError
+
+        mock_drive = MagicMock()
+        mock_drive.files().get().execute.side_effect = FakeHttpError()
+        source = _make_source(mock_drive=mock_drive)
+
+        result = source._get_folder_metadata("inaccessible-folder")
+
+        assert result is None
+        assert len(source.report.warnings) >= 1
 
 
 # ===========================================================================
@@ -732,6 +793,32 @@ class TestListAllAccessibleFiles:
         source = _make_source(mock_drive=mock_drive)
         files = source._list_all_accessible_files()
         assert files == []
+
+    def test_http_error_mid_pagination_returns_partial_results(
+        self, missing_google_stubs: Dict[str, MagicMock]
+    ) -> None:
+        """An HttpError on a later page returns files discovered so far, not a raise."""
+
+        class FakeHttpError(Exception):
+            def __init__(self) -> None:
+                self.resp = type("Resp", (), {"status": 429})()
+
+        missing_google_stubs["googleapiclient.errors"].HttpError = FakeHttpError
+
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.side_effect = [
+            {
+                "files": [{"id": "doc1", "mimeType": MIME_GOOGLE_DOC, "name": "Doc1"}],
+                "nextPageToken": "PAGE2",
+            },
+            FakeHttpError(),
+        ]
+        source = _make_source(mock_drive=mock_drive)
+
+        files = source._list_all_accessible_files()
+
+        assert [f["id"] for f in files] == ["doc1"]
+        assert len(source.report.failures) >= 1
 
 
 # ===========================================================================
