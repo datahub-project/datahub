@@ -566,3 +566,758 @@ class TestGetInstanceId:
         src1 = _make_source(cfg)
         src2 = _make_source(cfg)
         assert src1._get_instance_id() == src2._get_instance_id()
+
+
+# ===========================================================================
+# GoogleDriveSource._get_credentials — authentication paths
+# ===========================================================================
+
+
+class TestGetCredentials:
+    def test_service_account_key_file_path(self) -> None:
+        """When service_account_key_file is set, from_service_account_file is called."""
+        src = _make_source({"credentials": {"service_account_key_file": "/key.json"}})
+
+        mock_creds = MagicMock()
+        # The source does: from google.oauth2 import service_account
+        # The stub module for google.oauth2 is a MagicMock, so we set service_account
+        # as an attribute on it with the right Credentials behaviour.
+        mock_sa = MagicMock()
+        mock_sa.Credentials.from_service_account_file.return_value = mock_creds
+        sys.modules["google.oauth2"].service_account = mock_sa  # type: ignore[attr-defined]
+
+        result = src._get_credentials()
+
+        mock_sa.Credentials.from_service_account_file.assert_called_once_with(
+            "/key.json", scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        assert result is mock_creds
+
+    def test_service_account_key_json(self) -> None:
+        """When service_account_key_json is set, from_service_account_info is called."""
+        import json
+
+        key_data = {"type": "service_account", "project_id": "my-project"}
+        key_json_str = json.dumps(key_data)
+
+        src = _make_source({"credentials": {"service_account_key_json": key_json_str}})
+
+        mock_creds = MagicMock()
+        mock_sa = MagicMock()
+        mock_sa.Credentials.from_service_account_info.return_value = mock_creds
+        sys.modules["google.oauth2"].service_account = mock_sa  # type: ignore[attr-defined]
+
+        result = src._get_credentials()
+
+        mock_sa.Credentials.from_service_account_info.assert_called_once_with(
+            key_data, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        assert result is mock_creds
+
+    def test_adc_fallback(self) -> None:
+        """When no service account is configured, google.auth.default is called."""
+        src = _make_source()  # no credentials configured
+
+        mock_adc_creds = MagicMock()
+        mock_google_auth = MagicMock()
+        mock_google_auth.default.return_value = (mock_adc_creds, None)
+
+        # The source does `import google.auth` inside the method. We intercept that
+        # import by temporarily replacing the google.auth entry in sys.modules so
+        # the `import google.auth` statement resolves to our mock, and we also patch
+        # the `google` namespace so `google.auth` attribute access works.
+        import types
+
+        fake_google = types.ModuleType("google")
+        fake_google.auth = mock_google_auth  # type: ignore[attr-defined]
+
+        with patch.dict(
+            sys.modules,
+            {"google": fake_google, "google.auth": mock_google_auth},
+        ):
+            result = src._get_credentials()
+
+        mock_google_auth.default.assert_called_with(
+            scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        assert result is mock_adc_creds
+
+
+# ===========================================================================
+# GoogleDriveSource._build_drive_service
+# ===========================================================================
+
+
+class TestBuildDriveService:
+    def test_build_drive_service_calls_build(self) -> None:
+        """_build_drive_service calls googleapiclient.discovery.build with drive v3."""
+        # We need a source with _build_drive_service NOT pre-mocked so we can test it
+
+        mock_chunking = MagicMock()
+        mock_chunking.report.num_documents_limit_reached = False
+
+        mock_build = MagicMock()
+        mock_service = MagicMock()
+        mock_build.return_value = mock_service
+
+        mock_discovery = MagicMock()
+        mock_discovery.build = mock_build
+
+        mock_creds = MagicMock()
+
+        cfg = GoogleDriveSource.__new__(GoogleDriveSource)
+        cfg.config = GoogleDriveSourceConfig.model_validate({})
+
+        with patch.dict(sys.modules, {"googleapiclient.discovery": mock_discovery}):
+            with patch.object(
+                GoogleDriveSource, "_get_credentials", return_value=mock_creds
+            ):
+                # Call the method directly on a partially-constructed instance
+                result = GoogleDriveSource._build_drive_service(cfg)
+
+        mock_build.assert_called_once_with(
+            "drive", "v3", credentials=mock_creds, cache_discovery=False
+        )
+        assert result is mock_service
+
+
+# ===========================================================================
+# GoogleDriveSource._list_all_accessible_files — pagination
+# ===========================================================================
+
+
+class TestListAllAccessibleFiles:
+    def test_returns_all_accessible_files_with_pagination(self) -> None:
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.side_effect = [
+            {
+                "files": [{"id": "doc1", "mimeType": MIME_GOOGLE_DOC, "name": "Doc1"}],
+                "nextPageToken": "PAGE2",
+            },
+            {
+                "files": [{"id": "doc2", "mimeType": MIME_GOOGLE_DOC, "name": "Doc2"}],
+                "nextPageToken": None,
+            },
+        ]
+        src = _make_source(mock_drive=mock_drive)
+        files = src._list_all_accessible_files()
+        assert len(files) == 2
+        assert {f["id"] for f in files} == {"doc1", "doc2"}
+        assert src.report.files_discovered == 2
+
+    def test_empty_drive_returns_empty_list(self) -> None:
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.return_value = {
+            "files": [],
+            "nextPageToken": None,
+        }
+        src = _make_source(mock_drive=mock_drive)
+        files = src._list_all_accessible_files()
+        assert files == []
+
+
+# ===========================================================================
+# Content export: _export_doc_as_markdown, _export_doc_as_html,
+# _export_as_plain_text, _extract_text
+# ===========================================================================
+
+
+class TestContentExport:
+    def _make_downloader_mock(self, content: bytes) -> MagicMock:
+        """Return a mock MediaIoBaseDownload that fills BytesIO with *content*."""
+        mock_downloader_cls = MagicMock()
+
+        def fake_downloader_init(fh: Any, request: Any) -> MagicMock:
+            fh.write(content)
+            fh.seek(0)
+            inst = MagicMock()
+            inst.next_chunk.return_value = (None, True)
+            return inst
+
+        mock_downloader_cls.side_effect = fake_downloader_init
+        return mock_downloader_cls
+
+    def test_export_doc_as_markdown_success(self) -> None:
+        """_export_doc_as_markdown returns markdown string on success."""
+        markdown_bytes = b"# Hello\n\nThis is markdown."
+        mock_drive = MagicMock()
+        mock_drive.files().export_media.return_value = MagicMock()
+
+        mock_http = MagicMock()
+        mock_http.MediaIoBaseDownload = self._make_downloader_mock(markdown_bytes)
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
+            # Also need to patch errors to avoid import issues
+            mock_errors = MagicMock()
+            mock_errors.HttpError = type("HttpError", (Exception,), {"resp": None})
+            with patch.dict(sys.modules, {"googleapiclient.errors": mock_errors}):
+                result = src._export_doc_as_markdown("file-id-1")
+
+        assert result == "# Hello\n\nThis is markdown."
+
+    def test_export_doc_as_markdown_http_error_returns_none(self) -> None:
+        """_export_doc_as_markdown returns None on HttpError 403."""
+        mock_drive = MagicMock()
+
+        class FakeResp:
+            status = 403
+
+        class FakeHttpError(Exception):
+            resp = FakeResp()
+
+        mock_http = MagicMock()
+        mock_errors = MagicMock()
+        mock_errors.HttpError = FakeHttpError
+        mock_http.MediaIoBaseDownload.side_effect = FakeHttpError("forbidden")
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(
+            sys.modules,
+            {"googleapiclient.http": mock_http, "googleapiclient.errors": mock_errors},
+        ):
+            result = src._export_doc_as_markdown("file-id-1")
+
+        assert result is None
+
+    def test_export_doc_as_html_success(self) -> None:
+        """_export_doc_as_html returns HTML string on success."""
+        html_bytes = b"<html><body><p>Hello</p></body></html>"
+        mock_drive = MagicMock()
+        mock_drive.files().export_media.return_value = MagicMock()
+
+        mock_http = MagicMock()
+        mock_http.MediaIoBaseDownload = self._make_downloader_mock(html_bytes)
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
+            result = src._export_doc_as_html("file-id-2")
+
+        assert result == "<html><body><p>Hello</p></body></html>"
+
+    def test_export_doc_as_html_exception_returns_none(self) -> None:
+        """_export_doc_as_html returns None when an exception occurs."""
+        mock_drive = MagicMock()
+        mock_http = MagicMock()
+        mock_http.MediaIoBaseDownload.side_effect = Exception("connection error")
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
+            result = src._export_doc_as_html("file-id-2")
+
+        assert result is None
+
+    def test_export_as_plain_text_success(self) -> None:
+        """_export_as_plain_text returns plain text on success."""
+        text_bytes = b"Slide 1\nSlide 2"
+        mock_drive = MagicMock()
+        mock_drive.files().export_media.return_value = MagicMock()
+
+        mock_http = MagicMock()
+        mock_http.MediaIoBaseDownload = self._make_downloader_mock(text_bytes)
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
+            result = src._export_as_plain_text("file-id-3")
+
+        assert result == "Slide 1\nSlide 2"
+
+    def test_export_as_plain_text_exception_returns_none(self) -> None:
+        """_export_as_plain_text returns None on failure."""
+        mock_drive = MagicMock()
+        mock_http = MagicMock()
+        mock_http.MediaIoBaseDownload.side_effect = Exception("timeout")
+
+        src = _make_source(mock_drive=mock_drive)
+        with patch.dict(sys.modules, {"googleapiclient.http": mock_http}):
+            result = src._export_as_plain_text("file-id-3")
+
+        assert result is None
+
+    def test_extract_text_doc_returns_markdown(self) -> None:
+        """_extract_text for a Doc returns markdown when available."""
+        src = _make_source()
+        with patch.object(src, "_export_doc_as_markdown", return_value="# Doc content"):
+            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+        assert result == "# Doc content"
+
+    def test_extract_text_doc_falls_back_to_html(self) -> None:
+        """_extract_text falls back to HTML→markdown when markdown export fails."""
+        src = _make_source()
+        # Create a real html2text-like converter
+        mock_converter = MagicMock()
+        mock_converter.handle.return_value = "Converted markdown"
+        src._html_converter = mock_converter
+
+        with (
+            patch.object(src, "_export_doc_as_markdown", return_value=None),
+            patch.object(src, "_export_doc_as_html", return_value="<p>Hello</p>"),
+        ):
+            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+
+        assert result == "Converted markdown"
+        mock_converter.handle.assert_called_once_with("<p>Hello</p>")
+
+    def test_extract_text_doc_falls_back_to_plain_text(self) -> None:
+        """_extract_text falls back to plain text when both markdown and html fail."""
+        src = _make_source()
+        src._html_converter = None  # No HTML converter
+
+        with (
+            patch.object(src, "_export_doc_as_markdown", return_value=None),
+            patch.object(src, "_export_as_plain_text", return_value="plain text"),
+        ):
+            result = src._extract_text({"id": "doc1", "mimeType": MIME_GOOGLE_DOC})
+
+        assert result == "plain text"
+
+    def test_extract_text_slides_uses_plain_text(self) -> None:
+        """_extract_text for Slides uses _export_as_plain_text."""
+        src = _make_source({"include_slides": True})
+        with patch.object(src, "_export_as_plain_text", return_value="Slide content"):
+            result = src._extract_text({"id": "slide1", "mimeType": MIME_GOOGLE_SLIDES})
+        assert result == "Slide content"
+
+    def test_extract_text_sheets_uses_plain_text(self) -> None:
+        """_extract_text for Sheets uses _export_as_plain_text."""
+        src = _make_source({"include_sheets": True})
+        with patch.object(
+            src, "_export_as_plain_text", return_value="col1,col2\nval1,val2"
+        ):
+            result = src._extract_text({"id": "sheet1", "mimeType": MIME_GOOGLE_SHEETS})
+        assert result == "col1,col2\nval1,val2"
+
+    def test_extract_text_unknown_mime_returns_none(self) -> None:
+        """_extract_text for an unknown MIME type returns None."""
+        src = _make_source()
+        result = src._extract_text({"id": "other1", "mimeType": "application/pdf"})
+        assert result is None
+
+
+# ===========================================================================
+# GoogleDriveSource._build_document — NATIVE vs EXTERNAL modes
+# ===========================================================================
+
+
+class TestBuildDocument:
+    def test_build_document_external_mode(self) -> None:
+        """_build_document in EXTERNAL mode creates an external document."""
+        from datahub.ingestion.source.documents.document_import_mode import (
+            DocumentImportMode,
+        )
+
+        src = _make_source({"document_import_mode": "EXTERNAL"})
+        assert src.config.document_import_mode == DocumentImportMode.EXTERNAL
+
+        doc = src._build_document(
+            doc_id="test-doc-id",
+            title="Test Doc",
+            text="Some content",
+            external_url="https://docs.google.com/doc/id/view",
+            file_id="drive-file-id",
+            custom_properties={"key": "value"},
+            parent_urn=None,
+            created_time=None,
+            last_modified_time=None,
+        )
+        assert doc is not None
+
+    def test_build_document_native_mode(self) -> None:
+        """_build_document in NATIVE mode creates a native document."""
+        from datahub.ingestion.source.documents.document_import_mode import (
+            DocumentImportMode,
+        )
+
+        src = _make_source({"document_import_mode": "NATIVE"})
+        assert src.config.document_import_mode == DocumentImportMode.NATIVE
+
+        doc = src._build_document(
+            doc_id="test-doc-id-native",
+            title="Native Doc",
+            text="Some native content",
+            external_url="https://docs.google.com/doc/id/view",
+            file_id="drive-file-id",
+            custom_properties={},
+            parent_urn=None,
+            created_time=None,
+            last_modified_time=None,
+        )
+        assert doc is not None
+
+    def test_build_folder_document_external_mode(self) -> None:
+        """_build_folder_document in EXTERNAL mode creates an external folder doc."""
+        from datahub.ingestion.source.documents.document_import_mode import (
+            DocumentImportMode,
+        )
+
+        src = _make_source({"document_import_mode": "EXTERNAL"})
+        assert src.config.document_import_mode == DocumentImportMode.EXTERNAL
+
+        folder_meta = {
+            "id": "folder123",
+            "name": "My Folder",
+            "webViewLink": "https://drive.google.com/drive/folders/folder123",
+        }
+        doc = src._build_folder_document(
+            folder_metadata=folder_meta,
+            parent_urn=None,
+        )
+        assert doc is not None
+
+    def test_build_folder_document_native_mode(self) -> None:
+        """_build_folder_document in NATIVE mode creates a native folder doc."""
+
+        src = _make_source({"document_import_mode": "NATIVE"})
+        folder_meta = {
+            "id": "folder456",
+            "name": "Native Folder",
+        }
+        doc = src._build_folder_document(
+            folder_metadata=folder_meta,
+            parent_urn=None,
+        )
+        assert doc is not None
+
+
+# ===========================================================================
+# GoogleDriveSource._emit_platform_metadata
+# ===========================================================================
+
+
+class TestEmitPlatformMetadata:
+    def test_emits_platform_workunit(self) -> None:
+        """_emit_platform_metadata yields at least one MetadataWorkUnit."""
+        from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+        src = _make_source()
+        workunits = list(src._emit_platform_metadata())
+        assert len(workunits) == 1
+        assert isinstance(workunits[0], MetadataWorkUnit)
+
+
+# ===========================================================================
+# GoogleDriveSource._ingest_folder_chain
+# ===========================================================================
+
+
+class TestIngestFolderChain:
+    def test_ingest_folders_disabled_returns_none_and_empty(self) -> None:
+        """When ingest_folders=False, returns (None, [])."""
+        src = _make_source({"ingest_folders": False})
+        parent_urn, workunits = src._ingest_folder_chain(
+            {"id": "file1", "parents": ["folder1"]}, set()
+        )
+        assert parent_urn is None
+        assert workunits == []
+
+    def test_ingest_folders_no_ancestors_returns_none(self) -> None:
+        """When ingest_folders=True but no ancestors found, returns (None, [])."""
+        src = _make_source({"ingest_folders": True})
+        with patch.object(src, "_collect_folder_ancestors", return_value=[]):
+            parent_urn, workunits = src._ingest_folder_chain(
+                {"id": "file1", "parents": []}, set()
+            )
+        assert parent_urn is None
+        assert workunits == []
+
+    def test_ingest_folder_chain_emits_folder_workunits(self) -> None:
+        """When ancestors exist, workunits are emitted and parent_urn is set correctly."""
+        src = _make_source({"ingest_folders": True})
+
+        folder_meta = {
+            "id": "folder1",
+            "name": "Parent Folder",
+            "mimeType": MIME_GOOGLE_FOLDER,
+            "webViewLink": "https://drive.google.com/drive/folders/folder1",
+        }
+
+        mock_doc = MagicMock()
+        mock_wu = MagicMock()
+        mock_doc.as_workunits.return_value = [mock_wu]
+
+        with (
+            patch.object(src, "_collect_folder_ancestors", return_value=[folder_meta]),
+            patch.object(src, "_build_folder_document", return_value=mock_doc),
+            patch.object(src, "_add_platform_instance"),
+        ):
+            parent_urn, workunits = src._ingest_folder_chain(
+                {"id": "file1", "parents": ["folder1"]}, set()
+            )
+
+        assert parent_urn is not None
+        assert "folder1" in parent_urn
+        assert len(workunits) == 1
+        assert workunits[0] is mock_wu
+        assert src.report.folders_ingested == 1
+
+    def test_ingest_folder_chain_skips_already_emitted_folders(self) -> None:
+        """Folders already in already_emitted_folders are not re-emitted."""
+        src = _make_source({"ingest_folders": True})
+
+        folder_meta = {
+            "id": "folder1",
+            "name": "Parent Folder",
+            "mimeType": MIME_GOOGLE_FOLDER,
+        }
+
+        already_emitted: set = {"folder1"}
+
+        with (
+            patch.object(src, "_collect_folder_ancestors", return_value=[folder_meta]),
+            patch.object(src, "_build_folder_document") as mock_build,
+        ):
+            parent_urn, workunits = src._ingest_folder_chain(
+                {"id": "file1", "parents": ["folder1"]}, already_emitted
+            )
+
+        # _build_folder_document should not be called since folder already emitted
+        mock_build.assert_not_called()
+        assert workunits == []
+
+
+# ===========================================================================
+# GoogleDriveSource.get_workunits_internal — folder_ids path + max_documents
+# ===========================================================================
+
+
+class TestGetWorkunitsInternal:
+    def test_folder_ids_path_calls_list_files_in_folder(self) -> None:
+        """When folder_ids is set, _list_files_in_folder is called for each folder."""
+        src = _make_source({"folder_ids": ["folder-abc", "folder-xyz"]})
+
+        ingested_ids: List[str] = []
+
+        def fake_list_folder(folder_id: str, recursive: bool) -> List[Dict[str, Any]]:
+            return [{"id": f"file-from-{folder_id}", "mimeType": MIME_GOOGLE_DOC}]
+
+        def fake_ingest(
+            file_metadata: Dict[str, Any], already_emitted_folders: Any
+        ) -> Any:
+            ingested_ids.append(file_metadata["id"])
+            return iter([])
+
+        with (
+            patch.object(src, "_list_files_in_folder", side_effect=fake_list_folder),
+            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+        ):
+            list(src.get_workunits_internal())
+
+        assert "file-from-folder-abc" in ingested_ids
+        assert "file-from-folder-xyz" in ingested_ids
+
+    def test_max_documents_limits_files_processed(self) -> None:
+        """max_documents caps the number of files passed to _ingest_file."""
+        src = _make_source({"max_documents": 2})
+
+        files = [{"id": f"file{i}", "mimeType": MIME_GOOGLE_DOC} for i in range(5)]
+
+        ingested_ids: List[str] = []
+
+        def fake_ingest(
+            file_metadata: Dict[str, Any], already_emitted_folders: Any
+        ) -> Any:
+            ingested_ids.append(file_metadata["id"])
+            return iter([])
+
+        with (
+            patch.object(src, "_list_all_accessible_files", return_value=files),
+            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+        ):
+            list(src.get_workunits_internal())
+
+        assert len(ingested_ids) == 2
+
+    def test_document_limit_reached_stops_ingestion(self) -> None:
+        """When chunking_source.report.num_documents_limit_reached, ingestion stops."""
+        src = _make_source()
+
+        files = [{"id": f"file{i}", "mimeType": MIME_GOOGLE_DOC} for i in range(5)]
+        ingested_ids: List[str] = []
+
+        call_count = 0
+
+        def fake_ingest(
+            file_metadata: Dict[str, Any], already_emitted_folders: Any
+        ) -> Any:
+            nonlocal call_count
+            ingested_ids.append(file_metadata["id"])
+            call_count += 1
+            if call_count >= 2:
+                src.chunking_source.report.num_documents_limit_reached = True
+            return iter([])
+
+        with (
+            patch.object(src, "_list_all_accessible_files", return_value=files),
+            patch.object(src, "_emit_platform_metadata", return_value=iter([])),
+            patch.object(src, "_ingest_file", side_effect=fake_ingest),
+        ):
+            list(src.get_workunits_internal())
+
+        # Should stop after 2 files (limit triggered after second file)
+        assert len(ingested_ids) <= 3  # at most 3, limit check before next iteration
+
+
+# ===========================================================================
+# GoogleDriveSource.get_report and close
+# ===========================================================================
+
+
+class TestGetReportAndClose:
+    def test_get_report_returns_report(self) -> None:
+        src = _make_source()
+        report = src.get_report()
+        assert report is src.report
+
+    def test_close_does_not_raise(self) -> None:
+        src = _make_source()
+        with patch.object(
+            type(src).__mro__[1], "close", return_value=None, create=True
+        ):
+            # close calls super().close(); just verify it doesn't error
+            try:
+                src.close()
+            except Exception as e:
+                pytest.fail(f"close() raised an exception: {e}")
+
+
+# ===========================================================================
+# GoogleDriveSource.test_connection
+# ===========================================================================
+
+
+class TestTestConnection:
+    def test_test_connection_success(self) -> None:
+        """test_connection reports basic_connectivity=True on success."""
+        import datahub.ingestion.source.unstructured.chunking_config as cc
+        import datahub.ingestion.source.unstructured.chunking_source as cs
+
+        mock_chunking = MagicMock()
+        mock_chunking.report.num_documents_limit_reached = False
+
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.return_value = {"files": [{"id": "f1"}]}
+
+        config_dict: Dict[str, Any] = {}
+
+        with (
+            patch.object(
+                GoogleDriveSource, "_build_drive_service", return_value=mock_drive
+            ),
+            patch.object(cc, "DocumentChunkingSourceConfig", return_value=MagicMock()),
+            patch.object(cs, "DocumentChunkingSource", return_value=mock_chunking),
+        ):
+            report = GoogleDriveSource.test_connection(config_dict)
+
+        assert report.basic_connectivity is not None
+        assert report.basic_connectivity.capable is True
+
+    def test_test_connection_failure(self) -> None:
+        """test_connection reports basic_connectivity=False on API error."""
+        import datahub.ingestion.source.unstructured.chunking_config as cc
+        import datahub.ingestion.source.unstructured.chunking_source as cs
+
+        mock_chunking = MagicMock()
+        mock_chunking.report.num_documents_limit_reached = False
+
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.side_effect = Exception(
+            "authentication failed"
+        )
+
+        config_dict: Dict[str, Any] = {}
+
+        with (
+            patch.object(
+                GoogleDriveSource, "_build_drive_service", return_value=mock_drive
+            ),
+            patch.object(cc, "DocumentChunkingSourceConfig", return_value=MagicMock()),
+            patch.object(cs, "DocumentChunkingSource", return_value=mock_chunking),
+        ):
+            report = GoogleDriveSource.test_connection(config_dict)
+
+        assert report.basic_connectivity is not None
+        assert report.basic_connectivity.capable is False
+        assert report.basic_connectivity.failure_reason is not None
+        assert "authentication failed" in report.basic_connectivity.failure_reason
+
+
+# ===========================================================================
+# GoogleDriveSource._add_platform_instance
+# ===========================================================================
+
+
+class TestAddPlatformInstance:
+    def test_add_platform_instance_sets_aspect(self) -> None:
+        """_add_platform_instance calls _set_aspect on the document."""
+        src = _make_source({"platform_instance": "test-instance"})
+        mock_doc = MagicMock()
+        src._add_platform_instance(mock_doc)
+        mock_doc._set_aspect.assert_called_once()
+
+
+# ===========================================================================
+# GoogleDriveSource._ingest_file — chunking/embedding and continue_on_failure
+# ===========================================================================
+
+
+class TestIngestFileChunking:
+    def test_chunking_error_does_not_fail_document(self) -> None:
+        """If process_elements_inline raises a non-limit Exception, the doc is still processed."""
+        src = _make_source({"filtering": {"min_text_length": 1}})
+        long_text = "x" * 100
+        src.chunking_source.process_elements_inline.side_effect = Exception(  # type: ignore[attr-defined]
+            "embedding error"
+        )
+
+        with (
+            patch.object(src, "_extract_text", return_value=long_text),
+            patch.object(src, "_ingest_folder_chain", return_value=(None, [])),
+            patch.object(src, "_build_document") as mock_build,
+            patch.object(src, "_add_platform_instance"),
+        ):
+            mock_doc = MagicMock()
+            mock_doc.as_workunits.return_value = []
+            mock_build.return_value = mock_doc
+            list(
+                src._ingest_file(
+                    {
+                        "id": "f-chunk",
+                        "name": "Chunky",
+                        "mimeType": MIME_GOOGLE_DOC,
+                        "modifiedTime": "2024-01-01T00:00:00Z",
+                    },
+                    set(),
+                )
+            )
+
+        # Document should still be processed (embeddings just skipped)
+        assert src.report.docs_processed == 1
+
+    def test_continue_on_failure_false_re_raises(self) -> None:
+        """When continue_on_failure=False, exceptions in _ingest_file are re-raised."""
+        src = _make_source({"advanced": {"continue_on_failure": False}})
+
+        with patch.object(src, "_extract_text", side_effect=RuntimeError("boom")):
+            with pytest.raises(RuntimeError, match="boom"):
+                list(
+                    src._ingest_file(
+                        {"id": "f-err", "name": "Error", "mimeType": MIME_GOOGLE_DOC},
+                        set(),
+                    )
+                )
+
+    def test_continue_on_failure_true_records_failure(self) -> None:
+        """When continue_on_failure=True, exceptions are swallowed and failure is recorded."""
+        src = _make_source({"advanced": {"continue_on_failure": True}})
+
+        with patch.object(src, "_extract_text", side_effect=ValueError("bad value")):
+            list(
+                src._ingest_file(
+                    {"id": "f-cont", "name": "Continue", "mimeType": MIME_GOOGLE_DOC},
+                    set(),
+                )
+            )
+
+        assert src.report.docs_failed == 1
