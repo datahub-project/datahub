@@ -970,7 +970,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
-            description="",
+            description=dashboard_data.get("description") or "",
             title=title,
             charts=chart_urns,
             dashboardUrl=dashboard_url,
@@ -1641,7 +1641,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description="",
+            description=chart_data.get("description") or "",
             title=title,
             chartUrl=chart_url,
             inputs=[datasource_urn] if datasource_urn else None,
