@@ -65,7 +65,9 @@ def test_dagster_ingest(
     test_resources_dir: Path, tmp_path: Path, pytestconfig: Any
 ) -> None:
     source = DagsterSource(
-        config=DagsterSourceConfig.parse_obj({"host": "http://localhost:3000"}),
+        config=DagsterSourceConfig.parse_obj(
+            {"host": "http://localhost:3000", "extraction_mode": "full"}
+        ),
         ctx=PipelineContext(run_id="dagster-test"),
     )
     mce_objects = _run(source, _recorded_execute(test_resources_dir))
@@ -88,7 +90,11 @@ def test_dagster_ingest_with_jobs(
 ) -> None:
     source = DagsterSource(
         config=DagsterSourceConfig.parse_obj(
-            {"host": "http://localhost:3000", "include_jobs": True}
+            {
+                "host": "http://localhost:3000",
+                "extraction_mode": "full",
+                "include_jobs": True,
+            }
         ),
         ctx=PipelineContext(run_id="dagster-test"),
     )

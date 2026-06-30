@@ -3,6 +3,7 @@ from typing import Optional
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -81,6 +82,21 @@ class DagsterSourceConfig(
             "Number of assets to fetch per GraphQL request when paginating a "
             "repository's assets. Lower this if the Dagster webserver times out on "
             "large repositories."
+        ),
+    )
+
+    extraction_mode: Literal["enrich", "full"] = Field(
+        default="enrich",
+        description=(
+            "How the source writes to DataHub:\n"
+            "- `enrich` (default): only enrich assets that already exist in DataHub "
+            "(typically created by the Dagster plugin), using non-destructive PATCH "
+            "for descriptions, tags, ownership, and lineage. Assets not present are "
+            "skipped, and no entity-defining aspects are written. Requires a DataHub "
+            "connection (a sink or `datahub_api`).\n"
+            "- `full`: create/own the assets as standalone Datasets (table schema, "
+            "subtypes, etc.). Use for initial load or when running the connector "
+            "without the Dagster plugin."
         ),
     )
 
@@ -179,6 +195,8 @@ class DagsterSourceReport(StaleEntityRemovalSourceReport):
     repositories_scanned: int = 0
     jobs_scanned: int = 0
     assets_scanned: int = 0
+    assets_enriched: int = 0
+    assets_skipped_absent: int = 0
     repositories_filtered: int = 0
     jobs_filtered: int = 0
     assets_filtered: int = 0

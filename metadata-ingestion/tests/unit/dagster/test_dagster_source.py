@@ -107,9 +107,14 @@ def _build_repository() -> DagsterRepository:
 def _make_source(
     repos: Optional[List[DagsterRepository]] = None, **overrides: Any
 ) -> DagsterSource:
-    config = DagsterSourceConfig.parse_obj(
-        {"host": "http://localhost:3000", **overrides}
-    )
+    # These tests exercise full-creation behavior, so default to extraction_mode
+    # "full" unless a test overrides it. (The connector's own default is "enrich".)
+    config_dict: Dict[str, Any] = {
+        "host": "http://localhost:3000",
+        "extraction_mode": "full",
+    }
+    config_dict.update(overrides)
+    config = DagsterSourceConfig.parse_obj(config_dict)
     source = DagsterSource(config, PipelineContext(run_id="dagster-test"))
     client = MagicMock()
     client.get_repositories.return_value = (
@@ -436,3 +441,71 @@ def test_source_test_connection_success_and_failure() -> None:
         bad = DagsterSource.test_connection(config_dict)
     assert bad.basic_connectivity is not None
     assert bad.basic_connectivity.capable is False
+
+
+# --- enrich mode (default): PATCH existing assets only ---
+
+
+def _enrich_mcps(source: DagsterSource) -> List[Any]:
+    with change_default_attribution(KnownAttribution.INGESTION):
+        return [wu.metadata for wu in source.get_workunits_internal()]
+
+
+def _enrich_source(table_exists: bool, **overrides: Any) -> DagsterSource:
+    source = _make_source(extraction_mode="enrich", **overrides)
+    graph = MagicMock()
+    graph.exists.return_value = table_exists
+    source.ctx.graph = graph
+    return source
+
+
+def test_default_mode_is_enrich() -> None:
+    config = DagsterSourceConfig.parse_obj({"host": "http://localhost:3000"})
+    assert config.extraction_mode == "enrich"
+
+
+def test_enrich_patches_existing_asset() -> None:
+    source = _enrich_source(table_exists=True)
+    mcps = _enrich_mcps(source)
+    events_urn = source._asset_dataset_urn(["my_db", "my_schema", "events"])
+
+    by_urn: Dict[str, set] = {}
+    for mcp in mcps:
+        assert mcp.changeType == "PATCH"  # never an upsert in enrich mode
+        by_urn.setdefault(mcp.entityUrn, set()).add(mcp.aspectName)
+
+    assert source.report.assets_enriched == 2
+    aspects = by_urn[events_urn]
+    assert {
+        "datasetProperties",
+        "globalTags",
+        "ownership",
+        "upstreamLineage",
+    } <= aspects
+    # no entity-defining aspects in enrich mode
+    assert "subTypes" not in aspects
+    assert "dataPlatformInstance" not in aspects
+
+
+def test_enrich_skips_absent_asset() -> None:
+    source = _enrich_source(table_exists=False)
+    mcps = _enrich_mcps(source)
+    assert mcps == []
+    assert source.report.assets_skipped_absent == 2
+    assert source.report.assets_enriched == 0
+
+
+def test_enrich_requires_graph() -> None:
+    source = _make_source(extraction_mode="enrich")
+    source.ctx.graph = None
+    mcps = _enrich_mcps(source)
+    assert mcps == []
+    assert source.report.failures
+
+
+def test_enrich_does_not_emit_jobs() -> None:
+    source = _enrich_source(table_exists=True, include_jobs=True)
+    mcps = _enrich_mcps(source)
+    assert not any(
+        "dataFlow" in mcp.entityUrn or "dataJob" in mcp.entityUrn for mcp in mcps
+    )

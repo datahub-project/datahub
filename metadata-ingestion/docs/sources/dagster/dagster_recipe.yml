@@ -4,6 +4,13 @@ source:
     # Dagster OSS webserver. For Dagster+, use https://<org>.dagster.cloud
     host: "http://localhost:3000"
 
+    # How to write to DataHub:
+    #   enrich (default) — only top up assets that already exist (e.g. created by
+    #     the Dagster plugin) with PATCH metadata; requires the sink below.
+    #   full — create/own the assets as standalone Datasets (initial load, or
+    #     when running without the Dagster plugin).
+    extraction_mode: enrich
+
     # Dagster+ (Cloud) settings — omit for OSS.
     # is_cloud: true
     # deployment: prod

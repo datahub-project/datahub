@@ -62,6 +62,7 @@ from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.specific.dataset import DatasetPatchBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,8 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = DagsterSourceReport()
         self.client = DagsterGraphQLClient(config)
+        # Caches existence checks in enrich mode (fail-open on error).
+        self._exists_cache: Dict[str, bool] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DagsterSource":
@@ -254,6 +257,14 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
         # Override get_workunits_internal (not get_workunits) so the base class
         # threads emissions through get_workunit_processors() — that is what
         # auto-generates Status / browse paths and applies stale-entity removal.
+        if self.config.extraction_mode == "enrich" and self.ctx.graph is None:
+            self.report.report_failure(
+                message="enrich mode requires a DataHub connection",
+                context="Configure a sink or `datahub_api` so the source can check "
+                "which assets exist, or set `extraction_mode: full`.",
+            )
+            return
+
         try:
             repositories = self.client.get_repositories()
         except Exception as e:
@@ -296,6 +307,11 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                     )
 
+        # Enrich mode only tops up existing assets; jobs/ops are entity creation
+        # and belong to the plugin (or full mode).
+        if self.config.extraction_mode == "enrich":
+            return
+
         # Jobs/ops are implementation artifacts; emit them only when explicitly
         # requested. The asset-to-asset dependency graph is emitted separately
         # (see _emit_asset), so disabling jobs does not lose lineage.
@@ -337,6 +353,10 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
         return allowed
 
     def _emit_asset(self, asset: DagsterAsset) -> Iterable[MetadataWorkUnit]:
+        if self.config.extraction_mode == "enrich":
+            yield from self._enrich_asset(asset)
+            return
+
         custom_properties = dict(asset.metadata.custom_properties)
         if asset.group_name:
             custom_properties["group_name"] = asset.group_name
@@ -371,6 +391,60 @@ class DagsterSource(StatefulIngestionSourceBase, TestableSource):
             upstreams=upstreams,
         )
         yield from dataset.as_workunits()
+
+    def _asset_exists(self, urn: str) -> bool:
+        # Cached, fail-open: on a transient graph error, keep enriching rather
+        # than silently dropping the asset.
+        if urn not in self._exists_cache:
+            assert self.ctx.graph is not None
+            try:
+                self._exists_cache[urn] = self.ctx.graph.exists(urn)
+            except Exception as e:
+                self.report.report_warning(
+                    message="Existence check failed; enriching anyway",
+                    context=urn,
+                    exc=e,
+                )
+                self._exists_cache[urn] = True
+        return self._exists_cache[urn]
+
+    def _enrich_asset(self, asset: DagsterAsset) -> Iterable[MetadataWorkUnit]:
+        # Enrich an already-existing asset (created by the plugin) with PATCH
+        # aspects only — never entity-defining aspects, and never overwriting.
+        urn = self._asset_dataset_urn(asset.key)
+        if not self._asset_exists(urn):
+            self.report.assets_skipped_absent += 1
+            return
+        self.report.assets_enriched += 1
+
+        patch = DatasetPatchBuilder(urn)
+        if self.config.include_metadata and asset.description:
+            patch.set_description(asset.description)
+        ownership = self._ownership_aspect(asset.owners)
+        if ownership and ownership.owners:
+            # set_owners (replace) rather than per-owner add: the compound-key
+            # owner patch isn't supported across GMS versions.
+            patch.set_owners(ownership.owners)
+        tags = self._tags_aspect(
+            asset.tags,
+            group_name=asset.group_name,
+            kinds=asset.kinds,
+            compute_kind=asset.compute_kind,
+        )
+        if tags:
+            for tag in tags.tags:
+                patch.add_tag(tag)
+        upstreams = self._upstream_lineage(asset, urn)
+        if upstreams:
+            for upstream in upstreams.upstreams:
+                patch.add_upstream_lineage(upstream)
+            for fine_grained in upstreams.fineGrainedLineages or []:
+                patch.add_fine_grained_upstream_lineage(fine_grained)
+
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            )
 
     def _upstream_lineage(
         self, asset: DagsterAsset, urn: str
