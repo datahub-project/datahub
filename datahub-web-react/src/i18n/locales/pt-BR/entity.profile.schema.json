@@ -10,6 +10,8 @@
     "changeEventString.addedToApplication": "Adicionado à aplicação \"{{appName}}\".",
     "changeEventString.addedToDomain": "Adicionado ao domain \"{{domainName}}\".",
     "changeEventString.assetDocEmpty": "A documentação do ativo está vazia.",
+    "changeEventString.defaultFieldPath": "Um novo campo",
+    "changeEventString.defaultRelationship": "relacionado",
     "changeEventString.fieldDocEmpty": "A documentação do campo {{fieldPath}} está vazia.",
     "changeEventString.modifiedColumn": "Coluna {{column}} modificada.",
     "changeEventString.removedAsset": "Ativo \"{{assetName}}\" removido.",

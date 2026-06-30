@@ -1,4 +1,3 @@
-import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,18 +8,6 @@ const SectionContainer = styled.div`
     margin-bottom: 24px;
 `;
 
-const SectionHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-`;
-
-const FormSection = styled.div`
-    margin-bottom: 16px;
-`;
-
-// Owners section props
 interface Props {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: (urns: string[]) => void;
@@ -37,21 +24,17 @@ const OwnersSection = ({ selectedOwnerUrns, setSelectedOwnerUrns, entityUrn, isD
     const { t } = useTranslation('governance.domain');
     return (
         <SectionContainer>
-            <SectionHeader>
-                <Text>{t('owners.title')}</Text>
-            </SectionHeader>
-            <FormSection>
-                <ActorsSearchSelect
-                    selectedActorUrns={selectedOwnerUrns}
-                    onUpdate={(selectedActors) => setSelectedOwnerUrns(selectedActors.map((actor) => actor.urn))}
-                    placeholder={t('owners.searchPlaceholder')}
-                    entityUrn={entityUrn}
-                    isDisabled={isDisabled}
-                    isLoading={isLoading}
-                    width="full"
-                    dataTestId="add-owners-select"
-                />
-            </FormSection>
+            <ActorsSearchSelect
+                label={t('owners.title')}
+                selectedActorUrns={selectedOwnerUrns}
+                onUpdate={(selectedActors) => setSelectedOwnerUrns(selectedActors.map((actor) => actor.urn))}
+                placeholder={t('owners.searchPlaceholder')}
+                entityUrn={entityUrn}
+                isDisabled={isDisabled}
+                isLoading={isLoading}
+                width="full"
+                dataTestId="add-owners-select"
+            />
         </SectionContainer>
     );
 };

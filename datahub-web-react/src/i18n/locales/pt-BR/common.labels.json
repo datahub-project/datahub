@@ -22,6 +22,7 @@
     "tags": "Tags",
     "title": "Título",
     "type": "Tipo",
+    "unknown": "Desconhecido",
     "usage": "Uso",
     "users": "Usuários",
     "value": "Valor"
