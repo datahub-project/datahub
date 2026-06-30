@@ -25,6 +25,7 @@ import json
 import logging
 import time
 from datetime import datetime
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
@@ -42,6 +43,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -53,6 +55,11 @@ from datahub.ingestion.source.google_drive.google_drive_config import (
 )
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
+)
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -177,6 +184,17 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self._min_request_interval = 60.0 / self.config.requests_per_minute
         self._last_request_time: float = 0.0
 
+        # Stale entity removal handler for deletion detection
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
+
         # Initialise chunking/embedding sub-component
         from datahub.ingestion.source.unstructured.chunking_config import (
             DataHubConnectionConfig,
@@ -198,6 +216,12 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             standalone=False,
             graph=ctx.graph,
         )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
 
     # ------------------------------------------------------------------
     # Authentication helpers
