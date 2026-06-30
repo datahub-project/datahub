@@ -7,6 +7,7 @@ provided only for the duration of tests that need them via ``patch.dict(sys.modu
 depend on ``google-auth``), so we must never replace them in sys.modules.
 """
 
+import json
 import sys
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
@@ -407,6 +408,11 @@ class TestListFilesInFolder:
         assert files[0]["id"] == "doc1"
         assert source.report.files_discovered == 1
 
+        # Shared-Drive content is invisible without these flags.
+        _, list_kwargs = mock_drive.files().list.call_args
+        assert list_kwargs["includeItemsFromAllDrives"] is True
+        assert list_kwargs["supportsAllDrives"] is True
+
     def test_pagination_fetches_all_pages(self) -> None:
         mock_drive = MagicMock()
         # Two pages: first returns a token, second returns None
@@ -471,6 +477,41 @@ class TestListFilesInFolder:
 
         assert [f["id"] for f in files] == ["doc1"]
         assert len(source.report.failures) >= 1
+
+    def test_recursive_discovers_files_in_sub_folder(self) -> None:
+        """recursive=True descends into sub-folders and returns their files too."""
+        mock_drive = MagicMock()
+        mock_drive.files().list().execute.side_effect = [
+            {
+                "files": [
+                    {
+                        "id": "subfolder1",
+                        "mimeType": MIME_GOOGLE_FOLDER,
+                        "name": "SubFolder",
+                        "trashed": False,
+                        "parents": ["root-folder"],
+                    },
+                ],
+                "nextPageToken": None,
+            },
+            {
+                "files": [
+                    {
+                        "id": "doc-in-subfolder",
+                        "mimeType": MIME_GOOGLE_DOC,
+                        "name": "Nested Doc",
+                        "trashed": False,
+                    },
+                ],
+                "nextPageToken": None,
+            },
+        ]
+        source = _make_source(mock_drive=mock_drive)
+
+        files = source._list_files_in_folder("root-folder", recursive=True)
+
+        assert [f["id"] for f in files] == ["doc-in-subfolder"]
+        assert source.report.folders_discovered == 1
 
 
 # ===========================================================================
@@ -682,8 +723,6 @@ class TestGetCredentials:
 
     def test_service_account_key_json(self) -> None:
         """When service_account_key_json is set, from_service_account_info is called."""
-        import json
-
         key_data = {"type": "service_account", "project_id": "my-project"}
         key_json_str = json.dumps(key_data)
 
@@ -720,6 +759,25 @@ class TestGetCredentials:
             scopes=["https://www.googleapis.com/auth/drive.readonly"]
         )
         assert result is mock_adc_creds
+
+    def test_adc_with_delegated_user_email_warns_and_ignores_delegation(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """delegated_user_email only applies to service-account credentials; with ADC
+        it is ignored and a warning is logged, with creds returned unchanged."""
+        source = _make_source({"delegated_user_email": "user@example.com"})
+
+        mock_adc_creds = MagicMock()
+
+        with patch("google.auth.default", return_value=(mock_adc_creds, None)):
+            with caplog.at_level("WARNING"):
+                result = source._get_credentials()
+
+        assert result is mock_adc_creds
+        mock_adc_creds.with_subject.assert_not_called()
+        assert any(
+            "delegated_user_email" in record.message for record in caplog.records
+        )
 
 
 # ===========================================================================
@@ -1099,13 +1157,20 @@ class TestBuildDocument:
 
 class TestEmitPlatformMetadata:
     def test_emits_platform_workunit(self) -> None:
-        """_emit_platform_metadata yields at least one MetadataWorkUnit."""
+        """_emit_platform_metadata yields a single MetadataWorkUnit with the expected DataPlatformInfo aspect."""
         from datahub.ingestion.api.workunit import MetadataWorkUnit
+        from datahub.metadata.schema_classes import DataPlatformInfoClass
 
         source = _make_source()
         workunits = list(source._emit_platform_metadata())
         assert len(workunits) == 1
         assert isinstance(workunits[0], MetadataWorkUnit)
+
+        aspect = workunits[0].get_aspect_of_type(DataPlatformInfoClass)
+        assert aspect is not None
+        assert aspect.name == "google-drive"
+        assert aspect.displayName == "Google Drive"
+        assert aspect.logoUrl == "assets/platforms/googledrivelogo.png"
 
 
 # ===========================================================================
@@ -1159,8 +1224,8 @@ class TestIngestFolderChain:
                 {"id": "file1", "parents": ["folder1"]}, set()
             )
 
-        assert parent_urn is not None
-        assert "folder1" in parent_urn
+        expected_doc_id = source._build_doc_id("folder1")
+        assert parent_urn == f"urn:li:document:{expected_doc_id}"
         assert len(workunits) == 1
         assert workunits[0] is mock_wu
         assert source.report.folders_ingested == 1
@@ -1272,8 +1337,10 @@ class TestGetWorkunitsInternal:
         ):
             list(source.get_workunits_internal())
 
-        # Should stop after 2 files (limit triggered after second file)
-        assert len(ingested_ids) <= 3  # at most 3, limit check before next iteration
+        # The limit flag is checked before each call to _ingest_file, so once
+        # fake_ingest sets it after processing the second file, the loop breaks
+        # before a third call is made.
+        assert len(ingested_ids) == 2
 
 
 # ===========================================================================
@@ -1282,11 +1349,18 @@ class TestGetWorkunitsInternal:
 
 
 class TestGetReportAndClose:
+    # Minimal lifecycle check: StatefulIngestionSourceBase.get_workunit_processors()
+    # relies on get_report() returning *the same* report instance used during
+    # ingestion (it's mutated in place); a regression here would silently break
+    # stale-entity removal wiring.
     def test_get_report_returns_report(self) -> None:
         source = _make_source()
         report = source.get_report()
         assert report is source.report
 
+    # Minimal smoke test: close() delegates to super().close(), and a regression
+    # that breaks that delegation (e.g. wrong super() arg) would otherwise only
+    # surface as an obscure failure during pipeline teardown.
     def test_close_does_not_raise(self) -> None:
         source = _make_source()
         with patch.object(
@@ -1480,6 +1554,10 @@ class TestVerifyFolderAccess:
 
         assert source._verify_folder_access("f1") is True
         assert len(source.report.failures) == 0
+
+        _, get_kwargs = mock_drive.files().get.call_args
+        assert get_kwargs["supportsAllDrives"] is True
+        assert get_kwargs["fileId"] == "f1"
 
     def test_inaccessible_folder_reports_failure_and_returns_false(
         self, missing_google_stubs: Dict[str, MagicMock]
