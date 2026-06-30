@@ -2460,7 +2460,9 @@ class TestIncrementalColumnExtraction:
         assert "mydb.dropped_table" in str(warnings[0].context)
         mock_dialect.get_schema_columns.assert_not_called()
 
-    def test_optimized_get_columns_logs_when_no_report(self, caplog) -> None:
+    def test_optimized_get_columns_logs_when_no_report(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Fallback path: when the dialect has no report attached (e.g. the source
         wiring that attaches it didn't run), a missing table is still surfaced via
         ``logger.warning`` rather than swallowed. A SimpleNamespace is used instead
