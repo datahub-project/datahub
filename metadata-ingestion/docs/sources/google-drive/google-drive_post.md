@@ -6,6 +6,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
+:::note Shared Drives
+Content in Shared Drives (Team Drives) is supported — the connector enumerates Shared Drive files automatically as long as the authenticated account (service account or impersonated user) has access to them.
+:::
+
 #### Common Use Cases
 
 ##### 1. Ingest All Accessible Google Docs (Default)
