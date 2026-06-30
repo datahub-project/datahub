@@ -56,6 +56,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -367,12 +368,16 @@ class AbstractLineage(ABC):
         return None
 
     @staticmethod
-    def is_sql_query(query: Optional[str]) -> bool:
+    def is_sql_query(query: Optional[str], platform: Optional[str] = None) -> bool:
         if not query:
             return False
         query = native_sql_parser.remove_special_characters(query)
+        # Parse with the source platform's dialect so platform-specific syntax
+        # (e.g. BigQuery backtick-quoted, hyphenated project ids) isn't misread
+        # as non-SQL and wrongly routed to the navigation path.
+        dialect = get_dialect(platform) if platform else None
         try:
-            expression = sqlglot.parse_one(query)
+            expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
@@ -1589,7 +1594,7 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
-        if self.is_sql_query(query):
+        if self.is_sql_query(query, platform_pair.datahub_data_platform_name):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
@@ -1825,7 +1830,9 @@ class OdbcLineage(AbstractLineage):
             if temp_accessor.items.get("Kind") == "Schema":
                 schema_name = temp_accessor.items["Name"]
 
-            if temp_accessor.items.get("Kind") == "Table":
+            # ODBC navigation labels a view leaf with Kind="View" rather than
+            # "Table"; both are valid dataset leaves (see create_reference_table).
+            if temp_accessor.items.get("Kind") in ("Table", "View"):
                 table_name = temp_accessor.items["Name"]
 
             if temp_accessor.next is not None:

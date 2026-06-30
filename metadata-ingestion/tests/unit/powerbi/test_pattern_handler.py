@@ -30,9 +30,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataPlatformTable,
+    IdentifierAccessor,
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    OdbcLineage,
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
@@ -682,3 +684,77 @@ def test_remap_column_lineage_multi_table_shared_column_name():
             "setid",
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# OdbcLineage — view leaves and dialect-aware SQL detection
+# ---------------------------------------------------------------------------
+
+
+def _build_odbc_lineage() -> OdbcLineage:
+    """OdbcLineage with a column-less table (so create_table_column_lineage is a
+    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
+    resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
+    resolver.get_platform_instance.return_value = PlatformDetail()
+    return OdbcLineage(
+        ctx=MagicMock(spec=PipelineContext),
+        table=table,
+        config=_build_config(),
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=resolver,
+    )
+
+
+def _nav_accessor(*levels: tuple) -> IdentifierAccessor:
+    """Build a Database->Schema->Table IdentifierAccessor chain from
+    (Kind, Name) tuples, returning the head (first level)."""
+    head: Optional[IdentifierAccessor] = None
+    for kind, name in reversed(levels):
+        head = IdentifierAccessor(
+            identifier=name, items={"Kind": kind, "Name": name}, next=head
+        )
+    assert head is not None
+    return head
+
+
+def test_odbc_view_leaf_resolves_like_table():
+    """A view leaf is labelled Kind="View" (not "Table") in ODBC navigation.
+    It must still resolve to a dataset URN, otherwise BigQuery/Hive views are
+    silently dropped with "Can not determine qualified table name"."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "myproject"),
+            ("Schema", "mydataset"),
+            ("View", "v_dim_country"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.v_dim_country,PROD)"
+    ]
+
+
+def test_is_sql_query_uses_platform_dialect():
+    """BigQuery native queries use backtick-quoted, hyphenated project ids that
+    fail under the default sqlglot dialect. is_sql_query must classify them as
+    SQL when given the platform, else they get routed to the navigation path and
+    dropped."""
+    query = (
+        "SELECT t.* FROM `ppp-pa-main-2e.bi_dim_tables.t_dim_time` t "
+        "WHERE fiscal_year IN (2025, 2026)"
+    )
+    # Default dialect cannot parse the hyphenated backtick identifier.
+    assert OdbcLineage.is_sql_query(query) is False
+    # With the BigQuery dialect it is recognised as SQL.
+    assert OdbcLineage.is_sql_query(query, "bigquery") is True
