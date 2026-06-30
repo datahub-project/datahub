@@ -176,6 +176,12 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self._min_request_interval = 60.0 / self.config.requests_per_minute
         self._last_request_time: float = 0.0
 
+        # Captures the most recent export-stage failure detail (HTTP status,
+        # missing-dependency message, etc.) so callers of _extract_text can
+        # distinguish "real export error" from "genuinely empty document" when
+        # extraction yields no text. Reset at the start of each _extract_text call.
+        self._last_extraction_error: Optional[str] = None
+
         # Stale-entity removal (deletion detection) is wired automatically by the
         # base class: because get_report() returns a StaleEntityRemovalSourceReport
         # and the config enables stateful ingestion, AutoStaleEntityRemovalProcessor
@@ -344,6 +350,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             List of Drive file metadata dicts.
         """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
         mime_types = self._selected_mime_types()
         results: List[Dict[str, Any]] = []
         sub_folder_ids: List[str] = []
@@ -353,20 +361,28 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             self._rate_limit()
             # Query: files whose parent is folder_id AND are not trashed
             query = f"'{folder_id}' in parents and trashed = false"
-            response = (
-                self._drive_service.files()
-                .list(
-                    q=query,
-                    fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
-                    pageSize=200,
-                    pageToken=page_token,
-                    # Required to enumerate files that live in or are shared via
-                    # Shared Drives; without these, such files are invisible.
-                    includeItemsFromAllDrives=True,
-                    supportsAllDrives=True,
+            try:
+                response = (
+                    self._drive_service.files()
+                    .list(
+                        q=query,
+                        fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
+                        pageSize=200,
+                        pageToken=page_token,
+                        # Required to enumerate files that live in or are shared via
+                        # Shared Drives; without these, such files are invisible.
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True,
+                    )
+                    .execute()
                 )
-                .execute()
-            )
+            except HttpError as e:
+                self.report.report_failure(
+                    title="Failed to list Drive files",
+                    message="A Drive API call failed while paginating files in a folder; returning partial results discovered so far.",
+                    context=f"folder_id={folder_id}, page_token={page_token}: {e}",
+                )
+                break
             for f in response.get("files", []):
                 if f["mimeType"] == MIME_GOOGLE_FOLDER:
                     self.report.report_folder_discovered()
@@ -388,6 +404,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
 
     def _list_all_accessible_files(self) -> List[Dict[str, Any]]:
         """Return all Drive files accessible to the authenticated account."""
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
         mime_types = self._selected_mime_types()
         mime_query = " or ".join(f"mimeType = '{m}'" for m in mime_types)
         query = f"({mime_query}) and trashed = false"
@@ -396,19 +414,27 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         page_token: Optional[str] = None
         while True:
             self._rate_limit()
-            response = (
-                self._drive_service.files()
-                .list(
-                    q=query,
-                    fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
-                    pageSize=200,
-                    pageToken=page_token,
-                    # Include Shared Drive content (invisible without these flags).
-                    includeItemsFromAllDrives=True,
-                    supportsAllDrives=True,
+            try:
+                response = (
+                    self._drive_service.files()
+                    .list(
+                        q=query,
+                        fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
+                        pageSize=200,
+                        pageToken=page_token,
+                        # Include Shared Drive content (invisible without these flags).
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True,
+                    )
+                    .execute()
                 )
-                .execute()
-            )
+            except HttpError as e:
+                self.report.report_failure(
+                    title="Failed to list Drive files",
+                    message="A Drive API call failed while paginating all accessible files; returning partial results discovered so far.",
+                    context=f"page_token={page_token}: {e}",
+                )
+                break
             for f in response.get("files", []):
                 results.append(f)
                 self.report.report_file_discovered()
@@ -420,7 +446,15 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         return results
 
     def _get_folder_metadata(self, folder_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch folder metadata by ID. Returns None on failure."""
+        """Fetch folder metadata by ID. Returns None on failure.
+
+        Returning None lets the ancestor walk in ``_collect_folder_ancestors``
+        stop gracefully at the inaccessible folder rather than crashing the
+        whole run, but the failure is still surfaced via the report so it is
+        not silent.
+        """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
         try:
             self._rate_limit()
             return (
@@ -432,8 +466,19 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 .execute()
             )
+        except HttpError as e:
+            self.report.report_warning(
+                title="Could not fetch folder metadata",
+                message="Failed to fetch metadata for a folder while walking the ancestor chain.",
+                context=f"folder_id={folder_id}: {e}",
+            )
+            return None
         except Exception as e:
-            logger.warning(f"Could not fetch metadata for folder {folder_id}: {e}")
+            self.report.report_warning(
+                title="Could not fetch folder metadata",
+                message="Unexpected error while fetching folder metadata.",
+                context=f"folder_id={folder_id}: {e}",
+            )
             return None
 
     def _collect_folder_ancestors(
@@ -488,9 +533,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 )
             else:
                 logger.warning(f"Markdown export failed for {file_id}: {e}")
+            self._last_extraction_error = f"markdown export HTTP {e.resp.status}: {e}"
             return None
         except Exception as e:
             logger.warning(f"Markdown export error for {file_id}: {e}")
+            self._last_extraction_error = f"markdown export error: {e}"
             return None
 
     def _export_doc_as_html(self, file_id: str) -> Optional[str]:
@@ -512,6 +559,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return fh.getvalue().decode("utf-8")
         except Exception as e:
             logger.warning(f"HTML export failed for {file_id}: {e}")
+            self._last_extraction_error = f"HTML export error: {e}"
             return None
 
     def _export_as_plain_text(
@@ -535,12 +583,20 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return fh.getvalue().decode("utf-8")
         except Exception as e:
             logger.warning(f"Plain-text export failed for {file_id}: {e}")
+            self._last_extraction_error = f"plain-text export error: {e}"
             return None
 
     def _extract_text(self, file_metadata: Dict[str, Any]) -> Optional[str]:
-        """Extract text from a Drive file, choosing the best export format."""
+        """Extract text from a Drive file, choosing the best export format.
+
+        On failure, ``self._last_extraction_error`` is populated with the
+        underlying cause (export API error, missing html2text dependency,
+        etc.) so callers can distinguish a real export failure from a
+        genuinely empty/unsupported document.
+        """
         file_id = file_metadata["id"]
         mime_type = file_metadata["mimeType"]
+        self._last_extraction_error = None
 
         if mime_type == MIME_GOOGLE_DOC:
             # Try markdown first (cleanest for DataHub docs)
@@ -551,17 +607,32 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             if self._html_converter:
                 html = self._export_doc_as_html(file_id)
                 if html:
+                    self._last_extraction_error = None
                     return self._html_converter.handle(html)
+            elif self._last_extraction_error is None:
+                self._last_extraction_error = (
+                    "html2text is not installed; HTML fallback unavailable"
+                )
             # Last resort: plain text
-            return self._export_as_plain_text(file_id)
+            text = self._export_as_plain_text(file_id)
+            if text:
+                self._last_extraction_error = None
+            return text
 
         elif mime_type == MIME_GOOGLE_SLIDES:
-            return self._export_as_plain_text(file_id, EXPORT_TEXT)
+            text = self._export_as_plain_text(file_id, EXPORT_TEXT)
+            if text:
+                self._last_extraction_error = None
+            return text
 
         elif mime_type == MIME_GOOGLE_SHEETS:
             # CSV preserves the tabular structure of spreadsheets.
-            return self._export_as_plain_text(file_id, EXPORT_CSV)
+            text = self._export_as_plain_text(file_id, EXPORT_CSV)
+            if text:
+                self._last_extraction_error = None
+            return text
 
+        self._last_extraction_error = f"unsupported MIME type: {mime_type}"
         return None
 
     # ------------------------------------------------------------------
@@ -784,7 +855,13 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 logger.warning(
                     f"Could not extract text from {file_id} ({title}), skipping"
                 )
-                self.report.report_doc_failed(file_id, "Text extraction returned empty")
+                # _last_extraction_error distinguishes a real export failure
+                # (API error, missing html2text dependency) from a genuinely
+                # empty/unsupported document, since both surface here as "no text".
+                detail = self._last_extraction_error or "no text content available"
+                self.report.report_doc_failed(
+                    file_id, f"Text extraction returned empty ({detail})"
+                )
                 return
 
             # Check minimum text length
