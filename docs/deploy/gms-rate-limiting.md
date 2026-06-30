@@ -334,8 +334,8 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets` | Hazelcast map name for endpoint buckets                                                                                                             |
 | `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`         | `300`                         | Idle eviction window (seconds) for per-actor bucket entries                                                                                         |
 | `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`                 | `100000`                      | LRU size cap for endpoint bucket entries per Hazelcast node                                                                                         |
-| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                       | Enable the scoped chain (per-actor → class → global)                                                                                               |
-| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                        | Per-actor (`scoped:actor`) bucket size — the per-actor GraphQL throttle                                                                            |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                       | Enable the scoped chain (per-actor → class → global)                                                                                                |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                        | Per-actor (`scoped:actor`) bucket size — the per-actor GraphQL throttle                                                                             |
 | `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                    |
 | `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                        |
 | `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                |
@@ -399,14 +399,14 @@ Author **logical paths** in config (`/api/graphql`, `/auth/signUp`). GMS strips 
 
 ## Rule types (quick reference)
 
-| Config source                          | Type     | Semantics                                                  | Example                               |
-| -------------------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------- |
-| `capacity.default`                     | Capacity | Global adaptive in-flight per pod                          | Rest.li, OpenAPI, auth fallback       |
-| `capacity.graphql`                     | Capacity | GraphQL POST adaptive in-flight per pod                    | UI load ceiling                       |
-| `capacity.rules[]`                     | Capacity | Finer adaptive in-flight pool (replaces broader match)     | `searchAcrossEntities`                |
-| `endpoint.rules[]` (`perActor: false`) | Endpoint | Shared token-bucket rate per refill window (cluster-wide)  | `/auth/signUp`, `batchIngest`         |
+| Config source                          | Type     | Semantics                                                                 | Example                                    |
+| -------------------------------------- | -------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `capacity.default`                     | Capacity | Global adaptive in-flight per pod                                         | Rest.li, OpenAPI, auth fallback            |
+| `capacity.graphql`                     | Capacity | GraphQL POST adaptive in-flight per pod                                   | UI load ceiling                            |
+| `capacity.rules[]`                     | Capacity | Finer adaptive in-flight pool (replaces broader match)                    | `searchAcrossEntities`                     |
+| `endpoint.rules[]` (`perActor: false`) | Endpoint | Shared token-bucket rate per refill window (cluster-wide)                 | `/auth/signUp`, `batchIngest`              |
 | `scoped:actor`                         | Scoped   | Per-actor token-bucket; each authenticated actor has an independent quota | per-actor GraphQL throttle (default model) |
-| `endpoint.rules[]` (`perActor: true`)  | Endpoint | Per-actor token-bucket on a hand-authored rule (advanced; none ships)     | manual per-path rule                  |
+| `endpoint.rules[]` (`perActor: true`)  | Endpoint | Per-actor token-bucket on a hand-authored rule (advanced; none ships)     | manual per-path rule                       |
 
 See [Capacity limits (adaptive in-flight)](#capacity-limits-adaptive-in-flight) and [Endpoint limits (token bucket)](#endpoint-limits-token-bucket) for selection, pooling, and planning details.
 
@@ -414,12 +414,12 @@ See [Capacity limits (adaptive in-flight)](#capacity-limits-adaptive-in-flight) 
 
 Prometheus metrics (tagged by `rule_id`, `type`, `outcome`, and optionally `graphql_operation`):
 
-| Metric                              | Description               |
-| ----------------------------------- | ------------------------- |
-| `gms.rate_limit.requests`           | Allow/deny counts         |
-| `gms.rate_limit.adaptive.limit`     | Current Gradient2 ceiling |
-| `gms.rate_limit.adaptive.inflight`  | In-flight gauge           |
-| `gms.rate_limit.endpoint.remaining` | Token bucket headroom     |
+| Metric                              | Description                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `gms.rate_limit.requests`           | Allow/deny counts                                                                         |
+| `gms.rate_limit.adaptive.limit`     | Current Gradient2 ceiling                                                                 |
+| `gms.rate_limit.adaptive.inflight`  | In-flight gauge                                                                           |
+| `gms.rate_limit.endpoint.remaining` | Token bucket headroom                                                                     |
 | `gms.rate_limit.fail_open`          | Fail-open events (eval threw, request allowed because `failOpen=true`), tagged by `stage` |
 
 `gms.rate_limit.requests` sets `graphql_operation` to the resolved operation name **only when an operation-scoped rule matched** (a rule with `graphqlOperationNames`); otherwise `none`. This bounds metric cardinality — arbitrary client-supplied operation names on the general GraphQL pool are not tagged.
