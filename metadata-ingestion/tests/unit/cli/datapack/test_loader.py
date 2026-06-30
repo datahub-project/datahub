@@ -107,6 +107,30 @@ class TestDatapackSinkConfig:
         mock_pipeline.raise_from_status.assert_called_once()
 
     @patch("datahub.ingestion.run.pipeline.Pipeline")
+    def test_run_pipeline_for_file_disables_cli_reporting(
+        self, mock_pipeline_cls: MagicMock, tmp_path: pathlib.Path
+    ) -> None:
+        # Internal per-file pipelines must not register themselves as standalone
+        # "[CLI] file" ingestion sources in the UI. report_to=None disables the
+        # DatahubIngestionRunSummaryProvider for these pipelines.
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_pipeline_cls.create.return_value = MagicMock()
+
+        sink_config = {
+            "server": "http://localhost:8080",
+            "endpoint": "openapi",
+            "mode": "async_batch",
+        }
+        _run_pipeline_for_file(data_file, "run-1", sink_config)
+
+        # report_to must be passed *explicitly* as None. Its default is "datahub",
+        # so simply omitting it would leave CLI reporting enabled.
+        _, kwargs = mock_pipeline_cls.create.call_args
+        assert "report_to" in kwargs
+        assert kwargs["report_to"] is None
+
+    @patch("datahub.ingestion.run.pipeline.Pipeline")
     def test_run_pipeline_for_file_logs_emit_mode_when_waiting(
         self,
         mock_pipeline_cls: MagicMock,

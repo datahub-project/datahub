@@ -14,6 +14,39 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 
+# The emit-mode marker is a per-MCP, string-valued system-metadata property that
+# pins a write to a stronger synchronicity than the caller's emit_mode. It is a
+# string value rather than a boolean so the supported value set can grow without
+# a format change; "sync" is the only value today. Crucially, every value is an
+# upgrade toward synchronicity (a pin) — there is deliberately no async value, so
+# a producer can only ever force a write more synchronous, never downgrade the
+# caller's intent. Unrecognized values are ignored (treated as no marker), which
+# keeps adding future values backward-compatible.
+EMIT_MODE_MARKER_KEY = "emitModeMarker"
+EMIT_MODE_MARKER_SYNC = "sync"
+
+
+def is_sync_marker_value(value: object) -> bool:
+    """True if an emit-mode marker value requests synchronous routing. Tolerant
+    of casing/whitespace so an externally-generated MCP that passes e.g. "Sync"
+    is still honored; the marker is always written canonically as "sync"."""
+    return isinstance(value, str) and value.strip().lower() == EMIT_MODE_MARKER_SYNC
+
+
+def has_sync_emit_marker(
+    mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+) -> bool:
+    """True if the MCP carries an emit-mode marker requesting synchronous routing
+    (emitModeMarker=sync in its system metadata). Producers populate this marker
+    on MCPs that must remain synchronous; it is read here, not set."""
+    return (
+        mcp.systemMetadata is not None
+        and mcp.systemMetadata.properties is not None
+        and is_sync_marker_value(
+            mcp.systemMetadata.properties.get(EMIT_MODE_MARKER_KEY)
+        )
+    )
+
 
 def _decode_bytes(value: Union[str, bytes]) -> str:
     """Decode bytes to string, if necessary."""

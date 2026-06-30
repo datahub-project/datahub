@@ -22,8 +22,13 @@ with open("./src/datahub_agent_context/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 _version: str = package_metadata["__version__"]
-_self_pin = (
-    f"=={_version}"
+
+# Pin acryl-datahub to a known-good stable release (see __acryl_datahub_pin__ in
+# _version.py) for published wheels instead of self-pinning to this package's own
+# server-derived version. During local/dev builds the pin is omitted so the
+# editable acryl-datahub from this monorepo resolves.
+_datahub_pin = (
+    f"=={package_metadata['__acryl_datahub_pin__']}"
     if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
     else ""
 )
@@ -45,7 +50,7 @@ lint_requirements = {
 }
 
 base_requirements = {
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest]{_datahub_pin}",
     # Core dependencies for MCP tools
     "pydantic>=2.0.0,<3.0.0",
     "json-repair>=0.25.0,<1.0.0",

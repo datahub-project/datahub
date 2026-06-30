@@ -13,7 +13,7 @@ import DescriptionModal from '@app/entityV2/shared/components/legacy/Description
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, Modal } from '@src/alchemy-components';
+import { Button, Modal, Text } from '@src/alchemy-components';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import { EntityType } from '@types';
@@ -245,7 +245,11 @@ function CreateGlossaryEntityModal(props: Props) {
                 </StyledItem>
                 <Collapse ghost>
                     <Collapse.Panel
-                        header={<Typography.Text type="secondary">{t('createGlossary.advanced')}</Typography.Text>}
+                        header={
+                            <Text type="span" color="textSecondary">
+                                {t('createGlossary.advanced')}
+                            </Text>
+                        }
                         key="1"
                     >
                         <Form.Item
