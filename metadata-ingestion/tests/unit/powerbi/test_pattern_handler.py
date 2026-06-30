@@ -745,3 +745,12 @@ def test_is_sql_query_uses_platform_dialect():
     query = "SELECT t.* FROM `my-proj-1.my_dataset.my_table` t WHERE col_a IN (1, 2)"
     assert OdbcLineage.is_sql_query(query) is False
     assert OdbcLineage.is_sql_query(query, "bigquery") is True
+
+
+def test_is_sql_query_handles_other_platforms_without_raising():
+    # Plain SQL is recognised regardless of platform, and a platform sqlglot has
+    # no dialect for (e.g. db2) must fall back to the default dialect, not raise.
+    query = "SELECT a, b FROM my_schema.my_table"
+    assert OdbcLineage.is_sql_query(query, "databricks") is True
+    assert OdbcLineage.is_sql_query(query, "db2") is True
+    assert OdbcLineage.is_sql_query("not a query at all", "db2") is False

@@ -373,8 +373,15 @@ class AbstractLineage(ABC):
             return False
         query = native_sql_parser.remove_special_characters(query)
         # Use the platform dialect so platform-specific syntax (e.g. BigQuery
-        # backtick-quoted, hyphenated project ids) parses as SQL.
-        dialect = get_dialect(platform) if platform else None
+        # backtick-quoted, hyphenated project ids) parses as SQL. Platforms
+        # sqlglot has no dialect for (e.g. db2, vertica) fall back to the
+        # default dialect rather than raising.
+        dialect: Optional[sqlglot.Dialect] = None
+        if platform:
+            try:
+                dialect = get_dialect(platform)
+            except ValueError:
+                dialect = None
         try:
             expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
