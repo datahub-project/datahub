@@ -518,6 +518,16 @@ unstructured_lib = {
     *embedding_common,
 }
 
+google_drive_common = {
+    # Google Drive API client
+    "google-api-python-client>=2.0.0,<3.0.0",
+    # Google authentication (service accounts and ADC)
+    "google-auth>=2.0.0,<3.0.0",
+    "google-auth-httplib2>=0.1.0,<1.0.0",
+    # HTML to Markdown conversion (fallback when native markdown export unavailable)
+    "html2text>=2020.1.16,<2024.0.0",
+} | unstructured_lib
+
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
     "unstructured-ingest[notion]==0.7.2",
@@ -819,6 +829,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
+    "google-drive": google_drive_common,
     "notion": notion_common,
     "confluence": confluence_common,
     "github-documents": set(),
@@ -1206,6 +1217,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",

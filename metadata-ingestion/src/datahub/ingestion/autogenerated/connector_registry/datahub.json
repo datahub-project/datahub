@@ -1633,6 +1633,32 @@
       "platform_name": "Glue",
       "support_status": "CERTIFIED"
     },
+    "google-drive": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.google_drive.google_drive_source.GoogleDriveSource",
+      "platform_id": "google-drive",
+      "platform_name": "Google Drive",
+      "support_status": "INCUBATING"
+    },
     "grafana": {
       "capabilities": [
         {
