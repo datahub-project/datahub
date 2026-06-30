@@ -1,5 +1,9 @@
 {
     "groups.addMembersError": "Falha ao adicionar membros ao grupo. Por favor, adicione-os manualmente.",
+    "groups.addMembersFailure": "Falha ao adicionar membros do grupo: \n {{error}}",
+    "groups.addMembersModal.searchPlaceholder": "Buscar usuários...",
+    "groups.addMembersModal.title": "Adicionar membros do grupo",
+    "groups.addMembersSuccess": "Membros do grupo adicionados!",
     "groups.copyUrn": "Copiar URN",
     "groups.createButton": "Criar Grupo",
     "groups.createError": "Falha ao criar grupo!:\n{{error}}",

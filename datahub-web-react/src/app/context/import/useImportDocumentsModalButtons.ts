@@ -25,11 +25,11 @@ export function useImportDocumentsModalButtons({
 
     return useMemo(() => {
         if (step === 'source') {
-            return [{ text: t('context.import.cancel'), variant: 'outline', onClick: onClose }];
+            return [{ text: t('context.import.cancel'), variant: 'text', color: 'gray', onClick: onClose }];
         }
         if (step === 'configure') {
             return [
-                { text: t('context.import.back'), variant: 'outline', onClick: onBack },
+                { text: t('context.import.back'), variant: 'text', color: 'primary', onClick: onBack },
                 {
                     text: t('context.import.import'),
                     variant: 'filled',

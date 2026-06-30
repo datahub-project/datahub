@@ -39,8 +39,13 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
@@ -537,7 +542,7 @@ public class DataHubAuthorizerTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             SearchContext.EMPTY,
-            mock(RetrieverContext.class),
+            createRetrieverContextWithDomainHierarchy(),
             mock(ValidationContext.class),
             null,
             true);
@@ -910,26 +915,13 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
-
-    // one hop per container in hierarchy
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
             eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(CHILD_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(PARENT_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+    // not checking ancestor container resolution calls which happen through aspectRetriever
   }
 
   @Test
@@ -944,26 +936,13 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
-
-    // one hop per container in hierarchy
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
             eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(CHILD_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(PARENT_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+    // not checking ancestor container resolution calls which happen through aspectRetriever
   }
 
   @Test
@@ -1523,6 +1502,56 @@ public class DataHubAuthorizerTest {
     response.setAspects(aspectMap);
     batchResponse.put(actorUrn, response);
     return batchResponse;
+  }
+
+  private RetrieverContext createRetrieverContextWithDomainHierarchy() {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationContext.class),
+            anySet(),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              for (Urn urn : urns) {
+                DomainProperties properties = new DomainProperties();
+                if (CHILD_DOMAIN_URN.equals(urn)) {
+                  properties.setParentDomain(PARENT_DOMAIN_URN);
+                }
+                result.put(
+                    urn, Map.of(DOMAIN_PROPERTIES_ASPECT_NAME, new Aspect(properties.data())));
+              }
+              return result;
+            });
+
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationContext.class),
+            anySet(),
+            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              for (Urn urn : urns) {
+                Container container = new Container();
+                if (CHILD_CONTAINER_URN.equals(urn)) {
+                  container.setContainer(PARENT_CONTAINER_URN);
+                }
+                result.put(urn, Map.of(CONTAINER_ASPECT_NAME, new Aspect(container.data())));
+              }
+              return result;
+            });
+
+    return RetrieverContext.builder()
+        .graphRetriever(GraphRetriever.EMPTY)
+        .searchRetriever(SearchRetriever.EMPTY)
+        .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+        .aspectRetriever(aspectRetriever)
+        .entityGraphCache(EntityGraphCache.NO_OP)
+        .build();
   }
 
   private AuthorizerContext createAuthorizerContext(
