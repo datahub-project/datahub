@@ -1,5 +1,6 @@
 """Tests for _get_columns_to_ignore_sampling in ge_data_profiler."""
 
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -69,9 +70,9 @@ def _make_editable_schema_metadata(fields: list) -> EditableSchemaMetadata:
 
 
 def _mock_graph(
-    dataset_tags=None,
-    schema_metadata=None,
-    editable_schema_metadata=None,
+    dataset_tags: Optional[MagicMock] = None,
+    schema_metadata: Optional[SchemaMetadata] = None,
+    editable_schema_metadata: Optional[EditableSchemaMetadata] = None,
 ) -> MagicMock:
     graph = MagicMock()
     graph.get_tags.return_value = dataset_tags

@@ -23,6 +23,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
     cast,
@@ -1677,7 +1678,7 @@ def _normalize_tag(tag: str) -> str:
 
 
 def _matching_field_paths(
-    fields: List[Union[SchemaFieldClass, EditableSchemaFieldInfo]],
+    fields: Sequence[Union[SchemaFieldClass, EditableSchemaFieldInfo]],
     tags: set,
 ) -> List[str]:
     return [
