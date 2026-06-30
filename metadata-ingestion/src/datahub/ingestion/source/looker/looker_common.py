@@ -21,6 +21,7 @@ from typing import (
     cast,
 )
 
+import lkml
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
@@ -968,20 +969,19 @@ class LookerExploreJoin:
             foreign_key=join.get("foreign_key"),
         )
 
-    def to_lookml(self) -> str:
-        lines = [f"  join: {self.name} {{"]
+    def to_lookml_dict(self) -> Dict[str, Any]:
+        join_dict: Dict[str, Any] = {"name": self.name}
         if self.from_view is not None:
-            lines.append(f"    from: {self.from_view}")
+            join_dict["from"] = self.from_view
         if self.join_type is not None:
-            lines.append(f"    type: {self.join_type}")
+            join_dict["type"] = self.join_type
         if self.relationship is not None:
-            lines.append(f"    relationship: {self.relationship}")
+            join_dict["relationship"] = self.relationship
         if self.foreign_key is not None:
-            lines.append(f"    foreign_key: {self.foreign_key}")
+            join_dict["foreign_key"] = self.foreign_key
         if self.sql_on is not None:
-            lines.append(f"    sql_on: {self.sql_on} ;;")
-        lines.append("  }")
-        return "\n".join(lines)
+            join_dict["sql_on"] = self.sql_on
+        return join_dict
 
 
 @dataclass
@@ -1401,15 +1401,13 @@ class LookerExplore:
         if not self.join_definitions:
             return None
 
-        lines = [f"explore: {self.name} {{"]
+        explore_dict: Dict[str, Any] = {"name": self.name}
         if self.label is not None:
-            # Labels are free-form and may contain double quotes; escape them so
-            # the reconstructed block remains parseable LookML.
-            escaped_label = self.label.replace('"', '\\"')
-            lines.append(f'  label: "{escaped_label}"')
-        lines.extend(join.to_lookml() for join in self.join_definitions)
-        lines.append("}")
-        return "\n".join(lines)
+            explore_dict["label"] = self.label
+        explore_dict["joins"] = [
+            join.to_lookml_dict() for join in self.join_definitions
+        ]
+        return str(lkml.dump({"explore": explore_dict})).strip()
 
     def _to_metadata_events(
         self,
