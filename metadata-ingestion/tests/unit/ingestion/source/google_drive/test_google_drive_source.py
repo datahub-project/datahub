@@ -1351,3 +1351,63 @@ class TestIngestFileChunking:
             )
 
         assert source.report.docs_failed == 1
+
+
+# ===========================================================================
+# Chunking config construction — embedding=None regression
+# ===========================================================================
+class TestChunkingConfigConstruction:
+    """Regression: building the source with no embedding configured must not fail.
+
+    DocumentChunkingSourceConfig.embedding defaults to a disabled EmbeddingConfig
+    (provider=None). Passing embedding=None explicitly overrides that default and
+    fails validation, so the source must omit embedding when it is not set. This
+    test exercises the REAL DocumentChunkingSourceConfig (only the heavier
+    DocumentChunkingSource is mocked) so the regression is actually caught.
+    """
+
+    def test_embedding_none_does_not_break_construction(self) -> None:
+        import datahub.ingestion.source.unstructured.chunking_source as cs
+
+        cfg = GoogleDriveSourceConfig.model_validate({})  # embedding defaults to None
+        ctx = PipelineContext(run_id="test-run")
+        with (
+            patch.object(
+                GoogleDriveSource, "_build_drive_service", return_value=MagicMock()
+            ),
+            patch.object(cs, "DocumentChunkingSource", return_value=MagicMock()),
+        ):
+            source = GoogleDriveSource(cfg, ctx)
+
+        assert source is not None
+
+
+# ===========================================================================
+# _verify_folder_access — inaccessible folder must be reported, not silent
+# ===========================================================================
+class TestVerifyFolderAccess:
+    def test_accessible_folder_returns_true_without_failure(self) -> None:
+        mock_drive = MagicMock()
+        mock_drive.files().get().execute.return_value = {"id": "f1", "name": "Folder"}
+        source = _make_source({}, mock_drive=mock_drive)
+
+        assert source._verify_folder_access("f1") is True
+        assert len(source.report.failures) == 0
+
+    def test_inaccessible_folder_reports_failure_and_returns_false(
+        self, missing_google_stubs: Dict[str, MagicMock]
+    ) -> None:
+        # The lazily-imported googleapiclient.errors.HttpError must be a real
+        # exception class for the source's `except HttpError` to work.
+        class FakeHttpError(Exception):
+            def __init__(self) -> None:
+                self.resp = type("Resp", (), {"status": 404})()
+
+        missing_google_stubs["googleapiclient.errors"].HttpError = FakeHttpError
+
+        mock_drive = MagicMock()
+        mock_drive.files().get().execute.side_effect = FakeHttpError()
+        source = _make_source({}, mock_drive=mock_drive)
+
+        assert source._verify_folder_access("missing-folder") is False
+        assert len(source.report.failures) >= 1
