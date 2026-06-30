@@ -8,6 +8,7 @@ from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
 from typing import (
+    Any,
     Dict,
     Iterable,
     Iterator,
@@ -954,7 +955,7 @@ class LookerExploreJoin:
         )
 
     @classmethod
-    def from_lkml_join(cls, join: Dict) -> Optional["LookerExploreJoin"]:
+    def from_lkml_join(cls, join: Dict[str, Any]) -> Optional["LookerExploreJoin"]:
         name = join.get("name")
         if name is None:
             return None
@@ -1402,7 +1403,10 @@ class LookerExplore:
 
         lines = [f"explore: {self.name} {{"]
         if self.label is not None:
-            lines.append(f'  label: "{self.label}"')
+            # Labels are free-form and may contain double quotes; escape them so
+            # the reconstructed block remains parseable LookML.
+            escaped_label = self.label.replace('"', '\\"')
+            lines.append(f'  label: "{escaped_label}"')
         lines.extend(join.to_lookml() for join in self.join_definitions)
         lines.append("}")
         return "\n".join(lines)
@@ -1531,6 +1535,13 @@ class LookerExplore:
         }
 
         explore_view_logic = self._build_explore_view_logic()
+        # Explores without joins intentionally emit no viewProperties so that
+        # join-less explores remain unchanged. As a result, if an explore that
+        # previously had joins later loses all of them, the prior viewLogic is
+        # not actively cleared; this is acceptable since the value is a
+        # reconstruction aid rather than authoritative lineage.
+        # viewLanguage is hardcoded rather than importing
+        # lookml_source.VIEW_LANGUAGE_LOOKML to avoid a circular import.
         view_definition = (
             ViewPropertiesClass(
                 materialized=False,

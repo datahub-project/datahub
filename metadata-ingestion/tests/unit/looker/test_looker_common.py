@@ -159,3 +159,14 @@ class TestLookerExploreJoinReconstruction:
     def test_build_explore_view_logic_none_without_joins(self):
         explore = LookerExplore(name="passthrough", model_name="ecommerce")
         assert explore._build_explore_view_logic() is None
+
+    def test_build_explore_view_logic_escapes_label_quotes(self):
+        explore = LookerExplore(
+            name="customer_orders",
+            model_name="ecommerce",
+            label='My "Q3" Explore',
+            join_definitions=[LookerExploreJoin(name="orders")],
+        )
+        view_logic = explore._build_explore_view_logic()
+        assert view_logic is not None
+        assert r'label: "My \"Q3\" Explore"' in view_logic
