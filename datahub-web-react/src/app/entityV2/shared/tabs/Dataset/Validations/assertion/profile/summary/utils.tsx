@@ -51,7 +51,6 @@ import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { useGetUserQuery } from '@graphql/user.generated';
 
-/* untranslated-text comments removed — now fully translated */
 const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const agg = getAggregationDescriptor(scope, aggregation, fields);
