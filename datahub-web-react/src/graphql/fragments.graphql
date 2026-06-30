@@ -1628,6 +1628,14 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
                 type
             }
         }
+        allowedPlatforms {
+            urn
+            type
+            properties {
+                displayName
+                logoUrl
+            }
+        }
         cardinality
         typeQualifier {
             allowedTypes {

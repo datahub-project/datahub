@@ -246,6 +246,7 @@ export const DefaultEntityHeader = ({
                                         )}
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}
+                                            platformUrn={platform?.urn}
                                         />
                                         <VersioningBadge
                                             versionProperties={entityData?.versionProperties ?? undefined}

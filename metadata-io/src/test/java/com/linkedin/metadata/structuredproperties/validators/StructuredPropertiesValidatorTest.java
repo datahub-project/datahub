@@ -3,7 +3,9 @@ package com.linkedin.metadata.structuredproperties.validators;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
@@ -593,5 +595,169 @@ public class StructuredPropertiesValidatorTest {
     Assert.assertEquals(exceptions.size(), 1);
     Assert.assertTrue(
         exceptions.get(0).getMessage().contains("no valid property assignments remain"));
+  }
+
+  @Test
+  public void testValidateAllowedPlatforms_noRestriction() throws URISyntaxException {
+    // A property with no allowedPlatforms applies to any entity regardless of platform.
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create("value")))));
+
+    long errors =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, def))
+            .count();
+    Assert.assertEquals(errors, 0, "Property with no allowedPlatforms should pass for any entity");
+  }
+
+  @Test
+  public void testValidateAllowedPlatforms_datasetMatchingPlatform() throws URISyntaxException {
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    Urn platformUrn = UrnUtils.getUrn("urn:li:dataPlatform:datahub");
+    // TEST_DATASET_URN uses dataPlatform:datahub — matches the allowedPlatforms list.
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedPlatforms(new UrnArray(List.of(platformUrn)));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create("value")))));
+
+    DataPlatformInstance dataPlatformInstance = new DataPlatformInstance().setPlatform(platformUrn);
+
+    long errors =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(
+                    Map.of(
+                        propertyUrn, List.of(def),
+                        TEST_DATASET_URN, List.of(dataPlatformInstance))))
+            .count();
+    Assert.assertEquals(errors, 0, "Dataset on allowed platform should pass");
+  }
+
+  @Test
+  public void testValidateAllowedPlatforms_datasetWrongPlatform() throws URISyntaxException {
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    // Property only allows snowflake, but the dataset is on datahub.
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedPlatforms(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:dataPlatform:snowflake"))));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create("value")))));
+
+    DataPlatformInstance dataPlatformInstance =
+        new DataPlatformInstance().setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:datahub"));
+
+    long errors =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(
+                    Map.of(
+                        propertyUrn, List.of(def),
+                        TEST_DATASET_URN, List.of(dataPlatformInstance))))
+            .count();
+    Assert.assertEquals(errors, 1, "Dataset on disallowed platform should fail");
+  }
+
+  @Test
+  public void testValidateAllowedPlatforms_schemaFieldMatchingPlatform() throws URISyntaxException {
+    // The schemaField URN embeds the parent dataset URN, from which the platform is extracted
+    // without any DB lookup.
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    Urn schemaFieldUrn =
+        Urn.createFromString(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.myds,PROD),myField)");
+
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedPlatforms(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:dataPlatform:bigquery"))));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create("value")))));
+
+    // No DataPlatformInstance aspect needed — platform is parsed from the schemaField URN.
+    long errors =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItem(schemaFieldUrn, payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, def))
+            .count();
+    Assert.assertEquals(errors, 0, "SchemaField on allowed platform should pass");
+  }
+
+  @Test
+  public void testValidateAllowedPlatforms_schemaFieldWrongPlatform() throws URISyntaxException {
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    // SchemaField is on bigquery, but property only allows snowflake.
+    Urn schemaFieldUrn =
+        Urn.createFromString(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.myds,PROD),myField)");
+
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedPlatforms(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:dataPlatform:snowflake"))));
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create("value")))));
+
+    long errors =
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItem(schemaFieldUrn, payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, def))
+            .count();
+    Assert.assertEquals(errors, 1, "SchemaField on disallowed platform should fail");
   }
 }
