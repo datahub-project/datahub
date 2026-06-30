@@ -14,7 +14,7 @@ requires = ["setuptools>=78.1.1", "wheel"]
 [project]
 name = "acryl-datahub"
 dynamic = ["version"]
-description = "A CLI to work with DataHub metadata"
+description = "DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
@@ -71,10 +71,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://docs.datahub.com/"
-Documentation = "https://docs.datahub.com/docs/"
+Homepage = "https://datahub.com/"
+Documentation = "https://docs.datahub.com/"
 Source = "https://github.com/datahub-project/datahub"
-Changelog = "https://github.com/datahub-project/datahub/releases"
+Changelog = "https://github.com/acryldata/datahub/releases"
 Releases = "https://github.com/acryldata/datahub/releases"
 
 [project.optional-dependencies]
@@ -143,6 +143,10 @@ aws-secret-manager = [
 ]
 
 azure-ad = []
+
+azure-auth = [
+    "azure-identity>=1.21.0,<2.0.0",
+]
 
 azure-data-factory = [
     "azure-identity>=1.21.0,<2.0.0",
@@ -555,6 +559,8 @@ gcs-slim = [
     "wcmatch<11.0.0",
 ]
 
+github-documents = []
+
 glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -653,6 +659,15 @@ kafka-connect = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+]
+
+kinesis = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "grpcio-tools>=1.44.0,<2.0.0",
+    "grpcio>=1.44.0,<2.0.0",
+    "networkx>=2.6.2,<4.0.0",
+    "urllib3>=1.26,<3.0",
 ]
 
 ldap = [
@@ -887,6 +902,14 @@ qlik-sense = [
     "websocket-client<2.0.0",
 ]
 
+quicksight = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "patchy==2.8.0",
+    "sqlglot[c]==30.8.0",
+    "urllib3>=1.26,<3.0",
+]
+
 rdf = [
     "rdflib==6.3.2",
     "requests==2.32.5",
@@ -907,7 +930,7 @@ redshift = [
     "greenlet<4.0.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -921,7 +944,7 @@ redshift-slim = [
     "GeoAlchemy2<0.19.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1294,7 +1317,7 @@ all = [
     "PyYAML>=5.4",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
@@ -1349,7 +1372,7 @@ dev = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation,quicksight]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1461,7 +1484,7 @@ dev = [
     "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
     "requests==2.32.5,<3.0.0",
@@ -1538,7 +1561,7 @@ docs = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation,quicksight]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1650,7 +1673,7 @@ docs = [
     "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
-    "redshift-connector>=2.1.5,<3.0.0",
+    "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
     "requests==2.32.5,<3.0.0",
@@ -1808,6 +1831,11 @@ debug = [
 [project.scripts]
 datahub = "datahub.entrypoints:main"
 
+[project.entry-points."datahub.token_provider.plugins"]
+k8s_oidc = "datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider"
+azure_entra = "datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider"
+oidc_client_credentials = "datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider"
+
 [project.entry-points."sqlalchemy.dialects"]
 "doris.pymysql" = "datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect"
 
@@ -1851,6 +1879,7 @@ hive-metastore = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMe
 json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
+kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
@@ -1906,12 +1935,14 @@ salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
 demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
+github-documents = "datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
 dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
+quicksight = "datahub.ingestion.source.quicksight.quicksight:QuickSightSource"
 sigma = "datahub.ingestion.source.sigma.sigma:SigmaSource"
 sac = "datahub.ingestion.source.sac.sac:SACSource"
 cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
@@ -2016,6 +2047,10 @@ constraint-dependencies = [
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
     "idna>=3.15,<4.0.0",
+    # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
+    # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
+    # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
+    "PyJWT>=2.13.0,<3.0.0",
 ]
 
 [tool.ruff]

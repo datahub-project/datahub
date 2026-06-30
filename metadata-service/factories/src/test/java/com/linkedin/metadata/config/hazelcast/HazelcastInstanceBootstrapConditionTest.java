@@ -17,20 +17,26 @@ public class HazelcastInstanceBootstrapConditionTest {
 
   @Test
   public void testSearchCacheHazelcastEnablesInstance() {
-    assertTrue(evaluate("hazelcast", "false"));
+    assertTrue(evaluate("hazelcast", "false", "false"));
   }
 
   @Test
   public void testEndpointEnabledEnablesInstanceWithoutSearchCache() {
-    assertTrue(evaluate("caffeine", "true"));
+    assertTrue(evaluate("caffeine", "true", "false"));
+  }
+
+  @Test
+  public void testEntityGraphCacheEnabledEnablesInstanceWithoutSearchCache() {
+    assertTrue(evaluate("caffeine", "false", "true"));
   }
 
   @Test
   public void testNeitherEnabledSkipsInstance() {
-    assertFalse(evaluate("caffeine", "false"));
+    assertFalse(evaluate("caffeine", "false", "false"));
   }
 
-  private boolean evaluate(String cacheImplementation, String endpointEnabled) {
+  private boolean evaluate(
+      String cacheImplementation, String endpointEnabled, String entityGraphCacheEnabled) {
     ConditionContext context = Mockito.mock(ConditionContext.class);
     Environment environment = Mockito.mock(Environment.class);
     when(context.getEnvironment()).thenReturn(environment);
@@ -43,6 +49,10 @@ public class HazelcastInstanceBootstrapConditionTest {
         .thenReturn(endpointEnabled);
     when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "false"))
         .thenReturn(endpointEnabled);
+    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED))
+        .thenReturn(entityGraphCacheEnabled);
+    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))
+        .thenReturn(entityGraphCacheEnabled);
     return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
   }
 }

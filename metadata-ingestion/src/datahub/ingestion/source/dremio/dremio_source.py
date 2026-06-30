@@ -72,7 +72,6 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
-    KnownQueryLineageInfo,
     ObservedQuery,
     SqlParsingAggregator,
 )
@@ -295,6 +294,7 @@ class DremioSource(StatefulIngestionSourceBase):
             usage_config=self.config.usage,
             # Gate SQL-discovered URNs through the catalog-walk filters.
             is_allowed_table=self._is_allowed_table,
+            format_queries=False,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
@@ -729,67 +729,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_query(self, query: DremioQuery) -> None:
-        if query.query and query.affected_dataset:
-            # Validate query dataset format matches catalog format
-            self._validate_query_lineage_format(query)
+        self._validate_query_lineage_format(query)
 
-            # Pre-filter explicit upstreams/downstream; is_allowed_table
-            # is the second line of defence for URNs the SQL parser
-            # rediscovers inside add_observed_query.
-            downstream_name = query.affected_dataset.lower()
-            downstream_allowed = passes_dremio_filters(
-                name=downstream_name,
-                catalog_dataset_names=self.catalog_dataset_names,
-                dataset_pattern=self.config.dataset_pattern,
-                schema_pattern=self.config.schema_pattern,
-            )
-
-            upstream_urns: List[str] = []
-            for ds in query.queried_datasets:
-                ds_lower = ds.lower()
-                if not passes_dremio_filters(
-                    name=ds_lower,
-                    catalog_dataset_names=self.catalog_dataset_names,
-                    dataset_pattern=self.config.dataset_pattern,
-                    schema_pattern=self.config.schema_pattern,
-                ):
-                    self.report.lineage_dropped_filtered += 1
-                    continue
-                upstream_urns.append(
-                    make_dataset_urn_with_platform_instance(
-                        platform=make_data_platform_urn(self.get_platform()),
-                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
-                        env=self.config.env,
-                        platform_instance=self.config.platform_instance,
-                    )
-                )
-
-            if downstream_allowed and upstream_urns:
-                downstream_urn = make_dataset_urn_with_platform_instance(
-                    platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
-                )
-                self.sql_parsing_aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=query.query,
-                        upstreams=upstream_urns,
-                        downstream=downstream_urn,
-                    ),
-                    merge_lineage=True,
-                )
-            elif not downstream_allowed:
-                # One increment per query whose downstream is filtered.
-                # Per-upstream drops were already counted in the loop above;
-                # this is intentionally not multiplied by the upstream count
-                # — see lineage_dropped_filtered's docstring for the "lineage
-                # references, not edges" semantics.
-                self.report.lineage_dropped_filtered += 1
-
-        # Always register the observed query; usage stats aren't gated here.
-        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
-        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

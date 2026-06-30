@@ -1,8 +1,7 @@
 import logging
 import pathlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Callable, Iterable, List, Optional, Set
+from typing import Callable, Iterable, List, Optional, Set, TypeVar
 
 from databricks.sdk.service.sql import QueryStatementType
 
@@ -16,6 +15,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -30,9 +30,16 @@ from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBac
 
 logger = logging.getLogger(__name__)
 
-# Bump whenever the on-disk shape of a buffered Query (or its pickling) changes, so a
-# cache written by an older build resolves to a different filename — a clean miss that
-# re-fetches, rather than a deserialization error when reloading an incompatible Query.
+_T = TypeVar("_T")
+
+# Bump whenever a buffered Query changes in a way that makes an older cache file unsafe
+# to reload, so the cache resolves to a different filename — a clean miss that re-fetches.
+# This is the ONLY guard against an incompatible cache: FileBackedList pickles Query, and
+# pickle does not validate against the current class, so bump on ANY of:
+#   - field added/renamed/removed (a renamed/removed field deserializes to a default or a
+#     stray attribute rather than erroring),
+#   - a field's type or meaning changing (the bytes still load but mean something else —
+#     a read-back check cannot detect this, only a version bump can).
 _AUDIT_LOG_FORMAT_VERSION = 1
 
 _STATEMENT_TYPE_TO_QUERY_TYPE = {
@@ -60,6 +67,13 @@ class UnityCatalogUsageExtractor:
 
     def _use_system_tables_join(self) -> bool:
         return self.config.usage_uses_system_tables(self.proxy.warehouse_id)
+
+    @staticmethod
+    def _require(value: Optional[_T], message: str) -> _T:
+        # Explicit invariant check that survives `python -O`, which strips `assert`.
+        if value is None:
+            raise AssertionError(message)
+        return value
 
     def _build_aggregator(
         self,
@@ -116,14 +130,6 @@ class UnityCatalogUsageExtractor:
             self.config.end_time,
             include_operational_stats=include_ops,
         )
-
-    @staticmethod
-    def _normalize_timestamp(ts: Optional[datetime]) -> Optional[datetime]:
-        if ts is None:
-            return None
-        if ts.tzinfo is not None:
-            return ts.astimezone(timezone.utc)
-        return ts.replace(tzinfo=timezone.utc)
 
     def _user_urn(self, query: Query) -> Optional[CorpUserUrn]:
         if not query.user_name:
@@ -263,7 +269,7 @@ class UnityCatalogUsageExtractor:
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
-        ts = self._normalize_timestamp(query.start_time)
+        ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
 
@@ -309,7 +315,7 @@ class UnityCatalogUsageExtractor:
         aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query_text,
-                timestamp=self._normalize_timestamp(query.start_time),
+                timestamp=normalize_timestamp_to_utc(query.start_time),
                 user=self._user_urn(query),
                 default_db=default_db,
                 default_schema=None,
@@ -575,7 +581,11 @@ class UnityCatalogUsageExtractor:
             try:
                 aggregator = self._build_aggregator(is_allowed_table=is_allowed_table)
                 if use_cached_audit_log:
-                    assert audit_log_file is not None
+                    # use_cached_audit_log is only True when audit_log_file is set.
+                    audit_log_file = self._require(
+                        audit_log_file,
+                        "audit_log_file unexpectedly None with use_cached_audit_log",
+                    )
                     try:
                         logger.info(
                             "Using cached query-history audit log at %s", audit_log_file
@@ -616,7 +626,13 @@ class UnityCatalogUsageExtractor:
                             # Drain only — the cursor/connection is released once the
                             # generator is fully consumed here.
                             buffered_queries.append(query)
-                assert buffered_queries is not None
+                # Invariant: assigned on every branch above. Explicit raise (not assert,
+                # which `python -O` strips) so a regression surfaces clearly.
+                # Assigned on every branch above; narrow it once (the non-None type
+                # carries through to the parse loop below).
+                buffered_queries = self._require(
+                    buffered_queries, "buffered_queries unexpectedly None after setup"
+                )
                 self.report.num_queries = len(buffered_queries)
             except (MemoryError, SystemExit, KeyboardInterrupt):
                 raise
@@ -651,7 +667,6 @@ class UnityCatalogUsageExtractor:
                 # current-bucket zero, does not delete history.)
                 self._report_no_queries()
 
-            assert buffered_queries is not None
             with self.report.usage_parsing_timer:
                 self._parse_buffered_queries(aggregator, buffered_queries, default_db)
             self._log_usage_routing_summary()

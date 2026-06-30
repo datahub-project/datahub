@@ -31,7 +31,7 @@ export const PT_BR_LOCALE_CONFIG: LocaleConfig = {
     lang: 'pt-BR',
     antd: ptBR,
     dayjs: 'pt-br',
-    label: 'Português (Brasil)',
+    label: 'Português (Brasil) (Beta)',
 };
 
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from datahub.emitter.mce_builder import make_user_urn
@@ -26,6 +26,7 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -183,7 +184,7 @@ class FabricUsageExtractor:
             self.report.report_usage_query_skipped("user_filtered")
             return
 
-        timestamp = self._normalize_timestamp(row.start_time)
+        timestamp = normalize_timestamp_to_utc(row.start_time)
 
         # The view-lineage path uses default_db=f"{workspace_id}.{item_id}" so the
         # synthetic SQL parser identifier matches the URN we generate for tables.
@@ -216,15 +217,3 @@ class FabricUsageExtractor:
 
         self.aggregator.add_observed_query(observed)
         self.report.num_usage_queries_fetched += 1
-
-    @staticmethod
-    def _normalize_timestamp(value: datetime) -> datetime:
-        """Coerce queryinsights timestamps to timezone-aware UTC.
-
-        `start_time` from queryinsights is `datetime2` and surfaces as a naive
-        datetime via pyodbc. The aggregator expects timezone-aware timestamps
-        for bucket boundary comparisons against the (UTC-aware) usage config.
-        """
-        if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
