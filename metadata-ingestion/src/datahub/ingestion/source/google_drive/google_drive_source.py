@@ -25,7 +25,6 @@ import json
 import logging
 import time
 from datetime import datetime
-from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
@@ -43,7 +42,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -55,11 +53,6 @@ from datahub.ingestion.source.google_drive.google_drive_config import (
 )
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
-)
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    auto_stale_entity_removal,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -166,6 +159,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self._drive_service = self._build_drive_service()
 
         # html→markdown converter (fallback for Docs that don't support markdown export)
+        self._html_converter: Optional[Any] = None
         try:
             import html2text as _html2text
 
@@ -174,7 +168,6 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             self._html_converter.ignore_images = True
             self._html_converter.ignore_emphasis = False
         except ImportError:
-            self._html_converter = None
             logger.warning(
                 "html2text is not installed — HTML fallback for Docs export is disabled. "
                 "Install it with: pip install html2text"
@@ -184,16 +177,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         self._min_request_interval = 60.0 / self.config.requests_per_minute
         self._last_request_time: float = 0.0
 
-        # Stale entity removal handler for deletion detection
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            state_provider=self.state_provider,
-            report=self.report,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
-            platform=self.platform,
-        )
+        # Stale-entity removal (deletion detection) is wired automatically by the
+        # base class: because get_report() returns a StaleEntityRemovalSourceReport
+        # and the config enables stateful ingestion, AutoStaleEntityRemovalProcessor
+        # is added by StatefulIngestionSourceBase.get_workunit_processors() and
+        # harvests emitted entity URNs on its own. No manual handler is needed.
 
         # Initialise chunking/embedding sub-component
         from datahub.ingestion.source.unstructured.chunking_config import (
@@ -204,24 +192,26 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             DocumentChunkingSource,
         )
 
-        chunking_config = DocumentChunkingSourceConfig(
+        # Only pass embedding / max_documents when configured. Both fields are
+        # non-optional on DocumentChunkingSourceConfig with sensible defaults
+        # (a disabled EmbeddingConfig with provider=None, and an unbounded
+        # max_documents); passing None explicitly overrides those defaults and
+        # fails validation.
+        chunking_kwargs: Dict[str, Any] = dict(
             datahub=DataHubConnectionConfig(),
             chunking=config.chunking,
-            embedding=config.embedding,
-            max_documents=config.max_documents,
         )
+        if config.embedding is not None:
+            chunking_kwargs["embedding"] = config.embedding
+        if config.max_documents is not None:
+            chunking_kwargs["max_documents"] = config.max_documents
+        chunking_config = DocumentChunkingSourceConfig(**chunking_kwargs)
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
             config=chunking_config,
             standalone=False,
             graph=ctx.graph,
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
-        ]
 
     # ------------------------------------------------------------------
     # Authentication helpers
@@ -279,6 +269,43 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
     # Drive API helpers
     # ------------------------------------------------------------------
+
+    def _verify_folder_access(self, folder_id: str) -> bool:
+        """Verify a configured folder is reachable, reporting a failure if not.
+
+        Listing the children of an inaccessible or non-existent folder returns an
+        empty result rather than an error, so without this explicit metadata
+        fetch a permissions/wrong-ID problem looks identical to an empty folder
+        (a silent no-op). A ``files().get`` surfaces 404/403 so the user gets a
+        clear, actionable signal instead of silently ingesting nothing.
+        """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+        self._rate_limit()
+        try:
+            self._drive_service.files().get(
+                fileId=folder_id,
+                fields="id,name",
+                supportsAllDrives=True,
+            ).execute()
+            return True
+        except HttpError as e:
+            status = getattr(getattr(e, "resp", None), "status", "unknown")
+            self.report.report_failure(
+                message=(
+                    "Configured folder is not accessible. Check that the folder ID "
+                    "is correct and that the folder has been explicitly shared with "
+                    "the service account's email (or the authenticated user). Note "
+                    "that a service account is a distinct identity in the "
+                    "'*.iam.gserviceaccount.com' domain, so organization-wide "
+                    "link-sharing does not grant it access — the folder must be "
+                    "shared with it directly. See the setup guide: "
+                    "https://docs.datahub.com/docs/generated/ingestion/sources/google-drive"
+                ),
+                title="Folder not accessible",
+                context=f"folder_id={folder_id} (HTTP {status})",
+            )
+            return False
 
     def _list_files_in_folder(
         self, folder_id: str, recursive: bool
@@ -829,6 +856,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.folder_ids:
             all_files: List[Dict[str, Any]] = []
             for folder_id in self.config.folder_ids:
+                if not self._verify_folder_access(folder_id):
+                    continue
                 logger.info(f"Listing files in folder: {folder_id}")
                 all_files.extend(
                     self._list_files_in_folder(

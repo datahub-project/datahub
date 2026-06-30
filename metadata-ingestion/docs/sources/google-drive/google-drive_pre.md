@@ -90,7 +90,17 @@ If you are running on Google Cloud infrastructure or have run `gcloud auth appli
 
 #### 3. Grant Access to Folders
 
-The authenticated account (service account or user) must have **Viewer** (or higher) access to every folder and file you want to ingest. Share folders directly with the service account email or ensure the account has domain-wide delegation if ingesting an entire organisation's Drive.
+The authenticated account (service account or user) must have **Viewer** (or higher) access to every folder and file you want to ingest. **Share each folder directly with the service account's email** (e.g. `datahub-drive-reader@<project>.iam.gserviceaccount.com`).
+
+> **Important:** A service account is a distinct identity in the `*.iam.gserviceaccount.com` domain — it is **not** a member of your Google Workspace organization. As a result, "anyone in your organization with the link" sharing does **not** grant the service account access; the folder must be shared with the service account's email address explicitly. This connector reads only what is shared with the authenticated account and does not currently support domain-wide delegation (user impersonation).
+
+##### Troubleshooting: "Folder not accessible"
+
+If ingestion reports a `Folder not accessible` failure (HTTP 404/403) and discovers no files:
+
+- Confirm the `folder_id` is correct (copy it from the folder's URL: `https://drive.google.com/drive/folders/<FOLDER_ID>`).
+- Confirm the folder is shared with the **service account's email** (not just with your own user), with at least **Viewer** access.
+- Remember that organization-wide link sharing does not cover the service account (see the note above).
 
 #### 4. Embedding Provider (Optional)
 
