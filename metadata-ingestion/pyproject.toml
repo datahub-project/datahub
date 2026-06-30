@@ -14,7 +14,7 @@ requires = ["setuptools>=78.1.1", "wheel"]
 [project]
 name = "acryl-datahub"
 dynamic = ["version"]
-description = "A CLI to work with DataHub metadata"
+description = "DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
@@ -71,10 +71,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://docs.datahub.com/"
-Documentation = "https://docs.datahub.com/docs/"
+Homepage = "https://datahub.com/"
+Documentation = "https://docs.datahub.com/"
 Source = "https://github.com/datahub-project/datahub"
-Changelog = "https://github.com/datahub-project/datahub/releases"
+Changelog = "https://github.com/acryldata/datahub/releases"
 Releases = "https://github.com/acryldata/datahub/releases"
 
 [project.optional-dependencies]
