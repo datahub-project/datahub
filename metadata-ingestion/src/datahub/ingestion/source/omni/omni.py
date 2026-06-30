@@ -141,7 +141,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             base_url=config.base_url,
             api_key=config.api_key,
             timeout_seconds=config.timeout_seconds,
-            max_requests_per_minute=config.max_requests_per_minute,
             report=self.report.client_report,
         )
         # Internal caches – populated during _ingest_semantic_model and reused
@@ -190,7 +189,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 base_url=config.base_url,
                 api_key=config.api_key,
                 timeout_seconds=config.timeout_seconds,
-                max_requests_per_minute=config.max_requests_per_minute,
             )
             if client.test_connection():
                 report.basic_connectivity = CapabilityReport(capable=True)

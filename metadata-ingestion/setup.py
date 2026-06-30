@@ -678,7 +678,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
+    "omni": {"requests<3.0.0", "PyYAML>=5.4", "tenacity>=8.0.1,<9.0.0"},
     "glue": aws_common | cachetools_lib | sqlglot_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common

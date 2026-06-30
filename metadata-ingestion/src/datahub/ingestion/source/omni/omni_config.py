@@ -69,15 +69,6 @@ class OmniSourceConfig(
             "Recommended: 4-8 for most Omni instances."
         ),
     )
-    max_requests_per_minute: int = Field(
-        default=50,
-        ge=1,
-        le=60,
-        description=(
-            "Client-side throttle cap for Omni API requests (requests per minute). "
-            "Omni's default rate limit is 60 req/min; set lower to leave headroom for other API consumers."
-        ),
-    )
     timeout_seconds: int = Field(
         default=30,
         ge=5,

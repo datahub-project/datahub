@@ -1,11 +1,17 @@
 import logging
-import threading
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 import pydantic
 import requests
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.omni.omni_report import OmniClientReport
@@ -19,8 +25,8 @@ _MAX_PAGINATION_PAGES = 1000
 class OmniClient:
     """HTTP client for the Omni REST API.
 
-    Handles authentication, client-side rate limiting, exponential-backoff
-    retries on 429 / 5xx responses, and cursor-based pagination.
+    Handles authentication, exponential-backoff retries on 429 / 5xx responses,
+    and cursor-based pagination. Rate limiting is handled server-side via 429 responses.
     """
 
     def __init__(
@@ -28,14 +34,10 @@ class OmniClient:
         base_url: str,
         api_key: pydantic.SecretStr,
         timeout_seconds: int = 30,
-        max_requests_per_minute: int = 50,
         report: Optional["OmniClientReport"] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
-        self._last_request_ts = 0.0
-        self._min_interval = 60.0 / max_requests_per_minute
-        self._throttle_lock = threading.Lock()
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -56,53 +58,35 @@ class OmniClient:
             if self._report:
                 self._report.record_call(method_name, duration)
 
-    def _throttle(self) -> None:
-        """Thread-safe rate limiting with sleep outside lock.
-
-        Each thread reserves its time slot by updating _last_request_ts,
-        then sleeps outside the lock so other threads can proceed in parallel.
-        """
-        # Calculate sleep time and reserve next slot while holding lock
-        with self._throttle_lock:
-            now = time.monotonic()
-            target_time = self._last_request_ts + self._min_interval
-            sleep_seconds = max(0.0, target_time - now)
-            # Reserve the next time slot by updating _last_request_ts
-            # This allows the next thread to calculate its slot while we sleep
-            self._last_request_ts = max(now, target_time)
-
-        # Sleep OUTSIDE the lock so other threads can proceed
-        if sleep_seconds > 0:
-            logger.warning(
-                "Throttling request: sleeping for %.3f seconds to respect rate limit",
-                sleep_seconds,
+    @retry(
+        retry=retry_if_exception(
+            lambda e: (
+                isinstance(e, requests.HTTPError)
+                and e.response is not None
+                and e.response.status_code in (429, 500, 502, 503, 504)
             )
-            time.sleep(sleep_seconds)
-
+        ),
+        stop=stop_after_attempt(8),
+        wait=wait_exponential(multiplier=1, min=1, max=30),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def _request(
         self, method: str, path: str, params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
+        """Make an HTTP request with automatic retry on transient failures.
+
+        Retries on 429 (rate limit) and 5xx (server errors) with exponential backoff (1-30s).
+        """
         url = f"{self._base_url}{path}"
-        retries = 8
-        for attempt in range(retries):
-            self._throttle()
-            response = self._session.request(
-                method=method,
-                url=url,
-                params=params,
-                timeout=self._timeout,
-            )
-            if (
-                response.status_code in (429, 500, 502, 503, 504)
-                and attempt < retries - 1
-            ):
-                retry_after = response.headers.get("Retry-After")
-                backoff = float(retry_after) if retry_after else min(2**attempt, 30)
-                time.sleep(backoff)
-                continue
-            response.raise_for_status()
-            return response.json()
-        raise RuntimeError(f"Request failed after retries: {method} {path}")
+        response = self._session.request(
+            method=method,
+            url=url,
+            params=params,
+            timeout=self._timeout,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def paginate_records(
         self, path: str, params: Optional[Dict[str, Any]] = None
