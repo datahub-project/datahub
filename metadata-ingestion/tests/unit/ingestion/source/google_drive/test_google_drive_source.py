@@ -1,7 +1,10 @@
 """Unit tests for the Google Drive ingestion source.
 
-Google client libraries are not required — they are lazy-imported inside methods
-and mocked via sys.modules injection + method patching in this test module.
+Google client libraries are not required — they are lazy-imported inside methods.
+``googleapiclient`` and ``html2text`` are not installed in the dev venv; they are
+provided only for the duration of tests that need them via ``patch.dict(sys.modules,
+...)``.  ``google.auth`` and ``google.oauth2`` ARE installed (bigquery/gcs/etc.
+depend on ``google-auth``), so we must never replace them in sys.modules.
 """
 
 import sys
@@ -11,39 +14,61 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import SecretStr, ValidationError
 
-# ---------------------------------------------------------------------------
-# Inject stubs for google client libraries before any source imports.
-# The source lazy-imports these inside methods, but html2text is referenced
-# in __init__ via a try/except, so we stub it here to avoid ImportError.
-# ---------------------------------------------------------------------------
-_GOOGLE_STUBS = [
-    "google",
-    "google.oauth2",
-    "google.oauth2.service_account",
-    "google.auth",
-    "googleapiclient",
-    "googleapiclient.discovery",
-    "googleapiclient.errors",
-    "googleapiclient.http",
-    "html2text",
-]
-for _mod in _GOOGLE_STUBS:
-    if _mod not in sys.modules:
-        sys.modules[_mod] = MagicMock()
-
-# Now it is safe to import our source modules.
-from datahub.ingestion.api.common import PipelineContext  # noqa: E402
-from datahub.ingestion.source.google_drive.google_drive_config import (  # noqa: E402
+# Import source modules — no sys.modules injection needed; the source only
+# imports google/googleapiclient/html2text inside methods (lazy imports).
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.google_drive.google_drive_config import (
     GoogleDriveAuthConfig,
     GoogleDriveSourceConfig,
 )
-from datahub.ingestion.source.google_drive.google_drive_source import (  # noqa: E402
+from datahub.ingestion.source.google_drive.google_drive_source import (
     MIME_GOOGLE_DOC,
     MIME_GOOGLE_FOLDER,
     MIME_GOOGLE_SHEETS,
     MIME_GOOGLE_SLIDES,
     GoogleDriveSource,
 )
+
+# ---------------------------------------------------------------------------
+# Module-level stubs for genuinely missing packages.
+#
+# ``googleapiclient`` and ``html2text`` are NOT installed in the venv.  We
+# provide minimal placeholder entries here so that Python's import machinery
+# resolves package-parent lookups (e.g. ``googleapiclient.discovery`` requires
+# ``googleapiclient`` to already be in sys.modules as a package).  The actual
+# mock objects are injected per-test via the ``missing_google_stubs`` fixture.
+#
+# IMPORTANT: ``google``, ``google.auth``, and ``google.oauth2`` are installed
+# and must never be replaced here.
+# ---------------------------------------------------------------------------
+_MISSING_PACKAGES = [
+    "googleapiclient",
+    "googleapiclient.discovery",
+    "googleapiclient.errors",
+    "googleapiclient.http",
+    "html2text",
+]
+
+
+def _build_stub_modules() -> Dict[str, MagicMock]:
+    """Return a dict of MagicMock stubs for the missing packages."""
+    stubs: Dict[str, MagicMock] = {}
+    for mod in _MISSING_PACKAGES:
+        stubs[mod] = MagicMock()
+    return stubs
+
+
+@pytest.fixture(autouse=True)
+def missing_google_stubs():
+    """Inject stubs for packages that are not installed, for the duration of each test.
+
+    Uses ``patch.dict`` so sys.modules is fully restored after every test —
+    even on failure.  This prevents test-ordering pollution.
+    """
+    stubs = _build_stub_modules()
+    with patch.dict(sys.modules, stubs):
+        yield stubs
+
 
 # ---------------------------------------------------------------------------
 # Helper: build a GoogleDriveSource without hitting real Google APIs.
@@ -579,16 +604,15 @@ class TestGetCredentials:
         src = _make_source({"credentials": {"service_account_key_file": "/key.json"}})
 
         mock_creds = MagicMock()
-        # The source does: from google.oauth2 import service_account
-        # The stub module for google.oauth2 is a MagicMock, so we set service_account
-        # as an attribute on it with the right Credentials behaviour.
-        mock_sa = MagicMock()
-        mock_sa.Credentials.from_service_account_file.return_value = mock_creds
-        sys.modules["google.oauth2"].service_account = mock_sa  # type: ignore[attr-defined]
+        # Patch the real google.oauth2.service_account.Credentials method directly
+        # using a restoring patch — does NOT replace sys.modules["google.oauth2"].
+        with patch(
+            "google.oauth2.service_account.Credentials.from_service_account_file",
+            return_value=mock_creds,
+        ) as mock_from_file:
+            result = src._get_credentials()
 
-        result = src._get_credentials()
-
-        mock_sa.Credentials.from_service_account_file.assert_called_once_with(
+        mock_from_file.assert_called_once_with(
             "/key.json", scopes=["https://www.googleapis.com/auth/drive.readonly"]
         )
         assert result is mock_creds
@@ -603,13 +627,13 @@ class TestGetCredentials:
         src = _make_source({"credentials": {"service_account_key_json": key_json_str}})
 
         mock_creds = MagicMock()
-        mock_sa = MagicMock()
-        mock_sa.Credentials.from_service_account_info.return_value = mock_creds
-        sys.modules["google.oauth2"].service_account = mock_sa  # type: ignore[attr-defined]
+        with patch(
+            "google.oauth2.service_account.Credentials.from_service_account_info",
+            return_value=mock_creds,
+        ) as mock_from_info:
+            result = src._get_credentials()
 
-        result = src._get_credentials()
-
-        mock_sa.Credentials.from_service_account_info.assert_called_once_with(
+        mock_from_info.assert_called_once_with(
             key_data, scopes=["https://www.googleapis.com/auth/drive.readonly"]
         )
         assert result is mock_creds
@@ -619,25 +643,15 @@ class TestGetCredentials:
         src = _make_source()  # no credentials configured
 
         mock_adc_creds = MagicMock()
-        mock_google_auth = MagicMock()
-        mock_google_auth.default.return_value = (mock_adc_creds, None)
 
-        # The source does `import google.auth` inside the method. We intercept that
-        # import by temporarily replacing the google.auth entry in sys.modules so
-        # the `import google.auth` statement resolves to our mock, and we also patch
-        # the `google` namespace so `google.auth` attribute access works.
-        import types
-
-        fake_google = types.ModuleType("google")
-        fake_google.auth = mock_google_auth  # type: ignore[attr-defined]
-
-        with patch.dict(
-            sys.modules,
-            {"google": fake_google, "google.auth": mock_google_auth},
-        ):
+        # Patch google.auth.default in the real installed module.
+        # The source does ``import google.auth`` then ``google.auth.default(...)``.
+        with patch(
+            "google.auth.default", return_value=(mock_adc_creds, None)
+        ) as mock_default:
             result = src._get_credentials()
 
-        mock_google_auth.default.assert_called_with(
+        mock_default.assert_called_with(
             scopes=["https://www.googleapis.com/auth/drive.readonly"]
         )
         assert result is mock_adc_creds
