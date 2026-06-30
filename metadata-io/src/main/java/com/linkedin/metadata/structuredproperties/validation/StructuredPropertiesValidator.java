@@ -8,7 +8,9 @@ import static com.linkedin.metadata.structuredproperties.validation.PropertyDefi
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.entity.Aspect;
@@ -24,9 +26,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
-import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyCardinality;
@@ -131,19 +131,18 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         fetchPropertyAspects(operationContext, mcpItems, aspectRetriever, exceptions, false);
 
     // Only fetch dataPlatformInstance aspects when at least one property definition restricts by
-    // platform — avoids a DB round-trip for the common case where no properties use allowedPlatforms
+    // platform — avoids a DB round-trip for the common case where no properties use
+    // allowedPlatforms
     boolean anyPropertyHasAllowedPlatforms =
         allStructuredPropertiesAspects.values().stream()
             .map(aspectMap -> aspectMap.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
             .filter(Objects::nonNull)
             .map(aspect -> new StructuredPropertyDefinition(aspect.data()))
-            .anyMatch(
-                def -> def.hasAllowedPlatforms() && !def.getAllowedPlatforms().isEmpty());
+            .anyMatch(def -> def.hasAllowedPlatforms() && !def.getAllowedPlatforms().isEmpty());
 
     Map<Urn, Urn> entityPlatformUrns;
     if (anyPropertyHasAllowedPlatforms) {
-      Set<Urn> entityUrns =
-          mcpItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
+      Set<Urn> entityUrns = mcpItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
       entityPlatformUrns = fetchEntityPlatformUrns(operationContext, entityUrns, aspectRetriever);
     } else {
       entityPlatformUrns = Collections.emptyMap();
@@ -531,9 +530,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    * Batch-fetches data platform URNs for all entity URNs and returns a map of entity URN to data
    * platform URN.
    *
-   * <p>SchemaField entities don't have their own {@code dataPlatformInstance} aspect — the
-   * platform is encoded in the embedded dataset URN inside the schemaField URN. For all other
-   * entity types, the platform is read from the stored {@code dataPlatformInstance} aspect.
+   * <p>SchemaField entities don't have their own {@code dataPlatformInstance} aspect — the platform
+   * is encoded in the embedded dataset URN inside the schemaField URN. For all other entity types,
+   * the platform is read from the stored {@code dataPlatformInstance} aspect.
    */
   private static Map<Urn, Urn> fetchEntityPlatformUrns(
       @Nonnull OperationFingerprint operationContext,
@@ -564,7 +563,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     if (!nonSchemaFieldUrns.isEmpty()) {
       Map<Urn, Map<String, Aspect>> platformInstanceAspects =
           aspectRetriever.getLatestAspectObjects(
-              operationContext, nonSchemaFieldUrns, ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+              operationContext,
+              nonSchemaFieldUrns,
+              ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
       platformInstanceAspects.forEach(
           (entityUrn, aspectMap) -> {
             Aspect platformInstanceAspect = aspectMap.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
