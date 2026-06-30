@@ -2481,6 +2481,36 @@ class TestIncrementalColumnExtraction:
         assert result == []
         assert any("dropped_table" in r.message for r in caplog.records)
 
+    def test_optimized_get_columns_aggregates_multiple_missing_tables(self) -> None:
+        """Two dropped tables increment the counter twice but collapse into a
+        single warning (report.warning groups by title) whose context lists both
+        affected names. Locks in the aggregate-don't-spam behaviour."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.report = TeradataReport()
+
+        tables_cache: Dict[str, List[TeradataTable]] = {"mydb": []}
+
+        for table_name in ("dropped_a", "dropped_b"):
+            assert (
+                optimized_get_columns(
+                    mock_dialect,
+                    MagicMock(),
+                    table_name,
+                    "mydb",
+                    tables_cache=tables_cache,
+                    tables_needing_extraction=None,
+                )
+                == []
+            )
+
+        assert mock_dialect.report.num_tables_missing_from_cache == 2
+        warnings = list(mock_dialect.report.warnings)
+        assert len(warnings) == 1
+        contexts = str(list(warnings[0].context))
+        assert "mydb.dropped_a" in contexts
+        assert "mydb.dropped_b" in contexts
+
     def test_source_report_is_reachable_from_dialect(self) -> None:
         """The patched dialect column/PK functions run with a TeradataDialect
         instance as ``self`` (SQLAlchemy invokes them via the Inspector), so they
