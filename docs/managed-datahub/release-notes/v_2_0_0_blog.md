@@ -12,15 +12,15 @@ description: "DataHub Cloud 2.0 release blog — Context Platform for AI agents,
 
 A year ago, the question everyone was asking was whether AI agents could actually be trusted with real business data. The answer, mostly, was no. Not because the agents weren't capable, but because they had no reliable way to understand the business context behind the data they were working with.
 
-That's the problem DataHub has been solving. Over the past few releases we've quietly built out the full stack for managing enterprise data context: ingesting it from the tools your organization already uses — Notion, Confluence, GitHub, etc. — generating it from real observed usage patterns where semantics don't yet exist, routing it to the right people for review before an agent ever sees it, and validating that it's actually making your agents more accurate. The activation layer is there too, through an MCP server, APIs, SDKs, and native connectors to get context to your agents, wherever they are.
+That's the problem DataHub has been solving. Over the past few releases we've quietly built out the full stack for managing enterprise data context: ingesting it from the tools your organization already uses - Notion, Confluence, GitHub, etc. - generating it from real observed usage patterns where semantics don't yet exist, routing it to the right people for review before an agent ever sees it, and validating that it's actually making your agents more accurate. The activation layer is there too, through an MCP server, APIs, SDKs, and native connectors to get context to your agents, wherever they are.
 
-With the previous release 1.0, we've reached a point where we're confident enough to put a name on it. DataHub has become a **Context Platform for AI agents** — something we think will become an absolute necessity for organizations who are most successful implementing AI.
+With the previous release 1.0, we've reached a point where we're confident enough to put a name on it. DataHub has become a **Context Platform for AI agents** - something we think will become an absolute necessity for organizations who are most successful implementing AI.
 
 With these foundations in place, the 2.0 release is focused on making the context platform easier to integrate and easier to monitor at scale. New integrations, better tooling for getting context into the agents your team already uses, and visibility into how it's all being used across your organization. Let's take a look at what's shipping in this release:
 
 ## MCP Server OAuth and Claude Marketplace Connector (GA)
 
-Every user had to configure an API token manually to access DataHub context — which kept access limited to the technical users who already knew how. Now they log in once with their DataHub or SSO account, and that's it. The Claude Marketplace connector goes further: one admin install covers the entire organization.
+Every user had to configure an API token manually to access DataHub context - which kept access limited to the technical users who already knew how. Now they log in once with their DataHub or SSO account, and that's it. The Claude Marketplace connector goes further: one admin install covers the entire organization.
 
 You can now:
 
@@ -42,7 +42,7 @@ As DataHub context reaches more agents and more users, the question shifts from 
 
 You can now:
 
-- **See who accessed which AI tools**, from which surface, at what time — with enough detail for security reviews and compliance requirements
+- **See who accessed which AI tools**, from which surface, at what time - with enough detail for security reviews and compliance requirements
 - **Identify which teams are using Ask DataHub** or the MCP server and where adoption is low
 - **Download usage logs** as a CSV to share with security, legal, or executive stakeholders
 
@@ -60,7 +60,7 @@ Once ingestion runs across multiple sources, there is no easy way to see what ag
 
 You can now:
 
-- **See every context document in one place** — native, agent-authored, and imported from Notion, Confluence, and GitHub
+- **See every context document in one place** - native, agent-authored, and imported from Notion, Confluence, and GitHub
 - **Publish or hide documents** from AI agents in bulk, without navigating to each document individually
 - **Understand at a glance** where context is coming from and identify domains where coverage is sparse
 
@@ -85,7 +85,7 @@ v2.0 adds native connectors for four new data platforms, expanding DataHub's met
 | **Airbyte**     | ETL and pipeline tools    | Pipeline and connector metadata from Airbyte workspaces                                            |
 | **SAP HANA**    | Enterprise databases      | Production-ready connector with calc-view lineage, stored procedures, and query usage from day one |
 
-### Hex connector — major upgrade (GA)
+### Hex connector - major upgrade (GA)
 
 The Hex connector now extracts upstream lineage at table and column level, links Projects to Components, captures run history, and optionally pulls AI context documents directly from Hex REST APIs. The business logic encoded in your Hex notebooks flows into DataHub's context graph, where agents can retrieve it alongside lineage and ownership signals from the rest of your stack.
 
@@ -97,7 +97,7 @@ You can now:
 
 _Note for existing Hex customers: Components are now ingested as Chart entities instead of Dashboards. Saved views, glossary assignments, tags, ownership, and policies on existing Hex Component assets need to be reapplied._
 
-### Snowflake and Databricks — expanded coverage (GA)
+### Snowflake and Databricks - expanded coverage (GA)
 
 The Snowflake connector adds Internal Marketplace support and extracts dynamic-table lineage from `DYNAMIC_TABLE_GRAPH_HISTORY`, closing a blind spot for teams using Snowflake's incremental processing model.
 

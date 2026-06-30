@@ -738,7 +738,13 @@ module.exports = {
             type: "doc",
             id: "docs/managed-datahub/release-notes/v_2_0_0",
           },
-          items: ["docs/managed-datahub/release-notes/v_2_0_0_blog"],
+          items: [
+            {
+              type: "doc",
+              label: "v2.0 Release Announcement",
+              id: "docs/managed-datahub/release-notes/v_2_0_0_blog",
+            },
+          ],
         },
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
