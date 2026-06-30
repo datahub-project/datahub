@@ -910,3 +910,7 @@ tasks.register('resolveAndLockAll') {
     }
   }
 }
+
+// Cross-module aggregated JaCoCo report (recovers coverage of a class produced by tests in
+// another module). See gradle/coverage/java-coverage-aggregation.gradle for details.
+apply from: 'gradle/coverage/java-coverage-aggregation.gradle'
