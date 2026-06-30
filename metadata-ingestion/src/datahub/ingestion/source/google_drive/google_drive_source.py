@@ -234,25 +234,51 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.credentials.service_account_key_file:
             logger.info("Using service account key file for authentication")
-            return service_account.Credentials.from_service_account_file(
+            creds = service_account.Credentials.from_service_account_file(
                 self.config.credentials.service_account_key_file, scopes=scopes
             )
+            return self._maybe_delegate(creds)
 
         if self.config.credentials.service_account_key_json:
             logger.info("Using service account JSON string for authentication")
             key_data = _json.loads(
                 self.config.credentials.service_account_key_json.get_secret_value()
             )
-            return service_account.Credentials.from_service_account_info(
+            creds = service_account.Credentials.from_service_account_info(
                 key_data, scopes=scopes
             )
+            return self._maybe_delegate(creds)
 
         # Fall back to Application Default Credentials
         logger.info("Using Application Default Credentials")
         import google.auth  # type: ignore[import-untyped]
 
+        if self.config.delegated_user_email:
+            logger.warning(
+                "delegated_user_email is set but is only supported with service "
+                "account credentials (domain-wide delegation), not Application "
+                "Default Credentials. Ignoring it."
+            )
         credentials, _ = google.auth.default(scopes=scopes)
         return credentials
+
+    def _maybe_delegate(self, creds: Any) -> Any:
+        """Apply domain-wide delegation (user impersonation) when configured.
+
+        When ``delegated_user_email`` is set, the service account impersonates
+        that Workspace user, so the connector reads that user's Drive (and
+        org-shared content) without each folder being shared with the service
+        account directly. Requires the service account to have domain-wide
+        delegation authorized for the Drive scope in the Google Workspace admin
+        console.
+        """
+        if self.config.delegated_user_email:
+            logger.info(
+                f"Applying domain-wide delegation, impersonating "
+                f"{self.config.delegated_user_email}"
+            )
+            return creds.with_subject(self.config.delegated_user_email)
+        return creds
 
     # ------------------------------------------------------------------
     # Rate limiting
