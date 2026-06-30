@@ -1911,12 +1911,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
@@ -3348,12 +3342,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
