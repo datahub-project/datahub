@@ -246,6 +246,41 @@ scalaVersions.each { sv ->
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
     relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
 
+    // Additional relocations to prevent classloading conflicts (issue #14989)
+    relocate 'antlr', 'io.acryl.shaded.antlr'
+    relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
+    relocate 'org.apache.avro', 'io.acryl.shaded.org.apache.avro'
+    relocate 'org.codehaus.jackson', 'io.acryl.shaded.org.codehaus.jackson'
+    relocate 'org.eclipse.jetty', 'io.acryl.shaded.org.eclipse.jetty'
+    relocate 'jakarta.json', 'io.acryl.shaded.jakarta.json'
+    relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
+    relocate 'net.jpountz', 'io.acryl.shaded.net.jpountz'
+    relocate 'org.xerial', 'io.acryl.shaded.org.xerial'
+    relocate 'software.amazon', 'io.acryl.shaded.software.amazon'
+    relocate 'nonapi.io', 'io.acryl.shaded.nonapi.io'
+    relocate 'org.publicsuffix', 'io.acryl.shaded.org.publicsuffix'
+    relocate 'io.swagger', 'io.acryl.shaded.io.swagger'
+    relocate 'io.micrometer', 'io.acryl.shaded.io.micrometer'
+    relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
+    relocate 'io.github', 'io.acryl.shaded.io.github'
+    relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
+    relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
+
+    // Relocate packages that conflict with Spark's runtime classpath
+    relocate 'org.apache.kafka', 'io.acryl.shaded.org.apache.kafka'
+    relocate 'org.apache.http', 'io.acryl.shaded.org.apache.http'  // httpcomponents 4.x (not caught by org.apache.hc rule)
+    relocate 'org.apache.log4j', 'io.acryl.shaded.org.apache.log4j'
+    relocate 'org.apache.commons.text', 'io.acryl.shaded.org.apache.commons.text'
+    relocate 'com.google.re2j', 'io.acryl.shaded.com.google.re2j'
+    relocate 'org.eclipse.parsson', 'io.acryl.shaded.org.eclipse.parsson'
+    relocate 'org.codehaus.plexus', 'io.acryl.shaded.org.codehaus.plexus'
+    relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
+    relocate 'org.jspecify', 'io.acryl.shaded.org.jspecify'
+    // NOTE: Do NOT relocate com.linkedin — Pegasus data framework uses reflection/class names
+    // internally for serialization. Relocating it breaks DataEncodingException.
+    // com.datahub also references com.linkedin types so must stay unrelocated too.
+    relocate 'com.google.thirdparty', 'io.acryl.shaded.com.google.thirdparty'
+
     // Debug output to verify we're using the right dependency
     doFirst {
       println "Building JAR for Scala ${sv}"
