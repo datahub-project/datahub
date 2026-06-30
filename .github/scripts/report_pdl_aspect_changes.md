@@ -314,9 +314,11 @@ Without reclassification, both #9534 and #9579 would be `bump_spurious`. With it
 
 ### Effect on the file's cumulative bucket
 
-The reclassified slice verdicts feed the per-PR aggregator that drives each file's bucket in the cumulative report. The aggregator honors catch-up reconciliation: a `bump_needed` slice whose PR appears in any later slice's `catch_up_for_prs` is no longer treated as an unpaid debt and does not push the file into `bump_needed`. Priority order (highest wins): `bump_spurious > bump_needed > bump_done > bump_not_needed`.
+The reclassified slice verdicts feed the per-PR aggregator that drives each file's bucket in the cumulative report. The aggregator honors catch-up reconciliation: a `bump_needed` slice whose PR appears in any later slice's `catch_up_for_prs` is no longer treated as an unpaid debt and does not push the file into `bump_needed`. Priority order (highest wins): `bump_needed > bump_spurious > bump_done > bump_not_needed`.
 
-**Per-PR truth drives the bucket** — when an unreconciled spurious slice exists in the window, the file lands in `bump_spurious` even if cumulative-diff math would call the window `bump_done`. Reviewers see the per-PR breakdown table for the file to identify which specific PR was at fault.
+**An unreconciled `bump_needed` outranks `bump_spurious`.** A needed bump is a release-blocking, silent-migration hazard; a spurious bump is only informational. Because catch-up reconciliation flows oldest→newest, a slice that is _still_ `bump_spurious` after reclassification paid no debt — it cannot have covered a later change (a bump only pays for changes that preceded it). So when a file has both an unreconciled needed slice and a spurious slice, the file lands in `bump_needed` (the safe failure mode); the spurious slice is still listed in the per-PR breakdown for the reviewer. This prevents a false negative where a **duplicated release bump** landing inside the window masks a later real change — e.g. the v1.1.0 catch-up bump shipped as separate commits on both the cloud branch (#9687) and acryl-main (#9684), so the acryl-main copy falls inside a `v1.1.2-cloud..acryl-main` window as a spurious slice and would otherwise have hidden a later transitive `bump_needed` on the same aspect (`MonitorSuiteInfo` via `EntityChangeType`; `AssertionRunEvent`'s added `executedQuery` field).
+
+**Per-PR truth drives the bucket** — when an unreconciled spurious slice exists in the window (and no unreconciled needed slice outranks it), the file lands in `bump_spurious` even if cumulative-diff math would call the window `bump_done`. Reviewers see the per-PR breakdown table for the file to identify which specific PR was at fault.
 
 For `Status.pdl`:
 
