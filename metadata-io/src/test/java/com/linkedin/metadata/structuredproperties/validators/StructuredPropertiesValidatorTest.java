@@ -7,7 +7,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.common.urn.UrnArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;

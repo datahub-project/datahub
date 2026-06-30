@@ -5,7 +5,8 @@ import com.linkedin.common.Urn
 import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
-   "name": "propertyDefinition"
+   "name": "propertyDefinition",
+   "schemaVersion": 2
 }
 record StructuredPropertyDefinition {
     /**
