@@ -10,6 +10,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -20,10 +21,12 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
@@ -52,11 +55,27 @@ public class TestUtils {
   /** Stubs session group membership on an existing mock context. */
   public static QueryContext withSessionGroupMembership(
       @Nonnull QueryContext context, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionActorIdentity(
+        context,
+        new SessionActorIdentity(
+            UrnUtils.getUrn(context.getActorUrn()), List.copyOf(sessionGroupMembership), Set.of()));
+  }
+
+  /** Stubs session actor identity (corp + native groups) on an existing mock context. */
+  public static QueryContext withSessionActorIdentity(
+      @Nonnull QueryContext context, @Nonnull SessionActorIdentity sessionActorIdentity) {
     OperationContext operationContext = spy(context.getOperationContext());
     io.datahubproject.metadata.context.ActorContext actorContext =
         mock(io.datahubproject.metadata.context.ActorContext.class);
+    when(actorContext.getActorUrn()).thenReturn(sessionActorIdentity.getActorUrn());
+    when(actorContext.getGroupMembership()).thenReturn(sessionActorIdentity.getGroups());
     when(operationContext.getSessionActorContext()).thenReturn(actorContext);
-    when(actorContext.getGroupMembership()).thenReturn(sessionGroupMembership);
+
+    AuthorizationContext authorizationContext = mock(AuthorizationContext.class);
+    when(authorizationContext.getSessionActorIdentity(sessionActorIdentity.getActorUrn()))
+        .thenReturn(sessionActorIdentity);
+    when(operationContext.getAuthorizationContext()).thenReturn(authorizationContext);
+
     when(context.getOperationContext()).thenReturn(operationContext);
     return context;
   }

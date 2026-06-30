@@ -5,7 +5,7 @@ import { DEFAULT_LANGUAGE, LOCALE_MAP } from '@app/i18n/constants';
 import { useUpdateUserLocaleSettings } from '@app/i18n/hooks/useUpdateUserLocaleSettings';
 import { SupportedLanguage } from '@app/i18n/types';
 import { isSupportedLanguage } from '@app/i18n/utils';
-import dayjs from '@utils/dayjs';
+import { setDayjsLocale } from '@utils/dayjs';
 
 export function useChangeLocale() {
     const updateUserLocaleSettings = useUpdateUserLocaleSettings();
@@ -19,7 +19,7 @@ export function useChangeLocale() {
             await i18next.loadLanguages(localeConfig.lang);
             await updateUserLocaleSettings(language);
             i18next.changeLanguage(localeConfig.lang);
-            dayjs.locale(localeConfig.dayjs);
+            await setDayjsLocale(localeConfig.dayjs);
         },
         [updateUserLocaleSettings],
     );

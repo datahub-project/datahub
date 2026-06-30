@@ -39,6 +39,7 @@ from datahub.emitter.mce_builder import (
     make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -210,6 +211,16 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     capture_dataset_from_asset_key: Optional[bool] = pydantic.Field(
         default=True,
         description="Whether to capture dataset from asset key",
+    )
+
+    emit_mode: EmitMode = pydantic.Field(
+        default=EmitMode.ASYNC,
+        description=(
+            "Emit mode for writes to DataHub. Defaults to ASYNC so high-volume "
+            "runs don't block GMS on a synchronous commit per write. Use "
+            "SYNC_WAIT/SYNC_PRIMARY when read-after-write or raise-on-failure "
+            "guarantees are required."
+        ),
     )
 
     asset_keys_to_dataset_urn_converter: Optional[
