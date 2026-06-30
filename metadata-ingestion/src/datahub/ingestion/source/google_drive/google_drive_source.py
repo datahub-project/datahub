@@ -507,65 +507,36 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     # Content export
     # ------------------------------------------------------------------
 
-    def _export_doc_as_markdown(self, file_id: str) -> Optional[str]:
-        """Export a Google Doc as Markdown. Returns None on failure."""
-        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
-        from googleapiclient.http import (
-            MediaIoBaseDownload,  # type: ignore[import-untyped]
-        )
-
-        try:
-            self._rate_limit()
-            request = self._drive_service.files().export_media(
-                fileId=file_id, mimeType=EXPORT_MARKDOWN
-            )
-            fh = io.BytesIO()
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
-            return fh.getvalue().decode("utf-8")
-        except HttpError as e:
-            if e.resp.status in (403, 415):
-                # Markdown export not available for this file type
-                logger.debug(
-                    f"Markdown export unavailable for {file_id} ({e.resp.status})"
-                )
-            else:
-                logger.warning(f"Markdown export failed for {file_id}: {e}")
-            self._last_extraction_error = f"markdown export HTTP {e.resp.status}: {e}"
-            return None
-        except Exception as e:
-            logger.warning(f"Markdown export error for {file_id}: {e}")
-            self._last_extraction_error = f"markdown export error: {e}"
-            return None
-
-    def _export_doc_as_html(self, file_id: str) -> Optional[str]:
-        """Export a Google Doc as HTML. Returns None on failure."""
-        from googleapiclient.http import (
-            MediaIoBaseDownload,  # type: ignore[import-untyped]
-        )
-
-        try:
-            self._rate_limit()
-            request = self._drive_service.files().export_media(
-                fileId=file_id, mimeType=EXPORT_HTML
-            )
-            fh = io.BytesIO()
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
-            return fh.getvalue().decode("utf-8")
-        except Exception as e:
-            logger.warning(f"HTML export failed for {file_id}: {e}")
-            self._last_extraction_error = f"HTML export error: {e}"
-            return None
-
-    def _export_as_plain_text(
-        self, file_id: str, mime_type: str = EXPORT_TEXT
+    def _export_media(
+        self,
+        file_id: str,
+        mime_type: str,
+        *,
+        label: str,
+        error_label: str,
+        quiet_http_statuses: Tuple[int, ...] = (),
     ) -> Optional[str]:
-        """Export a file to a text format (plain text for Slides, CSV for Sheets)."""
+        """Export a Drive file via the ``export_media`` API and decode the result.
+
+        Args:
+            file_id: Drive file ID to export.
+            mime_type: Target export MIME type (one of the ``EXPORT_*`` constants).
+            label: Human-readable label used in log messages (e.g. "Markdown",
+                "HTML").
+            error_label: Lowercase/format-specific label used in the
+                ``_last_extraction_error`` detail string (e.g. "markdown",
+                "plain-text"), preserving the historical error-message wording
+                per export format.
+            quiet_http_statuses: ``HttpError`` statuses that mean "this export
+                format is unavailable for this file" rather than a real failure;
+                these are logged at debug level instead of warning. Only
+                meaningful when ``googleapiclient.errors.HttpError`` can be
+                imported (always true at runtime; tests stub the module).
+
+        Returns:
+            Decoded text on success, or ``None`` on failure (with
+            ``self._last_extraction_error`` populated).
+        """
         from googleapiclient.http import (
             MediaIoBaseDownload,  # type: ignore[import-untyped]
         )
@@ -582,9 +553,56 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 _, done = downloader.next_chunk()
             return fh.getvalue().decode("utf-8")
         except Exception as e:
-            logger.warning(f"Plain-text export failed for {file_id}: {e}")
-            self._last_extraction_error = f"plain-text export error: {e}"
+            # Only the markdown export path distinguishes "format unavailable"
+            # (403/415) from a real failure; other export formats never had
+            # this special-casing, so we only import/check HttpError here, on
+            # demand, to keep that behavior identical (and to keep tests that
+            # don't stub googleapiclient.errors.HttpError as a real exception
+            # class working for the HTML/plain-text paths).
+            if quiet_http_statuses:
+                from googleapiclient.errors import (
+                    HttpError,  # type: ignore[import-untyped]
+                )
+
+                if isinstance(e, HttpError):
+                    if e.resp.status in quiet_http_statuses:
+                        # Export format not available for this file type
+                        logger.debug(
+                            f"{label} export unavailable for {file_id} ({e.resp.status})"
+                        )
+                    else:
+                        logger.warning(f"{label} export failed for {file_id}: {e}")
+                    self._last_extraction_error = (
+                        f"{error_label} export HTTP {e.resp.status}: {e}"
+                    )
+                    return None
+            logger.warning(f"{label} export error for {file_id}: {e}")
+            self._last_extraction_error = f"{error_label} export error: {e}"
             return None
+
+    def _export_doc_as_markdown(self, file_id: str) -> Optional[str]:
+        """Export a Google Doc as Markdown. Returns None on failure."""
+        return self._export_media(
+            file_id,
+            EXPORT_MARKDOWN,
+            label="Markdown",
+            error_label="markdown",
+            quiet_http_statuses=(403, 415),
+        )
+
+    def _export_doc_as_html(self, file_id: str) -> Optional[str]:
+        """Export a Google Doc as HTML. Returns None on failure."""
+        return self._export_media(
+            file_id, EXPORT_HTML, label="HTML", error_label="HTML"
+        )
+
+    def _export_as_plain_text(
+        self, file_id: str, mime_type: str = EXPORT_TEXT
+    ) -> Optional[str]:
+        """Export a file to a text format (plain text for Slides, CSV for Sheets)."""
+        return self._export_media(
+            file_id, mime_type, label="Plain-text", error_label="plain-text"
+        )
 
     def _extract_text(self, file_metadata: Dict[str, Any]) -> Optional[str]:
         """Extract text from a Drive file, choosing the best export format.
@@ -708,6 +726,30 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _create_document(
+        self,
+        *,
+        external_url: str,
+        external_id: str,
+        **common_kwargs: Any,
+    ) -> Document:
+        """Dispatch to ``Document.create_document`` or ``create_external_document``.
+
+        ``common_kwargs`` are the fields shared by both constructors (id, title,
+        text, status, custom_properties, parent_document, and any
+        entity-specific extras like subtype/created_time/last_modified_time).
+        ``external_url``/``external_id`` are only used in EXTERNAL mode, since
+        NATIVE documents don't track an external system reference.
+        """
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(**common_kwargs)
+        return Document.create_external_document(
+            platform=self.platform,
+            external_url=external_url,
+            external_id=external_id,
+            **common_kwargs,
+        )
+
     def _build_document(
         self,
         *,
@@ -721,29 +763,17 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         created_time: Optional[datetime],
         last_modified_time: Optional[datetime],
     ) -> Document:
-        if self.config.document_import_mode == DocumentImportMode.NATIVE:
-            return Document.create_document(
-                id=doc_id,
-                title=title,
-                text=text,
-                status=DocumentStateClass.PUBLISHED,
-                custom_properties=custom_properties,
-                parent_document=parent_urn,
-                created_time=created_time,
-                last_modified_time=last_modified_time,
-            )
-        return Document.create_external_document(
+        return self._create_document(
             id=doc_id,
             title=title,
-            platform=self.platform,
-            external_url=external_url,
-            external_id=file_id,
             text=text,
             status=DocumentStateClass.PUBLISHED,
             custom_properties=custom_properties,
             parent_document=parent_urn,
             created_time=created_time,
             last_modified_time=last_modified_time,
+            external_url=external_url,
+            external_id=file_id,
         )
 
     def _build_folder_document(
@@ -759,27 +789,16 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             "webViewLink", f"https://drive.google.com/drive/folders/{folder_id}"
         )
 
-        if self.config.document_import_mode == DocumentImportMode.NATIVE:
-            return Document.create_document(
-                id=doc_id,
-                title=title,
-                text="",
-                status=DocumentStateClass.PUBLISHED,
-                subtype=FOLDER_SUBTYPE,
-                custom_properties={"folder_id": folder_id},
-                parent_document=parent_urn,
-            )
-        return Document.create_external_document(
+        return self._create_document(
             id=doc_id,
             title=title,
-            platform=self.platform,
-            external_url=url,
-            external_id=folder_id,
             text="",
             status=DocumentStateClass.PUBLISHED,
             subtype=FOLDER_SUBTYPE,
             custom_properties={"folder_id": folder_id},
             parent_document=parent_urn,
+            external_url=url,
+            external_id=folder_id,
         )
 
     # ------------------------------------------------------------------
