@@ -1,20 +1,18 @@
 import { Upload } from '@phosphor-icons/react/dist/csr/Upload';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
-import {
-    HelperText,
-    SourceCard,
-    SourceGrid,
-    SourceIcon,
-    SourceLogo,
-} from '@app/context/import/components/importDocumentsModal.styles';
+import { SourceGrid } from '@app/context/import/components/importDocumentsModal.styles';
 import { ImportSourceType } from '@app/context/import/import.types';
-import { Text } from '@src/alchemy-components';
+import { Card } from '@src/alchemy-components';
 
 import confluenceLogo from '@images/confluencelogo.svg';
 import githubLogo from '@images/githublogo.png';
 import notionLogo from '@images/notionlogo.png';
+
+const ICON_SIZE = 24;
+const LOGO_STYLE: React.CSSProperties = { width: ICON_SIZE, height: ICON_SIZE, objectFit: 'contain' };
 
 type ImportDocumentsSourceGridProps = {
     canImportFromScheduledSources: boolean;
@@ -26,34 +24,37 @@ export default function ImportDocumentsSourceGrid({
     onSelectSource,
 }: ImportDocumentsSourceGridProps) {
     const { t } = useTranslation('misc');
+    const theme = useTheme();
     const columnCount = canImportFromScheduledSources ? 2 : 1;
 
     return (
         <SourceGrid $columns={columnCount}>
-            <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.FILE_UPLOAD)}>
-                <SourceIcon>
-                    <Upload size={32} />
-                </SourceIcon>
-                <Text weight="semiBold">{t('context.import.uploadFilesTitle')}</Text>
-                <HelperText>{t('context.import.uploadFilesDescription')}</HelperText>
-            </SourceCard>
+            <Card
+                title={t('context.import.uploadFilesTitle')}
+                subTitle={t('context.import.uploadFilesDescription')}
+                icon={<Upload size={ICON_SIZE} color={theme.colors.iconBrand} />}
+                onClick={() => onSelectSource(ImportSourceType.FILE_UPLOAD)}
+            />
             {canImportFromScheduledSources && (
                 <>
-                    <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.GITHUB)}>
-                        <SourceLogo src={githubLogo} alt={t('context.import.githubAlt')} />
-                        <Text weight="semiBold">{t('context.import.githubTitle')}</Text>
-                        <HelperText>{t('context.import.githubDescription')}</HelperText>
-                    </SourceCard>
-                    <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.NOTION)}>
-                        <SourceLogo src={notionLogo} alt={t('context.import.notionAlt')} />
-                        <Text weight="semiBold">{t('context.import.notionTitle')}</Text>
-                        <HelperText>{t('context.import.notionDescription')}</HelperText>
-                    </SourceCard>
-                    <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.CONFLUENCE)}>
-                        <SourceLogo src={confluenceLogo} alt={t('context.import.confluenceAlt')} />
-                        <Text weight="semiBold">{t('context.import.confluenceTitle')}</Text>
-                        <HelperText>{t('context.import.confluenceDescription')}</HelperText>
-                    </SourceCard>
+                    <Card
+                        title={t('context.import.githubTitle')}
+                        subTitle={t('context.import.githubDescription')}
+                        icon={<img src={githubLogo} alt={t('context.import.githubAlt')} style={LOGO_STYLE} />}
+                        onClick={() => onSelectSource(ImportSourceType.GITHUB)}
+                    />
+                    <Card
+                        title={t('context.import.notionTitle')}
+                        subTitle={t('context.import.notionDescription')}
+                        icon={<img src={notionLogo} alt={t('context.import.notionAlt')} style={LOGO_STYLE} />}
+                        onClick={() => onSelectSource(ImportSourceType.NOTION)}
+                    />
+                    <Card
+                        title={t('context.import.confluenceTitle')}
+                        subTitle={t('context.import.confluenceDescription')}
+                        icon={<img src={confluenceLogo} alt={t('context.import.confluenceAlt')} style={LOGO_STYLE} />}
+                        onClick={() => onSelectSource(ImportSourceType.CONFLUENCE)}
+                    />
                 </>
             )}
         </SourceGrid>

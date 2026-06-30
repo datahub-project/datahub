@@ -10,6 +10,8 @@
     "changeEventString.addedToApplication": "Zur Anwendung „{{appName}}“ hinzugefügt.",
     "changeEventString.addedToDomain": "Zur Domäne „{{domainName}}“ hinzugefügt.",
     "changeEventString.assetDocEmpty": "Die Asset-Dokumentation ist leer.",
+    "changeEventString.defaultFieldPath": "Ein neues Feld",
+    "changeEventString.defaultRelationship": "verwandt",
     "changeEventString.fieldDocEmpty": "Die Felddokumentation für {{fieldPath}} ist leer.",
     "changeEventString.modifiedColumn": "Spalte {{column}} geändert.",
     "changeEventString.removedAsset": "Asset „{{assetName}}“ entfernt.",
