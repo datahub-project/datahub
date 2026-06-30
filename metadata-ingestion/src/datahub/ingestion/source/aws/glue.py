@@ -313,6 +313,30 @@ class GlueSourceConfig(
         ),
     )
 
+    catalog_to_platform_instance: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Maps a Glue catalog's ARN authority `arn:aws:glue:{region}:{account}` to the "
+            "platform_instance (and optionally env) to stamp on tables owned by that catalog. "
+            "Use this for cross-account catalogs (e.g. ingesting another account via `catalog_id`, "
+            "or Lake Formation shared tables) so each table's URN matches the one the owning "
+            "account's own Glue ingestion produces, instead of the ingestion account's instance. "
+            "The key is account + region — account alone is not unique across regions — and matches "
+            "the key used by the Spark/OpenLineage `connections` map."
+        ),
+    )
+
+    resolve_resource_link_schema: bool = Field(
+        default=True,
+        description=(
+            "When ingesting Lake Formation resource links (`ignore_resource_links=False`), fetch the "
+            "shared table's schema from its target table in the owning account, since the link "
+            "itself carries no columns. Requires `glue:GetTable` on the target table. Best-effort: "
+            "on error the link is ingested without a schema. Set to False to rely on the owner "
+            "account's own ingestion for the schema instead."
+        ),
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -615,6 +639,102 @@ class GlueSource(StatefulIngestionSourceBase):
             return f"{prefix}:table/{database}/{table}"
         return f"{prefix}:database/{database}"
 
+    def _resolve_platform_instance(
+        self, catalog_id: Optional[str]
+    ) -> TargetPlatformConfig:
+        """Resolve the platform_instance/env to stamp on a table owned by ``catalog_id``.
+
+        Cross-account tables (a different ``catalog_id``, or Lake Formation shared tables) must be
+        stamped with the *owning* account's instance so their URNs match what that account's own
+        Glue ingestion emits — not the ingestion account's instance. The owning catalog is keyed by
+        its ARN authority ``arn:aws:glue:{region}:{account}`` (account + region; account alone is not
+        unique across regions), the same key the Spark/OpenLineage ``connections`` map uses. Falls
+        back to the source's own ``platform_instance``/``env`` when there is no mapping.
+        """
+        instance = self.source_config.platform_instance
+        env = self.env
+        if catalog_id and self.source_config.catalog_to_platform_instance:
+            arn = f"arn:aws:glue:{self.source_config.aws_region}:{catalog_id}"
+            detail = self.source_config.catalog_to_platform_instance.get(arn)
+            if detail is not None:
+                if detail.platform_instance is not None:
+                    instance = detail.platform_instance
+                if detail.env is not None:
+                    env = detail.env
+        return TargetPlatformConfig(platform_instance=instance, env=env)
+
+    def _populate_resource_link_schema(self, table: Dict) -> Dict:
+        """Backfill a resource link's schema from its target table in the owning account.
+
+        Resource links carry no StorageDescriptor of their own (the schema lives on the target
+        table), so the link would otherwise be ingested schemaless. Fetch the target's definition
+        and copy its StorageDescriptor onto a shallow copy of the link. Best-effort: on error (e.g.
+        missing cross-account `glue:GetTable`) the link is returned unchanged.
+        """
+        target = table.get("TargetTable")
+        # Nothing to do if it's not a resource link or it already carries columns.
+        if not target or table.get("StorageDescriptor", {}).get("Columns"):
+            return table
+
+        kwargs = {
+            "DatabaseName": target.get("DatabaseName"),
+            "Name": target.get("Name"),
+            "CatalogId": target.get("CatalogId"),
+        }
+        try:
+            response = self.glue_client.get_table(
+                **{k: v for k, v in kwargs.items() if v}
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to resolve resource link schema",
+                message="The shared table will be ingested without a schema. Check that the "
+                "ingestion role has glue:GetTable on the target table's account, or set "
+                "resolve_resource_link_schema=false to rely on the owner account's ingestion.",
+                context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
+                exc=e,
+            )
+            return table
+
+        storage_descriptor = response.get("Table", {}).get("StorageDescriptor")
+        if not storage_descriptor:
+            return table
+        return {**table, "StorageDescriptor": storage_descriptor}
+
+    def _gen_resource_link_lineage(
+        self, table: Dict, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a cross-account upstream edge from a Lake Formation resource link to its owner.
+
+        A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
+        account. We emit the link as a consumer-instance table (handled by the normal flow) with an
+        upstream edge to the owner's table URN — stamped with the owner account's instance — so the
+        shared dataset stitches back to its source instead of appearing as an unrelated duplicate.
+        """
+        target = table.get("TargetTable")
+        if not target:
+            return
+
+        owner = self._resolve_platform_instance(target.get("CatalogId"))
+        owner_name = f"{target['DatabaseName']}.{target['Name']}"
+        owner_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=owner_name,
+            env=owner.env or self.env,
+            platform_instance=owner.platform_instance,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=owner_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    )
+                ]
+            ),
+        ).as_workunit()
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
@@ -750,12 +870,17 @@ class GlueSource(StatefulIngestionSourceBase):
         Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
         Returns None on parse failure or when no tables are found.
         """
+        # Apply the target platform's instance/env (if configured) so the parsed upstream URNs match
+        # what that platform's own connector emits — same as _make_dataset_urn_for_platform.
+        target_config = self.source_config.target_platform_configs.get(platform)
         result = create_lineage_sql_parsed_result(
             query=query,
             default_db=database,
             platform=platform,
-            platform_instance=None,
-            env=self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+            env=target_config.env if target_config and target_config.env else self.env,
             default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
             schema_aware=False,
             generate_column_lineage=False,
@@ -1297,6 +1422,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 and "TargetDatabase" in database
             ):
                 table["DatabaseName"] = database["Name"]
+            # Resource links carry no schema of their own; backfill it from the target table.
+            if (
+                not self.source_config.ignore_resource_links
+                and self.source_config.resolve_resource_link_schema
+                and "TargetTable" in table
+            ):
+                table = self._populate_resource_link_schema(table)
             yield table
 
     def get_all_databases_and_tables(
@@ -1737,14 +1869,19 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_table_dropped(full_table_name)
             return
 
+        # Stamp the owning catalog's instance/env (cross-account tables resolve to the owner's
+        # instance, not the ingestion account's) so URNs match the owner's own Glue ingestion.
+        resolved = self._resolve_platform_instance(table.get("CatalogId"))
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=full_table_name,
-            env=self.env,
-            platform_instance=self.source_config.platform_instance,
+            env=resolved.env or self.env,
+            platform_instance=resolved.platform_instance,
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
+        # For Lake Formation resource links, stitch the shared table back to its owning account.
+        yield from self._gen_resource_link_lineage(table, dataset_urn)
         # generate a Dataset snapshot
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
         # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
