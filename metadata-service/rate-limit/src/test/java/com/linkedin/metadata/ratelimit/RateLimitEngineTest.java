@@ -338,6 +338,91 @@ public class RateLimitEngineTest {
         engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actor).isAllowed());
   }
 
+  @Test
+  public void testClientClassRoutesToSeparateBucketsWhenEnabled() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = endpointEnabledConfig();
+    config.setClientClassEnabled(true);
+    config.setRetryAfterJitterPercent(0);
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("gql-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("browser"))
+                    .capacity(5)
+                    .refillTokens(5)
+                    .refillPeriodSeconds(60)
+                    .build(),
+                RateLimitProperties.Rule.builder()
+                    .id("gql-non-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("non_browser"))
+                    .capacity(1)
+                    .refillTokens(1)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    // Non-browser exhausts its capacity-1 bucket on the second call.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL(
+                "/api/graphql", "POST", "getMe", null, ClientClass.NON_BROWSER)
+            .isAllowed());
+    RateLimitDecision nonBrowserDenied =
+        engine.evaluateAndAcquireGraphQL(
+            "/api/graphql", "POST", "getMe", null, ClientClass.NON_BROWSER);
+    assertFalse(nonBrowserDenied.isAllowed());
+    assertEquals(nonBrowserDenied.getDenyingRuleId(), "gql-non-browser");
+
+    // Browser uses a separate bucket (capacity 5) and is unaffected.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+  }
+
+  @Test
+  public void testClientClassIgnoredWhenDisabled() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = endpointEnabledConfig();
+    // clientClassEnabled defaults to false.
+    config.setRetryAfterJitterPercent(0);
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("gql-non-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("non_browser"))
+                    .capacity(1)
+                    .refillTokens(1)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    // Flag off → class is ignored → a browser request is still subject to the non_browser rule.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+    assertFalse(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+  }
+
   private RateLimitProperties perActorEndpointConfig(int capacity) {
     RateLimitProperties config = endpointEnabledConfig();
     config.setRetryAfterJitterPercent(0);

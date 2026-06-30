@@ -3,7 +3,6 @@ package com.linkedin.gms.factory.ratelimit;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.metadata.config.GMSConfiguration;
-import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
@@ -16,13 +15,6 @@ public class RateLimitEngineFactoryTest {
   private final RateLimitEngineFactory factory = new RateLimitEngineFactory();
 
   @Test
-  public void testCreatesConfigLoaderBean() {
-    OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    RateLimitConfigLoader loader = factory.rateLimitConfigLoader(operationContext);
-    assertNotNull(loader);
-  }
-
-  @Test
   public void testCreatesEngineAndFilterBeans() {
     GMSConfiguration gmsConfiguration = new GMSConfiguration();
     RateLimitProperties rateLimits = new RateLimitProperties();
@@ -31,10 +23,9 @@ public class RateLimitEngineFactoryTest {
     gmsConfiguration.setBasePathEnabled(false);
 
     OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    RateLimitConfigLoader loader = factory.rateLimitConfigLoader(operationContext);
 
     RateLimitEngine engine =
-        factory.rateLimitEngine(gmsConfiguration, null, null, operationContext, loader);
+        factory.rateLimitEngine(gmsConfiguration, null, null, operationContext);
     RateLimitFilter filter = factory.rateLimitFilter(engine);
 
     assertNotNull(engine);

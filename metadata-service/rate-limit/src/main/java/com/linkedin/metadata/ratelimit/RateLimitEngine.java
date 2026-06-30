@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -63,7 +64,7 @@ public class RateLimitEngine {
     this.ruleSelector = new RuleSelector(config);
     validateEndpointRateLimiting(hazelcastInstance);
     this.endpointStore =
-        isEndpointRateLimitingActive()
+        needsDistributedStore()
             ? new EndpointRateLimitStore(config.getEndpoint(), hazelcastInstance)
             : null;
     this.adaptiveCapacityLimiter =
@@ -77,6 +78,7 @@ public class RateLimitEngine {
     warnIfMisconfiguredPaths(config);
     warnIfMisconfiguredLimiters();
     validatePerActorRules(config);
+    validateScopedConfig(config);
   }
 
   private void validatePerActorRules(RateLimitProperties config) {
@@ -127,10 +129,20 @@ public class RateLimitEngine {
     }
   }
 
-  /** True when at least one limiter type (capacity or endpoint) is enabled. */
+  /**
+   * True when the master switch is on AND at least one limiter type (capacity, endpoint, or the
+   * scoped chain) is enabled. The master switch ({@code rateLimits.enabled}) short-circuits
+   * everything when off.
+   */
   public boolean isEnabled() {
-    return (config.getCapacity() != null && config.getCapacity().isEnabled())
-        || (config.getEndpoint() != null && config.getEndpoint().isEnabled());
+    return config.isEnabled()
+        && ((config.getCapacity() != null && config.getCapacity().isEnabled())
+            || (config.getEndpoint() != null && config.getEndpoint().isEnabled())
+            || isScopedActive());
+  }
+
+  private boolean isScopedActive() {
+    return config.getScoped() != null && config.getScoped().isEnabled();
   }
 
   public boolean isFailOpen() {
@@ -149,12 +161,19 @@ public class RateLimitEngine {
   @Nonnull
   public RateLimitDecision evaluateAndAcquireRest(
       @Nonnull String requestUri, @Nonnull String method) {
+    return evaluateAndAcquireRest(requestUri, method, null);
+  }
+
+  @Nonnull
+  public RateLimitDecision evaluateAndAcquireRest(
+      @Nonnull String requestUri, @Nonnull String method, @Nullable ClientClass clientClass) {
     return evaluateAndAcquire(
         new RateLimitContext(
             stripPath(requestUri),
             method.toUpperCase(Locale.ROOT),
             null,
             null,
+            clientClass,
             RateLimitSource.SERVLET_FILTER));
   }
 
@@ -164,13 +183,35 @@ public class RateLimitEngine {
       @Nonnull String method,
       @Nonnull String operationName,
       @Nullable String actorUrn) {
+    return evaluateAndAcquireGraphQL(requestUri, method, operationName, actorUrn, null);
+  }
+
+  @Nonnull
+  public RateLimitDecision evaluateAndAcquireGraphQL(
+      @Nonnull String requestUri,
+      @Nonnull String method,
+      @Nonnull String operationName,
+      @Nullable String actorUrn,
+      @Nullable ClientClass clientClass) {
     return evaluateAndAcquire(
         new RateLimitContext(
             stripPath(requestUri),
             method.toUpperCase(Locale.ROOT),
             operationName,
             actorUrn,
+            clientClass,
             RateLimitSource.GRAPHQL_GATE));
+  }
+
+  /**
+   * Resolves the client class actually used for rule selection. When client-class selection is
+   * disabled (the default), returns {@code null} so {@link
+   * CompiledRateLimitRule#matchesClientClass} treats every rule as a match — i.e. the class
+   * dimension is ignored and behavior is unchanged.
+   */
+  @Nullable
+  private ClientClass effectiveClientClass(@Nullable ClientClass clientClass) {
+    return config.isClientClassEnabled() ? clientClass : null;
   }
 
   public void release(@Nonnull RateLimitLease lease, boolean success) {
@@ -249,10 +290,11 @@ public class RateLimitEngine {
     }
 
     try {
+      ClientClass ruleClass = effectiveClientClass(ctx.clientClass());
       CompiledRateLimitRule capacityRule =
-          ruleSelector.selectCapacityRule(ctx.path(), ctx.method(), ctx.operationName());
+          ruleSelector.selectCapacityRule(ctx.path(), ctx.method(), ctx.operationName(), ruleClass);
       CompiledRateLimitRule endpointRule =
-          ruleSelector.selectEndpointRule(ctx.path(), ctx.method(), ctx.operationName());
+          ruleSelector.selectEndpointRule(ctx.path(), ctx.method(), ctx.operationName(), ruleClass);
 
       Limiter.Listener capacityListener = null;
       if (capacityRule != null) {
@@ -302,6 +344,18 @@ public class RateLimitEngine {
         }
       }
 
+      RateLimitDecision scopedDeny = consumeScopedChain(ctx);
+      if (scopedDeny != null) {
+        if (capacityListener != null) {
+          adaptiveCapacityLimiter.release(capacityListener, false);
+        }
+        logDeny(scopedDeny);
+        metrics.recordDecision(
+            scopedDeny,
+            RateLimitMetrics.graphqlOperationTag(ctx.operationName(), capacityRule, endpointRule));
+        return scopedDeny;
+      }
+
       RateLimitDecision decision =
           RateLimitDecision.builder()
               .allowed(true)
@@ -317,6 +371,7 @@ public class RateLimitEngine {
       return decision;
     } catch (RuntimeException e) {
       if (config.isFailOpen()) {
+        metrics.recordFailOpen("front_gate");
         log.warn(
             "Rate limit evaluation failed; fail-open allowing request for {} {}",
             ctx.method(),
@@ -346,6 +401,194 @@ public class RateLimitEngine {
     }
     return endpointStore.tryConsumeAndReturnRemaining(endpointRule.getId());
   }
+
+  /**
+   * The front-gate scoped chain — the request-level multi-dimensional limiter consumed narrow →
+   * broad after the per-pod capacity limiter: per-actor → client class (browser/sdk) → fleet
+   * global. Heavy-resolver buckets are deliberately excluded here; they are a separate gate the
+   * GraphQL controller applies per top-level resolver (see {@link #consumeHeavyResolver}). Returns
+   * a deny decision for the first stage that rejects (after refunding the buckets already consumed,
+   * unless refund is disabled), or {@code null} when the chain is inactive or every applicable
+   * stage allows.
+   */
+  @Nullable
+  private RateLimitDecision consumeScopedChain(@Nonnull RateLimitContext ctx) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (endpointStore == null || scoped == null || !scoped.isEnabled()) {
+      return null;
+    }
+
+    List<ScopedStep> steps = buildScopedSteps(ctx, scoped);
+    List<ScopedStep> consumed = new ArrayList<>(steps.size());
+    for (ScopedStep step : steps) {
+      ConsumptionProbe probe =
+          endpointStore.tryConsumeScoped(step.key(), step.limits(), 1, step.global());
+      if (probe.isConsumed()) {
+        consumed.add(step);
+        continue;
+      }
+      if (!scoped.isRefundDisabled()) {
+        consumed.forEach(
+            done -> endpointStore.refundScoped(done.key(), done.limits(), 1, done.global()));
+      }
+      return RateLimitDecision.builder()
+          .allowed(false)
+          .denyingRuleId(step.label())
+          .denyingType(RateLimitRuleType.endpoint)
+          .source(ctx.source())
+          .graphqlOperation(ctx.operationName())
+          .retryAfterSeconds(endpointRetryAfterSeconds(probe))
+          .build();
+    }
+    return null;
+  }
+
+  /**
+   * Builds the ordered narrow → broad steps for this request. Disabled limiters and absent
+   * dimensions (no actor on REST, unclassified client, non-heavy resolver) are skipped.
+   * Tenant-scoped keys are prefixed with the tenant id; only {@code global} is un-prefixed and
+   * lives in the shared fleet map.
+   */
+  @Nonnull
+  private List<ScopedStep> buildScopedSteps(
+      @Nonnull RateLimitContext ctx, @Nonnull RateLimitProperties.ScopedLimits scoped) {
+    String tenant = config.getTenantId();
+    List<ScopedStep> steps = new ArrayList<>(4);
+
+    if (ctx.actorUrn() != null && !scoped.getActor().isDisabled()) {
+      steps.add(
+          new ScopedStep(
+              tenantKey(tenant, "actor:" + ctx.actorUrn()),
+              scoped.getActor(),
+              false,
+              "scoped:actor"));
+    }
+
+    if (ctx.clientClass() != null) {
+      boolean browser = ctx.clientClass() == ClientClass.BROWSER;
+      RateLimitProperties.BucketLimits classLimits =
+          browser ? scoped.getBrowser() : scoped.getSdk();
+      if (!classLimits.isDisabled()) {
+        String suffix = browser ? "browser" : "sdk";
+        steps.add(
+            new ScopedStep(tenantKey(tenant, suffix), classLimits, false, "scoped:" + suffix));
+      }
+    }
+
+    // Heavy-resolver buckets are NOT part of this front-gate chain. The GraphQL controller applies
+    // them separately, per top-level resolver, after this chain admits the request (see
+    // consumeHeavyResolver) — a standalone, independent protection.
+
+    if (!scoped.getGlobal().isDisabled()) {
+      steps.add(new ScopedStep("global", scoped.getGlobal(), true, "scoped:global"));
+    }
+    return steps;
+  }
+
+  /** Prefixes a tenant-scoped bucket key so shared infra (ES/MySQL/Hazelcast) stays isolated. */
+  @Nonnull
+  private static String tenantKey(@Nullable String tenantId, @Nonnull String suffix) {
+    return StringUtils.hasText(tenantId) ? tenantId + ":" + suffix : suffix;
+  }
+
+  /**
+   * Heavy-resolver gate (Part B), distinct from the front-gate chain. The GraphQL controller calls
+   * this after the front gate admits the request, once per top-level resolver field name (reusing
+   * the query it already parsed); it consumes that resolver's tenant-scoped bucket ({@code
+   * {tenantId}:op:{resolver}}). Returns a deny decision when the bucket is exhausted, or {@code
+   * null} when the scoped chain is inactive, the resolver isn't configured as heavy, or the bucket
+   * allows. Standalone — no refund and no link to the front-gate chain: a request that already
+   * passed the front gate legitimately spent its request-level budget, so a heavy-resolver block
+   * here does not roll those tokens back.
+   *
+   * <p>{@code systemActor} lets the internal system principal bypass resolvers configured with
+   * {@code exemptSystemActor=true}, so high-volume internal traffic isn't throttled where that's
+   * intended.
+   */
+  @Nullable
+  public RateLimitDecision consumeHeavyResolver(@Nonnull String resolverName, boolean systemActor) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (endpointStore == null || scoped == null || !scoped.isEnabled()) {
+      return null;
+    }
+    RateLimitProperties.BucketLimits limits = scoped.getHeavyResolvers().get(resolverName);
+    if (limits == null || limits.isDisabled() || (systemActor && limits.isExemptSystemActor())) {
+      return null;
+    }
+    try {
+      ConsumptionProbe probe =
+          endpointStore.tryConsumeScoped(
+              tenantKey(config.getTenantId(), "op:" + resolverName), limits, 1, false);
+      if (probe.isConsumed()) {
+        return null;
+      }
+      RateLimitDecision decision =
+          RateLimitDecision.builder()
+              .allowed(false)
+              .denyingRuleId("scoped:op:" + resolverName)
+              .denyingType(RateLimitRuleType.endpoint)
+              .source(RateLimitSource.GRAPHQL_GATE)
+              .graphqlOperation(resolverName)
+              .retryAfterSeconds(endpointRetryAfterSeconds(probe))
+              .build();
+      logDeny(decision);
+      metrics.recordDecision(decision, RateLimitMetrics.graphqlOperationTag(resolverName));
+      return decision;
+    } catch (RuntimeException e) {
+      if (config.isFailOpen()) {
+        metrics.recordFailOpen("heavy_resolver");
+        log.warn(
+            "Heavy-resolver rate limit evaluation failed; fail-open allowing resolver {}",
+            resolverName,
+            e);
+        return null;
+      }
+      throw e;
+    }
+  }
+
+  private void validateScopedConfig(@Nonnull RateLimitProperties config) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (scoped == null || !scoped.isEnabled()) {
+      return;
+    }
+    validateScopedBucket("scoped.actor", scoped.getActor());
+    validateScopedBucket("scoped.browser", scoped.getBrowser());
+    validateScopedBucket("scoped.sdk", scoped.getSdk());
+    validateScopedBucket("scoped.global", scoped.getGlobal());
+    if (scoped.getHeavyResolvers() != null) {
+      scoped
+          .getHeavyResolvers()
+          .forEach((name, limits) -> validateScopedBucket("scoped.heavyResolvers." + name, limits));
+    }
+  }
+
+  private static void validateScopedBucket(
+      @Nonnull String path, @Nullable RateLimitProperties.BucketLimits limits) {
+    if (limits == null) {
+      throw new IllegalStateException(path + " must be set when the scoped chain is enabled");
+    }
+    if (limits.isDisabled()) {
+      return;
+    }
+    if (limits.getCapacity() <= 0
+        || limits.getRefillTokens() <= 0
+        || limits.getRefillPeriodSeconds() <= 0) {
+      throw new IllegalStateException(
+          path
+              + " requires capacity>0, refillTokens>0, refillPeriodSeconds>0 when enabled (got "
+              + limits.getCapacity()
+              + "/"
+              + limits.getRefillTokens()
+              + "/"
+              + limits.getRefillPeriodSeconds()
+              + ")");
+    }
+  }
+
+  /** One ordered step in the scoped chain: its bucket key, sizing, target map, and deny label. */
+  private record ScopedStep(
+      String key, RateLimitProperties.BucketLimits limits, boolean global, String label) {}
 
   private int endpointRetryAfterSeconds(@Nullable ConsumptionProbe probe) {
     if (probe == null) {
@@ -400,18 +643,23 @@ public class RateLimitEngine {
   }
 
   private void validateEndpointRateLimiting(@Nullable HazelcastInstance hazelcastInstance) {
-    if (!isEndpointRateLimitingActive()) {
+    if (!needsDistributedStore()) {
       return;
     }
     if (hazelcastInstance == null) {
       throw new IllegalStateException(
-          "Endpoint rate limiting requires Hazelcast "
-              + "(set RATE_LIMITS_ENDPOINT_ENABLED=true to provision a cluster client)");
+          "Distributed rate limiting requires Hazelcast (set RATE_LIMITS_ENDPOINT_ENABLED=true or "
+              + "RATE_LIMITS_SCOPED_ENABLED=true to provision a cluster client)");
     }
   }
 
-  private boolean isEndpointRateLimitingActive() {
-    return config.getEndpoint() != null && config.getEndpoint().isEnabled();
+  /**
+   * The shared Bucket4j/Hazelcast store backs both the endpoint rules and the scoped chain, so it
+   * is provisioned when either is enabled.
+   */
+  private boolean needsDistributedStore() {
+    return config.isEnabled()
+        && ((config.getEndpoint() != null && config.getEndpoint().isEnabled()) || isScopedActive());
   }
 
   private void registerMetrics() {

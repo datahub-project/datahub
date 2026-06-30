@@ -190,16 +190,97 @@ Bundled defaults live under **`datahub.gms.rateLimits`** in `application.yaml` (
 
 1. Enable the limiter type(s) you need: `RATE_LIMITS_CAPACITY_ENABLED=true` and/or `RATE_LIMITS_ENDPOINT_ENABLED=true`
 2. For endpoint caps: `RATE_LIMITS_ENDPOINT_ENABLED=true` (provisions Hazelcast automatically)
-3. Mount a ConfigMap with your policy file and set `RATE_LIMITS_CONFIG_FILE_ENABLED=true`
+3. To override the bundled policy, mount a ConfigMap with your policy file and point `RATE_LIMITS_CONFIG_FILE` at it using a Spring resource prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)
 4. Rollout-restart GMS pods (config changes require restart in v1)
 5. Verify (requires `Manage System Operations` privilege):
    - `GET /openapi/v1/rate-limits/config` — effective merged config
    - `GET /openapi/v1/rate-limits/status` — live limits on the pod that served the request
    - Prometheus metrics `gms.rate_limit.*`
 
+## Per-actor rate limiting
+
+When `perActor: true` is set on an **endpoint** (token-bucket) rule, GMS maintains a **separate Bucket4j bucket per authenticated actor URN** rather than a single shared bucket for the rule. Each actor's quota is independent: one heavy API consumer cannot deplete another actor's tokens.
+
+**Constraints:**
+
+- `perActor` is supported **only** on `endpoint.rules[]`. Setting it on a `capacity.rules[]` entry causes GMS to refuse to start with `IllegalStateException`.
+- Per-actor sharding applies to the **GraphQL POST path only** (`/api/graphql` by default). A `perActor` rule on a non-GraphQL path logs a warning at startup and falls back to pass-through (no per-actor bucket is consulted).
+- `perActor` requires `endpoint.enabled=true` (Hazelcast).
+
+**System actor exemption:**
+
+The internal system principal (actor URN matching `DATAHUB_SYSTEM_CLIENT_ID`, default `urn:li:corpuser:__datahub_system`) is resolved to `null` before the rate limit engine is called. A `perActor` rule with a `null` actor URN skips the per-actor consume entirely — the request proceeds without consuming a token. This means high-volume internal GMS operations are never throttled by per-actor rules.
+
+**Bucket lifecycle in Hazelcast:**
+
+Per-actor bucket entries are stored under a composite Hazelcast key `{ruleId}:actor:{actorUrn}`. Entries are evicted after `bucketMaxIdleSeconds` of inactivity (default 300 s, `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`). An LRU size cap of `bucketMaxSize` entries per node prevents unbounded Hazelcast memory growth (default 100 000, `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`).
+
+**Bundled default — `graphql-per-actor-default`:**
+
+`application.yaml` ships a bundled per-actor rule for the GraphQL path that is active whenever `endpoint.enabled=true`:
+
+```yaml
+endpoint:
+  rules:
+    - id: graphql-per-actor-default
+      enabled: true # RATE_LIMITS_PER_ACTOR_ENABLED
+      pathPattern: /api/graphql # RATE_LIMITS_PER_ACTOR_PATH
+      methods: [POST]
+      perActor: true
+      capacity: 1000 # RATE_LIMITS_PER_ACTOR_CAPACITY
+      refillTokens: 1000 # RATE_LIMITS_PER_ACTOR_REFILL_TOKENS
+      refillPeriodSeconds: 60 # RATE_LIMITS_PER_ACTOR_REFILL_PERIOD
+```
+
+Default behavior: each authenticated user may issue up to 1 000 GraphQL POST requests per 60-second window. The system actor is exempt.
+
+**Merge behavior when overriding via a mounted config file:**
+
+The policy file (`rate-limit-config.yaml`) is loaded by Spring as a property source, and a file mounted at `RATE_LIMITS_CONFIG_FILE` is layered on top of the bundled defaults (it must use a Spring resource prefix, e.g. `file:/etc/datahub/rate-limits.yaml`). Because this is Spring property binding rather than a wholesale Jackson overlay:
+
+- **Scalars and map entries** (e.g. the scoped bucket sizes, `scoped.heavyResolvers.*`) from the mounted file override or add to the bundled values key by key.
+- **Rule lists** (`capacity.rules`, `endpoint.rules`) are bound by index, not replaced wholesale — keep rule lists defined in a single source. The bundled file ships empty rule lists, so a mounted file that declares rules simply provides them.
+
+```yaml
+datahub:
+  gms:
+    rateLimits:
+      endpoint:
+        rules:
+          - id: auth-signup
+            pathPattern: /auth/signUp
+            methods: [POST]
+            capacity: 200
+            refillTokens: 200
+            refillPeriodSeconds: 60
+```
+
+**Observability for per-actor rules:**
+
+The `gms.rate_limit.endpoint.remaining` metric is **not registered** for `perActor` rules. The ruleId-keyed shared bucket is never consumed by per-actor requests, so its gauge would always read full and mislead operators. Monitor per-actor denials via `gms.rate_limit.requests{outcome=deny,rule_id=graphql-per-actor-default}` instead.
+
+**Example — minimal per-actor GraphQL throttle:**
+
+```yaml
+rateLimits:
+  endpoint:
+    enabled: true
+    rules:
+      - id: graphql-per-actor-default
+        enabled: true
+        pathPattern: /api/graphql
+        methods: [POST]
+        perActor: true
+        capacity: 500
+        refillTokens: 500
+        refillPeriodSeconds: 60
+```
+
+> **Planned (not yet available):** An `agentClass` dimension (distinguishing browser UI sessions from SDK/CLI callers) and per-actor coverage for Rest.li / OpenAPI paths are under consideration. Behavior documented here reflects the current implementation only.
+
 ## Configuration reference
 
-Bundled defaults:
+Bundled defaults (including the per-actor GraphQL rule shipped in `application.yaml`):
 
 ```yaml
 rateLimits:
@@ -207,9 +288,6 @@ rateLimits:
   minRetryAfterSeconds: 60
   retryAfterJitterPercent: 10
   excludedPaths: /health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**
-  configFile:
-    enabled: false
-    path: /etc/datahub/rate-limits.yaml
   capacity:
     enabled: false # RATE_LIMITS_CAPACITY_ENABLED
     default:
@@ -227,48 +305,84 @@ rateLimits:
     rules: []
   endpoint:
     enabled: false # RATE_LIMITS_ENDPOINT_ENABLED
-    hazelcastMapName: gmsRateLimitEndpointBuckets
-    rules: []
+    hazelcastMapName: gmsRateLimitEndpointBuckets # RATE_LIMITS_ENDPOINT_HAZELCAST_MAP
+    bucketMaxIdleSeconds: 300 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS
+    bucketMaxSize: 100000 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE
+    rules:
+      - id: graphql-per-actor-default
+        enabled: true # RATE_LIMITS_PER_ACTOR_ENABLED
+        pathPattern: /api/graphql # RATE_LIMITS_PER_ACTOR_PATH
+        methods: [POST]
+        perActor: true
+        capacity: 1000 # RATE_LIMITS_PER_ACTOR_CAPACITY
+        refillTokens: 1000 # RATE_LIMITS_PER_ACTOR_REFILL_TOKENS
+        refillPeriodSeconds: 60 # RATE_LIMITS_PER_ACTOR_REFILL_PERIOD
   metrics:
     detailed: false
 ```
 
 ### Tier 1 — environment toggles
 
-See [Environment Variables — GMS Rate Limiting](./environment-vars.md#gms-rate-limiting).
+Key environment variables (full list at [Environment Variables — GMS Rate Limiting](./environment-vars.md#gms-rate-limiting)):
 
-### Tier 2 — external YAML file
+| Environment variable                                   | Default                         | Description                                                 |
+| ------------------------------------------------------ | ------------------------------- | ----------------------------------------------------------- |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                         | Enable adaptive in-flight (Gradient2) capacity limiting     |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                         | Enable token-bucket endpoint limiting (requires Hazelcast)  |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                          | Allow requests when evaluation throws an unexpected error   |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                            | Minimum `Retry-After` seconds on 429 responses              |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                            | Jitter percentage added to `Retry-After`                    |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | `/health,/health/live,...`      | Comma-separated Ant paths excluded from all rate limiting   |
+| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                       | Spring resource URI of an override policy file, layered on the bundled defaults — must include a prefix (e.g. `file:/etc/datahub/rate-limits.yaml`) |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                         | Enable detailed per-rule metric tags                        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                          | Enable `_default_capacity` pool                             |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                           | Gradient2 starting limit for default pool                   |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                            | Gradient2 floor for default pool                            |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                          | Gradient2 ceiling for default pool                          |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                          | Enable `_graphql_capacity` pool                             |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                  | Path matched by the GraphQL capacity pool                   |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                          | Allow per-operation capacity rules for GraphQL              |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                           | Gradient2 starting limit for GraphQL pool                   |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                            | Gradient2 floor for GraphQL pool                            |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                          | Gradient2 ceiling for GraphQL pool                          |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`   | Hazelcast map name for endpoint buckets                     |
+| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`         | `300`                           | Idle eviction window (seconds) for per-actor bucket entries |
+| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`                 | `100000`                        | LRU size cap for endpoint bucket entries per Hazelcast node |
+| `RATE_LIMITS_PER_ACTOR_ENABLED`                        | `true`                          | Enable the bundled `graphql-per-actor-default` rule         |
+| `RATE_LIMITS_PER_ACTOR_PATH`                           | `/api/graphql`                  | Path for the bundled per-actor rule                         |
+| `RATE_LIMITS_PER_ACTOR_CAPACITY`                       | `1000`                          | Token bucket size for each actor's GraphQL quota            |
+| `RATE_LIMITS_PER_ACTOR_REFILL_TOKENS`                  | `1000`                          | Tokens added per refill period for each actor               |
+| `RATE_LIMITS_PER_ACTOR_REFILL_PERIOD`                  | `60`                            | Refill period in seconds for the per-actor GraphQL rule     |
 
-Mount production policy at `/etc/datahub/rate-limits.yaml` (or custom path). External files use a top-level **`rateLimits:`** fragment (the loader merges it into `datahub.gms.rateLimits`):
+### Tier 2 — override policy file
+
+The bundled policy ships in `rate-limit-config.yaml`, which GMS loads as a Spring property source (so its `${ENV:default}` placeholders resolve). To override it per deployment, mount your own file and point `RATE_LIMITS_CONFIG_FILE` at it **with a Spring resource prefix** (e.g. `file:/etc/datahub/rate-limits.yaml`); it is layered on top of the bundled defaults. Override files use the full **`datahub.gms.rateLimits:`** path (the same keys Spring binds), not a bare `rateLimits:` fragment.
+
+**Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (the bundled file ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map, which a scalar env var can't express.
 
 ```yaml
-rateLimits:
-  capacity:
-    enabled: true
-    default:
-      enabled: true
-      initialLimit: 200
-      maxLimit: 5000
-    graphql:
-      enabled: true
-      initialLimit: 100
-      maxLimit: 2000
-    rules:
-      - id: graphql-search-capacity
-        pathPattern: /api/graphql
-        methods: [POST]
-        graphqlOperationNames: [searchAcrossEntities, scrollAcrossEntities]
-        initialLimit: 30
-        maxLimit: 400
-  endpoint:
-    enabled: true
-    rules:
-      - id: auth-signup
-        pathPattern: /auth/signUp
-        methods: [POST]
-        capacity: 200
-        refillTokens: 200
-        refillPeriodSeconds: 60
+datahub:
+  gms:
+    rateLimits:
+      capacity:
+        rules:
+          - id: graphql-search-capacity
+            pathPattern: /api/graphql
+            methods: [POST]
+            graphqlOperationNames: [searchAcrossEntities, scrollAcrossEntities]
+            initialLimit: 30
+            maxLimit: 400
+      endpoint:
+        rules:
+          - id: auth-signup
+            pathPattern: /auth/signUp
+            methods: [POST]
+            capacity: 200
+            refillTokens: 200
+            refillPeriodSeconds: 60
+      scoped:
+        heavyResolvers:
+          searchAcrossEntities: { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 }
 ```
 
 Helm-style wiring:
@@ -279,10 +393,9 @@ env:
     value: "true"
   - name: RATE_LIMITS_CAPACITY_ENABLED
     value: "true"
-  - name: RATE_LIMITS_CONFIG_FILE_ENABLED
-    value: "true"
+  # Spring resource URI — note the file: prefix.
   - name: RATE_LIMITS_CONFIG_FILE
-    value: /etc/datahub/rate-limits/rate-limits.yaml
+    value: file:/etc/datahub/rate-limits/rate-limits.yaml
 volumeMounts:
   - name: rate-limits-config
     mountPath: /etc/datahub/rate-limits
@@ -293,22 +406,19 @@ volumes:
       name: datahub-rate-limits
 ```
 
-### Tier 3 — `RATE_LIMITS_CONFIG_JSON`
-
-Optional emergency overlay (merged after the file). Must be valid JSON partial or full `rateLimits` object. Invalid JSON fails startup.
-
 ### Base path
 
 Author **logical paths** in config (`/api/graphql`, `/auth/signUp`). GMS strips the configured base path at runtime. See [Base Path Configuration](./BASE_PATH_CONFIGURATION.md).
 
 ## Rule types (quick reference)
 
-| Config source      | Type     | Semantics                                              | Example                         |
-| ------------------ | -------- | ------------------------------------------------------ | ------------------------------- |
-| `capacity.default` | Capacity | Global adaptive in-flight per pod                      | Rest.li, OpenAPI, auth fallback |
-| `capacity.graphql` | Capacity | GraphQL POST adaptive in-flight per pod                | UI load ceiling                 |
-| `capacity.rules[]` | Capacity | Finer adaptive in-flight pool (replaces broader match) | `searchAcrossEntities`          |
-| `endpoint.rules[]` | Endpoint | Token-bucket rate per refill window                    | `/auth/signUp`, `batchIngest`   |
+| Config source                          | Type     | Semantics                                                  | Example                               |
+| -------------------------------------- | -------- | ---------------------------------------------------------- | ------------------------------------- |
+| `capacity.default`                     | Capacity | Global adaptive in-flight per pod                          | Rest.li, OpenAPI, auth fallback       |
+| `capacity.graphql`                     | Capacity | GraphQL POST adaptive in-flight per pod                    | UI load ceiling                       |
+| `capacity.rules[]`                     | Capacity | Finer adaptive in-flight pool (replaces broader match)     | `searchAcrossEntities`                |
+| `endpoint.rules[]` (`perActor: false`) | Endpoint | Shared token-bucket rate per refill window (cluster-wide)  | `/auth/signUp`, `batchIngest`         |
+| `endpoint.rules[]` (`perActor: true`)  | Endpoint | Per-actor token-bucket; each user has an independent quota | `graphql-per-actor-default` (bundled) |
 
 See [Capacity limits (adaptive in-flight)](#capacity-limits-adaptive-in-flight) and [Endpoint limits (token bucket)](#endpoint-limits-token-bucket) for selection, pooling, and planning details.
 

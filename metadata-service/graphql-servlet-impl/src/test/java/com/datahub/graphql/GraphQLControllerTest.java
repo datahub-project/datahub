@@ -1,0 +1,110 @@
+package com.datahub.graphql;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertSame;
+
+import com.linkedin.metadata.ratelimit.RateLimitEngine;
+import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
+import com.linkedin.metadata.ratelimit.model.RateLimitLease;
+import com.linkedin.metadata.ratelimit.model.RateLimitSource;
+import java.util.List;
+import org.testng.annotations.Test;
+
+/**
+ * Unit tests for the controller's Part B heavy-resolver gate wiring ({@link
+ * GraphQLController#applyHeavyResolverGate}) — the loop over top-level resolvers (supplied from the
+ * single query parse, not re-parsed), first-deny short-circuit, and front-gate lease release on a
+ * heavy denial.
+ */
+public class GraphQLControllerTest {
+
+  private static final List<String> ONE_HEAVY = List.of("searchAcrossEntities");
+
+  @Test
+  public void testFrontGateDenialShortCircuitsHeavyGate() {
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    RateLimitDecision frontGate = denied("scoped:actor");
+
+    RateLimitDecision result =
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+
+    // A request already denied at the front gate is returned untouched; the heavy gate never runs.
+    assertSame(result, frontGate);
+    verify(engine, never()).consumeHeavyResolver(any(), anyBoolean());
+    verify(engine, never()).release(any(), anyBoolean());
+  }
+
+  @Test
+  public void testAllowedWithNoHeavyResolverReturnsFrontGateDecision() {
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    when(engine.consumeHeavyResolver(any(), anyBoolean())).thenReturn(null);
+    RateLimitDecision frontGate = allowed();
+
+    RateLimitDecision result =
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+
+    assertSame(result, frontGate);
+    verify(engine).consumeHeavyResolver("searchAcrossEntities", false);
+    verify(engine, never()).release(any(), anyBoolean());
+  }
+
+  @Test
+  public void testHeavyResolverDenialReleasesLeaseAndReturnsDenial() {
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    RateLimitDecision frontGate = allowed();
+    RateLimitDecision heavyDenied = denied("scoped:op:searchAcrossEntities");
+    when(engine.consumeHeavyResolver("searchAcrossEntities", false)).thenReturn(heavyDenied);
+    RateLimitLease lease = mock(RateLimitLease.class);
+    when(engine.toLease(frontGate)).thenReturn(lease);
+
+    RateLimitDecision result =
+        GraphQLController.applyHeavyResolverGate(engine, frontGate, ONE_HEAVY, false);
+
+    assertSame(result, heavyDenied);
+    // The front-gate slot is released so it doesn't leak when the request is rejected here.
+    verify(engine).release(lease, false);
+  }
+
+  @Test
+  public void testStopsAtFirstDenyingTopLevelField() {
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    when(engine.consumeHeavyResolver("a", false)).thenReturn(null);
+    RateLimitDecision bDenied = denied("scoped:op:b");
+    when(engine.consumeHeavyResolver("b", false)).thenReturn(bDenied);
+    when(engine.toLease(any())).thenReturn(mock(RateLimitLease.class));
+
+    RateLimitDecision result =
+        GraphQLController.applyHeavyResolverGate(engine, allowed(), List.of("a", "b"), false);
+
+    assertSame(result, bDenied);
+    verify(engine).consumeHeavyResolver("a", false);
+    verify(engine).consumeHeavyResolver("b", false);
+  }
+
+  @Test
+  public void testSystemActorFlagIsPropagated() {
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    when(engine.consumeHeavyResolver(any(), anyBoolean())).thenReturn(null);
+
+    GraphQLController.applyHeavyResolverGate(engine, allowed(), ONE_HEAVY, true);
+
+    verify(engine).consumeHeavyResolver("searchAcrossEntities", true);
+  }
+
+  private static RateLimitDecision allowed() {
+    return RateLimitDecision.builder().allowed(true).source(RateLimitSource.GRAPHQL_GATE).build();
+  }
+
+  private static RateLimitDecision denied(String ruleId) {
+    return RateLimitDecision.builder()
+        .allowed(false)
+        .denyingRuleId(ruleId)
+        .source(RateLimitSource.GRAPHQL_GATE)
+        .build();
+  }
+}

@@ -8,4 +8,5 @@ record RateLimitContext(
     String method,
     @Nullable String operationName,
     @Nullable String actorUrn,
+    @Nullable ClientClass clientClass,
     RateLimitSource source) {}

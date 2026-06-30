@@ -76,6 +76,21 @@ import org.springframework.core.env.Environment;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
+// Rate-limit POLICY (scoped sizes, heavy-resolver map, rule lists) lives in rate-limit-config.yaml.
+// Loading it as a Spring property source (rather than a custom Jackson loader) binds it into
+// datahub.gms.rateLimits.* and resolves its ${ENV:default} placeholders — so the policy is
+// env-tunable per deployment. A file mounted at RATE_LIMITS_CONFIG_FILE is layered on top (it must
+// use a Spring resource prefix, e.g. file:/etc/datahub/rate-limits.yaml); when unset it harmlessly
+// re-resolves to the bundled classpath defaults.
+@PropertySource(
+    name = "rateLimitConfigDefaults",
+    value = "classpath:/rate-limit-config.yaml",
+    factory = YamlPropertySourceFactory.class)
+@PropertySource(
+    name = "rateLimitConfigOverride",
+    value = "${RATE_LIMITS_CONFIG_FILE:classpath:/rate-limit-config.yaml}",
+    ignoreResourceNotFound = true,
+    factory = YamlPropertySourceFactory.class)
 public class CommonApplicationConfig {
 
   @Autowired private Environment environment;

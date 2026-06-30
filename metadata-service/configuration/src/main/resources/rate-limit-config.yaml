@@ -1,0 +1,58 @@
+# DataHub rate-limit POLICY (default, bundled) — loaded by Spring as a property source.
+#
+# CommonApplicationConfig @PropertySource's this file, so it binds into datahub.gms.rateLimits.*
+# exactly like application.yaml — which means ${ENV:default} placeholders ARE resolved here. That is
+# what makes the policy per-tenant from a single shared file: each deployment sets the
+# RATE_LIMITS_SCOPED_* env vars (one file, different env → different limits), no per-tenant copy.
+#
+# What lives where, and why:
+#   - application.yaml keeps the toggles (enabled / scoped.enabled / refundDisabled), the capacity
+#     sub-pools, and the endpoint Hazelcast knobs (hazelcastMapName / bucketMaxIdleSeconds /
+#     bucketMaxSize). Those are read EARLY — the Hazelcast bootstrap @Conditional and CacheConfig
+#     @Value run before property-source ordering across config classes is guaranteed — so they must
+#     stay in the always-present application.yaml.
+#   - this file holds the per-request POLICY only: scoped bucket sizes, the heavy-resolver map, and
+#     the optional REST/auth rule lists.
+#
+# Per-customer heavy resolvers: mount a file at RATE_LIMITS_CONFIG_FILE; it is layered on top
+# (higher precedence — map entries like heavyResolvers merge, scalars override).
+datahub:
+  gms:
+    rateLimits:
+      capacity:
+        # Per-path capacity (Gradient2) rules. Empty by default; enforced only when capacity.enabled.
+        rules: []
+      endpoint:
+        # Per-path REST/auth token-bucket rules (e.g. signup, oauth register). Per-actor GraphQL
+        # throttling is NOT a rule — it's the scoped chain's actor bucket. Empty by default; enforced
+        # only when endpoint.enabled.
+        rules: []
+      # Scoped chain bucket SIZES (the toggles scoped.enabled / scoped.refundDisabled are in
+      # application.yaml). Each size is env-overridable per deployment; set `disabled: true` on a
+      # bucket to turn just that one off. Enforced only when scoped.enabled=true.
+      scoped:
+        # Per-actor (tenant-scoped) — {tenantId}:actor:{urn}. Fairness; one actor can't flood.
+        actor:
+          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillPeriodSeconds: 60
+        # Browser class (tenant-scoped) — {tenantId}:browser. Generous; curated UI traffic.
+        browser:
+          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillPeriodSeconds: 60
+        # SDK class (tenant-scoped) — {tenantId}:sdk. Tight; programmatic/automation.
+        sdk:
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
+          refillPeriodSeconds: 60
+        # Fleet-wide ceiling (cross-tenant, shared map) — global. The only non-tenant bucket.
+        global:
+          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillPeriodSeconds: 60
+        # Per-resolver HEAVY buckets — {tenantId}:op:{resolver}, keyed by top-level GraphQL field
+        # name. Empty by default; add per-customer via a mounted RATE_LIMITS_CONFIG_FILE overlay:
+        #   datahub: { gms: { rateLimits: { scoped: { heavyResolvers:
+        #     searchAcrossEntities: { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 } } } } }
+        heavyResolvers: {}

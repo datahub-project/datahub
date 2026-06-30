@@ -3,6 +3,7 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
+import auth.AuthUtils;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -47,6 +48,12 @@ public class Application extends Controller {
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
   private static final Set<String> SWAGGER_PATHS =
       Set.of("/openapi/swagger-ui", "/openapi/v3/api-docs");
+  // Stamped on every proxied request so GMS can rate-limit browser vs programmatic traffic
+  // differently. Browser = authenticated UI session (signed cookie); SDK = bearer/programmatic.
+  // Client-supplied values are stripped before re-stamping, so it cannot be spoofed.
+  private static final String REQUEST_SOURCE_HEADER = "X-DataHub-Request-Source";
+  private static final String REQUEST_SOURCE_BROWSER = "BROWSER";
+  private static final String REQUEST_SOURCE_SDK = "SDK";
   private final HttpClient httpClient;
 
   private final Config config;
@@ -209,6 +216,7 @@ public class Application extends Controller {
                 !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
                     && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
                         entry.getKey())
+                    && !REQUEST_SOURCE_HEADER.equalsIgnoreCase(entry.getKey())
                     && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
                     && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
         .forEach(
@@ -218,6 +226,10 @@ public class Application extends Controller {
     }
     httpRequestBuilder.header(
         AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
+    // Browser = authenticated UI session (signed cookie); everything else = programmatic/SDK.
+    httpRequestBuilder.header(
+        REQUEST_SOURCE_HEADER,
+        AuthUtils.hasValidSessionCookie(request) ? REQUEST_SOURCE_BROWSER : REQUEST_SOURCE_SDK);
     request
         .contentType()
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));

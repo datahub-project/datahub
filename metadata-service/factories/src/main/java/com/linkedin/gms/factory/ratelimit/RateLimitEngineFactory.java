@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.ratelimit;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.GMSConfiguration;
-import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
+import com.linkedin.metadata.config.ratelimit.RateLimitConfigValidator;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
@@ -20,35 +20,25 @@ public class RateLimitEngineFactory {
 
   @Bean
   @Nonnull
-  public RateLimitConfigLoader rateLimitConfigLoader(
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-    return new RateLimitConfigLoader(
-        systemOperationContext.getObjectMapper(), systemOperationContext.getYamlMapper());
-  }
-
-  @Bean
-  @Nonnull
   public RateLimitEngine rateLimitEngine(
       GMSConfiguration gmsConfiguration,
       @Autowired(required = false) MeterRegistry meterRegistry,
       @Autowired(required = false) @Qualifier("hazelcastInstance")
           HazelcastInstance hazelcastInstance,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      RateLimitConfigLoader rateLimitConfigLoader) {
-    RateLimitProperties fromSpring =
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+    // Spring binds the full config (application.yaml toggles + rate-limit-config.yaml policy, with
+    // ${ENV} placeholders resolved and any mounted RATE_LIMITS_CONFIG_FILE overlaid). Validate the
+    // bound bean up front so a bad config fails startup instead of silently mis-limiting traffic.
+    RateLimitProperties config =
         gmsConfiguration.getRateLimits() != null
             ? gmsConfiguration.getRateLimits()
             : new RateLimitProperties();
-    RateLimitProperties effective = rateLimitConfigLoader.loadEffective(fromSpring);
+    RateLimitConfigValidator.validate(config);
     String basePath =
         BasePathUtils.resolveBasePath(
             gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath());
     return new RateLimitEngine(
-        effective,
-        basePath,
-        meterRegistry,
-        hazelcastInstance,
-        systemOperationContext.getObjectMapper());
+        config, basePath, meterRegistry, hazelcastInstance, systemOperationContext.getObjectMapper());
   }
 
   @Bean

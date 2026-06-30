@@ -185,13 +185,24 @@ datahub:
     #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
     #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
     rateLimits:
+      # Master kill switch for ALL rate limiting. false bypasses every limiter regardless of the
+      # per-layer flags below — the single "turn it all off" control.
+      enabled: ${RATE_LIMITS_ENABLED:true}
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      # Namespaces every tenant-scoped bucket key (e.g. {tenantId}:actor:{urn}) so shared
+      # Hazelcast/ES/MySQL infra stays isolated across deployments. Set to the deployment's
+      # global.id (the ES index prefix). Empty = single un-namespaced scope (OSS / non-isolated).
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      # When true, rules with clientTypes (browser/non_browser) are selected by the request's
+      # User-Agent classification. Advisory only; off by default for safe rollout.
+      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false}
       excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      configFile:
-        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
-        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
+      # The per-request POLICY (scoped bucket sizes, heavy-resolver map, REST/auth rule lists) lives
+      # in rate-limit-config.yaml, which CommonApplicationConfig @PropertySource's so it binds here
+      # and resolves ${ENV} placeholders. Mount a file at RATE_LIMITS_CONFIG_FILE to layer
+      # per-deployment overrides (e.g. per-customer heavy resolvers) on top of the bundled defaults.
       # Adaptive in-flight limits (Netflix Gradient2) — per pod
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
@@ -207,7 +218,7 @@ datahub:
           initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
           minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
           maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        rules: []
+        # Per-path capacity rules are policy — defined in rate-limit-config.yaml, not here.
       # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
@@ -216,17 +227,16 @@ datahub:
         bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
         # LRU per-node backstop on bucket entry count.
         bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
-        rules:
-          # Per-actor GraphQL POST throttle. Active only when endpoint.enabled=true
-          # AND this rule's `enabled` is true. System actor is exempt.
-          - id: graphql-per-actor-default
-            enabled: ${RATE_LIMITS_PER_ACTOR_ENABLED:true}
-            pathPattern: ${RATE_LIMITS_PER_ACTOR_PATH:/api/graphql}
-            methods: [POST]
-            perActor: true
-            capacity: ${RATE_LIMITS_PER_ACTOR_CAPACITY:1000}
-            refillTokens: ${RATE_LIMITS_PER_ACTOR_REFILL_TOKENS:1000}
-            refillPeriodSeconds: ${RATE_LIMITS_PER_ACTOR_REFILL_PERIOD:60}
+        # Per-path endpoint rules are policy — defined in rate-limit-config.yaml, not here.
+      # Scoped bucket chain (primary multi-dimensional model): per-actor -> class (browser/sdk) ->
+      # fleet global, plus per-resolver heavy buckets. Only the toggles live here (env-overridable so
+      # they can be flipped per deployment / in an incident). The bucket SIZES, per-bucket disables,
+      # and heavy-resolver rules are policy and live in rate-limit-config.yaml (Spring-loaded via
+      # @PropertySource), where their ${ENV} placeholders are resolved per deployment.
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+        # Refund upstream buckets when a later stage denies (default on). Set true to disable.
+        refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 

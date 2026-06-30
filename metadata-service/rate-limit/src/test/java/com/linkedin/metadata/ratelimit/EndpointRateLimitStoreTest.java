@@ -81,6 +81,59 @@ public class EndpointRateLimitStoreTest {
         "Second proxy build must resume persisted state, not reset it");
   }
 
+  @Test
+  public void testTryConsumeScoped_enforcesCapacityAndRefundRestoresTokens() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    EndpointRateLimitStore store =
+        new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
+    RateLimitProperties.BucketLimits limits = bucketLimits(1);
+
+    assertTrue(store.tryConsumeScoped("t1:actor:alice", limits, 1, false).isConsumed());
+    assertFalse(store.tryConsumeScoped("t1:actor:alice", limits, 1, false).isConsumed());
+
+    // addTokens-based refund returns the consumed token so the next consume succeeds.
+    store.refundScoped("t1:actor:alice", limits, 1, false);
+    assertTrue(store.tryConsumeScoped("t1:actor:alice", limits, 1, false).isConsumed());
+  }
+
+  @Test
+  public void testRefundScoped_capsAtCapacityAndNeverOverfills() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    EndpointRateLimitStore store =
+        new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
+    RateLimitProperties.BucketLimits limits = bucketLimits(1);
+
+    // Refund without a prior consume must not push the bucket above its capacity of 1.
+    store.refundScoped("t1:browser", limits, 1, false);
+    store.refundScoped("t1:browser", limits, 1, false);
+
+    assertTrue(store.tryConsumeScoped("t1:browser", limits, 1, false).isConsumed());
+    assertFalse(store.tryConsumeScoped("t1:browser", limits, 1, false).isConsumed());
+  }
+
+  @Test
+  public void testScopedGlobalMapIsSeparateFromTenantMap() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    EndpointRateLimitStore store =
+        new EndpointRateLimitStore(new RateLimitProperties.Endpoint(), hazelcastInstance);
+    RateLimitProperties.BucketLimits limits = bucketLimits(1);
+
+    // Exhaust the "global" key in the shared global map.
+    assertTrue(store.tryConsumeScoped("global", limits, 1, true).isConsumed());
+    assertFalse(store.tryConsumeScoped("global", limits, 1, true).isConsumed());
+
+    // The same key in the tenant map is a different bucket and is unaffected.
+    assertTrue(store.tryConsumeScoped("global", limits, 1, false).isConsumed());
+  }
+
+  private static RateLimitProperties.BucketLimits bucketLimits(int capacity) {
+    return RateLimitProperties.BucketLimits.builder()
+        .capacity(capacity)
+        .refillTokens(capacity)
+        .refillPeriodSeconds(60)
+        .build();
+  }
+
   private static RateLimitProperties.Rule endpointRule(String id) {
     return RateLimitProperties.Rule.builder()
         .id(id)

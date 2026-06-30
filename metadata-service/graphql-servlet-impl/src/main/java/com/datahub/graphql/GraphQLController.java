@@ -19,6 +19,8 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.ratelimit.ClientClass;
+import com.linkedin.metadata.ratelimit.ClientClassifier;
 import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitHeaderWriter;
@@ -91,6 +93,48 @@ public class GraphQLController {
     return mapper;
   }
 
+  /**
+   * Part B heavy-resolver gate. When the front gate admitted the request, consumes each configured
+   * heavy top-level resolver's bucket (in query order); on the first denial it releases the
+   * front-gate lease — so a held capacity slot doesn't leak when we reject here — and returns that
+   * denial. Otherwise returns the original decision unchanged. Package-private + static so the
+   * wiring is unit-testable without the full request pipeline.
+   */
+  static RateLimitDecision applyHeavyResolverGate(
+      @Nonnull RateLimitEngine rateLimitEngine,
+      @Nonnull RateLimitDecision frontGateDecision,
+      @Nonnull List<String> topLevelFields,
+      boolean systemActor) {
+    if (!frontGateDecision.isAllowed()) {
+      return frontGateDecision;
+    }
+    for (String topLevelField : topLevelFields) {
+      RateLimitDecision heavyDecision =
+          rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
+      if (heavyDecision != null && !heavyDecision.isAllowed()) {
+        rateLimitEngine.release(rateLimitEngine.toLease(frontGateDecision), false);
+        return heavyDecision;
+      }
+    }
+    return frontGateDecision;
+  }
+
+  /** 429 response for a rate-limit denial, carrying the decision's throttle headers. */
+  private static CompletableFuture<ResponseEntity<String>> tooManyRequests(
+      @Nonnull RateLimitDecision decision, @Nonnull ObjectMapper mapper) {
+    HttpHeaders headers = new HttpHeaders();
+    RateLimitHeaderWriter.createHeaders(decision).forEach(headers::add);
+    try {
+      return CompletableFuture.completedFuture(
+          new ResponseEntity<>(
+              mapper.writeValueAsString(Map.of("error", "Rate limit exceeded")),
+              headers,
+              HttpStatus.TOO_MANY_REQUESTS));
+    } catch (JsonProcessingException e) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.TOO_MANY_REQUESTS));
+    }
+  }
+
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(
       HttpServletRequest request, HttpEntity<String> httpEntity) {
@@ -126,7 +170,12 @@ public class GraphQLController {
         (operationNameJson != null && !operationNameJson.isNull())
             ? operationNameJson.asText()
             : null;
-    final String resolvedOperationName = GraphQLOperationNameResolver.resolve(operationName, query);
+    // Single parse of the query for the entire rate-limit path: the query/display name, the
+    // rate-limit identity, and the top-level resolver names all come from this one analyze() call —
+    // no re-parsing the document per consumer.
+    final GraphQLOperationNameResolver.RateLimitQuery rlq =
+        GraphQLOperationNameResolver.analyze(operationName, query);
+    final String resolvedOperationName = rlq.queryName();
 
     /*
      * Extract "variables" map
@@ -156,35 +205,47 @@ public class GraphQLController {
     final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
-    // getActorUrn() throws for non-USER actor types and NPEs on a null actor; per-actor rate
-    // limiting treats a missing actor as "skip", so resolve to null rather than propagate.
-    // The internal system principal is also resolved to null so its (often high-volume) internal
-    // calls are never per-actor throttled — mirrors DataHubAuthorizer.isSystemRequest.
-    String rateLimitActorUrn;
-    try {
-      String actorUrn = context.getActorUrn();
+    // Per-actor rate limiting keys on the authenticated actor urn, which is available for every
+    // actor type via the authentication — unlike context.getActorUrn(), which throws for non-USER
+    // actors and would (via a catch-all) silently skip the per-actor bucket, handing service/role
+    // principals a free pass. Only the internal system principal is exempt, so its high-volume
+    // internal calls aren't per-actor throttled (mirrors DataHubAuthorizer.isSystemRequest);
+    // everything else, USER or not, gets its own bucket.
+    String rateLimitActorUrn = null;
+    boolean systemActor = false;
+    if (authentication != null && authentication.getActor() != null) {
+      String actorUrn = authentication.getActor().toUrnStr();
       String systemActorUrn = systemOperationContext.getAuthentication().getActor().toUrnStr();
-      rateLimitActorUrn = actorUrn.equals(systemActorUrn) ? null : actorUrn;
-    } catch (RuntimeException e) {
-      rateLimitActorUrn = null;
+      systemActor = actorUrn.equals(systemActorUrn);
+      rateLimitActorUrn = systemActor ? null : actorUrn;
     }
 
+    // Classify from the frontend-stamped header (authoritative, unspoofable). Absent → NON_BROWSER.
+    ClientClass clientClass =
+        ClientClassifier.fromRequestSource(
+            request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));
+
+    // Front gate: per-pod capacity + the scoped actor/class chain. Identity for unnamed queries is
+    // the top-level field names (from the single analyze() above).
     RateLimitDecision rateLimitDecision =
         rateLimitEngine.evaluateAndAcquireGraphQL(
-            request.getRequestURI(), request.getMethod(), resolvedOperationName, rateLimitActorUrn);
+            request.getRequestURI(),
+            request.getMethod(),
+            rlq.identity(),
+            rateLimitActorUrn,
+            clientClass);
     if (!rateLimitDecision.isAllowed()) {
-      try {
-        HttpHeaders headers = new HttpHeaders();
-        RateLimitHeaderWriter.createHeaders(rateLimitDecision).forEach(headers::add);
-        return CompletableFuture.completedFuture(
-            new ResponseEntity<>(
-                mapper.writeValueAsString(Map.of("error", "Rate limit exceeded")),
-                headers,
-                HttpStatus.TOO_MANY_REQUESTS));
-      } catch (JsonProcessingException e) {
-        return CompletableFuture.completedFuture(
-            new ResponseEntity<>(HttpStatus.TOO_MANY_REQUESTS));
-      }
+      return tooManyRequests(rateLimitDecision, mapper);
+    }
+
+    // Heavy-resolver gate (Part B): charge each configured heavy top-level resolver (reusing the
+    // top-level fields from the single parse — no re-parse). On denial it releases the front-gate
+    // lease before we reject.
+    rateLimitDecision =
+        applyHeavyResolverGate(
+            rateLimitEngine, rateLimitDecision, rlq.topLevelFields(), systemActor);
+    if (!rateLimitDecision.isAllowed()) {
+      return tooManyRequests(rateLimitDecision, mapper);
     }
     final RateLimitLease rateLimitLease = rateLimitEngine.toLease(rateLimitDecision);
     final HttpHeaders rateLimitHeaders = new HttpHeaders();

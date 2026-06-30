@@ -178,7 +178,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.retention.*",
           "postgres.pgQueue.producer.*",
           "datahub.gms.rateLimits.capacity.rules[*].*",
-          "datahub.gms.rateLimits.endpoint.rules[*].*");
+          "datahub.gms.rateLimits.endpoint.rules[*].*",
+          "datahub.gms.rateLimits.scoped.heavyResolvers.*.*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -1140,12 +1141,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Bootstrap configuration
           "bootstrap.async.workerThreads",
           // GMS HTTP service rate limiting (under datahub.gms)
+          "datahub.gms.rateLimits.enabled",
           "datahub.gms.rateLimits.failOpen",
+          "datahub.gms.rateLimits.clientClassEnabled",
           "datahub.gms.rateLimits.minRetryAfterSeconds",
           "datahub.gms.rateLimits.retryAfterJitterPercent",
           "datahub.gms.rateLimits.excludedPaths",
-          "datahub.gms.rateLimits.configFile.enabled",
-          "datahub.gms.rateLimits.configFile.path",
           "datahub.gms.rateLimits.capacity.default.enabled",
           "datahub.gms.rateLimits.capacity.default.initialLimit",
           "datahub.gms.rateLimits.capacity.default.minLimit",
@@ -1163,7 +1164,31 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.gms.rateLimits.endpoint.bucketMaxIdleSeconds",
           "datahub.gms.rateLimits.endpoint.bucketMaxSize",
           "datahub.gms.rateLimits.endpoint.rules",
-          "datahub.gms.rateLimits.metrics.detailed"
+          "datahub.gms.rateLimits.metrics.detailed",
+          "datahub.gms.rateLimits.tenantId",
+          "datahub.gms.rateLimits.scoped.enabled",
+          "datahub.gms.rateLimits.scoped.refundDisabled",
+          "datahub.gms.rateLimits.scoped.actor.disabled",
+          "datahub.gms.rateLimits.scoped.actor.capacity",
+          "datahub.gms.rateLimits.scoped.actor.refillTokens",
+          "datahub.gms.rateLimits.scoped.actor.refillPeriodSeconds",
+          "datahub.gms.rateLimits.scoped.browser.disabled",
+          "datahub.gms.rateLimits.scoped.browser.capacity",
+          "datahub.gms.rateLimits.scoped.browser.refillTokens",
+          "datahub.gms.rateLimits.scoped.browser.refillPeriodSeconds",
+          "datahub.gms.rateLimits.scoped.sdk.disabled",
+          "datahub.gms.rateLimits.scoped.sdk.capacity",
+          "datahub.gms.rateLimits.scoped.sdk.refillTokens",
+          "datahub.gms.rateLimits.scoped.sdk.refillPeriodSeconds",
+          "datahub.gms.rateLimits.scoped.global.disabled",
+          "datahub.gms.rateLimits.scoped.global.capacity",
+          "datahub.gms.rateLimits.scoped.global.refillTokens",
+          "datahub.gms.rateLimits.scoped.global.refillPeriodSeconds",
+          "datahub.gms.rateLimits.scoped.actor.exemptSystemActor",
+          "datahub.gms.rateLimits.scoped.browser.exemptSystemActor",
+          "datahub.gms.rateLimits.scoped.sdk.exemptSystemActor",
+          "datahub.gms.rateLimits.scoped.global.exemptSystemActor",
+          "datahub.gms.rateLimits.scoped.heavyResolvers"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

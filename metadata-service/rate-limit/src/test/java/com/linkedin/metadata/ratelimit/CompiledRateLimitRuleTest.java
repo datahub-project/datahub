@@ -78,6 +78,78 @@ public class CompiledRateLimitRuleTest {
   }
 
   @Test
+  public void testMatchesClientClass() {
+    RateLimitProperties.Rule browserOnly =
+        RateLimitProperties.Rule.builder()
+            .id("browser-only")
+            .pathPattern("/api/graphql")
+            .clientTypes(List.of("browser"))
+            .capacity(10)
+            .refillTokens(10)
+            .refillPeriodSeconds(60)
+            .build();
+
+    CompiledRateLimitRule rule =
+        CompiledRateLimitRule.fromEndpointRuleConfig(browserOnly, "/api/graphql");
+
+    assertTrue(rule.isClientClassScoped());
+    assertTrue(rule.matchesClientClass(ClientClass.BROWSER));
+    assertFalse(rule.matchesClientClass(ClientClass.NON_BROWSER));
+    // null client class is a wildcard (classification disabled) → matches.
+    assertTrue(rule.matchesClientClass(null));
+  }
+
+  @Test
+  public void testClientAgnosticRuleMatchesEveryClass() {
+    RateLimitProperties.Rule agnostic =
+        RateLimitProperties.Rule.builder()
+            .id("agnostic")
+            .pathPattern("/api/graphql")
+            .capacity(10)
+            .refillTokens(10)
+            .refillPeriodSeconds(60)
+            .build();
+
+    CompiledRateLimitRule rule =
+        CompiledRateLimitRule.fromEndpointRuleConfig(agnostic, "/api/graphql");
+
+    assertFalse(rule.isClientClassScoped());
+    assertTrue(rule.matchesClientClass(ClientClass.BROWSER));
+    assertTrue(rule.matchesClientClass(ClientClass.NON_BROWSER));
+    assertTrue(rule.matchesClientClass(null));
+  }
+
+  @Test
+  public void testCompareSpecificityClassScopedOutranksAgnosticAtEqualPath() {
+    RateLimitProperties.Rule agnostic =
+        RateLimitProperties.Rule.builder()
+            .id("a-agnostic")
+            .pathPattern("/api/graphql")
+            .capacity(10)
+            .refillTokens(10)
+            .refillPeriodSeconds(60)
+            .build();
+    RateLimitProperties.Rule scoped =
+        RateLimitProperties.Rule.builder()
+            .id("z-scoped")
+            .pathPattern("/api/graphql")
+            .clientTypes(List.of("non_browser"))
+            .capacity(10)
+            .refillTokens(10)
+            .refillPeriodSeconds(60)
+            .build();
+
+    CompiledRateLimitRule agnosticRule =
+        CompiledRateLimitRule.fromEndpointRuleConfig(agnostic, "/api/graphql");
+    CompiledRateLimitRule scopedRule =
+        CompiledRateLimitRule.fromEndpointRuleConfig(scoped, "/api/graphql");
+
+    // Same path rank + pattern; the scoped rule wins despite a lexicographically later id.
+    assertTrue(CompiledRateLimitRule.compareSpecificity(scopedRule, agnosticRule) > 0);
+    assertTrue(CompiledRateLimitRule.compareSpecificity(agnosticRule, scopedRule) < 0);
+  }
+
+  @Test
   public void testCompareSpecificityPrefersHigherRank() {
     CompiledRateLimitRule generic =
         CompiledRateLimitRule.materializedCapacityRule(
