@@ -85,8 +85,7 @@ public class StructuredPropertyDefinitionTemplate
 
     if (patchedNode.get(ALLOWED_PLATFORMS_FIELD_NAME) != null) {
       patchedNode =
-          transformedMapToArray(
-              patchedNode, ALLOWED_PLATFORMS_FIELD_NAME, Collections.emptyList());
+          transformedMapToArray(patchedNode, ALLOWED_PLATFORMS_FIELD_NAME, Collections.emptyList());
     }
 
     if (patchedNode.get(ALLOWED_VALUES_FIELD_NAME) == null) {

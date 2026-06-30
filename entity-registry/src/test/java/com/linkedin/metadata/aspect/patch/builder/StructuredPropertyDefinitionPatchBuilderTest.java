@@ -44,8 +44,7 @@ public class StructuredPropertyDefinitionPatchBuilderTest {
     ImmutableTriple<String, String, JsonNode> op = pathValues.get(0);
     assertEquals(op.getLeft(), "add");
     assertTrue(
-        op.getMiddle().startsWith("/allowedPlatforms/"),
-        "Path should be under /allowedPlatforms/");
+        op.getMiddle().startsWith("/allowedPlatforms/"), "Path should be under /allowedPlatforms/");
     assertTrue(op.getMiddle().endsWith(platformUrn), "Path should end with the platform URN");
     assertEquals(op.getRight().asText(), platformUrn, "Value should be the platform URN");
   }
