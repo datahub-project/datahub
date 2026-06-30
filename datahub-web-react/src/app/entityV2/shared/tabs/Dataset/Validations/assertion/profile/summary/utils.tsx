@@ -1,18 +1,18 @@
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
-import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
-import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import {
-    FreshnessAssertionDescription,
-    createCronText,
-    createFixedIntervalText,
-    createSinceTheLastCheckText,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/FreshnessAssertionDescription';
+    DatasetAssertionDescription,
+    getAggregationDescriptor,
+    getOperatorKey,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
+import { FreshnessAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FreshnessAssertionDescription';
 import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
@@ -25,23 +25,17 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 import {
     getIsRowCountChange,
-    getOperatorDescription,
     getParameterDescription,
-    getValueChangeTypeDescription,
-    getVolumeTypeDescription,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import {
     AssertionInfo,
-    AssertionStdAggregation,
     AssertionStdOperator,
-    AssertionStdParameters,
     AssertionType,
+    AssertionValueChangeType,
     CronSchedule,
     DatasetAssertionInfo,
-    DatasetAssertionScope,
     EntityType,
     FieldAssertionInfo,
     FreshnessAssertionInfo,
@@ -51,247 +45,65 @@ import {
     RowCountChange,
     SchemaAssertionCompatibility,
     SchemaAssertionInfo,
-    SchemaFieldRef,
     VolumeAssertionInfo,
 } from '@src/types.generated';
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { useGetUserQuery } from '@graphql/user.generated';
 
-/**
- * It refers the {@link getOperatorText} utility function to get plain text from html description.
- * @link getOperatorText
- * Returns the Plain Text to render for the operator portion of the Assertion Description
- */
-/* untranslated-text -- sentence fragment, word order differs by language */
-const getOperatorPlainText = (
-    op: AssertionStdOperator,
-    parameters: AssertionStdParameters | undefined,
-    nativeType: string | undefined,
-) => {
-    switch (op) {
-        // Hybrid Operators
-        case AssertionStdOperator.Between: {
-            return `between ${getFormattedParameterValue(parameters?.minValue)} and ${getFormattedParameterValue(
-                parameters?.maxValue,
-            )}`;
-        }
-        case AssertionStdOperator.EqualTo: {
-            const operatorText = 'equal to';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.Contain: {
-            const operatorText = 'contains';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.In: {
-            const operatorText = 'in';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.NotNull: {
-            const operatorText = 'not null';
-            return operatorText;
-        }
-        case AssertionStdOperator.GreaterThan: {
-            const operatorText = 'greater than';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.GreaterThanOrEqualTo: {
-            const operatorText = 'greater than or equal to';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.LessThan: {
-            const operatorText = 'less than';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.LessThanOrEqualTo: {
-            const operatorText = 'less than or equal to';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.StartWith: {
-            const operatorText = 'starts with';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.EndWith: {
-            const operatorText = 'ends with';
-            return `${operatorText} ${getFormattedParameterValue(parameters?.value)}`;
-        }
-        case AssertionStdOperator.Native: {
-            return `passing assertion ${nativeType}`;
-        }
-        default: {
-            return `passing operator ${op} with value ${getFormattedParameterValue(parameters?.value)}`;
-        }
-    }
-};
-
-/**
- * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
- * @link getSchemaAggregationText
- * Returns the Plain Text to render for the aggregation portion of the Assertion Description
- * for Assertions on Dataset Schemas.
- *
- * Schema assertions require an aggregation.
- */
-/* untranslated-text -- sentence fragment, word order differs by language */
-const getSchemaAggregationPlainText = (
-    aggregation: AssertionStdAggregation | undefined | null,
-    fields: Array<SchemaFieldRef> | undefined | null,
-) => {
-    switch (aggregation) {
-        case AssertionStdAggregation.ColumnCount:
-            return 'Dataset column count is';
-        case AssertionStdAggregation.Columns:
-            return 'Dataset columns are';
-        case AssertionStdAggregation.Native: {
-            const fieldNames = fields?.map((field) => decodeSchemaField(field.path)) || [];
-            return `Dataset columns ${JSON.stringify(fieldNames)} are `;
-        }
-        default:
-            console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
-            return 'Dataset columns are';
-    }
-};
-
-/**
- * It refers the {@link getRowsAggregationText} utility function to get plain text from html description.
- * @link getRowsAggregationText
- * for Assertions on Dataset Rows
- *
- * Row assertions require an aggregation.
- */
-/* untranslated-text -- sentence fragment, word order differs by language */
-const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
-    switch (aggregation) {
-        case AssertionStdAggregation.RowCount:
-            return 'Dataset row count is';
-        case AssertionStdAggregation.Native:
-            return 'Dataset rows are';
-        default:
-            console.error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
-            return 'Dataset rows are';
-    }
-};
-
-/**
- *
- * It refers the {@link getColumnAggregationText} utility function to get plain text from html description.
- * @link getColumnAggregationText
- *
- * Returns the Plain Text to render for the aggregation portion of the Assertion Description
- * for Assertions on Dataset Columns
- */
-/* untranslated-text -- sentence fragment, word order differs by language */
-const getColumnAggregationPlainText = (
-    aggregation: AssertionStdAggregation | undefined | null,
-    field: SchemaFieldRef | undefined,
-) => {
-    let columnText = decodeSchemaField(field?.path || '');
-    if (field === undefined) {
-        columnText = 'undefined';
-        console.error(`Invalid field provided for Dataset Assertion with scope Column ${JSON.stringify(field)}`);
-    }
-    switch (aggregation) {
-        // Hybrid Aggregations
-        case AssertionStdAggregation.UniqueCount: {
-            return `Unique value count for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.UniquePropotion: {
-            return `Unique value proportion for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.NullCount: {
-            return `Null count for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.NullProportion: {
-            return `Null proportion for column ${columnText} is`;
-        }
-        // Numeric Aggregations
-        case AssertionStdAggregation.Min: {
-            return `Minimum value for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.Max: {
-            return `Maximum value for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.Mean: {
-            return `Mean value for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.Median: {
-            return `Median value for column ${columnText} is`;
-        }
-        case AssertionStdAggregation.Stddev: {
-            return `Standard deviation for column ${columnText} is`;
-        }
-        // Native Aggregations
-        case AssertionStdAggregation.Native: {
-            return `Column ${columnText} values are`;
-        }
-        default:
-            // No aggregation on the column at hand. Treat the column as a set of values.
-            return `Column ${columnText} values are`;
-    }
-};
-
-/**
- * It refers the {@link getAggregationText} utility function to get plain text from html description.
- * @link getAggregationText
- * Returns the Plain Text to render for the aggregation portion of the Assertion Description
- */
-/* untranslated-text -- sentence fragment, word order differs by language */
-const getAggregationPlainText = (
-    scope: DatasetAssertionScope,
-    aggregation: AssertionStdAggregation | undefined | null,
-    fields: Array<SchemaFieldRef> | undefined | null,
-) => {
-    switch (scope) {
-        case DatasetAssertionScope.DatasetSchema:
-            return getSchemaAggregationPlainText(aggregation, fields);
-        case DatasetAssertionScope.DatasetRows:
-            return getRowsAggregationPlainText(aggregation);
-        case DatasetAssertionScope.DatasetColumn:
-            return getColumnAggregationPlainText(aggregation, fields?.length === 1 ? fields[0] : undefined);
-        default:
-            console.error(`Unsupported Dataset Assertion scope ${scope} provided`);
-            return 'Dataset is';
-    }
-};
-
-/**
- * It refers the {@link DatasetAssertionDescription} utility function to get plain text from html description.
- * @link DatasetAssertionDescription
- * A human-readable Plain Text description of a Dataset Assertion.
- */
-/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
+/* untranslated-text comments removed — now fully translated */
 const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
-    const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
-    const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
-    return `${aggregationPlainText} ${operatorPlainText}`;
+    const agg = getAggregationDescriptor(scope, aggregation, fields);
+    const operatorKey = getOperatorKey(operator || undefined);
+    return i18next
+        .t(`entity.profile.validations:datasetDescription.${agg.key}.${operatorKey}`, {
+            column: agg.column ?? '',
+            columns: agg.columns ?? '',
+            value: getFormattedParameterValue(parameters?.value),
+            minValue: getFormattedParameterValue(parameters?.minValue),
+            maxValue: getFormattedParameterValue(parameters?.maxValue),
+            nativeType: nativeType ?? '',
+            operator: operator ?? '',
+        })
+        .replace(/<\/?bold>/g, '');
 };
 
-/**
- * It refers the {@link getAggregationText} utility function to get plain text from html description.
- * @link getAggregationText
- * A human-readable Plain Text description of a Volume Assertion.
- */
-/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
 const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
-    const volumeTypeDescription = getVolumeTypeDescription(volumeType);
-    const operatorDescription = volumeTypeInfo ? getOperatorDescription(volumeTypeInfo.operator) : '';
-    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
-    const valueChangeTypeDescription = getIsRowCountChange(volumeType)
-        ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
-        : 'rows';
+    const isChange = getIsRowCountChange(volumeType);
+    const parameter = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
 
-    return `Table ${volumeTypeDescription} ${operatorDescription} ${parameterDescription} ${valueChangeTypeDescription}`;
+    const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
+        switch (op) {
+            case AssertionStdOperator.GreaterThanOrEqualTo:
+                return 'AtLeast';
+            case AssertionStdOperator.LessThanOrEqualTo:
+                return 'AtMost';
+            case AssertionStdOperator.Between:
+                return 'Between';
+            default:
+                throw new Error(`Unknown operator ${op}`);
+        }
+    };
+
+    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+
+    let key: string;
+    if (isChange) {
+        const isPercentage =
+            (volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type ===
+            AssertionValueChangeType.Percentage;
+        key = `volumeDescription.change${operatorKeyPart}${isPercentage ? 'Percent' : 'Rows'}`;
+    } else {
+        key = `volumeDescription.total${operatorKeyPart}`;
+    }
+
+    return i18next.t(`entity.profile.validations:${key}`, { parameter });
 };
 
-/**
- * It refers the {@link getAggregationText} utility function to get plain text from html description.
- * @link getAggregationText
- * A human-readable Plain Text description of a Field Assertion.
- */
-/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
+/* untranslated-text -- no translation keys exist yet for field assertion sentence patterns */
 const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
@@ -303,50 +115,60 @@ const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo
     } ${operator} ${parameters}`;
 };
 
-/**
- * It refers the {@link getAggregationText} utility function to get plain text from html description.
- * @link getAggregationText
- * A human-readable Plain Text description of a Schema Assertion.
- */
-/* untranslated-text -- assembles full description with English fragments, cannot be expressed as a single translation key */
 const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
-    const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
+    const isExactMatch = compatibility === SchemaAssertionCompatibility.ExactMatch;
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
-    return `Actual table columns ${matchText} ${expectedColumnCount} expected columns`;
+    return i18next.t(
+        `entity.profile.validations:${isExactMatch ? 'schemaDescription.exactMatch' : 'schemaDescription.include'}`,
+        { count: expectedColumnCount },
+    );
 };
 
-/** below functions are related to Freshness */
-
-/**
- * A human-readable Plain Text description of an Freshness Assertion.
- */
-/* untranslated-text -- assembles full description with English sentence prefix, split sentence cannot be independently translated */
 const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
 ) => {
     const scheduleType = assertionInfo.schedule?.type;
     const freshnessType = assertionInfo.type;
+    const prefix = freshnessType === FreshnessAssertionType.DatasetChange ? 'datasetChange' : 'dataTask';
 
-    let scheduleText = '';
+    const getCronLabel = (cron: CronSchedule) => {
+        const { cron: cronExpr, timezone } = cron;
+        if (!cronExpr) return '';
+        return `${removeTimePrefix(cronToString(cronExpr).toLocaleLowerCase())} (${timezone})`;
+    };
+
+    const cronLabel = monitorSchedule ? getCronLabel(monitorSchedule) : '';
+
     switch (scheduleType) {
-        case FreshnessAssertionScheduleType.FixedInterval:
-            scheduleText = createFixedIntervalText(assertionInfo.schedule?.fixedInterval, monitorSchedule);
-            break;
+        case FreshnessAssertionScheduleType.FixedInterval: {
+            const fixedInterval = assertionInfo.schedule?.fixedInterval;
+            if (!fixedInterval) {
+                return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.noInterval`);
+            }
+            const values = {
+                multiple: fixedInterval.multiple,
+                unit: `${fixedInterval.unit.toLocaleLowerCase()}s`,
+                schedule: cronLabel,
+            };
+            return monitorSchedule
+                ? i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.fixedIntervalWithCron`, values)
+                : i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.fixedInterval`, values);
+        }
         case FreshnessAssertionScheduleType.Cron:
-            scheduleText = createCronText(assertionInfo.schedule?.cron as CronSchedule);
-            break;
+            return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.cron`, {
+                schedule: getCronLabel(assertionInfo.schedule?.cron as CronSchedule),
+            });
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
-            scheduleText = createSinceTheLastCheckText(monitorSchedule);
-            break;
+            return monitorSchedule
+                ? i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.sinceLastCheckWithCron`, {
+                      schedule: cronLabel,
+                  })
+                : i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.sinceLastCheck`);
         default:
-            scheduleText = 'within an unrecognized schedule window.';
-            break;
+            return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.unknown`);
     }
-    return `${
-        freshnessType === FreshnessAssertionType.DatasetChange ? 'Table was updated ' : 'Data Task is run successfully '
-    }${scheduleText}`;
 };
 
 /**
