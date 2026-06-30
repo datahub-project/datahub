@@ -15,6 +15,7 @@ for jarFile in ${jarFiles}; do
   fi
 
   jar -tvf $jarFile |\
+      grep -v "/$" |\
       grep -v "log4j.xml" |\
       grep -v "log4j2.xml" |\
       grep -v "org/apache/log4j" |\
@@ -55,7 +56,14 @@ for jarFile in ${jarFiles}; do
       grep -v "org.apache" |\
       grep -v "aix" |\
       grep -v "io/micrometer/" |\
-      grep -v "library.properties|rootdoc.txt" \|
+      grep -v "org/slf4j" |\
+      grep -v "common/message" |\
+      grep -v "freebsd/" |\
+      grep -v "mime.types" |\
+      grep -v "VersionInfo.java" |\
+      grep -v "log4j.properties" |\
+      grep -v "LICENSE" |\
+      grep -E -v "library.properties|rootdoc.txt" |\
       grep -v "com/ibm/.*" |\
       grep -v "org/publicsuffix"
 
