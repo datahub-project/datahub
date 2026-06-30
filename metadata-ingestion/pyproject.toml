@@ -148,6 +148,10 @@ aws-secret-manager = [
 
 azure-ad = []
 
+azure-auth = [
+    "azure-identity>=1.21.0,<2.0.0",
+]
+
 azure-data-factory = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -727,6 +731,15 @@ kafka-connect = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+]
+
+kinesis = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "grpcio-tools>=1.44.0,<2.0.0",
+    "grpcio>=1.44.0,<2.0.0",
+    "networkx>=2.6.2,<4.0.0",
+    "urllib3>=1.26,<3.0",
 ]
 
 ldap = [
@@ -1527,7 +1540,7 @@ dev = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,lakeformation,quicksight]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation,quicksight]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1719,7 +1732,7 @@ docs = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,lakeformation,quicksight]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation,quicksight]==1.40.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "build<2.0.0",
@@ -1994,6 +2007,11 @@ debug = [
 [project.scripts]
 datahub = "datahub.entrypoints:main"
 
+[project.entry-points."datahub.token_provider.plugins"]
+k8s_oidc = "datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider"
+azure_entra = "datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider"
+oidc_client_credentials = "datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider"
+
 [project.entry-points."sqlalchemy.dialects"]
 "doris.pymysql" = "datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect"
 
@@ -2037,6 +2055,7 @@ hive-metastore = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMe
 json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
+kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
