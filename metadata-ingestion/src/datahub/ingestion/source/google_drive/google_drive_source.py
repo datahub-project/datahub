@@ -692,7 +692,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return datetime.fromisoformat(ts.replace("Z", "+00:00")).replace(
                 tzinfo=None
             )
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not parse timestamp {ts!r}: {e}")
             return None
 
     def _build_custom_properties(
