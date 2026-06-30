@@ -38,8 +38,8 @@ public final class GraphQLOperationNameResolver {
 
   /**
    * Resolves just the operation name (named op, else {@code "graphql"}). Cheap no-op when {@code
-   * jsonOperationName} is already provided/resolved (no parse). Used for the display/query name; the
-   * rate-limit path should use {@link #analyze} instead of calling this separately.
+   * jsonOperationName} is already provided/resolved (no parse). Used for the display/query name;
+   * the rate-limit path should use {@link #analyze} instead of calling this separately.
    */
   @Nonnull
   public static String resolve(@Nullable String jsonOperationName, @Nullable String queryDocument) {
@@ -62,9 +62,7 @@ public final class GraphQLOperationNameResolver {
 
   /** The rate-limit view of a request, all produced from a single parse of the query. */
   public record RateLimitQuery(
-      @Nonnull String queryName,
-      @Nonnull String identity,
-      @Nonnull List<String> topLevelFields) {}
+      @Nonnull String queryName, @Nonnull String identity, @Nonnull List<String> topLevelFields) {}
 
   /**
    * Parses the query <b>once</b> and returns everything the rate-limit path needs:
@@ -73,8 +71,8 @@ public final class GraphQLOperationNameResolver {
    *   <li>{@code queryName} — the operation name for display/context (named op, else {@code
    *       "graphql"}).
    *   <li>{@code identity} — the rate-limit identity: named op name, or for an unnamed op the
-   *       sorted top-level field names (e.g. {@code "search,user"}), else {@code "graphql"}. This is
-   *       a schema-derived value, so it can't be spoofed the way a client operation name can.
+   *       sorted top-level field names (e.g. {@code "search,user"}), else {@code "graphql"}. This
+   *       is a schema-derived value, so it can't be spoofed the way a client operation name can.
    *   <li>{@code topLevelFields} — the operation's top-level field names (aliases collapsed,
    *       top-level inline fragments and fragment spreads resolved), used by the heavy-resolver
    *       gate.

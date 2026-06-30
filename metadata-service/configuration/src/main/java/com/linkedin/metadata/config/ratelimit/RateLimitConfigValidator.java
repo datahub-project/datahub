@@ -6,11 +6,12 @@ import java.util.Objects;
 import org.springframework.util.StringUtils;
 
 /**
- * Startup validation for the bound {@link RateLimitProperties}. Spring now binds the whole rate-limit
- * config (application.yaml toggles + rate-limit-config.yaml policy, with env placeholders resolved),
- * so there is no custom loader to validate during; the engine factory calls {@link #validate} on the
- * bound bean before constructing the engine, failing fast on a misconfiguration rather than silently
- * mis-limiting traffic. Scoped-chain sizing is validated separately by the engine at construction.
+ * Startup validation for the bound {@link RateLimitProperties}. Spring now binds the whole
+ * rate-limit config (application.yaml toggles + rate-limit-config.yaml policy, with env
+ * placeholders resolved), so there is no custom loader to validate during; the engine factory calls
+ * {@link #validate} on the bound bean before constructing the engine, failing fast on a
+ * misconfiguration rather than silently mis-limiting traffic. Scoped-chain sizing is validated
+ * separately by the engine at construction.
  */
 public final class RateLimitConfigValidator {
 

@@ -89,7 +89,8 @@ public class GraphQLOperationNameResolverTest {
 
   @Test
   public void testAnalyzeNoOperationFallsBack() {
-    RateLimitQuery rlq = GraphQLOperationNameResolver.analyze(null, "fragment F on Dataset { urn }");
+    RateLimitQuery rlq =
+        GraphQLOperationNameResolver.analyze(null, "fragment F on Dataset { urn }");
     assertEquals(rlq.identity(), "graphql");
     assertTrue(rlq.topLevelFields().isEmpty());
   }
@@ -108,7 +109,8 @@ public class GraphQLOperationNameResolverTest {
   @Test
   public void testAnalyzeResolvesInlineFragment() {
     RateLimitQuery rlq =
-        GraphQLOperationNameResolver.analyze(null, "{ ... on Query { searchAcrossEntities { urn } } }");
+        GraphQLOperationNameResolver.analyze(
+            null, "{ ... on Query { searchAcrossEntities { urn } } }");
     assertEquals(rlq.topLevelFields(), List.of("searchAcrossEntities"));
     assertEquals(rlq.identity(), "searchAcrossEntities");
   }
@@ -135,6 +137,7 @@ public class GraphQLOperationNameResolverTest {
   @Test
   public void testAnalyzeUnknownFragmentSpreadIsEmpty() {
     // Spread referencing a fragment that isn't defined contributes nothing (and must not throw).
-    assertTrue(GraphQLOperationNameResolver.analyze(null, "{ ...Missing }").topLevelFields().isEmpty());
+    assertTrue(
+        GraphQLOperationNameResolver.analyze(null, "{ ...Missing }").topLevelFields().isEmpty());
   }
 }

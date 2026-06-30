@@ -38,7 +38,11 @@ public class RateLimitEngineFactory {
         BasePathUtils.resolveBasePath(
             gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath());
     return new RateLimitEngine(
-        config, basePath, meterRegistry, hazelcastInstance, systemOperationContext.getObjectMapper());
+        config,
+        basePath,
+        meterRegistry,
+        hazelcastInstance,
+        systemOperationContext.getObjectMapper());
   }
 
   @Bean

@@ -27,8 +27,8 @@ public class RateLimitPropertiesEnvBindingTest {
   private static final String PREFIX = "datahub.gms.rateLimits";
 
   /**
-   * Binds {@link RateLimitProperties} from the test YAML with the given env vars overlaid at highest
-   * precedence — modelling what each deployment's pod environment supplies.
+   * Binds {@link RateLimitProperties} from the test YAML with the given env vars overlaid at
+   * highest precedence — modelling what each deployment's pod environment supplies.
    */
   private static RateLimitProperties bindWithEnv(Map<String, Object> env) {
     StandardEnvironment environment = new StandardEnvironment();
