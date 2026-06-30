@@ -1,5 +1,6 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Typography } from 'antd';
+import { Button, Heading, Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Empty } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -33,17 +34,17 @@ function EmptyGlossarySection(props: Props) {
             <StyledEmpty
                 description={
                     <>
-                        <Typography.Title level={4}>{title}</Typography.Title>
-                        <Typography.Paragraph type="secondary">{description}</Typography.Paragraph>
+                        <Heading type="h4">{title}</Heading>
+                        <Text color="textSecondary">{description}</Text>
                     </>
                 }
             >
                 {/* not disabled on acryl-main due to ability to propose */}
-                <StyledButton data-testid="add-term-button" onClick={onAddTerm}>
-                    <PlusOutlined /> {t('empty.addTerm')}
+                <StyledButton data-testid="add-term-button" icon={{ icon: Plus }} onClick={onAddTerm}>
+                    {t('empty.addTerm')}
                 </StyledButton>
-                <StyledButton data-testid="add-term-group-button" onClick={onAddtermGroup}>
-                    <PlusOutlined /> {t('empty.addTermGroup')}
+                <StyledButton data-testid="add-term-group-button" icon={{ icon: Plus }} onClick={onAddtermGroup}>
+                    {t('empty.addTermGroup')}
                 </StyledButton>
             </StyledEmpty>
         </>

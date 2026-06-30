@@ -676,7 +676,11 @@ def _run_pipeline_for_file(
     with _datapack_emit_mode(wait_for_completion) as emit_mode:
         if wait_for_completion:
             click.echo(f"  Using OpenAPI async_batch with emit mode {emit_mode}")
-        pipeline = Pipeline.create(pipeline_config)
+        # report_to=None disables the CLI ingestion-run reporter for these internal
+        # per-file pipelines. Without it, each "file" pipeline would register itself
+        # as a standalone "[CLI] file" ingestion source in the UI. The outer
+        # demo-data source / datapack-load command owns the run's provenance.
+        pipeline = Pipeline.create(pipeline_config, report_to=None)
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()

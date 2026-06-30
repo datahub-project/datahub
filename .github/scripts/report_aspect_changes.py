@@ -1429,6 +1429,26 @@ def _render_mutator_section(mutators: list[dict]) -> list[str]:
     return out
 
 
+def _is_comment_only_change(path: str, base: str, head: str) -> bool:
+    """True if path's only diff between base and head is comments/whitespace.
+
+    Mirrors bump_schema_versions.is_comment_only_change so the report and the
+    actual bumper agree on which non-aspect edits cascade a schemaVersion bump.
+    The only difference is that this compares two git refs (the report's base
+    and head) rather than the working tree, reusing bsv.normalize_pdl_for_compare
+    (strip comments + collapse whitespace) for the canonical form.
+
+    A created or deleted file (one side empty) is a real change, not
+    comment-only — consistent with the bumper, which never silently drops
+    new/removed files.
+    """
+    old = file_at(base, path)
+    new = file_at(head, path)
+    if not old or not new:
+        return False
+    return bsv.normalize_pdl_for_compare(old) == bsv.normalize_pdl_for_compare(new)
+
+
 def _classify_window(base: str, head: str) -> list[FileFinding]:
     """Run the full classification for a single base..head window.
 
@@ -1440,7 +1460,17 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
     findings = [analyze_file(p_, base, head) for p_ in paths]
 
     direct_set = set(paths)
-    non_aspect_changed = [f.path for f in findings if not f.is_aspect]
+    # Drop non-aspect records whose only change is comments/whitespace from the
+    # transitive BFS seed: a doc-comment edit carries no schema semantics, so it
+    # must not cascade a schemaVersion bump into aspects that reference it. This
+    # reuses bump_schema_versions' normalize-and-compare so the report classifies
+    # comment-only edits exactly as the bumper does — a real (non-comment) change
+    # to a field default, includes clause, annotation, etc. still seeds the BFS.
+    non_aspect_changed = [
+        f.path
+        for f in findings
+        if not f.is_aspect and not _is_comment_only_change(f.path, base, head)
+    ]
     if not non_aspect_changed:
         return findings
 
@@ -1760,14 +1790,23 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
     """Reduce a list of per-PR-slice verdicts to a single cumulative status,
     honoring catch-up reconciliation.
 
-    Priority order (highest wins): bump_spurious > bump_needed > bump_done >
+    Priority order (highest wins): bump_needed > bump_spurious > bump_done >
     bump_not_needed. A BUMP_NEEDED entry is **ignored** when its PR appears
     in any later slice's `catch_up_for_prs` — that NEEDED slice has already
     been reconciled by a catch-up bump and is no longer an unpaid debt.
 
-    The cumulative bucket therefore follows the per-PR truth: a file lands
-    in `bump_spurious` whenever any slice has an unreconciled spurious bump,
-    even if cumulative-diff math would call the window `bump_done`.
+    An *unreconciled* BUMP_NEEDED outranks BUMP_SPURIOUS: a needed bump is a
+    release-blocking, silent-migration hazard, whereas a spurious bump is only
+    informational. Catch-up reconciliation flows oldest→newest, so a slice that
+    is still BUMP_SPURIOUS after reclassification paid no debt — it cannot have
+    covered the unreconciled change (a bump only pays for changes that preceded
+    it). Surfacing the file as bump_needed is therefore both correct and the
+    safe failure mode; the spurious slice is still listed in the per-PR
+    breakdown for the reviewer. This avoids the false-negative where a duplicate
+    release bump landing inside the window (e.g. the same v1.1.0 bump shipped on
+    both the cloud branch and acryl-main) masks a later transitive bump_needed.
+
+    The cumulative bucket therefore follows the per-PR truth.
     """
     paid_prs: set[str] = set()
     for e in entries:
@@ -1778,10 +1817,10 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
         e["bump_status"] == BUMP_NEEDED and e.get("pr") not in paid_prs for e in entries
     )
     has_done = any(e["bump_status"] == BUMP_DONE for e in entries)
-    if has_spurious:
-        return BUMP_SPURIOUS
     if has_unreconciled_needed:
         return BUMP_NEEDED
+    if has_spurious:
+        return BUMP_SPURIOUS
     if has_done:
         return BUMP_DONE
     return BUMP_NOT_NEEDED

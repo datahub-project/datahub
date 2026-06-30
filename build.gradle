@@ -28,8 +28,10 @@ buildscript {
   ext.versionGradle = '8.14.3'
   // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
   ext.springVersion = '7.0.7'
-  // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
+  // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
   ext.springBootVersion = '4.0.6'
+  // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
+  ext.springSecurityVersion = '7.0.6'
   // CVE-2026-41731 (spring-kafka header deserialization): fixed in 4.0.6+ / 3.3.16+
   ext.springKafkaVersion = '4.0.6'
   // CVE-2023-50572 (GroovyEngine OOM); GHSA-2r2c-cx56-8933 (remote-telnet NAWS DoS): fixed in 4.2.1+
@@ -61,7 +63,7 @@ buildscript {
   ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
   // Spark-lineage only; Jetty 9.4 EOL. CVE-2026-5795 fixed in 9.4.61+; latest on Maven Central when pinned was 9.4.58.
   ext.sparkLineageJetty94Version = '9.4.58.v20250814'
-  ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
+  ext.commonsConfiguration2Version = '2.15.1' // CVE-2024-29131, CVE-2024-29133; CVE-2026-45205 (fixed in 2.15.0+)
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
@@ -132,7 +134,7 @@ apply from: "gradle/docker/docker-utils.gradle"
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
 ext.jacksonVersion = '2.21.4'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/ (1.17.1 bundles jackson-databind 2.21.3).
-// CVE-2026-54512/54513 require 2.21.4+; ext.jacksonVersion does not replace shaded copies — bump when Apache
+// CVE-2026-54512/54513 require 2.21.4+; CVE-2026-54515 requires 2.21.5+ (not on Maven Central yet); ext.jacksonVersion does not replace shaded copies — bump when Apache
 // releases parquet-java with jackson 2.21.4+ (https://github.com/apache/parquet-java/pull/3594, target 1.18.0).
 ext.parquetVersion = '1.17.1'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
@@ -348,6 +350,8 @@ project.ext.externalDependency = [
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
+    'springAuthorizationServer': "org.springframework.security:spring-security-oauth2-authorization-server:${springSecurityVersion}",
+    'springSecurityTest': "org.springframework.security:spring-security-test:${springSecurityVersion}",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
@@ -611,7 +615,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512, CVE-2026-54513
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512, CVE-2026-54513 (54515 pending jackson 2.21.5 release)
+    resolutionStrategy.force "org.springframework.security:spring-security-oauth2-jose:${rootProject.ext.springSecurityVersion}"  // CVE-2026-22748
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
@@ -664,7 +669,7 @@ configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"
     resolutionStrategy.force "com.nimbusds:nimbus-jose-jwt:${rootProject.ext.sparkLineageNimbusJoseJwtVersion}"
-    resolutionStrategy.force "org.apache.commons:commons-configuration2:${rootProject.ext.sparkLineageCommonsConfiguration2Version}"
+    resolutionStrategy.force "org.apache.commons:commons-configuration2:${rootProject.ext.commonsConfiguration2Version}"
     resolutionStrategy.force "org.eclipse.jetty:jetty-servlet:${rootProject.ext.sparkLineageJetty94Version}"
     resolutionStrategy.force "org.eclipse.jetty:jetty-util-ajax:${rootProject.ext.sparkLineageJetty94Version}"
     resolutionStrategy.force "org.eclipse.jetty:jetty-webapp:${rootProject.ext.sparkLineageJetty94Version}"
@@ -777,7 +782,8 @@ subprojects {
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation("org.jline:jline:${rootProject.ext.jlineVersion}") // CVE-2023-50572; GHSA-2r2c-cx56-8933
-        implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
+        implementation("org.apache.commons:commons-configuration2:${commonsConfiguration2Version}") // CVE-2026-45205; GHSA-xjp4-hw94-mvp5
+        implementation("org.springframework.security:spring-security-oauth2-jose:${springSecurityVersion}") // CVE-2026-22748
         implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
@@ -904,3 +910,7 @@ tasks.register('resolveAndLockAll') {
     }
   }
 }
+
+// Cross-module aggregated JaCoCo report (recovers coverage of a class produced by tests in
+// another module). See gradle/coverage/java-coverage-aggregation.gradle for details.
+apply from: 'gradle/coverage/java-coverage-aggregation.gradle'
