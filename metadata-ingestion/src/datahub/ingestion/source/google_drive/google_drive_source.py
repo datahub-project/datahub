@@ -11,8 +11,7 @@ This source follows the same pattern as the Confluence and Notion sources:
 
 1.  Authenticate against the Google Drive API (service account or ADC).
 2.  Discover files (respecting ``folder_ids``, ``recursive``, and MIME-type filters).
-3.  Export each file to markdown (primary) or HTML→markdown (fallback), reusing
-    the same export logic as Lisa's ``GoogleDocsExtractor``.
+3.  Export each file to markdown (primary) or HTML→markdown (fallback).
 4.  Emit DataHub ``Document`` entities via the SDK.
 5.  Optionally generate chunked embeddings via ``DocumentChunkingSource``
     (enables semantic search).
@@ -515,17 +514,18 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"HTML export failed for {file_id}: {e}")
             return None
 
-    def _export_as_plain_text(self, file_id: str) -> Optional[str]:
-        """Export as plain text (used for Slides and Sheets)."""
+    def _export_as_plain_text(
+        self, file_id: str, mime_type: str = EXPORT_TEXT
+    ) -> Optional[str]:
+        """Export a file to a text format (plain text for Slides, CSV for Sheets)."""
         from googleapiclient.http import (
             MediaIoBaseDownload,  # type: ignore[import-untyped]
         )
 
-        mime = EXPORT_TEXT
         try:
             self._rate_limit()
             request = self._drive_service.files().export_media(
-                fileId=file_id, mimeType=mime
+                fileId=file_id, mimeType=mime_type
             )
             fh = io.BytesIO()
             downloader = MediaIoBaseDownload(fh, request)
@@ -555,8 +555,12 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             # Last resort: plain text
             return self._export_as_plain_text(file_id)
 
-        elif mime_type in (MIME_GOOGLE_SLIDES, MIME_GOOGLE_SHEETS):
-            return self._export_as_plain_text(file_id)
+        elif mime_type == MIME_GOOGLE_SLIDES:
+            return self._export_as_plain_text(file_id, EXPORT_TEXT)
+
+        elif mime_type == MIME_GOOGLE_SHEETS:
+            # CSV preserves the tabular structure of spreadsheets.
+            return self._export_as_plain_text(file_id, EXPORT_CSV)
 
         return None
 
