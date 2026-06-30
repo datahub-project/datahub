@@ -1310,27 +1310,23 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="A CLI to work with DataHub metadata",
-    long_description="""\
-The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
-as well as an integration framework for pulling/pushing metadata from external systems.
-
-See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
-""",
-    long_description_content_type="text/markdown",
+    description="DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
