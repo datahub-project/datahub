@@ -26,6 +26,7 @@ jobs:
       pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
       datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
       default-runner: ${{ steps.runners.outputs.default-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}

@@ -442,23 +442,20 @@ jobs:
             pytest_items="$pytest_items"',{"batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
 
-          run_both=false
           run_pytest=false
 
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
-            run_both=true
-          elif [[ "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            : # frontend-only changes don't require smoke tests
+            run_pytest=true
           elif [[ "${{ needs.setup.outputs.connector_source_only }}" == 'true' ]]; then
             # Connector-only changes (source implementations, their tests, docs) don't affect
             # smoke tests. Smoke tests exercise the platform via CLI/SDK/APIs, not individual
             # connectors. Skip to save ~140 min of compute.
-            : # both remain false → empty matrices → both jobs skipped
+            : # run_pytest remains false → empty matrix → job skipped
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             run_pytest=true
           fi
 
-          if [[ "$run_both" == 'true' || "$run_pytest" == 'true' ]]; then
+          if [[ "$run_pytest" == 'true' ]]; then
             echo "pytest_matrix={\"include\":[$pytest_items]}" >> "$GITHUB_OUTPUT"
           else
             echo "pytest_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
