@@ -115,6 +115,12 @@ type StructuredPropertyDefinition {
   entityTypes: [EntityTypeEntity!]!
 
   """
+  The optional list of data platforms that this property is restricted to.
+  If empty or null, the property applies to entities on any data platform.
+  """
+  allowedPlatforms: [DataPlatform!]
+
+  """
   Whether or not this structured property is immutable
   """
   immutable: Boolean!
@@ -437,6 +443,13 @@ input CreateStructuredPropertyInput {
   entityTypes: [String!]!
 
   """
+  An optional list of data platform urns that this property is restricted to.
+  If not provided, the property can be applied to entities on any data platform.
+  For example: ["urn:li:dataPlatform:glue", "urn:li:dataPlatform:redshift"]
+  """
+  allowedPlatforms: [String!]
+
+  """
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
@@ -520,6 +533,12 @@ input UpdateStructuredPropertyInput {
   For backwards compatibility, this is append only.
   """
   newEntityTypes: [String!]
+
+  """
+  Append to the list of data platform urns that this property is restricted to.
+  For backwards compatibility, this is append only.
+  """
+  newAllowedPlatforms: [String!]
 
   """
   Settings for this structured property
