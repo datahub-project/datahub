@@ -232,6 +232,32 @@ class TestTeradataConfig:
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
 
+    def test_convert_urns_to_lowercase_default_does_not_warn(self) -> None:
+        """The default (disabled) should not emit the immutability warning."""
+        from datahub.utilities.global_warning_util import (
+            clear_global_warnings,
+            get_global_warnings,
+        )
+
+        clear_global_warnings()
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.convert_urns_to_lowercase is False
+        assert not any("convert_urns_to_lowercase" in w for w in get_global_warnings())
+
+    def test_convert_urns_to_lowercase_enabled_warns(self) -> None:
+        """Enabling lowercasing warns that the setting must stay stable."""
+        from datahub.utilities.global_warning_util import (
+            clear_global_warnings,
+            get_global_warnings,
+        )
+
+        clear_global_warnings()
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "convert_urns_to_lowercase": True}
+        )
+        assert config.convert_urns_to_lowercase is True
+        assert any("convert_urns_to_lowercase" in w for w in get_global_warnings())
+
 
 class TestTeradataSource:
     """Test Teradata source functionality."""
