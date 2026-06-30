@@ -248,6 +248,63 @@ def test_multistep_temp_table() -> None:
     )
 
 
+def test_composite_query_statement_is_capped(monkeypatch) -> None:
+    # When many statements write to a temp table in one session and a final
+    # query reads from it, the aggregator merges the whole chain into one
+    # synthetic "composite" query. Without a cap that merged statement can grow
+    # unbounded (hundreds of MB in production) and overflow the GMS payload
+    # limit. Verify the merged statement is bounded and the truncation is
+    # reported.
+    import datahub.sql_parsing.sql_parsing_aggregator as agg_module
+    from datahub.metadata.schema_classes import QueryPropertiesClass
+
+    cap = 2000
+    monkeypatch.setattr(agg_module, "MAX_COMPOSITE_QUERY_STATEMENT_CHARS", cap)
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda name: "temp_sync" in name.lower(),
+    )
+
+    padding = "/* filler to make each statement non-trivial */ " * 5
+    for i in range(50):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query=f"insert into temp_sync select {i} as id, '{padding}' as note from src_{i}",
+                default_db="dev",
+                default_schema="public",
+                session_id="session1",
+            )
+        )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="insert into prod_target select * from temp_sync",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
+    )
+
+    composite_lengths = []
+    for mcp in aggregator.gen_metadata():
+        urn = mcp.entityUrn or ""
+        aspect = mcp.aspect
+        if urn.startswith("urn:li:query:composite_") and isinstance(
+            aspect, QueryPropertiesClass
+        ):
+            if aspect.statement and aspect.statement.value:
+                composite_lengths.append(len(aspect.statement.value))
+
+    assert composite_lengths, "expected at least one composite query to be generated"
+    # cap + the short truncation suffix
+    assert max(composite_lengths) <= cap + 200
+    assert aggregator.report.num_composite_queries_truncated_due_to_large_size >= 1
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_overlapping_inserts_from_temp_tables() -> None:
     aggregator = SqlParsingAggregator(

@@ -469,6 +469,11 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             accepted_fine_grained_lineages if accepted_fine_grained_lineages else None
         )
 
+    def _query_properties_serialized_size(
+        self, query_properties: QueryPropertiesClass
+    ) -> int:
+        return len(json.dumps(pre_json_transform(query_properties.to_obj())))
+
     def ensure_query_properties_size(
         self, entity_urn: str, query_properties: QueryPropertiesClass
     ) -> None:
@@ -478,33 +483,77 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         max_payload_size = min(
             QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, self.payload_constraint
         )
-        current_size = len(json.dumps(pre_json_transform(query_properties.to_obj())))
-        if current_size < max_payload_size:
+        if self._query_properties_serialized_size(query_properties) < max_payload_size:
             return
 
-        reduction_needed = (
-            current_size - max_payload_size + QUERY_STATEMENT_TRUNCATION_BUFFER
-        )
-        statement_value_size = len(query_properties.statement.value)
-        original_statement_size = statement_value_size
+        full_statement = query_properties.statement.value
+        original_statement_size = len(full_statement)
 
-        if statement_value_size > reduction_needed > 0:
-            new_statement_length = statement_value_size - reduction_needed
-            truncated_statement = query_properties.statement.value[
-                :new_statement_length
-            ]
-            truncation_message = f"... [original value was {original_statement_size} bytes and truncated to {new_statement_length} bytes]"
-            query_properties.statement.value = truncated_statement + truncation_message
-            self.ctx.source_report.warning(
-                title="Query properties truncated due to size constraint",
-                message="Query properties contained too much data and would have caused ingestion to fail",
-                context=f"Query statement was truncated from {original_statement_size} to {new_statement_length} characters for {entity_urn} due to aspect size constraints",
+        # The aspect's overhead (everything except the statement body) plus the
+        # JSON-escaped statement value must fit under the limit. We deliberately
+        # trim the statement in *raw characters* but measure the *serialized JSON*
+        # size, because JSON escaping (\n, \", control chars, non-ASCII) inflates
+        # the wire size well beyond the raw character count. The previous
+        # implementation compared a raw character count against a byte-based
+        # reduction target — a unit mismatch that made the guard give up and emit
+        # oversized aspects, which GMS then rejected with a 400.
+        #
+        # Compute the fixed overhead once with an empty statement value so each
+        # binary-search step only has to JSON-encode the candidate string rather
+        # than re-serialize the whole aspect.
+        query_properties.statement.value = ""
+        empty_overhead = self._query_properties_serialized_size(query_properties)
+        # `empty_overhead` includes the 2 bytes for the empty value's quotes.
+        overhead_without_value = empty_overhead - len(json.dumps(""))
+
+        def candidate_value(retained: int) -> str:
+            return (
+                full_statement[:retained]
+                + f"... [original value was {original_statement_size} bytes and truncated to {retained} bytes]"
             )
-            self._record_truncation("queryProperties")
-        else:
-            logger.warning(
-                f"Cannot truncate query statement for {entity_urn} as it is smaller than or equal to the required reduction size {reduction_needed}."
+
+        def fits(retained: int) -> bool:
+            serialized = overhead_without_value + len(
+                json.dumps(candidate_value(retained))
             )
+            return serialized < max_payload_size
+
+        # Largest statement prefix that keeps the whole aspect under the limit.
+        lo, hi, retained_length = 0, len(full_statement), 0
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if fits(mid):
+                retained_length = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+
+        query_properties.statement.value = candidate_value(retained_length)
+
+        # If even an empty statement body can't make the aspect fit, the
+        # non-statement fields (name/description) are themselves over budget.
+        # Shed them as a last resort so the write still succeeds.
+        dropped_fields: List[str] = []
+        if self._query_properties_serialized_size(query_properties) >= max_payload_size:
+            if query_properties.name:
+                query_properties.name = None
+                dropped_fields.append("name")
+            if query_properties.description:
+                query_properties.description = None
+                dropped_fields.append("description")
+
+        context = (
+            f"Query statement was truncated from {original_statement_size} to "
+            f"{retained_length} characters for {entity_urn} due to aspect size constraints"
+        )
+        if dropped_fields:
+            context += f"; also dropped fields {', '.join(dropped_fields)}"
+        self.ctx.source_report.warning(
+            title="Query properties truncated due to size constraint",
+            message="Query properties contained too much data and would have caused ingestion to fail",
+            context=context,
+        )
+        self._record_truncation("queryProperties")
 
     def ensure_view_properties_size(
         self, entity_urn: str, view_properties: ViewPropertiesClass
