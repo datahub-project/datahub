@@ -1484,6 +1484,17 @@ input RelationshipsInput {
   Whether to include soft-deleted, related, entities
   """
   includeSoftDelete: Boolean = true
+
+  """
+  Optional filter restricting the related entities to the given entity-registry
+  entity names (e.g. "dataHubPolicy"). When omitted, related entities of all
+  types are returned. Use this when a relationship name is shared across
+  multiple source aspects and the caller only wants one entity type — for
+  example, IsAssociatedWithRole is emitted toward a role by both policy actor
+  filters and the global-settings maintenance-window audience, so a caller
+  fetching a role's policies passes ["dataHubPolicy"] to exclude the rest.
+  """
+  relatedEntityTypes: [String!]
 }
 
 """

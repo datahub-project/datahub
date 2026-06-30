@@ -147,6 +147,28 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testFilterByRelatedEntityTypesExcludesNonMatching()
+      throws ExecutionException, InterruptedException {
+    // The graph returns corpuser relationships; restricting to dataHubPolicy should drop them all.
+    // This mirrors the role "policies" query, where IsAssociatedWithRole edges from non-policy
+    // sources (e.g. global settings) must be excluded.
+    input.setRelatedEntityTypes(List.of("dataHubPolicy"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertTrue(result.getRelationships().isEmpty());
+    assertEquals(result.getCount().intValue(), 0);
+    assertEquals(result.getTotal().intValue(), 0);
+  }
+
+  @Test
+  public void testFilterByRelatedEntityTypesKeepsMatching()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("corpuser"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
+  @Test
   public void testResolverWithGraphClientOnlyUsesNullEntityService()
       throws ExecutionException, InterruptedException {
     EntityRelationshipsResultResolver resolverGraphOnly =
