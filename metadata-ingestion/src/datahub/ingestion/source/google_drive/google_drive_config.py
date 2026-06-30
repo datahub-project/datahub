@@ -1,5 +1,6 @@
 """Configuration for the Google Drive / Google Docs ingestion source."""
 
+import re
 from typing import List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -277,7 +278,11 @@ class GoogleDriveSourceConfig(
 
     max_documents: Optional[int] = Field(
         default=None,
-        description="Maximum number of documents to ingest per run (useful for testing).",
+        gt=0,
+        description=(
+            "Maximum number of documents to ingest per run (useful for testing). "
+            "Leave unset for no limit."
+        ),
     )
 
     # ---------------------------------------------------------------------------
@@ -290,6 +295,7 @@ class GoogleDriveSourceConfig(
 
     requests_per_minute: int = Field(
         default=60,
+        gt=0,
         description=(
             "Maximum Google Drive API requests per minute. "
             "The default matches the standard user rate limit."
@@ -300,7 +306,10 @@ class GoogleDriveSourceConfig(
     @classmethod
     def _strip_folder_urls(cls, v: List[str]) -> List[str]:
         """Accept full Drive folder URLs and extract only the ID."""
-        import re
+        # Let Pydantic raise its standard "not a list" error rather than
+        # silently iterating over the characters of a mis-typed string.
+        if not isinstance(v, list):
+            return v
 
         cleaned = []
         for item in v:

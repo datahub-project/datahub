@@ -47,15 +47,22 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
         self, file_id: str, length: int, minimum: int
     ) -> None:
         self.docs_skipped_too_short += 1
+        # Use a stable title/message as the aggregation key and put the
+        # per-document detail in `context`, so identical skips group together.
         self.report_warning(
-            file_id,
-            f"Skipped: text length {length} < minimum {minimum}",
+            title="Document skipped: text too short",
+            message="Document text length is below the configured minimum.",
+            context=f"file_id={file_id}, length={length}, minimum={minimum}",
         )
 
     def report_doc_failed(self, file_id: str, error: str) -> None:
         self.docs_failed += 1
         self.processing_errors.append(f"{file_id}: {error}")
-        self.report_failure(file_id, error)
+        self.report_failure(
+            title="Failed to ingest document",
+            message="Failed to ingest a Google Drive document.",
+            context=f"file_id={file_id}: {error}",
+        )
 
     def report_folder_ingested(self) -> None:
         self.folders_ingested += 1
