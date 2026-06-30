@@ -19,14 +19,13 @@ function makeOwnerInfo(overrides: Partial<DomainOwnerInfo> = {}): DomainOwnerInf
         urn: 'urn:li:corpuser:jane',
         displayName: 'Jane Doe',
         type: EntityType.CorpUser,
-        pictureLink: null,
         ...overrides,
     };
 }
 
 describe('DomainSidebarFiltersContext', () => {
     describe('defaults', () => {
-        it('initializes both filter state and the owner registry to empty', () => {
+        it('initializes both selection and available owners to empty', () => {
             const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
 
             expect(result.current.selectedOwnerUrns).toEqual([]);
@@ -41,12 +40,12 @@ describe('DomainSidebarFiltersContext', () => {
             expect(result.current.selectedOwnerUrns).toEqual([]);
             expect(result.current.availableOwners).toEqual([]);
             expect(() => result.current.setSelectedOwnerUrns(['x'])).not.toThrow();
-            expect(() => result.current.registerOwners([makeOwnerInfo()])).not.toThrow();
+            expect(() => result.current.setAvailableOwners([makeOwnerInfo()])).not.toThrow();
         });
     });
 
     describe('setSelectedOwnerUrns', () => {
-        it('updates the selection without touching the owner registry', () => {
+        it('updates the selection without touching the available-owners list', () => {
             const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
 
             act(() => result.current.setSelectedOwnerUrns(['urn:li:corpuser:jane']));
@@ -56,63 +55,33 @@ describe('DomainSidebarFiltersContext', () => {
         });
     });
 
-    describe('registerOwners', () => {
-        it('publishes new owners in insertion order', () => {
+    describe('setAvailableOwners', () => {
+        it('replaces the available-owners list wholesale (mirrors how facets re-arrive on every server response)', () => {
             const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
 
-            act(() =>
-                result.current.registerOwners([
-                    makeOwnerInfo({ urn: 'urn:li:corpuser:jane' }),
-                    makeOwnerInfo({ urn: 'urn:li:corpuser:john', displayName: 'John' }),
-                ]),
-            );
-
-            expect(result.current.availableOwners.map((o) => o.urn)).toEqual([
-                'urn:li:corpuser:jane',
-                'urn:li:corpuser:john',
-            ]);
-        });
-
-        it('dedupes by URN across calls — first occurrence wins', () => {
-            const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
-
-            act(() => {
-                result.current.registerOwners([makeOwnerInfo({ urn: 'urn:li:corpuser:jane', displayName: 'First' })]);
-            });
-            act(() => {
-                result.current.registerOwners([
-                    makeOwnerInfo({ urn: 'urn:li:corpuser:jane', displayName: 'Second' }),
-                    makeOwnerInfo({ urn: 'urn:li:corpuser:john', displayName: 'John' }),
-                ]);
-            });
-
-            expect(result.current.availableOwners).toEqual([
-                makeOwnerInfo({ urn: 'urn:li:corpuser:jane', displayName: 'First' }),
+            const first = [makeOwnerInfo({ urn: 'urn:li:corpuser:jane' })];
+            const second = [
                 makeOwnerInfo({ urn: 'urn:li:corpuser:john', displayName: 'John' }),
-            ]);
+                makeOwnerInfo({ urn: 'urn:li:corpGroup:eng', displayName: 'Eng', type: EntityType.CorpGroup }),
+            ];
+
+            act(() => result.current.setAvailableOwners(first));
+            expect(result.current.availableOwners).toEqual(first);
+
+            act(() => result.current.setAvailableOwners(second));
+            expect(result.current.availableOwners).toEqual(second);
         });
 
-        it('preserves the existing list reference when the batch contains only known URNs', () => {
-            // This matters because DomainNode calls registerOwners on every
-            // render. If a no-op batch returned a fresh array, the provider
-            // would re-render needlessly and every memoized child would too.
+        it('does not touch the user selection', () => {
             const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
 
-            act(() => result.current.registerOwners([makeOwnerInfo({ urn: 'urn:li:corpuser:jane' })]));
-            const firstSnapshot = result.current.availableOwners;
+            act(() => result.current.setSelectedOwnerUrns(['urn:li:corpuser:jane']));
+            act(() => result.current.setAvailableOwners([makeOwnerInfo({ urn: 'urn:li:corpuser:john' })]));
 
-            act(() => result.current.registerOwners([makeOwnerInfo({ urn: 'urn:li:corpuser:jane' })]));
-            const secondSnapshot = result.current.availableOwners;
-
-            expect(secondSnapshot).toBe(firstSnapshot);
-        });
-
-        it('is a no-op for an empty batch', () => {
-            const { result } = renderHook(() => useDomainSidebarFilters(), { wrapper });
-
-            act(() => result.current.registerOwners([]));
-
-            expect(result.current.availableOwners).toEqual([]);
+            // Selection survives even when the available list no longer
+            // contains the selected URN — the dropdown is responsible for
+            // showing/handling stale chips, not the context.
+            expect(result.current.selectedOwnerUrns).toEqual(['urn:li:corpuser:jane']);
         });
     });
 });

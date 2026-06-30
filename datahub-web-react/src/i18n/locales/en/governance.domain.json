@@ -30,6 +30,7 @@
     "list.paginationRange": "<bold>{{startIndex}} - {{lastResultIndex}}</bold> of <bold>{{totalDomains}}</bold>",
     "list.searchPlaceholder": "Search domains...",
     "navigator.empty": "No Domains Found",
+    "navigator.emptyFiltered": "No Domains match this filter",
     "navigator.loadError": "Loading Domains failed.",
     "navigator.overview": "Domains Home",
     "navigator.section.allDomains": "All Domains",

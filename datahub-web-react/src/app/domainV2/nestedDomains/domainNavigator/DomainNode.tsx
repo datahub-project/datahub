@@ -8,10 +8,6 @@ import styled, { useTheme } from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
-import {
-    extractDomainOwners,
-    filterDomainsByOwner,
-} from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarFilters.utils';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
@@ -277,18 +273,24 @@ export default function DomainNode({
         initialValue: false,
         closeDelay: 250,
     });
+    const isInSelectMode = !!selectDomainOverride;
+    const isSidebarVariant = variant === 'sidebar';
+    // Propagate the sidebar's owner selection down into every level of the
+    // tree so child-domain scrolls are filtered server-side too (mirrors how
+    // the root scroll is filtered in `DomainNavigator`). Picker variants
+    // intentionally don't inherit the sidebar filter — they have their own
+    // scope. Returns noop defaults outside the sidebar provider tree.
+    const { selectedOwnerUrns } = useDomainSidebarFilters();
     const { domains, loading, scrollRef } = useScrollDomains({
         parentDomain: domain.urn,
         skip: !isOpen || shouldHideDomain,
+        selectedOwnerUrns: isSidebarVariant ? selectedOwnerUrns : undefined,
     });
     const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
-    const isInSelectMode = !!selectDomainOverride;
-    const isSidebarVariant = variant === 'sidebar';
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
-    const { selectedOwnerUrns, registerOwners } = useDomainSidebarFilters();
     const shouldAutoOpen = useMemo(
         () => !isInSelectMode && entityData?.parentDomains?.domains?.some((parent) => parent.urn === domain.urn),
         [isInSelectMode, entityData, domain.urn],
@@ -304,25 +306,6 @@ export default function DomainNode({
             toggleClose();
         }
     }, [isCollapsed, toggleClose]);
-
-    // Register this domain's owners with the sidebar filter context so the
-    // Owner multi-select can offer them as options. Only relevant in the
-    // sidebar variant — the select variant is rendered inside pickers that
-    // don't expose the owner filter.
-    useEffect(() => {
-        if (!isSidebarVariant) return;
-        const owners = extractDomainOwners(domain);
-        if (owners.length > 0) registerOwners(owners);
-    }, [isSidebarVariant, domain, registerOwners]);
-
-    // Filter loaded children at render time. Mirrors the per-level filter
-    // model the documents sidebar uses (see `filterDocumentNodes`): each
-    // expanded children list is filtered independently, so a parent can be
-    // visible with no visible children, or vice versa.
-    const visibleChildDomains = useMemo(() => {
-        if (!isSidebarVariant) return domains || [];
-        return filterDomainsByOwner(domains || [], selectedOwnerUrns);
-    }, [isSidebarVariant, domains, selectedOwnerUrns]);
 
     function handleSelectDomain() {
         // Picker variant (CreateDomainModal / DomainParentSelect) takes
@@ -412,7 +395,7 @@ export default function DomainNode({
                     <BodyContainer>
                         {isExpanded && (
                             <>
-                                {visibleChildDomains?.map((childDomain) => (
+                                {domains?.map((childDomain) => (
                                     <DomainNode
                                         key={childDomain.urn}
                                         domain={childDomain as Domain}
@@ -428,7 +411,7 @@ export default function DomainNode({
                                         <Loading height={16} marginTop={0} />
                                     </SidebarLoadingWrapper>
                                 )}
-                                {visibleChildDomains.length > 0 && <div ref={scrollRef} />}
+                                {(domains?.length ?? 0) > 0 && <div ref={scrollRef} />}
                             </>
                         )}
                     </BodyContainer>
