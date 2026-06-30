@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from threading import Event, Thread, current_thread
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -2458,6 +2459,27 @@ class TestIncrementalColumnExtraction:
         assert len(warnings) == 1
         assert "mydb.dropped_table" in str(warnings[0].context)
         mock_dialect.get_schema_columns.assert_not_called()
+
+    def test_optimized_get_columns_logs_when_no_report(self, caplog) -> None:
+        """Fallback path: when the dialect has no report attached (e.g. the source
+        wiring that attaches it didn't run), a missing table is still surfaced via
+        ``logger.warning`` rather than swallowed. A SimpleNamespace is used instead
+        of MagicMock because MagicMock auto-creates a truthy ``.report`` attribute,
+        which would silently take the report branch and never exercise this one."""
+        dialect = SimpleNamespace(default_schema_name="mydb")  # no `report` attr
+
+        with caplog.at_level(logging.WARNING):
+            result = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "dropped_table",
+                "mydb",
+                tables_cache={"mydb": []},
+                tables_needing_extraction=None,
+            )
+
+        assert result == []
+        assert any("dropped_table" in r.message for r in caplog.records)
 
     def test_source_report_is_reachable_from_dialect(self) -> None:
         """The patched dialect column/PK functions run with a TeradataDialect
