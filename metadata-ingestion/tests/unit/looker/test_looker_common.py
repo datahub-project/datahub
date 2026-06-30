@@ -4,7 +4,13 @@ from unittest.mock import MagicMock
 import pytest
 from looker_sdk.sdk.api40.models import LookmlModelExplore, LookmlModelExploreField
 
-from datahub.ingestion.source.looker.looker_common import ExploreUpstreamViewField
+from datahub.ingestion.source.looker.looker_common import (
+    ExploreUpstreamViewField,
+    ViewField,
+    ViewFieldType,
+    create_view_project_map,
+    extract_project_from_imported_file_path,
+)
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 
 
@@ -91,3 +97,73 @@ class TestExploreUpstreamViewFieldFormFieldName:
 
             assert result is None
             assert "Empty field name detected" in caplog.text
+
+
+class TestExtractProjectFromImportedFilePath:
+    @pytest.mark.parametrize(
+        "file_path,expected",
+        [
+            (
+                "imported_projects/project-a/views/foo.view.lkml",
+                "project-a",
+            ),
+            (
+                "imported_projects/my-project/path/to/file.view.lkml",
+                "my-project",
+            ),
+            (
+                "views/foo.view.lkml",  # same-project path, no imported_projects/ prefix
+                None,
+            ),
+            (
+                "imported_projects",  # malformed: no slash after the prefix
+                None,
+            ),
+        ],
+    )
+    def test_extract(self, file_path: str, expected: "str | None") -> None:
+        assert extract_project_from_imported_file_path(file_path) == expected
+
+
+class TestCreateViewProjectMap:
+    def _make_view_field(self, view_name: str, project_name: "str | None") -> ViewField:
+        return ViewField(
+            name=f"{view_name}.some_field",
+            label=None,
+            type="string",
+            description="",
+            field_type=ViewFieldType.DIMENSION,
+            project_name=project_name,
+            view_name=view_name,
+        )
+
+    def test_cross_project_primary_view_not_overridden(self) -> None:
+        # Regression test: the primary view's project must NOT be replaced with the explore's
+        # project when the view is a cross-project import (project_name already set correctly).
+        view_field = self._make_view_field("my_view", project_name="project-a")
+        result = create_view_project_map(
+            view_fields=[view_field],
+            explore_primary_view="my_view",
+            explore_project_name="project-b",
+        )
+        assert result["my_view"] == "project-a"
+
+    def test_cross_project_non_primary_view(self) -> None:
+        view_field = self._make_view_field("other_view", project_name="project-a")
+        result = create_view_project_map(
+            view_fields=[view_field],
+            explore_primary_view="my_view",
+            explore_project_name="project-b",
+        )
+        assert result["other_view"] == "project-a"
+
+    def test_same_project_view_not_in_map(self) -> None:
+        # Same-project views have project_name=None; they should not appear in the map
+        # and fall back to explore_project_name via the BASE_PROJECT_NAME sentinel.
+        view_field = self._make_view_field("my_view", project_name=None)
+        result = create_view_project_map(
+            view_fields=[view_field],
+            explore_primary_view="my_view",
+            explore_project_name="project-b",
+        )
+        assert "my_view" not in result
