@@ -1,0 +1,54 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Pre-computed lineage-based features for a Dataset, written by the daily usage-reporting job.
+ * When populated, these values are indexed into search to support lineage-aware filtering and
+ * ranking without issuing live graph queries per result.
+ */
+@Aspect = {
+  "name": "lineageFeatures"
+}
+record LineageFeatures {
+  /**
+   * Cached number of entities related by lineage, upstream.
+   */
+  @Searchable = {
+    "fieldName": "upstreamCountFeature",
+    "fieldType": "COUNT"
+  }
+  upstreamCount: int
+
+  /**
+   * Cached number of entities related by lineage, downstream.
+   */
+  @Searchable = {
+    "fieldName": "downstreamCountFeature",
+    "fieldType": "COUNT"
+  }
+  downstreamCount: int
+
+  /**
+   * Whether upstreamCount > 0 OR downstreamCount > 0.
+   * Stored to make filtering easier.
+   */
+  @Searchable = {
+    "fieldName": "hasAssetLevelLineageFeature",
+    "fieldType": "BOOLEAN",
+    "addToFilters": true,
+    "filterNameOverride": "Has Asset-Level Lineage"
+  }
+  hasAssetLevelLineage: optional boolean
+
+  /**
+   * Record of when and how lineage features were computed.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lineageFeaturesComputedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  computedAt: optional AuditStamp
+}
