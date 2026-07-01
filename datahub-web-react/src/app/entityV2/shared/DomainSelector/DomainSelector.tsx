@@ -1,11 +1,13 @@
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
 import useInfiniteScrollDomains, {
     getDomainSelectorScrollInput,
 } from '@app/entityV2/shared/DomainSelector/useInfiniteScrollDomains';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import {
     buildEntityCache,
     entitiesToNestedSelectOptions,
@@ -14,13 +16,49 @@ import {
 } from '@app/entityV2/shared/utils/selectorUtils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { SelectLabelProps } from '@src/alchemy-components/components/Select/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useScrollAcrossEntitiesLazyQuery,
 } from '@src/graphql/search.generated';
-import { Entity, EntityType } from '@src/types.generated';
+import { Domain, Entity, EntityType } from '@src/types.generated';
+
+// Inline row for both dropdown and trigger — 20px icon + 8px gap + ellipsized label.
+const OptionRow = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+`;
+
+// `overflow: hidden` (required for `text-overflow: ellipsis`) clips anything outside the
+// label's line-box — with the default `line-height: normal` (~1.2) that's tight enough to
+// crop descenders in glyphs like g / p / y. Bump the line-height so the clip rect covers
+// the full glyph extents.
+const OptionLabel = styled.span`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.5;
+`;
+
+// Render icon+label from an option's cached `entity` at render time. NestedSelect deep-compares
+// state via `JSON.stringify` (see NestedSelect.tsx `shouldAlwaysSyncParentValues` effect), which
+// throws on React elements because styled-components' ThemeContext creates circular `_context`
+// references. Keep options plain and resolve the icon here for both the dropdown rows and the
+// closed trigger's selected-value slot.
+function renderDomainOptionRow(option?: NestedSelectOption): React.ReactNode {
+    if (!option) return null;
+    const entity = option.entity as Domain | undefined;
+    return (
+        <OptionRow>
+            {entity ? <DomainColoredIcon domain={entity} size={20} fontSize={12} /> : null}
+            <OptionLabel>{option.label}</OptionLabel>
+        </OptionRow>
+    );
+}
 
 type DomainSelectorProps = {
     selectedDomains: string[];
@@ -159,15 +197,18 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     // Root level options from infinite scroll (already in NestedSelectOption format)
     const options = rootDomains;
 
-    const autoCompleteOptions =
-        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
-            s.entities.map((domain) => ({
-                value: domain.urn,
-                label: entityRegistry.getDisplayName(domain.type, domain),
-                id: domain.urn,
-                entity: domain,
-            })),
-        ) || [];
+    const autoCompleteOptions = useMemo(
+        () =>
+            autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
+                s.entities.map((domain) => ({
+                    value: domain.urn,
+                    label: entityRegistry.getDisplayName(domain.type, domain),
+                    id: domain.urn,
+                    entity: domain,
+                })),
+            ) || [],
+        [autoCompleteData, entityRegistry],
+    );
 
     function handleLoad(option: NestedSelectOption) {
         const parentUrn = option.value;
@@ -209,12 +250,39 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         }
     }
 
-    // Merge options to ensure selected domains remain visible
-    const baseOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
-    const searchOptions = [...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label));
+    // Merge options to ensure selected domains remain visible. Memoize the sort passes so
+    // downstream `useMemo`s below actually hit cache — otherwise the fresh arrays reset the
+    // NestedSelect option identity on every render, which snowballs into unnecessary child
+    // work in the (already dense) parent-selector tree.
+    const baseOptions = useMemo(
+        () => [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label)),
+        [options, childOptions],
+    );
+    const searchOptions = useMemo(
+        () => [...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label)),
+        [autoCompleteOptions],
+    );
 
-    const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
-    const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
+    const defaultOptions = useMemo(
+        () => mergeSelectedNestedOptions(baseOptions, initialOptions),
+        [baseOptions, initialOptions],
+    );
+    const searchOptionsWithSelected = useMemo(
+        () => mergeSelectedNestedOptions(searchOptions, initialOptions),
+        [searchOptions, initialOptions],
+    );
+
+    // `SelectLabelProps` in alchemy only lists `variant` and `label`, but `SelectLabelRenderer`
+    // spreads the whole object and `SingleSelectCustom` picks up `renderCustomSelectedValue`.
+    // Cast to reach the extended shape without touching alchemy.
+    const selectLabelProps = useMemo(
+        () =>
+            ({
+                variant: 'custom',
+                renderCustomSelectedValue: renderDomainOptionRow,
+            }) as unknown as SelectLabelProps,
+        [],
+    );
 
     return (
         <InfiniteScrollNestedSelect
@@ -236,6 +304,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
+            renderCustomOptionText={renderDomainOptionRow}
+            selectLabelProps={selectLabelProps}
         />
     );
 };

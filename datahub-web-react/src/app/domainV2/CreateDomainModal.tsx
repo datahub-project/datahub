@@ -81,9 +81,16 @@ const AdvancedBody = styled.div`
 // Cap body height so the whole modal (body + ~120px of header/footer chrome) stays around
 // 80vh even when the icon picker is visible. Content that overflows scrolls in-place —
 // matches the pattern used in PolicyBuilderModal / QueryModal.
+//
+// Padding + negative margin on the horizontal axis is a workaround for the CSS rule that
+// coerces the sibling axis to non-visible when one axis is set (so `overflow-y: auto`
+// implicitly clips X too). Without the 4px inline gutter, the Alchemy Input's
+// `outline: 1px solid` focus indicator gets sheared off at the container edge.
 const ScrollableBody = styled.div`
     max-height: 65vh;
     overflow-y: auto;
+    padding: 4px;
+    margin: -4px;
 `;
 
 type Props = {
@@ -243,7 +250,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     onClick: onClose,
                 },
                 {
-                    text: tc('save'),
+                    text: tc('create'),
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
@@ -276,6 +283,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                             label={tl('name')}
                             data-testid="create-domain-name"
                             placeholder={t('create.namePlaceholder')}
+                            isRequired
                         />
                     </FormItemWithMargin>
                     <FormItemWithMargin
@@ -289,6 +297,20 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                             data-testid="create-domain-description"
                         />
                     </FormItemWithMargin>
+                    {isNestedDomainsEnabled && (
+                        <FormItemWithMargin>
+                            <Label>{`${t('create.parentLabel')} ${tl('optional')}`}</Label>
+                            <DomainSelector
+                                selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
+                                onDomainsChange={(selectedDomainUrns) =>
+                                    setSelectedParentUrn(selectedDomainUrns[0] || '')
+                                }
+                                placeholder={t('create.parentPlaceholder')}
+                                label=""
+                                isMultiSelect={false}
+                            />
+                        </FormItemWithMargin>
+                    )}
                     <FormItemWithMargin>
                         <Label>{tl('color')}</Label>
                         <ColorPicker
@@ -302,27 +324,19 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <FormItemWithMargin>
                         <Label>{`${tl('icon')} ${tl('optional')}`}</Label>
                         <Suspense fallback={null}>
+                            {/* Always mirror the color preview onto the icon tint — even before */}
+                            {/* the user actively picks a color the ColorPicker already displays */}
+                            {/* the default violet, so the icons should match. `colorWasPicked` */}
+                            {/* still gates persistence (see mutation input above): if it's false */}
+                            {/* we skip writing colorHex so the backend falls back to the */}
+                            {/* deterministic URN-hashed palette color. */}
                             <ChatIconPicker
-                                color={colorWasPicked ? selectedColor : undefined}
+                                color={selectedColor}
                                 onIconPick={setStagedIconName}
                                 selectedIcon={stagedIconName}
                             />
                         </Suspense>
                     </FormItemWithMargin>
-                    {isNestedDomainsEnabled && (
-                        <FormItemWithMargin>
-                            <Label>{t('create.parentLabel')}</Label>
-                            <DomainSelector
-                                selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
-                                onDomainsChange={(selectedDomainUrns) =>
-                                    setSelectedParentUrn(selectedDomainUrns[0] || '')
-                                }
-                                placeholder={t('create.parentPlaceholder')}
-                                label=""
-                                isMultiSelect={false}
-                            />
-                        </FormItemWithMargin>
-                    )}
                     {/* Owners Section */}
                     <FormItemNoMargin>
                         <OwnersSection

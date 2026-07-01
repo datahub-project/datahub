@@ -36,9 +36,16 @@ const NAME_MAX_LENGTH = 150;
 // Cap body height so the whole modal (body + ~120px of header/footer chrome) stays around
 // 80vh even when the icon picker is visible. Content that overflows scrolls in-place —
 // matches the pattern used in PolicyBuilderModal / QueryModal.
+//
+// Padding + negative margin on the horizontal axis is a workaround for the CSS rule that
+// coerces the sibling axis to non-visible when one axis is set (so `overflow-y: auto`
+// implicitly clips X too). Without the 4px inline gutter, the Alchemy Input's
+// `outline: 1px solid` focus indicator gets sheared off at the container edge.
 const ScrollableBody = styled.div`
     max-height: 65vh;
     overflow-y: auto;
+    padding: 4px;
+    margin: -4px;
 `;
 
 type Props = {

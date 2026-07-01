@@ -9,7 +9,7 @@
     "create.idPlaceholder": "engineering",
     "create.namePlaceholder": "A name for your domain",
     "create.nameRequired": "Enter a Domain name.",
-    "create.parentLabel": "Parent Domains",
+    "create.parentLabel": "Parent",
     "create.parentPlaceholder": "Select parent domain",
     "create.success": "Created domain!",
     "create.title": "Create New Domain",

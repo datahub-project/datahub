@@ -3,7 +3,7 @@ import { hasLazyIcon } from '@app/mfeframework/lazyIconNames';
 // Default minimum cell width, in pixels. The grid packs as many columns as fit into the
 // container at this width; the actual cell width is then stretched to fill the row so the
 // grid always aligns to the container edges.
-export const DEFAULT_MIN_CELL_SIZE = 56;
+export const DEFAULT_MIN_CELL_SIZE = 42;
 
 /**
  * Builds the list of icon names the picker should render, keeping any customer-pinned

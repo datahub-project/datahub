@@ -16,7 +16,7 @@ import {
 import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
 import { SearchBar } from '@src/alchemy-components';
 
-const GRID_HEIGHT = 320;
+const GRID_HEIGHT = 200;
 const ICON_SIZE = 24;
 
 type Props = {

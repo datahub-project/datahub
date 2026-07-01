@@ -26,7 +26,7 @@ const Label = styled.div(({ theme }) => ({
 
 const ColorPreview = styled.div`
     width: 100%;
-    height: 100px;
+    height: 60px;
     border-radius: 8px 8px 0px 0px;
     margin-top: 24px;
     border: 1px solid ${(props) => props.theme.colors.border};
@@ -37,8 +37,12 @@ const PickerWrapper = styled.div`
     display: flex;
 `;
 
+// Pull the hex input up so its top border overlaps the preview's bottom border — the
+// preview's `border-radius: 8px 8px 0 0` already implies they belong to the same card,
+// this closes the seam so it actually reads that way.
 const HexInputContainer = styled.div`
     width: 100%;
+    margin-top: -4px;
 `;
 
 // Utility Functions

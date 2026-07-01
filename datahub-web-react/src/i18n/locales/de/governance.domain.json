@@ -9,7 +9,7 @@
     "create.idPlaceholder": "engineering",
     "create.namePlaceholder": "Ein Name für deine Domäne",
     "create.nameRequired": "Gib einen Domänennamen ein.",
-    "create.parentLabel": "Übergeordnete Domänen",
+    "create.parentLabel": "Übergeordnet",
     "create.parentPlaceholder": "Übergeordnete Domäne auswählen",
     "create.success": "Domäne erstellt!",
     "create.title": "Neue Domäne erstellen",

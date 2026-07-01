@@ -76,6 +76,7 @@ describe('computeIconGridLayout', () => {
     });
 
     it('uses the default minimum cell size when not provided', () => {
-        expect(computeIconGridLayout(224)).toEqual({ columnCount: 4, cellSize: 56 });
+        // Default is 42; 210 / 42 = 5 columns that exactly fill the row.
+        expect(computeIconGridLayout(210)).toEqual({ columnCount: 5, cellSize: 42 });
     });
 });
