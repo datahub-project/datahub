@@ -77,7 +77,7 @@ class UpstreamPlatformCasing(ConfigModel):
 
 
 class AutoResolveLineageUrnsConfig(ConfigModel):
-    """Configuration for the lineage URN casing normalization work unit processor.
+    """Configuration for the auto-resolve lineage URNs work unit processor.
 
     Intended to be enabled on BI-tool / cross-platform ingestions that reference
     warehouse assets — NOT on the warehouse ingestion itself, whose reported casing
