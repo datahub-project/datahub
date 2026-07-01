@@ -10,6 +10,7 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { GraphQLHelper } from '../helpers/graphql-helper';
 import { ModalComponent } from './common/modal-component';
+import { ToastComponent } from './common/toast-component';
 
 export class GlossaryPage extends BasePage {
   readonly modalComponent: ModalComponent;
@@ -55,27 +56,24 @@ export class GlossaryPage extends BasePage {
   readonly batchAddButton: Locator;
   readonly batchAddModalSearchInput: Locator;
   readonly batchAddConfirmButton: Locator;
-  readonly batchAddedToast: Locator;
 
   // ── Create modal headings ─────────────────────────────────────────────────
   readonly createGlossaryHeading: Locator;
   readonly createGlossaryTermHeading: Locator;
 
-  // ── Confirmation button / toast notifications ─────────────────────────────
+  // ── Confirmation button ───────────────────────────────────────────────────
   readonly deleteConfirmButton: Locator;
-  readonly createdTermGroupToast: Locator;
-  readonly createdGlossaryTermToast: Locator;
-  readonly deletedEntityToast: Locator;
-  readonly movedEntityToast: Locator;
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   readonly propertiesTab: Locator;
 
   private readonly graphqlHelper: GraphQLHelper;
+  private readonly toast: ToastComponent;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.graphqlHelper = new GraphQLHelper(page);
+    this.toast = new ToastComponent(page);
 
     this.modalComponent = new ModalComponent(page);
 
@@ -114,23 +112,20 @@ export class GlossaryPage extends BasePage {
     this.advancedSearchButton = page.getByTestId('search-results-advanced-search');
     this.addFilterButton = page.getByTestId('adv-search-add-filter-select');
     this.addFilterTagsButton = page.getByTestId('adv-search-add-filter-tags');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tag select overflow input; compound selector with no data-testid
-    this.filterTagSelectInput = page.locator('div.ant-select-selection-overflow input');
+    // Alchemy SimpleSelect renders its search input in a floating dropdown popover with
+    // `data-testid="dropdown-search-input"`. The dropdown must be opened (by clicking the
+    // SimpleSelect container `tag-term-modal-input`) before this input is in the DOM.
+    this.filterTagSelectInput = page.getByTestId('dropdown-search-input');
     this.addTagsConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
     this.batchAddButton = page.getByTestId('glossary-batch-add');
     // Scoped to modal dialog to avoid matching the page-level search bar.
     this.batchAddModalSearchInput = page.getByRole('dialog').getByTestId('search-input');
     this.batchAddConfirmButton = page.getByTestId('search-select-modal-continue-button');
-    this.batchAddedToast = page.getByText('Added Glossary Term to entities!');
 
     this.createGlossaryHeading = page.getByRole('heading', { name: 'Create Glossary' });
     this.createGlossaryTermHeading = page.getByRole('heading', { name: 'Create Glossary Term' });
     this.deleteConfirmButton = page.getByRole('button', { name: 'Yes' });
-    this.createdTermGroupToast = page.getByText('Created Term Group!');
-    this.createdGlossaryTermToast = page.getByText('Created Glossary Term!');
-    this.deletedEntityToast = page.getByText(/Deleted .+!/);
-    this.movedEntityToast = page.getByText(/Moved .+!/);
     this.propertiesTab = page.getByRole('tab').filter({ has: page.getByTestId('Properties-entity-tab-header') });
   }
 
@@ -252,7 +247,7 @@ export class GlossaryPage extends BasePage {
     await this.createModalNameInput.fill(name);
     const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createGlossaryNode');
     await this.createModalSubmitButton.click();
-    await expect(this.createdTermGroupToast).toBeVisible();
+    await this.toast.expectVisible('Created Term Group!');
     const response = await responsePromise;
     return (response.data as Record<string, string>).createGlossaryNode;
   }
@@ -269,8 +264,7 @@ export class GlossaryPage extends BasePage {
     await this.createModalNameInput.fill(name);
     const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createGlossaryTerm');
     await this.createModalSubmitButton.click();
-    await expect(this.createdGlossaryTermToast).toBeVisible();
-    await expect(this.createdGlossaryTermToast).toBeHidden();
+    await this.toast.expectVisibleThenHidden('Created Glossary Term!');
     const response = await responsePromise;
     return (response.data as Record<string, string>).createGlossaryTerm;
   }
@@ -286,7 +280,7 @@ export class GlossaryPage extends BasePage {
     await this.openEntityMenu();
     await this.entityMenuDeleteButton.click();
     await this.deleteConfirmButton.click();
-    await expect(this.deletedEntityToast).toBeVisible();
+    await this.toast.expectVisible(/Deleted .+!/);
   }
 
   /**
@@ -308,7 +302,7 @@ export class GlossaryPage extends BasePage {
     await expect(option).toBeVisible();
     await option.click();
     await this.moveModalSubmitButton.click();
-    await expect(this.movedEntityToast).toBeVisible();
+    await this.toast.expectVisible(/Moved .+!/);
   }
 
   // ── Search within an entity page ─────────────────────────────────────────────
@@ -345,8 +339,10 @@ export class GlossaryPage extends BasePage {
     await this.advancedSearchButton.click();
     await this.addFilterButton.click();
     await this.addFilterTagsButton.click();
-    // AntD Select: type into the overflow input to trigger the options search.
-    await this.filterTagSelectInput.pressSequentially(tagName);
+    // Alchemy SimpleSelect: click the trigger to open the dropdown, then type into the
+    // search input inside the dropdown popover.
+    await this.page.getByTestId('tag-term-modal-input').click();
+    await this.filterTagSelectInput.fill(tagName);
     await this.getTagFilterOption(tagName).click();
     await this.modalComponent.title.click();
     await this.addTagsConfirmButton.click();
@@ -376,7 +372,7 @@ export class GlossaryPage extends BasePage {
   async confirmBatchAdd(): Promise<void> {
     this.logger?.step('confirmBatchAdd');
     await this.batchAddConfirmButton.click();
-    await expect(this.batchAddedToast).toBeVisible();
+    await this.toast.expectVisible('Added Glossary Term to entities!');
   }
 
   // ── Assertions ───────────────────────────────────────────────────────────────

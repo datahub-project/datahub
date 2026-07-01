@@ -15,6 +15,9 @@ import { useLoadAggregationOptions } from '@app/searchV2/filters/value/utils';
 import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from '@utils/dayjs';
 
+const DAYJS_DISPLAY_FORMAT = 'll';
+const LIST_SEPARATOR = ', ';
+
 const Values = styled.div`
     border: 1.5px solid transparent;
     border-radius: 6px;
@@ -22,8 +25,8 @@ const Values = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
-        background-color: ${(p) => p.theme.styles['primary-color']};
+        border: 1.5px solid ${(p) => p.theme.colors.borderBrand};
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
         color: ${(p) => p.theme.colors.textOnFillBrand};
     }
 `;
@@ -38,7 +41,7 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     justify-content: center;
     font-size: 14px;
     margin-right: 8px;
-    background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
 
     ${(props) =>
         props.$isCompact &&
@@ -112,7 +115,7 @@ export default function SelectedFilter({
                 <DatePicker
                     defaultValue={dayjs(Number(values[0].value))}
                     disabledDate={isDateRangeFilter ? undefined : (current) => current > dayjs().startOf('day')}
-                    format="ll"
+                    format={DAYJS_DISPLAY_FORMAT}
                     showToday={false}
                     allowClear={false}
                     onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
@@ -129,7 +132,7 @@ export default function SelectedFilter({
                         {values.map((value, index) => (
                             <Value data-testid={`active-filter-value-${field.field}-${value.value}`}>
                                 <ValueName field={field} value={value} />
-                                {index < values.length - 1 ? ', ' : ''}
+                                {index < values.length - 1 ? LIST_SEPARATOR : ''}
                             </Value>
                         ))}
                     </Values>

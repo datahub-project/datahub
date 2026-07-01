@@ -34,10 +34,11 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -45,6 +46,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     TableRename,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
+from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -137,17 +139,31 @@ class RedshiftSqlLineage(Closeable):
         self.known_urns: Set[str] = set()  # will be set later
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
+        self.generate_usage = (
+            self.config.include_usage_statistics
+            and self.config.include_column_usage_stats
+        )
+        self.generate_query_usage = (
+            self.config.include_usage_statistics
+            and self.config.include_query_usage_statistics
+        )
+        # The unified all-statements feed must run to observe reads/SELECTs, which are
+        # required for per-query usage stats (and for column-level dataset usage).
+        self.run_unified_queries = self.generate_usage or self.generate_query_usage
+        lineage_enabled = self.config.lineage_enabled
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            generate_lineage=True,
+            generate_lineage=lineage_enabled,
             generate_queries=self.config.lineage_generate_queries,
-            generate_usage_statistics=False,
+            generate_usage_statistics=self.generate_usage,
+            generate_query_usage_statistics=self.generate_query_usage,
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
             is_temp_table=self._is_temp_table,
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -183,6 +199,13 @@ class RedshiftSqlLineage(Closeable):
             ).urn()
             not in self.known_urns
         )
+
+    def _is_allowed_table(self, name: str) -> bool:
+        # name is the `db.schema.table` dataset name (platform instance stripped),
+        # matching the form the catalog walk filters in redshift.py. Applying the
+        # pattern here keeps the aggregator from emitting lineage/usage/queries for
+        # tables the user excluded via table_pattern.
+        return self.config.table_pattern.allowed(name)
 
     def _get_s3_path(self, path: str) -> Optional[str]:
         if self.config.s3_lineage_config:
@@ -448,7 +471,10 @@ class RedshiftSqlLineage(Closeable):
             )
 
             table_renames[new_urn] = TableRename(
-                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+                prev_urn,
+                new_urn,
+                query_text,
+                timestamp=normalize_timestamp_to_utc(rename_row.start_time),
             )
 
             # We want to generate lineage for the previous name too.
@@ -494,21 +520,30 @@ class RedshiftSqlLineage(Closeable):
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
-            for temp_row in self.get_temp_tables(connection=connection):
-                self.aggregator.add_observed_query(
-                    ObservedQuery(
-                        query=temp_row.query_text,
-                        default_db=self.database,
-                        default_schema=self.config.default_schema,
-                        session_id=temp_row.session_id,
-                        timestamp=temp_row.start_time,
-                    ),
-                    # The "temp table" query actually returns all CREATE TABLE statements, even if they
-                    # aren't explicitly a temp table. As such, setting is_known_temp_table=True
-                    # would not be correct. We already have mechanisms to autodetect temp tables,
-                    # so we won't lose anything by not setting it.
-                    is_known_temp_table=False,
-                )
+            # Drain the temp-table rows into a local cache before feeding them to
+            # the aggregator: add_observed_query parses SQL (slow), and doing that
+            # inline while iterating the live Redshift cursor holds the cursor open
+            # for the whole aggregation, which Redshift can time out on large query
+            # histories. See _populate_lineage_agg for the same pattern.
+            with FileBackedList[TempTableRow]() as temp_rows:
+                for temp_row in self.get_temp_tables(connection=connection):
+                    temp_rows.append(temp_row)
+
+                for temp_row in temp_rows:
+                    self.aggregator.add_observed_query(
+                        ObservedQuery(
+                            query=temp_row.query_text,
+                            default_db=self.database,
+                            default_schema=self.config.default_schema,
+                            session_id=temp_row.session_id,
+                            timestamp=normalize_timestamp_to_utc(temp_row.start_time),
+                        ),
+                        # The "temp table" query actually returns all CREATE TABLE statements, even if they
+                        # aren't explicitly a temp table. As such, setting is_known_temp_table=True
+                        # would not be correct. We already have mechanisms to autodetect temp tables,
+                        # so we won't lose anything by not setting it.
+                        is_known_temp_table=False,
+                    )
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []
 
@@ -526,19 +561,23 @@ class RedshiftSqlLineage(Closeable):
             LineageMode.SQL_BASED,
             LineageMode.MIXED,
         }:
-            # Populate lineage by parsing table creating sqls
-            query = self.queries.list_insert_create_queries_sql(
-                db_name=self.database,
-                start_time=self.start_time,
-                end_time=self.end_time,
-            )
-            populate_calls.append(
-                (
-                    LineageCollectorType.QUERY_SQL_PARSER,
-                    query,
-                    self._process_sql_parser_lineage,
+            if not self.run_unified_queries:
+                # Populate lineage by parsing table creating sqls.
+                # Skipped in unified-feed mode: _populate_unified_queries feeds all
+                # queries (reads + writes) once, superseding this narrower feed and
+                # avoiding a double-parse that would over-count usage.
+                query = self.queries.list_insert_create_queries_sql(
+                    db_name=self.database,
+                    start_time=self.start_time,
+                    end_time=self.end_time,
                 )
-            )
+                populate_calls.append(
+                    (
+                        LineageCollectorType.QUERY_SQL_PARSER,
+                        query,
+                        self._process_sql_parser_lineage,
+                    )
+                )
         if self.config.table_lineage_mode in {
             LineageMode.STL_SCAN_BASED,
             LineageMode.MIXED,
@@ -600,9 +639,85 @@ class RedshiftSqlLineage(Closeable):
                 connection=connection,
             )
 
+        # Queries-v2: feed every query (reads + writes) once so this aggregator also
+        # produces usage, column usage and Query entities. (insert/create feed skipped above.)
+        if self.run_unified_queries:
+            self._populate_unified_queries(connection)
+
         # Populate lineage for external tables.
         if not self.config.skip_external_tables:
             self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+
+    def _user_urn(self, username: Optional[str]) -> Optional[CorpUserUrn]:
+        if not username:
+            return None
+        email = username
+        if "@" not in email and self.config.email_domain:
+            email = f"{email}@{self.config.email_domain}"
+        return CorpUserUrn.from_string(mce_builder.make_user_urn(email.split("@")[0]))
+
+    def _populate_unified_queries(
+        self, connection: redshift_connector.Connection
+    ) -> None:
+        """Queries-v2 unified feed: parse every statement (reads + writes) once so
+        the single aggregator yields lineage, usage, column usage and Query
+        entities together. Drains the cursor into a local cache before parsing so
+        the live cursor isn't held open through aggregation."""
+        query = self.queries.list_all_queries_sql()
+        # Bound as parameters (start_time, end_time, database) instead of being
+        # interpolated into the SQL string.
+        query_params = (
+            self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.database,
+        )
+        timer = self.report.lineage_phases_timer.setdefault("ALL_QUERIES", PerfTimer())
+        try:
+            with timer, FileBackedList[ObservedQuery]() as observed:
+                with self.report.usage_query_fetch_timer:
+                    cursor = RedshiftDataDictionary.get_query_result(
+                        conn=connection, query=query, parameters=query_params
+                    )
+                    field_names = [c[0] for c in cursor.description]
+                    idx_query_text = field_names.index("query_text")
+                    idx_starttime = field_names.index("starttime")
+                    idx_username = field_names.index("username")
+                    idx_session_id = field_names.index("session_id")
+                    rows = cursor.fetchmany()
+                    while rows:
+                        for row in rows:
+                            text = row[idx_query_text]
+                            if not text:
+                                continue
+                            observed.append(
+                                ObservedQuery(
+                                    query=text,
+                                    default_db=self.database,
+                                    default_schema=self.config.default_schema,
+                                    timestamp=normalize_timestamp_to_utc(
+                                        row[idx_starttime]
+                                    ),
+                                    user=self._user_urn(row[idx_username]),
+                                    session_id=str(row[idx_session_id]),
+                                )
+                            )
+                        rows = cursor.fetchmany()
+                with self.report.usage_parsing_timer:
+                    for observed_query in observed:
+                        self.aggregator.add_observed_query(observed_query)
+        except Exception as e:
+            # In queries-v2 mode this feed is the sole producer of usage (and the
+            # main SQL-parsed lineage), so a total failure here — e.g. a missing
+            # SELECT grant on STL_QUERYTEXT / SYS_QUERY_HISTORY — must surface as a
+            # failure, not a warning that still exits successfully.
+            self.report.failure(
+                title="Failed to extract lineage/usage from query history",
+                message="Could not process the unified query history; usage and "
+                "SQL-parsed lineage will be missing for this database.",
+                context=f"database={self.database}, window={self.start_time}..{self.end_time}",
+                exc=e,
+            )
+            self.report_status("extract-all-queries", False)
 
     def _populate_lineage_agg(
         self,
@@ -619,10 +734,21 @@ class RedshiftSqlLineage(Closeable):
                 lineage_type.name, PerfTimer()
             )
             with timer:
-                for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                    conn=connection, query=query
-                ):
-                    processor(lineage_row)
+                # Drain the cursor into a local cache first, then process. The
+                # processors call SqlParsingAggregator.add_observed_query, which
+                # parses SQL and is slow; running it inline while iterating the
+                # live Redshift cursor keeps the cursor open for the entire
+                # aggregation, which Redshift can time out on large query
+                # histories. Draining first releases the cursor quickly, and the
+                # FileBackedList keeps memory bounded for large result sets.
+                with FileBackedList[LineageRow]() as lineage_rows:
+                    for lineage_row in RedshiftDataDictionary.get_lineage_rows(
+                        conn=connection, query=query
+                    ):
+                        lineage_rows.append(lineage_row)
+
+                    for lineage_row in lineage_rows:
+                        processor(lineage_row)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
@@ -644,7 +770,7 @@ class RedshiftSqlLineage(Closeable):
                 query=ddl,
                 default_db=self.database,
                 default_schema=self.config.default_schema,
-                timestamp=lineage_row.timestamp,
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
                 session_id=lineage_row.session_id,
             )
         )
@@ -686,7 +812,7 @@ class RedshiftSqlLineage(Closeable):
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
-                timestamp=lineage_row.timestamp,
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
             ),
             merge_lineage=True,
         )

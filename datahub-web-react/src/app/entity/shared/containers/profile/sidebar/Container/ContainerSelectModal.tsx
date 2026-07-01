@@ -1,5 +1,6 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import ParentEntities from '@app/search/filters/ParentEntities';
@@ -43,6 +44,8 @@ export const ParentWrapper = styled.div`
 `;
 
 export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const entityRegistry = useEntityRegistry();
 
@@ -153,16 +156,16 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
 
     return (
         <Modal
-            title={titleOverride || 'Select Container'}
+            title={titleOverride || t('containerModal.title')}
             open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button id="setContainerButton" disabled={selectedContainers?.length === 0} onClick={onOk}>
-                        Add
+                        {tc('add')}
                     </Button>
                 </>
             }
@@ -175,7 +178,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Containers..."
+                        placeholder={t('containerModal.searchPlaceholder')}
                         onSelect={(containerUrn: any) => onSelectContainer(containerUrn)}
                         onDeselect={onDeselectContainer}
                         onSearch={(value: string) => {

@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.dataplatforminstances;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,12 +41,13 @@ public class IngestDataPlatformInstancesUpgradeStepTest {
         new IngestDataPlatformInstancesUpgradeStep(mockEntityService, mockMigrationsDao, false);
 
     assertTrue(step.skip(mockUpgradeContext));
-    verify(mockMigrationsDao, never()).checkIfAspectExists(any());
+    verify(mockMigrationsDao, never()).checkIfAspectExists(any(OperationContext.class), any());
   }
 
   @Test
   public void testSkipWhenAspectExists() {
-    when(mockMigrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME))
+    when(mockMigrationsDao.checkIfAspectExists(
+            any(OperationContext.class), eq(DATA_PLATFORM_INSTANCE_ASPECT_NAME)))
         .thenReturn(true);
 
     IngestDataPlatformInstancesUpgradeStep step =
@@ -56,7 +58,8 @@ public class IngestDataPlatformInstancesUpgradeStepTest {
 
   @Test
   public void testNoSkipWhenEnabledAndAspectMissing() {
-    when(mockMigrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME))
+    when(mockMigrationsDao.checkIfAspectExists(
+            any(OperationContext.class), eq(DATA_PLATFORM_INSTANCE_ASPECT_NAME)))
         .thenReturn(false);
 
     IngestDataPlatformInstancesUpgradeStep step =
@@ -67,7 +70,7 @@ public class IngestDataPlatformInstancesUpgradeStepTest {
 
   @Test
   public void testExecutableSucceedsWithNoEntities() throws Exception {
-    when(mockMigrationsDao.countEntities()).thenReturn(0L);
+    when(mockMigrationsDao.countEntities(any(OperationContext.class))).thenReturn(0L);
 
     IngestDataPlatformInstancesUpgradeStep step =
         new IngestDataPlatformInstancesUpgradeStep(mockEntityService, mockMigrationsDao, true);
@@ -80,7 +83,8 @@ public class IngestDataPlatformInstancesUpgradeStepTest {
 
   @Test
   public void testExecutableFailsOnException() {
-    when(mockMigrationsDao.countEntities()).thenThrow(new RuntimeException("db error"));
+    when(mockMigrationsDao.countEntities(any(OperationContext.class)))
+        .thenThrow(new RuntimeException("db error"));
 
     IngestDataPlatformInstancesUpgradeStep step =
         new IngestDataPlatformInstancesUpgradeStep(mockEntityService, mockMigrationsDao, true);

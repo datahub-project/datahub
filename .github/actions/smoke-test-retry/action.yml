@@ -53,7 +53,7 @@ runs:
         ARTIFACT_NAME="Test Results (smoke tests) ${TEST_STRATEGY} ${BATCH}"
         echo "Looking for artifact: ${ARTIFACT_NAME}"
 
-        ARTIFACT_ID=$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+        ARTIFACT_ID=$(gh api --paginate "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
           --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
         if [[ -z "$ARTIFACT_ID" ]]; then
@@ -101,11 +101,14 @@ runs:
 
         OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-tests-batch-${BATCH}.txt"
 
+        # The parser uses non-zero exit codes as signals (1=error, 2=all_passed,
+        # 3=no_artifacts), not failures. GitHub runs composite bash steps with
+        # `-eo pipefail`, so capture the code via `|| EXIT_CODE=$?` to keep
+        # errexit from aborting the step before the case below can read it.
+        EXIT_CODE=0
         python3 .github/scripts/parse_failed_cypress_tests.py \
           --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
-          --output "${OUTPUT_FILE}"
-
-        EXIT_CODE=$?
+          --output "${OUTPUT_FILE}" || EXIT_CODE=$?
 
         case $EXIT_CODE in
           0)
@@ -139,11 +142,12 @@ runs:
 
         OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-modules-batch-${BATCH}.txt"
 
+        # See the cypress parse step: capture the parser's signal exit code via
+        # `|| EXIT_CODE=$?` so `bash -e` doesn't abort the step before the case.
+        EXIT_CODE=0
         python3 .github/scripts/parse_failed_pytest_tests.py \
           --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
-          --output "${OUTPUT_FILE}"
-
-        EXIT_CODE=$?
+          --output "${OUTPUT_FILE}" || EXIT_CODE=$?
 
         case $EXIT_CODE in
           0)

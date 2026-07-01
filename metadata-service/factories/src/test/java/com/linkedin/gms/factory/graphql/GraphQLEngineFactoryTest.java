@@ -24,6 +24,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -165,6 +167,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private GitVersion gitVersion;
 
   @MockitoBean
+  @Qualifier("ingestionCliVersionMatrixService")
+  private IngestionCliVersionMatrixService versionMatrixService;
+
+  @MockitoBean
   @Qualifier("timelineService")
   private TimelineService timelineService;
 
@@ -284,6 +290,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
 
+  @MockitoBean
+  @Qualifier("documentImportService")
+  private DocumentImportService documentImportService;
+
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
 
@@ -369,6 +379,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "entityRegistry", entityRegistry);
     setField(factoryWithAnalytics, "configProvider", configurationProvider);
     setField(factoryWithAnalytics, "gitVersion", gitVersion);
+    setField(factoryWithAnalytics, "versionMatrixService", versionMatrixService);
     setField(factoryWithAnalytics, "timelineService", timelineService);
     setField(factoryWithAnalytics, "nativeUserService", nativeUserService);
     setField(factoryWithAnalytics, "groupService", groupService);

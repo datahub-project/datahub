@@ -10,6 +10,11 @@ dependencies {
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.fabric8KubernetesClient
 
+    // Needed by CliVersionResolutionHelper to build the typed CliVersionResolution PDL record
+    // stamped on ExecutionRequestInput. The `dataTemplate` configuration exposes the generated
+    // Java classes; metadata-models has no dependency on this module, so no cycle.
+    implementation project(path: ':metadata-models', configuration: 'dataTemplate')
+
     implementation externalDependency.slf4jApi
 
     // Newer Spring libraries require JDK17 classes, allow for JDK11
@@ -22,6 +27,7 @@ dependencies {
     testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.jacksonDataFormatYaml
+    testImplementation project(':metadata-operation-context')
 }
 
 processResources.configure {

@@ -111,7 +111,9 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     AspectDao mockAspectDao = mock(AspectDao.class);
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(anyInt())).thenReturn(Stream.empty());
-    when(mockAspectDao.streamAspectBatches(any(RestoreIndicesArgs.class))).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class)))
+        .thenReturn(mockStream);
 
     ReindexDataJobViaNodesCLL cllUpgrade =
         new ReindexDataJobViaNodesCLL(opContext, mockService, mockAspectDao, true, 10, 0, 0);
@@ -124,6 +126,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
         List.of());
     verify(mockAspectDao, times(1))
         .streamAspectBatches(
+            any(OperationContext.class),
             eq(
                 new RestoreIndicesArgs()
                     .batchSize(10)
@@ -156,10 +159,11 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     when(resumeStream.partition(anyInt())).thenReturn(Stream.of(resumeBatch.stream()));
 
     // Setup the AspectDao using Answer to handle null safely
-    when(mockAspectDao.streamAspectBatches(any(RestoreIndicesArgs.class)))
+    when(mockAspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class)))
         .thenAnswer(
             invocation -> {
-              RestoreIndicesArgs args = invocation.getArgument(0);
+              RestoreIndicesArgs args = invocation.getArgument(1);
               if (args.lastUrn() == null) {
                 return initialStream;
               } else if ("urn:li:dataJob:job2".equals(args.lastUrn())) {
@@ -186,7 +190,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     // Use ArgumentCaptor to verify the calls
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(mockAspectDao, times(2)).streamAspectBatches(argsCaptor.capture());
+    verify(mockAspectDao, times(2))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
 
     List<RestoreIndicesArgs> capturedArgs = argsCaptor.getAllValues();
 

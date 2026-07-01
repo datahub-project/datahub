@@ -53,6 +53,7 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
+  private boolean metricsEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
@@ -63,4 +64,5 @@ public class FeatureFlags {
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
   private boolean i18nEnabled = false;
+  private boolean timeseriesAspectBatchLoadEnabled = true;
 }

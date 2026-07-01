@@ -1330,6 +1330,9 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment entityApplication on ApplicationAssociation {
@@ -1608,6 +1611,14 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             type
             info {
                 type
+            }
+        }
+        allowedPlatforms {
+            urn
+            type
+            properties {
+                displayName
+                logoUrl
             }
         }
         cardinality

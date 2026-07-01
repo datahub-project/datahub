@@ -70,7 +70,6 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
         SourceCapability.OPERATION_CAPTURE: "../../../api/tutorials/operations.md",
-        SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)

@@ -576,13 +576,16 @@ class SqlParsingAggregator(Closeable):
         self._exit_stack.push(self._table_swaps)
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
-        # TODO: Replace with FileBackedDict.
         # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
         # configs that won't be respected here. Using it is misleading.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
-            self._usage_aggregator = UsageAggregator(config=self.usage_config)
+            self._usage_aggregator = UsageAggregator(
+                config=self.usage_config,
+                shared_connection=self._shared_connection,
+            )
+            self._exit_stack.push(self._usage_aggregator)
 
         # Query usage aggregator.
         # Map of query ID -> { bucket -> count }
