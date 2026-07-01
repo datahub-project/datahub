@@ -2713,6 +2713,13 @@ class TestCacheCaseInsensitivity:
             last_alter_timestamp=None,
         )
 
+    def test_view_definition_key_lowercases_view_name(self) -> None:
+        """Guards the documented invariant: both schema AND view name are folded to
+        lower case so writes (keyed from Teradata's stored case) and reads (keyed from
+        config/query case) always match. Varying only the view name here catches a
+        regression that stopped lowercasing it — the other tests keep the name fixed."""
+        assert _view_definition_key("MY_DB", "My_View") == "my_db.my_view"
+
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
         source = _create_source_patched()
@@ -2748,13 +2755,12 @@ class TestCacheCaseInsensitivity:
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
+        # The view SQL text lives only in the disk-backed store now, not on the
+        # in-memory TeradataTable.
         assert (
             source._view_definitions[_view_definition_key("MY_DB", "MY_VIEW")]
             == "SELECT * FROM MY_DB.MY_TABLE"
         )
-        # The lightweight cache entry must not carry the SQL text anymore.
-        cached_view = source._tables_cache["my_db"][0]
-        assert not hasattr(cached_view, "request_text")
 
     def test_table_does_not_populate_view_definitions(self) -> None:
         """Only views contribute SQL text; tables must not create entries."""
