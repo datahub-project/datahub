@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
+from typing_extensions import TypeGuard
+
 from datahub.emitter.mce_builder import make_schema_field_urn
 
 # _make_generic_aspect is the canonical typed-aspect -> GenericAspect serializer used by
@@ -86,6 +88,22 @@ def _field_path(field_urn: str) -> Optional[str]:
         return Urn.from_string(field_urn).entity_ids[1]
     except Exception:
         return None
+
+
+def _is_dataset_urn(urn: Optional[str]) -> TypeGuard[str]:
+    """True iff `urn` is a well-formed dataset URN.
+
+    Non-raising: ``guess_entity_type`` asserts on a malformed / empty / non-URN
+    string, so calling it unguarded inside a per-reference loop would let one bad
+    reference abort resolution for every valid sibling in the aspect. A stray
+    reference is skipped instead.
+    """
+    if not urn:
+        return False
+    try:
+        return guess_entity_type(urn) == "dataset"
+    except Exception:
+        return False
 
 
 class AutoResolveLineageUrnsProcessor(
@@ -348,7 +366,7 @@ class AutoResolveLineageUrnsProcessor(
         changed = False
         for upstream in aspect.upstreams:
             dataset = getattr(upstream, "dataset", None)
-            if dataset is None or guess_entity_type(dataset) != "dataset":
+            if not _is_dataset_urn(dataset):
                 continue
             res = self._resolve_dataset(dataset)
             # Stamp the verdict (EXACT / NORMALIZED / UNRESOLVED) for any reference on
@@ -481,9 +499,10 @@ class AutoResolveLineageUrnsProcessor(
         healed: List[str] = []
         changed = False
         for dataset in urns:
-            # Guard non-dataset URNs (consistent with _normalize_upstream_lineage and
-            # _heal_dataset_edges): leave them untouched without attempting resolution.
-            if guess_entity_type(dataset) != "dataset":
+            # Guard non-dataset / malformed URNs (consistent with
+            # _normalize_upstream_lineage and _heal_dataset_edges): leave them untouched
+            # without attempting resolution.
+            if not _is_dataset_urn(dataset):
                 healed.append(dataset)
                 continue
             res = self._resolve_dataset(dataset)
@@ -504,7 +523,7 @@ class AutoResolveLineageUrnsProcessor(
         changed = False
         for edge in edges:
             destination = getattr(edge, "destinationUrn", None)
-            if destination is None or guess_entity_type(destination) != "dataset":
+            if not _is_dataset_urn(destination):
                 continue
             res = self._resolve_dataset(destination)
             if res.match_type == LineageMatchTypeClass.NORMALIZED:
