@@ -1630,6 +1630,15 @@ graphQL:
     # Enable/disable GraphQL OTel instrumentation
     # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
     enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+    resolverSpans:
+      # Master switch for filtered resolver spans
+      enabled: ${GRAPHQL_OTEL_RESOLVER_SPANS_ENABLED:false}
+      # Trace trivial property/map getters too (noisy — keep false in prod)
+      includeTrivialDataFetchers: ${GRAPHQL_OTEL_RESOLVER_SPANS_INCLUDE_TRIVIAL:false}
+      # Only top-level Query/Mutation fields (safe default); nested fields need allowedPaths
+      topLevelOnly: ${GRAPHQL_OTEL_RESOLVER_SPANS_TOP_LEVEL_ONLY:true}
+      # CSV allow-list of "ParentType.field" (e.g. "Query.searchAcrossEntities,Entity.ownership")
+      allowedPaths: ${GRAPHQL_OTEL_RESOLVER_SPANS_ALLOWED_PATHS:}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
