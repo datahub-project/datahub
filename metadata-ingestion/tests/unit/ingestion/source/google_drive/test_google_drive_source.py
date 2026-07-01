@@ -660,6 +660,10 @@ class TestIngestFileShortText:
             )
         assert source.report.docs_skipped_too_short == 0
         assert source.report.docs_processed == 1
+        # The processed document's URN is captured as a sample in the report.
+        created = list(source.report.documents_created)
+        assert len(created) == 1
+        assert created[0].startswith("urn:li:document:")
 
     def test_empty_text_reports_failure(self) -> None:
         source = _make_source()

@@ -853,7 +853,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 self._add_platform_instance(doc)
                 workunits.extend(doc.as_workunits())
                 already_emitted_folders.add(folder_id)
-                self.report.report_folder_ingested()
+                self.report.report_folder_ingested(folder_urn)
 
             parent_urn = folder_urn
 
@@ -972,7 +972,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                     "document will be ingested without embeddings."
                 )
 
-            self.report.report_doc_processed(len(text))
+            self.report.report_doc_processed(len(text), document_urn)
 
         except Exception as e:
             logger.error(
