@@ -6,7 +6,7 @@ import random
 import string
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.configuration.env_vars import (
@@ -64,6 +64,16 @@ class UpstreamPlatformCasing(ConfigModel):
         default="PROD",
         description="Environment (FabricType) of the upstream platform's assets.",
     )
+
+    @field_validator("platform")
+    @classmethod
+    def _normalize_platform(cls, v: str) -> str:
+        # Accept either a bare platform name ("snowflake") or a full data-platform URN
+        # ("urn:li:dataPlatform:snowflake") and store the bare name, so downstream
+        # matching against the platform parsed from dataset URNs is like-for-like.
+        from datahub.metadata.urns import DataPlatformUrn
+
+        return DataPlatformUrn(v).platform_name
 
 
 class AutoResolveLineageUrnsConfig(ConfigModel):
