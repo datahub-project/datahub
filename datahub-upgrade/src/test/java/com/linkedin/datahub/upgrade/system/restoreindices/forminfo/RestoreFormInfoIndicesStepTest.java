@@ -46,13 +46,13 @@ public class RestoreFormInfoIndicesStepTest {
   }
 
   @Test
-  public void testSkipReturnsFalseWhenNoPriorRun() {
+  public void testSkipReturnsFalseWhenNoPriorRun() throws Exception {
     when(mockEntityService.getEntityV2(any(), any(), any(), any())).thenReturn(null);
     assertFalse(newStep().skip(mockUpgradeContext));
   }
 
   @Test
-  public void testSkipReturnsTrueWhenAlreadyRan() {
+  public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
     when(mockEntityService.getEntityV2(
             any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
         .thenReturn(RestoreIndicesTestHelpers.upgradeRequestResponse("2"));
@@ -60,7 +60,7 @@ public class RestoreFormInfoIndicesStepTest {
   }
 
   @Test
-  public void testSkipReturnsFalseWhenVersionMismatch() {
+  public void testSkipReturnsFalseWhenVersionMismatch() throws Exception {
     when(mockEntityService.getEntityV2(
             any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
         .thenReturn(RestoreIndicesTestHelpers.upgradeRequestResponse("1"));

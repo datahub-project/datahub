@@ -109,7 +109,7 @@ public final class RestoreIndicesStreamUtil {
                         .map(
                             (SystemAspect systemAspect) -> {
                               SystemMetadata systemMetadata = systemAspect.getSystemMetadata();
-                              if (runId != null) {
+                              if (runId != null && systemMetadata != null) {
                                 systemMetadata =
                                     systemMetadata
                                         .setRunId(runId)
