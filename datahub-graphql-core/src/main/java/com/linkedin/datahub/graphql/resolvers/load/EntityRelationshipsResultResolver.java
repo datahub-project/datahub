@@ -450,7 +450,8 @@ public class EntityRelationshipsResultResolver
         context,
         entityRelationships,
         RelationshipDirection.valueOf(relationshipDirection.toString()),
-        includeSoftDelete);
+        includeSoftDelete,
+        null);
   }
 
   private EntityRelationshipsResult mapDomainChildRelationships(
