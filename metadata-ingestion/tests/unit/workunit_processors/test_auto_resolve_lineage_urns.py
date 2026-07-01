@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -625,6 +626,41 @@ def test_empty_dataset_ref_does_not_block_valid_sibling():
     datasets = _dashboard_aspect(out).datasets
     assert datasets == ["", UPPER]
     assert processor.report.num_exceptions == 0
+
+
+def test_configured_platform_matching_nothing_warns(caplog):
+    # Platform names are compared case-sensitively; a config typo like `Snowflake`
+    # heals nothing. Surface that as an end-of-run warning instead of silently no-op.
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="Snowflake", env="PROD")],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
+
+    provide_mock = mock.MagicMock(return_value=_resolver({UPPER: {"amount": "int"}}))
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        with caplog.at_level(logging.WARNING):
+            [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
+
+    assert _stored_upstream(out) == LOWER  # not healed (platform-name mismatch)
+    assert any(
+        "matched no lineage references" in r.message and "Snowflake" in r.message
+        for r in caplog.records
+    )
+
+
+def test_configured_platform_that_matches_does_not_warn(caplog):
+    # The unmatched-platform warning must not fire when the configured platform is
+    # actually used, so it doesn't cry wolf on healthy runs.
+    with caplog.at_level(logging.WARNING):
+        out = _run({UPPER: {"amount": "int"}}, _upstream_wu(LOWER))
+    assert _stored_upstream(out) == UPPER
+    assert not any("matched no lineage references" in r.message for r in caplog.records)
 
 
 def test_exception_is_recorded_and_workunit_passed_through():
