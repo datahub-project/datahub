@@ -1,8 +1,9 @@
+import logging
 import time
-import unittest
 from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
+import pytest
 import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
@@ -18,8 +19,8 @@ from datahub.utilities.urns._urn_base import Urn
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 
-class TestQueryCleanup(unittest.TestCase):
-    def setUp(self) -> None:
+class TestQueryCleanup:
+    def setup_method(self) -> None:
         self.mock_graph = MagicMock(spec=DataHubGraph)
         self.mock_ctx = MagicMock(spec=PipelineContext)
         self.mock_ctx.graph = self.mock_graph
@@ -36,7 +37,7 @@ class TestQueryCleanup(unittest.TestCase):
 
     def test_init_requires_graph(self) -> None:
         self.mock_ctx.graph = None
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             QueryCleanup(self.mock_ctx, self.config, self.report)
 
     @time_machine.travel(FROZEN_TIME, tick=False)
@@ -70,8 +71,8 @@ class TestQueryCleanup(unittest.TestCase):
         self.mock_graph.delete_entity.assert_called_once_with(
             urn=self.sample_urn.urn(), hard=False
         )
-        self.assertEqual(self.report.num_queries_soft_deleted, 1)
-        self.assertEqual(self.report.num_queries_hard_deleted, 0)
+        assert self.report.num_queries_soft_deleted == 1
+        assert self.report.num_queries_hard_deleted == 0
 
     def test_delete_query_hard_delete(self) -> None:
         self.config.hard_delete_entities = True
@@ -81,8 +82,8 @@ class TestQueryCleanup(unittest.TestCase):
         self.mock_graph.delete_entity.assert_called_once_with(
             urn=self.sample_urn.urn(), hard=True
         )
-        self.assertEqual(self.report.num_queries_hard_deleted, 1)
-        self.assertEqual(self.report.num_queries_soft_deleted, 0)
+        assert self.report.num_queries_hard_deleted == 1
+        assert self.report.num_queries_soft_deleted == 0
 
     def test_delete_query_dry_run(self) -> None:
         self.cleanup.dry_run = True
@@ -90,7 +91,7 @@ class TestQueryCleanup(unittest.TestCase):
         self.cleanup.delete_query(self.sample_urn)
 
         self.mock_graph.delete_entity.assert_not_called()
-        self.assertEqual(self.report.num_queries_soft_deleted, 0)
+        assert self.report.num_queries_soft_deleted == 0
 
     def test_delete_query_respects_deletion_limit(self) -> None:
         self.config.limit_entities_delete = 5
@@ -99,7 +100,7 @@ class TestQueryCleanup(unittest.TestCase):
         self.cleanup.delete_query(self.sample_urn)
 
         self.mock_graph.delete_entity.assert_not_called()
-        self.assertTrue(self.report.deletion_limit_reached)
+        assert self.report.qc_deletion_limit_reached
 
     def test_delete_query_respects_time_limit(self) -> None:
         self.cleanup.start_time = time.time() - self.config.runtime_limit_seconds - 1
@@ -107,7 +108,7 @@ class TestQueryCleanup(unittest.TestCase):
         self.cleanup.delete_query(self.sample_urn)
 
         self.mock_graph.delete_entity.assert_not_called()
-        self.assertTrue(self.report.runtime_limit_reached)
+        assert self.report.qc_runtime_limit_reached
 
     def test_cleanup_disabled(self) -> None:
         self.config.enabled = False
@@ -123,21 +124,22 @@ class TestQueryCleanup(unittest.TestCase):
 
         self.cleanup.cleanup_queries()
 
-        self.assertEqual(self.report.num_system_queries_found, 3)
-        self.assertEqual(self.report.num_queries_soft_deleted, 3)
-        self.assertEqual(self.mock_graph.delete_entity.call_count, 3)
+        assert self.report.num_queries_found == 3
+        assert self.report.num_queries_soft_deleted == 3
+        assert self.mock_graph.delete_entity.call_count == 3
 
-    def test_cleanup_skips_invalid_urn(self) -> None:
+    def test_cleanup_skips_invalid_urn(self, caplog: pytest.LogCaptureFixture) -> None:
         self.mock_graph.get_urns_by_filter.return_value = [
             "urn:li:query:1",
             "invalid:urn",
         ]
 
-        with self.assertLogs(level="ERROR") as log_context:
+        with caplog.at_level(logging.ERROR):
             self.cleanup.cleanup_queries()
 
-        self.assertTrue(any("Failed to parse urn" in msg for msg in log_context.output))
-        self.assertEqual(self.report.num_queries_soft_deleted, 1)
+        assert any("Failed to parse urn" in r.message for r in caplog.records)
+        assert self.report.num_queries_soft_deleted == 1
+        assert self.report.num_queries_invalid_urn == 1
 
     def test_process_futures_reports_failure(self) -> None:
         good = MagicMock(spec=Future)
@@ -154,9 +156,5 @@ class TestQueryCleanup(unittest.TestCase):
                 {good: self.sample_urn, bad: self.sample_urn}
             )
 
-        self.assertEqual(remaining, {})
-        self.assertEqual(len(self.report.failures), 1)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert remaining == {}
+        assert len(self.report.failures) == 1
