@@ -19,7 +19,6 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
-import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -37,6 +36,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -304,14 +304,10 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
                   Constants.DOMAINS_ASPECT_NAME,
                   _entityService,
                   null);
-      if (!EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(dataProductDomains).isEmpty()) {
-        if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
-                context, dataProductDomains)
-            && !DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        }
-      } else if (!DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
+      Set<Urn> productDomainUrns =
+          EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(dataProductDomains);
+      if (!EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+          context.getOperationContext(), targetUrn, productDomainUrns)) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }

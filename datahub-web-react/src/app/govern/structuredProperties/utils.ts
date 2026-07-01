@@ -30,6 +30,27 @@ import {
     StructuredPropertySettings,
 } from '@src/types.generated';
 
+/**
+ * Returns true if the given structured property should be shown for an entity on the given platform.
+ * If the property has no allowedPlatforms restriction, it matches any platform.
+ * If platformUrn is not provided, only unrestricted properties match.
+ */
+export function matchesAllowedPlatforms(
+    property: StructuredPropertyEntity,
+    platformUrn: string | null | undefined,
+): boolean {
+    const allowedPlatforms = property.definition?.allowedPlatforms;
+    if (!allowedPlatforms || allowedPlatforms.length === 0) {
+        // No restriction — applies to all platforms
+        return true;
+    }
+    if (!platformUrn) {
+        // Property is platform-restricted but entity has no platform
+        return false;
+    }
+    return allowedPlatforms.some((p) => p.urn === platformUrn);
+}
+
 export type StructuredProp = {
     displayName?: string;
     qualifiedName?: string;
@@ -37,6 +58,7 @@ export type StructuredProp = {
     description?: string | null;
     valueType?: string;
     entityTypes?: string[];
+    allowedPlatforms?: string[];
     typeQualifier?: {
         allowedTypes?: string[];
     };
@@ -205,6 +227,12 @@ export const getNewAllowedTypes = (entity: StructuredPropertyEntity, values: Str
 export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
     const currentTypeUrns = entity.definition.entityTypes?.map((type) => type.urn);
     return values.entityTypes?.filter((type) => !currentTypeUrns.includes(type));
+};
+
+export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentPlatformUrns = entity.definition.allowedPlatforms?.map((platform) => platform.urn);
+    const newPlatforms = values.allowedPlatforms?.filter((urn) => !currentPlatformUrns?.includes(urn));
+    return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
 
 export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {

@@ -217,6 +217,37 @@ datahub:
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 
+    # Entity hierarchy graph cache.
+    # Tier 1: application.yaml toggles below (enabled, configFile, configJson; pod-level eviction)
+    # Tier 2: ENTITY_GRAPH_CACHE_CONFIG_FILE — bundled entity-graph-cache.yaml or mounted YAML
+    #         (graph definitions + eviction.nearCache for snapshot IMaps)
+    # Tier 3: ENTITY_GRAPH_CACHE_CONFIG_JSON — JSON overlay merged at startup (like RATE_LIMITS_CONFIG_JSON)
+    entityGraphCache:
+      enabled: ${ENTITY_GRAPH_CACHE_ENABLED:true}
+      configFile:
+        enabled: ${ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED:true}
+        path: ${ENTITY_GRAPH_CACHE_CONFIG_FILE:entity-graph-cache.yaml}
+      configJson: ${ENTITY_GRAPH_CACHE_CONFIG_JSON:}
+      eviction:
+        local:
+          enabled: true
+          maxViews: 16
+          maxEstimatedBytes: 268435456
+        memoryPressure:
+          enabled: true
+          checkIntervalSeconds: 30
+          heapUsageThresholdPercent: 85
+          action: EVICT_LOCAL_LRU
+          cooldownSeconds: 120
+          hysteresisPercent: 5
+        hazelcast:
+          evictionPolicy: MAX_SIZE
+          maxSizePerNode: 32
+          maxSizePolicy: PER_NODE
+          heapMaxSizePercent: 0
+          ttlSeconds: 0
+          backupCount: 1
+
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
@@ -1196,7 +1227,7 @@ systemUpdate:
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
   restoreColumnLineageIndices:
-    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:true}
+    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}
   restoreFormInfoIndices:
     enabled: ${RESTORE_FORM_INFO_INDICES_ENABLED:true}
   restoreGlossaryIndices:
@@ -1293,7 +1324,7 @@ systemUpdate:
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
   restoreDbtSiblingsIndices:
-    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
+    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:false}
   ingestDefaultGlobalSettings:
     enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
   ingestPolicies:
@@ -1396,6 +1427,7 @@ featureFlags:
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
+  metricsEnabled: ${METRICS_ENABLED:false} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and downstream backend wiring once the Metric entity ships). Defaults off in OSS while the feature is in development.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
@@ -1617,7 +1649,7 @@ businessAttribute:
 metadataChangeProposal:
   consumer:
     batch:
-      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:true}
       size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}

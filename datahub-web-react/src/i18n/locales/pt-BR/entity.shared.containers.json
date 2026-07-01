@@ -221,6 +221,7 @@
     "sidebar.tabs.columnsLabel": "Colunas",
     "sidebar.tabs.lineageLabel": "Lineage",
     "sidebar.tabs.propsAbbreviation": "Props",
+    "sidebar.tabs.structuredPropertiesTooltip": "Propriedades estruturadas",
     "sidebar.tabs.summaryLabel": "Resumo",
     "sidebar.viewDefinition.languageLabel": "Linguagem",
     "sidebar.viewDefinition.materializedFalse": "Falso",
