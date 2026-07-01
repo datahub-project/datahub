@@ -1,8 +1,6 @@
 package com.linkedin.metadata.timeseries.elastic;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.codahale.metrics.Timer;
@@ -65,17 +63,9 @@ public class OperationsServiceUtil {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    int maxNameLength =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     OBJECT_MAPPER
         .getFactory()
-        .setStreamReadConstraints(
-            StreamReadConstraints.builder()
-                .maxStringLength(maxSize)
-                .maxNameLength(maxNameLength)
-                .build());
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
   private OperationsServiceUtil() {}
