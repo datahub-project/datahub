@@ -110,6 +110,7 @@
     },
     "scripts": {
         "analyze": "source-map-explorer 'dist/assets/*.js'",
+        "size": "size-limit",
         "start": "yarn run generate && vite",
         "start:https": "yarn run generate && REACT_APP_HTTPS=true vite",
         "ec2-dev": "yarn run generate && CI=true vite",
@@ -153,6 +154,7 @@
         "@graphql-codegen/typescript-operations": "1.17.13",
         "@graphql-codegen/typescript-react-apollo": "2.2.1",
         "@originjs/vite-plugin-federation": "^1.4.1",
+        "@size-limit/file": "^12.1.0",
         "@storybook/addon-essentials": "^8.6.15",
         "@storybook/addon-interactions": "^8.6.15",
         "@storybook/addon-links": "^8.6.15",
@@ -189,6 +191,7 @@
         "jsdom": "^22.1.0",
         "less": "^4.3.0",
         "prettier": "^3.5.3",
+        "size-limit": "^12.1.0",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.6.15",
         "vite": "^6",
@@ -197,6 +200,13 @@
         "vite-plugin-svgr": "^4.3.0",
         "vitest": "^3.2.2"
     },
+    "size-limit": [
+        {
+            "name": "Initial JS (eager entry chunks)",
+            "path": "dist/assets/index-*.js",
+            "gzip": true
+        }
+    ],
     "resolutions": {
         "@ant-design/colors": "6.0.0",
         "@xmldom/xmldom": "0.8.13",
