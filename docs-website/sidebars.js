@@ -580,6 +580,12 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "SMTP Email Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/smtp-email",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
