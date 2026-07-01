@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     LineageMatchTypeClass,
     MetadataChangeEventClass,
+    MetadataChangeProposalClass,
     StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -634,6 +635,28 @@ def test_raw_mcp_aspect_is_healed_and_written_back():
     healed = out.get_aspect_of_type(UpstreamLineageClass)
     assert healed is not None
     assert healed.upstreams[0].dataset == LOWER
+
+
+def test_unchanged_raw_mcp_is_not_reserialized():
+    # A raw MCP whose only upstream is on an unconfigured platform (out of scope) is not
+    # mutated, so the processor must skip the (expensive) re-serialization: the
+    # proposal's generic aspect payload is left as the very same object. This guards the
+    # "only pay the deser/reser cost when something is actually fixed" optimization.
+    bigquery_upstream = make_dataset_urn("bigquery", "PROJ.DS.T")
+    raw_mcp = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM,
+        aspect=UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=bigquery_upstream, type="TRANSFORMED")],
+        ),
+    ).make_mcp()
+    wu = MetadataWorkUnit(id="raw-mcp-unchanged", mcp_raw=raw_mcp)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    original_generic_aspect = wu.metadata.aspect
+
+    out = _run({LOWER: {"amount": "int"}}, wu)
+
+    assert isinstance(out.metadata, MetadataChangeProposalClass)
+    assert out.metadata.aspect is original_generic_aspect
 
 
 def test_module_import_does_not_pull_sqlglot():
