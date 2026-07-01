@@ -115,6 +115,8 @@ Requirements:
 
 - **(Java / Plugin API)** `SecretService.encrypt` and `SecretService.decrypt` no-context overloads are removed; use `encrypt(OperationContext, String)` and `decrypt(OperationContext, String)`. Custom GMS plugins or extensions that call `SecretService` directly must pass `OperationContext` from the request, or `null` for background jobs (allowed by the guard). With `ENFORCE`, `decrypt` throws `SecurityException` for human browser/mobile callers and callers other than trusted ingestion workers (**datahub-actions** in OSS).
 
+- #17721: **(Ingestion / Snowplow)** The connector now fetches pipeline enrichments from the supported `pipelines/v1/{pipelineId}/enrichments` endpoint instead of the deprecated `resources/v1/.../configuration/enrichments` endpoint Snowplow is retiring. Because the new payload no longer returns the per-enrichment UUID, enrichment **DataJob URNs are now derived from the enrichment name** (e.g. `...,campaign-attribution)` instead of `...,07409eac-...)`. Existing enrichment DataJobs ingested under the old UUID-based URNs will be orphaned (left as stale/soft-deleted) and re-created under the new name-based URNs on the next run. No recipe changes are required.
+
 ### Known Issues
 
 ### Potential Downtime
