@@ -670,7 +670,7 @@ def _view_definition_key(schema: str, view_name: str) -> str:
     (config-supplied names vs. Teradata's stored case); the view name is kept
     as stored in dbc.TablesV so it matches the name resolved during the loop.
     """
-    return f"{schema.lower()}.{view_name}"
+    return f"{schema}.{view_name}".lower()
 
 
 # Bounded cache so multiple schemas stay resident across sequential database processing.
