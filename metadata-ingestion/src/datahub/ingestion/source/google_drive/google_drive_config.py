@@ -242,7 +242,12 @@ class GoogleDriveSourceConfig(
         description=(
             "Optional DataHub platform instance identifier. "
             "Use this when you have multiple Google Drive ingestions and need "
-            "to distinguish them (e.g. ``my-org-drive``)."
+            "to distinguish them (e.g. ``my-org-drive``). "
+            "Document URNs are `urn:li:document:google-drive-{file_id}` (Drive "
+            "file IDs are globally unique and stable), or "
+            "`urn:li:document:google-drive-{platform_instance}-{file_id}` when "
+            "this is set. Setting it changes the URN scheme, so choose a stable "
+            "value up front if you need to scope instances separately."
         ),
     )
 

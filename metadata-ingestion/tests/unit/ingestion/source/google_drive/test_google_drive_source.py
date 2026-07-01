@@ -300,6 +300,25 @@ class TestBuildDocId:
         source = _make_source({"platform_instance": "test"})
         assert source._build_doc_id("A") != source._build_doc_id("B")
 
+    def test_doc_id_is_credential_independent(self) -> None:
+        # Drive file IDs are globally unique, so the same file resolves to the
+        # same URN regardless of which credentials (or key path) ingest it.
+        src1 = _make_source(
+            {"credentials": {"service_account_key_file": "/a/key.json"}}
+        )
+        src2 = _make_source(
+            {"credentials": {"service_account_key_file": "/b/other-key.json"}}
+        )
+        assert (
+            src1._build_doc_id("FILE")
+            == src2._build_doc_id("FILE")
+            == "google-drive-FILE"
+        )
+
+    def test_doc_id_prefixes_platform_instance_when_set(self) -> None:
+        source = _make_source({"platform_instance": "my-org"})
+        assert source._build_doc_id("FILE") == "google-drive-my-org-FILE"
+
 
 # ===========================================================================
 # GoogleDriveSource._parse_timestamp
@@ -677,26 +696,26 @@ class TestIngestFileShortText:
 
 
 # ===========================================================================
-# GoogleDriveSource._get_instance_id
+# GoogleDriveSource URN stability
 # ===========================================================================
 
 
-class TestGetInstanceId:
-    def test_explicit_platform_instance_is_used(self) -> None:
-        source = _make_source({"platform_instance": "my-custom-instance"})
-        assert source._get_instance_id() == "my-custom-instance"
-
-    def test_adc_fallback_is_deterministic(self) -> None:
-        """Without credentials, the instance ID is derived from the string 'adc'."""
-        src1 = _make_source()
-        src2 = _make_source()
-        assert src1._get_instance_id() == src2._get_instance_id()
-
-    def test_instance_id_from_key_file_is_deterministic(self) -> None:
-        cfg = {"credentials": {"service_account_key_file": "/path/to/key.json"}}
-        src1 = _make_source(cfg)
-        src2 = _make_source(cfg)
-        assert src1._get_instance_id() == src2._get_instance_id()
+class TestUrnStability:
+    def test_urn_stable_across_different_credentials(self) -> None:
+        # The same Drive file yields the same URN regardless of auth method,
+        # so re-ingesting with a different account does not duplicate entities.
+        by_file = _make_source(
+            {"credentials": {"service_account_key_file": "/x/key.json"}}
+        )
+        by_json = _make_source(
+            {"credentials": {"service_account_key_json": '{"type":"service_account"}'}}
+        )
+        by_adc = _make_source()
+        assert (
+            by_file._build_doc_id("F")
+            == by_json._build_doc_id("F")
+            == by_adc._build_doc_id("F")
+        )
 
 
 # ===========================================================================
@@ -1444,12 +1463,22 @@ class TestTestConnection:
 
 
 class TestAddPlatformInstance:
-    def test_add_platform_instance_sets_aspect(self) -> None:
-        """_add_platform_instance calls _set_aspect on the document."""
+    def test_instance_set_when_platform_instance_configured(self) -> None:
         source = _make_source({"platform_instance": "test-instance"})
         mock_doc = MagicMock()
         source._add_platform_instance(mock_doc)
-        mock_doc._set_aspect.assert_called_once()
+        aspect = mock_doc._set_aspect.call_args[0][0]
+        assert aspect.platform == "urn:li:dataPlatform:google-drive"
+        assert aspect.instance is not None
+        assert "test-instance" in aspect.instance
+
+    def test_instance_omitted_when_no_platform_instance(self) -> None:
+        source = _make_source()
+        mock_doc = MagicMock()
+        source._add_platform_instance(mock_doc)
+        aspect = mock_doc._set_aspect.call_args[0][0]
+        assert aspect.platform == "urn:li:dataPlatform:google-drive"
+        assert aspect.instance is None
 
 
 # ===========================================================================

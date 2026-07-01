@@ -107,6 +107,17 @@ The `document_import_mode` field controls how documents are stored:
 4. **Embedding**: Generates vector embeddings for each chunk (if embeddings enabled)
 5. **Emission**: Emits Document entities with SemanticContent aspects to DataHub
 
+##### Entity URNs & stability
+
+Documents and folders are emitted as DataHub `Document` entities with URNs of the form:
+
+- `urn:li:document:google-drive-{file_id}` — the default
+- `urn:li:document:google-drive-{platform_instance}-{file_id}` — when `platform_instance` is set
+
+The Google Drive **file ID is globally unique and permanent** (it survives renames, moves, and edits), so a given file always maps to the **same URN regardless of which service account, key path, or auth method ingests it**. Re-ingestion therefore updates the same entity (idempotent), and stale-entity removal works reliably.
+
+Set `platform_instance` when you want to keep multiple logical Drive instances separate — but note it becomes part of the URN, so choose a stable value up front (changing it later re-creates entities under new URNs).
+
 ##### Stateful Ingestion Details
 
 The source uses content-based change detection for embeddings and tracks URNs for deletion:
