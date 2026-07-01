@@ -94,11 +94,6 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
 )
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
-@capability(
     SourceCapability.PARTITION_SUPPORT,
     "Enabled by default, partition keys and clustering keys are supported.",
 )

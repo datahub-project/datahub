@@ -39,23 +39,32 @@ API_RESPONSE_FIELD_SIZE = "size"
 # API pagination limits (per Matillion DPC API specification)
 API_MAX_PAGE_SIZE = 100
 
+# The lineage events endpoint rejects (HTTP 400) any date range wider than 31
+# days, so lineage fetches must be split into sub-windows no larger than this.
+MAX_LINEAGE_DATE_RANGE_DAYS = 31
+
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
+MATILLION_AU1_URL = "https://au1.api.matillion.com/dpc"
 MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"
-
-API_PATH_SUFFIX = "/dpc"
 
 # OAuth2 configuration
 OAUTH_GRANT_TYPE = "client_credentials"
 OAUTH_AUDIENCE = "https://api.matillion.com"
 OAUTH_TOKEN_EXPIRY_SECONDS = 1800  # 30 minutes
 OAUTH_TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh 5 minutes before expiry
-UI_PATH_PIPELINES = "pipelines"
-UI_PATH_STREAMING_PIPELINES = "streaming-pipelines"
 
 DEFAULT_REQUEST_TIMEOUT_SEC = 30
 MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
 MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD = 100
+
+# Surfaced in the ingestion report when a slow Matillion endpoint times out, so
+# users know how to recover rather than just seeing an opaque timeout.
+API_TIMEOUT_TUNING_GUIDANCE = (
+    "Increase api_config.request_timeout_sec, narrow the start_time/end_time window, "
+    "or enable stateful_ingestion for incremental runs. Avoid setting a very large "
+    "timeout, since failed requests are retried and a high timeout multiplies the wait."
+)
 
 # Platform-related constants
 # Maps platform identifiers from various sources (connection types, OpenLineage namespaces)
@@ -106,8 +115,13 @@ TWO_TIER_PLATFORMS = {
 # to match DataHub connector behavior (e.g., Snowflake's convert_urns_to_lowercase)
 LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
 
-# Matillion UI URL patterns
-MATILLION_PIPELINE_OBSERVABILITY_URL = "https://app.matillion.com/observability-dashboard?timeFrame=*&search={pipeline_name}"
+# Matillion Data Productivity Cloud console (Maia) deep links. The console is a
+# single global host (app.matillion.com); the account is selected at login and is
+# not part of the URL. The observability search matches the pipeline file name, not
+# the folder path, so callers must pass the leaf file name.
+MATILLION_PIPELINE_OBSERVABILITY_URL = (
+    "https://app.matillion.com/observability-dashboard?search={pipeline_name}"
+)
 MATILLION_DPI_OBSERVABILITY_URL = (
     "https://app.matillion.com/observability-dashboard/pipeline/{execution_id}"
 )

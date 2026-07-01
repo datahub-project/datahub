@@ -9,6 +9,7 @@ import redshift_connector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -31,6 +32,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.source_helpers import (
+    auto_empty_dataset_usage_statistics,
     auto_workunit,
     create_dataset_props_patch_builder,
 )
@@ -151,11 +153,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -372,6 +369,46 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 title="Config option deprecation warning",
             )
 
+        if (
+            self.config.include_column_usage_stats
+            and not self.config.include_usage_statistics
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_column_usage_stats` is enabled but "
+                "`include_usage_statistics` is disabled, so no usage statistics "
+                "(column-level or otherwise) will be produced. Enable "
+                "`include_usage_statistics` to get column-level usage.",
+                context="include_column_usage_stats",
+            )
+
+        if (
+            self.config.include_query_usage_statistics
+            and not self.config.include_usage_statistics
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_query_usage_statistics` is enabled but "
+                "`include_usage_statistics` is disabled, so no query usage "
+                "statistics will be produced. Enable `include_usage_statistics` "
+                "to get per-query popularity stats.",
+                context="include_query_usage_statistics",
+            )
+
+        if (
+            self.config.include_usage_statistics
+            and self.config.include_query_usage_statistics
+            and not self.config.lineage_generate_queries
+        ):
+            self.report.report_warning(
+                title="Config option has no effect",
+                message="`include_query_usage_statistics` is enabled but "
+                "`lineage_generate_queries` is disabled, so no Query entities are "
+                "emitted for the query usage statistics to attach to. Enable "
+                "`lineage_generate_queries` to get per-query popularity stats.",
+                context="include_query_usage_statistics",
+            )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
@@ -414,6 +451,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
+        # Fetch once; reused by the v2 auto_empty wrap and extract_usage below.
+        all_tables = self.get_all_tables()
+
         with RedshiftSqlLineage(
             config=self.config,
             report=self.report,
@@ -425,29 +465,49 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            # Only extract lineage if at least one lineage flag is enabled.
-            # This addresses a regression introduced in PR #14580 where lineage v1 removal
-            # inadvertently caused lineage extraction to run even when all flags were disabled.
-            if (
-                self.config.include_table_lineage
-                or self.config.include_view_lineage
-                or self.config.include_copy_lineage
-                or self.config.include_unload_lineage
-                or self.config.include_share_lineage
-                or self.config.include_table_rename_lineage
-            ):
+            lineage_enabled = self.config.lineage_enabled
+            column_usage_enabled = (
+                self.config.include_usage_statistics
+                and self.config.include_column_usage_stats
+            )
+            query_usage_enabled = (
+                self.config.include_usage_statistics
+                and self.config.include_query_usage_statistics
+            )
+            # Enter the lineage block when any lineage flag is on OR when column or
+            # query usage stats are enabled (usage and query usage are produced by the
+            # lineage aggregator in v2 mode and would be silently lost otherwise).
+            if lineage_enabled or column_usage_enabled or query_usage_enabled:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
-                    yield from self.extract_lineage_v2(
+                    lineage_wus = self.extract_lineage_v2(
                         connection=connection,
                         database=database,
                         lineage_extractor=lineage_extractor,
                     )
+                    if column_usage_enabled:
+                        # In v2 mode, usage is produced by the lineage aggregator.
+                        # Wrap with empty-usage backfill so tables with no queries in
+                        # the window still get a usage aspect.
+                        lineage_wus = auto_empty_dataset_usage_statistics(
+                            lineage_wus,
+                            config=BaseTimeWindowConfig(
+                                start_time=self.config.start_time,
+                                end_time=self.config.end_time,
+                                bucket_duration=self.config.bucket_duration,
+                            ),
+                            dataset_urns={
+                                self.gen_dataset_urn(f"{db}.{schema}.{t.name}")
+                                for db, schemas in all_tables.items()
+                                for schema, tables in schemas.items()
+                                for t in tables
+                            },
+                        )
+                    yield from lineage_wus
             else:
                 logger.info(
-                    "Skipping lineage extraction - all lineage flags are disabled"
+                    "Skipping lineage/usage-v2 extraction - all lineage flags are "
+                    "disabled and neither column usage nor query usage stats are enabled"
                 )
-
-        all_tables = self.get_all_tables()
 
         if self.config.include_usage_statistics:
             with self.report.new_stage(USAGE_EXTRACTION_INGESTION):
@@ -981,6 +1041,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 report=self.report,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                context=self.ctx,
             )
 
             yield from usage_extractor.get_usage_workunits(all_tables=all_tables)

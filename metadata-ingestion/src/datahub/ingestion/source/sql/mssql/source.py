@@ -1537,6 +1537,21 @@ class SQLServerSource(SQLAlchemySource):
                     self._discovered_table_cache[name] = result
                     return result
 
+            # TSQL procedures reference tables as `schema.table` even though
+            # discovery records them as `db.schema.table`; match on the
+            # trailing `.schema.table` so these don't get dropped as temp.
+            # Cross-DB collisions are intentional (first-match-wins): this is
+            # a keep/drop gate for lineage, not a precise resolver. No pattern
+            # filtering needed here since discovered_datasets already passed it.
+            if len(parts) == 2:
+                for discovered_name in self.discovered_datasets:
+                    # Leading "." requires a db-qualified match on a segment
+                    # boundary (so "dbo" won't match schema "xdbo").
+                    if discovered_name.endswith(f".{standardized_name}"):
+                        result = True
+                        self._discovered_table_cache[name] = result
+                        return result
+
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
             # treat as undiscovered since we can't verify
             result = False

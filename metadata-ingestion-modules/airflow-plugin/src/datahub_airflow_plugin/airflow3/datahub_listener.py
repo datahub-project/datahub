@@ -610,6 +610,7 @@ class DataHubListener:
                     token,
                     client_mode=ClientMode.INGESTION,
                     datahub_component="airflow-plugin",
+                    default_emit_mode=self.config.emit_mode,
                     **extra_args,
                 )
         except Exception as e:
