@@ -1,6 +1,7 @@
 """Source report for the Google Drive ingestion source."""
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -30,6 +31,11 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     # Limit tracking
     num_documents_limit_reached: bool = False
 
+    # Samples of the entity URNs produced (capped by LossyList, which renders
+    # the first N plus a "... N more" summary in the structured report).
+    documents_created: LossyList[str] = field(default_factory=LossyList)
+    folders_created: LossyList[str] = field(default_factory=LossyList)
+
     # Error tracking
     processing_errors: LossyList[str] = field(default_factory=LossyList)
 
@@ -39,9 +45,11 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     def report_file_discovered(self) -> None:
         self.files_discovered += 1
 
-    def report_doc_processed(self, text_length: int) -> None:
+    def report_doc_processed(self, text_length: int, urn: Optional[str] = None) -> None:
         self.docs_processed += 1
         self.total_text_bytes += text_length
+        if urn is not None:
+            self.documents_created.append(urn)
 
     def report_doc_skipped_too_short(
         self, file_id: str, length: int, minimum: int
@@ -64,5 +72,7 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
             context=f"file_id={file_id}: {error}",
         )
 
-    def report_folder_ingested(self) -> None:
+    def report_folder_ingested(self, urn: Optional[str] = None) -> None:
         self.folders_ingested += 1
+        if urn is not None:
+            self.folders_created.append(urn)
