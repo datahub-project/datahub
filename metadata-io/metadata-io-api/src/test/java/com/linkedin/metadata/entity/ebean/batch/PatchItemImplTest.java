@@ -753,4 +753,50 @@ public class PatchItemImplTest {
     assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.NAME));
     assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.VALUE));
   }
+
+  @Test
+  public void testFindOversizedContent_keyAtThresholdNotFlagged() {
+    // Boundary: a key exactly at the threshold is not flagged (the check is strictly greater-than).
+    String key = "k".repeat(50);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertTrue(found.isEmpty(), "A key exactly at the threshold must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_jsonPointerEscapedKeyDecodedInSample() {
+    // JSON-Pointer escapes (~1 => '/', ~0 => '~') are decoded in the reported sample. The raw
+    // segment "a~1b" x20 = 80 chars contains no real '/', so it stays one segment over the limit.
+    String key = "a~1b".repeat(20);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertTrue(
+        found.get(0).sample().contains("/"), "~1 should be decoded to '/' in the reported sample");
+  }
+
+  @Test
+  public void testFindOversizedContent_deeplyNestedValueFound() {
+    // A string buried in object -> array -> object is still found by the recursive value scan.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a\",\"value\":{\"b\":[{\"c\":\""
+                    + longVal
+                    + "\"}]}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
 }
