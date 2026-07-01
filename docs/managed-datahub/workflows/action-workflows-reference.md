@@ -14,6 +14,8 @@ This page is the exhaustive JSON syntax reference for an Action Workflow definit
 
 The reference is organised top-down: the top-level definition first, then each primitive it composes, then the shared filter dialect, then the resolver catalogue, then the enum tables, then the GraphQL surface.
 
+> **The launching entity.** Throughout this reference, the _launching entity_ is the entity from whose profile page the user launched the workflow — for example, the dataset on which the requester clicked the workflow's launch icon. Resolvers and filters that specify `"source": "launching"` begin their traversal from this entity.
+
 ## How to Apply a Workflow Definition
 
 A workflow definition is a JSON object submitted as the `input` argument to the `upsertActionWorkflow` GraphQL mutation. There are three common ways to apply one:

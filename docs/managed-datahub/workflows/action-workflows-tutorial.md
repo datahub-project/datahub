@@ -1,5 +1,5 @@
 ---
-description: "End-to-end walkthrough of a sample Action Workflow — a 4-step Dataset Promotion to Certified workflow that exercises entrypoint filters, context-aware form pickers, conditional fields, dynamic actor resolution, mixed quorum policies, and conditional step skip."
+description: "Build an Action Workflow step by step — start with a one-approval promotion request, then layer on entrypoint filters, context-aware pickers, conditional fields, dynamic actors, mixed quorum, and a conditional step until you reach a full Dataset Promotion to Certified workflow."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -10,78 +10,93 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 > **Note**: Action Workflows is currently in **Private Beta**. To enable this feature, please reach out to the DataHub team.
 
-This tutorial walks through a complete Action Workflow definition that exercises every major primitive in the engine. The running example is a workflow that promotes a Snowflake dataset from _Draft_ to _Certified_ lifecycle status through a multi-step review.
+This tutorial builds an Action Workflow one capability at a time. We start with the simplest workflow that does something useful — a promotion request that needs a single approval — and then add one feature at a time until we reach a full governance workflow: a Snowflake-only _Dataset Promotion to Certified_ process with context-aware form pickers, dynamic approvers, mixed quorum, and a conditional legal-review step.
 
-For the conceptual introduction, see [Action Workflows](action-workflows.md). For the exhaustive JSON syntax of every primitive, see the [Workflow Reference](action-workflows-reference.md). The full JSON definition is attached at the end of this page and can be submitted directly as the `input` argument to the `upsertActionWorkflow` mutation.
+**If you just need a working workflow, [Part 1](#part-1--your-first-workflow) is enough.** [Part 2](#part-2--growing-the-workflow) layers on the advanced features so you can adopt only the ones your process needs.
 
-## Overview
+For the conceptual introduction, see [Action Workflows](action-workflows.md). For the exhaustive JSON syntax of every primitive, see the [Workflow Reference](action-workflows-reference.md). Throughout, the _launching entity_ is the entity from whose profile page the workflow was launched — for example, the dataset on which the requester clicked the launch icon.
 
-The Dataset Promotion to Certified workflow is launched from a Snowflake dataset's profile page. It collects a target tier, a justification, and a co-signer nomination from the requester, then walks four approval steps:
+## Part 1 · Your First Workflow
 
-```mermaid
-flowchart LR
-    A(["<b>Promote to Certified</b><br/><i>only Snowflake datasets</i>"]) --> B["<b>Submit certification proposal</b><br/><i>tier, justification, optional reason, co-signer</i>"]
-    B --> C["<b>S1 · Data Owner approval</b><br/><i>every dataset owner must approve</i>"]
-    C --> D["<b>S2 · Domain Steward sign-off</b><br/><i>any steward of the dataset's domain</i>"]
-    D --> E{"<b>Dataset<br/>contains PII?</b>"}
-    E -->|yes| F["<b>S3 · Privacy & Legal review</b><br/><i>any privacy / legal-data-steward</i>"]
-    E -->|no| G["<b>S4 · Governance committee</b><br/><i>any 2 of 3 named admins</i>"]
-    F --> G
-    G --> H(["<b>Dataset marked Certified</b><br/><i>side-effect via a subscribed DataHub Action</i>"])
-```
+Every workflow definition has three essential parts:
 
-The workflow combines:
+- a **trigger** that says where the launch button appears and what the requester fills in,
+- one or more **steps** that route the request for approval, and
+- a **category**.
 
-1. **Entrypoint** restricted to Snowflake datasets ([Entrypoint](#entrypoint))
-2. **User form** with: a required, length-validated justification; a co-signer nominated from the dataset's domain owners; a curated 3-option tier picker; a conditional downgrade-reason field ([User Request Form](#user-request-form))
-3. **Steps**: dynamically-routed data-owner approval with `ALL_OF` quorum; dynamically-routed domain-steward approval with `ANY_OF` quorum; a legal-review step conditional on the launching dataset's PII tag; an admin sign-off with `N_OF_M(2/3)` quorum ([The Decision Graph](#the-decision-graph))
-4. **Lifecycle**: full audit history with on-behalf-of attribution; requester self-cancellation supported; admin override supported ([Lifecycle, Attribution, Cancellation](#lifecycle-attribution-cancellation))
-5. **Side-effect**: on the workflow's `COMPLETED` event, a subscribed DataHub Action flips the dataset's `lifecycleStage` structured property and applies a `certified-by-workflow` tag. The side-effect itself is implemented in the Actions framework and is out of scope for this tutorial — see [Reacting to Workflow Events](action-workflows.md#reacting-to-workflow-events) for the integration pattern
-
-The full assembled JSON definition is attached in the [Appendix](#appendix-full-workflow-definition). The snippets in the sections that follow are excerpts of the same definition.
-
-## Entrypoint
-
-Every workflow declares where in the UI it surfaces. The `trigger` object lists the entity types on whose profile pages the workflow's launch icon appears, plus an optional `HOME` entry for catalog-wide discovery. Each entrypoint can carry a visibility filter the catalog applies before showing the icon. The same filter dialect is also used for conditional steps and field-visibility conditions.
-
-The Dataset Promotion workflow uses a single `ENTITY_PROFILE` entrypoint labelled _Promote to Certified_, with a visibility filter that requires the launching dataset's `platform` to equal Snowflake:
+Here is the smallest useful workflow: it adds a **Promote** button to every dataset, collects a justification, and routes the request to the dataset's owners.
 
 ```json
 {
+  "name": "Promote Dataset",
+  "category": "CUSTOM",
+  "customCategory": "GOVERNANCE",
   "trigger": {
     "type": "FORM_SUBMITTED",
     "form": {
       "entityTypes": ["DATASET"],
-      "entrypoints": [
+      "entrypoints": [{ "type": "ENTITY_PROFILE", "label": "Promote" }],
+      "fields": [
         {
-          "type": "ENTITY_PROFILE",
-          "label": "Promote to Certified",
-          "filter": {
-            "operator": "AND",
-            "filters": [
-              {
-                "field": "platform",
-                "values": ["urn:li:dataPlatform:snowflake"],
-                "condition": "EQUAL"
-              }
-            ]
-          }
+          "id": "justification",
+          "name": "Why should this dataset be promoted?",
+          "valueType": "RICH_TEXT",
+          "cardinality": "SINGLE",
+          "required": true
         }
       ]
     }
+  },
+  "steps": [
+    {
+      "id": "data-owner-approval",
+      "type": "APPROVAL",
+      "actors": {
+        "dynamicSource": {
+          "resolvers": [{ "resolver": "OWNERS_OF", "source": "launching" }]
+        }
+      }
+    }
+  ]
+}
+```
+
+This is a complete, valid definition. Submit it as the `input` argument to the `upsertActionWorkflow` mutation (see [How to Apply a Workflow Definition](action-workflows-reference.md#how-to-apply-a-workflow-definition)) and the loop is live: opening any dataset shows a **Promote** button; clicking it opens a form with the justification field; on submit, the request routes to the launching dataset's owners, and — because no `quorum` is specified, the default is `anyOf` — any one owner approving completes the workflow.
+
+We omitted the `urn`, so DataHub creates a new workflow and assigns one. Everything in Part 2 refines these same three parts of the definition.
+
+## Part 2 · Growing the Workflow
+
+Part 1 works, but production governance needs more control. In this part we add one capability at a time to the same _Promote_ workflow. Each change is an edit to the JSON you already have; by the end you arrive at the complete definition in the [Appendix](#appendix--full-workflow-definition). The snippets below show only the part that changes.
+
+> As you iterate, pin a `urn` on the definition (e.g. `"urn:li:actionWorkflow:dataset-promotion-certified"`) so that re-applying it updates the same workflow rather than creating a new one.
+
+### Restrict where it launches
+
+Right now the **Promote** button appears on every dataset. Scope it with an entrypoint `filter` — a visibility predicate the catalog evaluates against the launching entity before showing the icon. Here we require the launching dataset's `platform` to be Snowflake:
+
+```json
+{
+  "type": "ENTITY_PROFILE",
+  "label": "Promote to Certified",
+  "filter": {
+    "operator": "AND",
+    "filters": [
+      {
+        "field": "platform",
+        "values": ["urn:li:dataPlatform:snowflake"],
+        "condition": "EQUAL"
+      }
+    ]
   }
 }
 ```
 
 The same filter dialect can match by tag, glossary term, domain, data product, owner, sub-type, or any combination — so an author can scope visibility as narrowly or broadly as the governance process requires. See the [Filter Dialect](action-workflows-reference.md#filter-dialect) section of the reference for the full set of supported fields and operators.
 
-## User Request Form
+### Validate what the requester enters
 
-### Field types and validation
-
-Form fields declare a value type (`STRING`, `RICH_TEXT`, `DATE`, `URN`, `NUMBER`, `BOOLEAN`), a required flag, and an optional validator. Regex and length bounds are supported as built-in validators; submission errors are rendered inline in the UI with the field's configured `errorMessage`.
-
-The _justification_ field is `RICH_TEXT`, `required`, and carries a regex `validation` that enforces at least 100 characters:
+The justification field currently accepts anything. Add a `validation` block — a regex plus a custom error rendered inline on submit. This one enforces at least 100 characters:
 
 ```json
 {
@@ -98,11 +113,11 @@ The _justification_ field is `RICH_TEXT`, `required`, and carries a regex `valid
 }
 ```
 
-### Context-aware dropdowns
+### Resolve dropdown options from context
 
-Any URN-valued field can declare a `dynamicSource` that resolves its selectable options by traversing the catalog graph. The starting point — the resolver's `source` — can be the launching entity (`"launching"`) or a URN the requester picked earlier in the form (`"field:<form-field-id>"`); the traversal walks documented relationships (owners, domain, tags, glossary terms, data products, applications, container, members of); an optional `filter` narrows the final option set.
+Any URN-valued field can populate its dropdown by traversing the catalog graph instead of listing every entity. A `dynamicSource` declares a resolver and a starting point — the resolver's `source` — which can be the launching entity (`"launching"`) or a URN the requester picked earlier in the form (`"field:<form-field-id>"`). The traversal walks documented relationships (owners, domain, tags, glossary terms, data products, applications, container, members of); an optional `filter` narrows the final option set.
 
-The form's _co_signer_steward_ URN picker — scoped to `CORP_USER` — uses a `dynamicSource` with resolver `DOMAIN_OWNERS_OF` and source `launching`, so the dropdown lists only users who own the launching dataset's domain rather than every catalog user:
+Add a co-signer picker scoped to `CORP_USER` that lists only the owners of the launching dataset's domain, rather than every catalog user:
 
 ```json
 {
@@ -121,13 +136,9 @@ The form's _co_signer_steward_ URN picker — scoped to `CORP_USER` — uses a `
 
 The picker renders each resolved URN as a rich entity card (icon, type pill, display name), and the submit boundary validates that the requester picks a URN inside the resolved set.
 
-### Fixed-URN allow-lists
+### Offer a curated set of choices
 
-The `filter` slot on a `dynamicSource` narrows the resolver's result to options matching arbitrary indexed criteria — platform, tag, domain, or any other entity attribute. The same dialect is used everywhere a `Filter` appears in the workflow definition (entrypoint visibility, field visibility, step skip-condition).
-
-For a curated, fixed URN list — for example "pick one of these three certification tiers" — pair the `ALL_ENTITIES` resolver (which enumerates entities scoped by the field's `allowedEntityTypes`) with a `filter` that narrows by `urn` to the chosen members. Multi-value `EQUAL` is an OR — only URNs in the list pass.
-
-The _target_tier_ field uses `ALL_ENTITIES` over `GLOSSARY_TERM` plus an `urn`-EQUAL filter against the three certification glossary term URNs, so the picker surfaces exactly those three options:
+For a fixed short list — for example "pick one of these three certification tiers" — pair the `ALL_ENTITIES` resolver (which enumerates entities scoped by the field's `allowedEntityTypes`) with a `filter` that narrows by `urn` to the chosen members. Multi-value `EQUAL` is an OR, so only URNs in the list pass:
 
 ```json
 {
@@ -158,11 +169,11 @@ The _target_tier_ field uses `ALL_ENTITIES` over `GLOSSARY_TERM` plus an `urn`-E
 }
 ```
 
-### Conditional field visibility
+### Show a field only when it's relevant
 
-A field can declare a `filterCondition` that decides whether it renders. The condition is a boolean expression that can mix **form-field values** the requester entered (referenced via `formField:<id>`) AND **attributes of the launching entity** the catalog already knows (tags, glossary terms, domain, platform, data product, owners, sub-type, name, description). A field reveals itself only when the combined condition holds.
+A field can declare a `filterCondition` that decides whether it renders. The condition is a boolean expression that can mix **form-field values** the requester entered (referenced via `formField:<id>`) and **attributes of the launching entity** the catalog already knows (tags, glossary terms, domain, platform, data product, owners, sub-type, name, description). A field reveals itself only when the combined condition holds.
 
-The _downgrade_reason_ field renders only when the launching dataset's `glossaryTerms` already contain `certification.gold` AND the requester's _target_tier_ choice is not equal to `certification.gold` — i.e., a genuine downgrade:
+Add a downgrade-reason field that appears only when the launching dataset is already `certification.gold` **and** the requester's chosen tier is not gold — i.e., a genuine downgrade:
 
 ```json
 {
@@ -191,33 +202,29 @@ The _downgrade_reason_ field renders only when the launching dataset's `glossary
 }
 ```
 
-## The Decision Graph
+### Route to dynamic approvers
 
-### Steps and dynamic actor resolution
-
-Each step declares an actor model — who can decide. Actors can be statically named users, members of a role, members of a group, or resolved dynamically at step-open time. The same resolver dialect used by dynamic dropdowns can also resolve actors, so "the data owner of this dataset" and "the owners of the application the requester picked in their form" are both expressible from the launching entity or from URN-valued form fields.
-
-The _data-owner-approval_ step leaves the static actor slots empty and resolves its actors via a `dynamicSource` with resolver `OWNERS_OF` and source `launching` — at step-open time the engine assigns the approving actors to be the launching dataset's owners:
+Part 1's single step already routes to the dataset's owners. Steps use the same resolver dialect as dropdowns, so "the data owner of this dataset" and "the owners of the domain this dataset belongs to" are both expressible from the launching entity. Add a second step that routes to the owners of the dataset's domain:
 
 ```json
 {
-  "id": "data-owner-approval",
+  "id": "domain-steward-approval",
   "type": "APPROVAL",
-  "description": "ALL_OF: every dataset owner must approve.",
+  "description": "ANY_OF: any owner of the dataset's domain can approve.",
   "actors": {
     "dynamicSource": {
-      "resolvers": [{ "resolver": "OWNERS_OF", "source": "launching" }]
+      "resolvers": [{ "resolver": "DOMAIN_OWNERS_OF", "source": "launching" }]
     }
   },
-  "quorum": { "allOf": true }
+  "quorum": { "anyOf": true }
 }
 ```
 
-### Quorum
+### Require the right number of approvers
 
-Each step declares a quorum policy: `anyOf: true` (any single approver suffices — the default), `allOf: true` (every slot must approve), or `nofM: { n: <count> }` (a threshold count out of the assigned pool). Group and role slots are expanded transparently — any member of an assigned group can satisfy the slot — and the step's audit trail records which slot each decision satisfied.
+Each step declares a quorum policy: `anyOf: true` (any single approver suffices — the default), `allOf: true` (every assigned actor must approve), or `nofM: { n: <count> }` (a threshold count out of the assigned pool). Group and role slots are expanded transparently — any member of an assigned group can satisfy the slot — and the step's audit trail records which slot each decision satisfied.
 
-In the running example, the _data-owner-approval_ step uses `allOf` (every data owner must approve), the _domain-steward-approval_ step uses `anyOf` (any single domain owner advances), and the final _admin-signoff_ step uses `nofM: { n: 2 }` over a static pool of three named reviewers (the classical "two-of-three" governance committee):
+Make owner approval unanimous by adding `"quorum": { "allOf": true }` to the `data-owner-approval` step, and add a final governance committee that requires any two of three named reviewers:
 
 ```json
 {
@@ -235,11 +242,11 @@ In the running example, the _data-owner-approval_ step uses `allOf` (every data 
 }
 ```
 
-### Conditional step skip
+### Run a step only when it's needed
 
-A step can declare a `condition` that decides whether it opens for a given request. The condition reads form-field values and launching-entity attributes — tags, glossary terms, domain, platform, owners, sub-type — using the same expression dialect as entrypoint and field-visibility conditions. Steps whose condition evaluates to false are skipped automatically and the audit log records the skip with the condition that decided it.
+A step can declare a `condition` that decides whether it opens for a given request. The condition reads form-field values and launching-entity attributes — tags, glossary terms, domain, platform, owners, sub-type — using the same expression dialect as entrypoint and field-visibility conditions. Steps whose condition evaluates to false are skipped automatically, and the audit log records the skip with the condition that decided it.
 
-The _legal-review_ step assigns the `legal-data-stewards` group, and its step `condition` requires the launching dataset's `tags` to contain `urn:li:tag:pii` — when the condition is false the step is auto-skipped and the audit log records a `SKIPPED` entry:
+Add a legal-review step assigned to the `legal-data-stewards` group that fires only when the launching dataset carries the `pii` tag:
 
 ```json
 {
@@ -263,6 +270,32 @@ The _legal-review_ step assigns the `legal-data-stewards` group, and its step `c
 }
 ```
 
+### The complete workflow
+
+Assembled, the _Promote_ workflow from Part 1 has grown into a full _Dataset Promotion to Certified_ process:
+
+```mermaid
+flowchart LR
+    A(["<b>Promote to Certified</b><br/><i>only Snowflake datasets</i>"]) --> B["<b>Submit certification proposal</b><br/><i>tier, justification, optional reason, co-signer</i>"]
+    B --> C["<b>S1 · Data Owner approval</b><br/><i>every dataset owner must approve</i>"]
+    C --> D["<b>S2 · Domain Steward sign-off</b><br/><i>any steward of the dataset's domain</i>"]
+    D --> E{"<b>Dataset<br/>contains PII?</b>"}
+    E -->|yes| F["<b>S3 · Privacy & Legal review</b><br/><i>any privacy / legal-data-steward</i>"]
+    E -->|no| G["<b>S4 · Governance committee</b><br/><i>any 2 of 3 named admins</i>"]
+    F --> G
+    G --> H(["<b>Dataset marked Certified</b><br/><i>side-effect via a subscribed DataHub Action</i>"])
+```
+
+It now combines:
+
+1. An **entrypoint** restricted to Snowflake datasets.
+2. A **user form** with a length-validated justification, a co-signer nominated from the dataset's domain owners, a curated three-option tier picker, and a conditional downgrade-reason field.
+3. **Steps** with dynamically-routed data-owner approval (`ALL_OF`), dynamically-routed domain-steward approval (`ANY_OF`), a legal-review step conditional on the launching dataset's PII tag, and an admin sign-off with `N_OF_M(2/3)` quorum.
+4. **Lifecycle** support: full audit history with on-behalf-of attribution, requester self-cancellation, and admin override (below).
+5. A **side-effect**: on the workflow's `COMPLETED` event, a subscribed DataHub Action flips the dataset's `lifecycleStage` structured property and applies a `certified-by-workflow` tag. The side-effect itself lives in the Actions framework and is out of scope here — see [Reacting to Workflow Events](action-workflows.md#reacting-to-workflow-events) for the integration pattern.
+
+The full assembled JSON is in the [Appendix](#appendix--full-workflow-definition).
+
 ## Lifecycle, Attribution, Cancellation
 
 Every state transition on a workflow request — submission, approval, rejection, skip, cancellation — appends an immutable entry to the request's audit history, with the actor URN, timestamp, comment, and (for approvals) the slot the decision counted toward. The UI renders each entry as a separate audit line and includes on-behalf-of attribution when a user acts as part of a group ("Alice, on behalf of the group `data-stewards`").
@@ -281,7 +314,7 @@ Every upsert produces a new immutable revision; in-flight workflow requests cont
 
 ## Appendix — Full Workflow Definition
 
-The complete `Dataset Promotion to Certified` workflow definition. This is the same JSON exercised end-to-end by the canonical smoke test (`smoke-test/tests/workflows/test_dataset_promotion_canonical.py`).
+The complete `Dataset Promotion to Certified` workflow definition.
 
 ```json
 {
