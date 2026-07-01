@@ -1,4 +1,4 @@
-import { ShareAltOutlined } from '@ant-design/icons';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Dropdown } from 'antd';
 import React from 'react';
 
@@ -28,7 +28,7 @@ export default function ShareMenuAction() {
                     </StyledMenu>
                 }
             >
-                <ShareAltOutlined style={{ display: 'flex' }} />
+                <Share size={16} weight="regular" />
             </Dropdown>
         </ActionMenuItem>
     );

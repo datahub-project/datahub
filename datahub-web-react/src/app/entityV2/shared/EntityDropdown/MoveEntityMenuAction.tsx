@@ -1,5 +1,5 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,7 +41,7 @@ export default function MoveEntityMenuAction() {
                 onClick={() => setIsMoveModalVisible(true)}
                 data-testid="entity-menu-move-button"
             >
-                <FolderOpenOutlined style={{ display: 'flex' }} />
+                <FolderOpen size={16} weight="regular" />
             </ActionMenuItem>
             {isMoveModalVisible && isGlossaryEntity && (
                 <MoveGlossaryEntityModal

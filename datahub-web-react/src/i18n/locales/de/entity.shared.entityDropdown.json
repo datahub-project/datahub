@@ -64,6 +64,7 @@
     "linkVersion.selectPlaceholder": "{{entityName}} zur Verknüpfung auswählen",
     "linkVersion.success": "{{entityName}} verknüpft!",
     "linkVersion.title": "Neuere Version verknüpfen",
+    "menuAction.editDomainTooltip": "Domain bearbeiten",
     "menuAction.moveTooltip": "Diese {{entityName}} verschieben",
     "menuAction.raiseIncidentTooltip": "Einen Vorfall melden",
     "menuItem.addTerm": "Begriff hinzufügen",

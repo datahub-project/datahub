@@ -1,5 +1,5 @@
-import { WarningOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -26,7 +26,7 @@ export default function RaiseIncidentMenuAction() {
     return (
         <Tooltip placement="bottom" title={t('menuAction.raiseIncidentTooltip')}>
             <ActionMenuItem key="incident" disabled={false} onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                <WarningOutlined style={{ display: 'flex' }} />
+                <Warning size={16} weight="regular" />
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal

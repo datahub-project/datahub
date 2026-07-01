@@ -16,7 +16,7 @@ export default function ChangeHistoryMenuAction() {
         <>
             <Tooltip placement="bottom" title={open ? t('changeHistory.closeTooltip') : t('changeHistory.viewTooltip')}>
                 <ActionMenuItem key="change-history" onClick={() => setOpen(!open)}>
-                    <ClockCounterClockwise size={16} />
+                    <ClockCounterClockwise size={16} weight="regular" />
                 </ActionMenuItem>
             </Tooltip>
             {open && (

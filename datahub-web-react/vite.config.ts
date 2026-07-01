@@ -48,12 +48,14 @@ function assertLazyIconsGenerated(): PluginOption {
         name: 'assert-lazy-icons-generated',
         buildStart() {
             const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
+            const namesFile = path.resolve(__dirname, 'src/app/mfeframework/lazyIconNames.ts');
             const hasStubs =
                 fs.existsSync(iconsDir) &&
                 fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
-            if (!hasStubs) {
+            const hasNames = fs.existsSync(namesFile);
+            if (!hasStubs || !hasNames) {
                 throw new Error(
-                    '\n\n  [Lazy Icons] Icon stubs are missing. Generate them before starting:\n\n' +
+                    '\n\n  [Lazy Icons] Icon stubs or names index are missing. Generate them before starting:\n\n' +
                         '    ./gradlew :datahub-web-react:generateLazyIconStubs\n' +
                         '    — or —\n' +
                         '    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n\n',
