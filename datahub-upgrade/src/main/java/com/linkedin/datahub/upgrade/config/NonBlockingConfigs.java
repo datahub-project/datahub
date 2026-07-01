@@ -15,10 +15,6 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
-import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
-import com.linkedin.datahub.upgrade.system.restoreindices.columnlineage.RestoreColumnLineageIndices;
-import com.linkedin.datahub.upgrade.system.restoreindices.forminfo.RestoreFormInfoIndices;
-import com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossaryIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
@@ -228,28 +224,6 @@ public class NonBlockingConfigs {
   }
 
   @Bean
-  public NonBlockingSystemUpgrade restoreColumnLineageIndices(
-      @Qualifier("entityService") final EntityService<?> entityService,
-      @Value("${systemUpdate.restoreColumnLineageIndices.enabled}") final boolean enabled) {
-    return new RestoreColumnLineageIndices(entityService, enabled);
-  }
-
-  @Bean
-  public NonBlockingSystemUpgrade restoreFormInfoIndices(
-      @Qualifier("entityService") final EntityService<?> entityService,
-      @Value("${systemUpdate.restoreFormInfoIndices.enabled}") final boolean enabled) {
-    return new RestoreFormInfoIndices(entityService, enabled);
-  }
-
-  @Bean
-  public NonBlockingSystemUpgrade restoreGlossaryIndices(
-      @Qualifier("entityService") final EntityService<?> entityService,
-      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
-      @Value("${systemUpdate.restoreGlossaryIndices.enabled}") final boolean enabled) {
-    return new RestoreGlossaryIndices(entityService, entitySearchService, enabled);
-  }
-
-  @Bean
   public NonBlockingSystemUpgrade ingestDataPlatformInstances(
       @Qualifier("entityService") final EntityService<?> entityService,
       @Qualifier("entityAspectDao") final AspectMigrationsDao migrationsDao,
@@ -301,12 +275,5 @@ public class NonBlockingConfigs {
         batchSize,
         delayMs,
         limit);
-  }
-
-  @Bean
-  public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
-      @Qualifier("entityService") final EntityService<?> entityService,
-      @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
-    return new RestoreDbtSiblingsIndices(entityService, enabled);
   }
 }
