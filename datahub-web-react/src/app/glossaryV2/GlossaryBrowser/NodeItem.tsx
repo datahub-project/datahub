@@ -18,7 +18,7 @@ import {
     TreeRowTitle,
 } from '@app/glossaryV2/GlossaryBrowser/treeRow.styles';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Loader } from '@src/alchemy-components';
@@ -178,10 +178,11 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    // Resolve the row's color along the chain: this node's own configured color first, then the
-    // resolved color the parent NodeItem passed us during its own render (`iconColor`), and
-    // finally a deterministic palette slot seeded by the node's URN.
-    const glossaryColor = node.displayProperties?.colorHex || iconColor || generateColor(node.urn);
+    // Route through the canonical resolver so the sidebar agrees with the entity header,
+    // list cards, and modal picker on what color this node should render. `iconColor` is the
+    // resolved color the parent NodeItem passed us during its own render; the resolver folds it
+    // into the precedence chain as `inheritedColor`.
+    const glossaryColor = resolveGlossaryEntityColor(node, generateColor, { inheritedColor: iconColor });
     const NodeIcon = getGlossaryEntityIcon(EntityType.GlossaryNode);
 
     const showCaret = hasChildren && (areChildrenVisible || isHovered);

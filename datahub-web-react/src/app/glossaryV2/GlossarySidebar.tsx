@@ -19,7 +19,7 @@ import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import GlossarySearch from '@app/glossaryV2/GlossarySearch';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
+import { getCollapsedGlossaryItems } from '@app/glossaryV2/utils';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -261,27 +261,16 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
     const rootNodes = useMemo(() => nodesData?.getRootGlossaryNodes?.nodes ?? [], [nodesData]);
     const rootTerms = useMemo(() => termsData?.getRootGlossaryTerms?.terms ?? [], [termsData]);
 
-    // Flatten root nodes + terms into a single icon column for the collapsed sidebar. Sort each
-    // section by display name (matches the expanded tree) and concatenate nodes-then-terms so
-    // the icon column stays visually grouped by entity type.
-    const collapsedItems = useMemo(() => {
-        const byDisplayName = <T extends { urn: string; type: EntityType }>(a: T, b: T) =>
-            entityRegistry.getDisplayName(a.type, a).localeCompare(entityRegistry.getDisplayName(b.type, b));
-        const sortedNodes = [...rootNodes].sort(byDisplayName);
-        const sortedTerms = [...rootTerms].sort(byDisplayName);
-        return [...sortedNodes, ...sortedTerms].map((entity) => ({
-            urn: entity.urn,
-            type: entity.type,
-            name: entityRegistry.getDisplayName(entity.type, entity),
-            // Root-level entries have no parent to inherit from, so the resolver chain reduces
-            // to own colorHex (when the entity carries one) → deterministic palette slot
-            // seeded by the entity's URN.
-            color:
-                (entity as { displayProperties?: { colorHex?: string | null } | null }).displayProperties?.colorHex ||
-                generateColor(entity.urn),
-            Icon: getGlossaryEntityIcon(entity.type),
-        }));
-    }, [rootNodes, rootTerms, entityRegistry, generateColor]);
+    const collapsedItems = useMemo(
+        () =>
+            getCollapsedGlossaryItems({
+                nodes: rootNodes,
+                terms: rootTerms,
+                entityRegistry,
+                generateColor,
+            }),
+        [rootNodes, rootTerms, entityRegistry, generateColor],
+    );
 
     // Sidebar "+" opens a dropdown that lets users pick Term Group vs Term, since DataHub
     // allows root-level terms and the single-button shortcut hid that workflow. Icons match

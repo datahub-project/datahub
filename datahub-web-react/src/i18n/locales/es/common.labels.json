@@ -1,5 +1,6 @@
 {
     "category": "Categoría",
+    "color": "Color",
     "column": "Columna",
     "columns": "Columnas",
     "created": "Creado",
@@ -8,6 +9,7 @@
     "details": "Detalles",
     "domain": "Dominio",
     "groups": "Grupos",
+    "icon": "Icono",
     "lastModifiedAt": "Última modificación",
     "na": "N/D",
     "name": "Nombre",

@@ -1,10 +1,10 @@
-import { Editor, Input, Modal, Text, toast } from '@components';
+import { ColorPicker, Editor, Input, Modal, Text, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -16,11 +16,13 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
+import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, GlossaryNode } from '@types';
 
 const HelperText = styled(Text).attrs({ type: 'p' })`
@@ -66,6 +68,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const [stagedId, setStagedId] = useState<string>('');
     const [stagedName, setStagedName] = useState('');
@@ -74,8 +77,9 @@ function CreateGlossaryEntityModal(props: Props) {
     const [selectedParentUrn, setSelectedParentUrn] = useState(props.isCloning ? '' : entityData.urn);
     // The hydrated parent entity (or `null` when the user clears the picker, or the form is
     // creating at the root). Tracked alongside `selectedParentUrn` so we can synthesize a
-    // correct `parentNodes` chain on the optimistic sidebar entry. Initialized lazily from the
-    // page entity when the user opens the modal from inside an existing glossary node.
+    // correct `parentNodes` chain on the optimistic sidebar entry and inherit the parent's
+    // resolved color in the color picker. Initialized lazily from the page entity when the
+    // user opens the modal from inside an existing glossary node.
     const [selectedParentEntity, setSelectedParentEntity] = useState<GlossaryNode | null>(() => {
         if (props.isCloning) return null;
         const parent = entityData.entityData;
@@ -84,10 +88,28 @@ function CreateGlossaryEntityModal(props: Props) {
     });
     const [documentation, setDocumentation] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [selectedColor, setSelectedColor] = useState<string>(theme.colors.colorPickerDefault);
+    // Whether the user has explicitly picked a color. If false, we let the backend fall back to
+    // the deterministic palette color generated from the URN instead of persisting the default
+    // gray placeholder and overriding it.
+    const [colorWasPicked, setColorWasPicked] = useState(false);
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
+    // Effective color of the currently-selected parent, used to pre-fill the color picker.
+    // Mirrors the sidebar/header resolution chain: parent's explicit `displayProperties.colorHex`
+    // first, then the deterministic palette color seeded from the parent's urn. Once the user
+    // explicitly picks a color (`colorWasPicked === true`), changes here no longer move the
+    // picker.
+    const parentColor = useMemo<string | undefined>(() => {
+        if (!selectedParentEntity?.urn) return undefined;
+        return selectedParentEntity.displayProperties?.colorHex || generateGlossaryColor(selectedParentEntity.urn);
+    }, [selectedParentEntity, generateGlossaryColor]);
     const refetch = useRefetch();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+    const [updateDisplayPropertiesMutation] = useUpdateDisplayPropertiesMutation();
+
+    const showColorPicker = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
 
     // Show "Glossary" (instead of "Glossary Term Group") in the title/labels when the user is
     // creating a top-level node, since that's the user-facing concept.
@@ -138,6 +160,20 @@ function CreateGlossaryEntityModal(props: Props) {
                 toast.loading(tcf('updating'), { duration: 2 });
                 const dataKey = entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
                 const newEntityUrn = result.data?.[dataKey] as string | undefined;
+                // Only persist the color if the user actually picked one. Otherwise we'd save the
+                // gray placeholder default and override the deterministic palette color the
+                // sidebar/header would have generated from the URN. Best-effort follow-up so a
+                // color failure doesn't block creation.
+                if (showColorPicker && colorWasPicked && newEntityUrn) {
+                    updateDisplayPropertiesMutation({
+                        variables: {
+                            urn: newEntityUrn,
+                            input: { colorHex: selectedColor },
+                        },
+                    }).catch((e) => {
+                        console.error('Failed to set glossary color after creation', e);
+                    });
+                }
 
                 // Push the optimistic sidebar entry immediately so the new node/term appears
                 // without waiting for the search index. Keyed by `nodeToUpdate` (parent URN for
@@ -155,6 +191,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         entityType,
                         name: stagedName,
                         description: sanitizedDescription || null,
+                        colorHex: showColorPicker && colorWasPicked ? selectedColor : undefined,
                         parent: selectedParentUrn ? selectedParentEntity : null,
                     });
                     setNodeToNewEntity((currData) => ({
@@ -245,6 +282,22 @@ function CreateGlossaryEntityModal(props: Props) {
                     />
                 </EditorContainer>
             </Field>
+            {showColorPicker && (
+                <Field>
+                    <ColorPicker
+                        label={`${tcl('color')} ${tcl('optional')}`}
+                        // Until the user picks a color, the picker tracks the parent's color
+                        // (so a child inherits its group's identity by default). Once they pick,
+                        // `colorWasPicked` locks the picker to their choice regardless of any
+                        // subsequent parent change.
+                        initialColor={colorWasPicked ? selectedColor : parentColor || theme.colors.colorPickerDefault}
+                        onChange={(c) => {
+                            setSelectedColor(c);
+                            setColorWasPicked(true);
+                        }}
+                    />
+                </Field>
+            )}
             <AdvancedHeader type="button" onClick={() => setShowAdvanced((prev) => !prev)}>
                 {showAdvanced ? <CaretDown size={14} /> : <CaretRight size={14} />}
                 {t('createGlossary.advanced')}

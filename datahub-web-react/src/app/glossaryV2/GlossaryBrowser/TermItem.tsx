@@ -12,7 +12,7 @@ import {
     TreeRowTitle,
 } from '@app/glossaryV2/GlossaryBrowser/treeRow.styles';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -41,10 +41,10 @@ function TermItem(props: Props) {
     const activeTabPath = useGlossaryActiveTabPath();
     const generateColor = useGenerateGlossaryColorFromPalette();
 
-    // Terms inherit the resolved color the parent NodeItem passed down (`iconColor`); if the
-    // term has no parent (root-level term), fall back to a deterministic palette slot seeded
-    // by its own URN.
-    const resolvedIconColor = iconColor || generateColor(term.urn);
+    // Canonical resolver: term's own colorHex → inherited (passed by the parent NodeItem) →
+    // parentNodes-derived → palette of the term's URN. Keeps the sidebar in sync with the entity
+    // header, list cards, and modal picker.
+    const resolvedIconColor = resolveGlossaryEntityColor(term, generateColor, { inheritedColor: iconColor });
     const TermIcon = getGlossaryEntityIcon(EntityType.GlossaryTerm);
 
     const isOnEntityPage = entityData?.urn === term.urn;
