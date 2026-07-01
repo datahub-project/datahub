@@ -2770,6 +2770,53 @@ class TestCacheCaseInsensitivity:
 
         assert _view_definition_key("MY_DB", "MY_TABLE") not in source._view_definitions
 
+    def test_view_definition_write_failure_reports_warning(self) -> None:
+        """A disk-backed store write failure must surface as a report warning and
+        not abort the (single-threaded) caching phase for the remaining objects."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        failing_store = MagicMock()
+        failing_store.__setitem__.side_effect = RuntimeError("disk full")
+        source._view_definitions = failing_store
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to store view definition" in warning_titles
+
+    def test_view_definition_read_failure_reports_warning(self) -> None:
+        """A disk-backed store read failure must surface as a report warning and
+        omit the view definition rather than crash the view-processing thread."""
+        source = _create_source_patched()
+        entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
+        source._tables_cache["my_db"] = [entry]
+
+        failing_store = MagicMock()
+        failing_store.get.side_effect = RuntimeError("sqlite locked")
+        source._view_definitions = failing_store
+
+        _, properties, _ = source.cached_get_table_properties(
+            MagicMock(), "my_db", "MY_TABLE"
+        )
+
+        assert "view_definition" not in properties
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to read view definition" in warning_titles
+
     def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
         self,
     ) -> None:

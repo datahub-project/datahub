@@ -666,9 +666,11 @@ class TeradataTable:
 def _view_definition_key(schema: str, view_name: str) -> str:
     """Build the FileBackedDict key for a view's SQL text.
 
-    Schema is lowercased to match the casing used for `_tables_cache` lookups
-    (config-supplied names vs. Teradata's stored case); the view name is kept
-    as stored in dbc.TablesV so it matches the name resolved during the loop.
+    The entire key is lowercased so that writes (keyed from dbc.TablesV, in
+    Teradata's stored case) and reads (keyed from config- or query-supplied
+    names, in whatever case the caller used) always match. Both schema and view
+    name are folded to lower case — do not "preserve" the view-name case here or
+    the read/write keys will silently diverge.
     """
     return f"{schema}.{view_name}".lower()
 
@@ -2785,6 +2787,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 except Exception as e:
                                     self.report.warning(
                                         title="Failed to store view definition",
+                                        message="A view's SQL definition could not be written to the disk-backed store and will be omitted from the schema.",
                                         context=f"{table.database}.{table.name}",
                                         exc=e,
                                     )
