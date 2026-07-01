@@ -128,6 +128,35 @@ class TestQueryCleanup:
         assert self.report.num_queries_soft_deleted == 3
         assert self.mock_graph.delete_entity.call_count == 3
 
+    def test_cleanup_dry_run_counts_found_but_not_deleted(self) -> None:
+        self.cleanup.dry_run = True
+        self.mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:query:1",
+            "urn:li:query:2",
+        ]
+
+        self.cleanup.cleanup_queries()
+
+        assert self.report.num_queries_found == 2
+        assert self.report.num_queries_soft_deleted == 0
+        self.mock_graph.delete_entity.assert_not_called()
+
+    def test_cleanup_stops_submitting_when_limit_reached(self) -> None:
+        # Pre-seed the counter so the limit is already reached before the loop
+        # starts; this deterministically exercises the main-loop break, avoiding
+        # the worker-thread overshoot race a mid-stream limit would introduce.
+        self.config.limit_entities_delete = 2
+        self.report.num_queries_soft_deleted = 2
+        self.mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:query:1",
+            "urn:li:query:2",
+        ]
+
+        self.cleanup.cleanup_queries()
+
+        self.mock_graph.delete_entity.assert_not_called()
+        assert self.report.qc_deletion_limit_reached
+
     def test_cleanup_skips_invalid_urn(self, caplog: pytest.LogCaptureFixture) -> None:
         self.mock_graph.get_urns_by_filter.return_value = [
             "urn:li:query:1",
