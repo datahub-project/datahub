@@ -103,6 +103,18 @@ describe('isAssignedToForm', () => {
         expect(isAssignedToForm(form, ownersOfManyTypes, 'urn:li:corpuser:user2')).toBe(true);
     });
 
+    it('matches when the user owns the entity under multiple types and a non-first one matches the filter', () => {
+        const userOwnsTwice: Owner[] = [ownerOf(USER_URN, BUSINESS_OWNER), ownerOf(USER_URN, DATA_STEWARD)];
+        const form = formWithActors({ owners: true, ownershipTypeUrns: [DATA_STEWARD] });
+        expect(isAssignedToForm(form, userOwnsTwice, USER_URN)).toBe(true);
+    });
+
+    it("does not match when none of the user's multiple ownership types are in the filter", () => {
+        const userOwnsTwice: Owner[] = [ownerOf(USER_URN, BUSINESS_OWNER), ownerOf(USER_URN, DATA_STEWARD)];
+        const form = formWithActors({ owners: true, ownershipTypeUrns: [TECHNICAL_OWNER] });
+        expect(isAssignedToForm(form, userOwnsTwice, USER_URN)).toBe(false);
+    });
+
     it('treats an empty ownership-type list as "any owner"', () => {
         const form = formWithActors({ owners: true, ownershipTypeUrns: [] });
         expect(isAssignedToForm(form, ownersOfManyTypes, USER_URN)).toBe(true);

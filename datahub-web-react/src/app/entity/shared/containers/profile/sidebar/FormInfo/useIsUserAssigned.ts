@@ -11,14 +11,18 @@ function isOwnerWithType(
 ): boolean {
     if (!owners) return false;
 
-    const userOwnership = owners.find((owner) => owner.owner.urn === userUrn);
-    if (!userOwnership) return false;
+    const userOwnerships = owners.filter((owner) => owner.owner.urn === userUrn);
+    if (userOwnerships.length === 0) return false;
 
     if (!ownershipTypeUrns || ownershipTypeUrns.length === 0) {
         return true;
     }
 
-    return !!userOwnership.ownershipType && ownershipTypeUrns.includes(userOwnership.ownershipType.urn);
+    // A user can own the same entity under multiple ownership types, so the form is assigned if any
+    // of the user's ownership types matches any of the form's specified ownership types.
+    return userOwnerships.some(
+        (ownership) => !!ownership.ownershipType && ownershipTypeUrns.includes(ownership.ownershipType.urn),
+    );
 }
 
 export function isAssignedToForm(
