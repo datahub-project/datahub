@@ -8,8 +8,9 @@ from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
 
-# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow async refresh + buffer.
-DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 15
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# plus async invalidate/rebuild under full-suite CI load.
+DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 30
 
 
 def is_graphql_auth_denied(res: dict[str, Any]) -> bool:

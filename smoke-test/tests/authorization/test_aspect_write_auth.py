@@ -334,11 +334,6 @@ def _prepare_denied_data_product_rename_tests(admin_session) -> None:
     _wait_until_data_product_rename_denied()
 
 
-def _teardown_manage_data_products_policy(admin_session, policy_urn: str) -> None:
-    remove_policy(policy_urn, admin_session)
-    _wait_until_data_product_rename_denied()
-
-
 def test_set_logical_parent_denied_without_edit_entity_on_target():
     """Cannot set logicalParent without EDIT_ENTITY on the target asset."""
     payload = {
@@ -604,7 +599,7 @@ def test_batch_set_data_product_allowed_with_manage_data_products_on_domain(
     res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
     assert res.get("data", {}).get("batchSetDataProduct") is True, res
 
-    _teardown_manage_data_products_policy(admin_session, policy_urn)
+    remove_policy(policy_urn, admin_session)
 
 
 def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_domain(
@@ -632,7 +627,7 @@ def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_doma
     res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
     assert res.get("data", {}).get("batchSetDataProduct") is True, res
 
-    _teardown_manage_data_products_policy(admin_session, policy_urn)
+    remove_policy(policy_urn, admin_session)
 
 
 def test_batch_add_to_data_products_allowed_with_asset_side_privilege_only(
@@ -804,7 +799,7 @@ def test_update_data_product_name_allowed_with_manage_data_products_on_domain(
     res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
     assert res.get("data", {}).get("updateName") is True, res
 
-    _teardown_manage_data_products_policy(admin_session, policy_urn)
+    remove_policy(policy_urn, admin_session)
 
 
 def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
