@@ -12,6 +12,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion_dpc.constants import (
     DEFAULT_REQUEST_TIMEOUT_SEC,
+    MATILLION_AU1_URL,
     MATILLION_EU1_URL,
     MATILLION_US1_URL,
     MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD,
@@ -31,12 +32,15 @@ logger = logging.getLogger(__name__)
 class MatillionRegion(ConfigEnum):
     EU1 = "EU1"
     US1 = "US1"
+    AU1 = "AU1"
 
     def get_url(self) -> str:
         if self == MatillionRegion.EU1:
             return MATILLION_EU1_URL
         elif self == MatillionRegion.US1:
             return MATILLION_US1_URL
+        elif self == MatillionRegion.AU1:
+            return MATILLION_AU1_URL
         else:
             raise ValueError(f"Unknown region: {self}")
 
@@ -81,7 +85,7 @@ class MatillionAPIConfig(ConfigModel):
 
     region: MatillionRegion = Field(
         default=MatillionRegion.EU1,
-        description="Matillion Data Productivity Cloud region (EU1 or US1)",
+        description="Matillion Data Productivity Cloud region (EU1, US1, or AU1)",
     )
     custom_base_url: Optional[str] = Field(
         default=None,

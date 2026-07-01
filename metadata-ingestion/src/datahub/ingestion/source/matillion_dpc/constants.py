@@ -45,6 +45,7 @@ MAX_LINEAGE_DATE_RANGE_DAYS = 31
 
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
+MATILLION_AU1_URL = "https://au1.api.matillion.com/dpc"
 MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"
 
 # OAuth2 configuration
