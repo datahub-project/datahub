@@ -27,6 +27,11 @@ from datahub.ingestion.source.gc.execution_request_cleanup import (
     DatahubExecutionRequestCleanupConfig,
     DatahubExecutionRequestCleanupReport,
 )
+from datahub.ingestion.source.gc.query_cleanup import (
+    QueryCleanup,
+    QueryCleanupConfig,
+    QueryCleanupReport,
+)
 from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanup,
     SoftDeletedEntitiesCleanupConfig,
@@ -81,12 +86,18 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Configuration for execution request cleanup",
     )
 
+    query_cleanup: QueryCleanupConfig = Field(
+        default_factory=QueryCleanupConfig,
+        description="Configuration for query cleanup",
+    )
+
 
 @dataclass
 class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
+    QueryCleanupReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -125,6 +136,9 @@ class DataHubGcSource(Source):
             graph=self.graph,
             report=self.report,
         )
+        self.query_cleanup = QueryCleanup(
+            ctx, self.config.query_cleanup, self.report, self.config.dry_run
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -150,6 +164,12 @@ class DataHubGcSource(Source):
                     self.truncate_indices()
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
+        if self.config.query_cleanup.enabled:
+            try:
+                with self.report.new_stage("Query Cleanup"):
+                    self.query_cleanup.cleanup_queries()
+            except Exception as e:
+                self.report.failure("While trying to cleanup queries ", exc=e)
         if self.config.soft_deleted_entities_cleanup.enabled:
             try:
                 with self.report.new_stage("Soft Deleted Entities Cleanup"):
