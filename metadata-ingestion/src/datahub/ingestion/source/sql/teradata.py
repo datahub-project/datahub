@@ -2157,12 +2157,20 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     # View text lives in the disk-backed dict; reads run on parallel
                     # worker threads and FileBackedDict mutates its LRU on read, so
                     # the lookup must be serialized.
-                    with self._view_definitions_lock:
-                        request_text = self._view_definitions.get(
-                            _view_definition_key(schema, table)
+                    try:
+                        with self._view_definitions_lock:
+                            request_text = self._view_definitions.get(
+                                _view_definition_key(schema, table)
+                            )
+                        if request_text:
+                            properties["view_definition"] = request_text
+                    except Exception as e:
+                        self.report.warning(
+                            title="Failed to read view definition",
+                            message="A view's SQL definition could not be read from the disk-backed store and will be omitted from the schema.",
+                            context=f"{schema}.{table}",
+                            exc=e,
                         )
-                    if request_text:
-                        properties["view_definition"] = request_text
                 break
         return description, properties, location
 
@@ -2789,9 +2797,16 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             # write does not need `_view_definitions_lock` (only the
                             # concurrent reads later do).
                             if table.object_type == "View" and entry.RequestText:
-                                self._view_definitions[
-                                    _view_definition_key(table.database, table.name)
-                                ] = entry.RequestText.strip()
+                                try:
+                                    self._view_definitions[
+                                        _view_definition_key(table.database, table.name)
+                                    ] = entry.RequestText.strip()
+                                except Exception as e:
+                                    self.report.warning(
+                                        title="Failed to store view definition",
+                                        context=f"{table.database}.{table.name}",
+                                        exc=e,
+                                    )
 
                             with self._tables_cache_lock:
                                 # Cache key is lowercased so lookups by schema name from
