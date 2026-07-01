@@ -49,26 +49,26 @@ export SMTP_PASSWORD=your-app-password
 
 ### Optional Environment Variables
 
-| Variable                                 | Default                      | Description                                           |
-| ---------------------------------------- | ---------------------------- | ----------------------------------------------------- |
-| `SMTP_PORT`                              | `587`                        | SMTP port (465 for SSL, 587 for STARTTLS)             |
-| `SMTP_USE_TLS`                           | `true`                       | Enable STARTTLS (ignored for port 465 which uses SSL) |
-| `FROM_EMAIL_ADDRESS`                     | `notifications@app.acryl.io` | Sender email address                                  |
-| `FROM_EMAIL_TITLE`                       | `DataHub Cloud`              | Sender display name                                   |
-| `EMAIL_SINK_ENABLED`                     | `true`                       | Enable/disable email notifications                    |
-| `MAX_NOTIFICATION_RETRIES`               | `3`                          | Max retry attempts per notification                   |
-| `DATAHUB_BASE_URL`                       | `http://localhost:9002`      | DataHub URL used in email links                       |
+| Variable                                 | Default                      | Description                                                                                                                                                                    |
+| ---------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SMTP_PORT`                              | `587`                        | SMTP port (465 for SSL, 587 for STARTTLS)                                                                                                                                      |
+| `SMTP_USE_TLS`                           | `true`                       | Enable STARTTLS (ignored for port 465 which uses SSL)                                                                                                                          |
+| `FROM_EMAIL_ADDRESS`                     | `notifications@app.acryl.io` | Sender email address                                                                                                                                                           |
+| `FROM_EMAIL_TITLE`                       | `DataHub Cloud`              | Sender display name                                                                                                                                                            |
+| `EMAIL_SINK_ENABLED`                     | `true`                       | Enable/disable email notifications                                                                                                                                             |
+| `MAX_NOTIFICATION_RETRIES`               | `3`                          | Max retry attempts per notification                                                                                                                                            |
+| `DATAHUB_BASE_URL`                       | `http://localhost:9002`      | DataHub URL used in email links                                                                                                                                                |
 | `NOTIFICATION_LOGO_URL`                  | _(built-in DataHub logo)_    | URL of a logo image shown in email templates (roughly square PNG/JPG, scaled to 60px wide; SVG is unreliable in email clients). Leave unset to keep the built-in DataHub logo. |
-| `NOTIFICATION_FOOTER_TEXT`               | _(built-in DataHub footer)_  | Footer signature text shown on every email. Leave unset to keep the built-in DataHub footer. |
-| `SMTP_POOL_MIN_CONNECTIONS`              | `1`                          | Minimum pooled SMTP connections                       |
-| `SMTP_POOL_MAX_CONNECTIONS`              | `5`                          | Maximum pooled SMTP connections                       |
-| `SMTP_POOL_MAX_CONNECTION_AGE`           | `300`                        | Max connection age in seconds before retirement       |
-| `SMTP_POOL_MAX_CONNECTION_USES`          | `100`                        | Max uses per connection before retirement             |
-| `SMTP_POOL_CONNECTION_TIMEOUT`           | `30`                         | Timeout in seconds when waiting for a connection      |
-| `SMTP_CIRCUIT_BREAKER_ENABLED`           | `true`                       | Enable circuit breaker for fail-fast                  |
-| `SMTP_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5`                          | Failures before opening circuit                       |
-| `SMTP_CIRCUIT_BREAKER_RECOVERY_TIMEOUT`  | `60`                         | Seconds before attempting recovery                    |
-| `LOG_LEVEL`                              | `INFO`                       | Log verbosity (`DEBUG` for SMTP diagnostics)          |
+| `NOTIFICATION_FOOTER_TEXT`               | _(built-in DataHub footer)_  | Footer signature text shown on every email. Leave unset to keep the built-in DataHub footer.                                                                                   |
+| `SMTP_POOL_MIN_CONNECTIONS`              | `1`                          | Minimum pooled SMTP connections                                                                                                                                                |
+| `SMTP_POOL_MAX_CONNECTIONS`              | `5`                          | Maximum pooled SMTP connections                                                                                                                                                |
+| `SMTP_POOL_MAX_CONNECTION_AGE`           | `300`                        | Max connection age in seconds before retirement                                                                                                                                |
+| `SMTP_POOL_MAX_CONNECTION_USES`          | `100`                        | Max uses per connection before retirement                                                                                                                                      |
+| `SMTP_POOL_CONNECTION_TIMEOUT`           | `30`                         | Timeout in seconds when waiting for a connection                                                                                                                               |
+| `SMTP_CIRCUIT_BREAKER_ENABLED`           | `true`                       | Enable circuit breaker for fail-fast                                                                                                                                           |
+| `SMTP_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5`                          | Failures before opening circuit                                                                                                                                                |
+| `SMTP_CIRCUIT_BREAKER_RECOVERY_TIMEOUT`  | `60`                         | Seconds before attempting recovery                                                                                                                                             |
+| `LOG_LEVEL`                              | `INFO`                       | Log verbosity (`DEBUG` for SMTP diagnostics)                                                                                                                                   |
 
 ### Email Branding
 
