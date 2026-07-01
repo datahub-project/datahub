@@ -186,6 +186,12 @@ Module behaviour is constrained by source APIs, permissions, and metadata expose
 - If using `credentials.service_account_key_json`, ensure the JSON string is valid (no truncation)
 - For Application Default Credentials, confirm `gcloud auth application-default login` has been run, or that the workload has an attached service account
 
+**Run reports SUCCESS but writes 0 records, or authenticates as the wrong identity:**
+
+- If a configured credential secret fails to resolve, the connector no longer silently falls back to Application Default Credentials. A credential value that still contains an unresolved `${VAR}` placeholder fails the run outright, and any fallback to Application Default Credentials is surfaced as a report **warning** naming the effective path — check the report warnings if a run used an unexpected identity.
+- The pipeline flags a completed run that produced workunits but wrote **0 records**: records still pending after the sink flush are reported as a failure, and a produced-but-nothing-written run is reported as a warning. Inspect the sink section of the structured report (`total_records_written`, `pending_requests`) to confirm data was actually persisted.
+- To make these warning-level signals **fail** the run (recommended for scheduled/production ingestion), pass `--strict-warnings` to `datahub ingest`, which turns any reported warning into a non-zero exit code.
+
 **Empty or missing content:**
 
 - Check that the file type is enabled (`include_docs`, `include_slides`, `include_sheets`)

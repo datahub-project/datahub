@@ -22,6 +22,7 @@ import hashlib
 import io
 import json
 import logging
+import re
 import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
@@ -123,6 +124,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     See ``GoogleDriveAuthConfig`` for details.  The short version:
 
     - Service account JSON key file (``credentials.service_account_key_file``)
+    - Service account key as a structured object (``credentials.service_account_info``)
     - Service account JSON string (``credentials.service_account_key_json``)
     - Application Default Credentials (nothing to configure — works on GCP or
       after ``gcloud auth application-default login``)
@@ -229,6 +231,37 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         creds = self._get_credentials()
         return build("drive", "v3", credentials=creds, cache_discovery=False)
 
+    # Matches an unresolved "${VAR}" secret placeholder left in a config value.
+    _UNRESOLVED_SECRET_RE = re.compile(r"\$\{[^}]+\}")
+
+    def _check_unresolved_credential_placeholders(self) -> None:
+        """Fail if a credential field still holds an unresolved ``${VAR}`` placeholder.
+
+        A configured credential whose secret was not substituted upstream (e.g. a
+        secret that failed to resolve) can arrive here still containing the literal
+        ``${...}`` placeholder. Without this check the connector would silently
+        skip that field and fall back to Application Default Credentials —
+        authenticating as a different, unintended identity and reporting SUCCESS.
+        Surfacing it as an error keeps a broken-credentials run loud.
+        """
+        creds = self.config.credentials
+        candidates = {
+            "service_account_key_file": creds.service_account_key_file,
+            "service_account_key_json": (
+                creds.service_account_key_json.get_secret_value()
+                if creds.service_account_key_json
+                else None
+            ),
+        }
+        for field_name, value in candidates.items():
+            if isinstance(value, str) and self._UNRESOLVED_SECRET_RE.search(value):
+                raise ValueError(
+                    f"credentials.{field_name} still contains an unresolved secret "
+                    "placeholder; the referenced secret was not substituted. Fix the "
+                    "secret reference — the connector will not silently fall back to "
+                    "Application Default Credentials."
+                )
+
     def _get_credentials(self) -> Any:
         """Resolve Google credentials from config or Application Default Credentials."""
         import json as _json
@@ -237,10 +270,19 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
 
         scopes = ["https://www.googleapis.com/auth/drive.readonly"]
 
+        self._check_unresolved_credential_placeholders()
+
         if self.config.credentials.service_account_key_file:
             logger.info("Using service account key file for authentication")
             creds = service_account.Credentials.from_service_account_file(
                 self.config.credentials.service_account_key_file, scopes=scopes
+            )
+            return self._maybe_delegate(creds)
+
+        if self.config.credentials.service_account_info:
+            logger.info("Using service account JSON object for authentication")
+            creds = service_account.Credentials.from_service_account_info(
+                self.config.credentials.service_account_info, scopes=scopes
             )
             return self._maybe_delegate(creds)
 
@@ -254,15 +296,32 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             )
             return self._maybe_delegate(creds)
 
-        # Fall back to Application Default Credentials
+        # Fall back to Application Default Credentials. This is emitted as a
+        # report warning (not just a log line) so that a run which authenticates
+        # as the ambient identity — rather than the intended, but unconfigured or
+        # unresolved, service account — is visible in the structured report and
+        # can gate the run when strict warnings are enabled.
         logger.info("Using Application Default Credentials")
+        self.report.report_warning(
+            title="Authenticating with Application Default Credentials",
+            message=(
+                "No explicit service-account credentials were provided, so the "
+                "connector is authenticating with Application Default Credentials. "
+                "Verify this is the intended identity — if you configured a "
+                "credentials secret, it may have failed to resolve."
+            ),
+        )
         import google.auth  # type: ignore[import-untyped]
 
         if self.config.delegated_user_email:
-            logger.warning(
-                "delegated_user_email is set but is only supported with service "
-                "account credentials (domain-wide delegation), not Application "
-                "Default Credentials. Ignoring it."
+            self.report.report_warning(
+                title="delegated_user_email ignored with Application Default Credentials",
+                message=(
+                    "delegated_user_email is only supported with service-account "
+                    "credentials (domain-wide delegation), not Application Default "
+                    "Credentials. Ignoring it."
+                ),
+                context=f"delegated_user_email={self.config.delegated_user_email}",
             )
         credentials, _ = google.auth.default(scopes=scopes)
         return credentials

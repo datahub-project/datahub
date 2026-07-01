@@ -1,7 +1,8 @@
 """Configuration for the Google Drive / Google Docs ingestion source."""
 
+import json
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -26,10 +27,13 @@ from datahub.ingestion.source.unstructured.config import (
 class GoogleDriveAuthConfig(ConfigModel):
     """Authentication configuration for Google Drive API.
 
-    Supports three authentication methods (in priority order):
+    Supports four authentication methods (in priority order):
     1. Service Account JSON key file (``service_account_key_file``)
-    2. Service Account JSON string (``service_account_key_json``)
-    3. Application Default Credentials / Workload Identity (automatic)
+    2. Service Account key as a structured object (``service_account_info``)
+    3. Service Account JSON string (``service_account_key_json``)
+    4. Application Default Credentials / Workload Identity (automatic)
+
+    Provide at most one of the explicit service-account methods.
     """
 
     service_account_key_file: Optional[str] = Field(
@@ -41,6 +45,19 @@ class GoogleDriveAuthConfig(ConfigModel):
         ),
     )
 
+    service_account_info: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Service account key as a structured JSON object (the parsed contents "
+            "of the key file). Accepts either a mapping or a JSON string, which is "
+            "parsed into a mapping. Prefer this over ``service_account_key_json`` "
+            "when supplying the key via a DataHub secret: because the key is a "
+            "structured object rather than a raw JSON document inlined into a "
+            "plain string field, it is not rejected by the recipe "
+            "secret-substitution guard."
+        ),
+    )
+
     service_account_key_json: Optional[SecretStr] = Field(
         default=None,
         description=(
@@ -49,11 +66,51 @@ class GoogleDriveAuthConfig(ConfigModel):
         ),
     )
 
+    @field_validator("service_account_info", mode="before")
+    @classmethod
+    def _parse_service_account_info(cls, v: Any) -> Any:
+        """Accept either a mapping or a JSON string, normalising to a mapping.
+
+        Supplying the key as a JSON string is convenient when it arrives from a
+        secrets manager; we parse it here so the auth path always receives a
+        plain dict for ``from_service_account_info``.
+        """
+        if v is None or isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    "service_account_info must be a service-account key mapping or "
+                    f"a JSON string that parses into one; could not parse JSON: {e}"
+                ) from e
+            if not isinstance(parsed, dict):
+                raise ValueError(
+                    "service_account_info JSON must decode to an object/mapping, "
+                    f"got {type(parsed).__name__}."
+                )
+            return parsed
+        raise ValueError(
+            "service_account_info must be a mapping or a JSON string, "
+            f"got {type(v).__name__}."
+        )
+
     @model_validator(mode="after")
     def _check_auth(self) -> "GoogleDriveAuthConfig":
-        if self.service_account_key_file and self.service_account_key_json:
+        provided = [
+            name
+            for name, value in (
+                ("service_account_key_file", self.service_account_key_file),
+                ("service_account_info", self.service_account_info),
+                ("service_account_key_json", self.service_account_key_json),
+            )
+            if value
+        ]
+        if len(provided) > 1:
             raise ValueError(
-                "Provide either service_account_key_file or service_account_key_json, not both."
+                "Provide at most one service-account credential method; got: "
+                f"{', '.join(provided)}."
             )
         return self
 
@@ -83,6 +140,22 @@ class GoogleDriveSourceConfig(
       config:
         credentials:
           service_account_key_file: "/path/to/service-account.json"
+    ```
+
+    ### Service Account via a DataHub secret
+
+    When the key is stored as a DataHub secret, supply it as a structured object
+    under ``service_account_info`` (a mapping, or a JSON string that is parsed
+    into one). Passing the whole key document into a plain string field is
+    rejected by the recipe secret-substitution guard, so prefer this field.
+    Quote the secret reference so YAML treats it as a scalar:
+
+    ```yaml
+    source:
+      type: google-drive
+      config:
+        credentials:
+          service_account_info: "${GOOGLE_DRIVE_SA_JSON}"
     ```
 
     ### Application Default Credentials

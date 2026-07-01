@@ -31,8 +31,14 @@ class GoogleDriveSourceReport(StaleEntityRemovalSourceReport):
     # Limit tracking
     num_documents_limit_reached: bool = False
 
-    # Samples of the entity URNs produced (capped by LossyList, which renders
-    # the first N plus a "... N more" summary in the structured report).
+    # Samples of the entity URNs the source EMITTED as workunits (capped by
+    # LossyList, which renders the first N plus a "... N more" summary in the
+    # structured report).
+    #
+    # NOTE: these track what the source produced, NOT what the sink confirmed
+    # writing to GMS. A run can populate these while the sink writes zero records
+    # (e.g. the sink never flushed, or writes failed after this was recorded), so
+    # do not read them as proof the entities were persisted.
     documents_created: LossyList[str] = field(default_factory=LossyList)
     folders_created: LossyList[str] = field(default_factory=LossyList)
 

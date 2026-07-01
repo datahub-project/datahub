@@ -143,6 +143,37 @@ class TestGoogleDriveAuthConfig:
         cfg = GoogleDriveAuthConfig()
         assert cfg.service_account_key_file is None
         assert cfg.service_account_key_json is None
+        assert cfg.service_account_info is None
+
+    def test_service_account_info_as_dict(self) -> None:
+        """service_account_info accepts a structured mapping and stores it verbatim."""
+        info = {"type": "service_account", "project_id": "my-project"}
+        cfg = GoogleDriveAuthConfig(service_account_info=info)
+        assert cfg.service_account_info == info
+
+    def test_service_account_info_as_json_string_is_parsed(self) -> None:
+        """A JSON string is parsed into a mapping (e.g. when injected from a secret)."""
+        info = {"type": "service_account", "project_id": "my-project"}
+        cfg = GoogleDriveAuthConfig(service_account_info=json.dumps(info))
+        assert cfg.service_account_info == info
+
+    def test_service_account_info_invalid_json_raises(self) -> None:
+        """A malformed JSON string produces a clear validation error, not a crash."""
+        with pytest.raises(ValidationError):
+            GoogleDriveAuthConfig(service_account_info="{not valid json")
+
+    def test_service_account_info_non_object_json_raises(self) -> None:
+        """JSON that decodes to a non-object (e.g. a list) is rejected."""
+        with pytest.raises(ValidationError):
+            GoogleDriveAuthConfig(service_account_info="[1, 2, 3]")
+
+    def test_service_account_info_conflicts_with_other_methods(self) -> None:
+        """service_account_info cannot be combined with another credential method."""
+        with pytest.raises(ValidationError):
+            GoogleDriveAuthConfig(
+                service_account_info={"type": "service_account"},
+                service_account_key_file="/path/to/key.json",
+            )
 
 
 # ===========================================================================
@@ -765,6 +796,24 @@ class TestGetCredentials:
         )
         assert result is mock_creds
 
+    def test_service_account_info_dict(self) -> None:
+        """When service_account_info is set, from_service_account_info gets the dict."""
+        key_data = {"type": "service_account", "project_id": "my-project"}
+
+        source = _make_source({"credentials": {"service_account_info": key_data}})
+
+        mock_creds = MagicMock()
+        with patch(
+            "google.oauth2.service_account.Credentials.from_service_account_info",
+            return_value=mock_creds,
+        ) as mock_from_info:
+            result = source._get_credentials()
+
+        mock_from_info.assert_called_once_with(
+            key_data, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        assert result is mock_creds
+
     def test_adc_fallback(self) -> None:
         """When no service account is configured, google.auth.default is called."""
         source = _make_source()  # no credentials configured
@@ -783,24 +832,48 @@ class TestGetCredentials:
         )
         assert result is mock_adc_creds
 
-    def test_adc_with_delegated_user_email_warns_and_ignores_delegation(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_adc_fallback_reports_warning(self) -> None:
+        """Falling back to ADC surfaces a report warning (not just a log line) so
+        an unintended-identity run is visible in the structured report."""
+        source = _make_source()
+
+        with patch("google.auth.default", return_value=(MagicMock(), None)):
+            source._get_credentials()
+
+        assert any(
+            "Application Default Credentials" in str(w) for w in source.report.warnings
+        )
+
+    def test_adc_with_delegated_user_email_warns_and_ignores_delegation(self) -> None:
         """delegated_user_email only applies to service-account credentials; with ADC
-        it is ignored and a warning is logged, with creds returned unchanged."""
+        it is ignored, a report warning is raised, and creds are returned unchanged."""
         source = _make_source({"delegated_user_email": "user@example.com"})
 
         mock_adc_creds = MagicMock()
 
         with patch("google.auth.default", return_value=(mock_adc_creds, None)):
-            with caplog.at_level("WARNING"):
-                result = source._get_credentials()
+            result = source._get_credentials()
 
         assert result is mock_adc_creds
         mock_adc_creds.with_subject.assert_not_called()
-        assert any(
-            "delegated_user_email" in record.message for record in caplog.records
+        assert any("delegated_user_email" in str(w) for w in source.report.warnings)
+
+    def test_unresolved_placeholder_in_key_file_raises(self) -> None:
+        """An unsubstituted ${VAR} in service_account_key_file fails loudly instead
+        of silently falling back to ADC."""
+        source = _make_source(
+            {"credentials": {"service_account_key_file": "${GOOGLE_DRIVE_SA_FILE}"}}
         )
+        with pytest.raises(ValueError, match="unresolved secret placeholder"):
+            source._get_credentials()
+
+    def test_unresolved_placeholder_in_key_json_raises(self) -> None:
+        """An unsubstituted ${VAR} in service_account_key_json fails loudly."""
+        source = _make_source(
+            {"credentials": {"service_account_key_json": "${GOOGLE_DRIVE_SA_JSON}"}}
+        )
+        with pytest.raises(ValueError, match="unresolved secret placeholder"):
+            source._get_credentials()
 
 
 # ===========================================================================

@@ -405,6 +405,23 @@ def test_emit_batch_wrapper_uses_resolved_emit_mode():
     )
 
 
+def test_close_drains_executor_before_pre_shutdown_callbacks():
+    """The async executor must be drained before pre-shutdown reporting callbacks
+    run, so the pipeline's completion report reads final write counters rather
+    than a pre-flush snapshot (which would show 0 written / N pending)."""
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink.report = MagicMock()
+    sink.executor = MagicMock()
+
+    order: list = []
+    sink.executor.shutdown.side_effect = lambda: order.append("shutdown")
+    sink._pre_shutdown_callbacks = [lambda: order.append("callback")]
+
+    sink.close()
+
+    assert order == ["shutdown", "callback"]
+
+
 class TestDataHubRestSinkBatchEmission:
     """Tests for DatahubRestSink._emit_batch_wrapper behavior."""
 
