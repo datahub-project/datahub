@@ -34,6 +34,14 @@ CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
     "transactional-db": "postgres",
 }
 
+# Warehouse platforms whose DataHub source emits lowercased dataset URNs by
+# default (Snowflake sets convert_urns_to_lowercase=True; Redshift folds unquoted
+# identifiers to lowercase). MC assertion URNs must match those exactly to attach
+# to the right dataset, so we lowercase the table path for these platforms only.
+# Case-preserving platforms (e.g. BigQuery) keep the original case. The
+# convert_urns_to_lowercase config flag forces lowercase everywhere when set.
+LOWERCASE_URN_PLATFORMS = {"snowflake", "redshift"}
+
 
 class TableResolverClient(Protocol):
     """The subset of the Monte Carlo client the resolver depends on."""
@@ -130,11 +138,15 @@ class MconResolver:
                         context=f"{mcon} (connection_type={resolved.connection_type})",
                     )
                 else:
-                    # Lowercase the table path to match warehouse sources (e.g.
-                    # Snowflake) that emit lowercased dataset URNs, so the assertion
-                    # attaches to the same dataset entity.
+                    # Match the casing the warehouse source emits so the assertion
+                    # attaches to the same dataset entity: Snowflake/Redshift
+                    # lowercase URNs, BigQuery and other platforms preserve case.
+                    # convert_urns_to_lowercase forces lowercase everywhere.
                     table_id = resolved.full_table_id
-                    if self.config.convert_urns_to_lowercase:
+                    if (
+                        self.config.convert_urns_to_lowercase
+                        or detail.platform in LOWERCASE_URN_PLATFORMS
+                    ):
                         table_id = table_id.lower()
                     urn = make_dataset_urn_with_platform_instance(
                         platform=detail.platform,

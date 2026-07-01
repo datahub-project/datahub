@@ -276,7 +276,9 @@ def test_build_assertion_skips_unresolvable_asset() -> None:
     assert report.assertions_emitted == 0
 
 
-def test_resolver_lowercases_urn_when_configured() -> None:
+def test_resolver_lowercases_snowflake_by_default() -> None:
+    # Snowflake emits lowercased URNs, so MC must lowercase to match even without
+    # the convert_urns_to_lowercase flag set.
     mcon = "MCON++acct++wh-1++table++DB.SCH.TBL"
     client = FakeResolverClient(
         {
@@ -285,11 +287,48 @@ def test_resolver_lowercases_urn_when_configured() -> None:
             )
         }
     )
+    resolver = MconResolver(make_config(), client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "db.sch.tbl" in urn and "DB.SCH.TBL" not in urn
+
+
+def test_resolver_preserves_case_for_case_sensitive_platform() -> None:
+    # BigQuery is case-sensitive and its source preserves case, so MC must not
+    # lowercase by default.
+    mcon = "MCON++acct++wh-1++table++Proj.Dataset.Events"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon,
+                full_table_id="Proj.Dataset.Events",
+                connection_type="bigquery",
+            )
+        }
+    )
+    resolver = MconResolver(make_config(), client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "Proj.Dataset.Events" in urn
+
+
+def test_resolver_lowercases_urn_when_configured() -> None:
+    # The flag forces lowercase even for a case-preserving platform (BigQuery).
+    mcon = "MCON++acct++wh-1++table++Proj.Dataset.Events"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon,
+                full_table_id="Proj.Dataset.Events",
+                connection_type="bigquery",
+            )
+        }
+    )
     cfg = make_config(convert_urns_to_lowercase=True)
     resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
-    assert "db.sch.tbl" in urn and "DB.SCH.TBL" not in urn
+    assert "proj.dataset.events" in urn and "Proj.Dataset.Events" not in urn
 
 
 def test_get_monitors_paginates_with_offset() -> None:
