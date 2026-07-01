@@ -112,7 +112,7 @@ class OpenLineageParser:
         )
         return MatillionPlatformInstanceInfo(env=self.default_env)
 
-    def _extract_dataset_info(
+    def extract_dataset_info(
         self, dataset_dict: Dict, event_type: str = "unknown"
     ) -> Optional[MatillionDatasetInfo]:
         namespace = dataset_dict.get("namespace")
@@ -241,12 +241,12 @@ class OpenLineageParser:
         column_lineages = []
 
         for input_dict in event.get("inputs", []):
-            dataset_info = self._extract_dataset_info(input_dict, "input")
+            dataset_info = self.extract_dataset_info(input_dict, "input")
             if dataset_info:
                 input_datasets.append(dataset_info)
 
         for output_dict in event.get("outputs", []):
-            dataset_info = self._extract_dataset_info(output_dict, "output")
+            dataset_info = self.extract_dataset_info(output_dict, "output")
             if dataset_info:
                 output_datasets.append(dataset_info)
 

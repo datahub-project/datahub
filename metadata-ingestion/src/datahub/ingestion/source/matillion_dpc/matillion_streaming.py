@@ -14,7 +14,6 @@ from datahub.ingestion.source.matillion_dpc.constants import (
 from datahub.ingestion.source.matillion_dpc.matillion_container import (
     MatillionContainerHandler,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionProject,
     MatillionStreamingPipeline,
@@ -32,12 +31,10 @@ class MatillionStreamingHandler:
         self,
         config: MatillionSourceConfig,
         report: MatillionSourceReport,
-        urn_builder: MatillionUrnBuilder,
         container_handler: MatillionContainerHandler,
     ):
         self.config = config
         self.report = report
-        self.urn_builder = urn_builder
         self.container_handler = container_handler
 
     def _make_streaming_pipeline_urn(

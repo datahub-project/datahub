@@ -12,7 +12,6 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
     MATILLION_PROJECT_URL,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionProject,
@@ -43,11 +42,9 @@ class MatillionContainerHandler:
         self,
         config: MatillionSourceConfig,
         report: MatillionSourceReport,
-        urn_builder: MatillionUrnBuilder,
     ):
         self.config = config
         self.report = report
-        self.urn_builder = urn_builder
         self._containers_emitted: set[str] = set()
         self._projects_cache: Dict[str, MatillionProject] = {}
 

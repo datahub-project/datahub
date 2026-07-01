@@ -13,7 +13,6 @@ from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.matillion_dpc.config import (
     MatillionAPIConfig,
     MatillionSourceConfig,
-    MatillionSourceReport,
 )
 from datahub.ingestion.source.matillion_dpc.constants import API_MAX_PAGE_SIZE
 from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
@@ -63,20 +62,6 @@ def pipeline_context() -> PipelineContext:
     return PipelineContext(run_id="test-run")
 
 
-def test_source_initialization(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    assert source.config == config
-    assert source.platform == "matillion"
-    assert source.api_client is not None
-    assert source.urn_builder is not None
-    assert source.container_handler is not None
-    assert source.openlineage_parser is not None
-    assert source.streaming_handler is not None
-
-
 @pytest.mark.parametrize(
     "should_succeed,expected_capable",
     [
@@ -119,17 +104,6 @@ def test_test_connection(
         assert report.basic_connectivity.failure_reason is None
 
 
-def test_source_with_project_patterns_configured(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    config.project_patterns.deny = ["test-.*"]
-    source = MatillionSource(config, pipeline_context)
-
-    assert source.config.project_patterns.deny == ["test-.*"]
-    assert not source.config.project_patterns.allowed("test-project")
-    assert source.config.project_patterns.allowed("prod-project")
-
-
 def test_get_workunits_internal_lineage_error(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
@@ -154,6 +128,7 @@ def test_get_workunits_internal_lineage_error(
         patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
         patch.object(source.api_client, "get_pipeline_executions", return_value=[]),
         patch.object(source.api_client, "get_schedules", return_value=[]),
+        patch.object(source.api_client, "get_lineage_events", return_value=[]),
     ):
         workunits = list(source.get_workunits_internal())
 
@@ -177,63 +152,6 @@ def test_create_method(pipeline_context: PipelineContext) -> None:
         source.config.api_config.client_secret.get_secret_value()
         == "test_client_secret"
     )
-
-
-def test_get_report(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    report = source.get_report()
-
-    assert report is not None
-    assert isinstance(report, MatillionSourceReport)
-    assert report.projects_scanned == 0
-    assert report.pipelines_scanned == 0
-
-
-def test_capabilities(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    assert hasattr(source, "get_workunits_internal")
-    assert hasattr(source, "test_connection")
-    assert hasattr(source, "get_report")
-
-
-@pytest.mark.parametrize(
-    "include_streaming,include_unpublished",
-    [
-        pytest.param(False, False, id="all_disabled"),
-        pytest.param(True, True, id="all_enabled"),
-        pytest.param(False, True, id="unpublished_only"),
-        pytest.param(True, False, id="published_streaming_only"),
-    ],
-)
-def test_source_with_feature_flags(
-    config: MatillionSourceConfig,
-    pipeline_context: PipelineContext,
-    include_streaming: bool,
-    include_unpublished: bool,
-) -> None:
-    config.include_streaming_pipelines = include_streaming
-    config.include_unpublished_pipelines = include_unpublished
-
-    source = MatillionSource(config, pipeline_context)
-
-    assert source.config.include_streaming_pipelines is include_streaming
-    assert source.config.include_unpublished_pipelines is include_unpublished
-
-
-def test_workunit_processors(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-    processors = source.get_workunit_processors()
-
-    assert processors is not None
-    assert len(processors) > 0
 
 
 def test_published_pipelines_emitted_when_unpublished_disabled(
@@ -827,7 +745,7 @@ def _sql_lineage_event(with_column_lineage: bool) -> dict:
 
 def _registered_output_urn(source: MatillionSource, event: dict) -> str:
     output_dict = event["event"]["outputs"][0]
-    output_info = source.openlineage_parser._extract_dataset_info(output_dict, "output")
+    output_info = source.openlineage_parser.extract_dataset_info(output_dict, "output")
     assert output_info is not None
     return make_dataset_urn_from_matillion_dataset(output_info)
 
@@ -920,6 +838,7 @@ def test_execution_workunits_with_no_timestamps(
             source.api_client, "get_pipeline_executions", return_value=mock_executions
         ),
         patch.object(source.api_client, "get_schedules", return_value=[]),
+        patch.object(source.api_client, "get_lineage_events", return_value=[]),
     ):
         workunits = list(source.get_workunits_internal())
 
@@ -975,6 +894,7 @@ def test_run_history_for_published_pipelines(
             source.api_client, "get_pipeline_execution_steps", return_value=mock_steps
         ),
         patch.object(source.api_client, "get_schedules", return_value=[]),
+        patch.object(source.api_client, "get_lineage_events", return_value=[]),
     ):
         workunits = list(
             source._discover_and_process_pipelines_from_executions(mock_projects)

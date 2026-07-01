@@ -54,7 +54,6 @@ from datahub.ingestion.source.matillion_dpc.matillion_streaming import (
     MatillionStreamingHandler,
 )
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
-    MatillionUrnBuilder,
     build_data_job_custom_properties,
     extract_base_pipeline_name,
     extract_folder_segments,
@@ -128,12 +127,9 @@ class MatillionSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = MatillionSourceReport()
         self.api_client = MatillionAPIClient(self.config.api_config)
-        self.urn_builder = MatillionUrnBuilder(self.config)
-        self.container_handler = MatillionContainerHandler(
-            self.config, self.report, self.urn_builder
-        )
+        self.container_handler = MatillionContainerHandler(self.config, self.report)
         self.streaming_handler = MatillionStreamingHandler(
-            self.config, self.report, self.urn_builder, self.container_handler
+            self.config, self.report, self.container_handler
         )
 
         self.openlineage_parser = OpenLineageParser(
@@ -560,7 +556,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Fetched {len(steps)} steps for execution {execution.pipeline_execution_id[:8]}"
                 )
-            except Exception as e:
+            except (HTTPError, RequestException, Timeout, ConnectionError) as e:
                 logger.warning(
                     f"Failed to fetch steps for execution {execution.pipeline_execution_id}: {e}"
                 )
@@ -678,7 +674,7 @@ class MatillionSource(StatefulIngestionSourceBase):
 
             for dataset_list_key in ["inputs", "outputs"]:
                 for dataset_dict in event.get(dataset_list_key, []):
-                    dataset_info = self.openlineage_parser._extract_dataset_info(
+                    dataset_info = self.openlineage_parser.extract_dataset_info(
                         dataset_dict, dataset_list_key
                     )
                     if not dataset_info:
@@ -941,7 +937,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                     self._register_sql_query(full_path, sql_query, accumulator.info)
 
             upstream_lineage = self.openlineage_parser.create_upstream_lineage(
-                list[MatillionDatasetInfo](accumulator.inputs.values()),
+                list(accumulator.inputs.values()),
                 accumulator.info,
                 accumulator.column_lineages,
             )
@@ -1024,7 +1020,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Timed out fetching lineage events ({e}); returning {len(all_events)} "
                 f"events collected so far. {API_TIMEOUT_TUNING_GUIDANCE}",
             )
-        except Exception as e:
+        except (HTTPError, RequestException) as e:
             self.report.report_warning(
                 "lineage_events", f"Failed to fetch lineage events: {e}"
             )
@@ -1090,35 +1086,6 @@ class MatillionSource(StatefulIngestionSourceBase):
             environment=environment,
             folder_segments=extract_folder_segments(pipeline_path),
         )
-
-    def _fetch_steps_for_pipeline(
-        self,
-        project: MatillionProject,
-        pipeline: MatillionPipeline,
-        executions: List[MatillionPipelineExecution],
-    ) -> Dict[str, List[MatillionPipelineExecutionStepResult]]:
-        steps_by_name: Dict[str, List[MatillionPipelineExecutionStepResult]] = {}
-
-        for execution in executions:
-            try:
-                steps = self.api_client.get_pipeline_execution_steps(
-                    project.id, execution.pipeline_execution_id
-                )
-                for step in steps:
-                    if step.name not in steps_by_name:
-                        steps_by_name[step.name] = []
-                    steps_by_name[step.name].append(step)
-
-                logger.debug(
-                    f"Fetched {len(steps)} steps for execution {execution.pipeline_execution_id[:8]}"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to fetch steps for execution {execution.pipeline_execution_id}: {e}"
-                )
-                continue
-
-        return steps_by_name
 
     def _generate_step_based_data_jobs(
         self,
@@ -1657,7 +1624,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                     # Aggregator lineage targets external datasets owned by their own
                     # platform connectors, so it must not materialize/own them here.
                     yield mcp.as_workunit(is_primary_source=False)
-            except Exception as e:
+            except (HTTPError, RequestException, Timeout, ConnectionError) as e:
                 logger.warning(
                     f"Failed to generate metadata from {label} SQL aggregator: {e}",
                     exc_info=True,

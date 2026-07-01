@@ -14,7 +14,6 @@ from datahub.ingestion.source.matillion_dpc.config import (
 from datahub.ingestion.source.matillion_dpc.matillion_container import (
     MatillionContainerHandler,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionProject,
@@ -42,7 +41,7 @@ def handler() -> MatillionContainerHandler:
         platform_instance="test-instance",
     )
     report = MatillionSourceReport()
-    return MatillionContainerHandler(config, report, MatillionUrnBuilder(config))
+    return MatillionContainerHandler(config, report)
 
 
 def _aspect_for(
