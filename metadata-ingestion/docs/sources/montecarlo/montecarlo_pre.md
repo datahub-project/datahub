@@ -26,3 +26,13 @@ concrete table via `getTable` and maps the warehouse connection type to a DataHu
 `connection_to_platform_map` to pin the `platform`, `platform_instance` and `env` for each Monte
 Carlo warehouse so the resulting dataset URNs line up with the URNs emitted by your warehouse
 sources (Snowflake, BigQuery, etc.).
+
+Each key in `connection_to_platform_map` is a Monte Carlo **warehouse resource UUID** — not the
+warehouse's display name. You can find it in any of these ways:
+
+- **From an asset's MCON:** the resource UUID is the third `++`-delimited segment. In
+  `MCON++<account>++<resource-uuid>++table++<db.schema.table>`, the key is `<resource-uuid>`.
+- **From the Monte Carlo UI:** open **Settings → Integrations**, select the warehouse, and copy the
+  resource UUID shown for that connection.
+- **From the API:** query your warehouses (for example `getUser { account { warehouses { uuid name connectionType } } }`
+  in the Monte Carlo GraphQL playground); each warehouse's `uuid` is the value to use as the key.

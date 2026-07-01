@@ -64,9 +64,12 @@ class MonteCarloSourceConfig(
 
     connection_to_platform_map: Dict[str, MonteCarloPlatformDetail] = Field(
         default={},
-        description="Maps a Monte Carlo warehouse/resource UUID (or connection name) to a "
-        "DataHub platform, platform instance and env. Used to build dataset URNs for "
-        "monitored assets so they line up with the warehouse source's URNs.",
+        description="Maps a Monte Carlo warehouse resource UUID to a DataHub platform, "
+        "platform instance and env, used to build dataset URNs for monitored assets so "
+        "they line up with the warehouse source's URNs. The key is the warehouse's "
+        "resource UUID (the resource segment of an asset's MCON, "
+        "``MCON++<account>++<resource-uuid>++table++...``; also visible on the "
+        "warehouse in the Monte Carlo settings UI), not its display name.",
     )
     default_platform: Optional[str] = Field(
         default=None,
