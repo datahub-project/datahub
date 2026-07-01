@@ -79,7 +79,7 @@ public class RestoreColumnLineageIndicesStepTest {
     PartitionedStream<EbeanAspectV2> emptyStream = mock(PartitionedStream.class);
     when(mockAspectDao.streamAspectBatches(any(), any(RestoreIndicesArgs.class)))
         .thenReturn(emptyStream);
-    when(emptyStream.partition(anyInt())).thenReturn(Stream.empty());
+    when(emptyStream.partition(anyInt())).thenAnswer(invocation -> Stream.empty());
 
     UpgradeStepResult result = newStep().executable().apply(mockUpgradeContext);
 
