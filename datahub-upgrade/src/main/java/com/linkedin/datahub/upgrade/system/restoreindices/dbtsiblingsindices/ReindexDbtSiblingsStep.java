@@ -24,6 +24,11 @@ public class ReindexDbtSiblingsStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "dbt-siblings-v1";
   }

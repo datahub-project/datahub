@@ -24,6 +24,11 @@ public class ReindexGlossaryTermInfoStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "glossary-term-info-v1";
   }

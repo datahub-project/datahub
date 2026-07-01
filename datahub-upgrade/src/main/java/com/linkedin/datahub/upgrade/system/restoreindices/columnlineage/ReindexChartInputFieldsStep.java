@@ -24,6 +24,11 @@ public class ReindexChartInputFieldsStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "chart-input-fields-v1";
   }

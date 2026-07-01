@@ -24,6 +24,11 @@ public class ReindexDashboardInputFieldsStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "dashboard-input-fields-v1";
   }

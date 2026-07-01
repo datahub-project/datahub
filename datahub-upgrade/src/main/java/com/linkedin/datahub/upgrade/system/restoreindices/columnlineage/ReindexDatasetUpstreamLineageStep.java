@@ -24,6 +24,11 @@ public class ReindexDatasetUpstreamLineageStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "dataset-upstream-lineage-v1";
   }

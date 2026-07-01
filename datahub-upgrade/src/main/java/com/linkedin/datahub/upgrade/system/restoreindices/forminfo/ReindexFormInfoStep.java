@@ -24,6 +24,11 @@ public class ReindexFormInfoStep extends AbstractMCLStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public String id() {
     return "form-info-v1";
   }
