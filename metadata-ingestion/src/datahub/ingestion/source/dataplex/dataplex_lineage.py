@@ -33,9 +33,11 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
-    build_dataset_urn_from_fqn_only,
     build_lineage_parent,
-    is_supported_lineage_entry_type,
+)
+from datahub.ingestion.source.dataplex.dataplex_mappers import (
+    dataset_urn_from_fqn_only,
+    is_lineage_supported,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -516,7 +518,7 @@ class DataplexLineageExtractor:
             )
             return set()
 
-        if not is_supported_lineage_entry_type(entry.dataplex_entry_type_short_name):
+        if not is_lineage_supported(entry.dataplex_entry_type_short_name):
             self.report.report_lineage_entry_skipped_unsupported_type(
                 entry_name=entry.dataplex_entry_name,
                 entry_type=entry.dataplex_entry_type_short_name,
@@ -527,7 +529,7 @@ class DataplexLineageExtractor:
         for upstream_fqn in lineage_data.get("upstream", []):
             # Upstream FQN may be cross-platform (e.g. pubsub->bigquery), so
             # normalize to DataHub URN using a mapping lookup driven only by FQN shape.
-            upstream_dataset_urn = build_dataset_urn_from_fqn_only(
+            upstream_dataset_urn = dataset_urn_from_fqn_only(
                 fully_qualified_name=upstream_fqn,
                 env=self.config.env,
             )
