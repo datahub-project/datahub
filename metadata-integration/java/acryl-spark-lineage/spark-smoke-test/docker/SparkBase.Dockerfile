@@ -7,13 +7,14 @@ ENV SHARED_WORKSPACE=${shared_workspace}
 
 # -- Layer: Apache Spark
 
-ARG spark_version=3.5.0
+ARG spark_version=3.5.8
 ARG hadoop_version=3
 
 # Common curl options for all downloads: fail on HTTP errors, follow redirects, and — critically —
 # bound every fetch with connect/overall timeouts and retries. Without these, a stalled download
-# (notably the Spark tarball from the throttled archive.apache.org host) hangs the build with no
-# output until the CI job's global timeout, instead of failing fast and retrying.
+# hangs the build with no output until the CI job's global timeout, instead of failing fast and
+# retrying. The Spark tarball is pulled from the fast CDN (dlcdn.apache.org) first, falling back to
+# archive.apache.org — dlcdn only keeps active patch releases, so keep spark_version current.
 ARG CURL_OPTS="--fail --location --show-error --connect-timeout 30 --retry 5 --retry-all-errors --retry-delay 10"
 
 RUN apt-get update -y && \
@@ -26,7 +27,8 @@ RUN apt-get update -y && \
 #    apt-cache search zulu && \
     apt-get install -y --no-install-recommends zulu21-jdk ant && \
     apt-get clean && \
-    curl -sS ${CURL_OPTS} --max-time 1800 https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
+    { curl -sS ${CURL_OPTS} --max-time 1800 https://dlcdn.apache.org/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz || \
+      curl -sS ${CURL_OPTS} --max-time 1800 https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz ; } && \
     tar -xf spark.tgz && \
     mv spark-${spark_version}-bin-hadoop${hadoop_version} /usr/bin/ && \
     mkdir /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}/logs && \
