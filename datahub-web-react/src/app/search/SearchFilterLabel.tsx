@@ -1,7 +1,10 @@
 import { BookOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Tag, Tooltip } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { IconStyleType } from '@app/entity/Entity';
 import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
@@ -10,7 +13,6 @@ import ParentEntities from '@app/search/filters/ParentEntities';
 import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
 import { getParentEntities } from '@app/search/filters/utils';
 import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/search/utils/constants';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { formatNumber } from '@app/shared/formatNumber';
 import { DomainLink } from '@app/shared/tags/DomainLink';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -78,17 +80,13 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.CorpUser) {
         const user = entity as CorpUser;
         const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
-        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <CustomAvatar
-                    size={18}
-                    name={truncatedDisplayName}
-                    photoUrl={user.editableProperties?.pictureLink || undefined}
-                    useDefaultAvatar={false}
-                    style={{
-                        marginRight: 8,
-                    }}
+                <Avatar
+                    name={displayName}
+                    imageUrl={user.editableProperties?.pictureLink || undefined}
+                    type={AvatarType.user}
+                    size="sm"
                 />
                 {displayName}
                 {countText}

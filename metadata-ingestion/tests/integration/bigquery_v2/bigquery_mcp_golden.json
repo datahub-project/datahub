@@ -454,17 +454,6 @@
                             }
                         ]
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 },
@@ -482,17 +471,6 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 }
@@ -500,8 +478,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastObserved": 1643868000000,
+        "runId": "bigquery-2022_02_03-07_00_00-8jscpx",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -825,22 +803,6 @@
     }
 },
 {
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD)",
     "changeType": "UPSERT",
@@ -1012,22 +974,6 @@
     }
 },
 {
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.snapshot-table-1,PROD)",
     "changeType": "UPSERT",
@@ -1096,7 +1042,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1150,7 +1096,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1232,7 +1178,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1248,7 +1194,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1281,7 +1227,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29"
+                    "query": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb"
                 }
             ],
             "fineGrainedLineages": [
@@ -1296,7 +1242,7 @@
                     ],
                     "transformOperation": "COPY: `table-1`.`email` AS `email`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Abigquery%2Cproject-id-1.bigquery-dataset-1.view-1%2CPROD%29"
+                    "query": "urn:li:query:view_1f9fa2c824ecb2787ca839ff197aac66a829b5e33b0f885178f7c2a648bddbfb"
                 }
             ]
         }

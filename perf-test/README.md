@@ -3,6 +3,10 @@
 [Locust](https://locust.io/) is an open-source, python-based, easy-to-use load testing tool. It provides an interface to
 spawn multiple users (swarm) that behave according to pre-defined python code.
 
+## Authz persona performance (`authz-perf/`)
+
+For **authorization policy evaluation latency** (17 personas, frontend GraphQL, JSONL bisect/compare), see [`authz-perf/README.md`](./authz-perf/README.md). This is separate from Locust — different venv, different result store, not part of smoke-test.
+
 In this directory, we provide some example locust configs that send common requests to DataHub GMS (ingest, search,
 browse, and graph).
 

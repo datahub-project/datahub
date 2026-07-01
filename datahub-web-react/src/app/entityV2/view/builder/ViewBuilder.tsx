@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,6 +10,7 @@ import { updateListMyViewsCache, updateViewSelectCache } from '@app/entityV2/vie
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entityV2/view/utils';
 import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+import { notification } from '@src/alchemy-components';
 
 import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
 import { DataHubView } from '@types';
@@ -26,6 +27,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -109,9 +111,9 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to save View! An unexpected error occurred.`,
+                notification.error({
+                    message: t('builder.saveError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });

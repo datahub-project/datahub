@@ -1,9 +1,11 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button, Editor, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
+const ELLIPSIS = '...';
 
 const ShowMoreWrapper = styled.div`
     align-items: start;
@@ -24,10 +26,6 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
         align-items: center;
         gap: 4px;
     `}
-`;
-
-const CustomButton = styled(Button)`
-    padding: 8px 0px;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -95,7 +93,7 @@ const MoreIndicator = styled.span`
     break-word: normal;
 `;
 
-export type Props = {
+type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;
@@ -114,6 +112,7 @@ export default function CompactMarkdownViewer({
     handleShowMore,
     hideShowMore,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -130,7 +129,7 @@ export default function CompactMarkdownViewer({
 
     return (
         <MarkdownContainer lineLimit={lineLimit}>
-            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef}>
+            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef} data-testid="compact-markdown-viewver">
                 <StyledEditor
                     customStyle={customStyle}
                     limit={isShowingMore ? null : lineLimit}
@@ -140,15 +139,16 @@ export default function CompactMarkdownViewer({
             </MarkdownViewContainer>
             {hideShowMore && isTruncated && (
                 <Tooltip title={content}>
-                    <MoreIndicator>...</MoreIndicator>
+                    <MoreIndicator>{ELLIPSIS}</MoreIndicator>
                 </Tooltip>
             )}
 
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
-                        <CustomButton
+                        <Button
                             variant="text"
+                            color="gray"
                             size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
                             onClick={(e) => {
                                 if (handleShowMore) {
@@ -159,8 +159,8 @@ export default function CompactMarkdownViewer({
                                 e.stopPropagation();
                             }}
                         >
-                            {isShowingMore ? 'show less' : 'show more'}
-                        </CustomButton>
+                            {isShowingMore ? tc('showLess') : tc('showMoreCapitalized')}
+                        </Button>
                     </ShowMoreWrapper>
                 )}
         </MarkdownContainer>

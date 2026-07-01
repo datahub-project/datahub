@@ -16,7 +16,7 @@ DORIS_PORT = 9030  # Doris MySQL protocol port
 
 # Note: Doris FE 3.0.8 uses Java 17 which has cgroup v2 incompatibility issues in CI
 # Workaround: JAVA_OPTS=-XX:-UseContainerSupport is explicitly exported in entrypoint scripts
-pytestmark = pytest.mark.integration_batch_4
+pytestmark = pytest.mark.integration_batch_3
 
 
 @pytest.fixture(scope="module")
@@ -109,14 +109,13 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
 )
-@time_machine.travel(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_doris_ingest(
     doris_runner,
     pytestconfig,
     test_resources_dir,
     tmp_path,
-    mock_time,
     config_file,
     golden_file,
 ):
@@ -182,7 +181,7 @@ def test_doris_ingest(
         ),
     ],
 )
-@time_machine.travel(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_doris_test_connection(doris_runner, config_dict, is_success, expected_error):
     report = test_connection_helpers.run_test_connection(DorisSource, config_dict)

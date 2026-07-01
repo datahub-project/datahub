@@ -23,6 +23,11 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
+          type: "doc",
+          label: "Use Docs with AI",
+          id: "docs/use-docs-with-ai",
+        },
+        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -31,6 +36,26 @@ module.exports = {
           type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Core Capabilities",
+      link: {
+        type: "generated-index",
+        title: "Core Capabilities",
+        description:
+          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
+      },
+      items: [
+        {
+          label: "Data Quality & Observability",
+          type: "doc",
+          id: "docs/features/feature-guides/observe",
+          customProps: {
+            icon: "🔍",
+          },
         },
       ],
     },
@@ -46,9 +71,54 @@ module.exports = {
         // "docs/how/ui-tabs-guide",
         {
           label: "Ask DataHub",
-          type: "doc",
-          id: "docs/features/feature-guides/ask-datahub",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/ask-datahub",
+          },
+          items: [
+            {
+              label: "Plugins",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/ask-datahub-plugins/overview",
+              },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/snowflake",
+                },
+                {
+                  label: "Databricks",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
+                },
+                {
+                  label: "BigQuery",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/bigquery",
+                },
+                {
+                  label: "dbt Cloud",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/dbt",
+                },
+                {
+                  label: "GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/github",
+                },
+                {
+                  label: "Glean",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/glean",
+                },
+              ],
+            },
+          ],
         },
         {
           label: "Agent Context Kit",
@@ -59,16 +129,101 @@ module.exports = {
           },
           items: [
             {
-              label: "Langchain",
+              label: "DataHub Skills",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/skills",
+            },
+            {
+              label: "Snowflake",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Cortex Agents",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake",
+                },
+                {
+                  label: "Cortex Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake-cortex-code",
+                },
+              ],
+            },
+            {
+              label: "Google",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Gemini CLI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/gemini-cli",
+                },
+                {
+                  label: "Agent Development Kit (ADK)",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-adk",
+                },
+                {
+                  label: "Vertex AI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-vertex-ai",
+                },
+              ],
+            },
+            {
+              label: "Databricks",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Genie Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-genie-code",
+                },
+                {
+                  label: "Agent Bricks",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-agent-bricks",
+                },
+              ],
+            },
+            {
+              label: "LangChain",
               type: "doc",
               id: "docs/dev-guides/agent-context/langchain",
             },
             {
-              label: "Snowflake",
+              label: "Cursor",
               type: "doc",
-              id: "docs/dev-guides/agent-context/snowflake",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "Claude",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude",
+            },
+            {
+              label: "Microsoft Copilot Studio",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/copilot-studio",
             },
           ],
+        },
+        {
+          label: "Agents",
+          type: "doc",
+          id: "docs/features/feature-guides/agents",
+          className: "saasOnly",
+        },
+        {
+          label: "Analytics Agent",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-agent",
         },
         {
           label: "Assertions (Data Quality)",
@@ -111,15 +266,15 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              label: "Anomaly Detection ⚡",
               type: "doc",
-              id: "docs/managed-datahub/observe/smart-assertions",
+              id: "docs/managed-datahub/observe/anomaly-detection",
               className: "saasOnly",
             },
             {
-              label: "Data Health Dashboard",
+              label: "Backfill Assertion History",
               type: "doc",
-              id: "docs/managed-datahub/observe/data-health-dashboard",
+              id: "docs/managed-datahub/observe/assertion-backfill",
               className: "saasOnly",
             },
             {
@@ -185,21 +340,21 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Databricks Metadata Sync",
               type: "doc",
               id: "docs/automations/databricks-metadata-sync",
               className: "saasOnly",
             },
             {
-              label: "Snowflake Tag Sync",
+              label: "Snowflake Metadata Sync",
               type: "doc",
-              id: "docs/automations/snowflake-tag-propagation",
-              className: "saasOnly",
-            },
-            {
-              label: "AI Classification",
-              type: "doc",
-              id: "docs/automations/ai-term-suggestion",
+              id: "docs/automations/snowflake-metadata-sync",
               className: "saasOnly",
             },
             {
@@ -263,6 +418,12 @@ module.exports = {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Data Health Dashboard",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-health-dashboard",
+          className: "saasOnly",
         },
         {
           label: "Data Products",
@@ -413,6 +574,12 @@ module.exports = {
           id: "docs/features/feature-guides/service-accounts",
         },
         {
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -421,6 +588,11 @@ module.exports = {
           label: "Tags",
           type: "doc",
           id: "docs/tags",
+        },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views/overview",
         },
       ],
     },
@@ -473,6 +645,16 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/remote-executor/monitoring",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
           className: "saasOnly",
         },
       ],
@@ -548,12 +730,11 @@ module.exports = {
       id: "docs/managed-datahub/chrome-extension",
     },
     {
-      type: "doc",
-      id: "docs/managed-datahub/subscription-and-notification",
-      className: "saasOnly",
-    },
-    {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_0_0",
+        "docs/managed-datahub/release-notes/v_1_1_0",
+        "docs/managed-datahub/release-notes/v_1_0_0",
+        "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
         "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
@@ -669,7 +850,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",
@@ -713,8 +894,17 @@ module.exports = {
         //"docker/airflow/local_airflow",
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
-        //"metadata-integration/java/spark-lineage-legacy/README",
         //"metadata-ingestion/source-docs-template",
+        // Discoverability alias: "Amazon Data Firehose" is ingested by
+        // the same `kinesis` connector, but users searching for "Firehose"
+        // expect to see it as its own sidebar entry. Use `ref` so
+        // docusaurus allows pointing at the same doc twice (the autogen
+        // list below produces the "Amazon Kinesis Data Streams" entry).
+        {
+          type: "ref",
+          id: "docs/generated/ingestion/sources/kinesis",
+          label: "Amazon Data Firehose",
+        },
         {
           type: "autogenerated",
           dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
@@ -723,6 +913,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
+        "metadata-ingestion/datahub-skills",
         {
           "Scheduling Ingestion": [
             "metadata-ingestion/schedule_docs/intro",
@@ -989,9 +1180,11 @@ module.exports = {
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
       items: [
-        "docs/cli-commands/dataset",
-        "docs/cli-commands/graphql",
-        "docs/datahub_lite",
+        { type: "doc", id: "docs/cli-commands/search", label: "search" },
+        { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
+        { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
+        { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
     {
@@ -1163,6 +1356,9 @@ module.exports = {
       label: "Advanced Guides",
       items: [
         "docs/deploy/confluent-cloud",
+        "docs/deploy/gms-rate-limiting",
+        "docs/deploy/gms-entity-graph-cache",
+        "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
       ],
@@ -1226,6 +1422,8 @@ module.exports = {
         "datahub-web-react/src/app/analytics/README",
         // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
+        "docs/docker/bundled-ingestion-venvs",
+        "docs/docker/ingestion-executor-security",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",

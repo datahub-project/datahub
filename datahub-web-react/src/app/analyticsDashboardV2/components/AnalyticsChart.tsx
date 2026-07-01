@@ -2,20 +2,24 @@ import { BarChart as AlchemyBarChart, LineChart as AlchemyLineChart, GraphCard, 
 import { ParentSize } from '@visx/responsive';
 import { useTooltip, useTooltipInPortal } from '@visx/tooltip';
 import { Axis, BarSeries, BarStack, Grid, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
 import React, { useCallback, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Popover } from '@components/components/Popover';
 
 import { TableChart } from '@app/analyticsDashboardV2/components/TableChart';
 import { useAnalyticsChartColors } from '@app/analyticsDashboardV2/hooks/useAnalyticsChartColors';
-import { colors } from '@src/alchemy-components/theme';
+import dayjs from '@utils/dayjs';
 
 import { AnalyticsChart as AnalyticsChartType, BarChart as BarChartType, TimeSeriesChart } from '@types';
 
+// dayjs format tokens for time-series axis ticks and tooltips (not user-visible copy)
+const AXIS_DATE_FORMAT = 'MMM D';
+const TOOLTIP_DATE_FORMAT = 'MMM D, YYYY';
+
 type Props = {
     chartData: AnalyticsChartType;
+    testId?: string;
 };
 
 const TableWrapper = styled.div`
@@ -43,7 +47,7 @@ const LegendArea = styled.div`
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid ${colors.gray[200]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding-top: 12px;
     margin-top: 8px;
     max-height: 80px;
@@ -63,22 +67,22 @@ const LegendScrollArea = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: ${colors.gray[100]};
+        background: ${(props) => props.theme.colors.scrollbarTrack};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[300]};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[400]};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
-    scrollbar-color: ${colors.gray[300]} ${colors.gray[100]};
+    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.scrollbarThumb};
 `;
 
 const LegendItem = styled.div<{ $isSelected?: boolean }>`
@@ -91,11 +95,12 @@ const LegendItem = styled.div<{ $isSelected?: boolean }>`
     transition: all 0.2s ease;
     white-space: nowrap;
     flex-shrink: 0;
-    background-color: ${(props) => (props.$isSelected ? colors.violet[100] : 'transparent')};
-    border: 1px solid ${(props) => (props.$isSelected ? colors.violet[400] : 'transparent')};
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : 'transparent')};
+    border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderBrandFocused : 'transparent')};
 
     &:hover {
-        background-color: ${(props) => (props.$isSelected ? colors.violet[100] : colors.gray[50])};
+        background-color: ${(props) =>
+            props.$isSelected ? props.theme.colors.bgSurfaceBrandHover : props.theme.colors.bgHover};
     }
 `;
 
@@ -105,27 +110,27 @@ const LegendColorBox = styled.div<{ color: string }>`
     background-color: ${(props) => props.color};
     border-radius: 3px;
     flex-shrink: 0;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const LegendLabel = styled.span<{ $isSelected?: boolean }>`
     font-size: 13px;
-    color: ${colors.gray[700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: 1.3;
     white-space: nowrap;
     font-weight: ${(props) => (props.$isSelected ? 'bold' : 'normal')};
 `;
 
 const TooltipContainer = styled.div`
-    background: white;
-    color: ${colors.gray[1700]};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 12px;
     pointer-events: none;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    border: 1px solid ${colors.gray[300]};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 // Truncate label to max 11 characters total (based on "DATAPRODUCT" fitting perfectly)
@@ -139,9 +144,16 @@ type StackedBarChartProps = {
     stackedBarChartData: any[];
     allSegmentLabels: string[];
     segmentColors: string[];
+    testId?: string;
 };
 
-const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, segmentColors }: StackedBarChartProps) => {
+const StackedBarChartWithTooltip = ({
+    stackedBarChartData,
+    allSegmentLabels,
+    segmentColors,
+    testId,
+}: StackedBarChartProps) => {
+    const theme = useTheme();
     const { tooltipData, tooltipLeft, tooltipTop, showTooltip, hideTooltip } = useTooltip<{
         label: string;
         value: number;
@@ -275,7 +287,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
     );
 
     return (
-        <ChartWithLegendContainer>
+        <ChartWithLegendContainer data-testid={testId}>
             <ChartArea ref={setContainerRefs}>
                 <ParentSize>
                     {({ width, height }) =>
@@ -288,7 +300,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                     yScale={{ type: 'linear' }}
                                     margin={{ top: 20, right: 20, bottom: 80, left: 60 }}
                                 >
-                                    <Grid columns={false} numTicks={5} lineStyle={{ stroke: '#EAEAEA' }} />
+                                    <Grid columns={false} numTicks={5} lineStyle={{ stroke: theme.colors.border }} />
                                     <Axis
                                         orientation="bottom"
                                         tickFormat={(tickValue) => {
@@ -308,7 +320,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                                 fontSize: 11,
                                                 fontWeight: isSelected ? 'bold' : 'normal',
                                                 textDecoration: isSelected ? 'underline' : 'none',
-                                                fill: isSelected ? colors.violet[600] : colors.gray[700],
+                                                fill: isSelected ? theme.colors.textBrand : theme.colors.textSecondary,
                                                 onClick: () => handleBarClick(tickValue as number),
                                                 style: { cursor: 'pointer' },
                                                 pointerEvents: 'all',
@@ -390,6 +402,7 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                         return (
                             <LegendItem
                                 key={segmentLabel}
+                                data-testid={`analytics-entity-type-${segmentLabel.toLowerCase()}`}
                                 $isSelected={isSelected}
                                 onClick={() => handleLegendClick(segmentLabel)}
                             >
@@ -404,7 +417,8 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
     );
 };
 
-export const AnalyticsChart = ({ chartData }: Props) => {
+export const AnalyticsChart = ({ chartData, testId }: Props) => {
+    const theme = useTheme();
     const isTable = chartData.__typename === 'TableChart';
 
     const isEmpty = useMemo(() => {
@@ -477,11 +491,11 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                     <AlchemyLineChart
                         data={timeSeriesData}
                         bottomAxisProps={{
-                            tickFormat: (x) => dayjs(x).format('MMM D'),
+                            tickFormat: (x) => dayjs(x).format(AXIS_DATE_FORMAT),
                         }}
                         popoverRenderer={(datum) => (
                             <>
-                                <Text weight="bold">{dayjs(datum.x).format('MMM D, YYYY')}</Text>
+                                <Text weight="bold">{dayjs(datum.x).format(TOOLTIP_DATE_FORMAT)}</Text>
                                 <Text>{datum.y.toLocaleString()}</Text>
                             </>
                         )}
@@ -498,7 +512,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
 
             // Use smart color assignment for stacked bar chart segments
             // eslint-disable-next-line react-hooks/rules-of-hooks
-            const { getColorByKey } = useAnalyticsChartColors(allSegmentLabels);
+            const { getColorByKey } = useAnalyticsChartColors(allSegmentLabels, theme);
             const segmentColors = allSegmentLabels.map((label) => getColorByKey(label));
 
             return (
@@ -511,6 +525,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                             stackedBarChartData={stackedBarChartData}
                             allSegmentLabels={allSegmentLabels}
                             segmentColors={segmentColors}
+                            testId={testId}
                         />
                     )}
                 />
@@ -536,7 +551,7 @@ export const AnalyticsChart = ({ chartData }: Props) => {
                                 angle: -45,
                                 textAnchor: 'end',
                                 fontSize: 11,
-                                fill: colors.gray[700],
+                                fill: theme.colors.textSecondary,
                             },
                         }}
                         popoverRenderer={(datum) => {

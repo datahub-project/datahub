@@ -18,7 +18,9 @@ target_database_tables = [
         "Name": "transactions",
         "DatabaseName": "test-database",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+        ),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -46,6 +48,61 @@ target_database_tables = [
     }
 ]
 get_tables_response_for_target_database = {"TableList": target_database_tables}
+
+# A regular (non-resource-link) database that contains a mix of normal tables and
+# table-level resource links. Lake Formation can share individual tables across
+# accounts at table granularity, so the database itself has no TargetDatabase but
+# some tables expose a TargetTable pointer.
+mixed_database = {
+    "Name": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "CreateTableDefaultPermissions": [],
+    "CatalogId": "123412341234",
+}
+
+normal_table_in_mixed_database = {
+    "Name": "normal-table",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "UpdateTime": datetime.datetime(
+        2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+    ),
+    "Retention": 0,
+    "StorageDescriptor": {
+        "Columns": [{"Name": "id", "Type": "bigint", "Comment": ""}],
+        "Location": "s3://test-db-123412341234/normal-table",
+        "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+        "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+        "Compressed": False,
+        "NumberOfBuckets": 0,
+        "SerdeInfo": {
+            "Parameters": {"serialization.format": "1"},
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+        },
+        "SortColumns": [],
+        "StoredAsSubDirectories": False,
+    },
+    "TableType": "EXTERNAL_TABLE",
+    "Parameters": {"classification": "parquet"},
+    "CatalogId": "123412341234",
+}
+
+resource_link_table_in_mixed_database = {
+    "Name": "shared-transactions",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "TargetTable": {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    },
+    "CatalogId": "123412341234",
+}
+
+get_databases_response_with_mixed_database = {"DatabaseList": [mixed_database]}
+get_tables_response_for_mixed_database = {
+    "TableList": [normal_table_in_mixed_database, resource_link_table_in_mixed_database]
+}
 
 get_databases_response = {
     "DatabaseList": [
@@ -102,7 +159,9 @@ tables_1 = [
         "DatabaseName": "flights-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 10, 12, 3, 31, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -173,7 +232,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
-        "UpdateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
         "Retention": 0,
         "StorageDescriptor": {
@@ -231,7 +292,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
-        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
         "Retention": 0,
         "StorageDescriptor": {
@@ -284,6 +347,75 @@ tables_2 = [
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "795586375822",
     },
+    {
+        "Name": "test_iceberg",
+        "DatabaseName": "test-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "yr",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "quarter",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "2",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "month",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "3",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "dayofmonth",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "4",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+            ],
+            "Location": "s3://crawler-public-us-west-2/flight/iceberg/",
+            "AdditionalLocations": [
+                "s3://crawler-public-us-west-2/flight/iceberg/data",
+            ],
+            "Compressed": False,
+            "NumberOfBuckets": 0,
+            "SortColumns": [],
+            "StoredAsSubDirectories": False,
+        },
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "previous_metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00006-1cbe9a83-a663-4494-a97d-925660cf7780.metadata.json",
+            "target_table_region": "us-east-1",
+            "metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00007-4041d9f9-51f7-4887-8801-26a5d003d3d5.metadata.json",
+            "table_type": "ICEBERG",
+        },
+        "CreatedBy": "arn:aws:sts::795586375822:assumed-role/AWSGlueServiceRole-test-crawler/AWS-Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "795586375822",
+        "VersionId": "7",
+        "IsMultiDialectView": False,
+    },
 ]
 get_tables_response_2 = {"TableList": tables_2}
 get_jobs_response_empty: Dict[str, Any] = {
@@ -333,6 +465,38 @@ get_jobs_response = {
             "Command": {
                 "Name": "glueetl",
                 "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py",
+                "PythonVersion": "3",
+            },
+            "DefaultArguments": {
+                "--TempDir": "s3://aws-glue-assets-123412341234-us-west-2/temporary/",
+                "--class": "GlueApp",
+                "--enable-continuous-cloudwatch-log": "true",
+                "--enable-glue-datacatalog": "true",
+                "--enable-metrics": "true",
+                "--enable-spark-ui": "true",
+                "--encryption-type": "sse-s3",
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--job-language": "python",
+                "--spark-event-logs-path": "s3://aws-glue-assets-123412341234-us-west-2/sparkHistoryLogs/",
+            },
+            "MaxRetries": 3,
+            "AllocatedCapacity": 10,
+            "Timeout": 2880,
+            "MaxCapacity": 10.0,
+            "WorkerType": "G.1X",
+            "NumberOfWorkers": 10,
+            "GlueVersion": "2.0",
+        },
+        {
+            "Name": "test-job-3",
+            "Description": "The third test job",
+            "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+            "CreatedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "ExecutionProperty": {"MaxConcurrentRuns": 1},
+            "Command": {
+                "Name": "glueetl",
+                "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-3.py",
                 "PythonVersion": "3",
             },
             "DefaultArguments": {
@@ -689,6 +853,11 @@ get_dataflow_graph_response_2 = {
         },
     ],
 }
+# for job 3
+get_dataflow_graph_response_3: dict[str, Any] = {
+    "DagNodes": [],
+    "DagEdges": [],
+}
 
 get_object_body_1 = """
 import sys
@@ -805,6 +974,34 @@ Transform0 = SplitFields.apply(frame = Transform1, paths = ["yr", "quarter", "mo
 job.commit()
 """
 
+get_object_body_3 = """
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.sql import SparkSession
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+spark = (
+    SparkSession.builder
+    .config("spark.sql.catalogImplementation", "hive")
+    .config("spark.hadoop.hive.metastore.client.factory.class", "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory")
+    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+    .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+    .config("spark.sql.catalog.glue_catalog.warehouse", warehouse)
+    .config("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
+    .getOrCreate()
+)
+glueContext = GlueContext(spark.sparkContext, sparkSession=spark)
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+df = glueContext.create_dynamic_frame.from_options(connection_type = "postgresql", connection_options = {"url": "jdbc:postgresql://my-db-endpoint:5432/dbname", "password": "mypassword"}, transformation_ctx = "df")
+df.createOrReplaceTempView("myDataSource")
+spark.sql("CREATE TABLE IF NOT EXISTS glue_catalog.warehouse.items_agg USING iceberg TBLPROPERTIES ('format-version'='2') AS (SELECT name, count(1) as num_items FROM myDataSource);")
+job.commit()
+"""
+
 get_databases_delta_response = {
     "DatabaseList": [
         {
@@ -828,7 +1025,9 @@ delta_tables_1 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -858,7 +1057,9 @@ delta_tables_2 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -906,7 +1107,9 @@ tables_lineage_1 = [
         "DatabaseName": "flights-database-lineage",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -999,7 +1202,9 @@ tables_profiling_1 = [
         "DatabaseName": "flights-database-profiling",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -1103,6 +1308,10 @@ def get_object_response_1() -> Dict[str, Any]:
 
 def get_object_response_2() -> Dict[str, Any]:
     return mock_get_object_response(get_object_body_2)
+
+
+def get_object_response_3() -> Dict[str, Any]:
+    return mock_get_object_response(get_object_body_3)
 
 
 def get_bucket_tagging() -> Dict[str, Any]:

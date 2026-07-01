@@ -1,3 +1,7 @@
+---
+description: "Introduction to DataHub's metadata service authentication architecture, including tokens, sessions, and identity propagation."
+---
+
 # Metadata Service Authentication
 
 ## Introduction
@@ -55,6 +59,10 @@ OR
 
 - change the Metadata Service `application.yaml` configuration file to set `authentication.enabled` to "true" AND
 - change the Frontend Proxy Service `application.config` configuration file to set `metadataService.auth.enabled` to "true"
+
+:::note
+It is recommended that users provide their own values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` by updating `application.yaml` in Metadata Service or setting the corresponding environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT`
+:::
 
 After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication.
 

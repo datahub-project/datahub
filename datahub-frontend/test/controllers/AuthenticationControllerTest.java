@@ -4,12 +4,18 @@ import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
+import client.NativeUserCredentialVerifyResult;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
@@ -25,16 +31,17 @@ import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.DataEncrypter;
-import org.pac4j.play.store.PlayCookieSessionStore;
+import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
+import play.test.Helpers;
 
 public class AuthenticationControllerTest {
 
   private AuthenticationController controller;
   private Config mockConfig;
   private org.pac4j.core.config.Config ssoConfig;
-  private PlayCookieSessionStore playCookieSessionStore;
+  private DatahubPlayCookieSessionStore playCookieSessionStore;
   private SsoManager ssoManager;
   private AuthServiceClient authClient;
 
@@ -75,7 +82,7 @@ public class AuthenticationControllerTest {
     ssoConfig = new org.pac4j.core.config.Config();
 
     // Mock session store with custom serializer
-    playCookieSessionStore = new PlayCookieSessionStore(mock(DataEncrypter.class));
+    playCookieSessionStore = new DatahubPlayCookieSessionStore(mock(DataEncrypter.class));
     playCookieSessionStore.setSerializer(new MockSerializer());
 
     // Mock SSO manager
@@ -726,5 +733,36 @@ public class AuthenticationControllerTest {
             "Must not redirect to protocol-relative URL: " + redirectUriEncoded);
       }
     }
+  }
+
+  @Test
+  public void logInNativeAuthFailureReturnsBadRequest() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.jaas.enabled = false\n"
+                + "auth.native.enabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.authClient = authClient;
+    when(authClient.verifyNativeUserCredentials(anyString(), anyString()))
+        .thenReturn(new NativeUserCredentialVerifyResult(false, null));
+
+    Http.Request request = mock(Http.Request.class);
+    Http.RequestBody body = mock(Http.RequestBody.class);
+    when(request.body()).thenReturn(body);
+    when(body.asJson())
+        .thenReturn(Json.newObject().put("username", "someuser").put("password", "wrong"));
+
+    Result result = testController.logIn(request);
+
+    assertEquals(400, result.status());
+    assertEquals(
+        "Invalid Credentials", Json.parse(Helpers.contentAsString(result)).get("message").asText());
+    verify(authClient).verifyNativeUserCredentials("urn:li:corpuser:someuser", "wrong");
+    verify(authClient, never()).generateSessionTokenForUser(anyString(), anyString());
   }
 }

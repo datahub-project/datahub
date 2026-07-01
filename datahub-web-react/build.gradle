@@ -21,17 +21,12 @@ node {
   }
 
   // Version of node to use.
-  version = '22.16.0'
+  version = rootProject.ext.nodeVersion
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.22'
+  yarnVersion = rootProject.ext.yarnVersion
 
-  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
-  if (project.hasProperty('nodeDistBaseUrl')) {
-    distBaseUrl = project.getProperty('nodeDistBaseUrl')
-  } else {
-    distBaseUrl = 'https://nodejs.org/dist'
-  }
+  distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 
   // Set the work directory for unpacking node
   workDir = file("${project.projectDir}/.gradle/nodejs")
@@ -109,19 +104,41 @@ task yarnGenerate(type: Copy, dependsOn: yarnGenerateCacheable) {
   includeEmptyDirs = false
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+// Generate per-icon stub files so Vite can build them as separate lazy chunks.
+// Client downloads only the icon chunks it actually renders — none are in the main bundle.
+task generateLazyIconStubs(type: NodeTask, dependsOn: yarnInstall) {
+  script = file('scripts/generate-lazy-icon-stubs.js')
+
+  // Track the package version, not the 3000+ individual icon files — same correctness,
+  // one file to fingerprint instead of hashing the entire CSR directory.
+  inputs.file('node_modules/@phosphor-icons/react/package.json')
+  outputs.dir('src/app/mfeframework/lazy-icons')
+
+  // yarnGenerateCacheable reads src/ as part of its doFirst cleanup; mustRunAfter
+  // gives Gradle an explicit ordering so it doesn't flag the overlap as implicit.
+  mustRunAfter yarnGenerateCacheable
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
   args = ['run', 'start']
 }
 
-task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
   args = ['run', 'preview']
 }
 
-task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   // Explicitly runs in non-watch mode.
-  args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+  def testArgs = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+
+  // Support vitest sharding for CI parallelism (e.g. -PvitestShard=1/3)
+  if (project.hasProperty('vitestShard')) {
+    testArgs.addAll(['--shard', project.property('vitestShard')])
+  }
+
+  args = testArgs
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
@@ -137,11 +154,12 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.cacheIf { true }
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
     // Run on all files
+    inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
@@ -163,9 +181,27 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
-test.dependsOn([yarnInstall, yarnTest, yarnLint])
+// Verifies non-EN locale JSON files stay in sync with the `en` source of truth (stale keys,
+// placeholder drift). Only reads JSON, so it skips the expensive yarnGenerate codegen step.
+task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
+  args = ['run', 'check-i18n-parity']
+  inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))
+  def parity_sentinel = "${buildDir}/.yarn-i18n-parity-sentinel"
+  outputs.file(parity_sentinel)
+  doLast {
+    def file = file(parity_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
 
-task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+test.dependsOn([yarnInstall, yarnTest])
+
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   def targetFile = project.findProperty('file') ?: ''
 
   if (targetFile.isEmpty()) {
@@ -202,7 +238,7 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   }
 }
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   // Pass DataHub version via environment variable to vite build
   environment.put('DATAHUB_APP_VERSION', project.version)
 
@@ -262,12 +298,12 @@ def externalPrettierConfigs = [
 externalPrettierConfigs.each { config ->
   tasks.register("${config.name}PrettierCheck", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+    args = ['run', 'prettier', '--check', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWrite", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+    args = ['run', 'prettier', '--write', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
@@ -287,8 +323,20 @@ externalPrettierConfigs.each { config ->
     }
 
     logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
-    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "${rootProject.projectDir}/${it}" }
   }
+}
+
+tasks.register('docusaurusMarkdownLint', Exec) {
+  workingDir rootProject.projectDir
+  inputs.files(rootProject.fileTree(rootProject.projectDir) {
+    include '**/*.md'
+    include '**/*.mdx'
+    exclude '**/node_modules/**'
+    exclude '**/.gradle/**'
+    exclude '**/build/**'
+  })
+  commandLine 'python3', '.github/scripts/check_docusaurus_markdown.py'
 }
 
 clean {
@@ -317,4 +365,13 @@ jar {
   }
   archiveClassifier = 'assets'
 }
+
+tasks.register('lint') {
+  dependsOn yarnLint
+}
+
+tasks.register('lintFix') {
+  dependsOn yarnLintFix
+}
+
 build.dependsOn jar

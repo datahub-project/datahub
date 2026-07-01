@@ -1,6 +1,7 @@
 import React, { useContext, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -16,11 +17,17 @@ import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { EntityType, QueryEntity } from '@types';
 
+/* eslint-disable i18next/no-literal-string -- syntax highlighting language identifier and CSS value, not UI text */
+const DEFAULT_LANGUAGE = 'sql';
+const HIDDEN_STYLE = { display: 'none' };
+/* eslint-enable i18next/no-literal-string */
+
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
+    background: ${(props) => props.theme.colors.bgSurface} !important;
+    border-radius: 8px !important;
     span {
         font-family: 'Roboto Mono', monospace;
     }
@@ -36,26 +43,37 @@ export const ViewHeader = styled.div`
 `;
 
 export function SidebarDatasetViewDefinitionSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const statement = baseEntity?.dataset?.viewProperties?.logic;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Dataset, baseEntity?.dataset?.urn || '');
     if (!statement) return null;
 
-    return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
+    return (
+        <SidebarLogicSection
+            title={t('sidebar.logic.viewDefinitionTitle')}
+            statement={statement}
+            externalUrl={externalUrl}
+        />
+    );
 }
 
 export function SidebarDataJobTransformationLogicSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDataJobQuery>();
     const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
     if (!statement) return null;
 
-    return <SidebarLogicSection title="Logic" statement={statement} externalUrl={externalUrl} />;
+    return (
+        <SidebarLogicSection title={t('sidebar.logic.logicTitle')} statement={statement} externalUrl={externalUrl} />
+    );
 }
 
 export function SidebarQueryLogicSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
     const entityRegistry = useEntityRegistry();
@@ -70,7 +88,7 @@ export function SidebarQueryLogicSection() {
 
     return (
         <SidebarLogicSection
-            title="Logic"
+            title={t('sidebar.logic.logicTitle')}
             statement={statement}
             highlightedStrings={highlightedStrings}
             externalUrl={externalUrl}
@@ -86,7 +104,10 @@ interface HelperProps {
 }
 
 // exported for testing only
-export function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
 
@@ -95,12 +116,13 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
     function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
         const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
         if (highlightedLineNumbers.has(lineNumber)) {
-            style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
+            style.backgroundColor = theme.colors.bgSelectedSubtle;
         }
         return { style };
     }
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const language = baseEntity?.dataset?.viewProperties?.language;
 
     const canShowFormatted = !!formattedLogic;
 
@@ -118,7 +140,7 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         width="1000px"
                         buttons={[
                             {
-                                text: 'Close',
+                                text: tc('close'),
                                 variant: 'filled',
                                 onClick: () => setShowFullContentModal(false),
                             },
@@ -137,7 +159,11 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                                 )}
                                 <CopyQuery query={showFormatted ? formattedLogic || '' : statement} showCopyText />
                             </ViewHeader>
-                            <SyntaxHighlighter language="sql" showLineNumbers lineProps={lineProps}>
+                            <SyntaxHighlighter
+                                language={language?.toLowerCase() ?? DEFAULT_LANGUAGE}
+                                showLineNumbers
+                                lineProps={lineProps}
+                            >
                                 {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
@@ -150,10 +176,10 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                         />
                     )}
                     <PreviewSyntax
-                        language="sql"
+                        language={language?.toLowerCase() ?? DEFAULT_LANGUAGE}
                         showLineNumbers
                         wrapLines
-                        lineNumberStyle={{ display: 'none' }}
+                        lineNumberStyle={HIDDEN_STYLE}
                         lineProps={lineProps}
                     >
                         {showFormatted ? formattedLogic : statement}
@@ -169,7 +195,7 @@ export function SidebarLogicSection({ title, statement, highlightedStrings, exte
                             }
                         }}
                     >
-                        See Full
+                        {t('sidebar.logic.seeFullButton')}
                     </Button>
                 </>
             }

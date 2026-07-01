@@ -1,6 +1,9 @@
 import { Editor } from '@components';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -11,7 +14,6 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
 
@@ -37,7 +39,7 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
         .remirror-editor.ProseMirror {
             font-size: 15px;
             line-height: 1.7;
-            color: ${colors.gray[1700]};
+            color: ${(props) => props.theme.colors.text};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -88,11 +90,13 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     relatedAssets,
     relatedDocuments,
 }) => {
+    const { t } = useTranslation('entity.types');
     const [content, setContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isEditorFocused, setIsEditorFocused] = useState(false);
     const [editorVersion, setEditorVersion] = useState(0);
     const lastSavedContentRef = React.useRef<string>(initialContent || '');
+    const editorSectionRef = useRef<HTMLDivElement>(null);
     const { canEditContents } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
     const refetch = useRefetch();
@@ -237,6 +241,21 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         }
     }, [content, initialContent, saveDocument]);
 
+    const handleClickOutside = useCallback(() => {
+        setIsEditorFocused(false);
+        handleBlur();
+    }, [handleBlur]);
+
+    const clickOutsideOptions = useMemo(
+        () => ({
+            wrappers: [editorSectionRef],
+            ignoreSelector: '.ant-dropdown',
+        }),
+        [],
+    );
+
+    useClickOutside(handleClickOutside, clickOutsideOptions);
+
     // Save before navigating away
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -303,15 +322,9 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     return (
         <ContentWrapper>
             <EditorSection
+                ref={editorSectionRef}
                 data-testid="document-editor-section"
                 onFocus={() => setIsEditorFocused(true)}
-                onBlur={(e) => {
-                    // Only blur if we're actually leaving the editor section
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                        setIsEditorFocused(false);
-                        handleBlur();
-                    }
-                }}
             >
                 {canEditContents ? (
                     <StyledEditor
@@ -319,7 +332,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         key={`editor-${documentUrn}-${editorVersion}`}
                         content={content}
                         onChange={setContent}
-                        placeholder="Write about anything..."
+                        placeholder={t('document.writeAboutAnythingPlaceholder')}
                         hideBorder
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
@@ -336,7 +349,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         key={`editor-readonly-${documentUrn}-${editorVersion}`}
                         content={content}
                         readOnly
-                        placeholder="No content"
+                        placeholder={t('document.noContentPlaceholder')}
                         hideBorder
                     />
                 )}

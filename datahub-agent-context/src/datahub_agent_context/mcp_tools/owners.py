@@ -216,7 +216,7 @@ def add_owners(
         entity_urns: List of entity URNs to assign ownership to (e.g., dataset URNs, dashboard URNs)
         ownership_type: The type of ownership to assign. Must be one of:
                        - OwnershipType.TECHNICAL_OWNER: Involved in production, maintenance, or distribution
-                       - OwnershipType.BUSINESS_OWNER: Principle stakeholders or domain experts
+                       - OwnershipType.BUSINESS_OWNER: Principal stakeholders or domain experts
                        - OwnershipType.DATA_STEWARD: Involved in governance
 
     Returns:

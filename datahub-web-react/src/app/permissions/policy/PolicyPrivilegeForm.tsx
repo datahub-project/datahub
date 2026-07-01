@@ -1,10 +1,12 @@
 import { Tooltip } from '@components';
 import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import GlossarySelector from '@app/permissions/policy/GlossarySelector';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,
@@ -20,8 +22,9 @@ import {
 } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -41,6 +44,8 @@ type Props = {
     setPrivileges: (newPrivs: Array<string>) => void;
     focusPolicyUrn: string | undefined;
 };
+
+const ALL_PRIVILEGES_VALUE = 'All';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -66,7 +71,7 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.borderDisabled};
     line-height: 16px;
 `;
 
@@ -86,7 +91,10 @@ export default function PolicyPrivilegeForm({
     isEditState,
     focusPolicyUrn,
 }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
+    const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
     const [domainInputValue, setDomainInputValue] = useState('');
     const [containerInputValue, setContainerInputValue] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -381,7 +389,7 @@ export default function PolicyPrivilegeForm({
                     rel="noopener noreferrer"
                     to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
                 >
-                    View
+                    {tc('view')}
                 </Link>
             </SearchResultContainer>
         );
@@ -534,15 +542,17 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>} labelAlign="right">
+                <Form.Item
+                    label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}
+                    labelAlign="right"
+                >
                     <Typography.Paragraph>
-                        Select the types of resources this policy should apply to. If <b>none</b> is selected, policy is
-                        applied to <b>all</b> types of resources.
+                        <Trans t={t} i18nKey="privilegeForm.resourceTypeDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
                         value={resourceTypeSelectValue}
                         mode="multiple"
-                        placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
+                        placeholder={t('privilegeForm.resourceTypePlaceholder')}
                         onSelect={onSelectResourceType}
                         onDeselect={onDeselectResourceType}
                         tagRender={(tagProps) => (
@@ -564,17 +574,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.resourceLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
-                        applied to <b>all</b> resources of the given type.
+                        <Trans t={t} i18nKey="privilegeForm.resourceDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent="No search results found"
+                        notFoundContent={t('privilegeForm.resourceNotFound')}
                         value={resourceSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="Apply to ALL resources by default. Select specific resources to apply to."
+                        placeholder={t('privilegeForm.resourcePlaceholder')}
                         onSelect={onSelectResource}
                         onDeselect={onDeselectResource}
                         onSearch={handleResourceSearch}
@@ -599,17 +608,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Select Tags</Typography.Text>}>
-                    <Typography.Paragraph>
-                        The policy will apply to all entities containing all of the chosen tags. If no tags are
-                        selected, the policy will not account for tags.
-                    </Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.tagsLabel')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('privilegeForm.tagsDescription')}</Typography.Paragraph>
                     <TagSelect
                         data-testid="tag-term-modal-input"
                         mode="multiple"
                         ref={inputEl}
                         filterOption={false}
-                        placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                        placeholder={t('privilegeForm.tagSearchPlaceholder', {
+                            entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
+                        })}
                         showSearch
                         defaultActiveFirstOption={false}
                         onSelect={(asset: any) => onSelectValue(asset)}
@@ -631,10 +639,9 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Select Domains</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.domainsLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are
-                        selected, the policy is applied to <b>all</b> resources of in all domains.
+                        <Trans t={t} i18nKey="privilegeForm.domainsDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <ClickOutside onClickOutside={handleCLickOutside}>
                         <Select
@@ -642,7 +649,7 @@ export default function PolicyPrivilegeForm({
                             value={domainSelectValue}
                             mode="multiple"
                             filterOption={false}
-                            placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                            placeholder={t('privilegeForm.domainPlaceholder')}
                             onSelect={(value) => onSelectDomain(value)}
                             onDeselect={onDeselectDomain}
                             onSearch={handleDomainSearch}
@@ -671,17 +678,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Select Containers</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.containersLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        The policy will apply to resources only in the chosen containers. If <b>none</b> are selected,
-                        the policy is applied to resources in <b>all</b> containers.
+                        <Trans t={t} i18nKey="privilegeForm.containersDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
                         showSearch
                         value={containerSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="Apply to ALL containers by default. Select containers to apply to specific containers."
+                        placeholder={t('privilegeForm.containerPlaceholder')}
                         onSelect={(value) => onSelectContainer(value)}
                         onDeselect={onDeselectContainer}
                         onSearch={handleContainerSearch}
@@ -704,8 +710,13 @@ export default function PolicyPrivilegeForm({
                     </Select>
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
-                <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
+            {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.glossaryTermsLabel')}</Typography.Text>}>
+                    <GlossarySelector resources={resources} setResources={setResources} />
+                </Form.Item>
+            )}
+            <Form.Item label={<Typography.Text strong>{t('privilegesLabel')}</Typography.Text>}>
+                <Typography.Paragraph>{t('privilegeForm.privilegesDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="privileges"
                     value={privilegesSelectValue}
@@ -729,7 +740,9 @@ export default function PolicyPrivilegeForm({
                             </Select.Option>
                         );
                     })}
-                    <Select.Option value="All">All Privileges</Select.Option>
+                    <Select.Option data-testid="option-all-privileges" value={ALL_PRIVILEGES_VALUE}>
+                        {t('privilegeForm.allPrivileges')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
         </PrivilegesForm>

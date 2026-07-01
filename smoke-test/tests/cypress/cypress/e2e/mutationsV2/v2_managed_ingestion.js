@@ -18,9 +18,10 @@ function typeInMonacoEditor(text) {
     .type(text);
 }
 
-describe("run managed ingestion", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("run managed ingestion", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });

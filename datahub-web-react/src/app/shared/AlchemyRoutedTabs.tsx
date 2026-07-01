@@ -35,13 +35,33 @@ interface AlchemyRoutedTabsProps {
 const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
     height: 100%;
+
+    .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .ant-tabs-content {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ant-tabs-tabpane-active {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
 `;
 
 const RouteContainer = styled.div`
     flex: 1;
-    overflow: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 `;
 
 /**
@@ -68,12 +88,18 @@ export const AlchemyRoutedTabs = ({ defaultPath, tabs, onTabChange }: AlchemyRou
                         tabCount = tab.customTitle.props.count;
                     } else {
                         // Fallback for other custom titles
-                        tabName = typeof tab.name === 'string' ? tab.name : 'Tab';
+                        tabName =
+                            typeof tab.name === 'string'
+                                ? tab.name
+                                : /* untranslated-text -- defensive ReactNode fallback; almost never rendered */ 'Tab';
                         tabCount = tab.count;
                     }
                 } else {
                     // Use name directly (convert to string if needed)
-                    tabName = typeof tab.name === 'string' ? tab.name : 'Tab';
+                    tabName =
+                        typeof tab.name === 'string'
+                            ? tab.name
+                            : /* untranslated-text -- defensive ReactNode fallback; almost never rendered */ 'Tab';
                     tabCount = tab.count;
                 }
 

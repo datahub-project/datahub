@@ -348,10 +348,6 @@ public class JavaEntityClient implements EntityClient {
     auditStamp.setTime(Clock.systemUTC().millis());
 
     entityService.ingestEntity(opContext, entity, auditStamp, systemMetadata);
-    tryIndexRunId(
-        opContext,
-        com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()),
-        systemMetadata);
   }
 
   @SneakyThrows
@@ -683,6 +679,13 @@ public class JavaEntityClient implements EntityClient {
     return entityService.exists(opContext, urn, includeSoftDelete);
   }
 
+  @Override
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    return entityService.exists(opContext, urns, true);
+  }
+
   @SneakyThrows
   @Override
   @Deprecated
@@ -779,7 +782,6 @@ public class JavaEntityClient implements EntityClient {
 
               List<IngestResult> results =
                   entityService.ingestProposal(opContext, aspectsBatch, async);
-              entitySearchService.appendRunId(opContext, results);
 
               Map<Pair<Urn, String>, List<IngestResult>> resultMap =
                   results.stream()
@@ -806,11 +808,6 @@ public class JavaEntityClient implements EntityClient {
                                     .filter(Objects::nonNull)
                                     .distinct()
                                     .collect(Collectors.toList());
-
-                            // Update runIds
-                            urnsForRequest.forEach(
-                                urn ->
-                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
 
                             return urnsForRequest.isEmpty()
                                 ? null
@@ -871,7 +868,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String key,
       @Nonnull PlatformEvent event)
       throws Exception {
-    eventProducer.producePlatformEvent(name, key, event);
+    eventProducer.producePlatformEvent(opContext, name, key, event);
   }
 
   @Override
@@ -879,13 +876,6 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull Authorizer authorizer)
       throws Exception {
     rollbackService.rollbackIngestion(opContext, runId, false, true, authorizer);
-  }
-
-  private void tryIndexRunId(
-      @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
-    if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
-    }
   }
 
   protected <T> T withRetry(@Nonnull final Supplier<T> block, @Nullable String counterPrefix) {

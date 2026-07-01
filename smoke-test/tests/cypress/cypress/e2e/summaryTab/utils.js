@@ -6,12 +6,10 @@ import { hasOperationName } from "../utils";
 
 // Common
 
-export function setThemeV2AndSummaryTabFlags(isOn) {
+export function setSummaryTabFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
-        res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
         res.body.data.appConfig.featureFlags.assetSummaryPageV1 = isOn;
       });
@@ -71,8 +69,13 @@ export function setGlossaryTermToOpenedEntity(termName) {
     cy.clickOptionWithTestId("add-terms-button");
   });
 
-  cy.getWithTestId("tag-term-modal-input").filter(":visible").type(termName);
-  cy.get(".ant-select-item-option-content").contains(termName).click();
+  // AddTermsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(termName);
+  cy.get(`[data-testid="tag-term-option-${termName}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 }
 
@@ -80,11 +83,17 @@ export function setTagToOpenedEntity(tagName) {
   openSummaryTabOnSidebar();
 
   cy.get('[id="entity-profile-tags"]').within(() => {
+    cy.get('[data-testid="add-tags-button"]').should("not.be.disabled");
     cy.clickOptionWithTestId("add-tags-button");
   });
 
-  cy.getWithTestId("tag-term-modal-input").filter(":visible").type(tagName);
-  cy.get(".ant-select-item-option-content").contains(tagName).click();
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(tagName);
+  cy.get(`[data-testid="tag-term-option-${tagName}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
 }
 

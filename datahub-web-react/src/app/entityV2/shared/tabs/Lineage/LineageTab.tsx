@@ -1,5 +1,5 @@
-import { colors } from '@components';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -11,11 +11,10 @@ import LineageExplorer from '@app/lineage/LineageExplorer';
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import { useLineageV2 } from '@app/lineageV2/useLineageV2';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { LineageDirection } from '@types';
 
-const LINEAGE_SWITCH_WIDTH = 90;
+const LINEAGE_SWITCH_MIN_WIDTH = 90;
 
 const LineageTabWrapper = styled.div`
     display: flex;
@@ -24,24 +23,27 @@ const LineageTabWrapper = styled.div`
 `;
 
 const LineageSwitchWrapper = styled.div`
-    border: 1px solid ${colors.violet[600]};
+    border: 1px solid ${(props) => props.theme.colors.textBrand};
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
-    width: ${LINEAGE_SWITCH_WIDTH * 2}px;
+    width: fit-content;
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : '#fff')};
+    background: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.bg)};
     border-radius: 3px;
-    color: ${({ selected, theme }) => (selected ? '#fff' : `${getColor('primary', 600, theme)}`)};
+    color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textBrand)};
     cursor: pointer;
     display: flex;
+    flex: 1;
     font-size: 10px;
     justify-content: center;
     line-height: 24px;
     height: 24px;
-    width: ${LINEAGE_SWITCH_WIDTH}px;
+    min-width: ${LINEAGE_SWITCH_MIN_WIDTH}px;
+    padding: 0 12px;
+    white-space: nowrap;
 `;
 
 const VisualizationWrapper = styled.div`
@@ -69,6 +71,7 @@ export function LineageTab({ properties, renderType }: Props) {
 }
 
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
+    const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
@@ -80,10 +83,10 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                 <LineageTabHeader>
                     <LineageSwitchWrapper>
                         <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
-                            Explorer
+                            {t('viewSwitch.explorer')}
                         </LineageViewSwitch>
                         <LineageViewSwitch selected={!isVisualizeView} onClick={() => setVisualizeView(false)}>
-                            Impact Analysis
+                            {t('viewSwitch.impactAnalysis')}
                         </LineageViewSwitch>
                     </LineageSwitchWrapper>
                 </LineageTabHeader>

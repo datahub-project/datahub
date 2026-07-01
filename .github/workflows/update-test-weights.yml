@@ -26,12 +26,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
 
@@ -49,7 +49,6 @@ jobs:
       - name: Backup existing weights
         run: |
           mkdir -p ./weights-backup
-          cp smoke-test/tests/cypress/test_weights.json ./weights-backup/cypress_weights.json || echo "No existing Cypress weights"
           cp smoke-test/pytest_test_weights.json ./weights-backup/pytest_weights.json || echo "No existing Pytest weights"
 
       - name: Generate new test weights
@@ -57,7 +56,6 @@ jobs:
           echo "Generating test weights from downloaded artifacts..."
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts \
-            --cypress-output smoke-test/tests/cypress/test_weights.json \
             --pytest-output smoke-test/pytest_test_weights.json
 
       - name: Compare weights and generate PR body
@@ -65,8 +63,6 @@ jobs:
         run: |
           echo "Comparing old and new weights..."
           python .github/scripts/compare_test_weights.py \
-            --old-cypress ./weights-backup/cypress_weights.json \
-            --new-cypress smoke-test/tests/cypress/test_weights.json \
             --old-pytest ./weights-backup/pytest_weights.json \
             --new-pytest smoke-test/pytest_test_weights.json \
             --output ./pr-body.md \
@@ -93,7 +89,7 @@ jobs:
           git checkout -b "$BRANCH_NAME"
 
           # Add and commit changes
-          git add smoke-test/tests/cypress/test_weights.json smoke-test/pytest_test_weights.json
+          git add smoke-test/pytest_test_weights.json
 
           git commit -m "chore(test): update test weights from recent CI runs
 

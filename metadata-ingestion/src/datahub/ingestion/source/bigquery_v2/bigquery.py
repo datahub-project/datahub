@@ -1,8 +1,5 @@
-import atexit
-import functools
 import logging
-import os
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -13,9 +10,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -54,23 +49,15 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import QUERIES_EXTRACTION
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-# We can't use close as it is not called if the ingestion is not successful
-def cleanup(config: BigQueryV2Config) -> None:
-    if config._credentials_path is not None:
-        os.unlink(config._credentials_path)
 
 
 @platform_name("BigQuery", doc_order=1)
@@ -103,9 +90,8 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
 )
 @capability(
     SourceCapability.PARTITION_SUPPORT,
@@ -212,7 +198,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.add_config_to_report()
-        atexit.register(cleanup, config)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
@@ -243,29 +228,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    batch_size=self.config.schema_resolution_batch_size,
-                )
+                try:
+                    return provide_schema_resolver(
+                        graph=self.ctx.graph,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        batch_size=self.config.schema_resolution_batch_size,
+                    )
+                except Exception as e:
+                    self.report.report_warning(
+                        message="Failed to bulk-load schemas from DataHub for SQL lineage. "
+                        "Lineage resolution will proceed with an empty schema resolver.",
+                        context=str(e),
+                        exc=e,
+                    )
             else:
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing. "
                     "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. ",
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _warn_deprecated_configs(self):
         if (
@@ -340,6 +323,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         top_n_queries=self.config.usage.top_n_queries,
                         region_qualifiers=self.config.region_qualifiers,
+                        region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
@@ -347,6 +331,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
+                    discovered_locations=self.bq_schema_extractor.discovered_locations,
                 ) as queries_extractor,
             ):
                 self.report.queries_extractor = queries_extractor.report

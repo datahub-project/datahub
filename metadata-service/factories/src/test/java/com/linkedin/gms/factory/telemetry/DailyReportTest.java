@@ -178,7 +178,8 @@ public class DailyReportTest {
   @Test
   public void testGetTotalUserCountHandlesSearchError() throws Exception {
     // Set up mock to throw exception
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenThrow(new RuntimeException("Search failed"));
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -197,7 +198,8 @@ public class DailyReportTest {
   @Test
   public void testGetServiceAccountCountHandlesSearchError() throws Exception {
     // Set up mock to throw exception
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenThrow(new RuntimeException("Search failed"));
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -225,7 +227,8 @@ public class DailyReportTest {
 
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -252,7 +255,8 @@ public class DailyReportTest {
 
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -325,6 +329,40 @@ public class DailyReportTest {
         String.format(
             "anonymizeToBucket(%d) should return \"%s\" but got \"%s\"",
             input, expectedOutput, result));
+  }
+
+  @DataProvider(name = "extractPlatformNameTestCases")
+  public Object[][] extractPlatformNameTestCases() {
+    return new Object[][] {
+      // Valid URNs should return just the platform name
+      {"urn:li:dataPlatform:snowflake", "snowflake"},
+      {"urn:li:dataPlatform:bigquery", "bigquery"},
+      {"urn:li:dataPlatform:mysql", "mysql"},
+      {"urn:li:dataPlatform:custom-platform", "custom-platform"},
+      // Malformed URNs should fall back to the raw value
+      {"not-a-urn", "not-a-urn"},
+      {"urn:li:dataset:foo", "urn:li:dataset:foo"},
+      {"", ""},
+      // Null should return null
+      {null, null},
+    };
+  }
+
+  @Test(dataProvider = "extractPlatformNameTestCases")
+  public void testExtractPlatformName(String input, String expected) throws Exception {
+    DailyReport dailyReport = createDailyReportForTesting();
+
+    java.lang.reflect.Method method =
+        DailyReport.class.getDeclaredMethod("extractPlatformName", String.class);
+    method.setAccessible(true);
+
+    String result = (String) method.invoke(dailyReport, input);
+    assertEquals(
+        result,
+        expected,
+        String.format(
+            "extractPlatformName(\"%s\") should return \"%s\" but got \"%s\"",
+            input, expected, result));
   }
 
   @Test

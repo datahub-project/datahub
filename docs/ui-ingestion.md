@@ -1,3 +1,7 @@
+---
+description: "Set up no-code metadata ingestion in DataHub through the UI to automatically pull metadata from your data sources on a schedule."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Metadata Ingestion
@@ -120,7 +124,7 @@ _Ask DataHub (Public Beta - Cloud only) provides contextual assistance throughou
 :::
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub-2.png"/>
 </p>
 
 _Ask DataHub (Public Beta - Cloud only) helps you understand configuration options and provides tailored recommendations for your data source_
@@ -141,7 +145,9 @@ To create a secret:
 Once created, secrets can be referenced in your ingestion configuration forms using the dropdown menus provided for credential fields.
 
 :::caution Security Note
-Users with the `Manage Secrets` privilege can retrieve plaintext secret values through DataHub's GraphQL API. Ensure secrets are only accessible to trusted administrators.
+DataHub is **secure by default** for secret retrieval: GMS sets `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, which blocks browser sessions and user Personal Access Tokens from calling `getSecretValues` via GraphQL. Users with the `Manage Secrets` privilege can still create, update, and delete secrets; they cannot read plaintext values through the API unless an administrator relaxes the guard (for example `AUDIT` during a staged rollout).
+
+When a scheduled UI ingestion source runs, secrets are resolved by a trusted worker — [**datahub-actions**](actions/actions/executor.md) in OSS (system client credentials) or an **embedded executor** on DataHub Cloud (Remote Executor access token). UI secrets are decrypted server-side and sent to that worker over the DataHub API (TLS) at job time. For security-sensitive deployments, use [local secret backends](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations) instead of DataHub UI Secrets.
 :::
 
 #### Test Your Connection

@@ -2,7 +2,13 @@ import { MatchText, Popover, zIndices } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FontColorLevelOptions, FontColorOptions, FontSizeOptions, FontWeightOptions } from '@components/theme/config';
+import {
+    ColorOptions,
+    FontColorLevelOptions,
+    FontColorOptions,
+    FontSizeOptions,
+    FontWeightOptions,
+} from '@components/theme/config';
 import { getColor } from '@components/theme/utils';
 
 import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
@@ -10,7 +16,13 @@ import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
 const EntityTitleContainer = styled.div<{ $color?: FontColorOptions; $colorLevel?: FontColorLevelOptions }>`
     text-overflow: ellipsis;
     overflow: hidden;
-    color: ${(props) => getColor(props.$color, props.$colorLevel, props.theme)};
+    color: ${(props) => {
+        if (!props.$color) return 'inherit';
+        const semantic = props.theme.colors[props.$color];
+        return typeof semantic === 'string'
+            ? semantic
+            : getColor(props.$color as ColorOptions, props.$colorLevel, props.theme);
+    }};
 `;
 
 const PopoverWrapper = styled.div`

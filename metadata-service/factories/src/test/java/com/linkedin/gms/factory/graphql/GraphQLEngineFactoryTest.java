@@ -24,6 +24,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -49,12 +51,13 @@ import io.opentelemetry.api.trace.Tracer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.mockito.Answers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -76,6 +79,9 @@ import org.testng.annotations.Test;
       "platformAnalytics.enabled=false",
       "graphQL.concurrency.separateThreadPool=true",
       "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
+      "spring.main.allow-bean-definition-overriding=true",
     })
 public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
@@ -159,6 +165,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
+
+  @MockitoBean
+  @Qualifier("ingestionCliVersionMatrixService")
+  private IngestionCliVersionMatrixService versionMatrixService;
 
   @MockitoBean
   @Qualifier("timelineService")
@@ -256,7 +266,8 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
 
-  @MockitoBean(name = "baseElasticSearchComponents")
+  @Autowired
+  @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @MockitoBean
@@ -278,6 +289,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
+
+  @MockitoBean
+  @Qualifier("documentImportService")
+  private DocumentImportService documentImportService;
 
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
@@ -364,6 +379,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "entityRegistry", entityRegistry);
     setField(factoryWithAnalytics, "configProvider", configurationProvider);
     setField(factoryWithAnalytics, "gitVersion", gitVersion);
+    setField(factoryWithAnalytics, "versionMatrixService", versionMatrixService);
     setField(factoryWithAnalytics, "timelineService", timelineService);
     setField(factoryWithAnalytics, "nativeUserService", nativeUserService);
     setField(factoryWithAnalytics, "groupService", groupService);
@@ -521,8 +537,25 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @org.springframework.context.annotation.Configuration
   static class TestConfig {
 
-    @MockBean(name = "settingsBuilder")
-    public SettingsBuilder settingsBuilder;
+    @Bean(name = "settingsBuilder")
+    @Primary
+    public SettingsBuilder settingsBuilder() {
+      return Mockito.mock(SettingsBuilder.class);
+    }
+
+    @Bean(name = "entityService")
+    @Primary
+    @SuppressWarnings("unchecked")
+    public EntityService<?> entityService() {
+      return Mockito.mock(EntityService.class);
+    }
+
+    @Bean(name = "baseElasticSearchComponents")
+    @Primary
+    public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+        baseElasticSearchComponents() {
+      return Mockito.mock(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class);
+    }
 
     @Bean
     public SpringStandardPluginConfiguration springStandardPluginConfiguration() {

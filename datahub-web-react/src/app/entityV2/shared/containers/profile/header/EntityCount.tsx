@@ -1,15 +1,16 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { formatNumber } from '@app/shared/formatNumber';
 
-export const EntityCountText = styled(Typography.Text)`
+const EntityCountText = styled(Typography.Text)`
     display: inline-block;
     font-size: 12px;
     line-height: 20px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {
@@ -18,18 +19,14 @@ interface Props {
 }
 
 function EntityCount(props: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityCount, displayAssetsText } = props;
-
-    if (!entityCount || entityCount <= 0) return <EntityCountText className="entityCount">0 assets</EntityCountText>;
 
     return (
         <EntityCountText className="entityCount">
-            {entityCount.toLocaleString()}{' '}
-            {displayAssetsText ? (
-                <>{entityCount === 1 ? 'asset' : 'assets'}</>
-            ) : (
-                <>{entityCount === 1 ? 'entity' : 'entities'}</>
-            )}
+            {displayAssetsText
+                ? t('entityCount.asset', { count: entityCount ?? 0, formattedCount: formatNumber(entityCount ?? 0) })
+                : t('entityCount.entity', { count: entityCount ?? 0, formattedCount: formatNumber(entityCount ?? 0) })}
         </EntityCountText>
     );
 }

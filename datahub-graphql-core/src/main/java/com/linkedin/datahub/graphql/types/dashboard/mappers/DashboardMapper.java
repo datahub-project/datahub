@@ -4,7 +4,19 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
-import com.linkedin.common.*;
+import com.linkedin.common.Access;
+import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Embed;
+import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InputFields;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;

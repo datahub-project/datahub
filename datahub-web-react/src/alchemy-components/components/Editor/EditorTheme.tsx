@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     extensionBlockquoteStyledCss,
     extensionCalloutStyledCss,
@@ -15,10 +14,9 @@ import {
 import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
+import type { DefaultTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-
-export const EditorTheme: RemirrorThemeType = {
+export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
     ...defaultRemirrorTheme,
     fontSize: {
         default: '14px',
@@ -26,26 +24,26 @@ export const EditorTheme: RemirrorThemeType = {
     color: {
         border: 'none',
         outline: 'none',
-        primary: '#00B14F',
+        primary: theme.colors.textSuccess,
         table: {
             ...defaultRemirrorTheme.color.table,
-            mark: ANTD_GRAY[6],
+            mark: theme.colors.textDisabled,
             default: {
-                controller: ANTD_GRAY[3],
-                border: ANTD_GRAY[4.5],
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
             },
             selected: {
-                controller: ANTD_GRAY[4],
-                border: ANTD_GRAY[4.5],
-                cell: ANTD_GRAY[2.5],
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
+                cell: theme.colors.bgSurface,
             },
             preselect: {
-                controller: ANTD_GRAY[5],
-                border: ANTD_GRAY[6],
+                controller: theme.colors.borderDisabled,
+                border: theme.colors.border,
             },
         },
     },
-};
+});
 
 export const EditorContainer = styled.div<{
     $readOnly?: boolean;
@@ -68,7 +66,7 @@ export const EditorContainer = styled.div<{
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
+    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${props.theme.colors.border}`)};
     border-radius: 12px;
     padding-bottom: ${(props) => (props.$fixedBottomToolbar ? '100px' : '0')};
 
@@ -90,14 +88,14 @@ export const EditorContainer = styled.div<{
         line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
         white-space: pre-wrap;
         margin: 0;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
         min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
         max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
         overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
 
         a {
             font-weight: 500;
-            color: ${colors.primary[500]};
+            color: ${(props) => props.theme.colors.hyperlinks};
         }
 
         li {
@@ -118,19 +116,19 @@ export const EditorContainer = styled.div<{
 
         hr {
             margin: 2rem 0;
-            border-color: rgba(0, 0, 0, 0.06);
+            border-color: ${(props) => props.theme.colors.overlayLight};
         }
 
         .autocomplete {
             padding: 0.2rem;
-            background: ${ANTD_GRAY[4]};
+            background: ${(props) => props.theme.colors.bgSurface};
             border-radius: 4px;
         }
 
         table {
             display: block;
             th:not(.remirror-table-controller) {
-                background: ${ANTD_GRAY[2]};
+                background: ${(props) => props.theme.colors.bgSurface};
             }
 
             th:not(.remirror-table-controller),
@@ -146,7 +144,7 @@ export const EditorContainer = styled.div<{
         }
 
         &::-webkit-scrollbar-thumb {
-            background-color: ${colors.gray[300]};
+            background-color: ${(props) => props.theme.colors.textDisabled};
             border-radius: 2px;
         }
     }

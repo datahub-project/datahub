@@ -13,7 +13,7 @@ Architecture:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sql.hive.hive_data_fetcher import HiveDataFetcher
@@ -30,7 +30,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -43,9 +42,6 @@ from datahub.ingestion.source.sql.hive.hive_metastore_config import (
 )
 from datahub.ingestion.source.sql.hive.hive_metastore_report import (
     HiveMetastoreSourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -65,7 +61,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
-@capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
@@ -92,18 +87,14 @@ logger = logging.getLogger(__name__)
 )
 class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
     """
-    Extracts metadata from Hive Metastore.
+    Source that extracts metadata from Hive Metastore via SQL or Thrift connection.
 
-    Supports two connection methods selected via `connection_type`:
-    - sql: Direct connection to HMS backend database (MySQL/PostgreSQL)
-    - thrift: Connection to HMS Thrift API with Kerberos support
-
-    Features:
-    - Table and view metadata extraction
-    - Schema field types including complex types (struct, map, array)
-    - Storage lineage to S3, HDFS, Azure, GCS
-    - View lineage via SQL parsing
-    - Stateful ingestion for stale entity removal
+    Implementation notes:
+    - Uses HiveDataFetcher abstraction (SQLAlchemyDataFetcher or ThriftDataFetcher based on connection_type)
+    - Uses SqlParsingAggregator for extracting view lineage from view definitions
+    - Supports Presto/Trino view parsing from TABLE_PARAMS
+    - Implements stateful ingestion with StaleEntityRemovalHandler
+    - Complex type handling for struct/map/array schema fields
     """
 
     def __init__(self, config: HiveMetastore, ctx: PipelineContext) -> None:
@@ -162,12 +153,10 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                 platform_instance=config.platform_instance,
                 env=config.env,
                 graph=self.ctx.graph,
+                eager_graph_load=False,
             )
 
         # Initialize stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, config, ctx
-        )
 
     @classmethod
     def create(
@@ -267,13 +256,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return test_report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Return WorkUnit processors for stale entity removal."""
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate WorkUnits via the metadata processor."""

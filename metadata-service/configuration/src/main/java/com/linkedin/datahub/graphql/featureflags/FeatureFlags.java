@@ -53,8 +53,16 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
+  private boolean metricsEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
+  private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
+  private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean showTestsInHealthIcon = false;
+  private boolean createSchemaVersionIndex = false;
+  private boolean aspectMigrationMutatorEnabled = false;
+  private boolean i18nEnabled = false;
+  private boolean timeseriesAspectBatchLoadEnabled = true;
 }

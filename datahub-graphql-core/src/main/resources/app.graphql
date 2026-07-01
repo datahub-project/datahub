@@ -165,6 +165,11 @@ type PlatformPrivileges {
   manageGlobalViews: Boolean!
 
   """
+  Whether the user should be able to view and change platform-level settings (e.g. integrations).
+  """
+  manageGlobalSettings: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
@@ -840,6 +845,13 @@ type FeatureFlagsConfig {
   datasetSummaryPageV1: Boolean!
 
   """
+  If turned on, enables the Metrics feature end-to-end: the Metrics page in the nav, the
+  /metrics route, and downstream backend wiring once the Metric entity ships.
+  Defaults off in OSS while the feature is in development.
+  """
+  metricsEnabled: Boolean!
+
+  """
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
@@ -850,6 +862,16 @@ type FeatureFlagsConfig {
   documentationFileUploadV1: Boolean!
 
   """
+  If enabled, allows assets to belong to multiple data products simultaneously.
+  """
+  multipleDataProductsPerAsset: Boolean!
+
+  """
+  If enabled, allows glossary-based policies to be created.
+  """
+  glossaryBasedPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
@@ -858,6 +880,16 @@ type FeatureFlagsConfig {
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!
+
+  """
+  If enabled, shows tests in the health icon on entity pages.
+  """
+  showTestsInHealthIcon: Boolean!
+
+  """
+  If enabled, internationalization (i18n) features are active.
+  """
+  i18nEnabled: Boolean!
 }
 
 """

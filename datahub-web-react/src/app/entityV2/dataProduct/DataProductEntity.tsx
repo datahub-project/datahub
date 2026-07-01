@@ -1,11 +1,7 @@
-import {
-    AppstoreOutlined,
-    FileDoneOutlined,
-    FileOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -40,6 +36,7 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
@@ -53,16 +50,6 @@ export class DataProductEntity implements Entity<DataProduct> {
     type: EntityType = EntityType.DataProduct;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
-            );
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
@@ -70,9 +57,11 @@ export class DataProductEntity implements Entity<DataProduct> {
         }
 
         return (
-            <FileDoneOutlined
+            <Storefront
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -87,9 +76,9 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getPathName = () => 'dataProduct';
 
-    getEntityName = () => 'Data Product';
+    getEntityName = () => i18next.t('entity.types:dataProduct.name');
 
-    getCollectionName = () => 'Data Products';
+    getCollectionName = () => i18next.t('entity.types:dataProduct.namePlural');
 
     useEntityQuery = useGetDataProductQuery;
 
@@ -159,21 +148,21 @@ export class DataProductEntity implements Entity<DataProduct> {
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
-                name: 'Summary',
+                name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
                 icon: ReadOutlined,
             },
             ...(!showSummaryTab
                 ? [
                       {
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                       },
                   ]
                 : []),
             {
-                name: 'Assets',
+                name: i18next.t('entity.types:tab.assets'),
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
@@ -181,7 +170,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 icon: AppstoreOutlined,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -190,9 +179,9 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

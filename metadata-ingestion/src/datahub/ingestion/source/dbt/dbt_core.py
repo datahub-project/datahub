@@ -1,4 +1,6 @@
 import dataclasses
+import fnmatch
+import glob as glob_module
 import json
 import logging
 import re
@@ -27,6 +29,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
@@ -37,6 +40,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -45,14 +49,22 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTestResult,
     parse_freshness_criteria,
 )
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
+
+_GLOB_CHARACTERS = frozenset("*?[]")
+
+
+def _has_glob_characters(path: str) -> bool:
+    return any(c in path for c in _GLOB_CHARACTERS)
 
 
 @dataclasses.dataclass
 class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
+    run_results_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -75,8 +87,11 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub. "
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "Glob patterns are supported for S3, GCS, and local paths "
+        "(e.g. 's3://bucket/results/*/run_results.json', 'gs://bucket/results/*/run_results.json', "
+        "or '/path/to/results/*/run_results.json'). "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
@@ -99,6 +114,12 @@ class DBTCoreConfig(DBTCommonConfig):
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
 
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from gs://, GCS connection using HMAC credentials. "
+        "See https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+
     git_info: Optional[GitReference] = Field(
         None,
         description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
@@ -107,8 +128,7 @@ class DBTCoreConfig(DBTCommonConfig):
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @model_validator(mode="after")
-    def aws_connection_needed_if_s3_uris_present(self) -> "DBTCoreConfig":
-        # first check if there are fields that contain s3 uris
+    def cloud_connection_needed_if_cloud_uris_present(self) -> "DBTCoreConfig":
         uris = [
             getattr(self, f, None)
             for f in [
@@ -118,10 +138,15 @@ class DBTCoreConfig(DBTCommonConfig):
             ]
         ] + (self.run_results_paths or [])
         s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
-
         if s3_uris and self.aws_connection is None:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
+            )
+
+        gcs_uris = [uri for uri in uris if is_gcs_uri(uri or "")]
+        if gcs_uris and self.gcs_connection is None:
+            raise ValueError(
+                f"Please provide gcs_connection configuration, since gs:// uris have been provided {gcs_uris}"
             )
         return self
 
@@ -173,6 +198,41 @@ def get_columns(
         )
         columns.append(dbtCol)
     return columns
+
+
+def _extract_catalog_stats(
+    catalog_node: Optional[Dict[str, Any]],
+    node_name: Optional[str] = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Extract row_count and size_in_bytes from catalog node stats.
+
+    Returns:
+        Tuple of (row_count, size_in_bytes), each can be None if not available.
+    """
+    if catalog_node is None:
+        return None, None
+
+    catalog_stats = catalog_node.get("stats", {})
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
+
+    # Extract row count (num_rows)
+    num_rows_stat = catalog_stats.get("num_rows", {})
+    if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
+        try:
+            row_count = int(num_rows_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_rows stat for {node_name}: {e}")
+
+    # Extract size in bytes (num_bytes)
+    num_bytes_stat = catalog_stats.get("num_bytes", {})
+    if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
+        try:
+            size_in_bytes = int(num_bytes_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
+
+    return row_count, size_in_bytes
 
 
 def extract_dbt_entities(
@@ -234,6 +294,9 @@ def extract_dbt_entities(
                     )
         else:
             catalog_type = catalog_node["metadata"]["type"]
+
+        # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+        row_count, size_in_bytes = _extract_catalog_stats(catalog_node, node_name=key)
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -337,6 +400,8 @@ def extract_dbt_entities(
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
             freshness_info=freshness_info,
+            row_count=row_count,
+            size_in_bytes=size_in_bytes,
         )
 
         # Load columns from catalog, and override some properties from manifest.
@@ -405,6 +470,101 @@ def extract_dbt_exposures(
             )
         )
     return exposures
+
+
+def _resolve_database_schema(
+    node_relation: Dict[str, Any],
+    depends_on: Dict[str, Any],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve database/schema from node_relation or upstream dependencies."""
+    database = node_relation.get("database")
+    schema = node_relation.get("schema")
+
+    if database and schema:
+        return database, schema
+
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+    for ref_node_id in depends_on_nodes:
+        if ref_node_id in manifest_nodes:
+            ref_node = manifest_nodes[ref_node_id]
+            return (
+                database or ref_node.get("database"),
+                schema or ref_node.get("schema"),
+            )
+
+    return database, schema
+
+
+def extract_semantic_models(
+    manifest_semantic_models: Dict[str, Dict[str, Any]],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+    manifest_adapter: Optional[str],
+    tag_prefix: str,
+) -> List[DBTNode]:
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
+    semantic_model_nodes: List[DBTNode] = []
+
+    for key, sm_node in manifest_semantic_models.items():
+        name = sm_node.get("name", "")
+        description = sm_node.get("description", "")
+
+        node_relation = sm_node.get("node_relation", {})
+        depends_on = sm_node.get("depends_on", {})
+        database, schema = _resolve_database_schema(
+            node_relation, depends_on, manifest_nodes
+        )
+        alias = node_relation.get("alias")
+
+        entities = sm_node.get("entities", [])
+        dimensions = sm_node.get("dimensions", [])
+        measures = sm_node.get("measures", [])
+
+        columns = convert_semantic_model_fields_to_columns(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+        )
+
+        tags = sm_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        upstream_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        semantic_model_nodes.append(
+            DBTNode(
+                dbt_name=key,
+                dbt_adapter=manifest_adapter,
+                dbt_package_name=sm_node.get("package_name"),
+                database=database,
+                schema=schema,
+                name=name,
+                alias=alias,
+                dbt_file_path=sm_node.get("original_file_path"),
+                node_type="semantic_model",
+                max_loaded_at=None,
+                comment="",
+                description=description,
+                upstream_nodes=upstream_nodes,
+                materialization=None,
+                catalog_type=None,
+                missing_from_catalog=False,
+                meta=sm_node.get("meta", {}),
+                query_tag={},
+                tags=tags,
+                owner=None,
+                language="yaml",
+                columns=columns,
+                compiled_code=None,
+                raw_code=None,
+            )
+        )
+
+    return semantic_model_nodes
 
 
 class DBTRunTiming(BaseModel):
@@ -558,11 +718,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path, source_config.aws_connection
+                source_config.manifest_path,
+                source_config.aws_connection,
+                source_config.gcs_connection,
             )
             if source_config.catalog_path is not None:
                 DBTCoreSource.load_file_as_json(
-                    source_config.catalog_path, source_config.aws_connection
+                    source_config.catalog_path,
+                    source_config.aws_connection,
+                    source_config.gcs_connection,
                 )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
@@ -573,20 +737,172 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     @staticmethod
     def load_file_as_json(
-        uri: str, aws_connection: Optional[AwsConnectionConfig]
+        uri: str,
+        aws_connection: Optional[AwsConnectionConfig],
+        gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
         if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
+            resp = requests.get(uri, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
         elif is_s3_uri(uri):
             u = urlparse(uri)
-            assert aws_connection
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
+            if not aws_connection:
+                raise ValueError(f"AWS connection required for S3 URI: {uri}")
+            try:
+                response = aws_connection.get_s3_client().get_object(
+                    Bucket=u.netloc, Key=u.path.lstrip("/")
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
+            return json.loads(response["Body"].read().decode("utf-8"))
+        elif is_gcs_uri(uri):
+            u = urlparse(uri)
+            if not gcs_connection:
+                raise ValueError(f"GCS connection required for GCS URI: {uri}")
+            try:
+                response = (
+                    gcs_connection.s3_compatible_connection.get_s3_client().get_object(
+                        Bucket=u.netloc, Key=u.path.lstrip("/")
+                    )
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
             with open(uri) as f:
                 return json.load(f)
+
+    @staticmethod
+    def _expand_object_store_glob(
+        uri: str, connection: AwsConnectionConfig, scheme: str
+    ) -> List[str]:
+        u = urlparse(uri)
+        bucket = u.netloc
+        key_pattern = u.path.lstrip("/")
+
+        # Use the longest static prefix to limit object store listing scope
+        prefix_parts: List[str] = []
+        for part in key_pattern.split("/"):
+            if _has_glob_characters(part):
+                break
+            prefix_parts.append(part)
+        prefix = "/".join(prefix_parts)
+        if prefix:
+            prefix += "/"
+
+        s3_client = connection.get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
+
+        pattern_parts = key_pattern.split("/")
+        matched_keys: List[str] = []
+        total_scanned = 0
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                total_scanned += 1
+                key = obj["Key"]
+                key_parts = key.split("/")
+                if len(key_parts) == len(pattern_parts) and all(
+                    fnmatch.fnmatchcase(k, p)
+                    for k, p in zip(key_parts, pattern_parts, strict=True)
+                ):
+                    matched_keys.append(key)
+
+        logger.info(
+            f"{scheme} glob '{uri}': scanned {total_scanned} object(s) under "
+            f"prefix '{prefix}', matched {len(matched_keys)}"
+        )
+        return [f"{scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+
+    def _expand_cloud_glob(
+        self,
+        path: str,
+        connection: Optional[AwsConnectionConfig],
+        scheme: str,
+        *,
+        store_label: str,
+        connection_field: str,
+    ) -> List[str]:
+        # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
+        # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
+        connection_label = connection_field.split("_")[0].upper()
+        if not connection:
+            self.report.failure(
+                title=f"Missing {connection_label} connection for {store_label} glob",
+                message=f"{connection_field} is required for {store_label} glob pattern: {path}",
+            )
+            return []
+        try:
+            matched_paths = self._expand_object_store_glob(path, connection, scheme)
+        except Exception as e:
+            self.report.failure(
+                title=f"{store_label} glob expansion failed",
+                message=f"Failed to expand {store_label} glob pattern '{path}': {e}",
+            )
+            return []
+        if not matched_paths:
+            self.report.warning(
+                title=f"{store_label} glob pattern matched no objects",
+                message=f"Pattern '{path}' did not match any {store_label} objects",
+            )
+        else:
+            logger.info(
+                f"{store_label} glob pattern '{path}' expanded to "
+                f"{len(matched_paths)} file(s)"
+            )
+        return matched_paths
+
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+
+        for path in self.config.run_results_paths:
+            if not _has_glob_characters(path):
+                expanded_paths.append(path)
+                continue
+
+            if is_s3_uri(path):
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        self.config.aws_connection,
+                        "s3",
+                        store_label="S3",
+                        connection_field="aws_connection",
+                    )
+                )
+            elif is_gcs_uri(path):
+                gcs_connection = self.config.gcs_connection
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        gcs_connection.s3_compatible_connection
+                        if gcs_connection
+                        else None,
+                        "gs",
+                        store_label="GCS",
+                        connection_field="gcs_connection",
+                    )
+                )
+            elif re.match("^https?://", path):
+                self.report.warning(
+                    title="Glob patterns not supported for HTTP(S) URIs",
+                    message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
+                    "Please provide explicit file paths.",
+                )
+            else:
+                local_paths = sorted(glob_module.glob(path))
+                if not local_paths:
+                    self.report.warning(
+                        title="Local glob pattern matched no files",
+                        message=f"Pattern '{path}' did not match any local files",
+                    )
+                else:
+                    logger.info(
+                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                    )
+                expanded_paths.extend(local_paths)
+
+        return expanded_paths
 
     def loadManifestAndCatalog(
         self,
@@ -599,7 +915,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Optional[str],
     ]:
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path, self.config.aws_connection
+            self.config.manifest_path,
+            self.config.aws_connection,
+            self.config.gcs_connection,
         )
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         self.report.manifest_info = dict(
@@ -612,7 +930,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         dbt_catalog_metadata = None
         if self.config.catalog_path is not None:
             dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path, self.config.aws_connection
+                self.config.catalog_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
             self.report.catalog_info = dict(
@@ -620,6 +940,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_catalog_metadata.get("project_name", "unknown"),
             )
+            # Parse and store catalog's generated_at for use in DatasetProfile timestamps
+            if generated_at_str := dbt_catalog_metadata.get("generated_at"):
+                try:
+                    self.report.catalog_generated_at = parse_dbt_timestamp(
+                        generated_at_str
+                    )
+                except Exception:
+                    logger.debug(
+                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                    )
         else:
             self.report.warning(
                 title="No catalog file configured",
@@ -629,7 +959,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         sources_invocation_id = None
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path, self.config.aws_connection
+                self.config.sources_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             sources_results = dbt_sources_json["results"]
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
@@ -651,6 +983,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
         manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -679,6 +1012,24 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             manifest_exposures=manifest_exposures,
             tag_prefix=self.config.tag_prefix,
         )
+
+        # Extract semantic models from manifest (dbt 1.6+)
+        if (
+            self.config.entities_enabled.can_emit_semantic_models
+            and manifest_semantic_models
+        ):
+            semantic_model_nodes = extract_semantic_models(
+                manifest_semantic_models=manifest_semantic_models,
+                manifest_nodes=manifest_nodes,
+                manifest_adapter=manifest_adapter,
+                tag_prefix=self.config.tag_prefix,
+            )
+            nodes.extend(semantic_model_nodes)
+            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            if semantic_model_nodes:
+                logger.info(
+                    f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
+                )
 
         return (
             nodes,
@@ -730,11 +1081,17 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        for run_results_path in self.config.run_results_paths:
-            # This will populate the test_results and model_performance fields on each node.
+        expanded_run_results_paths = self._expand_run_results_paths()
+        if expanded_run_results_paths:
+            self.report.run_results_paths_expanded = expanded_run_results_paths
+        for run_results_path in expanded_run_results_paths:
             all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(run_results_path, self.config.aws_connection),
+                self.load_file_as_json(
+                    run_results_path,
+                    self.config.aws_connection,
+                    self.config.gcs_connection,
+                ),
                 all_nodes,
             )
 

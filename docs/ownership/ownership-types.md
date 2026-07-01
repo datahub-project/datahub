@@ -1,3 +1,7 @@
+---
+description: "Define custom Ownership Types in DataHub beyond the built-in Technical Owner, Business Owner, and Data Steward roles."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Custom Ownership Types

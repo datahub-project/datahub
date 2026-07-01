@@ -53,6 +53,7 @@ entities:
       - icebergCatalogInfo
       - logicalParent
       - assetSettings
+      - documentation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -87,6 +88,7 @@ entities:
       - incidentsSummary
       - testResults
       - dataTransformLogic
+      - documentation
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -112,6 +114,7 @@ entities:
       - forms
       - subTypes
       - testResults
+      - documentation
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -164,6 +167,7 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      - documentation
   - name: dashboard
     keyAspect: dashboardKey
     searchGroup: primary
@@ -190,6 +194,7 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      - documentation
       - access
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
@@ -211,6 +216,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - testResults
+      - documentation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -287,6 +293,7 @@ entities:
       - forms
       - testResults
       - access
+      - documentation
   - name: tag
     category: core
     keyAspect: tagKey
@@ -332,6 +339,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - domains
   - name: document
     category: core
     keyAspect: documentKey
@@ -380,6 +388,7 @@ entities:
       - assertionActions
       - status
       - globalTags
+      - ownership
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -430,6 +439,7 @@ entities:
       - versionProperties
       - subTypes
       - container
+      - documentation
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -453,6 +463,7 @@ entities:
       - subTypes
       - container
       - institutionalMemory
+      - documentation
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -487,6 +498,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -509,6 +521,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - documentation
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -591,6 +604,8 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - incidentExternalLinks
+      - incidentNotes
       - globalTags
   - name: dataHubRole
     category: core
@@ -676,6 +691,13 @@ entities:
     keyAspect: ownershipTypeKey
     aspects:
       - ownershipTypeInfo
+      - status
+  - name: lifecycleStageType
+    doc: Defines a lifecycle stage that entities can be placed in (e.g., Proposed, Certified, Archived). Controls search visibility and transition policies.
+    category: core
+    keyAspect: lifecycleStageTypeKey
+    aspects:
+      - lifecycleStageTypeInfo
       - status
   - name: businessAttribute
     category: core
@@ -786,6 +808,13 @@ plugins:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
+  mcpObservers:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPObserver'
       enabled: true
       spring:
         enabled: true

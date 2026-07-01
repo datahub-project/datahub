@@ -543,6 +543,15 @@ public interface EntityClient {
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete)
       throws RemoteInvocationException;
 
+  /**
+   * Returns the subset of urns whose entities exist (have materialized aspects, not hard-deleted).
+   *
+   * @param urns urns to check
+   * @return urns that exist
+   */
+  Set<Urn> filterExistingUrns(@Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException;
+
   @Nullable
   @Deprecated
   VersionedAspect getAspect(

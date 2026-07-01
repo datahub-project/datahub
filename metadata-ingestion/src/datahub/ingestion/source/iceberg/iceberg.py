@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import uuid
-from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -43,17 +42,12 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import NamespaceKey
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -63,15 +57,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    AutoSystemMetadata,
-    auto_fix_duplicate_schema_field_paths,
-    auto_fix_empty_field_paths,
-    auto_lowercase_urns,
-    auto_materialize_referenced_tags_terms,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import (
@@ -83,11 +70,32 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms import (
+    AutoMaterializeReferencedTagsTermsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_empty_schema_field_paths import (
+    ValidateEmptySchemaFieldPathsProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
@@ -102,6 +110,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    DomainsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -124,7 +133,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.PLATFORM_INSTANCE,
     "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
-@capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
     SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
@@ -139,12 +148,13 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 class IcebergSource(StatefulIngestionSourceBase):
     """
-    ## Integration Details
+    Source that extracts metadata from Iceberg tables via pyiceberg library.
 
-    The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
-    Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
-    implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
-    [pyiceberg library](https://py.iceberg.apache.org/).
+    Implementation notes:
+    - Uses pyiceberg for catalog access (Glue, REST, SQL, filesystem-based)
+    - Supports multiple blob storage backends (S3, ADLS, GCS, MinIO)
+    - Parallel processing of manifest files via processing_threads
+    - Extracts schema, partitioning, and table properties
     """
 
     platform: str = "iceberg"
@@ -164,51 +174,19 @@ class IcebergSource(StatefulIngestionSourceBase):
         config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # This source needs to overwrite standard `get_workunit_processor`, because it is unique in terms of usage
-        # of parallelism. Because of this, 2 processors won't work as expected:
-        # 1. browse_path_processor - it needs aspects for a single entity to be continuous - which is not guaranteed
-        #    in this source
-        # 2. automatic stamping with systemMetadata - in current implementation of the Source class this processor
-        #    would have been applied in a thread (single) shared between the source, processors and transformers.
-        #    Since the metadata scraping happens in separate threads, this could lead to difference between
-        #    time used by systemMetadata and actual time at which metadata was read
-        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-            and (
-                (
-                    hasattr(
-                        self.ctx.pipeline_config.source.config,
-                        "convert_urns_to_lowercase",
-                    )
-                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
-                )
-                or (
-                    hasattr(self.ctx.pipeline_config.source.config, "get")
-                    and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
-                    )
-                )
-            )
-        ):
-            auto_lowercase_dataset_urns = auto_lowercase_urns
-
+    def get_allowed_workunit_processors(self):
+        # Explicit whitelist: this source uses parallel threads for metadata scraping,
+        # so processors that assume sequential, per-entity ordering (auto_status_aspect,
+        # auto_browse_path_v2) are unsafe. New processors must be explicitly opted in here.
         return [
-            auto_lowercase_dataset_urns,
-            auto_materialize_referenced_tags_terms,
-            partial(
-                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
-            ),
-            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
-            partial(auto_workunit_reporter, self.get_report()),
-            auto_patch_last_modified,
-            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            EnsureAspectSizeProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:
@@ -495,6 +473,10 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
             yield ContainerClass(container=str(namespace_urn))
 
+            domain_urn = self._gen_domain_urn(dataset_name)
+            if domain_urn:
+                yield DomainsClass(domains=[domain_urn])
+
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
         )
@@ -686,6 +668,17 @@ class IcebergSource(StatefulIngestionSourceBase):
         dpi = self._get_dataplatform_instance_aspect()
         yield dpi
         yield self._create_browse_paths_aspect(dpi.instance)
+
+        domain_urn = self._gen_domain_urn(namespace_repr)
+        if domain_urn:
+            yield DomainsClass(domains=[domain_urn])
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                return make_domain_urn(domain)
+
+        return None
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):

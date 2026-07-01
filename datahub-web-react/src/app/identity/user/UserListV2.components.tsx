@@ -1,10 +1,14 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Avatar, Button, Pill, ResizablePills, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Pill, ResizablePills, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -27,7 +31,7 @@ const UserInfo = styled.div`
 const UserDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const GroupTags = styled.div`
@@ -45,6 +49,16 @@ const ActionsButtonStyle = {
     boxShadow: 'none',
 };
 
+const GroupPillStyle = { margin: '0 2px 2px 0' };
+
+export const PageContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
+
 export const UserContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -56,21 +70,10 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px);
-    overflow: auto;
+    overflow: hidden;
 
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: white;
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+    table {
+        table-layout: fixed;
     }
 `;
 
@@ -84,6 +87,13 @@ export const FiltersHeader = styled.div`
 export const SearchContainer = styled.div`
     display: flex;
     flex-direction: column;
+    flex: 1;
+`;
+
+export const PaginationContainer = styled.div`
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
 `;
 
 export const FilterContainer = styled.div`
@@ -170,18 +180,20 @@ export const UserStatusCell = ({ user }: StatusCellProps) => {
     const statusText = getUserStatusText(status, user as any);
     const statusColor = getUserStatusColor(status, user as any);
 
-    return <Pill variant="outline" color={statusColor} label={statusText} />;
+    return <Pill variant="filled" color={statusColor} label={statusText} />;
 };
 
 // User groups cell component
 export const UserGroupsCell = ({ user }: GroupsCellProps) => {
+    const { t } = useTranslation('entity.identity');
     const groupRelationships = user?.groups?.relationships || [];
+    const unknownGroup = t('users.groups.unknown');
     const groups = groupRelationships.map((relationship) => {
         const group = relationship.entity;
         if (group?.__typename === 'CorpGroup') {
-            return group?.info?.displayName || group?.properties?.displayName || group?.name || 'Unknown Group';
+            return group?.info?.displayName || group?.properties?.displayName || group?.name || unknownGroup;
         }
-        return 'Unknown Group';
+        return unknownGroup;
     });
 
     return (
@@ -194,11 +206,11 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
                 minContainerWidthForOne={100}
                 keyExtractor={(groupName) => groupName}
                 renderPill={(groupName) => (
-                    <Pill variant="outline" color="gray" label={groupName} customStyle={{ margin: '0 2px 2px 0' }} />
+                    <Pill variant="outline" color="gray" label={groupName} customStyle={GroupPillStyle} />
                 )}
                 overflowTooltipContent={() => (
                     <div>
-                        <div style={{ fontWeight: 'bold', color: '#374066' }}>Groups</div>
+                        <div style={{ fontWeight: 'bold' }}>{t('users.groups.overflowTitle')}</div>
                         <div
                             style={{
                                 display: 'flex',
@@ -221,6 +233,7 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
 
 // User actions menu component
 export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDelete }: UserActionsMenuProps) => {
+    const { t } = useTranslation('entity.identity');
     const { onDeleteEntity } = useDeleteEntity(
         user.urn,
         EntityType.CorpUser,
@@ -235,16 +248,16 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
             ? {
                   type: 'item' as const,
                   key: 'reset',
-                  title: 'Reset Password',
-                  icon: 'Key' as const,
+                  title: t('users.resetPassword'),
+                  icon: Key,
                   onClick: () => onResetPassword(user),
               }
             : null,
         {
             type: 'item' as const,
             key: 'delete',
-            title: 'Delete User',
-            icon: 'Trash' as const,
+            title: t('users.deleteUser'),
+            icon: Trash,
             onClick: onDeleteEntity,
             danger: true,
         },
@@ -254,7 +267,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
         <Menu items={menuItems}>
             <Button
                 variant="text"
-                icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                 isCircle
                 style={ActionsButtonStyle}
             />

@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName, getUniqueTestId } from "../utils";
 
-describe("manage service accounts", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("manage service accounts", () => {
   before(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
@@ -13,8 +14,6 @@ describe("manage service accounts", () => {
         req.alias = "gqlappConfigQuery";
         req.on("response", (res) => {
           res.body.data.appConfig.authConfig.tokenAuthEnabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
           res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
           res.body.data.appConfig.featureFlags.inviteUsersEnabled =
             inviteUsersEnabled;
@@ -38,8 +37,7 @@ describe("manage service accounts", () => {
     const newTokenDescription = `New UI test token ${newTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 
@@ -108,8 +106,7 @@ describe("manage service accounts", () => {
     const cancelServiceAccountName = `Cancel Test ${cancelTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 
@@ -138,8 +135,7 @@ describe("manage service accounts", () => {
     const keepServiceAccountName = `Keep Test ${keepTestId}`;
 
     setFeatureFlags(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
 
     navigateToServiceAccountsTab();
 

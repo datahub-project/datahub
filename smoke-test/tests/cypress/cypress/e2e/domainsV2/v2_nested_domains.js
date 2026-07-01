@@ -82,8 +82,13 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
-  cy.get('[data-testid="tag-term-modal-input"]').type(text);
-  cy.get('[data-testid="tag-term-option"]').contains(text).click();
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.get('[data-testid="tag-term-modal-input"]').click();
+  cy.get('[data-testid="dropdown-search-input"]').type(text);
+  cy.get(`[data-testid="tag-term-option-${text}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithText(body);
   cy.get('[data-testid="add-tag-term-from-modal-btn"]').click();
   cy.get('[id$="-panel-Assets"]').within(() => {
@@ -107,7 +112,6 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
     cy.skipIntroducePage();
     cy.goToDomainList();
@@ -328,6 +332,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Dashboards");
     cy.reload();
+    cy.get("#entity-profile-tags", { timeout: 10000 }).should("be.visible");
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
 

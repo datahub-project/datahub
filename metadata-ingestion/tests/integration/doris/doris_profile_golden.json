@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -243,7 +243,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -261,7 +261,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -282,7 +282,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -298,7 +298,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -407,7 +407,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -425,7 +425,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -462,7 +462,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -583,7 +583,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -601,7 +601,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -622,7 +622,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -638,7 +638,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -738,7 +738,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -756,7 +756,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -774,7 +774,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -789,7 +789,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 1586840400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -798,11 +798,11 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 1586840400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -811,7 +811,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 }
             ],
             "fineGrainedLineages": [
@@ -826,7 +826,7 @@
                     ],
                     "transformOperation": "COPY: `c`.`customer_id` AS `customer_id`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -839,7 +839,7 @@
                     ],
                     "transformOperation": "COPY: `c`.`customer_name` AS `customer_name`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -852,7 +852,7 @@
                     ],
                     "transformOperation": "SQL: COUNT(`dorisdb`.`o`.`order_id`) AS `order_count`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -865,13 +865,13 @@
                     ],
                     "transformOperation": "SQL: SUM(`dorisdb`.`o`.`total_amount`) AS `total_spent`",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29"
+                    "query": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -892,14 +892,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -915,20 +915,20 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1586844000197,
+                "time": 1586840400000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -971,14 +971,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -987,14 +987,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adoris%2Cdorisdb.customer_orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_102d883da13215173f6415c2f066000d18100cc9a48d8cb29fa87011f0ceefca",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1003,7 +1003,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1015,7 +1015,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1032,6 +1032,7 @@
                     "min": "1",
                     "max": "1",
                     "mean": "1.0",
+                    "median": "1",
                     "stdev": "0.0",
                     "sampleValues": [
                         "1"
@@ -1053,10 +1054,10 @@
                     "uniqueProportion": 1,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:43",
+                    "max": "2026-05-15T16:39:43",
                     "sampleValues": [
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:43"
                     ]
                 },
                 {
@@ -1084,7 +1085,10 @@
                 {
                     "fieldPath": "metadata",
                     "nullCount": 0,
-                    "nullProportion": 0.0
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "{\"key\":\"value\"}"
+                    ]
                 },
                 {
                     "fieldPath": "percentile_data",
@@ -1095,7 +1099,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1107,7 +1111,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1174,19 +1178,19 @@
                     "uniqueProportion": 0.3333333333333333,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:42",
+                    "max": "2026-05-15T16:39:42",
                     "sampleValues": [
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42"
                     ]
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1198,7 +1202,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1263,8 +1267,8 @@
                     "uniqueProportion": 1,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "75.5",
-                    "max": "300.0",
+                    "min": "75.50",
+                    "max": "300.00",
                     "mean": "181.375",
                     "median": "175.0",
                     "stdev": "94.18543323324118",
@@ -1294,20 +1298,20 @@
                     "uniqueProportion": 0.25,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:42",
+                    "max": "2026-05-15T16:39:42",
                     "sampleValues": [
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42"
                     ]
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1323,7 +1327,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1339,7 +1343,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1355,7 +1359,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }

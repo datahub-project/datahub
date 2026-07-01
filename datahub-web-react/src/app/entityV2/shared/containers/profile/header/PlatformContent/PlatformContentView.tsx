@@ -38,7 +38,7 @@ const PlatformContentWrapper = styled.div`
 const PlatformText = styled(Typography.Text)`
     font-size: 10px;
     font-weight: 400;
-    color: #6c6b88;
+    color: ${(props) => props.theme.colors.textSecondary};
     text-transform: capitalize;
     white-space: nowrap;
 `;
@@ -46,7 +46,7 @@ const PlatformText = styled(Typography.Text)`
 const PlatformDivider = styled.div`
     display: inline-block;
     margin: 0 10px;
-    border-left: 1px solid #d5d5d5;
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     height: 16px;
     vertical-align: text-top;
 `;
@@ -125,6 +125,7 @@ function PlatformContentView(props: Props) {
                             ))}
                     </LogoIcon>
                     <PlatformText>
+                        {/* eslint-disable-next-line i18next/no-literal-string -- separator joining platform names, not standalone UI text */}
                         <span>{showSiblingPlatformNames ? platformNames.join(' & ') : platformName}</span>
                     </PlatformText>
                     <PlatformDivider data-testid="platform-divider" />
@@ -143,6 +144,7 @@ function PlatformContentView(props: Props) {
                 title={getParentContainerNames(parentContainers)}
                 overlayStyle={areContainersTruncated ? {} : { display: 'none' }}
             >
+                {/* eslint-disable-next-line i18next/no-literal-string -- visual truncation indicator, not translatable UI text */}
                 {areContainersTruncated && <Ellipsis>...</Ellipsis>}
                 <ParentContainersWrapper ref={parentContainersRef}>
                     {remainingParentContainers &&

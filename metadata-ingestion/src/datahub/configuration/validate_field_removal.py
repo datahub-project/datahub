@@ -1,23 +1,22 @@
 import warnings
-from typing import TYPE_CHECKING, Type
+from typing import Any, Type
 
 from pydantic import model_validator
 
 from datahub.configuration.common import ConfigurationWarning
 
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1RootValidator
-
 
 def pydantic_removed_field(
     field: str,
+    month: str,
+    year: int,
     print_warning: bool = True,
-) -> "V1RootValidator":
+) -> Any:
     def _validate_field_removal(cls: Type, values: dict) -> dict:
         if field in values:
             if print_warning:
                 warnings.warn(
-                    f"The {field} was removed, please remove it from your recipe.",
+                    f"The {field} was removed on {month} {year}, please remove it from your recipe.",
                     ConfigurationWarning,
                     stacklevel=2,
                 )

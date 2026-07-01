@@ -7,9 +7,9 @@ const SAMPLE_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 const SAMPLE_DATASET_NAME = "SampleCypressHiveDataset";
 
-describe("tags - assign/unassign", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("tags - assign/unassign", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

@@ -551,7 +551,8 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
     SearchResponse mockResponse = mock(SearchResponse.class, withSettings().stubOnly());
-    when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Create a configuration with a specific limit
@@ -578,7 +579,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
     SearchSourceBuilder sourceBuilder = capturedRequest.source();
@@ -593,7 +595,8 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     // Use stubOnly() to avoid Mockito's expensive location tracking in concurrent contexts
     SearchResponse mockResponse = mock(SearchResponse.class, withSettings().stubOnly());
-    when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Create a configuration with a specific limit
@@ -622,7 +625,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
     SearchSourceBuilder sourceBuilder = capturedRequest.source();
@@ -676,14 +680,18 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchResponse emptySearchResponse = createEmptySearchResponse(0);
 
     // Mock search calls: first 2 calls return results, subsequent calls return empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // First slice, first page
         .thenReturn(emptySearchResponse) // First slice, no more pages
         .thenReturn(searchResponse2) // Second slice, first page
         .thenReturn(emptySearchResponse); // Second slice, no more pages
 
     // Mock scroll calls for Elasticsearch 7 DAO (which uses scroll instead of PIT)
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(emptySearchResponse); // All scroll calls return empty (no more results)
 
     // Test getImpactLineage with 2 slices
@@ -697,7 +705,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Verify that search was called 2 times (1 initial search per slice)
     // Elasticsearch 7 DAO uses scroll for pagination, not repeated search calls
-    verify(mockClient, times(2)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(mockClient, times(2))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test(timeOut = 10000) // Add timeout to prevent hanging in test suites
@@ -895,17 +904,22 @@ public class GraphQueryElasticsearch7DAOTest {
     // Mock search for slice 0: initial search returns 2 hits, scroll returns 2 more (total 4, but
     // limit is 3)
     // Mock search for slice 1: returns empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // Slice 0, initial search
         .thenReturn(emptyResponse); // Slice 1, initial search (empty)
 
     // Mock scroll for slice 0: returns more hits
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(scrollResponse1) // Slice 0, scroll page 1
         .thenReturn(emptyResponse); // Slice 0, scroll page 2 (empty, but won't be reached)
 
     // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
     // When partialResults=true and a slice reaches maxRelations, should return partial results
@@ -978,17 +992,22 @@ public class GraphQueryElasticsearch7DAOTest {
     // Mock search for slice 0: initial search returns 2 hits, scroll returns 2 more (total 4, but
     // limit is 3)
     // Mock search for slice 1: returns empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // Slice 0, initial search
         .thenReturn(emptyResponse); // Slice 1, initial search (empty)
 
     // Mock scroll for slice 0: returns more hits, then empty to prevent infinite loops
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(scrollResponse1) // Slice 0, scroll page 1 (will push it over the limit)
         .thenReturn(emptyResponse); // Subsequent scrolls return empty to prevent infinite loops
 
     // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
     // When partialResults=false and a slice reaches maxRelations, should throw
@@ -1139,7 +1158,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Mock search to delay, simulating a timeout scenario
     // We'll make the first search return results, but delay to trigger timeout check
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Simulate delay that would cause timeout
@@ -1200,7 +1220,8 @@ public class GraphQueryElasticsearch7DAOTest {
             "DownstreamOf");
     SearchResponse searchResponse = createFakeSearchResponse(hits, 10);
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Simulate delay that would cause timeout
@@ -1213,32 +1234,25 @@ public class GraphQueryElasticsearch7DAOTest {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
       Assert.fail("Should throw exception when timeout occurs with partialResults=false");
     } catch (RuntimeException e) {
-      // The exception may be wrapped, so check both the exception and its cause
+      // Slice timeouts wrap java.util.concurrent.TimeoutException, which often has a null
+      // message; the wrapper message is "Slice N timed out after … seconds".
       Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      boolean isTimeoutException = false;
-
-      // Check if the cause is an RuntimeException with timeout message
-      if (cause instanceof RuntimeException) {
-        String causeMessage = cause.getMessage();
-        isTimeoutException =
-            (causeMessage != null
-                && (causeMessage.contains("timed out") || causeMessage.contains("timeout")));
-      }
-
-      // Also check if the wrapper message indicates a timeout
-      if (!isTimeoutException
-          && message != null
-          && (message.contains("timed out") || message.contains("timeout"))) {
-        isTimeoutException = true;
-      }
+      String top = e.getMessage();
+      String causeMsg = cause != null ? cause.getMessage() : null;
+      boolean isTimeoutException =
+          cause instanceof java.util.concurrent.TimeoutException
+              || (top != null
+                  && (top.contains("timed out") || top.toLowerCase().contains("timeout")))
+              || (causeMsg != null
+                  && (causeMsg.contains("timed out")
+                      || causeMsg.toLowerCase().contains("timeout")));
 
       Assert.assertTrue(
           isTimeoutException,
           "Exception should indicate timeout. Got: "
               + e.getClass().getSimpleName()
               + " - "
-              + message
+              + top
               + (cause != null
                   ? " (cause: "
                       + cause.getClass().getSimpleName()
@@ -1297,7 +1311,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Mock search to return results quickly first, then delay on subsequent calls
     // This ensures we get some results, then timeout occurs
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse) // First call returns quickly with results
         .thenAnswer(
             invocation -> {
@@ -1307,11 +1322,15 @@ public class GraphQueryElasticsearch7DAOTest {
             });
 
     // Mock scroll - return quickly to complete first hop
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(emptyResponse); // Complete quickly
 
     // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
     // When partialResults=true and remainingTime < 0, should return partial results
@@ -1379,7 +1398,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Mock search - first call returns quickly, second call delays to consume timeout
     // This ensures first hop completes, then timeout occurs before second hop
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse) // First hop - return quickly with results
         .thenAnswer(
             invocation -> {
@@ -1389,11 +1409,15 @@ public class GraphQueryElasticsearch7DAOTest {
             });
 
     // Mock scroll - return quickly to complete first hop
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(emptyResponse);
 
     // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
     // When partialResults=false and remainingTime < 0, should throw IllegalStateException
@@ -1507,12 +1531,16 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchResponse scrollResponse2 = createFakeSearchResponse(hits2, 2, "scroll_id_1");
 
     // Mock search - first slice returns immediately, but scroll takes time
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // Slice 0, initial search
         .thenReturn(emptyResponse); // Slice 1, initial search (empty)
 
     // Mock scroll - first slice takes time on scroll, consuming remainingTime
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // First scroll takes time, simulating processing that consumes remainingTime
@@ -1522,7 +1550,8 @@ public class GraphQueryElasticsearch7DAOTest {
         .thenReturn(emptyResponse); // First slice completes
 
     // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
     // When partialResults=true and remainingTime <= 0 during slice processing,
@@ -1595,7 +1624,8 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchResponse emptyResponse = createEmptySearchResponse(2);
 
     // Mock search to take time for first slice, causing remainingTime to become <= 0
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // First slice takes time, simulating processing that consumes remainingTime
@@ -1631,8 +1661,9 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test(timeOut = 10000)
   public void testProcessSliceFuturesExceptionWithPartialResultsAndCollectedRelationships()
       throws Exception {
-    // Test that when an exception occurs during slice processing, allowPartialResults=true,
-    // and some relationships have been collected, we log a warning and return partial results
+    // With allowPartialResults=true, a slice that fails during scroll yields a skipped slice and
+    // LineageResponse.partial=true. Use a single slice so Mockito stubs are deterministic (parallel
+    // slices consume search/scroll stubs in arbitrary order, so a late thenThrow may never run).
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -1643,19 +1674,18 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
-    // Create a configuration with multiple slices and partialResults=true
     ElasticSearchConfiguration testConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
                         TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .timeoutSeconds(10) // Reasonable timeout
+                            .timeoutSeconds(10)
                             .impact(
                                 TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .maxRelations(1000) // High limit so we don't hit it
+                                    .maxRelations(1000)
                                     .partialResults(true)
-                                    .slices(3) // Use 3 slices
+                                    .slices(1)
                                     .searchQueryTimeReservation(0.2)
                                     .build())
                             .build())
@@ -1665,7 +1695,6 @@ public class GraphQueryElasticsearch7DAOTest {
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
 
-    // Create hits for the first slice that will succeed
     SearchHit[] hits1 =
         createFakeLineageHits(
             2,
@@ -1674,50 +1703,26 @@ public class GraphQueryElasticsearch7DAOTest {
             "DownstreamOf");
 
     SearchResponse searchResponse1 = createFakeSearchResponse(hits1, 2);
-    SearchResponse emptyResponse = createEmptySearchResponse(2);
 
-    // Mock scroll for slice processing
-    SearchResponse scrollResponse1 = createFakeSearchResponse(hits1, 2, "scroll_id_1");
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(searchResponse1);
 
-    // Since slices execute in parallel, we need to ensure relationships are collected
-    // before any exception occurs. We'll make initial searches succeed for all slices,
-    // then throw on scroll operations after relationships are collected.
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse1) // First slice search succeeds
-        .thenReturn(searchResponse1) // Second slice search succeeds (if needed)
-        .thenReturn(emptyResponse); // Any additional searches return empty
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenThrow(new RuntimeException("Scroll operation failed after initial page"));
 
-    // Mock scroll - first scroll succeeds to collect relationships, then throw
-    // This ensures relationships are collected before exception
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(emptyResponse) // First scroll succeeds - relationships collected
-        .thenReturn(emptyResponse) // Second scroll succeeds - more relationships
-        .thenThrow(new RuntimeException("Scroll operation failed after collecting relationships"));
-
-    // Mock clearScroll
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
-    // When partialResults=true and an exception occurs but some relationships were collected,
-    // should return partial results
-    // Note: Due to async execution, the exact behavior may vary, but we verify
-    // that either partial results are returned OR an exception is thrown
-    try {
-      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.assertNotNull(response, "Response should not be null");
-      // If we get here, partial results were returned (exception handling worked)
-      Assert.assertTrue(
-          response.getTotal() >= 0,
-          "Should return partial results from slices that completed successfully");
-    } catch (RuntimeException e) {
-      // Exception might be thrown if relationships weren't collected yet due to async timing
-      // This is acceptable - the test verifies the code path exists
-      // Just verify it's the expected type of exception
-      Assert.assertTrue(
-          e.getMessage() != null
-              && (e.getMessage().contains("slice") || e.getMessage().contains("Failed to execute")),
-          "Exception should mention slice failure or execution failure. Got: " + e.getMessage());
-    }
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+    Assert.assertNotNull(response, "Response should not be null");
+    Assert.assertTrue(
+        response.isPartial(),
+        "Response should be marked partial when the slice fails under allowPartialResults=true");
   }
 
   @Test(timeOut = 10000)
@@ -1767,7 +1772,8 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchResponse emptyResponse = createEmptySearchResponse(2);
 
     // Mock search: first slice succeeds, second slice throws exception
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // First slice, first page - succeeds
         .thenReturn(emptyResponse) // First slice completes successfully
         .thenThrow(
@@ -2087,7 +2093,8 @@ public class GraphQueryElasticsearch7DAOTest {
             mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Mock a search operation that will throw an exception
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Search operation failed"));
 
     // Note: GraphQueryElasticsearch7DAO uses scroll-based search, not PIT
@@ -2101,8 +2108,8 @@ public class GraphQueryElasticsearch7DAOTest {
       // The exception should be wrapped in our new exception handling
       // Check the entire exception chain for the expected messages
       Assert.assertTrue(
-          hasMessageInChain(e, "Failed to execute slice-based search"),
-          "Expected slice-related error message in exception chain, got: " + e.getMessage());
+          hasMessageInChain(e, "Search operation failed") || hasMessageInChain(e, "Slice 0 failed"),
+          "Expected search or slice failure in exception chain, got: " + e.getMessage());
     }
   }
 
@@ -2407,12 +2414,14 @@ public class GraphQueryElasticsearch7DAOTest {
     when(emptyScrollResponse.getHits()).thenReturn(emptySearchHits);
     when(emptyScrollResponse.getScrollId()).thenReturn("empty_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockSearchResponse)
         .thenReturn(emptyScrollResponse);
 
     // Mock the clearScroll calls
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     // Note: GraphQueryElasticsearch7DAO uses scroll-based search, not PIT
@@ -2450,7 +2459,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch connection failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2473,7 +2483,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteSearchThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2485,7 +2496,7 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Test that executeSearch throws ESQueryException when client.search fails
     try {
-      graphQueryDAO.executeSearch(searchRequest);
+      graphQueryDAO.executeSearch(operationContext, searchRequest);
       Assert.fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
@@ -2498,7 +2509,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteScrollSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch scroll search failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2524,7 +2536,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteGroupByLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch group by lineage search failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2571,7 +2584,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteQueryWithLimitThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch query with limit failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2618,7 +2632,8 @@ public class GraphQueryElasticsearch7DAOTest {
   private void testExecuteSearchRequestThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search request failed"));
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2674,7 +2689,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     for (String exceptionMessage : exceptionMessages) {
       SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenThrow(new RuntimeException(exceptionMessage));
 
       GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2698,7 +2714,8 @@ public class GraphQueryElasticsearch7DAOTest {
     // Test that the original exception is properly preserved
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Original error message");
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2721,7 +2738,8 @@ public class GraphQueryElasticsearch7DAOTest {
     // Test exception handling when the original exception has no cause
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Error without cause");
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2747,7 +2765,8 @@ public class GraphQueryElasticsearch7DAOTest {
     RuntimeException middleException = new RuntimeException("Middle layer", rootCause);
     RuntimeException topException = new RuntimeException("Top layer", middleException);
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(topException);
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
@@ -2805,11 +2824,13 @@ public class GraphQueryElasticsearch7DAOTest {
     when(mockScrollResponse.getScrollId()).thenReturn("test_scroll_id");
 
     // Mock the search call to return scroll response
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockScrollResponse);
 
     // Mock clear scroll call
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -2825,11 +2846,16 @@ public class GraphQueryElasticsearch7DAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Verify that search was called (scroll path) instead of PIT creation
-      verify(mockClient, atLeast(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(1))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
       // Verify that clearScroll was called to clean up scroll context
       verify(mockClient, atLeast(1))
-          .clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
+          .clearScroll(
+              any(OperationContext.class),
+              any(ClearScrollRequest.class),
+              eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should use scroll path
@@ -2880,16 +2906,21 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Mock search calls: first 2 calls return results (one for each slice), subsequent calls return
     // empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse1) // First slice
         .thenReturn(mockResponse2); // Second slice
 
     // Mock scroll calls to return empty (no more pages)
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(emptyResponse);
 
     // Mock clear scroll calls
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -2905,11 +2936,16 @@ public class GraphQueryElasticsearch7DAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Verify that search was called for both slices
-      verify(mockClient, atLeast(2)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(2))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
       // Verify that clearScroll was called for both slices
       verify(mockClient, atLeast(2))
-          .clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
+          .clearScroll(
+              any(OperationContext.class),
+              any(ClearScrollRequest.class),
+              eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should use scroll path
@@ -2939,7 +2975,8 @@ public class GraphQueryElasticsearch7DAOTest {
     when(mockResponse.getHits()).thenReturn(mockHits);
     when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -2954,7 +2991,9 @@ public class GraphQueryElasticsearch7DAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Should handle empty results gracefully
-      verify(mockClient, atLeast(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(1))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should handle empty results
@@ -2995,7 +3034,8 @@ public class GraphQueryElasticsearch7DAOTest {
     when(mockResponse.getHits()).thenReturn(mockHits);
     when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3013,7 +3053,10 @@ public class GraphQueryElasticsearch7DAOTest {
       ArgumentCaptor<SearchRequest> searchRequestCaptor =
           ArgumentCaptor.forClass(SearchRequest.class);
       verify(mockClient, atLeast(1))
-          .search(searchRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+          .search(
+              any(OperationContext.class),
+              searchRequestCaptor.capture(),
+              eq(RequestOptions.DEFAULT));
 
       // Verify that scroll parameter was set
       SearchRequest capturedRequest = searchRequestCaptor.getValue();
@@ -3049,16 +3092,21 @@ public class GraphQueryElasticsearch7DAOTest {
     when(mockEmptyResponse.getScrollId()).thenReturn("test_scroll_id");
 
     // Mock the initial search call to return scroll response
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockInitialResponse);
 
     // Mock scroll call to succeed once, then return empty results to end scroll
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockEmptyResponse); // Return empty results to end scroll
 
     // Mock clear scroll to succeed
     ClearScrollResponse mockClearScrollResponse = mock(ClearScrollResponse.class);
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockClearScrollResponse);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3078,7 +3126,8 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Verify that clearScroll was called to clean up scroll context
     verify(mockClient, atLeast(1))
-        .clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
+        .clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   /**

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 _resources_dir = pathlib.Path(__file__).parent
 
-pytestmark = pytest.mark.integration_batch_4
+pytestmark = pytest.mark.integration_batch_3
 
 
 @pytest.mark.integration

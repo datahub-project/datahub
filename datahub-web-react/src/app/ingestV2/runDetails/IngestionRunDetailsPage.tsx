@@ -1,5 +1,6 @@
 import { Breadcrumb } from '@components';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
@@ -13,6 +14,7 @@ import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
 export default function IngestionRunDetailsPage() {
+    const { t } = useTranslation('ingestion');
     const { urn } = useParams<{ urn: string }>();
 
     const { state } = useLocation();
@@ -44,13 +46,18 @@ export default function IngestionRunDetailsPage() {
         <Breadcrumb
             items={[
                 {
-                    label: fromUrl === tabUrlMap[TabType.RunHistory] ? 'Run history' : 'Manage Data Sources',
+                    key: 'back',
+                    label:
+                        fromUrl === tabUrlMap[TabType.RunHistory]
+                            ? t('runDetails.breadcrumbRunHistory')
+                            : t('page.title'),
                     href: fromUrl ?? tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
                 ...(name
                     ? [
                           {
+                              key: 'source',
                               label: name,
                           },
                       ]
@@ -58,6 +65,7 @@ export default function IngestionRunDetailsPage() {
                 ...(runTime
                     ? [
                           {
+                              key: 'run',
                               label: formatDateTime(runTime),
                           },
                       ]
@@ -67,7 +75,12 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
+        <PageLayout
+            title={t('runDetails.title')}
+            titlePill={titlePill}
+            rightPanelContent={<AIChat />}
+            topBreadcrumb={breadCrumb}
+        >
             <RunDetailsContent
                 urn={urn}
                 data={data}

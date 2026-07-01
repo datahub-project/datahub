@@ -3,6 +3,7 @@ import { Modal } from '@components';
 import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -22,19 +23,19 @@ const StepsContainer = styled.div`
 `;
 
 /**
- * Mapping from the step type to the title for the step
+ * Mapping from the step type to its translation key suffix under `steps.titles.*`.
  */
-export enum IngestionSourceBuilderStepTitles {
-    SELECT_TEMPLATE = 'Choose Data Source',
-    DEFINE_RECIPE = 'Configure Connection',
-    CREATE_SCHEDULE = 'Sync Schedule',
-    NAME_SOURCE = 'Finish up',
-}
+const IngestionSourceBuilderStepTitleKeys = {
+    SELECT_TEMPLATE: 'selectTemplate',
+    DEFINE_RECIPE: 'defineRecipe',
+    CREATE_SCHEDULE: 'createSchedule',
+    NAME_SOURCE: 'nameSource',
+};
 
 /**
  * Mapping from the step type to the component implementing that step.
  */
-export const IngestionSourceBuilderStepComponent = {
+const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
     CREATE_SCHEDULE: CreateScheduleStep,
@@ -44,7 +45,7 @@ export const IngestionSourceBuilderStepComponent = {
 /**
  * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStep {
+enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
@@ -74,18 +75,21 @@ export const IngestionSourceBuilderModal = ({
     selectedSourceType,
     setSelectedSourceType,
 }: Props) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
+    const titleText = isEditing ? t('modal.editTitle') : t('modal.connectTitle');
     const initialStep = isEditing
         ? IngestionSourceBuilderStep.DEFINE_RECIPE
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
 
     const [stepStack, setStepStack] = useState([initialStep]);
-    const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({
-        schedule: {
-            interval: '0 0 * * *',
+    const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>(
+        initialState || {
+            schedule: {
+                interval: '0 0 * * *',
+            },
         },
-    });
+    );
 
     const { ingestionSources } = useIngestionSources();
 
@@ -104,22 +108,27 @@ export const IngestionSourceBuilderModal = ({
     );
 
     // Reset the modal state when initialState changes or modal opens
-    const prevInitialState = useRef(initialState);
+    const prevInitialState = useRef<SourceBuilderState | undefined>(undefined);
     const prevOpen = useRef(open);
     useEffect(() => {
         const stateChanged = !isEqual(prevInitialState.current, initialState);
         const modalOpened = !prevOpen.current && open;
 
-        if (stateChanged) {
-            setIngestionBuilderState(initialState || {});
+        if (stateChanged || modalOpened) {
+            setIngestionBuilderState(
+                initialState || {
+                    schedule: {
+                        interval: '0 0 * * *',
+                    },
+                },
+            );
             setStepStack([initialStep]);
-            setSelectedSourceType?.('');
+            setSelectedSourceType?.(initialState?.type ?? '');
             prevInitialState.current = initialState;
         }
 
         // Fire event when modal opens
         if (modalOpened) {
-            setStepStack([initialStep]); // Ensure correct step when modal opens
             sendAnalyticsStepViewedEvent(initialStep);
         }
 
@@ -160,13 +169,23 @@ export const IngestionSourceBuilderModal = ({
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
-        <Modal width="64%" title={titleText} open={open} onCancel={onCancel} buttons={[]}>
+        <Modal
+            width="64%"
+            title={titleText}
+            open={open}
+            onCancel={onCancel}
+            buttons={[]}
+            dataTestId={isEditing ? 'edit-data-source-modal' : 'connect-data-source-modal'}
+        >
             <Spin spinning={loading} indicator={<LoadingOutlined />}>
                 {currentStepIndex > 0 ? (
                     <StepsContainer>
                         <Steps current={currentStepIndex}>
                             {Object.keys(IngestionSourceBuilderStep).map((item) => (
-                                <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
+                                <Steps.Step
+                                    key={item}
+                                    title={t(`steps.titles.${IngestionSourceBuilderStepTitleKeys[item]}`)}
+                                />
                             ))}
                         </Steps>
                     </StepsContainer>

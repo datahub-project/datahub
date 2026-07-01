@@ -1,5 +1,5 @@
 import {
-  setThemeV2AndIngestionRedesignFlags,
+  setIngestionRedesignFlags,
   createAndRunIngestionSource,
   deleteIngestionSource,
   shouldNavigateToRunHistoryTab,
@@ -11,10 +11,11 @@ import {
   goToIngestionPage,
 } from "./utils";
 
-describe("run history tab in manage data sources", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("run history tab in manage data sources", () => {
   beforeEach(() => {
-    setThemeV2AndIngestionRedesignFlags(true);
-    cy.loginWithCredentials();
+    setIngestionRedesignFlags(true);
+    cy.login();
     goToIngestionPage();
   });
 

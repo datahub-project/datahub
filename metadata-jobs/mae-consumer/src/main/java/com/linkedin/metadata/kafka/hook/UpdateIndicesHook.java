@@ -12,7 +12,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -35,10 +34,11 @@ import org.springframework.stereotype.Component;
 })
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
+  private static final int LARGE_BATCH_THRESHOLD = 500;
+
   protected final UpdateIndicesService updateIndicesService;
   private final boolean isEnabled;
   private final boolean reprocessUIEvents;
-  private OperationContext systemOperationContext;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
@@ -68,25 +68,30 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public UpdateIndicesHook init(@javax.annotation.Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
-    return this;
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
+    if (shouldProcessEvent(event)) {
+      updateIndicesService.handleChangeEvent(operationContext, event);
+    }
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog event) {
-    invokeBatch(Collections.singletonList(event));
-  }
-
-  @Override
-  public void invokeBatch(@Nonnull final Collection<MetadataChangeLog> events) {
-    // Filter events that should be processed
+  public void invokeBatch(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final Collection<MetadataChangeLog> events) {
+    // Filter events to only process those that should be processed
     List<MetadataChangeLog> eventsToProcess =
         events.stream().filter(this::shouldProcessEvent).collect(Collectors.toList());
 
     if (!eventsToProcess.isEmpty()) {
-      log.info(
-          "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
+      if (eventsToProcess.size() >= LARGE_BATCH_THRESHOLD) {
+        log.info(
+            "Processing large batch of {} MCL events with UpdateIndicesService",
+            eventsToProcess.size());
+      } else {
+        log.debug(
+            "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
+      }
       updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
     } else {
       log.debug("No MCL events to process in batch of {} events", events.size());

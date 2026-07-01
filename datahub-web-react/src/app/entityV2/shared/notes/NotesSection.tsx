@@ -1,9 +1,12 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import moment from 'moment';
+import { Avatar } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
@@ -11,9 +14,8 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
-import { COLORS } from '@app/sharedV2/colors';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import dayjs from '@utils/dayjs';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
 import { Post } from '@types';
@@ -33,6 +35,7 @@ interface Props {
 }
 
 export default function NotesSection({ urn, subResource, notes, refetch, showEmpty }: Props) {
+    const { t } = useTranslation('entity.shared.profile');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [showAddModal, setShowAddModal] = useState(false);
 
@@ -49,19 +52,19 @@ export default function NotesSection({ urn, subResource, notes, refetch, showEmp
             ))}
         </ContentWrapper>
     ) : (
-        <EmptySectionText message="No notes yet" />
+        <EmptySectionText message={t('notes.empty')} />
     );
 
     if (!showEmpty && !notes?.length) return null;
     return (
         <>
             <SidebarSection
-                title="Notes"
+                title={t('notes.title')}
                 content={content}
                 extra={
                     isSchemaEditable && (
                         <SectionActionButton
-                            button={<AddRoundedIcon />}
+                            icon={Plus}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
@@ -109,7 +112,7 @@ const NoteWrapper = styled.div`
 `;
 
 const NoteContent = styled.div`
-    border-left: 2px solid ${COLORS.blue_5};
+    border-left: 2px solid ${(props) => props.theme.colors.borderBrand};
     padding: 2px 0 5px 10px;
     display: flex;
     flex-direction: column;
@@ -121,7 +124,7 @@ const NoteHeader = styled.div`
     align-items: center;
     display: flex;
     font-size: 12px;
-    color: ${COLORS.blue_10};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const NoteTime = styled.div`
@@ -164,15 +167,25 @@ interface NoteProps {
 }
 
 function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps) {
+    const { t } = useTranslation('entity.shared.profile');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     const [deletePost] = useDeletePostMutation();
 
-    const time = moment(note.lastModified.time);
-    const isToday = time.isSame(moment(), 'day');
-    const isYesterday = time.isSame(moment().subtract(1, 'day'), 'day');
+    const time = dayjs(note.lastModified.time);
+    const isToday = time.isSame(dayjs(), 'day');
+    const isYesterday = time.isSame(dayjs().subtract(1, 'day'), 'day');
+    const formattedTime = time.format('h:mm A');
+    let dateTimeText: string;
+    if (isToday) {
+        dateTimeText = t('notes.todayAt', { time: formattedTime });
+    } else if (isYesterday) {
+        dateTimeText = t('notes.yesterdayAt', { time: formattedTime });
+    } else {
+        dateTimeText = t('notes.dateAtTime', { date: time.format('MMM D, YYYY'), time: formattedTime });
+    }
 
     // parsedName should strip the urn:li:corpuser: prefix from actor
     const parsedName = note?.lastModified?.actor?.split(':')?.slice(-1)[0] || '';
@@ -181,14 +194,10 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
         <NoteWrapper>
             <NoteContent>
                 <NoteHeader>
-                    <NoteOwner>{note.lastModified.actor && <CustomAvatar size={18} name={parsedName} />}</NoteOwner>
-                    <NoteTime>
-                        {isToday && 'Today'}
-                        {isYesterday && 'Yesterday'}
-                        {!isToday && !isYesterday && time.format('MMM D, YYYY')}
-                        {' at '}
-                        {time.format('h:mm A')}
-                    </NoteTime>
+                    <NoteOwner>
+                        {note.lastModified.actor && <Avatar name={parsedName} type={AvatarType.user} size="sm" />}
+                    </NoteOwner>
+                    <NoteTime>{dateTimeText}</NoteTime>
                 </NoteHeader>
                 <NoteTitle>{note.content.title}</NoteTitle>
                 {note.content.description && (
@@ -200,11 +209,8 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
             {isSchemaEditable && (
                 <NoteEditWrapper>
                     <NoteEditIcons>
-                        <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
-                        <SectionActionButton
-                            button={<DeleteOutlineOutlinedIcon />}
-                            onClick={() => setShowDeleteModal(true)}
-                        />
+                        <SectionActionButton icon={PencilSimple} onClick={() => setShowEditModal(true)} />
+                        <SectionActionButton icon={Trash} onClick={() => setShowDeleteModal(true)} />
                     </NoteEditIcons>
                 </NoteEditWrapper>
             )}
@@ -226,8 +232,8 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
                         refetch?.();
                     })
                 }
-                modalTitle="Delete Note"
-                modalText="Are you sure you want to remove this note?"
+                modalTitle={t('notes.deleteTitle')}
+                modalText={t('notes.deleteConfirmation')}
             />
         </NoteWrapper>
     );

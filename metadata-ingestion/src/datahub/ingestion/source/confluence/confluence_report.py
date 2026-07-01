@@ -26,6 +26,10 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     pages_failed: int = 0
     failed_pages: List[Tuple[str, str]] = field(default_factory=list)
 
+    # Folder-level metrics
+    folders_ingested: int = 0
+    folders_failed: int = 0
+
     # Content metrics
     total_text_extracted_bytes: int = 0
     total_chunks_generated: int = 0
@@ -35,6 +39,7 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
+    num_documents_limit_reached: bool = False
 
     # Performance metrics
     avg_page_processing_time_seconds: float = 0.0
@@ -79,6 +84,16 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
         self.pages_failed += 1
         self.failed_pages.append((space_key, page_id))
         self.report_failure(page_id, f"Failed to process page: {error}")
+
+    def report_folder_failed(self, folder_id: str, error: str) -> None:
+        """Record a folder discovery/emission failure.
+
+        Folders are a best-effort hierarchy reconstruction layered on top of the
+        pages we already ingest, so a folder problem is reported as a warning
+        rather than a hard failure — it must never sink the ingestion job.
+        """
+        self.folders_failed += 1
+        self.report_warning(folder_id, f"Failed to process folder: {error}")
 
     def report_text_extracted(self, num_bytes: int) -> None:
         """Record text extraction metrics."""

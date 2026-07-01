@@ -1,12 +1,16 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
+// eslint-disable-next-line i18next/no-literal-string -- syntax highlighting language identifier, not UI text
+const DEFAULT_LANGUAGE = 'sql';
+
 export default function SidebarQueryOperationsSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
 
     if (!fineGrainedOperations?.length) {
@@ -17,7 +21,7 @@ export default function SidebarQueryOperationsSection() {
         <>
             {fineGrainedOperations.map((operation: FineGrainedOperation, index) => (
                 <SidebarSection
-                    title={`Operation ${index + 1}`}
+                    title={t('sidebar.query.operationIndexedTitle', { index: index + 1 })}
                     /* eslint-disable-next-line react/no-array-index-key */
                     key={index}
                     content={<SidebarQueryOperation operation={operation} />}
@@ -45,7 +49,7 @@ const Section = styled.div`
 const SectionHeader = styled.div`
     display: flex;
     height: 20px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
     line-height: 20px;
@@ -57,7 +61,7 @@ const HeaderColumn = styled.th`
     text-align: left;
     vertical-align: top;
     font-weight: normal;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TextColumn = styled.td`
@@ -69,7 +73,6 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 150px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
 
     span {
         font-family: 'Roboto Mono', monospace;
@@ -77,27 +80,36 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
 `;
 
 function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation }) {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <OperationContainer>
             {operation.transformOperation && (
                 <Section key="logic">
-                    <SectionHeader>LOGIC</SectionHeader>
-                    <PreviewSyntax language="sql" showLineNumbers wrapLines lineNumberStyle={{ display: 'none' }}>
+                    <SectionHeader>{t('sidebar.query.logicLabel')}</SectionHeader>
+                    <PreviewSyntax
+                        language={DEFAULT_LANGUAGE}
+                        showLineNumbers
+                        wrapLines
+                        lineNumberStyle={{ display: 'none' }}
+                    >
                         {operation.transformOperation}
                     </PreviewSyntax>
                 </Section>
             )}
+            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) used as programmatic key and display value */}
             {operation.inputColumns?.length && (
                 <OperationInputsOrOutputs title="inputs" columns={operation.inputColumns} />
             )}
             {operation.outputColumns?.length && (
                 <OperationInputsOrOutputs title="outputs" columns={operation.outputColumns} />
             )}
+            {/* eslint-enable i18next/no-literal-string */}
         </OperationContainer>
     );
 }
 
 function OperationInputsOrOutputs({ title, columns }: { title: string; columns: Array<[string, string]> }) {
+    const { t } = useTranslation('entity.shared.containers');
     const tables = Array.from(new Set(columns.map(([name]) => name)));
     return (
         <Section key={title}>
@@ -106,11 +118,13 @@ function OperationInputsOrOutputs({ title, columns }: { title: string; columns: 
                 <table cellSpacing={0} cellPadding={0}>
                     <tbody>
                         <tr>
-                            <HeaderColumn>Tables:</HeaderColumn>
+                            <HeaderColumn>{t('sidebar.query.tablesLabel')}</HeaderColumn>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- comma separator in technical data list, not UI text */}
                             <TextColumn>{tables.join(', ')}</TextColumn>
                         </tr>
                         <tr>
-                            <HeaderColumn>Columns:</HeaderColumn>
+                            <HeaderColumn>{t('sidebar.query.columnsLabel')}</HeaderColumn>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- technical data column reference format, not UI text */}
                             <TextColumn>{columns.map(([table, col]) => `${table}.${col}`).join(', ')}</TextColumn>
                         </tr>
                     </tbody>

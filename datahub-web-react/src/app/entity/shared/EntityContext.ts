@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 
 import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { EntityContextType, UpdateEntityType } from '@app/entity/shared/types';
+import { EntityContextType, GenericEntityProperties, UpdateEntityType } from '@app/entity/shared/types';
 
 import { EntityType } from '@types';
 
@@ -14,6 +14,7 @@ export const EntityContext = React.createContext<EntityContextType>({
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
     refetch: () => Promise.resolve({}),
+    refetchForms: undefined,
     lineage: undefined,
     dataNotCombinedWithSiblings: null,
     entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
@@ -35,6 +36,11 @@ export const useDataNotCombinedWithSiblings = <T>(): T => {
     return dataNotCombinedWithSiblings as T;
 };
 
+export const useRootEntityData = (): GenericEntityProperties | null | undefined => {
+    const { rootEntityData } = useContext(EntityContext);
+    return rootEntityData;
+};
+
 export const useEntityUpdate = <U>(): UpdateEntityType<U> | null | undefined => {
     const { updateEntity } = useContext(EntityContext);
     return updateEntity;
@@ -53,11 +59,6 @@ export const useRouteToTab = () => {
 export const useRefetch = () => {
     const { refetch } = useContext(EntityContext);
     return refetch;
-};
-
-export const useLineageData = () => {
-    const { lineage } = useContext(EntityContext);
-    return lineage;
 };
 
 export const useMutationUrn = () => {

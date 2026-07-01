@@ -61,20 +61,21 @@ dependencies {
   implementation externalDependency.json
   implementation project(':metadata-integration:java:openlineage-converter')
   implementation project(path: ':metadata-integration:java:datahub-client')
+
   implementation project(path: ':metadata-integration:java:openlineage-converter')
   compileOnly("io.delta:delta-core_2.12:1.0.0")
 
   // Default to Scala 2.12 for main compilation
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
-  compileOnly("org.apache.spark:spark-sql_2.12:3.3.4") {
+  compileOnly("org.apache.spark:spark-sql_2.12:3.5.0") {
     exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
     exclude group: 'org.eclipse.jetty', module: 'jetty-server'
     exclude group: 'org.eclipse.jetty', module: 'jetty-util'
     exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
-  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.3"
+  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
 
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
@@ -150,7 +151,6 @@ scalaVersions.each { sv ->
 
     // Create a completely separate configuration for each Scala version
     def scalaConfig = project.configurations.detachedConfiguration()
-
     // Manually add all base dependencies except OpenLineage
     scalaConfig.dependencies.add(project.dependencies.create('org.slf4j:slf4j-log4j12:2.0.7'))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.httpClient))
@@ -165,8 +165,18 @@ scalaVersions.each { sv ->
     // Add the Scala-specific OpenLineage dependency - THIS IS THE KEY PART
     scalaConfig.dependencies.add(project.dependencies.create("io.openlineage:openlineage-spark_${sv}:${openLineageVersion}"))
 
+    // Align shadow resolution to the same Jackson BOM as the rest of the repo.
+    scalaConfig.dependencies.add(project.dependencies.enforcedPlatform(externalDependency.jacksonBom))
+    scalaConfig.dependencies.add(project.dependencies.create(externalDependency.jacksonDataBind))
+    scalaConfig.dependencies.add(project.dependencies.create(externalDependency.jacksonDataFormatYaml))
     scalaConfig.canBeResolved = true
-    configurations = [scalaConfig]
+    inputs.files(scalaConfig)
+    // Manually add resolved dependencies from scalaConfig during task execution
+    doFirst {
+      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        from zipTree(artifact.file)
+      }
+    }
 
     def exclude_modules = project
         .configurations
@@ -190,6 +200,7 @@ scalaVersions.each { sv ->
     exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
     exclude '**/libzstd-jni.*'
     exclude '**/com_github_luben_zstd_*'
+
 
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
@@ -265,13 +276,21 @@ tasks.register('buildAllScalaVersions') {
 test {
   forkEvery = 1
   useJUnitPlatform()
+
+  def sparkJava21CompatibleJvmArgs = [
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          "--add-opens=java.base/java.net=ALL-UNNAMED",
+          "--add-opens=java.base/java.nio=ALL-UNNAMED",
+          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+  ]
+  jvmArgs = sparkJava21CompatibleJvmArgs
 }
 
 assemble {
   dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart']) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark']) {
   environment "RUN_QUICKSTART", "false"
   commandLine "spark-smoke-test/smoke.sh"
 }

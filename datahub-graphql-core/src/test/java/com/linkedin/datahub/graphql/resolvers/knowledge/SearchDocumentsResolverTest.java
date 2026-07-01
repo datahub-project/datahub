@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -33,7 +32,6 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.DocumentService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
@@ -50,7 +48,6 @@ public class SearchDocumentsResolverTest {
 
   private DocumentService mockService;
   private EntityClient mockEntityClient;
-  private GroupService mockGroupService;
   private SearchDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private SearchDocumentsInput input;
@@ -59,7 +56,6 @@ public class SearchDocumentsResolverTest {
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
     mockEntityClient = mock(EntityClient.class);
-    mockGroupService = mock(GroupService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup default input
@@ -96,11 +92,8 @@ public class SearchDocumentsResolverTest {
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
 
-    // Mock GroupService to return empty groups by default
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(Collections.emptyList());
-
-    resolver = new SearchDocumentsResolver(mockService, mockEntityClient, mockGroupService);
+    // Session group membership is stubbed via TestUtils.withSessionGroupMembership when needed
+    resolver = new SearchDocumentsResolver(mockService, mockEntityClient);
   }
 
   private EntityResponse createPublishedDocumentResponse(String documentUrn, String ownerUrn) {
@@ -501,22 +494,17 @@ public class SearchDocumentsResolverTest {
 
   @Test
   public void testUnpublishedDocumentShownToGroupMember() throws Exception {
-    QueryContext mockContext = getMockAllowContext(OTHER_USER_URN);
+    QueryContext mockContext =
+        getMockAllowContext(OTHER_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
-    // Document is UNPUBLISHED and owned by a GROUP that the current user belongs to
     Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
     EntityResponse entityResponse =
         createUnpublishedDocumentResponse(TEST_DOCUMENT_URN, TEST_GROUP_URN);
     entityResponseMap.put(UrnUtils.getUrn(TEST_DOCUMENT_URN), entityResponse);
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
-
-    // Mock that the current user is part of TEST_GROUP
-    when(mockGroupService.getGroupsForUser(
-            any(OperationContext.class), eq(UrnUtils.getUrn(OTHER_USER_URN))))
-        .thenReturn(ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 

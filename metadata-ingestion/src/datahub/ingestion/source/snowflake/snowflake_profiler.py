@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Unio
 from snowflake.sqlalchemy import snowdialect
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -11,7 +12,9 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -171,7 +174,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

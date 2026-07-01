@@ -1,3 +1,8 @@
+---
+title: DataHub Sink
+description: "Configure the DataHub REST sink to emit metadata events from ingestion pipelines to a DataHub GMS or DataHub Cloud instance."
+---
+
 # DataHub
 
 ## DataHub Rest
@@ -68,19 +73,26 @@ If you are using [UI based ingestion](../../docs/ui-ingestion.md) then where GMS
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default              | Description                                                                                        |
-| -------------------------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `server`                   | ✅       |                      | URL of DataHub GMS endpoint.                                                                       |
-| `token`                    |          |                      | Bearer token used for authentication.                                                              |
-| `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                          |
-| `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
-| `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                      |
-| `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                  |
-| `max_threads`              |          | `15`                 | Max parallelism for REST API calls                                                                 |
-| `mode`                     |          | `ASYNC_BATCH`        | [Advanced] Mode of operation - `SYNC`, `ASYNC`, or `ASYNC_BATCH`                                   |
-| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                           |
-| `client_certificate_path`  |          |                      | Path to client's CA certificate for HTTPS communications                                           |
-| `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                 |
+| Field                      | Required | Default              | Description                                                                                                                                    |
+| -------------------------- | -------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server`                   | ✅       |                      | URL of DataHub GMS endpoint.                                                                                                                   |
+| `token`                    |          |                      | Bearer token used for authentication.                                                                                                          |
+| `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                                                                      |
+| `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially                                             |
+| `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                                                                  |
+| `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                                                              |
+| `max_threads`              |          | `15`                 | Max parallelism for REST API calls                                                                                                             |
+| `mode`                     |          | `ASYNC_BATCH`        | [Advanced] Mode of operation - `SYNC`, `ASYNC`, or `ASYNC_BATCH`                                                                               |
+| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                                                                       |
+| `client_certificate_path`  |          |                      | Path to client's CA certificate for HTTPS communications                                                                                       |
+| `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                                                             |
+| `respect_mcp_sync_marker`  |          | false                | [Advanced] Upgrade a batch to synchronous when any MCP carries the `syncIngest` system-metadata marker. See limitation and requirements below. |
+
+#### Marker-aware sync routing (`respect_mcp_sync_marker`)
+
+When enabled, a batch is upgraded to synchronous (`async=false`) if any of its MCPs carries the `syncIngest` marker in its system metadata; otherwise the configured `mode` is honored unchanged. It only ever forces more synchronicity, never less. The marker is read, not produced, by the sink: a producer must populate the `syncIngest` system-metadata property on the writes that must remain synchronous (e.g. via a custom aspect mutator/validator or an upstream processing step).
+
+This feature is supported only in specific configurations of DataHub Cloud and only when adopted under specific direction of DataHub. This feature requires a dedicated pool of logical model propagation workers and that MCP throttling be enabled.
 
 ## DataHub Kafka
 

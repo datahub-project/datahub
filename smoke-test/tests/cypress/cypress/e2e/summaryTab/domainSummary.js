@@ -6,9 +6,10 @@ const TEST_DOMAIN_URN = "urn:li:domain:testing";
 const TEST_SUBDOMAIN_NAME = "Subdomain";
 const TEST_DATA_PRODUCT_NAME = "Testing";
 
-describe("summary tab - domain", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("summary tab - domain", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     utils.openDomainByUrn(TEST_DOMAIN_URN);
     utils.goToSummaryTab();

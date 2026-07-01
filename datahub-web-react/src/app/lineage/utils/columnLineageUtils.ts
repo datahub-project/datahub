@@ -70,7 +70,7 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
  * pointing to and to know where to draw column arrows in and out of the entity. DataJobs won't show columns
  * underneath them, but we need this populated for validating that this column "exists" on the entity.
  */
-export function getPopulatedColumnsByUrn(
+function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: Map<string, FetchedEntity>,
 ) {

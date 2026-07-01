@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -206,6 +207,30 @@ class ConfluenceSourceConfig(
         description="Whether to recursively fetch child pages (applies to page URLs only).",
     )
 
+    document_import_mode: DocumentImportMode = Field(
+        default=DocumentImportMode.EXTERNAL,
+        description=(
+            "NATIVE imports editable documents in DataHub. EXTERNAL imports read-only "
+            "references that link back to Confluence."
+        ),
+    )
+
+    parent_document_urn: Optional[str] = Field(
+        default=None,
+        description="Optional parent document URN for top-level imported pages.",
+    )
+
+    ingest_folders: bool = Field(
+        default=True,
+        description=(
+            "Ingest Confluence folders as document entities so that pages nested "
+            "under folders keep their place in the hierarchy. Confluence folders "
+            "are a separate content type that the page APIs never return, so when "
+            "this is disabled a page whose immediate parent is a folder is emitted "
+            "without a parent link and appears as a root document."
+        ),
+    )
+
     # Content processing
     processing: ProcessingConfig = Field(
         default_factory=ProcessingConfig,
@@ -238,6 +263,14 @@ class ConfluenceSourceConfig(
     embedding: EmbeddingConfig = Field(
         default_factory=EmbeddingConfig,
         description="Configuration for generating vector embeddings for semantic search.",
+    )
+
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
     )
 
     # Advanced options
@@ -446,6 +479,13 @@ class ConfluenceSourceConfig(
         if self.api_token and not self.username:
             raise ValueError("API token provided but username is missing")
 
+        return self
+
+    @model_validator(mode="after")
+    def apply_document_import_mode(self) -> "ConfluenceSourceConfig":
+        self.document_mapping.source.type = self.document_import_mode.value
+        if self.parent_document_urn:
+            self.hierarchy.folder_mapping.root_parent = self.parent_document_urn
         return self
 
     @model_validator(mode="after")

@@ -5,8 +5,9 @@ import re
 from pathlib import Path
 from typing import Dict, List, Type
 
+import avro.errors
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.emitter.mce_builder import (
     make_global_tag_aspect_with_tag_list,
@@ -781,7 +782,7 @@ def test_ignore_exceptions():
     assert not fields
 
 
-@freeze_time("2023-09-12")
+@time_machine.travel("2023-09-12", tick=False)
 def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     schema = """
 {
@@ -1047,3 +1048,37 @@ def test_avro_schema_array_reference_to_record_type_elsewhere():
     ]
 
     assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_avro_schema_to_mce_fields_with_hyphenated_namespace():
+    """Test that avro_schema_to_mce_fields can parse schemas with non-compliant
+    names (e.g., hyphens in namespace) when validate_names=False."""
+    schema_str = json.dumps(
+        {
+            "type": "record",
+            "name": "Value",
+            "namespace": "my-debezium-topic.public.users",
+            "fields": [
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "string"},
+            ],
+        }
+    )
+
+    # Default behavior (validate_names=False): parsing succeeds
+    fields = avro_schema_to_mce_fields(schema_str)
+    assert len(fields) == 2
+
+    # Explicitly with validate_names=False, parsing succeeds
+    fields = avro_schema_to_mce_fields(schema_str, validate_names=False)
+    assert len(fields) == 2
+
+    # With validate_names=True and swallow_exceptions=True, returns empty list
+    fields = avro_schema_to_mce_fields(schema_str, validate_names=True)
+    assert fields == []
+
+    # With validate_names=True and swallow_exceptions=False, raises error
+    with pytest.raises(avro.errors.SchemaParseException):
+        avro_schema_to_mce_fields(
+            schema_str, validate_names=True, swallow_exceptions=False
+        )

@@ -1330,6 +1330,9 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment entityApplication on ApplicationAssociation {
@@ -1360,7 +1363,7 @@ fragment entityApplication on ApplicationAssociation {
 }
 
 fragment entityDataProduct on Entity {
-    dataProduct: relationships(input: { types: ["DataProductContains"], direction: INCOMING, start: 0, count: 1 }) {
+    dataProduct: relationships(input: { types: ["DataProductContains"], direction: INCOMING, start: 0, count: 50 }) {
         relationships {
             type
             entity {
@@ -1372,7 +1375,13 @@ fragment entityDataProduct on Entity {
                         description
                     }
                     domain {
-                        ...entityDomain
+                        domain {
+                            urn
+                            type
+                            properties {
+                                name
+                            }
+                        }
                     }
                 }
             }
@@ -1604,6 +1613,14 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
                 type
             }
         }
+        allowedPlatforms {
+            urn
+            type
+            properties {
+                displayName
+                logoUrl
+            }
+        }
         cardinality
         typeQualifier {
             allowedTypes {
@@ -1796,6 +1813,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditLinks
     canEditOwners
     canEditAssertions
+    canEditAssertionOwners
     canEditIncidents
     canEditDeprecation
     canEditSchemaFieldTags

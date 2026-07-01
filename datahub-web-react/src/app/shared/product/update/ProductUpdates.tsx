@@ -1,6 +1,6 @@
 import { Button, Heading, Text, Tooltip } from '@components';
-import * as phosphorIcons from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
@@ -10,7 +10,6 @@ import {
     CloseButton,
     Content,
     FeatureContent,
-    FeatureIconWrapper,
     FeatureItem,
     FeatureList,
     FeaturesSection,
@@ -30,12 +29,13 @@ import {
     useIsProductAnnouncementVisible,
 } from '@app/shared/product/update/hooks';
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
-import { convertToPascalCase } from '@app/shared/stringUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
+    const { t } = useTranslation('shared.product');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
@@ -158,7 +158,7 @@ export default function ProductUpdates() {
                 <Heading type="h3" size="lg" weight="bold" color="gray" colorLevel={600}>
                     {displayTitle}
                 </Heading>
-                <Tooltip title="Dismiss" placement="left">
+                <Tooltip title={tc('dismiss')} placement="left">
                     <CloseButton onClick={handleDismiss}>
                         <StyledCloseIcon />
                     </CloseButton>
@@ -194,44 +194,16 @@ export default function ProductUpdates() {
                                     colorLevel={500}
                                     style={{ textTransform: 'lowercase', whiteSpace: 'nowrap' }}
                                 >
-                                    more in this release
+                                    {t('updates.moreInThisRelease')}
                                 </Text>
                                 <SectionHeaderLine />
                             </SectionHeaderContainer>
                         )}
                         <FeatureList>
                             {displayFeatures.map((feature) => {
-                                // Try the icon name as-is first, then try converting from kebab-case
-                                const iconName = feature.icon;
-                                let IconComponent = iconName
-                                    ? (phosphorIcons[iconName as keyof typeof phosphorIcons] as
-                                          | React.ComponentType<{ size?: number; weight?: string }>
-                                          | undefined)
-                                    : undefined;
-
-                                // If not found and contains hyphens, try converting to PascalCase
-                                if (!IconComponent && iconName?.includes('-')) {
-                                    const pascalCaseName = convertToPascalCase(iconName);
-                                    IconComponent = phosphorIcons[pascalCaseName as keyof typeof phosphorIcons] as
-                                        | React.ComponentType<{ size?: number; weight?: string }>
-                                        | undefined;
-                                }
-
-                                // Debug logging for icon resolution
-                                if (feature.icon && !IconComponent) {
-                                    // eslint-disable-next-line no-console
-                                    console.warn(`[ProductUpdates] Icon "${feature.icon}" not found in phosphor-icons`);
-                                }
-
-                                const hasIcon = !!IconComponent;
-
                                 return (
-                                    <FeatureItem key={feature.title} $hasIcon={hasIcon}>
-                                        {hasIcon && IconComponent && (
-                                            <FeatureIconWrapper>
-                                                <IconComponent size={20} weight="regular" />
-                                            </FeatureIconWrapper>
-                                        )}
+                                    // $hasIcon={false} — icons not used in current product update JSONs
+                                    <FeatureItem key={feature.title} $hasIcon={false}>
                                         <FeatureContent>
                                             <Text size="md" weight="semiBold" color="gray" colorLevel={600}>
                                                 {feature.title}
@@ -265,6 +237,7 @@ export default function ProductUpdates() {
                                 onClick={() => {
                                     trackClick(secondaryLink);
                                     if (secondaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(secondaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(secondaryLink);
@@ -278,11 +251,12 @@ export default function ProductUpdates() {
                         {primaryText && primaryLink && (
                             <Button
                                 variant="filled"
-                                color="violet"
+                                color="primary"
                                 onClick={() => {
                                     trackClick(primaryLink);
                                     handleDismiss();
                                     if (primaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(primaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(primaryLink);

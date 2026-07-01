@@ -7,7 +7,7 @@ from unittest.mock import Mock, call, patch
 import moto.s3
 import pytest
 from boto3.session import Session
-from moto import mock_s3
+from moto import mock_aws
 from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -75,7 +75,7 @@ def bucket_names():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3():
-    with mock_s3():
+    with mock_aws():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -86,14 +86,14 @@ def s3():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_resource(s3):
-    with mock_s3():
+    with mock_aws():
         conn = s3.resource("s3")
         yield conn
 
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_client(s3):
-    with mock_s3():
+    with mock_aws():
         conn = s3.client("s3")
         yield conn
 
@@ -255,7 +255,7 @@ def test_data_lake_gcs_ingest(
 
     with patch("datahub.ingestion.source.gcs.gcs_source.GCS_ENDPOINT_URL", None):
         pipeline = Pipeline.create(config_dict)
-    pipeline.run()
+        pipeline.run()
     pipeline.raise_from_status()
 
     # Verify the output.

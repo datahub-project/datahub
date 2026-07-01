@@ -14,10 +14,9 @@ const addGlossaryTermToDataset = () => {
   cy.visit(urn);
   cy.waitTextVisible(datasetName);
   cy.get("body").click();
-  cy.contains(".ant-collapse-header-text", "Terms")
-    .parent()
-    .find('[data-testid="AddRoundedIcon"]')
-    .click();
+  cy.get('[id="entity-profile-glossary-terms"]').within(() => {
+    cy.clickOptionWithTestId("add-terms-button");
+  });
   cy.selectOptionInTagTermModal(glossaryTerm);
   cy.contains(glossaryTerm);
 };
@@ -31,9 +30,9 @@ const deleteGlossary = (message) => {
   cy.ensureTextNotPresent(message);
 };
 
-describe("glossary", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossary", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {

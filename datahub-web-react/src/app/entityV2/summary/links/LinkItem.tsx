@@ -1,5 +1,8 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
@@ -8,6 +11,7 @@ import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -16,7 +20,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;
@@ -51,6 +55,7 @@ type Props = {
 };
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const entityRegistry = useEntityRegistryV2();
     const hasLinkPermissions = useLinkPermission();
 
@@ -58,7 +63,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
     const label = link.description || link.label;
 
     return (
-        <a href={link.url} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
+        <a href={safeUrl(link.url)} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
             <LinkContainer>
                 <LeftSection>
                     <LinkIcon url={link.url} />
@@ -79,18 +84,26 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                 </LeftSection>
                 <RightSection>
                     <Text color="gray" size="sm">
-                        Added{' '}
-                        <Tooltip title={formatDateString(link.created.time)}>
-                            <span>{toRelativeTimeString(link.created.time) || 'recently'}</span>
-                        </Tooltip>{' '}
-                        by{' '}
+                        <Trans
+                            t={t}
+                            i18nKey="links.addedBy"
+                            components={{
+                                time: (
+                                    <Tooltip title={formatDateString(link.created.time)}>
+                                        <span />
+                                    </Tooltip>
+                                ),
+                            }}
+                            values={{
+                                relativeTime: toRelativeTimeString(link.created.time) || t('links.recently'),
+                            }}
+                        />
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
                     {hasLinkPermissions && (
                         <>
                             <StyledIcon
-                                icon="PencilSimpleLine"
-                                source="phosphor"
+                                icon={PencilSimpleLine}
                                 color="gray"
                                 colorLevel={600}
                                 size="md"
@@ -102,8 +115,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                                 data-testid="edit-link-button"
                             />
                             <StyledIcon
-                                icon="Trash"
-                                source="phosphor"
+                                icon={Trash}
                                 color="red"
                                 colorLevel={500}
                                 size="md"

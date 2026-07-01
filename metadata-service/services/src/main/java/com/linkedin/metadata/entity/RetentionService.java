@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -23,7 +24,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,6 +43,8 @@ import lombok.Value;
  */
 public abstract class RetentionService<U extends ChangeMCP> {
   protected static final String ALL = "*";
+
+  protected RetentionService() {}
 
   protected abstract EntityService<U> getEntityService();
 
@@ -71,6 +76,97 @@ public abstract class RetentionService<U extends ChangeMCP> {
             .map(retention -> (DataHubRetentionConfig) retention)
             .findFirst();
     return retentionInfo.map(DataHubRetentionConfig::getRetention).orElse(new Retention());
+  }
+
+  /**
+   * Returns the effective max versions to keep for the given entity/aspect for the write path. When
+   * this is <= 1, callers should not create version-history rows (only update version 0). When > 1,
+   * callers should insert the previous version as history. Resolution uses the same policy lookup
+   * as {@link #getRetention}: (entity, aspect), (entity, *), (*, aspect), (*, *).
+   *
+   * <p>When there is no version-based retention policy (time-only or no policy), returns 1 so only
+   * the current version is retained—consistent with retention service not being enabled.
+   *
+   * @param opContext operation context
+   * @param entityNa entity type
+   * @param aspectName aspect name
+   * @return 1 if no version policy; else version.maxVersions if set
+   */
+  public int getMaxVersionsToKeepForWrite(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    Retention retention = getRetention(opContext, entityName, aspectName);
+    if (retention.hasVersion()) {
+      return retention.getVersion().getMaxVersions();
+    }
+    return 1;
+  }
+
+  /**
+   * Returns the retention policy stored at the exact {@code (entityName, aspectName)} key only,
+   * without wildcard fallback.
+   */
+  public Optional<DataHubRetentionConfig> getRetentionConfigAtExactKey(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    Urn retentionUrn = toRetentionUrn(entityName, aspectName);
+    Map<Urn, List<RecordTemplate>> fetchedAspects =
+        getEntityService()
+            .getLatestAspects(
+                opContext, Set.of(retentionUrn), Set.of(Constants.DATAHUB_RETENTION_ASPECT));
+    return fetchedAspects.getOrDefault(retentionUrn, Collections.emptyList()).stream()
+        .filter(aspect -> aspect instanceof DataHubRetentionConfig)
+        .map(aspect -> (DataHubRetentionConfig) aspect)
+        .findFirst();
+  }
+
+  /** Compares two retention configs for equality (exact-key policy comparison). */
+  public boolean retentionConfigEquals(
+      @Nonnull DataHubRetentionConfig a, @Nonnull DataHubRetentionConfig b) {
+    return Objects.equals(a, b);
+  }
+
+  /**
+   * Returns true if there is no policy at the exact key, or the policy was last written by the
+   * system actor.
+   */
+  public boolean isRetentionPolicySystemManaged(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    if (getRetentionConfigAtExactKey(opContext, entityName, aspectName).isEmpty()) {
+      return true;
+    }
+    return getRetentionPolicyLastWriter(opContext, entityName, aspectName)
+        .map(actor -> Constants.SYSTEM_ACTOR.equals(actor.toString()))
+        .orElse(false);
+  }
+
+  /** Last writer of the retention config aspect at the exact key, if known. */
+  @Nonnull
+  public Optional<Urn> getRetentionPolicyLastWriter(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    try {
+      Urn retentionUrn = toRetentionUrn(entityName, aspectName);
+      EnvelopedAspect envelopedAspect =
+          getEntityService()
+              .getLatestEnvelopedAspect(
+                  opContext,
+                  Constants.DATAHUB_RETENTION_ENTITY,
+                  retentionUrn,
+                  Constants.DATAHUB_RETENTION_ASPECT);
+      if (envelopedAspect != null
+          && envelopedAspect.hasCreated()
+          && envelopedAspect.getCreated().hasActor()) {
+        return Optional.of(envelopedAspect.getCreated().getActor());
+      }
+    } catch (Exception ignored) {
+      // Treat as non-system-managed when provenance cannot be read.
+    }
+    return Optional.empty();
+  }
+
+  protected static Urn toRetentionUrn(@Nonnull String entityName, @Nonnull String aspectName) {
+    DataHubRetentionKey retentionKey = new DataHubRetentionKey();
+    retentionKey.setEntityName(entityName);
+    retentionKey.setAspectName(aspectName);
+    return EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
   }
 
   // Get list of datahub retention keys that match the input entity name and aspect name

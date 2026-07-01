@@ -2,7 +2,8 @@ import { aliasQuery, hasOperationName } from "../utils";
 
 const test_id = Math.floor(Math.random() * 100000);
 
-describe("manage access tokens", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("manage access tokens", () => {
   before(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
@@ -15,8 +16,6 @@ describe("manage access tokens", () => {
         req.alias = "gqlappConfigQuery";
         req.on("response", (res) => {
           res.body.data.appConfig.authConfig.tokenAuthEnabled = isOn;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
         });
       }
     });
@@ -25,11 +24,10 @@ describe("manage access tokens", () => {
   it("create and revoke access token", () => {
     // create access token, verify token on ui
     setTokenAuthEnabledFlag(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToAccessTokenSettings();
     cy.clickOptionWithTestId("add-token-button");
-    cy.clickOptionWithSpecificClass(".personal-token-dropdown-option", 0);
+    cy.clickOptionWithText("Personal Token");
     cy.enterTextInTestId("create-access-token-name", `Token Name${test_id}`);
     cy.enterTextInTestId(
       "create-access-token-description",

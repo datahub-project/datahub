@@ -2,6 +2,7 @@ import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
 import { Dropdown } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
@@ -23,6 +24,7 @@ const StyledDropdownButton = styled(Dropdown.Button)`
 `;
 
 export const TableCellMenu = () => {
+    const { t } = useTranslation('entity.profile.editor');
     const active = useActive();
     const commands = useCommands();
 
@@ -40,7 +42,7 @@ export const TableCellMenu = () => {
                     disabled={active.tableHeaderCell()}
                     onClick={() => commands.addTableRowBefore()}
                 >
-                    Insert row above
+                    {t('table.insertRowAbove')}
                 </MenuItemStyle>
             ),
         },
@@ -48,7 +50,7 @@ export const TableCellMenu = () => {
             key: 1,
             label: (
                 <MenuItemStyle icon={<PlusOutlined />} onClick={() => commands.addTableRowAfter()}>
-                    Insert row below
+                    {t('table.insertRowBelow')}
                 </MenuItemStyle>
             ),
         },
@@ -56,7 +58,7 @@ export const TableCellMenu = () => {
             key: 2,
             label: (
                 <MenuItemStyle icon={<PlusOutlined />} onClick={() => commands.addTableColumnBefore()}>
-                    Insert column left
+                    {t('table.insertColumnLeft')}
                 </MenuItemStyle>
             ),
         },
@@ -64,7 +66,7 @@ export const TableCellMenu = () => {
             key: 3,
             label: (
                 <MenuItemStyle icon={<PlusOutlined />} onClick={() => commands.addTableColumnAfter()}>
-                    Insert column right
+                    {t('table.insertColumnRight')}
                 </MenuItemStyle>
             ),
         },
@@ -77,7 +79,7 @@ export const TableCellMenu = () => {
                     disabled={active.tableHeaderCell()}
                     onClick={() => commands.deleteTableRow()}
                 >
-                    Delete row
+                    {t('table.deleteRow')}
                 </MenuItemStyle>
             ),
         },
@@ -85,7 +87,7 @@ export const TableCellMenu = () => {
             key: 5,
             label: (
                 <MenuItemStyle icon={<DeleteOutlined />} onClick={() => commands.deleteTableColumn()}>
-                    Delete column
+                    {t('table.deleteColumn')}
                 </MenuItemStyle>
             ),
         },
@@ -93,7 +95,7 @@ export const TableCellMenu = () => {
             key: 6,
             label: (
                 <MenuItemStyle icon={<DeleteOutlined />} onClick={() => commands.deleteTable()}>
-                    Delete table
+                    {t('table.deleteTable')}
                 </MenuItemStyle>
             ),
         },

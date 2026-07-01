@@ -25,12 +25,11 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
-    with DataHubContext(graph):
-        return get_entities([entity_urn])
+    with DataHubContext(client):
+        results = get_entities([entity_urn])
+        return results[0]
 
 except Exception as e:
     return {
