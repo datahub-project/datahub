@@ -306,7 +306,8 @@ public class NonBlockingConfigs {
   @Bean
   public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
       @Qualifier("entityService") final EntityService<?> entityService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
-    return new RestoreDbtSiblingsIndices(entityService, enabled);
+    return new RestoreDbtSiblingsIndices(entityService, aspectDao, enabled);
   }
 }
