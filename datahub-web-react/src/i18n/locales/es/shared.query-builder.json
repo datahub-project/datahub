@@ -1,4 +1,9 @@
 {
+    "entityType.dataFlow": "Data Flow (Pipeline)",
+    "entityType.dataJob": "Data Job (Tarea)",
+    "entityType.mlFeature": "ML Feature",
+    "entityType.mlFeatureTable": "ML Feature Table",
+    "entityType.mlModelGroup": "Grupo de modelos de ML",
     "group.addCondition": "Añadir condición",
     "group.addGroup": "Añadir grupo",
     "group.allLabel": "Todas",
