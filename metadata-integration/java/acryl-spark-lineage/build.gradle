@@ -228,6 +228,10 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
+      // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
+      exclude 'io.openlineage.spark.extension.**'
+    }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
