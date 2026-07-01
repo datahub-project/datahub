@@ -94,6 +94,7 @@ class QueryCleanupReport(SourceReport):
     num_queries_invalid_urn: int = 0
     num_queries_soft_deleted: int = 0
     num_queries_hard_deleted: int = 0
+    num_queries_processed: int = 0
     sample_deleted_queries: LossyList[str] = field(
         default_factory=lambda: LossyList(max_elements=get_report_info_sample_size())
     )
@@ -120,7 +121,6 @@ class QueryCleanup:
             raise ValueError("Datahub API is required")
 
         self.graph: DataHubGraph = ctx.graph
-        self.ctx = ctx
         self.config = config
         self.report = report
         self.dry_run = dry_run
@@ -194,15 +194,21 @@ class QueryCleanup:
                     context=futures[future].urn(),
                     exc=future.exception(),
                 )
+            self.report.num_queries_processed += 1
+            # Throttle once every batch_size completions rather than on every
+            # wait() return, so `delay` matches its documented per-batch meaning.
+            if (
+                self.config.delay
+                and self.report.num_queries_processed % self.config.batch_size == 0
+            ):
+                logger.debug(
+                    f"Sleeping for {self.config.delay} seconds before processing next batch"
+                )
+                time.sleep(self.config.delay)
 
         remaining = {
             future: urn for future, urn in futures.items() if future in not_done
         }
-        if done and self.config.delay:
-            logger.debug(
-                f"Sleeping for {self.config.delay} seconds before processing next batch"
-            )
-            time.sleep(self.config.delay)
         return remaining
 
     def _times_up(self) -> bool:
