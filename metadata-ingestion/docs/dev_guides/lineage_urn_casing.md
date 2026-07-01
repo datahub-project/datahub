@@ -100,7 +100,7 @@ Adding any of these is incremental: every reference funnels through one resolver
 
 ## Enabling the feature
 
-Add the `normalize_lineage_urn_casing` flag under the pipeline-level `flags` block, and list the
+Add the `auto_resolve_lineage_urns` flag under the pipeline-level `flags` block, and list the
 upstream warehouse platform(s) whose references should be reconciled:
 
 ```yaml
@@ -110,7 +110,7 @@ source:
     # ... your Looker config ...
 
 flags:
-  normalize_lineage_urn_casing:
+  auto_resolve_lineage_urns:
     enabled: true
     upstream_platforms:
       - platform: snowflake

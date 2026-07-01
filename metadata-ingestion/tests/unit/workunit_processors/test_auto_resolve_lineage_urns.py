@@ -13,11 +13,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline_config import (
-    NormalizeLineageUrnCasingConfig,
+    AutoResolveLineageUrnsConfig,
     UpstreamPlatformCasing,
 )
-from datahub.ingestion.workunit_processors.auto_normalize_lineage_urns import (
-    AutoNormalizeLineageUrnsProcessor,
+from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
+    AutoResolveLineageUrnsProcessor,
 )
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
@@ -62,7 +62,7 @@ def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
 
 def _make_processor(
     schemas: Dict[str, Dict[str, str]],
-) -> Tuple[AutoNormalizeLineageUrnsProcessor, mock.MagicMock, Any]:
+) -> Tuple[AutoResolveLineageUrnsProcessor, mock.MagicMock, Any]:
     """Patch provide_schema_resolver to a single seeded snowflake resolver.
 
     `schemas` maps existing URN -> column schema. The processor builds its
@@ -72,17 +72,17 @@ def _make_processor(
     resolver = _resolver(schemas)
     provide_mock = mock.MagicMock(return_value=resolver)
 
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
     patcher = mock.patch(_PATCH_TARGET, provide_mock)
     patcher.start()
     return processor, provide_mock, patcher
@@ -290,17 +290,17 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
     provide_mock = mock.MagicMock(return_value=resolver)
 
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="mssql", env="PROD")],
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.graph.get_urns_by_filter.return_value = [mssql_table]
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     wu = MetadataChangeProposalWrapper(
         entityUrn=pbi_dataset,
@@ -356,7 +356,7 @@ def test_multi_platform_upstreams_both_healed():
     def fake_provide(graph, platform, platform_instance, env, batch_size=100):
         return sf_resolver if platform == "snowflake" else rs_resolver
 
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[
             UpstreamPlatformCasing(platform="snowflake", env="PROD"),
@@ -365,10 +365,10 @@ def test_multi_platform_upstreams_both_healed():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     # BI emits both upstreams with the wrong casing (snowflake lower, redshift upper).
     wu = MetadataChangeProposalWrapper(
@@ -400,7 +400,7 @@ def test_platform_urn_form_in_config_is_normalized():
     # normalized platform parsed from the dataset URN (else: silent no-op).
     resolver = _resolver({LOWER: {"amount": "int"}})
     provide_mock = mock.MagicMock(return_value=resolver)
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[
             UpstreamPlatformCasing(platform="urn:li:dataPlatform:snowflake", env="PROD")
@@ -409,10 +409,10 @@ def test_platform_urn_form_in_config_is_normalized():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
@@ -433,7 +433,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     resolver.add_raw_schema_info(stored, {"amount": "int"})
     provide_mock = mock.MagicMock(return_value=resolver)
 
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[
             UpstreamPlatformCasing(
@@ -444,10 +444,10 @@ def test_platform_instance_is_threaded_through_and_heals():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.graph.get_urns_by_filter.return_value = [stored]
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
         [out] = list(processor.process(iter([_upstream_wu(referenced)])))
@@ -582,16 +582,16 @@ def test_non_dataset_upstream_ref_is_skipped():
 def test_exception_is_recorded_and_workunit_passed_through():
     # If resolution raises, the workunit is passed through unchanged and counted.
     provide_mock = mock.MagicMock(side_effect=RuntimeError("boom"))
-    cfg = NormalizeLineageUrnCasingConfig(
+    cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.flags.normalize_lineage_urn_casing = cfg
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoNormalizeLineageUrnsProcessor.create(ctx)
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
@@ -643,7 +643,7 @@ def test_module_import_does_not_pull_sqlglot():
     # interpreter, since this test session may already have sqlglot loaded.
     code = (
         "import sys; "
-        "import datahub.ingestion.workunit_processors.auto_normalize_lineage_urns; "
+        "import datahub.ingestion.workunit_processors.auto_resolve_lineage_urns; "
         "assert 'sqlglot' not in sys.modules, 'sqlglot imported at module load'"
     )
     result = subprocess.run(
@@ -715,7 +715,7 @@ def _ctx(
 ) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = graph
-    pipeline_ctx.flags.normalize_lineage_urn_casing = NormalizeLineageUrnCasingConfig(
+    pipeline_ctx.flags.auto_resolve_lineage_urns = AutoResolveLineageUrnsConfig(
         enabled=enabled,
         upstream_platforms=upstream_platforms
         if upstream_platforms is not None
@@ -727,12 +727,12 @@ def _ctx(
 
 
 def test_disabled_without_graph():
-    assert AutoNormalizeLineageUrnsProcessor.should_enable(_ctx(True, None)) is False
+    assert AutoResolveLineageUrnsProcessor.should_enable(_ctx(True, None)) is False
 
 
 def test_disabled_when_flag_off():
     assert (
-        AutoNormalizeLineageUrnsProcessor.should_enable(_ctx(False, mock.MagicMock()))
+        AutoResolveLineageUrnsProcessor.should_enable(_ctx(False, mock.MagicMock()))
         is False
     )
 
@@ -740,7 +740,7 @@ def test_disabled_when_flag_off():
 def test_disabled_when_no_upstream_platforms():
     # Enabled but unconfigured = active no-op; should_enable guards against it.
     assert (
-        AutoNormalizeLineageUrnsProcessor.should_enable(
+        AutoResolveLineageUrnsProcessor.should_enable(
             _ctx(True, mock.MagicMock(), upstream_platforms=[])
         )
         is False
@@ -749,6 +749,6 @@ def test_disabled_when_no_upstream_platforms():
 
 def test_enabled_when_flag_on_with_graph():
     assert (
-        AutoNormalizeLineageUrnsProcessor.should_enable(_ctx(True, mock.MagicMock()))
+        AutoResolveLineageUrnsProcessor.should_enable(_ctx(True, mock.MagicMock()))
         is True
     )

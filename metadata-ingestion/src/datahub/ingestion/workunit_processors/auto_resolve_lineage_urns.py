@@ -52,8 +52,8 @@ _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 
 @dataclass
-class AutoNormalizeLineageUrnsProcessorReport(WorkunitProcessorReport):
-    """Report for AutoNormalizeLineageUrnsProcessor metrics."""
+class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
+    """Report for AutoResolveLineageUrnsProcessor metrics."""
 
     num_dataset_urns_normalized: int = 0  # Upstream dataset URNs rewritten
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
@@ -104,8 +104,8 @@ def _field_path(field_urn: str) -> Optional[str]:
         return None
 
 
-class AutoNormalizeLineageUrnsProcessor(
-    WorkunitProcessor[AutoNormalizeLineageUrnsProcessorReport]
+class AutoResolveLineageUrnsProcessor(
+    WorkunitProcessor[AutoResolveLineageUrnsProcessorReport]
 ):
     """Reconcile the casing of upstream warehouse URN references in lineage.
 
@@ -131,21 +131,21 @@ class AutoNormalizeLineageUrnsProcessor(
         assert graph is not None
         self._graph: DataHubGraph = graph
         self._config: List[UpstreamPlatformCasing] = (
-            ctx.pipeline_context.flags.normalize_lineage_urn_casing.upstream_platforms
+            ctx.pipeline_context.flags.auto_resolve_lineage_urns.upstream_platforms
         )
         # Lazily bulk-initialized catalogs, keyed by normalized platform name.
         self._catalog_by_platform: Dict[str, _Catalog] = {}
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
-        cfg = ctx.pipeline_context.flags.normalize_lineage_urn_casing
+        cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
         if not cfg.enabled:
             return False
         if not cfg.upstream_platforms:
             # Enabled but unconfigured: every reference would no-op. Skip the
             # per-platform bulk catalog load entirely and tell the operator why.
             logger.warning(
-                "normalize_lineage_urn_casing is enabled but no upstream_platforms "
+                "auto_resolve_lineage_urns is enabled but no upstream_platforms "
                 "are configured; the processor will not run. Configure the warehouse "
                 "platform(s) this source references to enable casing reconciliation."
             )
