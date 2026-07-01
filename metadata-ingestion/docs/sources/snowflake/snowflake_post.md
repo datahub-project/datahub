@@ -424,6 +424,19 @@ stage_pattern:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
+**Data lake lineage path specs for external stages**
+
+An external stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
+
+Configure `datalake_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary so the resulting URNs line up. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN. Path specs may use any supported scheme prefix (`s3://`, `gcs://`, or `azure://`) — the resolver dispatches to the matching cloud platform automatically. Set `ignore_non_path_spec_path: true` to skip emitting a dataset URN for any stage whose location does not match a configured path spec.
+
+```yaml
+datalake_lineage_config:
+  path_specs:
+    - include: "s3://my-bucket/{table}/*/*/*.csv"
+  ignore_non_path_spec_path: true
+```
+
 ##### Tasks (`include_tasks: true`)
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.

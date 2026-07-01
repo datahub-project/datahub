@@ -1,12 +1,11 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -17,7 +16,9 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.data_lake_common.config import (
+    S3DatasetLineageProviderConfigBase,
+)
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -34,39 +35,6 @@ class LineageMode(Enum):
     SQL_BASED = "sql_based"
     STL_SCAN_BASED = "stl_scan_based"
     MIXED = "mixed"
-
-
-class S3LineageProviderConfig(ConfigModel):
-    """
-    Any source that produces s3 lineage from/to Datasets should inherit this class.
-    """
-
-    path_specs: List[PathSpec] = Field(
-        default=[],
-        description="List of PathSpec. See below the details about PathSpec",
-    )
-
-    strip_urls: bool = Field(
-        default=True,
-        description="Strip filename from s3 url. It only applies if path_specs are not specified.",
-    )
-
-    ignore_non_path_spec_path: bool = Field(
-        default=False,
-        description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
-    )
-
-
-class S3DatasetLineageProviderConfigBase(ConfigModel):
-    """
-    Any source that produces s3 lineage from/to Datasets should inherit this class.
-    This is needeed to group all lineage related configs under `s3_lineage_config` config property.
-    """
-
-    s3_lineage_config: S3LineageProviderConfig = Field(
-        default=S3LineageProviderConfig(),
-        description="Common config for S3 lineage generation",
-    )
 
 
 class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
