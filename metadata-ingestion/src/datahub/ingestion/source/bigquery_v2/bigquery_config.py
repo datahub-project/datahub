@@ -44,6 +44,16 @@ DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 # Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
 DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 
+# Fields inherited from BaseTimeWindowConfig/BaseUsageConfig that are duplicated
+# on the nested `usage` config but only ever read from the top level of
+# BigQueryV2Config. See forward_usage_time_window_fields below.
+_DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
+    "start_time",
+    "end_time",
+    "bucket_duration",
+    "max_query_duration",
+)
+
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
 # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
@@ -117,7 +127,14 @@ class BigQueryUsageConfig(BaseUsageConfig):
         default=False,
         description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies "
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
-        "only.",
+        "only. Only applied with the legacy extraction path (`use_queries_v2: False`); ignored under "
+        "queries-v2.",
+    )
+
+    include_read_operational_stats: bool = Field(
+        default=False,
+        description="Whether to report read operational stats. Experimental. Only applied with the "
+        "legacy extraction path (`use_queries_v2: False`); ignored under queries-v2.",
     )
 
 
@@ -534,17 +551,17 @@ class BigQueryV2Config(
     @model_validator(mode="before")
     @classmethod
     def forward_usage_time_window_fields(cls, values: Any) -> Any:
-        # `usage.start_time`/`end_time`/`bucket_duration` are inherited from
-        # BaseTimeWindowConfig via BaseUsageConfig but were never read by either
-        # the queries-v2 or legacy code paths, which both use the top-level time
-        # window. The time window is a connector-wide setting governing lineage,
-        # usage, and operations together, so it belongs at the top level only.
+        # `usage.start_time`/`end_time`/`bucket_duration`/`max_query_duration` are
+        # inherited from BaseTimeWindowConfig/BaseUsageConfig via BigQueryUsageConfig
+        # but were never read by either the queries-v2 or legacy code paths, which
+        # both use the top-level copies. These are connector-wide settings governing
+        # lineage, usage, and operations together, so they belong at the top level only.
         if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
             return values
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         usage = values["usage"]
-        for field in ("start_time", "end_time", "bucket_duration"):
+        for field in _DEPRECATED_USAGE_TOP_LEVEL_FIELDS:
             if field not in usage:
                 continue
             if field in values and values[field] is not None:
@@ -626,6 +643,26 @@ class BigQueryV2Config(
                     "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
+        # `include_read_operational_stats` and `apply_view_usage_to_tables` are only
+        # implemented in the legacy (non-queries-v2) usage extraction path; qv2 attributes
+        # usage purely via SQL parsing and has no equivalent mechanism. We can't tell
+        # whether the user "explicitly" set a field post-validation, so we pragmatically
+        # warn whenever it differs from its (both False) default.
+        if self.use_queries_v2:
+            if self.usage.include_read_operational_stats:
+                logger.warning(
+                    "`usage.include_read_operational_stats` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.usage.apply_view_usage_to_tables:
+                logger.warning(
+                    "`usage.apply_view_usage_to_tables` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
                 )
         return self
 

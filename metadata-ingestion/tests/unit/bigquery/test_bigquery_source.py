@@ -1434,6 +1434,72 @@ def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
         assert any("deprecated" in record.msg for record in caplog.records)
 
 
+def test_bigquery_config_usage_max_query_duration_forwarded_to_top_level():
+    config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+    assert config.max_query_duration == timedelta(minutes=30)
+
+
+def test_bigquery_config_usage_and_top_level_max_query_duration_conflict_raises():
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {
+                "max_query_duration": "PT30M",
+                "usage": {"max_query_duration": "PT45M"},
+            }
+        )
+
+
+def test_bigquery_config_apply_view_usage_to_tables_warns_under_queries_v2(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "usage": {"apply_view_usage_to_tables": True}}
+        )
+        assert any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_include_read_operational_stats_warns_under_queries_v2(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "use_queries_v2": True,
+                "usage": {"include_read_operational_stats": True},
+            }
+        )
+        assert any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_legacy_only_usage_fields_no_warning_under_legacy_path(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "use_queries_v2": False,
+                "usage": {
+                    "apply_view_usage_to_tables": True,
+                    "include_read_operational_stats": True,
+                },
+            }
+        )
+        assert not any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_projects_with_project_labels(
