@@ -72,7 +72,7 @@ export SMTP_PASSWORD=your-app-password
 
 ### Email Branding
 
-The logo and footer of email templates are configurable. Both are optional — leave them unset to keep the built-in DataHub logo and footer.
+The logo and footer of SMTP email notifications are configurable (on self-managed DataHub Enterprise). Both are optional — leave them unset to keep the built-in DataHub logo and footer.
 
 ```bash
 export NOTIFICATION_LOGO_URL=https://example.com/logo.png   # roughly square PNG/JPG, scaled to 60px wide
