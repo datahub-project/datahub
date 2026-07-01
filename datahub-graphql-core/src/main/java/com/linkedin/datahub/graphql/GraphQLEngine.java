@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
 import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
+import com.linkedin.metadata.system_telemetry.GraphQLOtelResolverInstrumentation;
 import com.linkedin.metadata.system_telemetry.GraphQLTimingInstrumentation;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionInput;
@@ -36,6 +37,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.dataloader.DataLoader;
 
 /**
@@ -48,6 +50,7 @@ import org.dataloader.DataLoader;
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set
  * of variables.
  */
+@Slf4j
 public class GraphQLEngine {
 
   private final GraphQL _graphQL;
@@ -107,8 +110,23 @@ public class GraphQLEngine {
       instrumentations.add(
           GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
       instrumentations.add(OtelContextCaptureInstrumentation.INSTANCE);
-    }
 
+      // Custom, filtered resolver-level spans. Registered after GraphQLTelemetry so the operation
+      // span is already current; only selected fields get a span (no span explosion).
+      if (graphQLConfiguration.getOtel().getResolverSpans() != null
+          && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+        instrumentations.add(
+            new GraphQLOtelResolverInstrumentation(
+                graphQLConfiguration.getOtel().getResolverSpans(), GlobalOpenTelemetry.get()));
+      }
+    } else if (graphQLConfiguration.getOtel() != null
+        && graphQLConfiguration.getOtel().getResolverSpans() != null
+        && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+      // Misconfiguration: resolver spans require the GraphQL OTel instrumentation to be on.
+      log.warn(
+          "graphQL.otel.resolverSpans.enabled=true but graphQL.otel.enableOtelGraphqlTraces=false; "
+              + "resolver spans will NOT be emitted. Set ENABLE_OTEL_GRAPHQL_TRACES=true to enable.");
+    }
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
