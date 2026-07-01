@@ -144,6 +144,10 @@ class AutoResolveLineageUrnsProcessor(
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         self._casing_index_by_platform: Dict[str, Dict[str, List[str]]] = {}
         self._loaded_platforms: Set[str] = set()
+        # Platform names actually seen on references, to warn at end-of-run about
+        # configured platforms that matched nothing (a common cause is a case/spelling
+        # typo in the config, since platform names are compared case-sensitively).
+        self._seen_reference_platforms: Set[str] = set()
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -204,6 +208,21 @@ class AutoResolveLineageUrnsProcessor(
                 )
             yield wu
 
+        # After the stream, flag any configured platform that no reference used. The
+        # usual cause is a case/spelling mismatch in the config (platform names are
+        # compared case-sensitively, e.g. 'snowflake' != 'Snowflake'), which would
+        # otherwise silently heal nothing for that platform.
+        unmatched = {
+            entry.platform for entry in self._config
+        } - self._seen_reference_platforms
+        if unmatched:
+            logger.warning(
+                f"auto_resolve_lineage_urns: configured upstream platform(s) "
+                f"{sorted(unmatched)} matched no lineage references in this run. If "
+                f"unexpected, check the platform name — it must match the dataset URN's "
+                f"platform exactly (case-sensitive), e.g. 'snowflake', not 'Snowflake'."
+            )
+
     @staticmethod
     def _write_back_if_mcp(wu: MetadataWorkUnit, aspect: _Aspect) -> None:
         # get_aspect_of_type returns the *live* aspect for MCE/MCPW workunits, so the
@@ -232,6 +251,10 @@ class AutoResolveLineageUrnsProcessor(
         granularity. A reference for a platform instance / env that isn't configured
         simply won't appear in the index and resolves to UNRESOLVED.
         """
+        # Record every reference platform (even before the load cache) so the
+        # end-of-run check can flag configured platforms that matched nothing.
+        self._seen_reference_platforms.add(platform)
+
         # Deferred import: schema_resolver_provider pulls in sqlglot, which must not
         # be a module-load-time dependency (see the note at the top of this file).
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
