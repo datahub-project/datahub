@@ -304,9 +304,31 @@ module.exports = {
           ],
         },
         {
-          label: "Data Access Workflows",
-          type: "doc",
-          id: "docs/managed-datahub/workflows/access-workflows",
+          label: "Workflows",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+            },
+          ],
         },
         {
           label: "Data Access Roles",
