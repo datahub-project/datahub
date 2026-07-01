@@ -5,7 +5,9 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
@@ -15,10 +17,12 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +74,22 @@ public abstract class AbstractMCLStep implements UpgradeStep {
   /** Optionally apply an urn-like sql filter, otherwise all urns */
   @Nullable
   protected abstract String getUrnLike();
+
+  /**
+   * Optional id of a pre-refactor step. When a deployment already completed that legacy step, this
+   * step is skipped so large instances don't re-scan aspects that were already reindexed. Returns
+   * null when there is no legacy predecessor.
+   */
+  @Nullable
+  protected String getLegacyId() {
+    return null;
+  }
+
+  /** Legacy {@link DataHubUpgradeRequest} version to match; null matches any recorded version. */
+  @Nullable
+  protected String getLegacyVersion() {
+    return null;
+  }
 
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
@@ -206,7 +226,53 @@ public abstract class AbstractMCLStep implements UpgradeStep {
           "{} was already run. State: {} Skipping.",
           id(),
           prevResult.map(DataHubUpgradeResult::getState));
+      return true;
     }
-    return previousRunFinal;
+
+    if (getLegacyId() != null && legacyRunCompleted(context)) {
+      log.info("{}: legacy step {} already completed. Skipping.", id(), getLegacyId());
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Pre-refactor steps recorded completion with a {@link DataHubUpgradeRequest} aspect (the
+   * refactored steps use a stateful {@link DataHubUpgradeResult} instead, which the legacy runs
+   * never populated). Honor the legacy completion marker so deployments that already ran the old
+   * step don't re-scan on upgrade.
+   */
+  private boolean legacyRunCompleted(UpgradeContext context) {
+    try {
+      Urn legacyUrn = BootstrapStep.getUpgradeUrn(getLegacyId());
+      EntityResponse response =
+          entityService.getEntityV2(
+              context.opContext(),
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              legacyUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      if (response == null
+          || !response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        return false;
+      }
+      DataHubUpgradeRequest request =
+          new DataHubUpgradeRequest(
+              response
+                  .getAspects()
+                  .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                  .getValue()
+                  .data());
+      String legacyVersion = getLegacyVersion();
+      return legacyVersion == null
+          || (request.hasVersion() && legacyVersion.equals(request.getVersion()));
+    } catch (Exception e) {
+      log.error(
+          "{}: error checking legacy completion for {}. Proceeding with upgrade.",
+          id(),
+          getLegacyId(),
+          e);
+      return false;
+    }
   }
 }

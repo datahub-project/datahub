@@ -44,4 +44,14 @@ public class ReindexChartInputFieldsStep extends AbstractMCLStep {
   protected String getUrnLike() {
     return "urn:li:" + CHART_ENTITY_NAME + ":%";
   }
+
+  @Override
+  protected String getLegacyId() {
+    return "restore-column-lineage-indices";
+  }
+
+  @Override
+  protected String getLegacyVersion() {
+    return "1";
+  }
 }

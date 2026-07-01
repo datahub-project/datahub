@@ -44,4 +44,14 @@ public class ReindexGlossaryNodeInfoStep extends AbstractMCLStep {
   protected String getUrnLike() {
     return "urn:li:" + GLOSSARY_NODE_ENTITY_NAME + ":%";
   }
+
+  @Override
+  protected String getLegacyId() {
+    return "restore-glossary-indices-ui";
+  }
+
+  @Override
+  protected String getLegacyVersion() {
+    return "1";
+  }
 }

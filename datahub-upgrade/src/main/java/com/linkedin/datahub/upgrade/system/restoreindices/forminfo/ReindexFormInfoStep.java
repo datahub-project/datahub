@@ -44,4 +44,14 @@ public class ReindexFormInfoStep extends AbstractMCLStep {
   protected String getUrnLike() {
     return "urn:li:" + FORM_ENTITY_NAME + ":%";
   }
+
+  @Override
+  protected String getLegacyId() {
+    return "restore-form-info-indices";
+  }
+
+  @Override
+  protected String getLegacyVersion() {
+    return "2";
+  }
 }

@@ -44,4 +44,14 @@ public class ReindexDashboardInputFieldsStep extends AbstractMCLStep {
   protected String getUrnLike() {
     return "urn:li:" + DASHBOARD_ENTITY_NAME + ":%";
   }
+
+  @Override
+  protected String getLegacyId() {
+    return "restore-column-lineage-indices";
+  }
+
+  @Override
+  protected String getLegacyVersion() {
+    return "1";
+  }
 }

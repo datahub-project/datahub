@@ -44,4 +44,14 @@ public class ReindexDatasetUpstreamLineageStep extends AbstractMCLStep {
   protected String getUrnLike() {
     return "urn:li:" + DATASET_ENTITY_NAME + ":%";
   }
+
+  @Override
+  protected String getLegacyId() {
+    return "restore-column-lineage-indices";
+  }
+
+  @Override
+  protected String getLegacyVersion() {
+    return "1";
+  }
 }
