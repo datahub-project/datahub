@@ -1095,6 +1095,10 @@ sqlalchemy = [
     "sqlparse<0.6.0",
 ]
 
+sqlmesh = [
+    "sqlmesh>=0.235.2,<0.236",
+]
+
 starburst-trino-usage = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -1339,6 +1343,7 @@ all = [
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
+    "sqlmesh>=0.235.2,<0.236",
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
@@ -1911,6 +1916,7 @@ rdf = "datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource"
 redash = "datahub.ingestion.source.redash:RedashSource"
 redshift = "datahub.ingestion.source.redshift.redshift:RedshiftSource"
 slack = "datahub.ingestion.source.slack.slack:SlackSource"
+sqlmesh = "datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource"
 snowflake = "datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source"
 snowflake-summary = "datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource"
 snowflake-queries = "datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource"

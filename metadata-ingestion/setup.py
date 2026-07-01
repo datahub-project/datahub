@@ -784,6 +784,12 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
+    # Floor at 0.235.2: each sqlmesh release pins a narrow sqlglot range, and
+    # 0.235.2 is the first to require sqlglot~=30.8.0, matching our pinned
+    # sqlglot[c]==30.8.0 (see sqlglot_lib comment). Earlier sqlmesh versions
+    # need sqlglot 30.0.x-30.4.x and cannot coexist with our pin. Cap at <0.236
+    # until the next sqlmesh sqlglot bump is vetted against our monkey-patches.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.236"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -1179,6 +1185,7 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "sqlmesh = datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",

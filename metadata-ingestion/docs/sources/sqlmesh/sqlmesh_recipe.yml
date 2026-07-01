@@ -1,0 +1,23 @@
+source:
+  type: sqlmesh
+  config:
+    project_path: /path/to/sqlmesh_project
+    # gateway: my_gateway  # defaults to the project's default gateway
+    # Tobiko Cloud projects: point at your cloud state store. The token is only
+    # needed for CI/service accounts; SSO users authenticate via `tcloud auth login`.
+    # tobiko_cloud_url: https://cloud.tobikodata.com/sqlmesh/<org>/<project>/
+    # tobiko_cloud_token: "${TCLOUD_TOKEN}"
+    # target_platform: snowflake  # auto-detected from gateway connection type
+    # target_platform_instance: prod_snowflake  # must match warehouse connector
+    # default_catalog: analytics  # required for 2-part model names + 3-part warehouse URNs
+    env: PROD
+    include_column_lineage: true
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"  # required for authenticated / hosted DataHub
