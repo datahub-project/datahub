@@ -10,7 +10,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.ObjectMapperContext;
@@ -22,6 +21,7 @@ import io.datahubproject.openapi.operations.k8.models.ConfigMapUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.CronJobTriggerRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentEnvUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentScaleRequest;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -91,9 +91,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    // Setup authorization
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    // Setup authorization — 1-arg stub only; exercises OperationContextAuthorizer null fallback.
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
 
     // Setup K8s client config
     Config config = mock(Config.class);
@@ -122,6 +121,32 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testListDeployments() throws Exception {
+    Deployment deployment = createTestDeployment("test-deployment");
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+    DeploymentList deploymentList = new DeploymentList();
+    deploymentList.setItems(List.of(deployment));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.list()).thenReturn(deploymentList);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(BASE_PATH + "/deployments")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.elements[0].metadata.name").value("test-deployment"));
+  }
+
+  @Test
+  public void testListDeploymentsWithOperationContextAuthorizer() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     Deployment deployment = createTestDeployment("test-deployment");
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
@@ -2225,8 +2250,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
       AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
       AuthenticationContext.setAuthentication(authentication);
       return authorizerChain;
     }

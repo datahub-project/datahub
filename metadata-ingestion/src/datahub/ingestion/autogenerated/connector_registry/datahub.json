@@ -119,12 +119,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
@@ -325,12 +319,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -452,12 +440,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default via `include_view_column_lineage`",
           "subtype_modifier": null,
@@ -561,12 +543,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -689,6 +665,86 @@
       "classname": "datahub.ingestion.source.csv_enricher.CSVEnricherSource",
       "platform_id": "csv-enricher",
       "platform_name": "CSV Enricher",
+      "support_status": "INCUBATING"
+    },
+    "cube": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, can be disabled via `include_column_lineage`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Enabled via the `domain` config and `meta_mapping`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled via `meta_mapping` against Cube `meta`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled via `meta_mapping`/`column_meta_mapping`, plus Measure/Dimension/Temporal field tags.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Enabled via `meta_mapping`/`column_meta_mapping`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default. Includes view->cube lineage and, where available, lineage to upstream warehouse tables.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.cube.cube.CubeSource",
+      "platform_id": "cube",
+      "platform_name": "Cube",
       "support_status": "INCUBATING"
     },
     "datahub": {
@@ -840,12 +896,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -1061,12 +1111,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1223,12 +1267,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1288,12 +1326,6 @@
     },
     "dynamodb": {
       "capabilities": [
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -1591,6 +1623,26 @@
       "platform_name": "Google Cloud Storage",
       "support_status": "INCUBATING"
     },
+    "github-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
+      "platform_id": "github",
+      "platform_name": "GitHub",
+      "support_status": "INCUBATING"
+    },
     "glue": {
       "capabilities": [
         {
@@ -1696,12 +1748,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -1856,12 +1902,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
@@ -1931,12 +1971,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -2230,6 +2264,50 @@
       "platform_name": "Kafka Connect",
       "support_status": "CERTIFIED"
     },
+    "kinesis": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Firehose -> destination lineage",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
+      "platform_id": "kinesis",
+      "platform_name": "Amazon Kinesis Data Streams",
+      "support_status": "INCUBATING"
+    },
     "ldap": {
       "capabilities": [
         {
@@ -2358,12 +2436,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2618,12 +2690,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -2698,12 +2764,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2956,12 +3016,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -3074,12 +3128,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3287,12 +3335,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
           "subtype_modifier": [
@@ -3362,12 +3404,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -3523,6 +3559,74 @@
       "platform_name": "Qlik Sense",
       "support_status": "INCUBATING"
     },
+    "quicksight": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled via `include_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled via `extract_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled via `extract_tags`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled via `extract_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.quicksight.quicksight.QuickSightSource",
+      "platform_id": "quicksight",
+      "platform_name": "QuickSight",
+      "support_status": "INCUBATING"
+    },
     "rdf": {
       "capabilities": [
         {
@@ -3608,12 +3712,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3989,12 +4087,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "subtype_modifier": null,
@@ -4154,12 +4246,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -4240,12 +4326,6 @@
             "Catalog",
             "Database"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4436,12 +4516,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -4587,17 +4661,86 @@
       "platform_name": "ThoughtSpot",
       "support_status": "INCUBATING"
     },
-    "timescaledb": {
+    "tidb": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.tidb.TiDBSource",
+      "platform_id": "tidb",
+      "platform_name": "TiDB",
+      "support_status": "INCUBATING"
+    },
+    "timescaledb": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4672,12 +4815,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4876,12 +5013,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {

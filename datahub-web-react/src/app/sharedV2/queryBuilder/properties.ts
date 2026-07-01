@@ -16,21 +16,96 @@ export const properties = [
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
             options: [
-                { id: 'dataset', displayName: 'Dataset' },
-                { id: 'dashboard', displayName: 'Dashboard' },
-                { id: 'chart', displayName: 'Chart' },
-                { id: 'dataJob', displayName: 'Data Job (Task)' },
-                { id: 'dataFlow', displayName: 'Data Flow (Pipeline)' },
-                { id: 'container', displayName: 'Container' },
-                { id: 'domain', displayName: 'Domain' },
-                { id: 'dataProduct', displayName: 'Data Product' },
-                { id: 'glossaryTerm', displayName: 'Glossary Term' },
-                { id: 'glossaryNode', displayName: 'Term Group' },
-                { id: 'mlModel', displayName: 'ML Model' },
-                { id: 'mlModelGroup', displayName: 'ML Model Group' },
-                { id: 'mlFeature', displayName: 'ML Feature' },
-                { id: 'mlFeatureTable', displayName: 'ML Feature Table' },
-                { id: 'mlPrimaryKey', displayName: 'ML Primary Key' },
+                {
+                    id: 'dataset',
+                    get displayName() {
+                        return i18next.t('entity.types:dataset.name');
+                    },
+                },
+                {
+                    id: 'dashboard',
+                    get displayName() {
+                        return i18next.t('entity.types:dashboard.name');
+                    },
+                },
+                {
+                    id: 'chart',
+                    get displayName() {
+                        return i18next.t('entity.types:chart.name');
+                    },
+                },
+                {
+                    id: 'dataJob',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.dataJob');
+                    },
+                },
+                {
+                    id: 'dataFlow',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.dataFlow');
+                    },
+                },
+                {
+                    id: 'container',
+                    get displayName() {
+                        return i18next.t('entity.types:container.name');
+                    },
+                },
+                {
+                    id: 'domain',
+                    get displayName() {
+                        return i18next.t('entity.types:domain.name');
+                    },
+                },
+                {
+                    id: 'dataProduct',
+                    get displayName() {
+                        return i18next.t('entity.types:dataProduct.name');
+                    },
+                },
+                {
+                    id: 'glossaryTerm',
+                    get displayName() {
+                        return i18next.t('entity.types:glossaryTerm.name');
+                    },
+                },
+                {
+                    id: 'glossaryNode',
+                    get displayName() {
+                        return i18next.t('entity.types:glossaryNode.name');
+                    },
+                },
+                {
+                    id: 'mlModel',
+                    get displayName() {
+                        return i18next.t('entity.types:mlModel.name');
+                    },
+                },
+                {
+                    id: 'mlModelGroup',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlModelGroup');
+                    },
+                },
+                {
+                    id: 'mlFeature',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlFeature');
+                    },
+                },
+                {
+                    id: 'mlFeatureTable',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlFeatureTable');
+                    },
+                },
+                {
+                    id: 'mlPrimaryKey',
+                    get displayName() {
+                        return i18next.t('entity.types:mlPrimaryKey.name');
+                    },
+                },
             ],
         },
     },

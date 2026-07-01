@@ -137,7 +137,7 @@ module.exports = {
         {
           type: 'html',
           position: 'left',
-          value: '<div class="navbar__item" style="font-weight: 600; color: #1890FF; background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 12px; padding: 1px 10px; margin-left: 8px; font-size: 0.85rem; line-height: 1.5;">1.4.0</div>',
+          value: '<div class="navbar__item" style="font-weight: 600; color: #1890FF; background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 12px; padding: 1px 10px; margin-left: 8px; font-size: 0.85rem; line-height: 1.5;">1.6.0</div>',
         },
         /* * TODO: Temporarily disabled the legacy version dropdown to prevent users 
          * from navigating to expired preview deployment links (404s). 
@@ -360,7 +360,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.4.0",
+              label: "1.6.0",
               banner: 'none',
             },
           },

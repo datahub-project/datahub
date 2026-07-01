@@ -269,7 +269,11 @@ Cypress.Commands.add("openThreeDotMenu", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).should("be.visible").click();
+  // Entity profile pages often render the same name in multiple places (header,
+  // breadcrumbs, self-referencing links inside hidden tab panes). Filter to
+  // visible matches before asserting so a `<a>` inside an inactive (display:none)
+  // `.ant-tabs-tabpane` doesn't win the lookup and fail visibility check.
+  cy.contains(text).filter(":visible").first().should("be.visible").click();
 });
 
 Cypress.Commands.add("clickFirstOptionWithText", (text) => {

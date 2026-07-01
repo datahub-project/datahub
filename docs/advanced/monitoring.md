@@ -723,6 +723,28 @@ datahub:
 
 Default buckets (1MB, 5MB, 10MB, 15MB) create ranges: 0-1MB, 1MB-5MB, 5MB-10MB, 10MB-15MB, 15MB+
 
+## Primary storage read pool metrics
+
+When [primary storage read pools](../deploy/primary-storage-read-pool.md) are enabled on GMS,
+Micrometer counters track which pool served each resolution:
+
+| Metric                                     | Tags                                                                          | Meaning                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `primary_storage_target_used`              | `target` (`PRIMARY` \| `READ`), `store` (`ebean` \| `cassandra`), `forUpdate` | Pool chosen for a resolver call                                      |
+| `primary_storage_read_fallback_to_primary` | `store`                                                                       | READ preference requested but no read pool registered — used PRIMARY |
+
+Example PromQL:
+
+```promql
+# Share of aspect reads using the read pool (non-locking only)
+sum(rate(primary_storage_target_used_total{target="READ",forUpdate="false"}[5m]))
+  /
+sum(rate(primary_storage_target_used_total{forUpdate="false"}[5m]))
+
+# Fallbacks — should stay near zero when read pool is enabled
+rate(primary_storage_read_fallback_to_primary_total[5m])
+```
+
 ## Cache Monitoring (Micrometer)
 
 ### Overview

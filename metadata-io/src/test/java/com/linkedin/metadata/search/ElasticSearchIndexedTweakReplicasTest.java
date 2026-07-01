@@ -103,8 +103,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
     testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was called for each config
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
   }
 
   @Test
@@ -113,8 +113,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
     testService.tweakReplicasAll(opContext, properties, true);
 
     // Verify that tweakReplicas was called with dryRun=true
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, true);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, true);
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(true));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(true));
   }
 
   @Test
@@ -126,7 +126,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
     testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was not called
-    verify(mockIndexBuilder, never()).tweakReplicas(any(), anyBoolean());
+    verify(mockIndexBuilder, never())
+        .tweakReplicas(any(OperationContext.class), any(), anyBoolean());
   }
 
   @SneakyThrows
@@ -142,7 +143,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
       assertEquals(IOException.class, exception.getCause().getClass());
       assertEquals("Test exception in buildReindexConfigs", exception.getCause().getMessage());
       // Verify that tweakReplicas was not called
-      verify(mockIndexBuilder, never()).tweakReplicas(any(), anyBoolean());
+      verify(mockIndexBuilder, never())
+          .tweakReplicas(any(OperationContext.class), any(), anyBoolean());
     }
   }
 
@@ -151,7 +153,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
     // Set up the index builder to throw an exception
     doThrow(new RuntimeException("Tweak replicas failed"))
         .when(mockIndexBuilder)
-        .tweakReplicas(mockReindexConfig1, false);
+        .tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
     try {
       testService.tweakReplicasAll(opContext, properties, false);
       fail("Expected RuntimeException was not thrown");
@@ -159,8 +161,9 @@ public class ElasticSearchIndexedTweakReplicasTest {
       // Verify the exception message
       assertEquals("Tweak replicas failed", exception.getMessage());
       // Verify that tweakReplicas was called for the first config but not the second
-      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-      verify(mockIndexBuilder, never()).tweakReplicas(mockReindexConfig2, false);
+      verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
+      verify(mockIndexBuilder, never())
+          .tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
     }
   }
 
@@ -171,8 +174,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
     // Verify that buildReindexConfigs was called with null
     // and tweakReplicas was called for each config
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
   }
 
   @Test
@@ -193,19 +196,21 @@ public class ElasticSearchIndexedTweakReplicasTest {
     testService.tweakReplicasAll(opContext, properties, false);
 
     // Verify that tweakReplicas was called for each config
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig3, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig4, false);
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig3), eq(false));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig4), eq(false));
   }
 
   @Test
   public void testTweakReplicasAll_ExceptionInMiddleOfProcessing() throws IOException {
     // Set up the index builder to throw an exception for the second config
-    doNothing().when(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
+    doNothing()
+        .when(mockIndexBuilder)
+        .tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
     doThrow(new RuntimeException("Error on second config"))
         .when(mockIndexBuilder)
-        .tweakReplicas(mockReindexConfig2, false);
+        .tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
     try {
       testService.tweakReplicasAll(opContext, properties, false);
       fail("Expected RuntimeException was not thrown");
@@ -213,8 +218,8 @@ public class ElasticSearchIndexedTweakReplicasTest {
       // Verify the exception message
       assertEquals("Error on second config", exception.getMessage());
       // Verify that tweakReplicas was called for both configs
-      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
+      verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(false));
+      verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(false));
     }
   }
 
@@ -233,7 +238,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
 
     // Verify that buildReindexConfigs was called with the multiple properties
     // and tweakReplicas was called for each config with dryRun=true
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, true);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, true);
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig1), eq(true));
+    verify(mockIndexBuilder).tweakReplicas(eq(opContext), eq(mockReindexConfig2), eq(true));
   }
 }

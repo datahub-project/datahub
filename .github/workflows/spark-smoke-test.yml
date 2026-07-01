@@ -29,6 +29,10 @@ concurrency:
 jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
+    # Fail fast instead of hanging toward the 6h default: the docker-based smoke test (quickstart +
+    # Spark image build + spark-submit) has stalled for >1h on flaky network fetches during image
+    # builds. A bounded timeout turns such stalls into a quick, actionable red.
+    timeout-minutes: 60
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 21

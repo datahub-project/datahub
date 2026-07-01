@@ -149,6 +149,21 @@ public final class GraphQueryUtils {
       finalQuery.filter(relationshipQuery);
     }
 
+    // Triplet-based edge filter: OR over (sourceType, destType, relType) triples.
+    // Applied additively — all other filters above still apply.
+    if (graphFilters.getAllowedEdgeTriplets() != null
+        && !graphFilters.getAllowedEdgeTriplets().isEmpty()) {
+      BoolQueryBuilder tripletQuery = QueryBuilders.boolQuery();
+      graphFilters
+          .getAllowedEdgeTriplets()
+          .forEach(
+              pair ->
+                  tripletQuery.should(
+                      GraphFilterUtils.getAggregationFilter(pair, pair.getValue().getDirection())));
+      tripletQuery.minimumShouldMatch(1);
+      finalQuery.filter(tripletQuery);
+    }
+
     // general filter
     Optional.ofNullable(graphFilters.getRelationshipFilter())
         .map(RelationshipFilter::getOr)

@@ -14,7 +14,6 @@
     "changeHistoryPopover.noData": "No data reported",
     "changeHistoryPopover.change_one": "{{formattedCount}} Change",
     "changeHistoryPopover.change_other": "{{formattedCount}} Changes",
-    "changeHistoryPopover.operationNamePlural": "{{name}}s",
     "changeHistoryPopover.viewDetails": "View Details",
     "changeHistoryTimeline.byUser": "<gray>by</gray> {{name}}",
     "changeHistoryTimeline.noOperations": "There are no operations for the selected day",

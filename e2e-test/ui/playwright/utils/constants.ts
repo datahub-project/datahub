@@ -7,6 +7,7 @@ export function gmsUrl(baseUrl?: string): string {
 }
 
 export const DEFAULT_TIMEOUT = 30000;
+export const LONG_TIMEOUT = DEFAULT_TIMEOUT * 3;
 export const NETWORK_IDLE_TIMEOUT = 10000;
 export const WAIT_TIMEOUT = 10000;
 export const SHORT_TIMEOUT = 5000;
@@ -22,6 +23,7 @@ export const TIMEOUTS = {
   EXTRA_LONG: 20000, // Slow operations, async operations, dynamic content loading
   MEDIUM: 10000, // Standard element visibility
   SHORT: 5000, // Quick interactions, menu closes
+  OPERATION: 1500, // Async operations (document updates, searches, input debounce delays)
   BETWEEN_OPS: 500, // Wait between sequential operations
   QUICK: 300, // Brief pause for rendering
 } as const;
@@ -43,6 +45,7 @@ export const LOAD_STATES = {
 export const KEYS = {
   CTRL_A: 'Control+A',
   ENTER: 'Enter',
+  ESCAPE: 'Escape',
 } as const;
 
 // TEST_CREDENTIALS removed — use data/users.ts (users) as the

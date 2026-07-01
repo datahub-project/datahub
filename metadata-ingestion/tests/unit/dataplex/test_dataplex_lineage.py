@@ -1343,7 +1343,9 @@ class TestLineageMapKeyCollision:
             )
         )
 
-        assert queried_fqns == [
+        # Order is not significant — both full downstream FQNs must be queried.
+        # (The lookup order is hash-seed dependent, so assert order-independently.)
+        assert sorted(queried_fqns) == [
             "bigquery:test-project.analytics.customers",
             "bigquery:test-project.sales.customers",
         ]

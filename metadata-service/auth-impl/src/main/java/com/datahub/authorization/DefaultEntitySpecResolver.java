@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.fieldresolverprovider.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -10,12 +11,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-public class DefaultEntitySpecResolver implements EntitySpecResolver {
+public class DefaultEntitySpecResolver implements ContextualEntitySpecResolver {
   private final List<EntityFieldResolverProvider> _entityFieldResolverProviders;
   private final OperationContext systemOperationContext;
 
   public DefaultEntitySpecResolver(
-      @Nonnull OperationContext systemOperationContext, SystemEntityClient entityClient) {
+      @Nonnull OperationContext systemOperationContext,
+      SystemEntityClient entityClient,
+      GroupService groupService) {
     _entityFieldResolverProviders =
         ImmutableList.of(
             new EntityTypeFieldResolverProvider(),
@@ -23,7 +26,7 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
             new DomainFieldResolverProvider(entityClient),
             new OwnerFieldResolverProvider(entityClient),
             new DataPlatformInstanceFieldResolverProvider(entityClient),
-            new GroupMembershipFieldResolverProvider(entityClient),
+            new GroupMembershipFieldResolverProvider(groupService),
             new TagFieldResolverProvider(entityClient),
             new ContainerFieldResolverProvider(entityClient),
             new GlossaryFieldResolverProvider(entityClient));
@@ -32,8 +35,14 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
 
   @Override
   public ResolvedEntitySpec resolve(EntitySpec entitySpec) {
-    return new ResolvedEntitySpec(
-        entitySpec, getFieldResolvers(systemOperationContext, entitySpec));
+    return resolve(entitySpec, systemOperationContext);
+  }
+
+  @Override
+  @Nonnull
+  public ResolvedEntitySpec resolve(
+      @Nonnull EntitySpec entitySpec, @Nonnull OperationContext opContext) {
+    return new ResolvedEntitySpec(entitySpec, getFieldResolvers(opContext, entitySpec));
   }
 
   private Map<EntityFieldType, FieldResolver> getFieldResolvers(

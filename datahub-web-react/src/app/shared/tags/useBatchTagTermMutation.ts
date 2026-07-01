@@ -1,5 +1,6 @@
 import { toast } from '@components';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { handleBatchError } from '@app/entity/shared/utils';
@@ -39,6 +40,7 @@ interface RunMutationArgs {
  * focused on UI concerns.
  */
 export function useBatchTagTermMutation() {
+    const { t } = useTranslation('shared.tags');
     const [disableAction, setDisableAction] = useState(false);
     const { reloadByKeyType } = useReloadableContext();
 
@@ -105,18 +107,18 @@ export function useBatchTagTermMutation() {
                     batchAddTagsMutation({ variables: { input: { tagUrns: urns, resources } } })
                         .then(({ errors }) => {
                             if (!errors) {
-                                toast.success('Added Tags!', { duration: 2 });
+                                toast.success(t('addTags.success'), { duration: 2 });
                                 sendAnalytics(resources, type);
                             }
                         })
-                        .catch((e) => onError(e, `Failed to add: \n ${e.message || ''}`))
+                        .catch((e) => onError(e, t('add.error', { error: e.message || '' })))
                         .finally(finish);
                 } else {
                     batchRemoveTagsMutation({ variables: { input: { tagUrns: urns, resources } } })
                         .then(({ errors }) => {
-                            if (!errors) toast.success('Removed Tags!', { duration: 2 });
+                            if (!errors) toast.success(t('removeTags.success'), { duration: 2 });
                         })
-                        .catch((e) => onError(e, `Failed to remove: \n ${e.message || ''}`))
+                        .catch((e) => onError(e, t('remove.error', { error: e.message || '' })))
                         .finally(finish);
                 }
                 return;
@@ -126,7 +128,7 @@ export function useBatchTagTermMutation() {
                 batchAddTermsMutation({ variables: { input: { termUrns: urns, resources } } })
                     .then(({ errors }) => {
                         if (!errors) {
-                            toast.success('Added Terms!', { duration: 2 });
+                            toast.success(t('addTerms.success'), { duration: 2 });
                             sendAnalytics(resources, type);
                             reloadAssetsModule();
                         }
@@ -137,7 +139,7 @@ export function useBatchTagTermMutation() {
                 batchRemoveTermsMutation({ variables: { input: { termUrns: urns, resources } } })
                     .then(({ errors }) => {
                         if (!errors) {
-                            toast.success('Removed Terms!', { duration: 2 });
+                            toast.success(t('removeTerms.success'), { duration: 2 });
                             reloadAssetsModule();
                         }
                     })
@@ -152,6 +154,7 @@ export function useBatchTagTermMutation() {
             batchRemoveTermsMutation,
             reloadByKeyType,
             sendAnalytics,
+            t,
         ],
     );
 

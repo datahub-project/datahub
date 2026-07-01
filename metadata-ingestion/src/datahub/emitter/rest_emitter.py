@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import os
 import re
 import socket
 import time
@@ -55,9 +56,18 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_default_retry_max_times,
     get_rest_sink_default_tcp_keepalive,
 )
+
+# Re-exported (`as EmitMode`) so existing `from datahub.emitter.rest_emitter import
+# EmitMode` imports keep working; the class now lives in its own leaf module so
+# graph.config can reference it for the default_emit_mode field without a cycle.
+from datahub.emitter.emit_mode import EmitMode as EmitMode
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.request_helper import OpenApiRequest, make_curl_command
+from datahub.emitter.request_helper import (
+    OpenApiRequest,
+    has_sync_emit_marker,
+    make_curl_command,
+)
 from datahub.emitter.response_helper import (
     TraceData,
     extract_trace_data,
@@ -252,28 +262,6 @@ def preserve_unicode_escapes(obj: Any) -> Any:
         return obj
 
 
-class EmitMode(ConfigEnum):
-    # Fully synchronous processing that updates both primary storage (SQL) and search storage (Elasticsearch) before returning.
-    # Provides the strongest consistency guarantee but with the highest cost. Best for critical operations where immediate
-    # searchability and consistent reads are required.
-    SYNC_WAIT = auto()
-    # Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides
-    # a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct
-    # entity retrievals but where search index consistency can be slightly delayed.
-    SYNC_PRIMARY = auto()
-    # Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without
-    # waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
-    ASYNC = auto()
-    # Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted.
-    # More efficient than fully synchronous operations due to backend parallelization and batching while still providing
-    # strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
-    ASYNC_WAIT = auto()
-
-    @property
-    def is_async(self) -> bool:
-        return self in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-
-
 _DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
     get_emit_mode() or EmitMode.SYNC_PRIMARY,
 )
@@ -303,6 +291,7 @@ class RequestsSessionConfig(ConfigModel):
 
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
+    client_key_path: Optional[str] = None
     disable_ssl_verification: bool = False
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
@@ -325,8 +314,18 @@ class RequestsSessionConfig(ConfigModel):
         headers = {**base_headers, **self.extra_headers}
         session.headers.update(headers)
 
-        if self.client_certificate_path:
-            session.cert = self.client_certificate_path
+        cert_path = self.client_certificate_path or os.environ.get(
+            "DATAHUB_CLIENT_CERT_PATH"
+        )
+        key_path = self.client_key_path or os.environ.get("DATAHUB_CLIENT_KEY_PATH")
+
+        if cert_path:
+            # requests accepts either a single PEM file (cert + key concatenated)
+            # or a (cert_path, key_path) tuple.
+            if key_path:
+                session.cert = (cert_path, key_path)
+            else:
+                session.cert = cert_path
 
         if self.ca_certificate_path:
             session.verify = self.ca_certificate_path
@@ -481,6 +480,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         gms_server: str,
         token: Optional[str] = None,
+        auth: Optional["requests.auth.AuthBase"] = None,
         timeout_sec: Optional[float] = None,
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
@@ -492,12 +492,15 @@ class DataHubRestEmitter(Closeable, Emitter):
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
+        client_key_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
+        respect_mcp_sync_marker: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
+        default_emit_mode: Optional[EmitMode] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -509,10 +512,24 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
+        # Per-instance default emit mode. Falls back to the global default
+        # (env-driven _DEFAULT_EMIT_MODE) when not set, so SDK behavior is
+        # unchanged unless a caller (e.g. a high-volume plugin) opts in.
+        self._default_emit_mode = default_emit_mode or _DEFAULT_EMIT_MODE
         self._session = requests.Session()
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
+        # Marker-aware sync routing: enabled only when set explicitly via config
+        # or constructor, never implicit. When enabled, a batch is upgraded to
+        # synchronous if any of its MCPs carries an emit-mode marker requesting
+        # sync (emitModeMarker=sync) in its system metadata; otherwise the
+        # configured emit_mode is honored unchanged. This only ever forces more
+        # synchronicity, never less. The marker is read, not produced, here: a
+        # producer must populate the emitModeMarker system-metadata property on
+        # the MCPs that must remain synchronous (e.g. via a custom aspect
+        # mutator/validator, or an upstream processing step).
+        self.respect_mcp_sync_marker = respect_mcp_sync_marker is True
         self._server_config_refresh_interval = server_config_refresh_interval
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
@@ -521,7 +538,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             "X-RestLi-Protocol-Version": "2.0.0",
             "Content-Type": "application/json",
         }
-        if token:
+        if auth is not None:
+            # An AuthBase sets Authorization fresh per request; do not bake a header.
+            pass
+        elif token:
             headers["Authorization"] = f"Bearer {token}"
         else:
             # HACK: When no token is provided but system auth env variables are set, we use them.
@@ -565,6 +585,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             extra_headers={**headers, **(extra_headers or {})},
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
+            client_key_path=client_key_path,
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,
@@ -572,6 +593,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         )
 
         self._session = self._session_config.build_session()
+        if auth is not None:
+            self._session.auth = auth
 
     @property
     def server_config(self) -> RestServiceConfig:
@@ -679,10 +702,31 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         return DataHubGraph.from_emitter(self)
 
+    def _is_batch_async(
+        self,
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        emit_mode: EmitMode,
+    ) -> bool:
+        """
+        Resolve the async flag actually sent on the wire. The default is exactly
+        emit_mode.is_async — the historical wire format, unchanged. The one
+        exception: when the client has opted in to marker-aware sync routing and
+        any MCP in this batch carries an emit-mode marker requesting sync, the
+        whole batch is upgraded to synchronous. This only ever forces more
+        synchronicity, never less, so it is safe regardless of the configured
+        emit_mode.
+        """
+        if self.respect_mcp_sync_marker and any(
+            has_sync_emit_marker(mcp) for mcp in mcps
+        ):
+            return False
+        return emit_mode.is_async
+
     def _to_openapi_request(
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         emit_mode: EmitMode,
+        async_flag: Optional[bool] = None,
     ) -> Optional[OpenApiRequest]:
         """
         Convert a MetadataChangeProposal to an OpenAPI request format.
@@ -697,7 +741,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         return OpenApiRequest.from_mcp(
             mcp=mcp,
             gms_server=self._gms_server,
-            async_flag=emit_mode.is_async,
+            async_flag=async_flag if async_flag is not None else emit_mode.is_async,
             search_sync_flag=emit_mode == EmitMode.SYNC_WAIT,
         )
 
@@ -710,8 +754,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
     ) -> None:
+        if emit_mode is None:
+            emit_mode = self._default_emit_mode
         try:
             if isinstance(item, UsageAggregation):
                 self.emit_usage(item)
@@ -773,7 +819,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         *,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> Optional[TraceData]: ...
 
@@ -781,19 +827,27 @@ class DataHubRestEmitter(Closeable, Emitter):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> Optional[TraceData]:
         if async_flag is True:
             emit_mode = EmitMode.ASYNC
+        elif async_flag is False:
+            # Deprecated async_flag takes precedence over the default emit mode, so an
+            # explicit async_flag=False still forces sync even when the emitter's
+            # default is ASYNC (e.g. plugin emitters).
+            emit_mode = EmitMode.SYNC_PRIMARY
+        elif emit_mode is None:
+            emit_mode = self._default_emit_mode
 
         ensure_has_system_metadata(mcp)
+        effective_async = self._is_batch_async([mcp], emit_mode)
 
         trace_data: Optional[TraceData] = None
         response: Optional[requests.Response] = None
 
         if self._openapi_ingestion:
-            request = self._to_openapi_request(mcp, emit_mode)
+            request = self._to_openapi_request(mcp, emit_mode, effective_async)
             if request:
                 response = self._emit_generic(
                     request.url, payload=request.payload, method=request.method
@@ -824,7 +878,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
                 payload_dict = {
                     "proposal": mcp_obj,
-                    "async": "true" if emit_mode.is_async else "false",
+                    "async": "true" if effective_async else "false",
                 }
 
             payload = json.dumps(payload_dict)
@@ -868,9 +922,11 @@ class DataHubRestEmitter(Closeable, Emitter):
     def emit_mcps(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
-        emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> List[TraceData]:
+        if emit_mode is None:
+            emit_mode = self._default_emit_mode
         if _DATAHUB_EMITTER_TRACE:
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
 
@@ -909,8 +965,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             lambda: [_Chunk()]
         )  # Initialize with one empty Chunk
 
+        # A single sync-marked MCP upgrades the whole batch to sync, so resolve
+        # the async flag once across all MCPs rather than per-request.
+        batch_async = self._is_batch_async(mcps, emit_mode)
         for mcp in mcps:
-            request = self._to_openapi_request(mcp, emit_mode)
+            request = self._to_openapi_request(mcp, emit_mode, batch_async)
             if request:
                 # Create a composite key with both method and URL
                 key = (request.method, request.url)
@@ -1035,7 +1094,9 @@ class DataHubRestEmitter(Closeable, Emitter):
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
                 "proposals": mcp_obj_chunk,
-                "async": "true" if emit_mode.is_async else "false",
+                "async": "true"
+                if self._is_batch_async(mcp_chunk, emit_mode)
+                else "false",
             }
 
             payload = json.dumps(payload_dict)
