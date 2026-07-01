@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
 import auth.pac4j.DatahubPlayCookieSessionStore;
-import auth.proxy.ProxyAuthProvisioner;
+import auth.proxy.ProxyCallbackLogic;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -36,8 +36,8 @@ import org.pac4j.play.store.DataEncrypter;
 import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
+import play.mvc.Results;
 import play.test.Helpers;
-import utils.FrontendConstants;
 
 public class AuthenticationControllerTest {
 
@@ -770,7 +770,7 @@ public class AuthenticationControllerTest {
   }
 
   @Test
-  public void testProxyAuthAuthenticatesUserFromHeader() {
+  public void testProxyAuthDelegatesToProvisioner() {
     Config config =
         ConfigFactory.parseString(
             "datahub.basePath = \"\"\n"
@@ -783,12 +783,13 @@ public class AuthenticationControllerTest {
 
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.authClient = authClient;
     testController.sessionStore = playCookieSessionStore;
-    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
-    testController.proxyAuthProvisioner = mockProvisioner;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
 
     when(ssoManager.isSsoEnabled()).thenReturn(false);
+    when(mockCallbackLogic.handleProxyLogin(any(Http.Request.class), eq("/dashboard")))
+        .thenReturn(Results.redirect("/dashboard"));
 
     Http.Request request =
         new Http.RequestBuilder()
@@ -801,46 +802,7 @@ public class AuthenticationControllerTest {
 
     assertEquals(303, result.status());
     assertEquals("/dashboard", result.redirectLocation().orElse(""));
-    verify(authClient)
-        .generateSessionTokenForUser(eq("proxyuser"), eq(FrontendConstants.PROXY_LOGIN));
-    verify(mockProvisioner, never()).provisionUser(any(), anyString());
-  }
-
-  @Test
-  public void testProxyAuthWithJitProvisioning() {
-    Config config =
-        ConfigFactory.parseString(
-            "datahub.basePath = \"\"\n"
-                + "auth.cookie.ttlInHours = 24\n"
-                + "auth.cookie.secure = true\n"
-                + "auth.cookie.sameSite = Lax\n"
-                + "auth.proxy.enabled = true\n"
-                + "auth.proxy.userHeader = X-Forwarded-User\n"
-                + "auth.proxy.jitProvisioningEnabled = true\n");
-
-    AuthenticationController testController = new AuthenticationController(config);
-    testController.ssoManager = ssoManager;
-    testController.authClient = authClient;
-    testController.sessionStore = playCookieSessionStore;
-    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
-    testController.proxyAuthProvisioner = mockProvisioner;
-
-    when(ssoManager.isSsoEnabled()).thenReturn(false);
-
-    Http.Request request =
-        new Http.RequestBuilder()
-            .method("GET")
-            .uri("/authenticate")
-            .header("X-Forwarded-User", "newuser")
-            .build();
-
-    Result result = testController.authenticate(request);
-
-    assertEquals(303, result.status());
-    verify(mockProvisioner)
-        .provisionUser(eq(new com.linkedin.common.urn.CorpuserUrn("newuser")), eq("newuser"));
-    verify(authClient)
-        .generateSessionTokenForUser(eq("newuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockCallbackLogic).handleProxyLogin(any(Http.Request.class), eq("/dashboard"));
   }
 
   @Test
@@ -857,10 +819,9 @@ public class AuthenticationControllerTest {
 
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.authClient = authClient;
     testController.sessionStore = playCookieSessionStore;
-    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
-    testController.proxyAuthProvisioner = mockProvisioner;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
 
     when(ssoManager.isSsoEnabled()).thenReturn(true);
 
@@ -869,9 +830,7 @@ public class AuthenticationControllerTest {
     Result result = testController.authenticate(request);
 
     assertEquals(302, result.status());
-    verify(mockProvisioner, never()).provisionUser(any(), anyString());
-    verify(authClient, never())
-        .generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockCallbackLogic, never()).handleProxyLogin(any(), anyString());
   }
 
   @Test
@@ -888,12 +847,13 @@ public class AuthenticationControllerTest {
 
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.authClient = authClient;
     testController.sessionStore = playCookieSessionStore;
-    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
-    testController.proxyAuthProvisioner = mockProvisioner;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
 
     when(ssoManager.isSsoEnabled()).thenReturn(false);
+    when(mockCallbackLogic.handleProxyLogin(any(Http.Request.class), eq("/")))
+        .thenReturn(Results.redirect("/"));
 
     Http.Request request =
         new Http.RequestBuilder()
@@ -905,8 +865,7 @@ public class AuthenticationControllerTest {
     Result result = testController.authenticate(request);
 
     assertEquals(303, result.status());
-    verify(authClient)
-        .generateSessionTokenForUser(eq("customuser"), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockCallbackLogic).handleProxyLogin(any(Http.Request.class), eq("/"));
   }
 
   @Test
@@ -923,10 +882,9 @@ public class AuthenticationControllerTest {
 
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.authClient = authClient;
     testController.sessionStore = playCookieSessionStore;
-    ProxyAuthProvisioner mockProvisioner = mock(ProxyAuthProvisioner.class);
-    testController.proxyAuthProvisioner = mockProvisioner;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
 
     when(ssoManager.isSsoEnabled()).thenReturn(false);
 
@@ -939,8 +897,6 @@ public class AuthenticationControllerTest {
 
     Result result = testController.authenticate(request);
 
-    verify(mockProvisioner, never()).provisionUser(any(), anyString());
-    verify(authClient, never())
-        .generateSessionTokenForUser(anyString(), eq(FrontendConstants.PROXY_LOGIN));
+    verify(mockCallbackLogic, never()).handleProxyLogin(any(), anyString());
   }
 }

@@ -21,7 +21,7 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
-class ProxyAuthConfigsTest {
+class ProxyConfigsTest {
 
   @BeforeEach
   @ClearEnvironmentVariable(key = "AUTH_PROXY_ENABLED")
@@ -34,7 +34,7 @@ class ProxyAuthConfigsTest {
   @Test
   public void testProxyConfigDisabledByDefault() {
     Config config = ConfigFactory.load();
-    ProxyAuthConfigs proxyConfigs = new ProxyAuthConfigs(config);
+    ProxyConfigs proxyConfigs = new ProxyConfigs(config);
     assertFalse(proxyConfigs.isEnabled());
   }
 
@@ -42,7 +42,7 @@ class ProxyAuthConfigsTest {
   @SetEnvironmentVariable(key = "AUTH_PROXY_ENABLED", value = "true")
   public void testProxyConfigEnabledWithDefaults() {
     Config config = ConfigFactory.load();
-    ProxyAuthConfigs proxyConfigs = new ProxyAuthConfigs(config);
+    ProxyConfigs proxyConfigs = new ProxyConfigs(config);
     assertTrue(proxyConfigs.isEnabled());
     assertEquals("X-Forwarded-User", proxyConfigs.getUserHeader());
     assertTrue(proxyConfigs.isJitProvisioningEnabled());
@@ -54,7 +54,7 @@ class ProxyAuthConfigsTest {
   @SetEnvironmentVariable(key = "AUTH_PROXY_JIT_PROVISIONING_ENABLED", value = "false")
   public void testProxyConfigWithCustomValues() {
     Config config = ConfigFactory.load();
-    ProxyAuthConfigs proxyConfigs = new ProxyAuthConfigs(config);
+    ProxyConfigs proxyConfigs = new ProxyConfigs(config);
     assertTrue(proxyConfigs.isEnabled());
     assertEquals("X-Remote-User", proxyConfigs.getUserHeader());
     assertFalse(proxyConfigs.isJitProvisioningEnabled());

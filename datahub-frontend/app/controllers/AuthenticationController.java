@@ -6,7 +6,6 @@ import static utils.FrontendConstants.FALLBACK_LOGIN;
 import static utils.FrontendConstants.GUEST_LOGIN;
 import static utils.FrontendConstants.PASSWORD_LOGIN;
 import static utils.FrontendConstants.PASSWORD_RESET;
-import static utils.FrontendConstants.PROXY_LOGIN;
 import static utils.FrontendConstants.SIGN_UP_LINK_LOGIN;
 
 import auth.AuthUtils;
@@ -14,8 +13,8 @@ import auth.CookieConfigs;
 import auth.GuestAuthenticationConfigs;
 import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
-import auth.ProxyAuthConfigs;
-import auth.proxy.ProxyAuthProvisioner;
+import auth.ProxyConfigs;
+import auth.proxy.ProxyCallbackLogic;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import client.NativeUserCredentialVerifyResult;
@@ -73,7 +72,7 @@ public class AuthenticationController extends Controller {
   private final GuestAuthenticationConfigs guestAuthenticationConfigs;
 
   private final boolean verbose;
-  private final ProxyAuthConfigs proxyAuthConfigs;
+  private final ProxyConfigs proxyConfigs;
   private final Config config;
 
   private final String basePath;
@@ -86,7 +85,7 @@ public class AuthenticationController extends Controller {
 
   @Inject AuthServiceClient authClient;
 
-  @Inject ProxyAuthProvisioner proxyAuthProvisioner;
+  @Inject ProxyCallbackLogic proxyCallbackLogic;
 
   @Inject
   public AuthenticationController(@Nonnull Config configs) {
@@ -96,7 +95,7 @@ public class AuthenticationController extends Controller {
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
-    proxyAuthConfigs = new ProxyAuthConfigs(configs);
+    proxyConfigs = new ProxyConfigs(configs);
     basePath = getBasePath();
   }
 
@@ -165,32 +164,10 @@ public class AuthenticationController extends Controller {
       return Results.redirect(redirectPath);
     }
 
-    if (proxyAuthConfigs.isEnabled()) {
-      final Optional<String> proxyUser = request.header(proxyAuthConfigs.getUserHeader());
+    if (proxyConfigs.isEnabled()) {
+      final Optional<String> proxyUser = request.header(proxyConfigs.getUserHeader());
       if (proxyUser.isPresent() && !proxyUser.get().isEmpty()) {
-        final String username = proxyUser.get();
-        final CorpuserUrn actorUrn = new CorpuserUrn(username);
-
-        if (proxyAuthConfigs.isJitProvisioningEnabled()) {
-          proxyAuthProvisioner.provisionUser(actorUrn, username);
-        }
-
-        final String accessToken =
-            authClient.generateSessionTokenForUser(actorUrn.getId(), PROXY_LOGIN);
-        if (verbose) {
-          logger.info(
-              "Proxy auth: authenticated user '{}' via header '{}'",
-              username,
-              proxyAuthConfigs.getUserHeader());
-        }
-        return Results.redirect(redirectPath)
-            .withSession(createSessionMap(actorUrn.toString(), accessToken))
-            .withCookies(
-                createActorCookie(
-                    actorUrn.toString(),
-                    cookieConfigs.getTtlInHours(),
-                    cookieConfigs.getAuthCookieSameSite(),
-                    cookieConfigs.getAuthCookieSecure()));
+        return proxyCallbackLogic.handleProxyLogin(request, redirectPath);
       }
     }
 
