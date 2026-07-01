@@ -1630,6 +1630,8 @@ graphQL:
     # Enable/disable GraphQL OTel instrumentation
     # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
     enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+    # Custom, filtered resolver-level spans (resolver names appear in traces without span explosion).
+    # Only registers when enabled; gate alongside enableOtelGraphqlTraces at deploy time.
     resolverSpans:
       # Master switch for filtered resolver spans
       enabled: ${GRAPHQL_OTEL_RESOLVER_SPANS_ENABLED:false}
