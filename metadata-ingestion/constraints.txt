@@ -61,8 +61,10 @@ asn1crypto==1.5.1
     # via
     #   scramp
     #   snowflake-connector-python
-ast-serialize==0.5.0
+ast-serialize==0.6.0
     # via mypy
+astor==0.8.1
+    # via sqlmesh
 asttokens==3.0.1
     # via stack-data
 async-lru==2.2.0
@@ -243,6 +245,7 @@ click==8.3.1
     #   pyiceberg
     #   python-oxmsg
     #   redash-toolbelt
+    #   sqlmesh
     #   tableschema
     #   unstructured-ingest
     #   uvicorn
@@ -283,7 +286,9 @@ cramjam==2.11.0
     #   acryl-datahub
     #   python-snappy
 croniter==6.0.0
-    # via acryl-datahub-cloud
+    # via
+    #   acryl-datahub-cloud
+    #   sqlmesh
 cryptography==48.0.1
     # via
     #   acryl-datahub
@@ -325,6 +330,8 @@ dataclasses-json==0.6.7
     #   unstructured-ingest
 dataflows-tabulator==1.54.3
     # via tableschema
+dateparser==1.2.1
+    # via sqlmesh
 db-dtypes==1.5.0
     # via acryl-datahub
 debugpy==1.8.20
@@ -366,7 +373,9 @@ docstring-parser==0.17.0
 docutils==0.22.4
     # via readme-renderer
 duckdb==1.5.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   sqlmesh
 ecdsa==0.19.1
     # via python-jose
 elasticsearch==7.13.4
@@ -599,7 +608,11 @@ httpx==0.28.1
 humanfriendly==10.0
     # via acryl-datahub
 humanize==4.15.0
-    # via dlt
+    # via
+    #   dlt
+    #   sqlmesh
+hyperscript==0.3.0
+    # via sqlmesh
 ibm-db==3.2.8 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via ibm-db-sa
 ibm-db-sa==0.4.3 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
@@ -626,6 +639,7 @@ importlib-metadata==8.7.1
     #   keyring
     #   mlflow-skinny
     #   opentelemetry-api
+    #   sqlmesh
 iniconfig==2.3.0
     # via pytest
 ipykernel==7.2.0
@@ -637,7 +651,10 @@ ipython==8.38.0
     #   ipykernel
     #   ipywidgets
 ipywidgets==8.1.8
-    # via acryl-great-expectations
+    # via
+    #   acryl-great-expectations
+    #   rich
+    #   sqlmesh
 isodate==0.6.1
     # via
     #   azure-mgmt-datafactory
@@ -676,6 +693,7 @@ jinja2==3.1.6
     #   memray
     #   moto
     #   nbconvert
+    #   sqlmesh
 jmespath==1.1.0
     # via
     #   aiobotocore
@@ -688,6 +706,10 @@ joserfc==1.6.4
     # via authlib
 jpype1==1.6.0
     # via acryl-datahub
+json-stream==2.5.1
+    # via sqlmesh
+json-stream-rs-tokenizer==0.5.1
+    # via json-stream
 json5==0.13.0
     # via jupyterlab-server
 jsonlines==4.0.0
@@ -768,7 +790,7 @@ lark==1.3.1
     #   starrocks
 leb128==1.0.9
     # via asynch
-librt==0.11.0 ; platform_python_implementation != 'PyPy'
+librt==0.12.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 linear-tsv==1.1.0
     # via dataflows-tabulator
@@ -998,6 +1020,7 @@ packaging==24.2
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
+    #   sqlmesh
     #   tableauserverclient
     #   twine
 pandas==2.1.4
@@ -1011,6 +1034,7 @@ pandas==2.1.4
     #   db-dtypes
     #   feast
     #   pydeequ
+    #   sqlmesh
     #   unstructured-ingest
 pandocfilters==1.5.1
     # via nbconvert
@@ -1038,7 +1062,7 @@ pinecone-plugin-interface==0.0.7
     # via
     #   pinecone-client
     #   pinecone-plugin-inference
-pip==26.1.2
+pip==26.0.1
     # via acryl-datahub
 platformdirs==4.9.4
     # via
@@ -1159,6 +1183,7 @@ pydantic==2.11.10
     #   mixpanel
     #   mlflow-skinny
     #   pyiceberg
+    #   sqlmesh
     #   unstructured-client
     #   unstructured-ingest
 pydantic-core==2.33.2
@@ -1253,6 +1278,7 @@ python-dateutil==2.9.0.post0
     #   arrow
     #   botocore
     #   croniter
+    #   dateparser
     #   google-cloud-bigquery
     #   jupyter-client
     #   moto
@@ -1265,7 +1291,9 @@ python-dateutil==2.9.0.post0
     #   unstructured-ingest
     #   vertica-python
 python-dotenv==1.2.2
-    # via uvicorn
+    # via
+    #   sqlmesh
+    #   uvicorn
 python-iso639==2026.1.31
     # via unstructured
 python-jose==3.5.0
@@ -1297,6 +1325,7 @@ pytz==2026.1.post1
     #   asynch
     #   clickhouse-driver
     #   croniter
+    #   dateparser
     #   dlt
     #   neo4j
     #   pandas
@@ -1352,7 +1381,9 @@ referencing==0.37.0
     #   jsonschema-specifications
     #   jupyter-events
 regex==2026.2.28
-    # via nltk
+    # via
+    #   dateparser
+    #   nltk
 requests==2.32.5
     # via
     #   acryl-datahub
@@ -1394,6 +1425,7 @@ requests==2.32.5
     #   responses
     #   simple-salesforce
     #   snowflake-connector-python
+    #   sqlmesh
     #   tableauserverclient
     #   tableschema
     #   thoughtspot-rest-api
@@ -1444,6 +1476,7 @@ rich==14.3.3
     #   memray
     #   pyiceberg
     #   rich-argparse
+    #   sqlmesh
     #   textual
     #   twine
 rich-argparse==1.8.0
@@ -1460,6 +1493,7 @@ ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
     #   acryl-great-expectations
+    #   sqlmesh
 ruff==0.15.18
     # via acryl-datahub
 s3fs==2026.2.0
@@ -1573,8 +1607,11 @@ sqlglot==30.8.0
     # via
     #   acryl-datahub
     #   dlt
+    #   sqlmesh
 sqlglotc==30.8.0
     # via sqlglot
+sqlmesh==0.235.3
+    # via acryl-datahub
 sqlparse==0.5.5
     # via
     #   acryl-datahub
@@ -1608,6 +1645,7 @@ tenacity==8.5.0
     #   google-genai
     #   pyathena
     #   pyiceberg
+    #   sqlmesh
 teradatasql==20.0.0.52
     # via teradatasqlalchemy
 teradatasqlalchemy==20.0.0.2
@@ -1630,7 +1668,9 @@ thrift==0.16.0
 thrift-sasl==0.4.3
     # via acryl-pyhive
 time-machine==3.2.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   sqlmesh
 tinycss2==1.4.0
     # via bleach
 toml==0.10.2
@@ -1823,6 +1863,7 @@ tzlocal==5.3.1
     #   acryl-great-expectations
     #   asynch
     #   clickhouse-driver
+    #   dateparser
     #   trino
 uc-micro-py==2.0.0
     # via linkify-it-py
