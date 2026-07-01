@@ -1,21 +1,20 @@
-import { Button, Heading, Text } from '@components';
+import { EmptyState } from '@components';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Empty } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-const StyledEmpty = styled(Empty)`
-    padding: 80px 40px;
-    .ant-empty-footer {
-        .ant-btn:not(:last-child) {
-            margin-right: 8px;
-        }
-    }
-`;
-
-const StyledButton = styled(Button)`
-    margin-right: 8px;
+// Fills the remaining vertical space inside the parent flex column so the
+// EmptyState lands in the optical center of the page rather than hugging the
+// top-left of whatever container it sits in.
+const CenteredWrapper = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: 240px;
 `;
 
 interface Props {
@@ -29,25 +28,32 @@ function EmptyGlossarySection(props: Props) {
     const { t } = useTranslation('governance.glossary');
     const { title, description, onAddTerm, onAddtermGroup } = props;
 
+    // Alchemy EmptyState requires a non-empty title. Some callers (e.g. the
+    // glossary-node ChildrenTab) only have a single line of copy to show — for
+    // those we promote `description` into the title slot so we never render an
+    // empty heading.
+    const resolvedTitle = title ?? description ?? '';
+    const resolvedDescription = title ? description : undefined;
+
     return (
-        <>
-            <StyledEmpty
-                description={
-                    <>
-                        <Heading type="h4">{title}</Heading>
-                        <Text color="textSecondary">{description}</Text>
-                    </>
-                }
-            >
-                {/* not disabled on acryl-main due to ability to propose */}
-                <StyledButton data-testid="add-term-button" icon={{ icon: Plus }} onClick={onAddTerm}>
-                    {t('empty.addTerm')}
-                </StyledButton>
-                <StyledButton data-testid="add-term-group-button" icon={{ icon: Plus }} onClick={onAddtermGroup}>
-                    {t('empty.addTermGroup')}
-                </StyledButton>
-            </StyledEmpty>
-        </>
+        <CenteredWrapper>
+            <EmptyState
+                icon={BookmarksSimple}
+                title={resolvedTitle}
+                description={resolvedDescription}
+                action={{
+                    label: t('empty.addTerm'),
+                    icon: { icon: Plus },
+                    onClick: onAddTerm,
+                }}
+                secondaryAction={{
+                    label: t('empty.addTermGroup'),
+                    icon: { icon: Plus },
+                    variant: 'secondary',
+                    onClick: onAddtermGroup,
+                }}
+            />
+        </CenteredWrapper>
     );
 }
 
