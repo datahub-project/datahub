@@ -580,6 +580,53 @@ def test_non_dataset_upstream_ref_is_skipped():
     assert _stored_upstream(out) == datajob
 
 
+def test_malformed_upstream_ref_does_not_block_valid_sibling():
+    # guess_entity_type() raises on a non-URN string; a malformed reference must be
+    # skipped, NOT abort resolution of the valid siblings in the same aspect.
+    aspect = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset="garbage", type="TRANSFORMED"),
+            UpstreamClass(dataset=LOWER, type="TRANSFORMED"),
+        ],
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    try:
+        [out] = list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    upstreams = _upstream_aspect(out).upstreams
+    assert upstreams[0].dataset == "garbage"  # malformed left untouched
+    assert upstreams[1].dataset == UPPER  # valid sibling still healed
+    assert processor.report.num_exceptions == 0
+
+
+def test_empty_dataset_ref_does_not_block_valid_sibling():
+    # An empty-string reference in a plain dataset list is skipped, not fatal, so the
+    # valid sibling in the same list is still healed.
+    aspect = DashboardInfoClass(
+        title="t",
+        description="d",
+        lastModified=ChangeAuditStampsClass(),
+        datasets=["", LOWER],
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    try:
+        [out] = list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    datasets = _dashboard_aspect(out).datasets
+    assert datasets == ["", UPPER]
+    assert processor.report.num_exceptions == 0
+
+
 def test_exception_is_recorded_and_workunit_passed_through():
     # If resolution raises, the workunit is passed through unchanged and counted.
     provide_mock = mock.MagicMock(side_effect=RuntimeError("boom"))
