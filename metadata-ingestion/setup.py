@@ -88,6 +88,12 @@ framework_common = {
     "ruamel.yaml<0.20.0",
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
+    # The ingestion executor bootstraps per-source venvs by shelling out to
+    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # by default, so pip must be present in the base environment. This was
+    # previously pulled in transitively via the classification extra; declare it
+    # explicitly here. No upper bound: pip is a system tool.
+    "pip",
 }
 
 rest_common = {
@@ -145,19 +151,6 @@ sqlglot_lib = {
     # upstream, so we restore [c] here for performance.
     "sqlglot[c]==30.8.0",
     "patchy==2.8.0",
-}
-
-classification_lib = {
-    "acryl-datahub-classify==0.0.11",
-    # schwifty is needed for the classify plugin (year-based versioning)
-    "schwifty<2026.0.0",
-    # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
-    # we need pip to be available (no upper bound - system tool).
-    "pip",
-    # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
-    # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
-    # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-    "numpy<2",
 }
 
 dbt_common = {
@@ -227,7 +220,6 @@ sql_common = (
     }
     | usage_common
     | sqlglot_lib
-    | classification_lib
 )
 
 aws_common = {
@@ -339,7 +331,6 @@ snowflake_common = {
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
-    *classification_lib,
 }
 
 trino = {
@@ -621,7 +612,6 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
-    | classification_lib
     | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
@@ -645,7 +635,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt-cloud": {"requests<3.0.0"} | dbt_common,
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
-    "dynamodb": aws_common | classification_lib,
+    "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -770,14 +760,12 @@ plugins: Dict[str, Set[str]] = {
     | redshift_common
     | usage_common
     | sqlglot_lib
-    | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
     # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib
-    | classification_lib
     | {"db-dtypes"}
     | cachetools_lib,
     # S3 includes PySpark by default for profiling support (backward compatible)
