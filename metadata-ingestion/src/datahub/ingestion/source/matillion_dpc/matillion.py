@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 from urllib.parse import quote_plus
 
 from pydantic import ValidationError
@@ -154,12 +154,15 @@ class MatillionSource(StatefulIngestionSourceBase):
         self._schedules_cache: Dict[str, list] = {}
         self._lineage_events_cache: Optional[List[Dict]] = None
 
-        # (project_id, full pipeline path) -> environment name. Lets lineage nest a job
-        # under the right environment. The lineage namespace's environment is an opaque
-        # UUID that no API maps back to the name, so this is sourced from published
+        # (project_id, full pipeline path) -> set of environment names. Lets lineage nest
+        # a job under the right environment(s). The lineage namespace's environment is an
+        # opaque UUID that no API maps back to a name, so this is sourced from published
         # pipelines and from executions (which report the environment name), keyed on the
-        # path, which lineage, discovery, and executions all report identically.
-        self._discovered_env_by_path: Dict[Tuple[str, str], str] = {}
+        # path, which lineage, discovery, and executions all report identically. A path is
+        # project-scoped in Matillion DPC (the same file is runnable under every
+        # environment), so it can legitimately map to multiple environments; lineage is
+        # then nested under each rather than collapsed onto a single last-write-wins env.
+        self._discovered_env_by_path: Dict[Tuple[str, str], Set[str]] = defaultdict(set)
 
         # DataFlow URNs already emitted by discovery, so lineage can reuse a published
         # pipeline's flow (with its richer properties) instead of re-emitting it.
@@ -281,7 +284,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                 continue
             self._discovered_env_by_path[
                 (execution.project_id, execution.pipeline_name)
-            ] = env_name
+            ].add(env_name)
 
     def _group_executions_for_discovery(
         self,
@@ -381,7 +384,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                         pipeline_name=pipeline.name,
                     )
                     published_pipelines_index[key] = pipeline
-                    self._discovered_env_by_path[(project.id, pipeline.name)] = env.name
+                    self._discovered_env_by_path[(project.id, pipeline.name)].add(
+                        env.name
+                    )
                     logger.debug(
                         f"Indexed published pipeline: {pipeline.name} in {project.name}/{env.name}"
                     )
@@ -607,8 +612,6 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         yield from self._generate_sql_aggregator_workunits()
 
-        self._update_lineage_state()
-
         logger.info("Completed Matillion metadata extraction")
 
     def _enrich_sdk_dataflow_with_schedule(
@@ -724,29 +727,9 @@ class MatillionSource(StatefulIngestionSourceBase):
         )
 
     def _get_lineage_time_window(self) -> TimeWindow:
-        redundant_handler = getattr(self, "redundant_run_skip_handler", None)
-
-        if redundant_handler:
-            start_time, end_time = redundant_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
-            return TimeWindow(start_time=start_time, end_time=end_time)
-        else:
-            return TimeWindow(
-                start_time=self.config.start_time, end_time=self.config.end_time
-            )
-
-    def _update_lineage_state(self) -> None:
-        redundant_handler = getattr(self, "redundant_run_skip_handler", None)
-
-        if redundant_handler and self.lineage_start_time and self.lineage_end_time:
-            # Update checkpoint to current end_time so next run starts from here
-            redundant_handler.update_state(
-                self.lineage_start_time, self.lineage_end_time
-            )
-            logger.info(
-                f"Updated lineage checkpoint: {self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()}"
-            )
+        return TimeWindow(
+            start_time=self.config.start_time, end_time=self.config.end_time
+        )
 
     def _generate_lineage_from_events(
         self, projects: List[MatillionProject]
@@ -852,80 +835,97 @@ class MatillionSource(StatefulIngestionSourceBase):
         display_name = extract_base_pipeline_name(full_path)
 
         # Without a resolved environment we cannot nest the job, so skip it rather
-        # than float a flow under the bare project.
-        env_name = self._discovered_env_by_path.get((project.id, full_path))
-        if env_name is None:
+        # than float a flow under the bare project. A path is project-scoped in
+        # Matillion DPC and may be published/run under several environments; the
+        # lineage namespace only carries an opaque environment UUID (no name), so the
+        # job's flow/component is nested under every environment the path is known in.
+        env_names = sorted(
+            self._discovered_env_by_path.get((project.id, full_path), ())
+        )
+        if not env_names:
             self.report.lineage_jobs_skipped_no_environment += 1
             return
 
-        environment = self._environments_cache.get(env_name)
-        flow_name = f"{project.id}.{env_name}.{full_path}"
+        emitted_any_env = False
+        for env_name in env_names:
+            environment = self._environments_cache.get(env_name)
+            flow_name = f"{project.id}.{env_name}.{full_path}"
 
-        dataflow = DataFlow(
-            name=flow_name,
-            platform=MATILLION_PLATFORM,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            display_name=display_name,
-            external_url=(
-                MATILLION_PIPELINE_OBSERVABILITY_URL.format(
-                    pipeline_name=quote_plus(extract_pipeline_file_name(full_path))
+            dataflow = DataFlow(
+                name=flow_name,
+                platform=MATILLION_PLATFORM,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                display_name=display_name,
+                external_url=(
+                    MATILLION_PIPELINE_OBSERVABILITY_URL.format(
+                        pipeline_name=quote_plus(extract_pipeline_file_name(full_path))
+                    )
+                    if self.config.include_external_urls
+                    else None
+                ),
+                custom_properties={
+                    "pipeline_name": full_path,
+                    "project_id": project.id,
+                    "discovered_from": "lineage_events",
+                },
+                subtype=FlowContainerSubTypes.MATILLION_PIPELINE,
+            )
+            pipeline_urn = str(dataflow.urn)
+
+            # A pipeline not already emitted by discovery is a dependent (child)
+            # pipeline pulled in purely via lineage events. Skip it entirely when the
+            # user opts out.
+            is_dependent = pipeline_urn not in self._emitted_flow_urns
+            if is_dependent and not self.config.include_dependent_pipelines:
+                self.report.lineage_dependent_pipelines_skipped += 1
+                continue
+
+            # Reuse the discovered pipeline's flow (with its richer published
+            # properties) when discovery already emitted it; otherwise mint it here,
+            # nested under the resolved environment.
+            if is_dependent:
+                yield from dataflow.as_workunits()
+                self._emitted_flow_urns.add(pipeline_urn)
+                yield from self.container_handler.add_pipeline_to_container(
+                    pipeline_urn,
+                    project,
+                    environment=environment,
+                    folder_segments=extract_folder_segments(full_path),
                 )
-                if self.config.include_external_urls
-                else None
-            ),
-            custom_properties={
-                "pipeline_name": full_path,
-                "project_id": project.id,
-                "discovered_from": "lineage_events",
-            },
-            subtype=FlowContainerSubTypes.MATILLION_PIPELINE,
-        )
-        pipeline_urn = str(dataflow.urn)
 
-        # A pipeline not already emitted by discovery is a dependent (child) pipeline
-        # pulled in purely via lineage events. Skip it entirely when the user opts out.
-        is_dependent = pipeline_urn not in self._emitted_flow_urns
-        if is_dependent and not self.config.include_dependent_pipelines:
-            self.report.lineage_dependent_pipelines_skipped += 1
-            return
+            datajob = DataJob(
+                name=flow_name,
+                flow_urn=pipeline_urn,
+                display_name=display_name,
+                custom_properties={"job_name": full_path},
+                subtype=JobContainerSubTypes.MATILLION_COMPONENT,
+            )
+            yield from datajob.as_workunits()
+            data_job_urn = str(datajob.urn)
 
-        # Reuse the discovered pipeline's flow (with its richer published properties)
-        # when discovery already emitted it; otherwise mint it here, nested under the
-        # resolved environment.
-        if is_dependent:
-            yield from dataflow.as_workunits()
-            self._emitted_flow_urns.add(pipeline_urn)
-            yield from self.container_handler.add_pipeline_to_container(
-                pipeline_urn,
-                project,
-                environment=environment,
-                folder_segments=extract_folder_segments(full_path),
+            yield from self._emit_data_job_browse_path(
+                data_job_urn, pipeline_urn, full_path, project, environment
             )
 
-        datajob = DataJob(
-            name=flow_name,
-            flow_urn=pipeline_urn,
-            display_name=display_name,
-            custom_properties={"job_name": full_path},
-            subtype=JobContainerSubTypes.MATILLION_COMPONENT,
-        )
-        yield from datajob.as_workunits()
-        data_job_urn = str(datajob.urn)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job_urn,
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=sorted(all_inputs),
+                    outputDatasets=sorted(outputs_by_urn),
+                    inputDatajobs=[],
+                ),
+            ).as_workunit()
+            emitted_any_env = True
 
-        yield from self._emit_data_job_browse_path(
-            data_job_urn, pipeline_urn, full_path, project, environment
-        )
+        # Every resolved environment was a skipped dependent, so there is no flow to
+        # attach lineage to.
+        if not emitted_any_env:
+            return
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job_urn,
-            aspect=DataJobInputOutputClass(
-                inputDatasets=sorted(all_inputs),
-                outputDatasets=sorted(outputs_by_urn),
-                inputDatajobs=[],
-            ),
-        ).as_workunit()
-
+        # Dataset-level upstream lineage is environment-independent (the output table
+        # URN and its inputs are the same regardless of which environment ran the
+        # pipeline), so it is emitted once rather than per environment.
         for output_urn, accumulator in outputs_by_urn.items():
             # Gap-fill: when OpenLineage carried no column lineage for this output
             # but a SQL query produced it and the output exists in DataHub, hand the
@@ -968,11 +968,9 @@ class MatillionSource(StatefulIngestionSourceBase):
         self.report.lineage_start_time = self.lineage_start_time
         self.report.lineage_end_time = self.lineage_end_time
 
-        redundant_handler = getattr(self, "redundant_run_skip_handler", None)
         logger.info(
             f"Fetching OpenLineage events from "
-            f"{self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()} "
-            f"(stateful: {redundant_handler is not None})"
+            f"{self.lineage_start_time.isoformat()} to {self.lineage_end_time.isoformat()}"
         )
 
         all_events: List[Dict] = []

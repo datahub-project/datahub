@@ -15,6 +15,7 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionSourceConfig,
     MatillionSourceReport,
 )
+from datahub.ingestion.source.matillion_dpc.constants import API_MAX_PAGE_SIZE
 from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
 from datahub.ingestion.source.matillion_dpc.matillion_utils import (
     extract_base_pipeline_name,
@@ -393,6 +394,80 @@ def test_lineage_events_fetched_in_max_31_day_windows(
         assert d_before - d_from <= timedelta(days=31)
 
 
+def test_lineage_events_paginated_within_window(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Within a single date window the events endpoint must be paged until a short
+    page is returned; a full page (== max size) means more pages follow."""
+    config.end_time = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    config.start_time = config.end_time - timedelta(days=1)
+    source = MatillionSource(config, pipeline_context)
+
+    def paged(
+        generated_from: str, generated_before: str, page: int = 0, size: int = 100
+    ) -> list:
+        # Full first page forces a second fetch; short second page stops the loop.
+        if page == 0:
+            return [_lineage_event("p")] * API_MAX_PAGE_SIZE
+        if page == 1:
+            return [_lineage_event("p")] * 3
+        return []
+
+    lineage_mock = MagicMock(side_effect=paged)
+    with patch.object(source.api_client, "get_lineage_events", lineage_mock):
+        events = source._fetch_lineage_events()
+
+    assert len(events) == API_MAX_PAGE_SIZE + 3
+    # Single window, but the inner page loop must advance to page 1 before stopping.
+    assert lineage_mock.call_count == 2
+    assert [call.kwargs["page"] for call in lineage_mock.call_args_list] == [0, 1]
+
+
+def test_fetch_lineage_events_survives_timeout(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """A timeout mid-fetch must surface a warning and return the events gathered so
+    far rather than aborting ingestion."""
+    source = MatillionSource(config, pipeline_context)
+
+    with patch.object(
+        source.api_client,
+        "get_lineage_events",
+        side_effect=Timeout("read timed out"),
+    ):
+        events = source._fetch_lineage_events()
+
+    assert events == []
+    assert any(
+        "lineage-events-timeout" in str(warning) for warning in source.report.warnings
+    )
+
+
+def test_sql_aggregator_cached_per_environment(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # The aggregator cache key includes env, so datasets that share a platform and
+    # instance but live in different environments don't collide onto one aggregator
+    # (which would cross-contaminate SQL-parsed lineage). Two envs must yield two
+    # distinct cached aggregators; the same env must reuse its cached one.
+    pipeline_context.graph = MagicMock()
+    source = MatillionSource(config, pipeline_context)
+
+    with patch(
+        "datahub.ingestion.source.matillion_dpc.matillion.SqlParsingAggregator",
+        side_effect=lambda **kwargs: MagicMock(),
+    ) as agg_ctor:
+        dev = source._get_sql_aggregator_for_platform("snowflake", "acme", "DEV")
+        prod = source._get_sql_aggregator_for_platform("snowflake", "acme", "PROD")
+        dev_again = source._get_sql_aggregator_for_platform("snowflake", "acme", "DEV")
+
+    assert dev is not None and prod is not None
+    assert dev is not prod
+    assert dev is dev_again
+    assert agg_ctor.call_count == 2
+    assert len(source._sql_aggregators) == 2
+
+
 def test_lineage_emitted_from_events_for_unexecuted_child_pipeline(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
@@ -518,7 +593,7 @@ def _resolve_env(
     env: str = "prod",
 ) -> None:
     source._environments_cache[env] = MatillionEnvironment(name=env)
-    source._discovered_env_by_path[(project_id, full_path)] = env
+    source._discovered_env_by_path[(project_id, full_path)].add(env)
 
 
 def test_lineage_pipeline_patterns_filter_on_full_path(
@@ -589,6 +664,64 @@ def test_lineage_resolved_env_mints_flow_under_environment(
     assert any(
         f"proj-1.prod.{full_path}" in urn for urn in _datajob_workunit_urns(workunits)
     )
+
+
+def test_lineage_emitted_under_each_environment_for_shared_path(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # A pipeline path is project-scoped in Matillion DPC: the same file can be
+    # published/run under multiple environments, and the OpenLineage namespace only
+    # carries an opaque environment UUID (no name). So the job's flow/component must be
+    # nested under every environment the path is known in rather than collapsing onto a
+    # single last-write-wins environment. Dataset-level lineage is env-independent and
+    # is emitted once.
+    config.extract_projects_to_containers = False
+    full_path = "ingest/staging/load deals.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, full_path, env="dev")
+    _resolve_env(source, full_path, env="prod")
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    dataflow_urns = _dataflow_workunit_urns(workunits)
+    datajob_urns = _datajob_workunit_urns(workunits)
+    assert len(dataflow_urns) == 2
+    assert len(datajob_urns) == 2
+    assert any(f"proj-1.dev.{full_path}" in urn for urn in dataflow_urns)
+    assert any(f"proj-1.prod.{full_path}" in urn for urn in dataflow_urns)
+    # Output dataset lineage is the same regardless of environment -> emitted once.
+    assert source.report.lineage_emitted == 1
+
+
+def test_lineage_upstream_workunit_is_non_primary(
+    config: MatillionSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    # The output dataset is owned by its own platform connector (Snowflake, etc.), not
+    # Matillion, so the upstream-lineage workunit is marked non-primary to add the edge
+    # without materializing a status aspect / claiming ownership (no ghost entity). This
+    # attribute lives on the workunit, not the serialized MCE, so golden-file tests
+    # cannot catch a regression here.
+    config.extract_projects_to_containers = False
+    full_path = "ingest/staging/load deals.orch.yaml"
+    source = MatillionSource(config, pipeline_context)
+    source._projects_cache = {"proj-1": MatillionProject(id="proj-1", name="Proj")}
+    _resolve_env(source, full_path)
+    source._lineage_events_cache = [_lineage_event(full_path)]
+
+    projects = [MatillionProject(id="proj-1", name="Proj")]
+    workunits = list(source._generate_lineage_from_events(projects))
+
+    upstream_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+    assert len(upstream_wus) == 1
+    assert upstream_wus[0].is_primary_source is False
 
 
 def test_lineage_dependent_pipeline_skipped_when_disabled(
