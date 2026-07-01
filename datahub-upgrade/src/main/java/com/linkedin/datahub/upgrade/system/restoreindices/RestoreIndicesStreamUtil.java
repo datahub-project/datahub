@@ -108,12 +108,19 @@ public final class RestoreIndicesStreamUtil {
                         .stream()
                         .map(
                             (SystemAspect systemAspect) -> {
-                              SystemMetadata systemMetadata = systemAspect.getSystemMetadata();
-                              if (runId != null && systemMetadata != null) {
-                                systemMetadata =
-                                    systemMetadata
-                                        .setRunId(runId)
-                                        .setLastObserved(System.currentTimeMillis());
+                              // AbstractMCLStep tags the run id (and refreshes lastObserved) on the
+                              // system metadata; the legacy restore-indices steps historically
+                              // emitted with null system metadata. Preserve both behaviors — null
+                              // runId means "legacy", so leave system metadata untouched (null).
+                              SystemMetadata systemMetadata = null;
+                              if (runId != null) {
+                                systemMetadata = systemAspect.getSystemMetadata();
+                                if (systemMetadata != null) {
+                                  systemMetadata =
+                                      systemMetadata
+                                          .setRunId(runId)
+                                          .setLastObserved(System.currentTimeMillis());
+                                }
                               }
                               Pair<Future<?>, Boolean> future =
                                   entityService.alwaysProduceMCLAsync(
