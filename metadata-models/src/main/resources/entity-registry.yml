@@ -23,6 +23,7 @@ entities:
       - datasetUsageStatistics
       - usageFeatures
       - storageFeatures
+      - lineageFeatures
       - operation
       - domains
       - applications
