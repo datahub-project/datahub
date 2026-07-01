@@ -533,6 +533,34 @@ class BigQueryV2Config(
 
     @model_validator(mode="before")
     @classmethod
+    def forward_usage_time_window_fields(cls, values: Any) -> Any:
+        # `usage.start_time`/`end_time`/`bucket_duration` are inherited from
+        # BaseTimeWindowConfig via BaseUsageConfig but were never read by either
+        # the queries-v2 or legacy code paths, which both use the top-level time
+        # window. The time window is a connector-wide setting governing lineage,
+        # usage, and operations together, so it belongs at the top level only.
+        if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
+            return values
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+        usage = values["usage"]
+        for field in ("start_time", "end_time", "bucket_duration"):
+            if field not in usage:
+                continue
+            if field in values and values[field] is not None:
+                raise ValueError(
+                    f"`{field}` is set both at the top level and under `usage`. "
+                    f"The top-level `{field}` is the only valid setting - remove `usage.{field}` from your recipe."
+                )
+            logger.warning(
+                f"`usage.{field}` is deprecated and will be ignored in a future release. "
+                f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
+            )
+            values[field] = usage.pop(field)
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)

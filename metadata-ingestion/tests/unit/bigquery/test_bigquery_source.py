@@ -8,8 +8,10 @@ import pytest
 import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
+from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -1399,6 +1401,37 @@ def test_bigquery_config_deprecated_schema_pattern():
     assert config.dataset_pattern == AllowDenyPattern(
         deny=["temp.*"]
     )  # dataset_pattern
+
+
+def test_bigquery_config_usage_start_time_forwarded_to_top_level():
+    config = BigQueryV2Config.model_validate(
+        {"usage": {"start_time": "2023-01-01T00:00:00Z"}}
+    )
+    assert config.start_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
+
+
+def test_bigquery_config_usage_bucket_duration_forwarded_to_top_level():
+    config = BigQueryV2Config.model_validate({"usage": {"bucket_duration": "HOUR"}})
+    assert config.bucket_duration == BucketDuration.HOUR
+
+
+def test_bigquery_config_usage_and_top_level_start_time_conflict_raises():
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {
+                "start_time": "2023-01-01T00:00:00Z",
+                "usage": {"start_time": "2023-02-01T00:00:00Z"},
+            }
+        )
+
+
+def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"end_time": "2023-01-01T00:00:00Z"}})
+        assert any("deprecated" in record.msg for record in caplog.records)
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
