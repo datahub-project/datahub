@@ -3,7 +3,6 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from datahub_classify.helper_classes import ColumnInfo
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -11,13 +10,16 @@ from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
 )
+from datahub.ingestion.glossary.classification_types import ColumnInfo
 
 
 class DynamicTypedClassifierConfig(DynamicTypedConfig):
     # Respecifying the base-class just to override field level docs
 
     type: str = Field(
-        description="The type of the classifier to use. For DataHub,  use `datahub`",
+        description="The type of the classifier to use. The built-in `datahub` "
+        "classifier has been removed; register a custom classifier and reference "
+        "its type here.",
     )
     # This config type is declared Optional[Any] here. The eventual parser for the
     # specified type is responsible for further validation.
