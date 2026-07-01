@@ -54,6 +54,7 @@ dependencies = [
     "jsonschema<5.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     "packaging<27.0.0",
+    "pip",
     "progressbar2<5.0.0",
     "psutil>=5.8.0,<8.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -124,14 +125,10 @@ airbyte = [
 ]
 
 athena = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -158,7 +155,6 @@ azure-data-factory = [
 ]
 
 bigquery = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -167,12 +163,9 @@ bigquery = [
     "google-cloud-resource-manager<2.0.0",
     "greenlet<4.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "numpy<2",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
     "protobuf>=5.0.0,<7.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -181,7 +174,6 @@ bigquery = [
 ]
 
 bigquery-queries = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -189,11 +181,8 @@ bigquery-queries = [
     "google-cloud-resource-manager<2.0.0",
     "greenlet<4.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "numpy<2",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -223,14 +212,10 @@ circuit-breaker = [
 ]
 
 clickhouse = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -238,14 +223,10 @@ clickhouse = [
 ]
 
 clickhouse-usage = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -253,17 +234,13 @@ clickhouse-usage = [
 ]
 
 cockroachdb = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "GeoAlchemy2<0.19.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -291,34 +268,26 @@ cube = [
 ]
 
 databricks = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "pandas<2.2.0",
     "patchy==2.8.0",
-    "pip",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
 ]
 
 datahub = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "fastavro>=1.2.0,<2.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -379,15 +348,11 @@ dataplex = [
 ]
 
 db2 = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pyodbc<6.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -443,16 +408,12 @@ dlt = [
 ]
 
 doris = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -460,40 +421,28 @@ doris = [
 ]
 
 dremio = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "requests<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
 ]
 
 druid = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pydruid>=0.6.2,<=0.6.9",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
 ]
 
 dynamodb = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "numpy<2",
-    "pip",
-    "schwifty<2026.0.0",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -548,7 +497,6 @@ feast = [
 ]
 
 fivetran = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "cryptography>=48.0.1,<49.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -560,12 +508,9 @@ fivetran = [
     "greenlet<4.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "msal<2.0.0",
-    "numpy<2",
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
@@ -633,15 +578,11 @@ grafana = [
 ]
 
 hana = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "defusedxml>=0.7.1,<0.8.0",
     "greenlet<4.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -655,33 +596,25 @@ hex = [
 ]
 
 hive = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "databricks-dbapi<0.7.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
 ]
 
 hive-metastore = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -718,16 +651,12 @@ kafka = [
 ]
 
 kafka-connect = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "requests<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -767,16 +696,12 @@ lookml = [
 ]
 
 mariadb = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -816,14 +741,10 @@ mongodb = [
 ]
 
 mssql = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pyOpenSSL>=26.0.0,<27.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -831,15 +752,11 @@ mssql = [
 ]
 
 mssql-odbc = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pyodbc<6.0.0",
     "pyOpenSSL>=26.0.0,<27.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -847,16 +764,12 @@ mssql-odbc = [
 ]
 
 mysql = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -896,14 +809,10 @@ omni = [
 ]
 
 oracle = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "oracledb<4.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -914,17 +823,13 @@ pinecone = [
 ]
 
 postgres = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "GeoAlchemy2<0.19.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -954,14 +859,10 @@ preset = [
 ]
 
 presto = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -969,18 +870,14 @@ presto = [
 ]
 
 presto-on-hive = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1028,17 +925,13 @@ redash = [
 ]
 
 redshift = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "db-dtypes",
     "GeoAlchemy2<0.19.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
     "redshift-connector>=2.1.14,<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -1047,16 +940,12 @@ redshift = [
 ]
 
 redshift-slim = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "db-dtypes",
     "GeoAlchemy2<0.19.0",
-    "numpy<2",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
     "redshift-connector>=2.1.14,<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1124,16 +1013,12 @@ slack = [
 snaplogic = []
 
 snowflake = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
-    "numpy<2",
     "pandas<3.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
@@ -1143,16 +1028,12 @@ snowflake = [
 ]
 
 snowflake-queries = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
-    "numpy<2",
     "pandas<3.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
@@ -1162,30 +1043,22 @@ snowflake-queries = [
 ]
 
 snowflake-slim = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "cryptography>=48.0.1,<49.0.0",
     "msal<2.0.0",
-    "numpy<2",
     "pandas<3.0.0",
-    "pip",
-    "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
 
 snowflake-summary = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "cryptography>=48.0.1,<49.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
-    "numpy<2",
     "pandas<3.0.0",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
@@ -1214,26 +1087,18 @@ sql-queries = [
 ]
 
 sqlalchemy = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
 ]
 
 starburst-trino-usage = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1241,14 +1106,10 @@ starburst-trino-usage = [
 ]
 
 starrocks = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "lark>=1.3.1,<2.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1272,13 +1133,9 @@ tableau = [
 ]
 
 teradata = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1292,16 +1149,12 @@ thoughtspot = [
 ]
 
 tidb = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "pymysql>=1.0.2,<2.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1309,17 +1162,13 @@ tidb = [
 ]
 
 timescaledb = [
-    "acryl-datahub-classify==0.0.11",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "GeoAlchemy2<0.19.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1327,13 +1176,9 @@ timescaledb = [
 ]
 
 trino = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1341,18 +1186,14 @@ trino = [
 ]
 
 unity-catalog = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "pandas<2.2.0",
     "patchy==2.8.0",
-    "pip",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1373,13 +1214,9 @@ vertexai = [
 ]
 
 vertica = [
-    "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
-    "numpy<2",
     "patchy==2.8.0",
-    "pip",
-    "schwifty<2026.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1388,7 +1225,6 @@ vertica = [
 
 # All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
 all = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
@@ -1464,7 +1300,6 @@ all = [
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
     "pinecone-client>=3.0.0,<6.0.0",
-    "pip",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -1488,7 +1323,6 @@ all = [
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
-    "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "setuptools<82",
     "simple-salesforce<2.0.0",
@@ -1528,7 +1362,6 @@ all = [
 cloud = ["acryl-datahub-cloud"]
 
 dev = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
@@ -1661,7 +1494,6 @@ dev = [
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",
     "ruff==0.15.18",
-    "schwifty<2026.0.0",
     "sentry-sdk>=1.33.1,<3.0.0",
     "setuptools<82.0.0",
     "simple-salesforce<2.0.0",
@@ -1720,7 +1552,6 @@ dev = [
 ]
 
 docs = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
@@ -1853,7 +1684,6 @@ docs = [
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",
     "ruff==0.15.18",
-    "schwifty<2026.0.0",
     "sentry-sdk>=1.33.1,<3.0.0",
     "setuptools<82.0.0",
     "simple-salesforce<2.0.0",
@@ -1926,7 +1756,6 @@ testing-utils = [
 ]
 
 integration-tests = [
-    "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
@@ -1959,7 +1788,6 @@ integration-tests = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
-    "pip",
     "psycopg2-binary<3.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
@@ -1978,7 +1806,6 @@ integration-tests = [
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
     "responses>=0.25.0,<1.0",
-    "schwifty<2026.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "sortedcontainers>=2.4.0,<3.0.0",
