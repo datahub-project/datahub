@@ -195,6 +195,7 @@ entities:
       - forms
       - testResults
       - documentation
+      - access
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
