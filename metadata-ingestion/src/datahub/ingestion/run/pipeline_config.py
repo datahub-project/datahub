@@ -66,7 +66,7 @@ class UpstreamPlatformCasing(ConfigModel):
     )
 
 
-class NormalizeLineageUrnCasingConfig(ConfigModel):
+class AutoResolveLineageUrnsConfig(ConfigModel):
     """Configuration for the lineage URN casing normalization work unit processor.
 
     Intended to be enabled on BI-tool / cross-platform ingestions that reference
@@ -114,8 +114,8 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
-    normalize_lineage_urn_casing: NormalizeLineageUrnCasingConfig = Field(
-        default_factory=NormalizeLineageUrnCasingConfig,
+    auto_resolve_lineage_urns: AutoResolveLineageUrnsConfig = Field(
+        default_factory=AutoResolveLineageUrnsConfig,
         description=(
             "Experimental: before emitting lineage, reconcile the casing of upstream "
             "warehouse URN references (table- and column-level) against the casing "
