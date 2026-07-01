@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
-import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
+import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;

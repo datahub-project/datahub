@@ -1,5 +1,6 @@
 import { Divider, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import styled from 'styled-components';
 
@@ -54,18 +55,20 @@ const TitleText = styled(Typography.Text)`
 const { Paragraph } = Typography;
 
 export default function RoleEntityProfile() {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const { urn: encodedUrn } = useParams<RolePageParams>();
     const urn = decodeUrn(encodedUrn);
     const { data, loading } = useGetExternalRoleQuery({ variables: { urn } });
 
     return (
         <PageContainer>
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
-            <TitleLabel>Role</TitleLabel>
+            {loading && <LoadingMessage type="loading" content={tf('loading')} />}
+            <TitleLabel>{t('role.name')}</TitleLabel>
             <TitleText>{data?.role?.properties?.name}</TitleText>
             <Divider />
             {/* Role Description */}
-            <DescriptionLabel>About</DescriptionLabel>
+            <DescriptionLabel>{t('tab.about')}</DescriptionLabel>
             <Paragraph style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}>
                 {data?.role?.properties?.description}
             </Paragraph>

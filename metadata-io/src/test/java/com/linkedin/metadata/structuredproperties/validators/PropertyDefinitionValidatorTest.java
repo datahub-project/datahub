@@ -24,6 +24,7 @@ import com.linkedin.structured.PropertyValueArray;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import org.testng.annotations.BeforeTest;
@@ -34,15 +35,17 @@ public class PropertyDefinitionValidatorTest {
   private EntityRegistry entityRegistry;
   private Urn testPropertyUrn;
   private RetrieverContext mockRetrieverContext;
+  private OperationContext operationContext;
 
   @BeforeTest
   public void init() {
     entityRegistry = new TestEntityRegistry();
+    operationContext = mock(OperationContext.class);
     testPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
-    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    when(mockAspectRetriever.entityExists(any(OperationContext.class), any())).thenReturn(map);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -64,6 +67,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -87,6 +91,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setCardinality(PropertyCardinality.MULTIPLE);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -111,6 +116,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -135,6 +141,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -158,6 +165,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -182,6 +190,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -205,6 +214,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setDisplayName("newProp");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -228,6 +238,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setQualifiedName("newProp");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -252,6 +263,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -279,6 +291,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -290,6 +303,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues((new PropertyValueArray(allowedValue, oldAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -319,6 +333,7 @@ public class PropertyDefinitionValidatorTest {
 
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -330,6 +345,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues((new PropertyValueArray(allowedValue, oldAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -356,6 +372,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues(new PropertyValueArray(allowedValue));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -367,6 +384,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setAllowedValues((new PropertyValueArray(allowedValue, newAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -398,6 +416,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setAllowedValues(new PropertyValueArray(newAllowedValue));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -416,6 +435,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -434,6 +454,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -450,6 +471,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -467,6 +489,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -484,6 +507,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -497,7 +521,7 @@ public class PropertyDefinitionValidatorTest {
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
     map.put(UrnUtils.getUrn("urn:li:entityType:datahub.fakeEntity"), false);
-    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    when(mockAspectRetriever.entityExists(any(OperationContext.class), any())).thenReturn(map);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     RetrieverContext retrieverContext = mock(RetrieverContext.class);
     when(retrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -511,7 +535,9 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry), retrieverContext)
+                operationContext,
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                retrieverContext)
             .count(),
         1);
   }
@@ -529,6 +555,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),

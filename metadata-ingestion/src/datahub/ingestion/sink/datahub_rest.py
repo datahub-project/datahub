@@ -75,7 +75,6 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
     endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
     server_config_refresh_interval: Optional[int] = None
-    tcp_keepalive: bool = False
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -225,8 +224,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
+            client_key_path=config.client_key_path,
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
+            # Marker-aware sync routing only ever upgrades a batch to sync, never
+            # downgrades it, so it is a no-op in SYNC mode (already synchronous)
+            # and safe to pass through unconditionally.
+            respect_mcp_sync_marker=config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             tcp_keepalive=config.tcp_keepalive,

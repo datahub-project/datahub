@@ -13,12 +13,16 @@ interface Props {
 export function BreadcrumbItem({ item, updateIsTruncated }: Props) {
     const renderContent = useCallback(() => {
         if (item.href) {
-            return <BreadcrumbLink to={item.href}>{item.label}</BreadcrumbLink>;
+            return (
+                <BreadcrumbLink to={item.href} data-testid={`breadcrumb-${item.key}`}>
+                    {item.label}
+                </BreadcrumbLink>
+            );
         }
 
         if (item.onClick) {
             return (
-                <BreadcrumbButton size="sm" onClick={item.onClick}>
+                <BreadcrumbButton size="sm" onClick={item.onClick} data-testid={`breadcrumb-${item.key}`}>
                     {item.label}
                 </BreadcrumbButton>
             );

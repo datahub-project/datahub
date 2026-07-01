@@ -73,6 +73,8 @@ import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.cache.SyncGraphInvalidationBatch;
+import com.linkedin.metadata.graph.cache.service.EntityGraphSyncInvalidationSupport;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -84,6 +86,7 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SyncSearchIndexUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -421,7 +424,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     List<SystemAspect> systemAspects =
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values());
+        EntityUtils.toSystemAspects(
+            opContext, opContext.getRetrieverContext(), batchGetResults.values());
 
     systemAspects.stream()
         // for now, don't add the key aspect here we have already added it above
@@ -449,7 +453,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults =
         getLatestAspect(opContext, new HashSet<>(Arrays.asList(urn)), aspectNames, forUpdate);
 
-    return EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values())
+    return EntityUtils.toSystemAspects(
+            opContext, opContext.getRetrieverContext(), batchGetResults.values())
         .stream()
         .map(
             systemAspect -> Pair.of(systemAspect.getAspectName(), systemAspect.getRecordTemplate()))
@@ -487,13 +492,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     log.debug(
         "Invoked getAspect with urn: {}, aspectName: {}, version: {}", urn, aspectName, version);
 
-    version = calculateVersionNumber(urn, aspectName, version);
+    version = calculateVersionNumber(opContext, urn, aspectName, version);
     final EntityAspectIdentifier primaryKey =
         new EntityAspectIdentifier(urn.toString(), aspectName, version);
-    final Optional<EntityAspect> maybeAspect = Optional.ofNullable(aspectDao.getAspect(primaryKey));
+    final Optional<EntityAspect> maybeAspect =
+        Optional.ofNullable(aspectDao.getAspect(opContext, primaryKey));
 
     return Pair.of(
-        EntityUtils.toSystemAspect(opContext.getRetrieverContext(), maybeAspect.orElse(null), false)
+        EntityUtils.toSystemAspect(
+                opContext, opContext.getRetrieverContext(), maybeAspect.orElse(null), false)
             .map(SystemAspect::getRecordTemplate)
             .orElse(null),
         version);
@@ -866,7 +873,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         count);
 
     final ListResult<String> aspectMetadataList =
-        aspectDao.listLatestAspectMetadata(entityName, aspectName, start, count);
+        aspectDao.listLatestAspectMetadata(opContext, entityName, aspectName, start, count);
 
     List<EntityAspect> entityAspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {
@@ -879,7 +886,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     return new ListResult<>(
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), entityAspects).stream()
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), entityAspects)
+            .stream()
             .map(SystemAspect::getRecordTemplate)
             .collect(Collectors.toList()),
         aspectMetadataList.getMetadata(),
@@ -1000,7 +1008,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
+    invalidateEntityGraphCacheOnSyncIngest(
+        opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
+
     return updateAspectResults;
+  }
+
+  private void invalidateEntityGraphCacheOnSyncIngest(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch aspectsBatch,
+      @Nonnull List<UpdateAspectResult> updateResults) {
+    SyncGraphInvalidationBatch batch =
+        EntityGraphSyncInvalidationSupport.fromSyncIngestBatch(
+            opContext, preProcessHooks, aspectsBatch, updateResults);
+    if (!batch.isEmpty()) {
+      opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
+    }
   }
 
   /**
@@ -1017,7 +1040,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .collect(Collectors.toList());
 
     try (Stream<MCPItem> sideEffectStream =
-        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
+        AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
       Iterable<List<MCPItem>> iterable =
           () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
       StreamSupport.stream(iterable.spliterator(), false)
@@ -1072,6 +1095,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             IngestAspectsResult result =
                 aspectDao
                     .runInTransactionWithRetry(
+                        opContext,
                         (txContext) -> {
                           // Generate default aspects within the transaction (they are re-calculated
                           // on
@@ -1101,12 +1125,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // read #2 (potentially)
                           final Map<String, Map<String, Long>> nextVersions =
                               EntityUtils.calculateNextVersions(
-                                  txContext, aspectDao, batchAspects, urnAspects);
+                                  opContext, txContext, aspectDao, batchAspects, urnAspects);
 
                           // 1. Convert patches to full upserts
                           // 2. Run any entity/aspect level hooks
                           Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
                               batchWithDefaults.toUpsertBatchItems(
+                                  opContext,
                                   batchAspects,
                                   nextVersions,
                                   (changeMCP, systemAspect) ->
@@ -1135,6 +1160,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                             Map<String, Map<String, Long>> newNextVersions =
                                 EntityUtils.calculateNextVersions(
+                                    opContext,
                                     txContext,
                                     aspectDao,
                                     updatedLatestAspects,
@@ -1186,7 +1212,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // do final pre-commit checks with previous aspect value
                           ValidationExceptionCollection exceptions =
                               AspectsBatch.validatePreCommit(
-                                  changeMCPs, opContext.getRetrieverContext());
+                                  opContext, changeMCPs, opContext.getRetrieverContext());
 
                           List<Pair<ChangeMCP, Set<AspectValidationException>>>
                               failedUpsertResults = new ArrayList<>();
@@ -1962,36 +1988,51 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
     // for all other types of events should use system metadata rather than the boolean param.
-    boolean isUISource =
-        preProcessHooks.isUiEnabled()
-            && metadataChangeLog.getSystemMetadata() != null
-            && metadataChangeLog.getSystemMetadata().getProperties() != null
-            && UI_SOURCE.equals(
-                metadataChangeLog.getSystemMetadata().getProperties().get(APP_SOURCE));
-    boolean syncIndexUpdate =
+    boolean requiresSyncSearchIndexUpdate =
+        SyncSearchIndexUtils.requiresSyncSearchIndexUpdate(
+            preProcessHooks, opContext, metadataChangeLog.getSystemMetadata());
+    boolean syncIndexUpdateHeader =
         metadataChangeLog.getHeaders() != null
             && metadataChangeLog
                 .getHeaders()
                 .getOrDefault(SYNC_INDEX_UPDATE_HEADER_NAME, "false")
                 .equalsIgnoreCase(Boolean.toString(true));
+    boolean syncGated = requiresSyncSearchIndexUpdate || syncIndexUpdateHeader;
 
-    if (updateIndicesService != null && (isUISource || syncIndexUpdate)) {
+    if (updateIndicesService != null && syncGated) {
       updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
-      return true;
+      // Drop stale snapshots as soon as secondary storage reflects the write. Batch invalidation
+      // at the end of ingestAspects remains as a backstop, but must not be the only path — reads
+      // between preprocess and batch completion could otherwise HIT an ACTIVE membership snapshot
+      // missing a just-written edge (e.g. corpGroup INCOMING members after addGroupMembers).
+      invalidateEntityGraphCacheOnSyncWrite(opContext, metadataChangeLog);
     }
-    return false;
+    return syncGated && updateIndicesService != null;
+  }
+
+  private void invalidateEntityGraphCacheOnSyncWrite(
+      @Nonnull OperationContext opContext, @Nonnull MetadataChangeLog metadataChangeLog) {
+    SyncGraphInvalidationBatch batch =
+        EntityGraphSyncInvalidationSupport.fromSyncMetadataChangeLog(
+            opContext, preProcessHooks, metadataChangeLog);
+    if (!batch.isEmpty()) {
+      opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
+    }
   }
 
   @Override
   public Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
-    return aspectDao.countAspect(aspectName, urnLike);
+    return aspectDao.countAspect(opContext, aspectName, urnLike);
   }
 
   @Override
-  public Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+  public Integer countAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull RestoreIndicesArgs args,
+      @Nonnull Consumer<String> logger) {
     logger.accept(String.format("Args are %s", args));
-    return aspectDao.countAspect(args);
+    return aspectDao.countAspect(opContext, args);
   }
 
   @Nonnull
@@ -2009,7 +2050,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     long startTime = System.currentTimeMillis();
 
-    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(opContext, args)) {
       return stream
           .partition(args.batchSize)
           .map(
@@ -2019,7 +2060,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 try {
                   List<SystemAspect> systemAspects =
                       EntityUtils.toSystemAspectFromEbeanAspects(
-                          opContext.getRetrieverContext(), batch.collect(Collectors.toList()));
+                          opContext,
+                          opContext.getRetrieverContext(),
+                          batch.collect(Collectors.toList()));
 
                   RestoreIndicesResult result =
                       restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
@@ -2071,6 +2114,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         long startTime = System.currentTimeMillis();
         List<SystemAspect> systemAspects =
             EntityUtils.toSystemAspects(
+                opContext,
                 opContext.getRetrieverContext(),
                 getLatestAspect(opContext, entityBatch.getValue(), aspectNames, false).values());
         long timeSqlQueryMs = System.currentTimeMillis() - startTime;
@@ -2266,7 +2310,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final String keyAspectName =
         opContext.getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
     final ListResult<String> keyAspectList =
-        aspectDao.listUrns(entityName, keyAspectName, start, count);
+        aspectDao.listUrns(opContext, entityName, keyAspectName, start, count);
 
     final ListUrnsResult result = new ListUrnsResult();
     result.setStart(start);
@@ -2894,7 +2938,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             : aspectName,
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
-    final Map<EntityAspectIdentifier, EntityAspect> aspects = aspectDao.batchGet(dbKeys, forUpdate);
+    final Map<EntityAspectIdentifier, EntityAspect> aspects =
+        aspectDao.batchGet(opContext, dbKeys, forUpdate);
     final Set<String> existingUrnStrings =
         aspects.values().stream()
             .filter(Objects::nonNull)
@@ -2952,15 +2997,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Delete validation hooks
     ValidationExceptionCollection exceptions =
         AspectsBatch.validateProposed(
-            List.of(deleteItem), opContext.getRetrieverContext(), opContext);
+            opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
     if (!exceptions.isEmpty()) {
       throw new ValidationException(
           collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
+    // Hard delete wipes all aspects in one shot; capture propertyDefinition before deleteUrn so
+    // PropertyDefinitionDeleteSideEffect can scroll ES and emit PATCH REMOVE MCPs (see
+    // docs/api/tutorials/structured-properties.md).
+    final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
+        new PropertyDefinitionBeforeHardDelete();
+
     final RollbackResult result =
         aspectDao
             .runInTransactionWithRetry(
+                opContext,
                 (txContext) -> {
                   Integer additionalRowsDeleted = 0;
 
@@ -2994,9 +3046,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
-                  Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
-                  long minVersion = Math.max(0, versionRange.getFirst());
-                  long maxVersion = Math.max(0, versionRange.getSecond());
+                  Pair<Long, Long> versionRange =
+                      aspectDao.getVersionRange(opContext, urn, aspectName);
+                  if (versionRange.getFirst() == null
+                      || versionRange.getSecond() == null
+                      || versionRange.getFirst() < 0
+                      || versionRange.getSecond() < 0) {
+                    log.debug(
+                        "Delete skipped due to empty version range. urn {} aspect {}",
+                        urn,
+                        aspectName);
+                    return TransactionResult.rollback();
+                  }
+                  long minVersion = versionRange.getFirst();
+                  long maxVersion = versionRange.getSecond();
 
                   EntityAspect.EntitySystemAspect survivingAspect = null;
 
@@ -3005,8 +3068,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     EntityAspect.EntitySystemAspect candidateAspect =
                         (EntityAspect.EntitySystemAspect)
                             EntityUtils.toSystemAspect(
+                                    opContext,
                                     opContext.getRetrieverContext(),
-                                    aspectDao.getAspect(urn, aspectName, maxVersion),
+                                    aspectDao.getAspect(opContext, urn, aspectName, maxVersion),
                                     true)
                                 .orElse(null);
                     SystemMetadata previousSysMetadata =
@@ -3027,6 +3091,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   // Delete validation hooks
                   ValidationExceptionCollection preCommitExceptions =
                       AspectsBatch.validatePreCommit(
+                          opContext,
                           aspectsToDelete.stream()
                               .map(
                                   toDelete ->
@@ -3047,7 +3112,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   aspectsToDelete.forEach(
                       aspect ->
                           aspectDao.deleteAspect(
-                              aspect.getUrn(), aspect.getAspectName(), aspect.getVersion()));
+                              opContext,
+                              aspect.getUrn(),
+                              aspect.getAspectName(),
+                              aspect.getVersion()));
 
                   if (survivingAspect != null) {
                     // if there was a surviving aspect, copy its information into the latest row
@@ -3060,7 +3128,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     latest.setAuditStamp(survivingAspect.getAuditStamp());
 
                     Optional<EntityAspect> survivingResult =
-                        aspectDao.updateAspect(txContext, latest);
+                        aspectDao.updateAspect(opContext, txContext, latest);
 
                     // metrics
                     aspectDao.incrementWriteMetrics(
@@ -3071,6 +3139,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     if (survivingAspect.getVersion() > 0) {
                       aspectDao.deleteAspect(
+                          opContext,
                           survivingAspect.getUrn(),
                           survivingAspect.getAspectName(),
                           survivingAspect.getVersion());
@@ -3080,6 +3149,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
                         // If Using CDCs, need to ensure key aspect is the deleted last.
+                        if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+                          try {
+                            SystemAspect definitionAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext,
+                                    urn,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    false);
+                            propertyDefinitionBeforeHardDelete.definition =
+                                definitionAspect.getRecordTemplate();
+                            propertyDefinitionBeforeHardDelete.metadata =
+                                definitionAspect.getSystemMetadata();
+                          } catch (EntityNotFoundException e) {
+                            log.debug(
+                                "No {} aspect to capture before hard delete of {}",
+                                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                urn);
+                          }
+                        }
                         additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
@@ -3100,7 +3188,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     } else {
                       // Else, only delete the specific aspect.
                       aspectDao.deleteAspect(
-                          latest.getUrn(), latest.getAspectName(), latest.getVersion());
+                          opContext, latest.getUrn(), latest.getAspectName(), latest.getVersion());
                     }
                   }
 
@@ -3146,7 +3234,45 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .orElse(null);
 
     if (result != null) {
-      processPostCommitMCLSideEffects(opContext, List.of(result.toMCL(auditStamp)));
+      List<MetadataChangeLog> mclsForSideEffects = new ArrayList<>();
+      if (propertyDefinitionBeforeHardDelete.definition != null) {
+        mclsForSideEffects.add(
+            constructMCL(
+                null,
+                urnToEntityName(entityUrn),
+                entityUrn,
+                ChangeType.DELETE,
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                auditStamp,
+                null,
+                null,
+                propertyDefinitionBeforeHardDelete.definition,
+                propertyDefinitionBeforeHardDelete.metadata));
+      }
+      mclsForSideEffects.add(result.toMCL(auditStamp));
+      processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
+      if (result.getChangeType() == ChangeType.DELETE) {
+        // Key-aspect / hard delete → entity-wide invalidation (aspectName null in batch).
+        // Intentionally not gated on UI source / sync-index header (unlike ingest/MCL paths):
+        // destructive deletes should invalidate cache immediately rather than wait for TTL.
+        SyncGraphInvalidationBatch invalidationBatch =
+            EntityGraphSyncInvalidationSupport.fromSyncEntityDelete(
+                opContext,
+                entityUrn.toString(),
+                entityUrn.getEntityType(),
+                result.getAspectName(),
+                Boolean.TRUE.equals(result.getKeyAffected()));
+        if (!invalidationBatch.isEmpty()) {
+          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+        }
+      } else if (result.getChangeType() == ChangeType.UPSERT) {
+        SyncGraphInvalidationBatch invalidationBatch =
+            EntityGraphSyncInvalidationSupport.fromSyncAspectRollback(
+                opContext, entityUrn.toString(), entityUrn.getEntityType(), result.getAspectName());
+        if (!invalidationBatch.isEmpty()) {
+          opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
+        }
+      }
     }
 
     return result;
@@ -3211,7 +3337,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
         .forEachRemaining(
             batch ->
-                batchGetResults.putAll(aspectDao.batchGet(ImmutableSet.copyOf(batch), forUpdate)));
+                batchGetResults.putAll(
+                    aspectDao.batchGet(opContext, ImmutableSet.copyOf(batch), forUpdate)));
     return batchGetResults;
   }
 
@@ -3221,19 +3348,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * the maximum version, we need to add 1 to the final result.
    */
   private long calculateVersionNumber(
-      @Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull long version) {
     if (version < 0) {
-      return aspectDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+      return aspectDao.getMaxVersion(opContext, urn.toString(), aspectName) + version + 1;
     }
     return version;
   }
 
   private Map<EntityAspectIdentifier, EnvelopedAspect> getEnvelopedAspects(
       @Nonnull OperationContext opContext, final Set<EntityAspectIdentifier> dbKeys) {
-    final Map<EntityAspectIdentifier, EntityAspect> dbEntries = aspectDao.batchGet(dbKeys, false);
+    final Map<EntityAspectIdentifier, EntityAspect> dbEntries =
+        aspectDao.batchGet(opContext, dbKeys, false);
 
     List<SystemAspect> envelopedAspects =
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), dbEntries.values());
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), dbEntries.values());
 
     return envelopedAspects.stream()
         .collect(
@@ -3330,6 +3461,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .operation(MetadataAuditOperation.UPDATE)
                   .auditStamp(writeItem.getAuditStamp())
                   .maxVersion(versionN.map(EntityAspect::getVersion).orElse(0L))
+                  .databaseAspectRowVersion(updatedAspect.getVersion())
                   .build();
             })
         .orElse(null);
@@ -3347,5 +3479,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } else {
       log.debug(message);
     }
+  }
+
+  /** Mutable holder for propertyDefinition captured inside a transaction lambda. */
+  private static final class PropertyDefinitionBeforeHardDelete {
+    private RecordTemplate definition;
+    private SystemMetadata metadata;
   }
 }

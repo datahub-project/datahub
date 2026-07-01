@@ -255,7 +255,7 @@ def test_data_lake_gcs_ingest(
 
     with patch("datahub.ingestion.source.gcs.gcs_source.GCS_ENDPOINT_URL", None):
         pipeline = Pipeline.create(config_dict)
-    pipeline.run()
+        pipeline.run()
     pipeline.raise_from_status()
 
     # Verify the output.

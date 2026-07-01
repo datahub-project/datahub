@@ -1,0 +1,17 @@
+{
+    "card.nodeGroupCountTooltip_one": "Enthält {{count}} Begriffsgruppe",
+    "card.nodeGroupCountTooltip_other": "Enthält {{count}} Begriffsgruppen",
+    "card.termCountTooltip_one": "Enthält {{count}} Begriff",
+    "card.termCountTooltip_other": "Enthält {{count}} Begriffe",
+    "empty.addTerm": "Begriff hinzufügen",
+    "empty.addTermGroup": "Begriffsgruppe hinzufügen",
+    "empty.description": "Erstelle Begriffe und Begriffsgruppen, um Daten-Assets mit einem gemeinsamen Vokabular zu organisieren.",
+    "empty.title": "Leeres Glossar",
+    "list.error": "Glossar konnte nicht geladen werden! Ein unerwarteter Fehler ist aufgetreten.",
+    "list.loading": "Glossar wird geladen...",
+    "page.createGlossary": "Glossar erstellen",
+    "page.subtitle": "Klassifiziere deine Daten-Assets und Spalten mithilfe von Datenwörterbüchern",
+    "page.title": "Glossar",
+    "section.glossaryTerms": "Begriffe",
+    "section.termGroups": "Begriffsgruppen"
+}

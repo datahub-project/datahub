@@ -1,9 +1,11 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button, Editor, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
+const ELLIPSIS = '...';
 
 const ShowMoreWrapper = styled.div`
     align-items: start;
@@ -110,6 +112,7 @@ export default function CompactMarkdownViewer({
     handleShowMore,
     hideShowMore,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -136,7 +139,7 @@ export default function CompactMarkdownViewer({
             </MarkdownViewContainer>
             {hideShowMore && isTruncated && (
                 <Tooltip title={content}>
-                    <MoreIndicator>...</MoreIndicator>
+                    <MoreIndicator>{ELLIPSIS}</MoreIndicator>
                 </Tooltip>
             )}
 
@@ -156,7 +159,7 @@ export default function CompactMarkdownViewer({
                                 e.stopPropagation();
                             }}
                         >
-                            {isShowingMore ? 'Show less' : 'Show more'}
+                            {isShowingMore ? tc('showLess') : tc('showMoreCapitalized')}
                         </Button>
                     </ShowMoreWrapper>
                 )}

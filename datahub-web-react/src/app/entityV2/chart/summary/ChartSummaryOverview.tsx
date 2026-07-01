@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
@@ -35,6 +36,7 @@ const SectionContainer = styled.div`
 `;
 
 export default function ChartSummaryOverview() {
+    const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const chart = useBaseEntity<GetChartQuery>()?.chart;
     const entityRegistry = useEntityRegistryV2();
@@ -63,7 +65,7 @@ export default function ChartSummaryOverview() {
     return (
         <SummaryColumns>
             <MainSection>
-                <SummaryHeader>General Info</SummaryHeader>
+                <SummaryHeader>{t('shared.generalInfo')}</SummaryHeader>
                 <FirstRow>
                     {!!owner && <SummaryCreatedBySection owner={owner} />}
 
@@ -73,7 +75,7 @@ export default function ChartSummaryOverview() {
 
                             <MainSection>
                                 <StyledTitle>
-                                    Data Sources
+                                    {t('shared.dataSources')}
                                     <Count>{dataSources.length} </Count>
                                 </StyledTitle>
                                 <HorizontalList>
@@ -89,7 +91,7 @@ export default function ChartSummaryOverview() {
                             <VerticalDivider />
 
                             <SectionContainer>
-                                <StyledTitle>Query</StyledTitle>
+                                <StyledTitle>{t('query.name')}</StyledTitle>
                                 <SummaryQuerySection query={query} />
                             </SectionContainer>
                         </>

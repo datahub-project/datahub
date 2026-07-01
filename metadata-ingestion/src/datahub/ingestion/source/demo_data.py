@@ -17,7 +17,9 @@ Usage in a recipe:
         no_time_shift: false
 """
 
-import pathlib
+import json
+import tempfile
+import uuid
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
@@ -87,9 +89,12 @@ class DemoDataSource(Source):
         super().__init__(ctx)
         self.config = config
 
-        from datahub.cli.datapack.loader import check_trust, download_pack
+        from datahub.cli.datapack.loader import (
+            check_trust,
+            download_pack,
+            ingest_datapack_file_entries,
+        )
         from datahub.cli.datapack.models import DataPackInfo, TrustTier
-        from datahub.cli.datapack.time_shift import time_shift_file
 
         # Resolve the pack
         if config.pack_url:
@@ -106,49 +111,37 @@ class DemoDataSource(Source):
         else:
             raise ValueError("Either 'pack_name' or 'pack_url' must be specified.")
 
-        # Trust check
         check_trust(
             pack,
             trust_community=config.trust_community,
             trust_custom=config.trust_custom,
         )
 
-        # Download (combine all index entries into one file for GenericFileSource)
         file_entries = download_pack(pack, no_cache=config.no_cache)
-        if len(file_entries) == 1:
-            effective_path = file_entries[0].path
-        else:
-            import json as _json
-            import tempfile as _tempfile
 
-            all_mcps: list = []
-            for entry in file_entries:
-                with open(entry.path) as _f:
-                    mcps = _json.load(_f)
-                if isinstance(mcps, list):
-                    all_mcps.extend(mcps)
-            combined = _tempfile.NamedTemporaryFile(
-                suffix=".json", delete=False, prefix="demo-data-combined-", mode="w"
-            )
-            _json.dump(all_mcps, combined)
-            combined.close()
-            effective_path = pathlib.Path(combined.name)
-        if not config.no_time_shift and pack.reference_timestamp:
-            target_ts = None
-            if config.as_of:
-                as_of_dt = datetime.fromisoformat(config.as_of)
-                if as_of_dt.tzinfo is None:
-                    as_of_dt = as_of_dt.replace(tzinfo=timezone.utc)
-                target_ts = int(as_of_dt.timestamp() * 1000)
+        as_of_dt: Optional[datetime] = None
+        if config.as_of:
+            as_of_dt = datetime.fromisoformat(config.as_of)
+            if as_of_dt.tzinfo is None:
+                as_of_dt = as_of_dt.replace(tzinfo=timezone.utc)
 
-            effective_path = time_shift_file(
-                input_path=effective_path,
-                reference_timestamp=pack.reference_timestamp,
-                target_timestamp=target_ts,
-            )
+        run_id = ctx.run_id or f"demo-data-{uuid.uuid4()}"
+        ingest_datapack_file_entries(
+            pack,
+            file_entries,
+            run_id,
+            no_time_shift=config.no_time_shift,
+            as_of=as_of_dt,
+            log_progress=False,
+        )
 
-        # Delegate to GenericFileSource
-        file_config = FileSourceConfig(path=str(effective_path))
+        # Outer pipeline sink is unused; datapack ingest already completed above.
+        empty_pack = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, prefix="demo-data-empty-", mode="w"
+        )
+        json.dump([], empty_pack)
+        empty_pack.close()
+        file_config = FileSourceConfig(path=empty_pack.name)
         self.file_source = GenericFileSource(ctx, file_config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:

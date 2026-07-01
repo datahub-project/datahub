@@ -5,6 +5,8 @@ import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.urn.DataPlatformInstanceUrn;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
@@ -67,6 +69,8 @@ public class BrowsePathV2Utils {
           BrowsePathEntryArray defaultDatasetPathEntries =
               getDefaultDatasetPathEntries(dsKey.getName(), dataPlatformDelimiter);
           if (defaultDatasetPathEntries.size() > 0) {
+            tryResolvePlatformInstanceEntry(
+                opContext, defaultDatasetPathEntries, dsKey.getPlatform(), entityService);
             browsePathEntries.addAll(defaultDatasetPathEntries);
           } else {
             browsePathEntries.add(createBrowsePathEntry(DEFAULT_FOLDER_NAME, null));
@@ -109,6 +113,45 @@ public class BrowsePathV2Utils {
       pathEntry.setUrn(urn);
     }
     return pathEntry;
+  }
+
+  /**
+   * If the first plain-name segment of a default dataset browse path corresponds to an existing
+   * DataPlatformInstance entity, replaces it with a URN-form entry to match the format produced by
+   * Python ingestion's {@code auto_browse_path_v2} processor.
+   *
+   * <p>This prevents duplicate navigation folders in the Browse UI when GMS generates a default
+   * BrowsePathsV2 for a lineage-only entity (never directly schema-ingested) whose platform
+   * instance is already registered in the catalog. Without this fix, those entities appear under a
+   * plain-name folder (e.g. {@code ␟myinstance}) while directly-ingested entities appear under the
+   * URN-form folder (e.g. {@code ␟urn:li:dataPlatformInstance:(...)}), creating two separate
+   * navigation trees for the same logical location.
+   *
+   * <p>No-op if entries is empty, if the DataPlatformInstance entity does not exist, or if any
+   * exception occurs during resolution.
+   */
+  private static void tryResolvePlatformInstanceEntry(
+      @Nonnull OperationContext opContext,
+      @Nonnull BrowsePathEntryArray entries,
+      @Nonnull Urn platformUrn,
+      @Nonnull EntityService<?> entityService) {
+    if (entries.isEmpty()) {
+      return;
+    }
+    try {
+      String firstSegment = entries.get(0).getId();
+      DataPlatformInstanceUrn platformInstanceUrn =
+          new DataPlatformInstanceUrn(DataPlatformUrn.createFromUrn(platformUrn), firstSegment);
+      if (entityService.exists(opContext, platformInstanceUrn, true)) {
+        entries.set(0, createBrowsePathEntry(platformInstanceUrn.toString(), platformInstanceUrn));
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to resolve platform instance URN for first browse path segment '{}', "
+              + "falling back to plain-name: {}",
+          entries.get(0).getId(),
+          e.getMessage());
+    }
   }
 
   private static void aggregateParentContainers(

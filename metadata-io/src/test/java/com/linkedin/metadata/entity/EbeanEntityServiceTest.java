@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -42,6 +41,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -132,7 +132,13 @@ public class EbeanEntityServiceTest
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+    _aspectDao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -239,14 +245,17 @@ public class EbeanEntityServiceTest
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
     when(mockEntityAspect.getMetadata()).thenReturn("");
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any(), any());
+    doReturn(Optional.of(mockEntityAspect))
+        .when(aspectDao)
+        .insertAspect(any(), any(), any(), anyLong());
 
     // Stub methods that the transaction block will call
     // Use mutable maps because the code calls computeIfAbsent() on them
     when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
         .thenReturn(new java.util.HashMap<>());
-    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
     // Stub saveLatestAspect to return a Pair with the mocked entity aspects
     when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
         .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
@@ -257,8 +266,10 @@ public class EbeanEntityServiceTest
 
     doAnswer(
             invocation -> {
-              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
-              Integer maxTransactionRetry = invocation.getArgument(2);
+              // Signature: runInTransactionWithRetry(OperationContext, Function, AspectsBatch, int)
+              // index 0=opContext, 1=block, 2=batch, 3=maxTransactionRetry
+              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(1);
+              Integer maxTransactionRetry = invocation.getArgument(3);
 
               // Use mock instead of spy to avoid Mockito global interceptor
               TransactionContext txContext = mock(TransactionContext.class);
@@ -279,7 +290,7 @@ public class EbeanEntityServiceTest
               return result.getResults();
             })
         .when(aspectDao)
-        .runInTransactionWithRetry(any(), any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), any(), anyInt());
 
     // Create the service with our mocked dao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
@@ -311,7 +322,7 @@ public class EbeanEntityServiceTest
     assertEquals(results.size(), 0, "Expected no results for rolled back transaction");
 
     // Verify transaction behavior
-    verify(aspectDao).runInTransactionWithRetry(any(), eq(batch), anyInt());
+    verify(aspectDao).runInTransactionWithRetry(any(), any(), eq(batch), anyInt());
     verify(capturedTxContext.get()).commitAndContinue();
 
     // Verify the transaction result was a rollback
@@ -482,12 +493,10 @@ public class EbeanEntityServiceTest
   public void testNestedTransactions() throws AssertionError {
     Database server = _aspectDao.getServer();
 
-    try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew())) {
       transaction.setBatchMode(true);
       // Work 1
-      try (Transaction transaction2 =
-          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew())) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -538,9 +547,10 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+            .beginTransaction(TxScope.requiresNew())) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.insertAspect(
+          opContext,
           transactionContext,
           EntityAspect.EntitySystemAspect.builder()
               .forInsert(

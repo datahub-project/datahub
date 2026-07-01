@@ -1,128 +1,215 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
-import com.linkedin.metadata.aspect.EntityAspect;
-import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.domain.DomainAssociation;
+import com.linkedin.domain.DomainAssociationArray;
+import com.linkedin.domain.Domains;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import com.linkedin.metadata.timeline.data.ChangeTransaction;
-import com.linkedin.metadata.timeline.data.SemanticChangeType;
-import java.sql.Timestamp;
+import com.linkedin.metadata.timeline.data.entity.DomainChangeEvent;
+import com.linkedin.mxe.SystemMetadata;
+import java.net.URISyntaxException;
+import java.util.List;
 import org.testng.annotations.Test;
 
-/**
- * Tests that {@link SingleDomainChangeEventGenerator} correctly implements {@code getSemanticDiff}
- * (the legacy API still called by the timeline pipeline). Before the fix, the generator only
- * implemented the new {@code getChangeEvents} API, so {@code getSemanticDiff} fell through to the
- * base class and threw {@link UnsupportedOperationException}.
- */
 public class SingleDomainChangeEventGeneratorTest {
 
-  private static final String ENTITY_URN =
+  private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)";
   private static final String DOMAIN_URN_1 = "urn:li:domain:engineering";
   private static final String DOMAIN_URN_2 = "urn:li:domain:marketing";
+  private static final String TEST_CONTEXT =
+      "{\"origin\":\"urn:li:dataset:(urn:li:dataPlatform:hive,OriginTable,PROD)\",\"propagated\":\"true\",\"actor\":\"urn:li:corpuser:test\"}";
 
-  private static EntityAspect makeDomainAspect(String entityUrn, String domainUrn, long version) {
-    String json =
-        domainUrn != null
-            ? String.format("{\"domains\": [\"%s\"]}", domainUrn)
-            : "{\"domains\": []}";
-    EntityAspect aspect = new EntityAspect();
-    aspect.setUrn(entityUrn);
-    aspect.setAspect("domains");
-    aspect.setVersion(version);
-    aspect.setMetadata(json);
-    aspect.setCreatedOn(new Timestamp(1000L * (version + 1)));
-    aspect.setCreatedBy("urn:li:corpuser:tester");
-    return aspect;
+  private static Urn getTestUrn() throws URISyntaxException {
+    return Urn.createFromString(TEST_ENTITY_URN);
   }
 
-  @Test
-  public void testGetSemanticDiffDoesNotThrow() {
-    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
-
-    EntityAspect previous = makeDomainAspect(ENTITY_URN, null, 0);
-    EntityAspect current = makeDomainAspect(ENTITY_URN, DOMAIN_URN_1, 1);
-
-    // This must NOT throw UnsupportedOperationException
-    ChangeTransaction tx =
-        generator.getSemanticDiff(previous, current, ChangeCategory.DOMAIN, null, false);
-
-    assertNotNull(tx);
-    assertNotNull(tx.getChangeEvents());
-    assertEquals(tx.getChangeEvents().size(), 1);
-
-    ChangeEvent event = tx.getChangeEvents().get(0);
-    assertEquals(event.getCategory(), ChangeCategory.DOMAIN);
-    assertEquals(event.getOperation(), ChangeOperation.ADD);
-    assertEquals(event.getEntityUrn(), ENTITY_URN);
-    assertNotNull(event.getDescription(), "Domain ADD events must have a description");
-    assertTrue(event.getDescription().contains("engineering"));
-    assertTrue(event.getDescription().contains(ENTITY_URN));
+  private static AuditStamp getTestAuditStamp() throws URISyntaxException {
+    return new AuditStamp()
+        .setActor(Urn.createFromString("urn:li:corpuser:__datahub_system"))
+        .setTime(1683829509553L);
   }
 
-  @Test
-  public void testDomainChanged() {
-    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
-
-    EntityAspect previous = makeDomainAspect(ENTITY_URN, DOMAIN_URN_1, 0);
-    EntityAspect current = makeDomainAspect(ENTITY_URN, DOMAIN_URN_2, 1);
-
-    ChangeTransaction tx =
-        generator.getSemanticDiff(previous, current, ChangeCategory.DOMAIN, null, false);
-
-    assertNotNull(tx);
-    // Domain change emits a REMOVE + ADD pair
-    assertEquals(tx.getChangeEvents().size(), 2);
-
-    long addCount =
-        tx.getChangeEvents().stream().filter(e -> e.getOperation() == ChangeOperation.ADD).count();
-    long removeCount =
-        tx.getChangeEvents().stream()
-            .filter(e -> e.getOperation() == ChangeOperation.REMOVE)
-            .count();
-    assertEquals(addCount, 1);
-    assertEquals(removeCount, 1);
-
-    // Both events must have descriptions
-    for (ChangeEvent event : tx.getChangeEvents()) {
-      assertNotNull(event.getDescription(), "Domain change events must have descriptions");
+  private static Aspect<Domains> createDomainsAspect(String domainUrn, String context)
+      throws URISyntaxException {
+    Domains domains = new Domains();
+    if (domainUrn != null) {
+      Urn urn = Urn.createFromString(domainUrn);
+      domains.setDomains(new UrnArray(urn));
+      if (context != null) {
+        DomainAssociation association = new DomainAssociation();
+        association.setDomain(urn);
+        association.setContext(context);
+        domains.setDomainAssociations(new DomainAssociationArray(association));
+      }
+    } else {
+      domains.setDomains(new UrnArray());
     }
+    return new Aspect<>(domains, new SystemMetadata());
+  }
+
+  private static void validateChangeEvent(
+      ChangeEvent changeEvent,
+      ChangeOperation expectedOperation,
+      String expectedDomainUrn,
+      String expectedContext) {
+    assertNotNull(changeEvent);
+    assertEquals(changeEvent.getOperation(), expectedOperation);
+    assertEquals(changeEvent.getModifier(), expectedDomainUrn);
+    assertEquals(changeEvent.getEntityUrn(), TEST_ENTITY_URN);
+
+    assertNotNull(changeEvent.getParameters());
+    assertEquals(changeEvent.getParameters().get("domainUrn"), expectedDomainUrn);
+    assertEquals(
+        changeEvent.getParameters().get("context"),
+        expectedContext != null ? expectedContext : "{}");
   }
 
   @Test
-  public void testDomainRemoved() {
+  public void testAddDomainWithContext() throws Exception {
     SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
 
-    EntityAspect previous = makeDomainAspect(ENTITY_URN, DOMAIN_URN_1, 0);
-    EntityAspect current = makeDomainAspect(ENTITY_URN, null, 1);
+    Aspect<Domains> from = createDomainsAspect(null, null);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
 
-    ChangeTransaction tx =
-        generator.getSemanticDiff(previous, current, ChangeCategory.DOMAIN, null, false);
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
 
-    assertNotNull(tx);
-    assertEquals(tx.getChangeEvents().size(), 1);
-    assertNotNull(
-        tx.getChangeEvents().get(0).getDescription(),
-        "Domain REMOVE events must have a description");
-    assertTrue(tx.getChangeEvents().get(0).getDescription().contains("engineering"));
-    assertEquals(tx.getChangeEvents().get(0).getOperation(), ChangeOperation.REMOVE);
+    assertEquals(actual.size(), 1);
+    validateChangeEvent(actual.get(0), ChangeOperation.ADD, DOMAIN_URN_1, TEST_CONTEXT);
   }
 
   @Test
-  public void testNoDomainChange() {
+  public void testAddDomainWithoutContext() throws Exception {
     SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
 
-    EntityAspect previous = makeDomainAspect(ENTITY_URN, DOMAIN_URN_1, 0);
-    EntityAspect current = makeDomainAspect(ENTITY_URN, DOMAIN_URN_1, 1);
+    Aspect<Domains> from = createDomainsAspect(null, null);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_1, null);
 
-    ChangeTransaction tx =
-        generator.getSemanticDiff(previous, current, ChangeCategory.DOMAIN, null, false);
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
 
-    assertNotNull(tx);
-    assertTrue(tx.getChangeEvents().isEmpty());
-    assertEquals(tx.getSemVerChange(), SemanticChangeType.NONE);
+    assertEquals(actual.size(), 1);
+    validateChangeEvent(actual.get(0), ChangeOperation.ADD, DOMAIN_URN_1, null);
+  }
+
+  @Test
+  public void testRemoveDomainWithContext() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
+    Aspect<Domains> to = createDomainsAspect(null, null);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 1);
+    validateChangeEvent(actual.get(0), ChangeOperation.REMOVE, DOMAIN_URN_1, TEST_CONTEXT);
+  }
+
+  @Test
+  public void testRemoveDomainWithoutContext() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(DOMAIN_URN_1, null);
+    Aspect<Domains> to = createDomainsAspect(null, null);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 1);
+    validateChangeEvent(actual.get(0), ChangeOperation.REMOVE, DOMAIN_URN_1, null);
+  }
+
+  @Test
+  public void testDomainChanged() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_2, null);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 2);
+
+    ChangeEvent removeEvent =
+        actual.stream()
+            .filter(e -> e.getOperation() == ChangeOperation.REMOVE)
+            .findFirst()
+            .orElse(null);
+    ChangeEvent addEvent =
+        actual.stream()
+            .filter(e -> e.getOperation() == ChangeOperation.ADD)
+            .findFirst()
+            .orElse(null);
+
+    validateChangeEvent(removeEvent, ChangeOperation.REMOVE, DOMAIN_URN_1, TEST_CONTEXT);
+    validateChangeEvent(addEvent, ChangeOperation.ADD, DOMAIN_URN_2, null);
+  }
+
+  @Test
+  public void testNoChanges() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 0);
+  }
+
+  @Test
+  public void testChangeEventIsDomainChangeEvent() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(null, null);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_1, TEST_CONTEXT);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 1);
+
+    ChangeEvent changeEvent = actual.get(0);
+    assertEquals(changeEvent.getClass(), DomainChangeEvent.class);
+
+    DomainChangeEvent domainChangeEvent = (DomainChangeEvent) changeEvent;
+    assertNotNull(domainChangeEvent.getParameters());
+    assertEquals(domainChangeEvent.getParameters().get("domainUrn"), DOMAIN_URN_1);
+    assertEquals(domainChangeEvent.getParameters().get("context"), TEST_CONTEXT);
+  }
+
+  @Test
+  public void testDescriptionContainsDomainAndEntity() throws Exception {
+    SingleDomainChangeEventGenerator generator = new SingleDomainChangeEventGenerator();
+
+    Aspect<Domains> from = createDomainsAspect(null, null);
+    Aspect<Domains> to = createDomainsAspect(DOMAIN_URN_1, null);
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(
+            getTestUrn(), "dataset", "domains", from, to, getTestAuditStamp());
+
+    assertEquals(actual.size(), 1);
+    assertNotNull(actual.get(0).getDescription());
+    assertTrue(actual.get(0).getDescription().contains("engineering"));
+    assertTrue(actual.get(0).getDescription().contains(TEST_ENTITY_URN));
   }
 }

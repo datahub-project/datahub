@@ -364,8 +364,91 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             - scroll_id: cursor to pass in the next call (None when exhausted)
             - relationships: list of Relationship objects with source/destination info
         """
-        url = f"{self._gms_server}/openapi/v3/relationship/scroll"
+        return self._scroll_relationships_impl(
+            url=f"{self._gms_server}/openapi/v3/relationship/scroll",
+            relationship_types=relationship_types,
+            source_types=source_types,
+            destination_types=destination_types,
+            direction=direction,
+            source_urns=source_urns,
+            destination_urns=destination_urns,
+            source_filter=source_filter,
+            destination_filter=destination_filter,
+            edge_filter=edge_filter,
+            count=count,
+            scroll_id=scroll_id,
+            include_soft_delete=include_soft_delete,
+            slice_id=slice_id,
+            slice_max=slice_max,
+            pit_keep_alive=pit_keep_alive,
+        )
 
+    def scroll_lineage(
+        self,
+        *,
+        relationship_types: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+        destination_types: Optional[List[str]] = None,
+        direction: Optional[RelationshipDirection] = None,
+        source_urns: Optional[List[str]] = None,
+        destination_urns: Optional[List[str]] = None,
+        source_filter: Optional[RawSearchFilter] = None,
+        destination_filter: Optional[RawSearchFilter] = None,
+        edge_filter: Optional[RawSearchFilter] = None,
+        count: Optional[int] = None,
+        scroll_id: Optional[str] = None,
+        include_soft_delete: Optional[bool] = None,
+        slice_id: Optional[int] = None,
+        slice_max: Optional[int] = None,
+        pit_keep_alive: Optional[str] = None,
+    ) -> RelationshipScrollResult:
+        """Scroll through lineage relationships using the scrollLineage endpoint.
+
+        Behaves identically to scroll_relationships but additionally applies a
+        triplet-based lineage filter from the entity registry so that only edges
+        annotated as lineage are returned.
+
+        See scroll_relationships for parameter documentation.
+        """
+        return self._scroll_relationships_impl(
+            url=f"{self._gms_server}/openapi/v3/lineage/scroll",
+            relationship_types=relationship_types,
+            source_types=source_types,
+            destination_types=destination_types,
+            direction=direction,
+            source_urns=source_urns,
+            destination_urns=destination_urns,
+            source_filter=source_filter,
+            destination_filter=destination_filter,
+            edge_filter=edge_filter,
+            count=count,
+            scroll_id=scroll_id,
+            include_soft_delete=include_soft_delete,
+            slice_id=slice_id,
+            slice_max=slice_max,
+            pit_keep_alive=pit_keep_alive,
+        )
+
+    def _scroll_relationships_impl(
+        self,
+        *,
+        url: str,
+        relationship_types: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+        destination_types: Optional[List[str]] = None,
+        direction: Optional[RelationshipDirection] = None,
+        source_urns: Optional[List[str]] = None,
+        destination_urns: Optional[List[str]] = None,
+        source_filter: Optional[RawSearchFilter] = None,
+        destination_filter: Optional[RawSearchFilter] = None,
+        edge_filter: Optional[RawSearchFilter] = None,
+        count: Optional[int] = None,
+        scroll_id: Optional[str] = None,
+        include_soft_delete: Optional[bool] = None,
+        slice_id: Optional[int] = None,
+        slice_max: Optional[int] = None,
+        pit_keep_alive: Optional[str] = None,
+    ) -> RelationshipScrollResult:
         params: Dict[str, Any] = {}
         if relationship_types is not None:
             params["relationshipTypes"] = relationship_types

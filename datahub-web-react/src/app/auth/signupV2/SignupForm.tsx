@@ -1,6 +1,7 @@
 import { Input } from '@components';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -29,6 +30,7 @@ interface Props {
 
 export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
     const location = useLocation();
+    const { t } = useTranslation('auth');
 
     const searchParams = new URLSearchParams(location.search);
 
@@ -58,28 +60,28 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
         <FormContainer>
             <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
-                    <FieldLabel label="Email" required />
-                    <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} inputTestId="email" />
+                    <FieldLabel label={t('emailLabel')} required />
+                    <Form.Item rules={[{ required: true, message: t('emailRequired') }]} name="email">
+                        <Input placeholder={t('emailPlaceholder')} isDisabled={isEmailFromQuery} inputTestId="email" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
-                    <FieldLabel label="Full Name" required />
-                    <Form.Item rules={[{ required: true, message: 'Please fill in your name' }]} name="fullName">
-                        <Input placeholder="First name Last name" inputTestId="name" />
+                    <FieldLabel label={t('fullNameLabel')} required />
+                    <Form.Item rules={[{ required: true, message: t('fullNameRequired') }]} name="fullName">
+                        <Input placeholder={t('fullNamePlaceholder')} inputTestId="name" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
-                    <FieldLabel label="Password" required />
+                    <FieldLabel label={t('passwordLabel')} required />
                     <Form.Item
                         rules={[
-                            { required: true, message: 'Please fill in your password' },
+                            { required: true, message: t('passwordRequired') },
                             ({ getFieldValue }) => ({
                                 validator() {
                                     if (getFieldValue('password').length < 8) {
-                                        return Promise.reject(new Error('Must be 8 characters long; case sensitive'));
+                                        return Promise.reject(new Error(t('passwordHint')));
                                     }
                                     return Promise.resolve();
                                 },
@@ -92,14 +94,14 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                 </ItemContainer>
 
                 <ItemContainer>
-                    <FieldLabel label="Confirm Password" required />
+                    <FieldLabel label={t('confirmPasswordLabel')} required />
                     <Form.Item
                         rules={[
-                            { required: true, message: 'Please confirm your password' },
+                            { required: true, message: t('confirmPasswordRequired') },
                             ({ getFieldValue }) => ({
                                 validator() {
                                     if (getFieldValue('confirmPassword') !== getFieldValue('password')) {
-                                        return Promise.reject(new Error('Your passwords do not match'));
+                                        return Promise.reject(new Error(t('passwordsDoNotMatch')));
                                     }
                                     return Promise.resolve();
                                 },

@@ -6,7 +6,9 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability />
 
-An open-source agent that lets you ask data questions in plain English and get SQL, results, and charts back — grounded in your DataHub catalog. Apache 2.0, bring your own LLM.
+:::info OPEN SOURCE ANALYTICS AGENT — APRIL 30, 2026
+An open-source agent that lets you ask data questions in plain English and get SQL, results, and charts back — grounded in your DataHub catalog. Apache 2.0, bring your own LLM. Read the [announcement blog post](https://datahub.com/blog/datahub-analytics-agent/).
+:::
 
 <p align="center">
   <img width="85%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/analytics-agent/screenshot-chat.png" alt="Analytics Agent answering a data question with a chart"/>
@@ -24,7 +26,27 @@ An open-source agent that lets you ask data questions in plain English and get S
 
 ## Quickstart
 
-The fastest way to try Analytics Agent. The script spins up a local DataHub instance, loads the [Olist e-commerce](https://github.com/datahub-project/static-assets/tree/main/datasets/olist-ecommerce) sample dataset, and launches the agent — so you can try it end-to-end without connecting your own data.
+There are two ways to try Analytics Agent. **Option A** is the fastest — it installs the agent as a CLI tool and runs it against your own warehouse. **Option B** spins up a local DataHub instance preloaded with sample data, so you can try the full DataHub-grounded experience end-to-end without connecting anything of your own.
+
+### Option A — pip / uvx (recommended, no Docker)
+
+**You'll need:** Python 3.11+ and an LLM API key (Anthropic, OpenAI, or Google).
+
+```bash
+pip install datahub-analytics-agent
+analytics-agent quickstart
+
+# Or with uv (no virtualenv to manage):
+uvx datahub-analytics-agent quickstart
+```
+
+This starts the server at **http://localhost:8100** and opens a browser setup wizard where you pick a provider, model, and API key. Config and the local database live under `~/.datahub/analytics-agent/`. Re-running `analytics-agent quickstart` relaunches without prompting; use `analytics-agent quickstart --reconfigure` to reopen the wizard.
+
+This path launches the agent on its own — it does not stand up a DataHub instance or load demo data. Connect your own DataHub and warehouse from **Settings → Connections**, or use Option B to explore with sample data first.
+
+### Option B — Docker + sample data (full demo)
+
+The script spins up a local DataHub instance, loads a sample retail dataset, and launches the agent — so you can try it end-to-end without connecting your own data.
 
 **You'll need:**
 
@@ -35,7 +57,7 @@ The fastest way to try Analytics Agent. The script spins up a local DataHub inst
 - **An LLM API key** from Anthropic, OpenAI, or Google
 
 :::warning Operating system support
-Analytics Agent is tested on **macOS** and **Linux**. **Windows users** should run setup through [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) — the quickstart and `just` runner are bash-based.
+Analytics Agent is tested on **macOS** and **Linux**. **Windows users** should run setup through [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) — the quickstart script is bash-based.
 :::
 
 ```bash
@@ -53,7 +75,7 @@ When it finishes, open **http://localhost:8100**. A two-step setup wizard will:
 1. Ask you to name your agent
 2. Ask you to pick a provider, model, and API key
 
-(If you already have `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY` set in your shell, the wizard is skipped.)
+(If you already have `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY` set in your shell, the agent will be pre-configured with that provider when the browser opens.)
 
 **Try your first question:**
 
@@ -63,24 +85,25 @@ You should see the agent search DataHub, write SQL, and render a chart in 10–2
 
 ## Manual setup
 
-Use this when you're connecting Analytics Agent to your own DataHub instance and warehouse — instead of running the bundled local DataHub + Olist demo from Quickstart.
+Use this when you're connecting Analytics Agent to your own DataHub instance and warehouse — instead of running the bundled local DataHub + sample data demo from Quickstart.
 
 :::info Manual setup is different from Quickstart
-Quickstart spins up a local DataHub instance and loads sample data inside Docker. Manual setup runs the agent natively (no Docker) against an existing DataHub instance and warehouse you already have. **Use Quickstart to evaluate; use Manual for real deployments.**
+Quickstart (Option B) spins up a local DataHub instance and loads sample data inside Docker. Manual setup runs the agent natively (no Docker) against an existing DataHub instance and warehouse you already have. **Use Quickstart to evaluate; use Manual for real deployments.**
 :::
 
 ### Step 1 — Clone and install
 
-You'll need Python 3.11+, Node.js 18+, [`uv`](https://docs.astral.sh/uv/), [`pnpm`](https://pnpm.io/), and [`just`](https://just.systems/).
+You'll need Python 3.11+, [`uv`](https://docs.astral.sh/uv/), [`mise`](https://mise.jdx.dev/) (manages Node 22 and pnpm), and `make`.
 
 ```bash
 git clone https://github.com/datahub-project/analytics-agent.git
 cd analytics-agent
-just install        # runs: uv sync + pnpm install
+mise install        # installs Node 22 + pnpm (reads .mise.toml)
+make install        # runs: uv sync + pnpm install
 ```
 
 <details>
-<summary>Without <code>just</code></summary>
+<summary>Without <code>make</code></summary>
 
 ```bash
 uv sync
@@ -219,6 +242,22 @@ Snowflake supports five authentication methods:
 </details>
 
   </TabItem>
+  <TabItem value="bigquery" label="BigQuery">
+
+```yaml
+# config.yaml
+engines:
+  - type: bigquery
+    name: prod
+    connection:
+      project: "${BIGQUERY_PROJECT}"
+      dataset: "${BIGQUERY_DATASET}" # optional default dataset
+      credentials_path: "${BIGQUERY_CREDENTIALS_PATH}"
+```
+
+`project` is required; `dataset` is optional. Provide credentials with exactly one of three keys (checked in this priority order): `credentials_json` (raw JSON), `credentials_base64` (base64-encoded JSON), or `credentials_path` (path to a JSON key file). Set the matching `BIGQUERY_CREDENTIALS_*` value in `.env` — see `.env.example` for all three.
+
+  </TabItem>
   <TabItem value="mysql" label="MySQL">
 
 ```yaml
@@ -240,6 +279,11 @@ engines:
 Add a DuckDB connection from **Settings → Connections → Add Connection**. Point it at a local `.duckdb` file. No authentication required.
 
   </TabItem>
+  <TabItem value="hive" label="Hive">
+
+Add a Hive connection from **Settings → Connections → Add Connection**. Supply the host, port, and auth mode (`NONE`, `NOSASL`, `LDAP`, `PLAIN`, or `KERBEROS`) in the form — no `config.yaml` entry required.
+
+  </TabItem>
   <TabItem value="sqlalchemy" label="SQLAlchemy (other)">
 
 ```yaml
@@ -251,7 +295,7 @@ engines:
       url: "postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
 ```
 
-Any dialect supported by [SQLAlchemy](https://docs.sqlalchemy.org/en/20/dialects/) works — PostgreSQL, BigQuery, Redshift, and more.
+Any dialect supported by [SQLAlchemy](https://docs.sqlalchemy.org/en/20/dialects/) works — PostgreSQL, Redshift, and more.
 
   </TabItem>
 </Tabs>
@@ -259,20 +303,21 @@ Any dialect supported by [SQLAlchemy](https://docs.sqlalchemy.org/en/20/dialects
 ### Step 5 — Start the server
 
 ```bash
-just start
+make start
 ```
 
 <details>
-<summary>Without <code>just</code></summary>
+<summary>Without <code>make</code></summary>
 
 ```bash
 cd frontend && pnpm build && cd ..
+uv run analytics-agent bootstrap
 uv run uvicorn analytics_agent.main:app --port 8100
 ```
 
 </details>
 
-Database migrations run automatically on startup — no manual `alembic upgrade` needed for first launch.
+Database migrations and config seeding run automatically via the `bootstrap` step (included in `make start`) — no manual `alembic upgrade` needed for first launch.
 
 Open **http://localhost:8100**, complete the setup wizard if prompted, and start asking questions.
 
@@ -393,19 +438,24 @@ DATAHUB_GMS_URL=https://your-org.acryl.io/gms    # overrides ~/.datahubenv
 DATAHUB_GMS_TOKEN=eyJhbGci...                     # overrides ~/.datahubenv
 
 # ── LLM ──────────────────────────────────────────────────────────────
-LLM_PROVIDER=anthropic                  # anthropic | openai | google | bedrock
+LLM_PROVIDER=anthropic                  # anthropic | openai | google | bedrock | openai-compatible
 ANTHROPIC_API_KEY=sk-ant-...
 LLM_MODEL=claude-sonnet-4-6
 CHART_LLM_MODEL=claude-haiku-4-5-20251001
 QUALITY_LLM_MODEL=claude-haiku-4-5-20251001
 DELIGHT_LLM_MODEL=claude-haiku-4-5-20251001
+# For OpenAI-compatible endpoints (LiteLLM, vLLM, Ollama):
+# LLM_PROVIDER=openai-compatible
+# OPENAI_COMPATIBLE_BASE_URL=https://your-proxy/v1
+# OPENAI_COMPATIBLE_API_KEY=sk-...
 
 # ── SQL engines ───────────────────────────────────────────────────────
 ENGINES_CONFIG=./config.yaml
 SQL_ROW_LIMIT=500                       # max rows returned per query
 
 # ── Storage ───────────────────────────────────────────────────────────
-DATABASE_URL=sqlite+aiosqlite:///./data/dev.db    # default (local dev)
+DATABASE_URL=sqlite+aiosqlite:///./data/dev.db    # .env.example local-dev value
+# Code default when DATABASE_URL is unset: ~/.datahub/analytics-agent/data/agent.db
 # DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/analytics
 
 # ── Server ────────────────────────────────────────────────────────────
@@ -416,20 +466,20 @@ SSE_KEEPALIVE_INTERVAL=15
 </details>
 
 <details>
-<summary><code>just</code> commands</summary>
+<summary><code>make</code> commands</summary>
 
 | Command                | What it does                                                             |
 | ---------------------- | ------------------------------------------------------------------------ |
-| `just install`         | Install all Python and Node dependencies                                 |
-| `just start`           | Build the frontend (if stale) and start the backend at `:8100`           |
-| `just start port=8102` | Start on a custom port                                                   |
-| `just stop`            | Kill the backend process                                                 |
-| `just dev`             | Hot-reload backend only (no frontend build)                              |
-| `just dev-full`        | Hot-reload backend + Vite HMR frontend at `:5173`                        |
-| `just nuke`            | Wipe the SQLite database (server stays stopped — run `just start` after) |
-| `just logs`            | Tail `/tmp/analytics_agent.log`                                          |
-| `just test`            | Run unit tests                                                           |
-| `just build`           | Force a frontend rebuild                                                 |
+| `make install`         | Install all Python and Node dependencies                                 |
+| `make start`           | Build the frontend (if stale) and start the backend at `:8100`           |
+| `make start PORT=8102` | Start on a custom port                                                   |
+| `make stop`            | Kill the backend process                                                 |
+| `make dev`             | Build frontend if stale, start backend with auto-reload at `:8101`       |
+| `make dev-full`        | Backend with auto-reload at `:8101` + Vite HMR frontend at `:5173`       |
+| `make nuke`            | Wipe the SQLite database (server stays stopped — run `make start` after) |
+| `make logs`            | Tail `/tmp/analytics_agent.log`                                          |
+| `make test`            | Run unit tests                                                           |
+| `make build`           | Force a frontend rebuild                                                 |
 
 </details>
 
@@ -491,7 +541,7 @@ Available tags: `:main` (latest from main branch), `:sha-<short-hash>` (specific
 git pull
 uv sync
 cd frontend && pnpm install && pnpm build && cd ..
-just stop && just start
+make stop && make start
 ```
 
 </details>
@@ -591,7 +641,7 @@ If Save correction is enabled but writes still fail, check:
 
 **Cause:** LangChain requires that every `ToolMessage` in history matches a `tool_use` block in the preceding `AIMessage`. This can get out of sync if a conversation was interrupted.
 
-**Fix:** Start a new conversation. If the issue persists across all conversations, run `just nuke` followed by `just start` to reset the database.
+**Fix:** Start a new conversation. If the issue persists across all conversations, run `make nuke` followed by `make start` to reset the database.
 
 </details>
 
@@ -622,7 +672,16 @@ Yes. All conversations are stored in the configured database and accessible from
 
 **Can I self-host the LLM?**
 
-If your LLM is accessible via an OpenAI-compatible API, set `LLM_PROVIDER=openai` and override `LLM_MODEL` with your model name. You may also need to set a custom `OPENAI_API_BASE` — check the [LangChain ChatOpenAI docs](https://python.langchain.com/docs/integrations/chat/openai/) for the env var name.
+If your LLM is accessible via an OpenAI-compatible API (LiteLLM, vLLM, Ollama, and similar), set `LLM_PROVIDER=openai-compatible` and configure it in `.env`:
+
+```bash
+LLM_PROVIDER=openai-compatible
+OPENAI_COMPATIBLE_BASE_URL=https://your-proxy/v1   # required
+OPENAI_COMPATIBLE_API_KEY=sk-...                   # optional
+LLM_MODEL=your-model-name                           # as your proxy expects it
+```
+
+You can also set the provider, base URL, and model from **Settings → Model** in the UI.
 
 **Can I use Analytics Agent without DataHub?**
 
@@ -630,22 +689,22 @@ Analytics Agent is designed around DataHub as its metadata context layer. Withou
 
 **Does Windows work?**
 
-Not natively. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) — the bash-based quickstart and `just` runner won't work in PowerShell or CMD.
+Not natively. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) — the bash-based quickstart script won't work in PowerShell or CMD. (`make` is available inside WSL.)
 
 **How do I reset everything and start fresh?**
 
 ```bash
-just nuke
-just start
+make nuke
+make start
 ```
 
-`just nuke` wipes the local SQLite database (conversations, connections, settings) and stops the server. Run `just start` after to launch it clean.
+`make nuke` wipes the local SQLite database (conversations, connections, settings) and stops the server. Run `make start` after to launch it clean.
 
 </details>
 
 ## Next steps
 
 - **Improve your catalog** — Run `/improve-context` after a few conversations to identify which DataHub documentation will have the biggest impact on answer quality.
-- **Connect your warehouse** — If you used the quickstart, replace the sample Olist connection with your own in **Settings → Connections**.
+- **Connect your warehouse** — If you used the quickstart, replace the sample data connection with your own in **Settings → Connections**.
 - **Customize the agent** — Edit `backend/src/analytics_agent/prompts/system_prompt.md` to add org-specific business rules and table naming conventions.
 - **Contribute** — Analytics Agent is open source. Issues, PRs, and discussions welcome at [github.com/datahub-project/analytics-agent](https://github.com/datahub-project/analytics-agent).

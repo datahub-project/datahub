@@ -1,5 +1,6 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import SchemaFieldDropdown from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
+    const { t } = useTranslation('entity.form');
     const { entityWithSchema } = useGetEntityWithSchema();
 
     if (!entityWithSchema?.schemaMetadata || !entityWithSchema.schemaMetadata.fields.length) return null;
@@ -27,7 +29,9 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
     return (
         <>
             <Divider />
-            <FieldPromptsTitle data-testid="field-level-requirements">Field-Level Requirements</FieldPromptsTitle>
+            <FieldPromptsTitle data-testid="field-level-requirements">
+                {t('fieldLevelRequirementsTitle')}
+            </FieldPromptsTitle>
             {entityWithSchema?.schemaMetadata?.fields?.map((field) => (
                 <VirtualScrollChild key={field.fieldPath} height={50} triggerOnce>
                     <SchemaFieldDropdown prompts={prompts} field={field as SchemaField} associatedUrn={associatedUrn} />

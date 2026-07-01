@@ -25,8 +25,13 @@ interface ColorStyles {
 
 // Utility function to get color styles for button - does not generate CSS
 const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme: Theme): ColorStyles => {
-    const color500 = getColor(color, 500, theme); // value of 500 shade
     const isViolet = color === 'violet';
+    const isPrimary = isViolet || color === 'primary';
+    // Brand (primary/violet) buttons must follow the configurable CI brand color rather than the
+    // static foundation ramp. buttonFillBrand is the solid brand color that pairs with brandGradient,
+    // and it drives the filled-variant border plus the text/outline/link text color.
+    const color500 =
+        isPrimary && theme?.colors?.buttonFillBrand ? theme.colors.buttonFillBrand : getColor(color, 500, theme); // value of 500 shade
 
     const base = {
         // Backgrounds

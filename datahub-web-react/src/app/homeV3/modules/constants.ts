@@ -5,6 +5,7 @@ import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import i18next from 'i18next';
 import React from 'react';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
@@ -90,7 +91,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:your_assets',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Your Assets',
+                            get name() {
+                                return i18next.t('modules:yourAssets.moduleName');
+                            },
                             type: DataHubPageModuleType.OwnedAssets,
                             visibility: {
                                 scope: PageModuleScope.Global,
@@ -102,7 +105,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:top_domains',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Domains',
+                            get name() {
+                                return i18next.t('modules:domains.moduleName');
+                            },
                             type: DataHubPageModuleType.Domains,
                             visibility: {
                                 scope: PageModuleScope.Global,

@@ -13,6 +13,7 @@ import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElement,
 
 const CREATED = { elementType: SummaryElementType.Created };
 const LAST_MODIFIED = { elementType: SummaryElementType.LastModified };
+const LAST_INGESTED = { elementType: SummaryElementType.LastIngested };
 const OWNERS = { elementType: SummaryElementType.Owners };
 const DOMAIN = { elementType: SummaryElementType.Domain };
 const TAGS = { elementType: SummaryElementType.Tags };
@@ -47,7 +48,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             break;
         case EntityType.Document:
             rows = [{ modules: [] }];
-            summaryElements = [DOCUMENT_TYPE, DOCUMENT_STATUS, CREATED, LAST_MODIFIED, OWNERS];
+            summaryElements = [DOCUMENT_TYPE, DOCUMENT_STATUS, CREATED, LAST_MODIFIED, LAST_INGESTED, OWNERS];
             break;
         default:
             break;

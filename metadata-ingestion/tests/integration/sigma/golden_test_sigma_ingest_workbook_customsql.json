@@ -1,0 +1,501 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822503,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "path": "Test Workspace",
+                "latestVersion": "1"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/workbook/wb-csql-test-0001",
+            "title": "CustomSQL Workbook",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,pg-csql-01)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 1704067200000,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1704153600000,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822503,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822503,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822504,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,wb-csql-test-0001)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+                    "urn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd"
+                },
+                {
+                    "id": "CustomSQL Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822504,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,pg-csql-01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822504,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,pg-csql-01)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "ElementsCount": "1"
+            },
+            "title": "Page 1",
+            "description": "",
+            "charts": [
+                "urn:li:chart:(sigma,csql-chart-el-01)"
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822504,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,pg-csql-01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+                    "urn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd"
+                },
+                {
+                    "id": "CustomSQL Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822504,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822505,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "bar",
+                "type": "visualization"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/workbook/wb-csql-test-0001?:nodeId=csql-chart-el-01&:fullScreen=true",
+            "title": "Custom SQL Chart",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822505,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),order_id)",
+                    "schemaField": {
+                        "fieldPath": "order_id",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),amount)",
+                    "schemaField": {
+                        "fieldPath": "amount",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822505,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+                    "urn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd"
+                },
+                {
+                    "id": "CustomSQL Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822506,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,pg-csql-01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),order_id)",
+                    "schemaField": {
+                        "fieldPath": "order_id",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),amount)",
+                    "schemaField": {
+                        "fieldPath": "amount",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822506,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sigma",
+                "workspaceId": "cc000000-0000-0000-0000-000000000001"
+            },
+            "name": "Test Workspace",
+            "created": {
+                "time": 1704067200000
+            },
+            "lastModified": {
+                "time": 1704067200000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822514,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822515,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sigma"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822515,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822515,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5dfd075051a9b8654fc4fc447e3233bd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822515,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)",
+                    "schemaField": {
+                        "fieldPath": "order_id",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),amount)",
+                    "schemaField": {
+                        "fieldPath": "amount",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778187822517,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

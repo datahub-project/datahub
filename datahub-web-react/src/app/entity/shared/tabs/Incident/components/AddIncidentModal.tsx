@@ -1,17 +1,17 @@
 import { useApolloClient } from '@apollo/client';
 import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import {
-    INCIDENT_DISPLAY_TYPES,
     PAGE_SIZE,
     addActiveIncidentToCache,
+    getIncidentDisplayTypes,
 } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 
@@ -19,7 +19,7 @@ import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 type AddIncidentProps = {
@@ -29,9 +29,11 @@ type AddIncidentProps = {
 };
 
 export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation(['common.actions', 'common.labels']);
     const { urn, entityType } = useEntityData();
     const { user } = useUserContext();
-    const incidentTypes = INCIDENT_DISPLAY_TYPES;
+    const incidentTypes = getIncidentDisplayTypes();
     const [selectedIncidentType, setSelectedIncidentType] = useState<IncidentType>(IncidentType.Operational);
     const [isOtherTypeSelected, setIsOtherTypeSelected] = useState<boolean>(false);
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
@@ -93,7 +95,7 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                         actor: user?.urn,
                     },
                 };
-                message.success({ content: 'Incident Added', duration: 2 });
+                message.success({ content: t('toast.incidentAdded'), duration: 2 });
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
@@ -110,9 +112,8 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                 console.error(error);
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to raise incident! An unexpected error occurred',
-                    permissionMessage:
-                        'Unauthorized to raise incident for this asset. Please contact your DataHub administrator.',
+                    defaultMessage: t('toast.raiseFailedUnexpected'),
+                    permissionMessage: t('toast.raiseUnauthorizedAsset'),
                 });
             });
     };
@@ -120,22 +121,22 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
     return (
         <>
             <Modal
-                title="Raise Incident"
+                title={t('modal.title')}
                 open={open}
                 destroyOnClose
                 onCancel={handleClose}
                 width={600}
                 footer={[
                     <Button type="text" onClick={handleClose}>
-                        Cancel
+                        {tc('common.actions:cancel')}
                     </Button>,
                     <Button form="addIncidentForm" key="submit" htmlType="submit">
-                        Add
+                        {tc('common.actions:add')}
                     </Button>,
                 ]}
             >
                 <Form form={form} name="addIncidentForm" onFinish={handleAddIncident} layout="vertical">
-                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
+                    <Form.Item label={<Typography.Text strong>{tc('common.labels:type')}</Typography.Text>}>
                         <Form.Item name="type" style={{ marginBottom: '0px' }}>
                             <Select
                                 value={selectedIncidentType}
@@ -154,36 +155,36 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                     {isOtherTypeSelected && (
                         <Form.Item
                             name="customType"
-                            label="Custom Type"
+                            label={t('modal.customTypeLabel')}
                             rules={[
                                 {
                                     required: selectedIncidentType === IncidentType.Custom,
-                                    message: 'A custom type is required.',
+                                    message: t('modal.customTypeRequired'),
                                 },
                             ]}
                         >
-                            <Input placeholder="Freshness" />
+                            <Input placeholder={t('modal.typePlaceholder')} />
                         </Form.Item>
                     )}
                     <Form.Item
                         name="title"
-                        label="Title"
+                        label={tc('common.labels:title')}
                         rules={[
                             {
                                 required: true,
-                                message: 'A title is required.',
+                                message: t('modal.titleRequired'),
                             },
                         ]}
                     >
-                        <Input placeholder="What went wrong?" />
+                        <Input placeholder={t('modal.descriptionPlaceholder')} />
                     </Form.Item>
                     <Form.Item
                         name="description"
-                        label="Description"
+                        label={tc('common.labels:description')}
                         rules={[
                             {
                                 required: true,
-                                message: 'A description is required.',
+                                message: t('modal.descriptionRequired'),
                             },
                         ]}
                     >
