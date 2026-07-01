@@ -1038,6 +1038,8 @@ pinecone-plugin-interface==0.0.7
     # via
     #   pinecone-client
     #   pinecone-plugin-inference
+pip==26.1.2
+    # via acryl-datahub
 platformdirs==4.9.4
     # via
     #   jupyter-core

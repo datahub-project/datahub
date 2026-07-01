@@ -88,6 +88,12 @@ framework_common = {
     "ruamel.yaml<0.20.0",
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
+    # The ingestion executor bootstraps per-source venvs by shelling out to
+    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # by default, so pip must be present in the base environment. This was
+    # previously pulled in transitively via the classification extra; declare it
+    # explicitly here. No upper bound: pip is a system tool.
+    "pip",
 }
 
 rest_common = {
