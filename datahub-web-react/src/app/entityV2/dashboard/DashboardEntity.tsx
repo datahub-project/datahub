@@ -148,7 +148,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Access',
+                    name: i18next.t('entity.types:shared.accessTab'),
                     component: AccessManagement,
                     icon: UnlockOutlined,
                     display: {
