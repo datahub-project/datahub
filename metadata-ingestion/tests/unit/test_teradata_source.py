@@ -43,7 +43,6 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
-    optimized_get_view_definition,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -2845,25 +2844,6 @@ class TestCacheCaseInsensitivity:
 
         # Reaches column extraction only if the cache lookup hits.
         mock_dialect.get_schema_columns.assert_called_once()
-
-    def test_optimized_get_view_definition_lowercases_schema_lookup(self) -> None:
-        mock_dialect = MagicMock()
-        mock_dialect.default_schema_name = "MY_DB"
-        mock_dialect.normalize_name = lambda s: s
-
-        # View text is keyed by lowercased schema; the lookup must normalize the
-        # caller-supplied (uppercase) schema to hit it.
-        view_definitions = {_view_definition_key("MY_DB", "MY_VIEW"): "SELECT 1"}
-
-        view_def = optimized_get_view_definition(
-            mock_dialect,
-            MagicMock(),
-            "MY_VIEW",
-            "MY_DB",
-            view_definitions=view_definitions,
-        )
-
-        assert view_def == "SELECT 1"
 
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""

@@ -23,7 +23,6 @@ from typing import (
     Iterable,
     List,
     Literal,
-    Mapping,
     MutableMapping,
     Optional,
     Set,
@@ -1020,23 +1019,10 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     return fk_dicts
 
 
-def optimized_get_view_definition(
-    self: Any,
-    connection: Connection,
-    view_name: str,
-    schema: Optional[str] = None,
-    view_definitions: Optional[Mapping[str, str]] = None,
-    **kw: Dict[str, Any],
-) -> Optional[str]:
-    if view_definitions is None:
-        return None
-    if schema is None:
-        schema = self.default_schema_name
-
-    request_text = view_definitions.get(_view_definition_key(schema, view_name))
-    if request_text is None:
-        return None
-    return self.normalize_name(request_text)
+# optimized_get_view_definition was removed: the cached "view definition" from
+# dbc.TablesV is the last statement executed against the object, not necessarily
+# the true view DDL, so it was never wired up as a TeradataDialect override. See
+# git history if a disk-backed view-definition override is ever revived.
 
 
 @dataclass
@@ -1849,15 +1835,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 ),
             )
 
-            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
-            # view_definitions = self._view_definitions
-            # setattr(
-            #   TeradataDialect,
-            #    "get_view_definition",
-            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-            #        self, connection, view_name, schema, view_definitions=view_definitions, **kw
-            #    ),
-            # )
+            # get_view_definition is intentionally not overridden: the cached text
+            # from dbc.TablesV is the last statement executed against the object,
+            # not necessarily the true view DDL. See the removed
+            # optimized_get_view_definition (git history) for the disabled path.
 
             setattr(  # noqa: B010
                 TeradataDialect,
