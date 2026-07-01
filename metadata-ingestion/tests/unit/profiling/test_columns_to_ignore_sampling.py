@@ -7,10 +7,7 @@ import pytest
 
 pytest.importorskip("great_expectations")
 
-from datahub.ingestion.source.ge_data_profiler import (
-    _get_columns_to_ignore_sampling,
-    _normalize_tag,
-)
+from datahub.ingestion.source.ge_data_profiler import _get_columns_to_ignore_sampling
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     EditableSchemaFieldInfo,
     EditableSchemaMetadata,
@@ -70,7 +67,7 @@ def _make_editable_schema_metadata(fields: list) -> EditableSchemaMetadata:
 
 
 def _mock_graph(
-    dataset_tags: Optional[MagicMock] = None,
+    dataset_tags: Optional[GlobalTagsClass] = None,
     schema_metadata: Optional[SchemaMetadata] = None,
     editable_schema_metadata: Optional[EditableSchemaMetadata] = None,
 ) -> MagicMock:
@@ -148,8 +145,7 @@ def test_schema_and_editable_metadata_no_duplicates(mock_get_graph):
 @patch("datahub.ingestion.source.ge_data_profiler.get_default_graph")
 def test_dataset_level_tag_ignores_table(mock_get_graph):
     """A matching tag on the dataset entity sets ignore_table=True."""
-    dataset_tags = MagicMock()
-    dataset_tags.tags = [TagAssociationClass(tag=PII_TAG_URN)]
+    dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=PII_TAG_URN)])
     mock_get_graph.return_value = _mock_graph(dataset_tags=dataset_tags)
 
     ignore_table, columns = _get_columns_to_ignore_sampling(
@@ -189,15 +185,6 @@ def test_empty_tags_to_ignore_returns_early(mock_get_graph):
     mock_get_graph.assert_not_called()
     assert not ignore_table
     assert columns == []
-
-
-def test_normalize_tag_strips_urn_prefix():
-    assert _normalize_tag("urn:li:tag:my_tag") == "my_tag"
-    assert _normalize_tag("my_tag") == "my_tag"
-    assert (
-        _normalize_tag("urn:li:tag:org_common.tag.gov_privacy_category:identifier")
-        == "org_common.tag.gov_privacy_category:identifier"
-    )
 
 
 @patch("datahub.ingestion.source.ge_data_profiler.get_default_graph")

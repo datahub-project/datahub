@@ -16,6 +16,7 @@ import uuid
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Any,
     Callable,
     Dict,
@@ -78,6 +79,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
@@ -1662,30 +1664,15 @@ def create_bigquery_temp_table(
         raw_connection.close()
 
 
-_TAG_URN_PREFIX = "urn:li:tag:"
-
-
-def _tag_name(tag_urn: str) -> str:
-    """Return the name component of a tag URN (the part after urn:li:tag:)."""
-    return tag_urn.split(_TAG_URN_PREFIX)[1]
-
-
-def _normalize_tag(tag: str) -> str:
-    """Accept either a full tag URN or just the name portion."""
-    if tag.startswith(_TAG_URN_PREFIX):
-        return tag[len(_TAG_URN_PREFIX) :]
-    return tag
-
-
 def _matching_field_paths(
     fields: Sequence[Union[SchemaFieldClass, EditableSchemaFieldInfo]],
-    tags: set,
+    tags: AbstractSet[str],
 ) -> List[str]:
     return [
         field.fieldPath
         for field in fields
         if field.globalTags
-        and any(_tag_name(ta.tag) in tags for ta in field.globalTags.tags)
+        and any(TagUrn.from_string(ta.tag).name in tags for ta in field.globalTags.tags)
     ]
 
 
@@ -1697,14 +1684,17 @@ def _get_columns_to_ignore_sampling(
     if not tags_to_ignore:
         return False, []
 
-    tags_set = {_normalize_tag(t) for t in tags_to_ignore}
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags and any(_tag_name(ta.tag) in tags_set for ta in dataset_tags.tags):
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
         return True, []
 
     # Collect from both aspects; use a set to deduplicate across them.
