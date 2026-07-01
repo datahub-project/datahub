@@ -12,7 +12,6 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -292,9 +291,6 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
-            {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
-                <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
-            )}
             {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
                 <>
                     <RowContainer alignment="self-start">

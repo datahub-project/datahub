@@ -51,6 +51,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                         termsCount
                         nodesCount
                     }
+                    displayProperties {
+                        ...displayPropertiesFields
+                    }
                     glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                         total
                         searchResults {
@@ -62,6 +65,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                         termsCount
                                         nodesCount
                                     }
+                                    displayProperties {
+                                        ...displayPropertiesFields
+                                    }
                                     glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                                         total
                                         searchResults {
@@ -72,6 +78,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                                     childrenCount {
                                                         termsCount
                                                         nodesCount
+                                                    }
+                                                    displayProperties {
+                                                        ...displayPropertiesFields
                                                     }
                                                     glossaryChildrenSearch(
                                                         input: { query: "*", count: 500, types: [GLOSSARY_NODE] }
@@ -85,6 +94,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                                                     childrenCount {
                                                                         termsCount
                                                                         nodesCount
+                                                                    }
+                                                                    displayProperties {
+                                                                        ...displayPropertiesFields
                                                                     }
                                                                 }
                                                             }
@@ -166,6 +178,9 @@ fragment glossaryTerm on GlossaryTerm {
             key
             value
         }
+    }
+    displayProperties {
+        ...displayPropertiesFields
     }
     ownership {
         ...ownershipFields

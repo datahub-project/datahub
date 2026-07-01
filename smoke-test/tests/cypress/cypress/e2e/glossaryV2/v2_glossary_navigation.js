@@ -36,7 +36,10 @@ const moveGlossaryEntityToGroup = (
   cy.clickOptionWithText(sourceEntity);
   cy.wait(2000);
   cy.contains("Created Glossary Term!").should("not.exist");
-  cy.get(".anticon-edit").should("be.visible");
+  // Inline-edit pencil moved from antd `<EditOutlined>` (`.anticon-edit`) to a
+  // phosphor `<PencilSimple>`; the antd Typography.Text editable wrapper class
+  // (`.ant-typography-edit`) is the stable hook.
+  cy.get(".ant-typography-edit").should("be.visible");
   cy.get('[data-testid="MoreVertOutlinedIcon"]').should("be.visible").click();
   cy.clickOptionWithText("Move");
   cy.get('[data-testid="move-glossary-entity-modal"]')
@@ -49,7 +52,7 @@ const moveGlossaryEntityToGroup = (
   cy.waitTextVisible(confirmationMsg);
 };
 const deleteGlossary = (message) => {
-  cy.get(".anticon-edit").should("be.visible");
+  cy.get(".ant-typography-edit").should("be.visible");
   cy.get('[data-testid="MoreVertOutlinedIcon"]').should("be.visible").click();
   cy.clickOptionWithText("Delete");
   cy.clickOptionWithText("Yes");
