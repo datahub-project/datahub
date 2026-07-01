@@ -23,10 +23,10 @@ public sealed interface AncestorWalkResult {
 
   @Nonnull
   default List<String> ancestorsOrEmpty() {
-    return switch (this) {
-      case Hit hit -> hit.ancestors();
-      case Miss miss -> Collections.emptyList();
-    };
+    if (this instanceof Hit hit) {
+      return hit.ancestors();
+    }
+    return Collections.emptyList();
   }
 
   default boolean isHit() {

@@ -220,7 +220,7 @@ def test_get_pipeline_executions(
         json=mock_response,
     )
 
-    executions = api_client.get_pipeline_executions("pipe-1", 10)
+    executions = api_client.get_pipeline_executions(pipeline_name="pipe-1", limit=10)
 
     assert len(executions) == 1
     assert executions[0].pipeline_execution_id == "exec-1"
