@@ -668,22 +668,18 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             types.append(MIME_GOOGLE_SHEETS)
         return types
 
-    def _get_instance_id(self) -> str:
-        """Return a stable platform instance identifier."""
-        if self.config.platform_instance:
-            return self.config.platform_instance
-        # Use credentials fingerprint as a deterministic fallback
-        if self.config.credentials.service_account_key_file:
-            raw = self.config.credentials.service_account_key_file
-        elif self.config.credentials.service_account_key_json:
-            raw = self.config.credentials.service_account_key_json.get_secret_value()
-        else:
-            raw = "adc"
-        return hashlib.sha256(raw.encode()).hexdigest()[:12]
-
     def _build_doc_id(self, file_id: str) -> str:
-        instance_id = self._get_instance_id()
-        return f"google-drive-{instance_id}-{file_id}"
+        """Build the document ID for a Drive file.
+
+        Google Drive file IDs are globally unique and permanent, so the URN needs
+        no credential-derived scoping — the same file resolves to the same URN
+        regardless of which account/credentials (or key-file path) ingested it.
+        ``platform_instance`` is an optional, explicit prefix for separating
+        multiple logical instances; set it when you need that separation.
+        """
+        if self.config.platform_instance:
+            return f"google-drive-{self.config.platform_instance}-{file_id}"
+        return f"google-drive-{file_id}"
 
     def _parse_timestamp(self, ts: Optional[str]) -> Optional[datetime]:
         if not ts:
@@ -718,12 +714,21 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         }
 
     def _add_platform_instance(self, doc: Document) -> None:
-        """Attach a DataPlatformInstance aspect so the UI can render "View in Drive"."""
-        instance_id = self._get_instance_id()
+        """Attach a DataPlatformInstance aspect.
+
+        The ``instance`` component is only set when ``platform_instance`` is
+        explicitly configured (mirroring the standard source behavior); otherwise
+        the aspect carries just the platform.
+        """
+        instance_urn = (
+            make_dataplatform_instance_urn(self.platform, self.config.platform_instance)
+            if self.config.platform_instance
+            else None
+        )
         doc._set_aspect(
             DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, instance_id),
+                instance=instance_urn,
             )
         )
 
