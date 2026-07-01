@@ -53,6 +53,18 @@ public class AuthorizationContext implements ContextInterface {
       new ConcurrentHashMap<>();
 
   /**
+   * Request-scoped cache of resource owners, keyed by resource URN. A resource's ownership is
+   * actor-independent, so it is fetched at most once per request even when a page of search results
+   * authorizes the same resource for many privileges (or many ownership policies). Negative results
+   * (no ownership aspect) are cached as an empty list to prevent re-fetching. Mirrors {@link
+   * #sessionResourceSpecCache}. Used by the view-authorization ownership prefetch path; gated
+   * behind the {@code ownershipPrefetchEnabled} feature flag at the call sites.
+   */
+  @Builder.Default
+  private final ConcurrentHashMap<Urn, java.util.List<com.linkedin.common.Owner>>
+      resourceOwnersByUrn = new ConcurrentHashMap<>();
+
+  /**
    * Returns cached session actor identity, resolving via {@code fetcher} on first access for this
    * request.
    */
