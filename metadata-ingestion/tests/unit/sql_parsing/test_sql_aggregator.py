@@ -248,7 +248,9 @@ def test_multistep_temp_table() -> None:
     )
 
 
-def test_composite_query_statement_is_capped(monkeypatch) -> None:
+def test_composite_query_statement_is_capped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # When many statements write to a temp table in one session and a final
     # query reads from it, the aggregator merges the whole chain into one
     # synthetic "composite" query. Without a cap that merged statement can grow
