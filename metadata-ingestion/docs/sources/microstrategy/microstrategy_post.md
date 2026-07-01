@@ -1,6 +1,6 @@
 ## Lineage Behavior
 
-By default, the connector emits lineage from MicroStrategy datasets to visualizations by setting `ChartInfo.inputs`. It does not emit direct dataset-to-dashboard edges because those edges can make DataHub lineage views noisy for large BI dashboards.
+By default, the connector emits lineage from MicroStrategy datasets to visualizations by setting `ChartInfo.inputs` and `ChartInfo.inputEdges`. When visualization metadata exposes metric and attribute references, it also emits chart `InputFields` pointing at the MicroStrategy dataset fields used by each visualization. It does not emit direct dataset-to-dashboard edges because those edges can make DataHub lineage views noisy for large BI dashboards.
 
 Set `emit_dashboard_dataset_edges: true` if you want every dashboard dataset to appear directly upstream of the dashboard as fallback lineage.
 
@@ -9,7 +9,7 @@ When `extract_visualization_details: true`, the connector creates a dashboard in
 ```yaml
 dashboard_pattern:
   allow:
-    - "^Salon Sales To Plan$"
+    - "^Sales Performance$"
 ```
 
 ## Source Warehouses
@@ -18,7 +18,7 @@ When `extract_source_warehouses: true`, the connector calls MicroStrategy dataso
 
 If a dashboard dataset payload includes a direct source warehouse reference, the connector also records datasource ID, datasource name, source type, database version, DBMS name, connection ID/name, and available database/schema context as dataset custom properties.
 
-When `extract_warehouse_lineage: true`, the connector executes the dashboard/dossier SQL-view API and emits coarse upstream lineage from each MicroStrategy dataset to the physical warehouse datasets parsed from SQL. It does not store raw SQL or connection strings. This setting is disabled by default because SQL-view lineage is table-level and does not prove field-level metric, attribute, or fact lineage. The resulting lineage shape is:
+When `extract_warehouse_lineage: true`, the connector executes the dashboard/dossier SQL-view API and emits coarse upstream lineage from each MicroStrategy dataset to the physical warehouse datasets parsed from SQL. It does not store raw SQL or connection strings. This setting is disabled by default because SQL-view lineage is table-level and does not prove field-level metric, attribute, or fact lineage. The connector uses dataset-level source warehouse metadata when MicroStrategy provides it. It only falls back to project-level datasource metadata when the project resolves to one unambiguous warehouse context, so multi-source projects do not get broad dataset-to-table edges from an arbitrary datasource. The resulting lineage shape is:
 
 ```text
 Dashboard/Dossier -> Visualization -> MicroStrategy Dataset -> Warehouse Dataset

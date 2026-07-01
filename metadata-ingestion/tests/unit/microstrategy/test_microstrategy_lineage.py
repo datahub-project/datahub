@@ -1,18 +1,76 @@
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import (
+    MicroStrategyLineageExtractor,
     WarehouseLineageContext,
     datahub_platform_for_source_type,
     extract_field_names_from_expression,
     extract_tables_from_sql,
     qualify_table_name,
+    warehouse_context_from_datasource,
+    warehouse_context_from_datasources,
 )
-from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
+from datahub.ingestion.source.microstrategy.models import (
+    Datasource,
+    DatasourceReference,
+)
 
 
 def test_maps_microstrategy_source_type_to_datahub_platform() -> None:
     assert datahub_platform_for_source_type("snow_flake") == "snowflake"
     assert datahub_platform_for_source_type("SQL Server") == "mssql"
     assert datahub_platform_for_source_type("postgre_sql") == "postgres"
+
+
+def test_warehouse_context_from_datasource_reference() -> None:
+    datasource = DatasourceReference.model_validate(
+        {
+            "id": "source-1",
+            "name": "Sales Warehouse",
+            "database": {
+                "type": "snow_flake",
+                "name": "SALES_DB",
+                "schema": "SALES",
+            },
+        }
+    )
+
+    assert warehouse_context_from_datasource(datasource, "PROD") == (
+        WarehouseLineageContext(
+            platform="snowflake",
+            env="PROD",
+            database="SALES_DB",
+            schema="SALES",
+        )
+    )
+
+
+def test_warehouse_context_from_datasources_requires_unique_context() -> None:
+    datasources = [
+        Datasource.model_validate(
+            {
+                "id": "source-1",
+                "name": "Sales Warehouse",
+                "database": {
+                    "type": "snow_flake",
+                    "name": "SALES_DB",
+                    "schema": "SALES",
+                },
+            }
+        ),
+        Datasource.model_validate(
+            {
+                "id": "source-2",
+                "name": "Orders Warehouse",
+                "database": {
+                    "type": "snow_flake",
+                    "name": "ORDERS_DB",
+                    "schema": "ORDERS",
+                },
+            }
+        ),
+    ]
+
+    assert warehouse_context_from_datasources(datasources, "PROD") is None
 
 
 def test_extract_tables_from_sql_handles_qualified_names_and_ctes() -> None:
@@ -70,8 +128,9 @@ def test_warehouse_upstream_urns_from_sql() -> None:
     )
 
     assert upstreams == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)",
     ]
 
 
@@ -126,7 +185,7 @@ def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
 
     upstream_dataset_urn = (
         "urn:li:dataset:"
-        "(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)"
+        "(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)"
     )
     assert index.table_count == 1
     assert index.fact_field_urns(["fact-1"]) == [

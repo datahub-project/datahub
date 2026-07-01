@@ -1,8 +1,8 @@
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
+    DatasetObject,
     Datasource,
     DatasourceConnection,
-    DatasetObject,
 )
 
 
@@ -133,7 +133,7 @@ def test_datasource_connection_drops_raw_connection_string_but_keeps_context() -
             "id": "conn-1",
             "name": "Sales Warehouse Connection",
             "database": {"type": "snow_flake"},
-            "connectionString": "DATABASE=SALES_DB;SCHEMA=ORDERS;PASSWORD=secret",
+            "connectionString": "DATABASE=SALES_DB;SCHEMA=ORDERS;UID=metadata_reader",
         }
     )
 

@@ -1,2 +1,1 @@
 """MicroStrategy source package."""
-

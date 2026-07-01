@@ -50,7 +50,7 @@ class MicroStrategyConfig(
     base_url: str = Field(
         description=(
             "MicroStrategy Library base URL, for example "
-            "`https://demo.microstrategy.com/MicroStrategyLibrary`."
+            "`https://your-company.example.com/MicroStrategyLibrary`."
         )
     )
     auth: MicroStrategyAuthConfig = Field(

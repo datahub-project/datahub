@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -18,13 +18,15 @@ from datahub.ingestion.source.microstrategy.constants import (
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
 )
-from datahub.ingestion.source.microstrategy.lineage import MicroStrategyLineageExtractor
-from datahub.ingestion.source.microstrategy.lineage import ModelLineageIndex
+from datahub.ingestion.source.microstrategy.lineage import (
+    MicroStrategyLineageExtractor,
+    ModelLineageIndex,
+)
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
+    DatasetObject,
     Datasource,
     DatasourceReference,
-    DatasetObject,
     FolderKey,
     MSTRObject,
     Project,
@@ -48,6 +50,8 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    InputFieldClass,
+    InputFieldsClass,
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -304,8 +308,21 @@ class MicroStrategyMapper:
                 chartUrl=f"{self.config.base_url}/app/{project_id}/{dashboard.id}",
                 customProperties=self._visualization_properties(visualization),
                 inputs=inputs,
+                inputEdges=[EdgeClass(destinationUrn=input_urn) for input_urn in inputs]
+                or None,
             ),
         ).as_workunit()
+        input_fields = self._visualization_input_fields(
+            project_id,
+            dashboard,
+            visualization,
+            inputs,
+        )
+        if input_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=input_fields,
+            ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=SubTypesClass(
@@ -416,7 +433,16 @@ class MicroStrategyMapper:
         ).as_workunit()
 
     def _schema_fields(self, dataset: DatasetObject) -> List[SchemaFieldClass]:
+        fields, _ = self._schema_fields_and_object_map(dataset, report_fields=True)
+        return fields
+
+    def _schema_fields_and_object_map(
+        self,
+        dataset: DatasetObject,
+        report_fields: bool = False,
+    ) -> Tuple[List[SchemaFieldClass], Dict[str, List[SchemaFieldClass]]]:
         fields: List[SchemaFieldClass] = []
+        fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
         seen: Set[str] = set()
         available_objects = dataset.available_objects or {}
         metrics = _coerce_list(available_objects.get("metrics"))
@@ -427,26 +453,27 @@ class MicroStrategyMapper:
                 continue
             name = _field_name(metric)
             field_path = _dedupe_field_path(name, seen)
-            fields.append(
-                self._make_schema_field(
-                    field_path=field_path,
-                    native_type=_field_native_type(metric) or "Metric",
-                    description=metric.get("description"),
-                    tag_urns=[MEASURE_TAG_URN]
-                    if self.config.tag_measures_and_dimensions
-                    else [],
-                    json_props={
-                        "microstrategyObjectId": str(metric.get("id", "")),
-                        "microstrategyObjectType": "metric",
-                        **_metric_expression_json_props(metric),
-                    },
-                    glossary_term_urn=self._term_for(
-                        metric, self.config.metric_glossary_term_mapping
-                    ),
-                    numeric=True,
-                )
+            field = self._make_schema_field(
+                field_path=field_path,
+                native_type=_field_native_type(metric) or "Metric",
+                description=metric.get("description"),
+                tag_urns=[MEASURE_TAG_URN]
+                if self.config.tag_measures_and_dimensions
+                else [],
+                json_props={
+                    "microstrategyObjectId": str(metric.get("id", "")),
+                    "microstrategyObjectType": "metric",
+                    **_metric_expression_json_props(metric),
+                },
+                glossary_term_urn=self._term_for(
+                    metric, self.config.metric_glossary_term_mapping
+                ),
+                numeric=True,
             )
-            self.report.report_metric_field()
+            fields.append(field)
+            _add_schema_field_object_mapping(fields_by_object_id, metric, field)
+            if report_fields:
+                self.report.report_metric_field()
 
         for attribute in attributes:
             if not isinstance(attribute, dict):
@@ -465,32 +492,73 @@ class MicroStrategyMapper:
                     tag_urns.append(DIMENSION_TAG_URN)
                     if temporal:
                         tag_urns.append(TEMPORAL_TAG_URN)
-                fields.append(
-                    self._make_schema_field(
-                        field_path=field_path,
-                        native_type=_field_native_type(form)
-                        or _field_native_type(attribute)
-                        or "Attribute",
-                        description=form.get("description")
-                        or attribute.get("description"),
-                        tag_urns=tag_urns,
-                        json_props={
-                            "microstrategyObjectId": str(attribute.get("id", "")),
-                            "microstrategyObjectType": "attribute",
-                            "microstrategyFormId": str(form.get("id", "")),
-                            "baseFormCategory": str(form.get("baseFormCategory", "")),
-                            "baseFormType": str(form.get("baseFormType", "")),
-                        },
-                        glossary_term_urn=self._term_for(
-                            form,
-                            self.config.attribute_glossary_term_mapping,
-                            fallback=attribute,
-                        ),
-                    )
+                field = self._make_schema_field(
+                    field_path=field_path,
+                    native_type=_field_native_type(form)
+                    or _field_native_type(attribute)
+                    or "Attribute",
+                    description=form.get("description") or attribute.get("description"),
+                    tag_urns=tag_urns,
+                    json_props={
+                        "microstrategyObjectId": str(attribute.get("id", "")),
+                        "microstrategyObjectType": "attribute",
+                        "microstrategyFormId": str(form.get("id", "")),
+                        "baseFormCategory": str(form.get("baseFormCategory", "")),
+                        "baseFormType": str(form.get("baseFormType", "")),
+                    },
+                    glossary_term_urn=self._term_for(
+                        form,
+                        self.config.attribute_glossary_term_mapping,
+                        fallback=attribute,
+                    ),
                 )
-                self.report.report_attribute_field(temporal=temporal)
+                fields.append(field)
+                _add_schema_field_object_mapping(fields_by_object_id, attribute, field)
+                _add_schema_field_object_mapping(fields_by_object_id, form, field)
+                if report_fields:
+                    self.report.report_attribute_field(temporal=temporal)
 
-        return sorted(fields, key=lambda field: field.fieldPath)
+        return sorted(fields, key=lambda field: field.fieldPath), fields_by_object_id
+
+    def _visualization_input_fields(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+        input_urns: Sequence[str],
+    ) -> Optional[InputFieldsClass]:
+        if not visualization.object_ids or not input_urns:
+            return None
+
+        input_urn_set = set(input_urns)
+        visualization_object_ids = {
+            _normalize_object_id(object_id) for object_id in visualization.object_ids
+        }
+        input_fields_by_urn: Dict[str, InputFieldClass] = {}
+        for dataset in dashboard.datasets:
+            dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
+            if dataset_urn not in input_urn_set:
+                continue
+            _, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+            for object_id in visualization_object_ids:
+                for field in fields_by_object_id.get(object_id, []):
+                    schema_field_urn = builder.make_schema_field_urn(
+                        dataset_urn,
+                        field.fieldPath,
+                    )
+                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
+                        schemaFieldUrn=schema_field_urn,
+                        schemaField=field,
+                    )
+
+        if not input_fields_by_urn:
+            return None
+        return InputFieldsClass(
+            fields=[
+                input_fields_by_urn[schema_field_urn]
+                for schema_field_urn in sorted(input_fields_by_urn)
+            ]
+        )
 
     def _model_field_upstreams(
         self,
@@ -784,9 +852,7 @@ class MicroStrategyMapper:
             "microstrategyDirectDependencyTypeCounts": json.dumps(
                 type_counts, sort_keys=True
             ),
-            "microstrategyDirectDependencies": json.dumps(
-                dependencies, sort_keys=True
-            ),
+            "microstrategyDirectDependencies": json.dumps(dependencies, sort_keys=True),
         }
 
     @staticmethod
@@ -823,6 +889,23 @@ def _coerce_list(value: object) -> List[object]:
             return nested
         return list(value.values())
     return []
+
+
+def _add_schema_field_object_mapping(
+    fields_by_object_id: Dict[str, List[SchemaFieldClass]],
+    item: Dict[str, object],
+    field: SchemaFieldClass,
+) -> None:
+    for key in ("id", "objectId"):
+        value = item.get(key)
+        if value:
+            fields_by_object_id.setdefault(_normalize_object_id(value), []).append(
+                field
+            )
+
+
+def _normalize_object_id(value: object) -> str:
+    return str(value).strip().upper()
 
 
 def _field_name(item: Dict[str, object]) -> str:
@@ -1005,7 +1088,9 @@ def _is_temporal(item: Dict[str, object]) -> bool:
     )
 
 
-def _schema_type(native_type: str) -> object:
+def _schema_type(
+    native_type: str,
+) -> Union[NullTypeClass, NumberTypeClass, StringTypeClass]:
     lowered = native_type.lower()
     if any(token in lowered for token in ("int", "decimal", "double", "float", "real")):
         return NumberTypeClass()

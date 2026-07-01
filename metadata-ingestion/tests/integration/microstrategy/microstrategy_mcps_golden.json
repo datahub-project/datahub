@@ -1,0 +1,768 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "microstrategy",
+                "instance": "prod",
+                "project_id": "project-1",
+                "microstrategySourceWarehouseCount": "1",
+                "microstrategySourceTypes": "[\"snow_flake\"]",
+                "microstrategyDatasourceTypes": "[]",
+                "microstrategyDbmsNames": "[\"Snowflake\"]"
+            },
+            "externalUrl": "https://mstr.example.com/MicroStrategyLibrary/app/project-1",
+            "name": "Sales Analytics",
+            "description": "Sales project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932442,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932442,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932442,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932442,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932442,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932443,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932443,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "microstrategyProjectId": "project-1",
+                "microstrategyDashboardId": "dash-1",
+                "microstrategyDatasetId": "ds-1",
+                "microstrategyMetricCount": "1",
+                "microstrategyAttributeCount": "1",
+                "microstrategyAttributeFormCount": "1",
+                "microstrategySchemaFieldCount": "2",
+                "microstrategyObjectIdCount": "2",
+                "microstrategyModelLineageFieldCount": "1",
+                "microstrategyModelLineageUpstreamFieldCount": "1",
+                "microstrategyModelLineageUpstreamDatasetCount": "1",
+                "microstrategySourceWarehouseId": "source-1",
+                "microstrategySourceWarehouseName": "Sales Warehouse",
+                "microstrategySourceType": "snow_flake",
+                "microstrategyDatabaseType": "snow_flake",
+                "microstrategyDatabaseVersion": "snowflake_1x",
+                "microstrategyDbmsName": "Snowflake",
+                "microstrategyConnectionId": "connection-1",
+                "microstrategyConnectionName": "Sales Connection",
+                "microstrategyDatabaseName": "SALES_DB",
+                "microstrategySchemaName": "ORDERS"
+            },
+            "externalUrl": "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1",
+            "name": "Sales Cube",
+            "qualifiedName": "project-1.dash-1.ds-1",
+            "description": "Embedded sales cube",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932443,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MicroStrategy Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932443,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Sales Cube",
+            "platform": "urn:li:dataPlatform:microstrategy",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Order Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"baseFormCategory\": \"DATE\", \"baseFormType\": \"\", \"microstrategyFormId\": \"form-1\", \"microstrategyObjectId\": \"attr-1\", \"microstrategyObjectType\": \"attribute\"}"
+                },
+                {
+                    "fieldPath": "Revenue",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"microstrategyMetricExpressionText\": \"Sum(Revenue Fact)\", \"microstrategyMetricExpressionTokens\": \"[{\\\"id\\\": \\\"fact-1\\\", \\\"name\\\": \\\"Revenue Fact\\\"}]\", \"microstrategyObjectId\": \"metric-1\", \"microstrategyObjectType\": \"metric\"}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932444,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD),order_date_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD),Order Date)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932444,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932444,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+                },
+                {
+                    "id": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+                    "urn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932444,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932445,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932445,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "microstrategyVisualizationKey": "viz-1",
+                "microstrategyVisualizationType": "line",
+                "microstrategyDatasetIds": "ds-1",
+                "microstrategyInputDatasetCount": "1",
+                "microstrategyObjectIdCount": "2"
+            },
+            "title": "Revenue Trend",
+            "description": "line",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)"
+                }
+            ],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932445,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD),Order Date)",
+                    "schemaField": {
+                        "fieldPath": "Order Date",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "date",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                },
+                                {
+                                    "tag": "urn:li:tag:Temporal"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"baseFormCategory\": \"DATE\", \"baseFormType\": \"\", \"microstrategyFormId\": \"form-1\", \"microstrategyObjectId\": \"attr-1\", \"microstrategyObjectType\": \"attribute\"}"
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD),Revenue)",
+                    "schemaField": {
+                        "fieldPath": "Revenue",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "double",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Measure"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"microstrategyMetricExpressionText\": \"Sum(Revenue Fact)\", \"microstrategyMetricExpressionTokens\": \"[{\\\"id\\\": \\\"fact-1\\\", \\\"name\\\": \\\"Revenue Fact\\\"}]\", \"microstrategyObjectId\": \"metric-1\", \"microstrategyObjectType\": \"metric\"}"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932445,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Visualization"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932445,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932446,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+                },
+                {
+                    "id": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+                    "urn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932446,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932446,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932446,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "microstrategyProjectId": "project-1",
+                "microstrategyDashboardId": "dash-1",
+                "datasetCount": "1",
+                "visualizationCount": "1",
+                "microstrategyObjectType": "55",
+                "microstrategyObjectSubtype": "14081",
+                "microstrategyOwner": "sales_owner",
+                "microstrategyDirectDependencyCount": "2",
+                "microstrategyDirectDependencyTypeCounts": "{\"12\": 1, \"4\": 1}",
+                "microstrategyDirectDependencies": "[{\"id\": \"metric-1\", \"name\": \"Revenue\", \"subtype\": \"1024\", \"type\": \"4\"}, {\"id\": \"attr-1\", \"name\": \"Order Date\", \"subtype\": \"3072\", \"type\": \"12\"}]"
+            },
+            "title": "Sales Performance",
+            "description": "Sales performance dashboard",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(microstrategy,prod.project-1.dash-1.viz-1)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932447,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dossier"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932447,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:sales_owner",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932447,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932447,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(microstrategy,prod.project-1.dash-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+                },
+                {
+                    "id": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3",
+                    "urn": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932447,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932448,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932448,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1782424932448,
+        "runId": "microstrategy-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

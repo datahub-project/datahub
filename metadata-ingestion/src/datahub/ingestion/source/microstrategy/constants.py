@@ -10,4 +10,3 @@ MSTR_OBJECT_TYPE_CUBE = 3
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
-

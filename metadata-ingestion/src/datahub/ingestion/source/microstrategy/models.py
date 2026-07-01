@@ -210,10 +210,13 @@ class Visualization(MicroStrategyBaseModel):
                 seed = json.dumps(data, sort_keys=True, default=str)
                 key = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
             result["key"] = key
-            result["name"] = _first_str(
-                result,
-                ["name", "title", "displayName"],
-            ) or f"Visualization {key}"
+            result["name"] = (
+                _first_str(
+                    result,
+                    ["name", "title", "displayName"],
+                )
+                or f"Visualization {key}"
+            )
             result["type"] = _first_str(
                 result,
                 ["type", "visualizationType"],
@@ -513,11 +516,11 @@ def _extract_object_ids(value: Any) -> List[str]:
         if isinstance(node, dict):
             node_type = str(node.get("type") or node.get("objectType") or "").lower()
             parent = (parent_key or "").lower()
-            if node_type in {"metric", "attribute", "templateMetrics".lower()}:
-                object_id = _first_str(node, ["id", "objectId"])
-                if object_id and object_id != "00000000000000000000000000000000":
-                    object_ids.append(object_id)
-            elif parent in {"metric", "metrics", "attribute", "attributes"}:
+            if node_type in {
+                "metric",
+                "attribute",
+                "templateMetrics".lower(),
+            } or parent in {"metric", "metrics", "attribute", "attributes"}:
                 object_id = _first_str(node, ["id", "objectId"])
                 if object_id and object_id != "00000000000000000000000000000000":
                     object_ids.append(object_id)

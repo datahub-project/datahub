@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
 )
 
 import datahub.emitter.mce_builder as builder
@@ -28,6 +29,8 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+
+LineageKey = TypeVar("LineageKey")
 
 
 @dataclass(frozen=True)
@@ -219,9 +222,12 @@ class MicroStrategyLineageExtractor:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
+            physical_table_name = _physical_table_name(physical_table, context)
+            if not physical_table_name:
+                continue
             upstream_dataset_urn = self.warehouse_dataset_urn(
                 context,
-                _physical_table_name(physical_table, context),
+                physical_table_name,
             )
 
             for fact in _coerce_dicts(table.get("facts")):
@@ -288,7 +294,7 @@ class MicroStrategyLineageExtractor:
             platform=context.platform,
             platform_instance=context.platform_instance,
             env=context.env,
-            name=qualified_name,
+            name=qualified_name.lower(),
         )
 
     def _infer_visualization_dataset_inputs(
@@ -347,15 +353,38 @@ def warehouse_context_from_datasources(
     datasources: List[Datasource],
     env: str,
 ) -> Optional[WarehouseLineageContext]:
+    contexts = {
+        context
+        for datasource in datasources
+        if (context := warehouse_context_from_datasource(datasource, env)) is not None
+    }
+    if len(contexts) == 1:
+        return next(iter(contexts))
+    return None
+
+
+def warehouse_context_from_datasource(
+    datasource: DatasourceReference,
+    env: str,
+) -> Optional[WarehouseLineageContext]:
+    platform = datahub_platform_for_datasource(datasource)
+    if not platform:
+        return None
+    return WarehouseLineageContext(
+        platform=platform,
+        env=env,
+        database=datasource.database_name,
+        schema=datasource.schema_name,
+    )
+
+
+def matching_datasource_for_context(
+    datasources: List[Datasource],
+    context: WarehouseLineageContext,
+) -> Optional[Datasource]:
     for datasource in datasources:
-        platform = datahub_platform_for_datasource(datasource)
-        if platform:
-            return WarehouseLineageContext(
-                platform=platform,
-                env=env,
-                database=datasource.database_name,
-                schema=datasource.schema_name,
-            )
+        if warehouse_context_from_datasource(datasource, context.env) == context:
+            return datasource
     return None
 
 
@@ -489,12 +518,14 @@ def _sqlglot_dialect(platform: str) -> Optional[str]:
 def _physical_table_name(
     physical_table: Dict[str, object],
     context: WarehouseLineageContext,
-) -> str:
+) -> Optional[str]:
     table_name = _clean_identifier_part(physical_table.get("tableName"))
     if not table_name:
         information = physical_table.get("information")
         if isinstance(information, dict):
             table_name = _clean_identifier_part(information.get("name"))
+    if not table_name:
+        return None
     return qualify_table_name(
         table_name,
         database=_clean_identifier_part(physical_table.get("namespace"))
@@ -581,8 +612,8 @@ def _coerce_dicts(value: object) -> List[Dict[str, object]]:
 
 
 def _append_lineage(
-    target: MutableMapping[object, List[ModelFieldLineage]],
-    key: object,
+    target: MutableMapping[LineageKey, List[ModelFieldLineage]],
+    key: LineageKey,
     lineage: ModelFieldLineage,
 ) -> None:
     target.setdefault(key, []).append(lineage)
@@ -692,7 +723,7 @@ _SQL_KEYWORDS = {
     "with",
 }
 
-_IDENTIFIER = r'(?:\"([^\"]+)\"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][\w$#]*))'
+_IDENTIFIER = r"(?:\"([^\"]+)\"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][\w$#]*))"
 _IDENTIFIER_PATH = rf"{_IDENTIFIER}(?:\s*\.\s*{_IDENTIFIER}){{0,2}}"
 _TABLE_REFERENCE_PATTERN = re.compile(
     rf"\b(?:from|join)\s+(?P<reference>{_IDENTIFIER_PATH}|\()",

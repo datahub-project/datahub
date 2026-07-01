@@ -25,11 +25,13 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
+    matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
+    warehouse_context_from_datasource,
     warehouse_context_from_datasources,
     warehouse_context_with_connection,
 )
@@ -186,9 +188,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not context:
             return None
 
-        for datasource in source_warehouses:
-            if not datasource.connection_id:
-                continue
+        datasource = matching_datasource_for_context(source_warehouses, context)
+        if datasource and datasource.connection_id:
             try:
                 connection = self.client.get_datasource_connection(
                     datasource.connection_id,
@@ -196,10 +197,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
             except MicroStrategyAPIError:
                 self.report.report_warehouse_lineage_api_failure()
-                continue
-            context = warehouse_context_with_connection(context, connection)
-            if context.database and context.schema:
-                break
+            else:
+                context = warehouse_context_with_connection(context, connection)
         return context
 
     def _process_project_dashboards(
@@ -218,9 +217,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard = self._get_dashboard_definition(project_id, dashboard_object)
             if dashboard is None:
                 continue
-            if warehouse_context and (
-                self.config.extract_warehouse_lineage or model_lineage_index
-            ):
+            needs_sql_view_context = (
+                self.config.extract_warehouse_lineage or model_lineage_index is not None
+            )
+            has_warehouse_context = warehouse_context or any(
+                dataset.source_warehouse for dataset in dashboard.datasets
+            )
+            if needs_sql_view_context and has_warehouse_context:
                 self._enrich_warehouse_lineage(
                     project_id=project_id,
                     dashboard_object=dashboard_object,
@@ -351,8 +354,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to Fetch Dashboard Dependencies",
                 message=(
-                    "Skipping direct dashboard component metadata from metadata "
-                    "search."
+                    "Skipping direct dashboard component metadata from metadata search."
                 ),
                 context=f"project_id={project_id}, dashboard_id={dashboard.id}",
                 exc=error,
@@ -505,7 +507,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dashboard_object: MSTRObject,
         dashboard: DashboardDefinition,
-        context: WarehouseLineageContext,
+        context: Optional[WarehouseLineageContext],
     ) -> None:
         if not dashboard.datasets:
             return
@@ -555,7 +557,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         sql_view_rows: List[Dict[str, Any]],
         dashboard: DashboardDefinition,
-        context: WarehouseLineageContext,
+        context: Optional[WarehouseLineageContext],
     ) -> None:
         dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
         dataset_by_name = {
@@ -573,9 +575,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if dataset is None:
                 continue
 
+            dataset_context = (
+                warehouse_context_from_datasource(
+                    dataset.source_warehouse,
+                    self.config.env,
+                )
+                if dataset.source_warehouse
+                else None
+            ) or context
+            if dataset_context is None:
+                continue
+
             upstream_urns = self.mapper.lineage.warehouse_upstream_urns_from_sql(
                 sql_statement_from_sql_view_entry(row),
-                context,
+                dataset_context,
                 graph=self.ctx.graph,
             )
             if upstream_urns:

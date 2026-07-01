@@ -7,22 +7,25 @@ from datahub.ingestion.source.microstrategy.constants import (
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
 )
+from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     MSTRObject,
 )
-from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
+    InputFieldsClass,
+    SchemaFieldClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 
-T = TypeVar("T")
+T = TypeVar("T", bound=_Aspect)
 
 
 def _aspect(workunits: Iterable[MetadataWorkUnit], aspect_type: Type[T]) -> T:
@@ -43,7 +46,7 @@ def _maybe_aspect(
     return None
 
 
-def _tag_urns(field) -> set[str]:
+def _tag_urns(field: SchemaFieldClass) -> set[str]:
     if not field.globalTags:
         return set()
     return {tag.tag for tag in field.globalTags.tags}
@@ -141,8 +144,10 @@ def test_schema_fields_tag_metrics_attributes_and_temporal_forms() -> None:
 
     assert _tag_urns(fields["Revenue"]) == {MEASURE_TAG_URN}
     assert _tag_urns(fields["Order Date"]) == {DIMENSION_TAG_URN, TEMPORAL_TAG_URN}
-    assert '"microstrategyObjectType": "metric"' in fields["Revenue"].jsonProps
-    assert '"microstrategyObjectType": "attribute"' in fields["Order Date"].jsonProps
+    assert '"microstrategyObjectType": "metric"' in (fields["Revenue"].jsonProps or "")
+    assert '"microstrategyObjectType": "attribute"' in (
+        fields["Order Date"].jsonProps or ""
+    )
 
 
 def test_chart_inputs_are_dataset_lineage() -> None:
@@ -164,8 +169,44 @@ def test_chart_inputs_are_dataset_lineage() -> None:
     )
 
     assert chart_info.inputs == [expected_dataset_urn]
+    assert chart_info.inputEdges is not None
+    assert [edge.destinationUrn for edge in chart_info.inputEdges] == [
+        expected_dataset_urn
+    ]
     assert chart_info.customProperties["microstrategyInputDatasetCount"] == "1"
     assert chart_info.customProperties["microstrategyObjectIdCount"] == "0"
+
+
+def test_chart_input_fields_reference_metric_and_attribute_fields() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    visualization = dashboard.visualizations[0]
+    visualization.object_ids = ["metric-1", "attr-1"]
+    expected_dataset_urn = mapper.lineage.dataset_urn(
+        "project-1", dashboard.id, dashboard.datasets[0]
+    )
+
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            visualization,
+            mapper.project_key("project-1"),
+        )
+    )
+    input_fields = _aspect(workunits, InputFieldsClass)
+
+    schema_fields = [field.schemaField for field in input_fields.fields]
+    assert all(field is not None for field in schema_fields)
+
+    assert sorted(field.fieldPath for field in schema_fields if field is not None) == [
+        "Order Date",
+        "Revenue",
+    ]
+    assert sorted(field.schemaFieldUrn for field in input_fields.fields) == [
+        f"urn:li:schemaField:({expected_dataset_urn},Order Date)",
+        f"urn:li:schemaField:({expected_dataset_urn},Revenue)",
+    ]
 
 
 def test_chart_inputs_are_inferred_from_runtime_visualization_objects() -> None:
@@ -372,7 +413,9 @@ def test_dataset_properties_include_source_warehouse_when_present() -> None:
         dataset_properties.customProperties["microstrategySourceWarehouseId"]
         == "source-1"
     )
-    assert dataset_properties.customProperties["microstrategySourceType"] == "snow_flake"
+    assert (
+        dataset_properties.customProperties["microstrategySourceType"] == "snow_flake"
+    )
     assert dataset_properties.customProperties["microstrategyDbmsName"] == "Snowflake"
 
 
@@ -411,8 +454,7 @@ def test_dashboard_info_includes_lifecycle_metadata() -> None:
     assert dashboard_info.lastModified is not None
     assert dashboard_info.lastModified.created is not None
     assert (
-        dashboard_info.lastModified.created.actor
-        == "urn:li:corpuser:metadata_reader"
+        dashboard_info.lastModified.created.actor == "urn:li:corpuser:metadata_reader"
     )
     assert dashboard_info.lastModified.lastModified is not None
     assert (
@@ -437,9 +479,7 @@ def test_dataset_properties_include_semantic_counts() -> None:
 
     assert dataset_properties.customProperties["microstrategyMetricCount"] == "1"
     assert dataset_properties.customProperties["microstrategyAttributeCount"] == "1"
-    assert (
-        dataset_properties.customProperties["microstrategyAttributeFormCount"] == "1"
-    )
+    assert dataset_properties.customProperties["microstrategyAttributeFormCount"] == "1"
     assert dataset_properties.customProperties["microstrategySchemaFieldCount"] == "2"
     assert dataset_properties.customProperties["microstrategyObjectIdCount"] == "2"
 
@@ -448,8 +488,8 @@ def test_dataset_workunits_skip_coarse_warehouse_upstream_lineage_by_default() -
     mapper = _mapper()
     dashboard = _definition()
     dashboard.datasets[0].warehouse_upstream_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)",
     ]
 
     workunits = list(
@@ -464,8 +504,7 @@ def test_dataset_workunits_skip_coarse_warehouse_upstream_lineage_by_default() -
     assert _maybe_aspect(workunits, UpstreamLineageClass) is None
     dataset_properties = _aspect(workunits, DatasetPropertiesClass)
     assert (
-        "microstrategyWarehouseUpstreamCount"
-        not in dataset_properties.customProperties
+        "microstrategyWarehouseUpstreamCount" not in dataset_properties.customProperties
     )
     assert (
         "microstrategyWarehouseUpstreamPlatforms"
@@ -477,8 +516,8 @@ def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> 
     mapper = _mapper(extract_warehouse_lineage=True)
     dashboard = _definition()
     dashboard.datasets[0].warehouse_upstream_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)",
     ]
 
     workunits = list(
@@ -494,8 +533,8 @@ def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> 
     dataset_properties = _aspect(workunits, DatasetPropertiesClass)
 
     assert sorted(upstream.dataset for upstream in upstream_lineage.upstreams) == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,SALES_DB.SALES.fact_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)",
     ]
     assert (
         dataset_properties.customProperties["microstrategyWarehouseUpstreamCount"]
@@ -513,7 +552,7 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
     dashboard.datasets[0].available_objects["metrics"][0]["modelFactIds"] = ["fact-1"]
     upstream_dataset_urn = (
         "urn:li:dataset:"
-        "(urn:li:dataPlatform:snowflake,SALES_DB.ORDERS.fact_orders,PROD)"
+        "(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)"
     )
     dashboard.datasets[0].warehouse_upstream_urns = [upstream_dataset_urn]
     index = mapper.lineage.model_lineage_index_from_tables(
@@ -566,11 +605,12 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
     assert [upstream.dataset for upstream in upstream_lineage.upstreams] == [
         upstream_dataset_urn
     ]
-    assert len(upstream_lineage.fineGrainedLineages) == 2
+    fine_grained_lineages = upstream_lineage.fineGrainedLineages or []
+    assert len(fine_grained_lineages) == 2
     downstreams = sorted(
         downstream
-        for lineage in upstream_lineage.fineGrainedLineages
-        for downstream in lineage.downstreams
+        for lineage in fine_grained_lineages
+        for downstream in (lineage.downstreams or [])
     )
     microstrategy_dataset_urn = (
         "urn:li:dataset:"
@@ -581,8 +621,7 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
         f"urn:li:schemaField:({microstrategy_dataset_urn},Revenue)",
     ]
     assert (
-        "microstrategyWarehouseUpstreamCount"
-        not in dataset_properties.customProperties
+        "microstrategyWarehouseUpstreamCount" not in dataset_properties.customProperties
     )
     assert (
         dataset_properties.customProperties["microstrategyModelLineageFieldCount"]
@@ -657,12 +696,13 @@ def test_dashboard_properties_include_direct_dependency_summary() -> None:
     )
 
     assert dashboard_info.customProperties["microstrategyDirectDependencyCount"] == "2"
-    assert '"4": 1' in dashboard_info.customProperties[
-        "microstrategyDirectDependencyTypeCounts"
-    ]
-    assert "metric-1" in dashboard_info.customProperties[
-        "microstrategyDirectDependencies"
-    ]
+    assert (
+        '"4": 1'
+        in dashboard_info.customProperties["microstrategyDirectDependencyTypeCounts"]
+    )
+    assert (
+        "metric-1" in dashboard_info.customProperties["microstrategyDirectDependencies"]
+    )
 
 
 def test_metric_expression_is_preserved_in_field_json_props() -> None:
@@ -685,5 +725,5 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
     )
     revenue = next(field for field in schema.fields if field.fieldPath == "Revenue")
 
-    assert "microstrategyMetricExpressionText" in revenue.jsonProps
-    assert "Revenue Fact" in revenue.jsonProps
+    assert "microstrategyMetricExpressionText" in (revenue.jsonProps or "")
+    assert "Revenue Fact" in (revenue.jsonProps or "")

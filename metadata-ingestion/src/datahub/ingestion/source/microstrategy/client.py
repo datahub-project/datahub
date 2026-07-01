@@ -110,7 +110,9 @@ class MicroStrategyClient:
             project_id=project_id,
         )
         result = payload.get("result") if isinstance(payload, dict) else None
-        return Datasource.model_validate(result if isinstance(result, dict) else payload)
+        return Datasource.model_validate(
+            result if isinstance(result, dict) else payload
+        )
 
     def list_datasource_connections(
         self, project_id: str
@@ -149,7 +151,9 @@ class MicroStrategyClient:
         limit: Optional[int] = None,
     ) -> List[MSTRObject]:
         results: List[MSTRObject] = []
-        for item in self._metadata_search(project_id=project_id, type_filter=type_filter):
+        for item in self._metadata_search(
+            project_id=project_id, type_filter=type_filter
+        ):
             results.append(MSTRObject.model_validate(item))
             if limit is not None and len(results) >= limit:
                 break
@@ -216,13 +220,17 @@ class MicroStrategyClient:
             params=params,
         )
 
-    def get_dossier_definition(self, project_id: str, dossier_id: str) -> Dict[str, Any]:
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
         return self._get_json(
             f"/api/v2/dossiers/{dossier_id}/definition",
             project_id=project_id,
         )
 
-    def get_document_definition(self, project_id: str, document_id: str) -> Dict[str, Any]:
+    def get_document_definition(
+        self, project_id: str, document_id: str
+    ) -> Dict[str, Any]:
         return self._get_json(
             f"/api/documents/{document_id}/definition",
             project_id=project_id,
@@ -241,7 +249,7 @@ class MicroStrategyClient:
             raise MicroStrategyAPIError(
                 "MicroStrategy dossier instance response did not include "
                 f"an instance id for {dossier_id}"
-        )
+            )
         return instance_id
 
     def create_document_instance(self, project_id: str, document_id: str) -> str:
@@ -428,7 +436,14 @@ class MicroStrategyClient:
         )
         if not response.content:
             return {}
-        value = response.json()
+        try:
+            value = response.json()
+        except ValueError as error:
+            self.report.report_api_error()
+            raise MicroStrategyAPIError(
+                "MicroStrategy API returned a non-JSON response: "
+                f"{method} {path} status={response.status_code}"
+            ) from error
         return value if isinstance(value, dict) else {"result": value}
 
     @staticmethod

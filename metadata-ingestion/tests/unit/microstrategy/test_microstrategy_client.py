@@ -1,6 +1,11 @@
 from typing import Any, Dict, Optional
 
-from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
+from pytest import MonkeyPatch
+
+from datahub.ingestion.source.microstrategy.client import (
+    MicroStrategyAPIError,
+    MicroStrategyClient,
+)
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -17,7 +22,15 @@ class FakeResponse:
         return {}
 
 
-def test_guest_login_sets_auth_token() -> None:
+class FakeNonJsonResponse:
+    status_code = 200
+    content = b"<html>not json</html>"
+
+    def json(self) -> Dict[str, Any]:
+        raise ValueError("invalid json")
+
+
+def test_guest_login_sets_auth_token(monkeypatch: MonkeyPatch) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
@@ -29,7 +42,7 @@ def test_guest_login_sets_auth_token() -> None:
         captured_json = kwargs.get("json")
         return FakeResponse()
 
-    client.session.request = fake_request  # type: ignore[method-assign]
+    monkeypatch.setattr(client.session, "request", fake_request)
 
     client.login()
 
@@ -47,20 +60,25 @@ def test_extract_search_results_from_nested_result() -> None:
         }
     }
 
-    assert MicroStrategyClient._extract_search_results(response) == response["result"][
-        "items"
-    ]
+    assert (
+        MicroStrategyClient._extract_search_results(response)
+        == response["result"]["items"]
+    )
 
 
-def test_list_projects_handles_top_level_list_response() -> None:
+def test_list_projects_handles_top_level_list_response(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
     client = MicroStrategyClient(config, MicroStrategyReport())
 
-    client._get_json = lambda path: [  # type: ignore[method-assign]
-        {"id": "project-1", "name": "Project 1"}
-    ]
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path: [{"id": "project-1", "name": "Project 1"}],
+    )
 
     projects = client.list_projects()
 
@@ -68,7 +86,9 @@ def test_list_projects_handles_top_level_list_response() -> None:
     assert projects[0].id == "project-1"
 
 
-def test_metadata_search_uses_quick_search_results_endpoint() -> None:
+def test_metadata_search_uses_quick_search_results_endpoint(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
@@ -84,7 +104,7 @@ def test_metadata_search_uses_quick_search_results_endpoint() -> None:
         captured_path = path
         return {"result": [{"id": "dash-1", "name": "Dashboard 1"}]}
 
-    client._get_json = fake_get_json  # type: ignore[method-assign]
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
 
     results = list(client._metadata_search(project_id="project-1", type_filter="55"))
 
@@ -92,7 +112,9 @@ def test_metadata_search_uses_quick_search_results_endpoint() -> None:
     assert results == [{"id": "dash-1", "name": "Dashboard 1"}]
 
 
-def test_list_datasources_reads_datasource_management_response() -> None:
+def test_list_datasources_reads_datasource_management_response(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
@@ -117,7 +139,7 @@ def test_list_datasources_reads_datasource_management_response() -> None:
             ]
         }
 
-    client._get_json = fake_get_json  # type: ignore[method-assign]
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
 
     datasources = client.list_datasources("project-1")
 
@@ -126,7 +148,9 @@ def test_list_datasources_reads_datasource_management_response() -> None:
     assert datasources[0].database_type == "snow_flake"
 
 
-def test_list_project_datasources_uses_project_scoped_endpoint() -> None:
+def test_list_project_datasources_uses_project_scoped_endpoint(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
@@ -151,7 +175,7 @@ def test_list_project_datasources_uses_project_scoped_endpoint() -> None:
             ]
         }
 
-    client._get_json = fake_get_json  # type: ignore[method-assign]
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
 
     datasources = client.list_project_datasources("project-1")
 
@@ -159,23 +183,29 @@ def test_list_project_datasources_uses_project_scoped_endpoint() -> None:
     assert datasources[0].connection_id == "conn-1"
 
 
-def test_list_datasource_connections_does_not_preserve_connection_string() -> None:
+def test_list_datasource_connections_does_not_preserve_connection_string(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
     client = MicroStrategyClient(config, MicroStrategyReport())
 
-    client._get_json = lambda path, project_id=None: {  # type: ignore[method-assign]
-        "connections": [
-            {
-                "id": "conn-1",
-                "name": "Snowflake Connection",
-                "driverType": "odbc",
-                "database": {"type": "snow_flake"},
-                "connectionString": "redacted-by-test",
-            }
-        ]
-    }
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path, project_id=None: {
+            "connections": [
+                {
+                    "id": "conn-1",
+                    "name": "Snowflake Connection",
+                    "driverType": "odbc",
+                    "database": {"type": "snow_flake"},
+                    "connectionString": "redacted-by-test",
+                }
+            ]
+        },
+    )
 
     connections = client.list_datasource_connections("project-1")
 
@@ -183,19 +213,25 @@ def test_list_datasource_connections_does_not_preserve_connection_string() -> No
     assert "connectionString" not in connections[0].model_dump()
 
 
-def test_get_datasource_connection_parses_database_schema_without_raw_string() -> None:
+def test_get_datasource_connection_parses_database_schema_without_raw_string(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
     client = MicroStrategyClient(config, MicroStrategyReport())
 
-    client._get_json = lambda path, project_id=None: {  # type: ignore[method-assign]
-        "id": "conn-1",
-        "name": "Sales Warehouse Connection",
-        "driverType": "odbc",
-        "database": {"type": "snow_flake"},
-        "connectionString": "DATABASE=SALES_DB;SCHEMA=SALES;UID=metadata_reader",
-    }
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path, project_id=None: {
+            "id": "conn-1",
+            "name": "Sales Warehouse Connection",
+            "driverType": "odbc",
+            "database": {"type": "snow_flake"},
+            "connectionString": "DATABASE=SALES_DB;SCHEMA=SALES;UID=metadata_reader",
+        },
+    )
 
     connection = client.get_datasource_connection("conn-1", project_id="project-1")
 
@@ -205,21 +241,30 @@ def test_get_datasource_connection_parses_database_schema_without_raw_string() -
     assert "connectionString" not in connection.model_dump()
 
 
-def test_get_dossier_datasets_sql_extracts_dataset_rows() -> None:
+def test_get_dossier_datasets_sql_extracts_dataset_rows(
+    monkeypatch: MonkeyPatch,
+) -> None:
     config = MicroStrategyConfig.model_validate(
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
     client = MicroStrategyClient(config, MicroStrategyReport())
 
-    client._get_json = lambda path, project_id=None, timeout_seconds=None: {  # type: ignore[method-assign]
-        "result": [
-            {
-                "id": "ds-1",
-                "name": "Sales Cube",
-                "sqlStatement": "select * from SALES_DB.SALES.fact_sales",
-            }
-        ]
-    }
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        return {
+            "result": [
+                {
+                    "id": "ds-1",
+                    "name": "Sales Cube",
+                    "sqlStatement": "select * from SALES_DB.SALES.fact_sales",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
 
     rows = client.get_dossier_datasets_sql("project-1", "dash-1", "instance-1")
 
@@ -238,3 +283,24 @@ def test_extract_search_id_from_metadata_search_response() -> None:
         MicroStrategyClient._extract_search_id({"result": {"searchId": "search-2"}})
         == "search-2"
     )
+
+
+def test_get_json_reports_non_json_response(monkeypatch: MonkeyPatch) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    report = MicroStrategyReport()
+    client = MicroStrategyClient(config, report)
+    monkeypatch.setattr(
+        client, "_request", lambda *args, **kwargs: FakeNonJsonResponse()
+    )
+
+    try:
+        client._get_json("/api/projects")
+    except MicroStrategyAPIError as error:
+        assert "non-JSON response" in str(error)
+        assert "GET /api/projects" in str(error)
+    else:
+        raise AssertionError("Expected MicroStrategyAPIError")
+
+    assert report.api_errors == 1

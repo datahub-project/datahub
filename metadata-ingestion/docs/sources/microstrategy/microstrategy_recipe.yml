@@ -17,7 +17,7 @@ source:
 
     dashboard_pattern:
       allow:
-        - "^Salon Sales To Plan$"
+        - "^Sales Performance$"
 
     extract_dashboards: true
     extract_charts: true
