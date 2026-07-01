@@ -2,10 +2,11 @@ import { Image } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import { IconStyleType } from '@src/app/entityV2/Entity';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity } from '@src/types.generated';
+import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
 
 const ImageIcon = styled(Image)<{ $size: number }>`
     height: ${(props) => props.$size}px;
@@ -31,6 +32,10 @@ export function SingleEntityIcon({ entity, size }: Props) {
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = properties?.platform?.properties?.logoUrl;
     const platformName = getPlatformNameFromEntityData(properties);
+
+    if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
+        return <GlossaryEntityIcon entity={entity as GlossaryTerm | GlossaryNode} size={size} />;
+    }
 
     return (
         (platformLogoUrl && !isBrokenPlatformLogoUrl && (
