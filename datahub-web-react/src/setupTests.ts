@@ -184,8 +184,6 @@ vi.mock('js-cookie', () => ({
         get: () => 'urn:li:corpuser:2',
     },
 }));
-vi.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');
-
 vi.stubGlobal(
     'ResizeObserver',
     vi.fn(() => ({

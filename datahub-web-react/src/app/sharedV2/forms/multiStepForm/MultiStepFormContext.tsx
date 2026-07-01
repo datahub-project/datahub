@@ -1,3 +1,4 @@
+import deepmerge from 'deepmerge';
 import deepEqual from 'fast-deep-equal';
 import React, { useCallback, useMemo, useState } from 'react';
 
@@ -8,21 +9,6 @@ import {
     Step,
     StepKey,
 } from '@app/sharedV2/forms/multiStepForm/types';
-
-function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
-    const result = { ...target };
-    Object.keys(source).forEach((k) => {
-        const key = k as keyof T;
-        const srcVal = source[key];
-        const tgtVal = target[key];
-        if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal) && tgtVal && typeof tgtVal === 'object') {
-            result[key] = deepMerge(tgtVal as Record<string, unknown>, srcVal as Record<string, unknown>) as T[keyof T];
-        } else if (srcVal !== undefined) {
-            result[key] = srcVal as T[keyof T];
-        }
-    });
-    return result;
-}
 
 const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>({
     state: {},
@@ -90,10 +76,12 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     const totalSteps = useMemo(() => steps.length, [steps]);
 
     const updateState = useCallback((newState: Partial<TState>) => {
-        setState((currentState) => {
-            const base = (currentState ?? {}) as Record<string, unknown>;
-            return deepMerge(base, newState as Record<string, unknown>) as TState;
-        });
+        // arrayMerge replaces rather than concatenates, matching the previous hand-rolled behaviour.
+        setState((currentState) =>
+            deepmerge<TState>(currentState ?? ({} as TState), newState as TState, {
+                arrayMerge: (_, source) => source,
+            }),
+        );
     }, []);
 
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(initialStepIndex);
