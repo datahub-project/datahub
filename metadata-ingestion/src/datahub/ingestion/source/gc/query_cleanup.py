@@ -76,7 +76,10 @@ class QueryCleanupConfig(ConfigModel):
 
     limit_entities_delete: Optional[int] = Field(
         25000,
-        description="Max number of queries to delete in a single run.",
+        description=(
+            "Approximate max number of queries to delete in a single run. "
+            "Concurrent workers may overshoot this by up to max_workers entities."
+        ),
     )
 
     runtime_limit_seconds: int = Field(
@@ -88,14 +91,14 @@ class QueryCleanupConfig(ConfigModel):
 @dataclass
 class QueryCleanupReport(SourceReport):
     num_queries_found: int = 0
-    num_system_queries_found: int = 0
+    num_queries_invalid_urn: int = 0
     num_queries_soft_deleted: int = 0
     num_queries_hard_deleted: int = 0
     sample_deleted_queries: LossyList[str] = field(
         default_factory=lambda: LossyList(max_elements=get_report_info_sample_size())
     )
-    runtime_limit_reached: bool = False
-    deletion_limit_reached: bool = False
+    qc_runtime_limit_reached: bool = False
+    qc_deletion_limit_reached: bool = False
 
 
 class QueryCleanup:
@@ -208,20 +211,23 @@ class QueryCleanup:
             and time.time() - self.start_time > self.config.runtime_limit_seconds
         ):
             with self._report_lock:
-                self.report.runtime_limit_reached = True
+                self.report.qc_runtime_limit_reached = True
             return True
         return False
 
     def _deletion_limit_reached(self) -> bool:
+        # Approximate cap: the counter reads need no lock (int reads are atomic
+        # under the GIL), but the check-then-delete gap means concurrent workers
+        # can overshoot the limit by up to max_workers entities.
         num_deleted = (
             self.report.num_queries_soft_deleted + self.report.num_queries_hard_deleted
         )
         if (
             self.config.limit_entities_delete
-            and num_deleted > self.config.limit_entities_delete
+            and num_deleted >= self.config.limit_entities_delete
         ):
             with self._report_lock:
-                self.report.deletion_limit_reached = True
+                self.report.qc_deletion_limit_reached = True
             return True
         return False
 
@@ -235,10 +241,10 @@ class QueryCleanup:
             for urn in self._get_urns():
                 try:
                     self.report.num_queries_found += 1
-                    self.report.num_system_queries_found += 1
                     query_urn = Urn.from_string(urn)
                 except InvalidUrnError as e:
                     logger.error(f"Failed to parse urn {urn} with error {e}")
+                    self.report.num_queries_invalid_urn += 1
                     continue
 
                 self._print_report()

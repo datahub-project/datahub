@@ -123,7 +123,7 @@ Soft-deletes old `SYSTEM` queries so stale query entities don't accumulate as or
 - Selects `SYSTEM` queries whose `lastModifiedAt` is older than `retention_days` using a single server-side search filter (no per-query reference lookup)
 - Never touches `MANUAL` queries
 - Soft-deletes by default; `hard_delete_entities` can hard-delete directly (skips reference cleanup — prefer the two-pass default)
-- Concurrent deletion bounded by `limit_entities_delete` and `runtime_limit_seconds`
+- Concurrent deletion bounded by `limit_entities_delete` and `runtime_limit_seconds`. `limit_entities_delete` is an approximate cap: because deletes run concurrently, a run may overshoot it by up to `max_workers` queries
 
 ##### Configuration
 
