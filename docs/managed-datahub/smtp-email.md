@@ -1,5 +1,9 @@
 # SMTP Email Notifications
 
+:::note Availability
+This feature is available only on self-managed DataHub Enterprise clusters (BYOC / on-prem).
+:::
+
 ## Overview
 
 DataHub Enterprise (self-managed) can send notifications directly via any standard SMTP server. Use it when:
@@ -68,14 +72,12 @@ export SMTP_PASSWORD=your-app-password
 
 ### Email Branding
 
-The logo and footer of SMTP email templates are configurable. Both are optional — leave them unset to keep the built-in DataHub logo and footer.
+The logo and footer of email templates are configurable. Both are optional — leave them unset to keep the built-in DataHub logo and footer.
 
 ```bash
 export NOTIFICATION_LOGO_URL=https://example.com/logo.png   # roughly square PNG/JPG, scaled to 60px wide
 export NOTIFICATION_FOOTER_TEXT="Acme Corp"                  # footer signature shown on every email
 ```
-
-Branding applies to the self-hosted SMTP provider only. SendGrid (`EMAIL_PROVIDER=sendgrid`) renders its own hosted templates and ignores these variables.
 
 ### Provider Examples
 
