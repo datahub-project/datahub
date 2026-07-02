@@ -1,7 +1,7 @@
 """Unit tests for Dataplex entry-type mappers (payload -> DataHub entities)."""
 
 import string
-from typing import Optional
+from typing import Optional, cast
 from unittest.mock import Mock
 
 import pytest
@@ -199,6 +199,8 @@ def test_dataset_with_parent_entry_links_parent_container() -> None:
         _make_entry(short_name=short_name, fqn=fqn, parent_entry=parent_entry), _ctx()
     )
     assert result is not None and result.main_entity is not None
+    assert isinstance(result.main_entity, Dataset)
+    assert result.main_entity.parent_container is not None
     assert str(result.main_entity.parent_container).startswith("urn:li:container:")
 
 
@@ -214,11 +216,11 @@ def test_dataset_missing_expected_parent_warns_and_omits_parent() -> None:
         ctx,
     )
     assert result is not None and result.main_entity is not None
+    assert isinstance(result.main_entity, Dataset)
     assert result.main_entity.parent_container is None
-    ctx.report.warning.assert_called_once()
-    assert (
-        ctx.report.warning.call_args.kwargs["title"] == "Missing Dataplex parent_entry"
-    )
+    mock_warning = cast(Mock, ctx.report.warning)
+    mock_warning.assert_called_once()
+    assert mock_warning.call_args.kwargs["title"] == "Missing Dataplex parent_entry"
 
 
 def test_top_level_dataset_uses_project_parent_without_warning() -> None:
@@ -229,9 +231,11 @@ def test_top_level_dataset_uses_project_parent_without_warning() -> None:
         ctx,
     )
     assert result is not None and result.main_entity is not None
+    assert isinstance(result.main_entity, Dataset)
     assert result.main_entity.parent_container is not None
     assert str(result.main_entity.parent_container).startswith("urn:li:container:")
-    ctx.report.warning.assert_not_called()
+    mock_warning = cast(Mock, ctx.report.warning)
+    mock_warning.assert_not_called()
 
 
 def test_map_returns_none_for_missing_fqn() -> None:
