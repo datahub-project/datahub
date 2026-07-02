@@ -677,6 +677,154 @@ class TestSnapshotRoundTrip:
             ro.close()
 
 
+class TestForWorkerTwoTier:
+    """Two-tier worker resolver: reads schemas from the read-only snapshot but
+    can hold graph-hydrated results and None-miss dedup in a small writable overlay.
+
+    Regression guard: a worker with a graph attached must NOT silently drop
+    graph-hydrated lineage (the bug: writes were no-ops on the read-only snapshot).
+    """
+
+    def _make_snapshot_with_table_a(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Snapshot containing only table A (orders)."""
+        cache_file = tmp_path / "schema_cache.db"
+        writable = SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=None,
+            _cache_filename=cache_file,
+        )
+        writable.add_raw_schema_info(
+            urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.orders,PROD)",
+            schema_info={"order_id": "int", "amount": "float"},
+        )
+        snap = tmp_path / "snapshot.db"
+        writable.snapshot_to(snap)
+        writable.close()
+        return snap
+
+    def _graph_returning_table_b(self):
+        """Mock graph whose get_entities returns a real SchemaMetadataClass for
+        table B (customers) only — table A is not in the graph."""
+        urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.customers,PROD)"
+        graph = MagicMock(spec=DataHubGraph)
+
+        def get_entities(entity_name, urns, aspects, with_system_metadata):
+            result: dict = {}
+            if urn_b in urns:
+                result[urn_b] = {
+                    "schemaMetadata": (
+                        create_mock_schema(
+                            [("customer_id", "int"), ("name", "varchar")]
+                        ),
+                        {},
+                    )
+                }
+            return result
+
+        graph.get_entities.side_effect = get_entities
+        return graph
+
+    def test_snapshot_hit_and_graph_hydration_parity(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Table A resolves from the snapshot (no graph call needed); table B
+        resolves via graph hydration (NOT None). Proves no lineage loss."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            _, info_a = worker.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            assert info_a is not None
+            assert info_a["order_id"] == "int"
+
+            _, info_b = worker.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info_b is not None, "graph-hydrated schema was silently dropped"
+            assert info_b["customer_id"] == "int"
+        finally:
+            worker.close()
+
+    def test_graph_fetch_deduped_via_overlay(self, tmp_path: pathlib.Path) -> None:
+        """Resolving table B twice fetches from the graph only once; the second
+        call is served from the writable overlay."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            table_b = _TableName(database="db", db_schema="schema", table="customers")
+            _, info1 = worker.resolve_table(table_b)
+            assert info1 is not None
+            first_count = graph.get_entities.call_count
+
+            _, info2 = worker.resolve_table(table_b)
+            assert info2 == info1
+            assert graph.get_entities.call_count == first_count
+        finally:
+            worker.close()
+
+    def test_none_miss_deduped_via_overlay(self, tmp_path: pathlib.Path) -> None:
+        """Table C (in neither snapshot nor graph) returns None and is not re-fetched."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            table_c = _TableName(database="db", db_schema="schema", table="ghost")
+            _, info1 = worker.resolve_table(table_c)
+            assert info1 is None
+            first_count = graph.get_entities.call_count
+
+            _, info2 = worker.resolve_table(table_c)
+            assert info2 is None
+            assert graph.get_entities.call_count == first_count
+        finally:
+            worker.close()
+
+    def test_for_worker_no_graph_close_after_miss_does_not_raise(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """for_worker without a graph: snapshot reads work and close after a miss
+        does not raise (primary overlay is writable in-memory)."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        worker = SchemaResolver.for_worker(
+            snap, platform="snowflake", platform_instance="prod", env="PROD", graph=None
+        )
+        _, info_a = worker.resolve_table(
+            _TableName(database="db", db_schema="schema", table="orders")
+        )
+        assert info_a is not None
+        _, info_miss = worker.resolve_table(
+            _TableName(database="db", db_schema="schema", table="nope")
+        )
+        assert info_miss is None
+        worker.close()
+
+
 class TestConcurrentReadonlyResolvers:
     def test_two_resolvers_same_snapshot(self, tmp_path: pathlib.Path) -> None:
         """Two independent read-only resolvers on the same snapshot file work without locking errors."""

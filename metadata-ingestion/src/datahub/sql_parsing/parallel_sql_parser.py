@@ -67,20 +67,33 @@ def _worker_init(
     graph_config: Optional[DatahubClientConfig],
 ) -> None:
     global _WORKER_RESOLVER
-    resolver = SchemaResolver.load_readonly(
-        snapshot_path,
-        platform=platform,
-        platform_instance=platform_instance,
-        env=env,
-    )
     if graph_config is not None:
         # Rebuild a live graph client inside the worker from the picklable config
         # so cache-miss lazy hydration works in-worker exactly like the serial
         # path. The live DataHubGraph object itself is not safely picklable, so it
         # is constructed here rather than passed across the process boundary.
+        #
+        # Use for_worker: a two-tier resolver reads the bulk of schemas from the
+        # shared read-only snapshot but keeps graph-hydrated results (and None-miss
+        # dedup) in a small writable overlay. load_readonly's cache is read-only,
+        # so its writes are no-ops and graph-hydrated lineage would be lost.
         from datahub.ingestion.graph.client import DataHubGraph
 
-        resolver.graph = DataHubGraph(graph_config)
+        resolver = SchemaResolver.for_worker(
+            snapshot_path,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=DataHubGraph(graph_config),
+        )
+    else:
+        # No graph → no hydration, no writes: the lowest-memory read-only path.
+        resolver = SchemaResolver.load_readonly(
+            snapshot_path,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
     _WORKER_RESOLVER = resolver
 
 

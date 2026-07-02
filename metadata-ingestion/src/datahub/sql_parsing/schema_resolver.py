@@ -81,6 +81,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.graph = graph
         self.report = report
 
+        # Optional read-only fallback cache consulted on a primary-cache miss.
+        # Used by worker resolvers (see for_worker) to read the bulk of schemas
+        # from a shared read-only snapshot while keeping graph-hydrated results and
+        # None-miss dedup in the writable primary cache. None → single-tier behavior.
+        self._readonly_fallback: Optional[FileBackedDict[Optional[SchemaInfo]]] = None
+
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
         if _cache_filename:
@@ -175,15 +181,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             urns_to_try.append(urn_mixed)
 
         for candidate_urn in urns_to_try:
-            if candidate_urn in self._schema_cache:
-                schema_info = self._schema_cache[candidate_urn]
+            if self._cache_contains(candidate_urn):
+                schema_info = self._cache_get(candidate_urn)
                 if schema_info is not None:
                     self._track_cache_hit()
                     return candidate_urn, schema_info
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
-            urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
+            urns_to_fetch = [u for u in urns_to_try if not self._cache_contains(u)]
 
             if urns_to_fetch:
                 try:
@@ -228,7 +234,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                         self._save_to_cache(fetch_urn, None)
 
             for candidate_urn in urns_to_try:
-                schema_info = self._schema_cache.get(candidate_urn)
+                schema_info = self._cache_get(candidate_urn)
                 if schema_info is not None:
                     self._track_cache_hit()
                     return candidate_urn, schema_info
@@ -262,7 +268,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def has_urn(self, urn: str) -> bool:
-        return self._schema_cache.get(urn) is not None
+        return self._cache_get(urn) is not None
 
     def _track_cache_hit(self) -> None:
         """Track a cache hit if reporting is enabled."""
@@ -274,9 +280,32 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
 
-    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+    def _cache_contains(self, urn: str) -> bool:
+        """Whether *urn* has an entry (including a cached None) in either tier.
+
+        Reads consult the writable primary cache first, then the optional
+        read-only fallback snapshot. Writes only ever touch the primary cache.
+        """
+        if urn in self._schema_cache:
+            return True
+        if self._readonly_fallback is not None and urn in self._readonly_fallback:
+            return True
+        return False
+
+    def _cache_get(self, urn: str) -> Optional[SchemaInfo]:
+        """Read *urn*'s schema from the primary cache, falling back to the
+        read-only snapshot. Returns None if absent or cached as a miss — callers
+        that must distinguish absence from a cached miss should use
+        :meth:`_cache_contains`."""
         if urn in self._schema_cache:
             return self._schema_cache[urn]
+        if self._readonly_fallback is not None and urn in self._readonly_fallback:
+            return self._readonly_fallback[urn]
+        return None
+
+    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+        if self._cache_contains(urn):
+            return self._cache_get(urn)
 
         # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
         # or _PARTITIONDATE where appropriate.
@@ -402,13 +431,57 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         resolver.env = env
         resolver.graph = None
         resolver.report = None
+        resolver._readonly_fallback = None
         resolver._schema_cache = FileBackedDict(
             shared_connection=ro_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
         return resolver
 
+    @classmethod
+    def for_worker(
+        cls,
+        snapshot_path: pathlib.Path,
+        *,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+        graph: Optional["DataHubGraph"] = None,
+    ) -> "SchemaResolver":
+        """Build a two-tier resolver for a parallel-parsing worker process.
+
+        The bulk of schemas are read from the shared read-only *snapshot_path*
+        (opened ``immutable=1`` so the OS page cache is shared across workers,
+        keeping memory low). A small **writable** in-memory primary cache sits in
+        front of it to hold graph-hydrated results and None-miss dedup, so a
+        worker with a ``graph`` attached does not silently drop lineage — unlike
+        :meth:`load_readonly`, whose cache is read-only and cannot absorb fetches.
+
+        Use :meth:`load_readonly` instead when there is no graph: it avoids the
+        extra writable cache entirely (lowest memory, no writes).
+        """
+        ro_conn = ConnectionWrapper(filename=snapshot_path, read_only=True)
+        resolver = cls.__new__(cls)
+        # Bypass __init__ so we can wire a writable primary cache in front of a
+        # read-only fallback; mirror every attribute the writable __init__ sets.
+        resolver._platform = DataPlatformUrn(platform).platform_name
+        resolver.platform_instance = platform_instance
+        resolver.env = env
+        resolver.graph = graph
+        resolver.report = None
+        resolver._readonly_fallback = FileBackedDict(
+            shared_connection=ro_conn,
+            extra_columns={"is_missing": lambda v: v is None},
+        )
+        # Fresh writable in-memory cache (temp file) so _save_to_cache works.
+        resolver._schema_cache = FileBackedDict(
+            extra_columns={"is_missing": lambda v: v is None},
+        )
+        return resolver
+
     def close(self) -> None:
+        if self._readonly_fallback is not None:
+            self._readonly_fallback.close()
         self._schema_cache.close()
 
 
