@@ -768,9 +768,11 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
+    # S3/GCS/ABS include the DuckDB profiling engine by default.
+    #   Standard:    pip install 'acryl-datahub[s3]'       (with profiling)
+    #   Lightweight: pip install 'acryl-datahub[s3-slim]'  (metadata only, no
+    #                profiling deps — also the duckdb-free path for platforms
+    #                without a duckdb wheel, e.g. armv7l / musl).
     "s3": {*s3_base, *data_lake_profiling},
     "s3-slim": {*s3_base},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
