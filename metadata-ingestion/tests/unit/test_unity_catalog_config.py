@@ -350,7 +350,17 @@ def test_include_ml_model_aliases_explicit_true():
 
 
 def test_ml_model_max_results_valid_values():
-    """Test that ml_model_max_results accepts valid positive integers."""
+    """Test that ml_model_max_results accepts valid non-negative integers."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 0,
+        }
+    )
+    assert config.ml_model_max_results == 0
+
     config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",

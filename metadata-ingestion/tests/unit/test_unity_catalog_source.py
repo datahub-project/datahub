@@ -379,6 +379,60 @@ class TestUnityCatalogSource:
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_process_ml_models_skips_databricks_api_when_limit_is_zero(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Test that ml_model_max_results=0 disables ML model ingestion."""
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "ml_model_max_results": 0,
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config, ctx)
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_catalog.test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        assert list(source.process_ml_models(schema)) == []
+        mock_unity_proxy.return_value.ml_models.assert_not_called()
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
     def test_process_ml_model_generates_workunits(
         self, mock_hive_proxy, mock_unity_proxy
     ):
