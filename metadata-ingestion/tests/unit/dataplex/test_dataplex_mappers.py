@@ -218,6 +218,7 @@ def test_parent_entry_link_present_iff_entry_has_parent(
         _make_entry(short_name=short_name, fqn=fqn, parent_entry=parent_entry), _ctx()
     )
     assert result is not None and result.main_entity is not None
+    assert isinstance(result.main_entity, (Dataset, Container))
     assert str(result.main_entity.parent_container).startswith("urn:li:container:")
 
 
@@ -267,6 +268,7 @@ def test_dataset_unparseable_parent_entry_warns_and_omits_parent() -> None:
         ctx,
     )
     assert result is not None and result.main_entity is not None
+    assert isinstance(result.main_entity, Dataset)
     assert result.main_entity.parent_container is None
     assert (
         cast(Mock, ctx.report.warning).call_args.kwargs["title"]
