@@ -2,7 +2,7 @@
 
 import string
 from typing import Optional, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from google.cloud import dataplex_v1
@@ -10,6 +10,7 @@ from google.cloud import dataplex_v1
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     ENTRY_MAPPERS,
+    ContainerIdentity,
     DatasetIdentity,
     EntryMappingContext,
     dataset_urn_from_fqn_only,
@@ -152,7 +153,6 @@ CASES = [
 
 def test_registry_covers_all_supported_entry_types() -> None:
     assert set(ENTRY_MAPPERS.keys()) == {case[0] for case in CASES}
-    assert len(ENTRY_MAPPERS) == 14
 
 
 @pytest.mark.parametrize("short_name,fqn,parent_entry,main_type,dataset_name", CASES)
@@ -203,22 +203,21 @@ def test_parent_entry_link_present_iff_entry_has_parent(
     dataset_name: Optional[str],
 ) -> None:
     """A mapper declares a ParentEntryLink exactly when the entry has a
-    parent_entry finer than its project; otherwise the property is None."""
+    parent_entry finer than its project; otherwise the property is None.
+
+    When present, build the entry and assert the parent-entry regex actually
+    resolves a parent container URN — this pins every platform's parent-entry
+    pattern (a regression would silently emit an entity with no parent)."""
     mapper = ENTRY_MAPPERS[short_name]
-    if parent_entry:
-        assert mapper.dataplex_parent_entry is not None
-    else:
+    if not parent_entry:
         assert mapper.dataplex_parent_entry is None
+        return
 
-
-def test_dataset_with_parent_entry_links_parent_container() -> None:
-    short_name, fqn, parent_entry = CASES[1][:3]  # bigquery-table
-    result = ENTRY_MAPPERS[short_name].map(
+    assert mapper.dataplex_parent_entry is not None
+    result = mapper.map(
         _make_entry(short_name=short_name, fqn=fqn, parent_entry=parent_entry), _ctx()
     )
     assert result is not None and result.main_entity is not None
-    assert isinstance(result.main_entity, Dataset)
-    assert result.main_entity.parent_container is not None
     assert str(result.main_entity.parent_container).startswith("urn:li:container:")
 
 
@@ -254,6 +253,25 @@ def test_top_level_dataset_uses_project_parent_without_warning() -> None:
     assert str(result.main_entity.parent_container).startswith("urn:li:container:")
     mock_warning = cast(Mock, ctx.report.warning)
     mock_warning.assert_not_called()
+
+
+def test_dataset_unparseable_parent_entry_warns_and_omits_parent() -> None:
+    ctx = _ctx()
+    # parent_entry is present but does not match the parent-entry regex.
+    result = ENTRY_MAPPERS["bigquery-table"].map(
+        _make_entry(
+            short_name="bigquery-table",
+            fqn="bigquery:my-project.my_dataset.my_table",
+            parent_entry="not-a-valid-parent-entry-path",
+        ),
+        ctx,
+    )
+    assert result is not None and result.main_entity is not None
+    assert result.main_entity.parent_container is None
+    assert (
+        cast(Mock, ctx.report.warning).call_args.kwargs["title"]
+        == "Unparseable Dataplex parent_entry"
+    )
 
 
 def test_map_returns_none_for_missing_fqn() -> None:
@@ -353,3 +371,69 @@ def test_dataset_name_format_fields_are_captured_by_fqn_regex(short_name: str) -
     assert fmt_fields.issubset(regex_groups), (
         f"{short_name}: format fields {fmt_fields} not all in regex groups {regex_groups}"
     )
+
+
+CONTAINER_TYPES = {c[0] for c in CASES if c[3] == "Container"}
+
+
+@pytest.mark.parametrize("short_name", sorted(CONTAINER_TYPES))
+def test_container_fqn_regex_groups_are_key_fields(short_name: str) -> None:
+    """Guardrail: every FQN named group of a container mapper must be a field on
+    its ContainerKey class, else key identity silently drops fields. Also pins the
+    Spanner ``regional-{location}`` -> ``location`` normalization."""
+    mapper = ENTRY_MAPPERS[short_name]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, ContainerIdentity)
+    regex_groups = set(mapper.dataplex_fqn_regex.groupindex.keys())
+    key_fields = set(identity.key_class.model_fields.keys())
+    assert regex_groups <= key_fields, (
+        f"{short_name}: regex groups {regex_groups} not all key fields {key_fields}"
+    )
+
+
+def test_container_builds_expected_key_urn_for_non_bigquery_types() -> None:
+    """Concrete container-identity checks for non-BigQuery platforms (the golden
+    files are BigQuery-only), incl. the Spanner regional- location normalization."""
+    for short_name, fqn, parent_entry, _, _ in CASES:
+        if short_name not in {"cloud-spanner-database", "cloudsql-mysql-database"}:
+            continue
+        result = ENTRY_MAPPERS[short_name].map(
+            _make_entry(short_name=short_name, fqn=fqn, parent_entry=parent_entry),
+            _ctx(),
+        )
+        assert result is not None
+        assert isinstance(result.main_entity, Container)
+        # container's own key and its parent both resolve to container URNs
+        assert result.main_entity.urn.urn().startswith("urn:li:container:")
+        assert str(result.main_entity.parent_container).startswith("urn:li:container:")
+
+
+def test_graph_schema_fallback_used_only_for_spanner_graph() -> None:
+    """The graph-schema aspect fallback is scoped to cloud-spanner-graph; other
+    dataset types use only the standard schema aspect."""
+    mappers_module = "datahub.ingestion.source.dataplex.dataplex_mappers"
+    with (
+        patch(f"{mappers_module}.extract_schema_from_entry_aspects", return_value=None),
+        patch(
+            f"{mappers_module}.extract_graph_schema_from_entry_aspects",
+            return_value=None,
+        ) as mock_graph,
+    ):
+        ENTRY_MAPPERS["cloud-spanner-graph"].map(
+            _make_entry(
+                short_name="cloud-spanner-graph",
+                fqn="spanner:graph:my-project.regional-us-west2.my-instance.my-db.MyGraph",
+            ),
+            _ctx(include_schema=True),
+        )
+        assert mock_graph.called
+
+        mock_graph.reset_mock()
+        ENTRY_MAPPERS["cloud-spanner-table"].map(
+            _make_entry(
+                short_name="cloud-spanner-table",
+                fqn="spanner:my-project.regional-us-west2.my-instance.my-db.my_table",
+            ),
+            _ctx(include_schema=True),
+        )
+        assert not mock_graph.called

@@ -553,9 +553,7 @@ def build_dataset(
 
     parent_container_key: Optional[DataplexProjectId] = None
     if parent is not None:
-        if entry.parent_entry:
-            parent_container_key = parent.container_key(entry.parent_entry)
-        else:
+        if not entry.parent_entry:
             ctx.report.warning(
                 title="Missing Dataplex parent_entry",
                 message=(
@@ -568,30 +566,58 @@ def build_dataset(
                     f"fully_qualified_name={entry.fully_qualified_name}"
                 ),
             )
+        else:
+            parent_container_key = parent.container_key(entry.parent_entry)
+            if parent_container_key is None:
+                ctx.report.warning(
+                    title="Unparseable Dataplex parent_entry",
+                    message=(
+                        "Could not parse parent_entry into a parent container. "
+                        "Emitting dataset without parent container."
+                    ),
+                    context=(
+                        f"entry_type={entry.entry_type}, "
+                        f"entry_name={entry.name}, "
+                        f"parent_entry={entry.parent_entry}"
+                    ),
+                )
     else:
         parent_container_key = _project_schema_key(
             fqn_regex, platform, entry.fully_qualified_name
         )
 
     common = _extract_common_fields(entry)
-    dataset_kwargs: dict = dict(
-        platform=platform,
-        name=dataset_name,
-        env=ctx.config.env,
-        display_name=common.display_name,
-        description=common.description or None,
-        custom_properties=common.custom_properties,
-        created=common.created,
-        last_modified=common.last_modified,
-        subtype=subtype,
-        schema=schema_metadata,
-    )
-    # Only pass parent_container when we resolved one: the SDK emits a
-    # (empty) browsePathsV2 aspect when the kwarg is provided even as None,
-    # so omitting it preserves the exact emitted metadata.
+    # Only pass parent_container when resolved: the SDK emits an (empty)
+    # browsePathsV2 aspect when the kwarg is provided even as None, so omitting
+    # it preserves the exact emitted metadata. Two explicit calls (rather than a
+    # **kwargs splat) keep the whole SDK signature type-checked.
     if parent_container_key is not None:
-        dataset_kwargs["parent_container"] = parent_container_key
-    dataset = Dataset(**dataset_kwargs)
+        dataset = Dataset(
+            platform=platform,
+            name=dataset_name,
+            env=ctx.config.env,
+            display_name=common.display_name,
+            description=common.description or None,
+            custom_properties=common.custom_properties,
+            created=common.created,
+            last_modified=common.last_modified,
+            subtype=subtype,
+            schema=schema_metadata,
+            parent_container=parent_container_key,
+        )
+    else:
+        dataset = Dataset(
+            platform=platform,
+            name=dataset_name,
+            env=ctx.config.env,
+            display_name=common.display_name,
+            description=common.description or None,
+            custom_properties=common.custom_properties,
+            created=common.created,
+            last_modified=common.last_modified,
+            subtype=subtype,
+            schema=schema_metadata,
+        )
 
     lineage_entry = EntryDataTuple(
         dataplex_entry_short_name=entry.name.split("/")[-1],
@@ -666,6 +692,10 @@ def build_container(
         )
 
     common = _extract_common_fields(entry)
+    # container_parent_key is effectively always set here — the project key is
+    # the fallback and only fails to build when the FQN is unparseable, in which
+    # case the container key above already failed and we returned. Passed
+    # directly (as the pre-refactor code did) so the SDK signature stays checked.
     container = Container(
         container_key=container_key,
         display_name=common.display_name,
@@ -1075,7 +1105,9 @@ def get_entry_mapper(
 def is_lineage_supported(entry_type_short_name: str) -> bool:
     """Return whether an entry type is a lineage (dataset) node."""
     mapper = ENTRY_MAPPERS.get(entry_type_short_name)
-    return bool(mapper and isinstance(mapper.datahub_identity, DatasetIdentity))
+    # Route through datahub_main_entity_type (assert_never-guarded) so a future
+    # identity variant is handled explicitly rather than silently dropped.
+    return bool(mapper and mapper.datahub_main_entity_type is Dataset)
 
 
 def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[str]:
@@ -1084,9 +1116,12 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
     Used for cross-platform upstream lineage where only the FQN shape is known.
     """
     for mapper in ENTRY_MAPPERS.values():
-        identity = mapper.datahub_identity
-        if not isinstance(identity, DatasetIdentity):
+        if mapper.datahub_main_entity_type is not Dataset:
             continue
+        # A Dataset-producing mapper must carry a DatasetIdentity; assert to
+        # surface (loudly) any future variant that breaks this coupling.
+        identity = mapper.datahub_identity
+        assert isinstance(identity, DatasetIdentity)
         urn = dataset_urn_from_fqn(
             fully_qualified_name,
             mapper.dataplex_fqn_regex,

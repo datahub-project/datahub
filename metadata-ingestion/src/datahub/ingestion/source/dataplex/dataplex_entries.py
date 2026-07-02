@@ -26,6 +26,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
     from datahub.sdk.entity import Entity
 
 
@@ -146,7 +147,7 @@ class DataplexEntriesProcessor:
         self._container_lock: threading.Lock = threading.Lock()
 
     @property
-    def entry_data(self) -> list:
+    def entry_data(self) -> List["EntryDataTuple"]:
         return self._ctx.entry_data
 
     # ------------------------------------------------------------------
@@ -359,8 +360,11 @@ class DataplexEntriesProcessor:
                     try:
                         detailed_entry = self._fetch_entry_detail(dataplex_entry.name)
                     except Exception as exc:
-                        logger.warning(
-                            f"Failed to fetch detail for Spanner entry {dataplex_entry.name}: {exc}"
+                        self.source_report.warning(
+                            title="Dataplex Spanner entry fetch failed",
+                            message="Failed to fetch detail for a Spanner entry. Skipping.",
+                            context=f"entry_name={dataplex_entry.name}",
+                            exc=exc,
                         )
                         continue
                     yield from self._build_entities_for_entry(detailed_entry, location)
@@ -368,8 +372,13 @@ class DataplexEntriesProcessor:
                 "search_entries", timer.elapsed_seconds()
             )
         except Exception as exc:
-            logger.warning(
-                f"Spanner workaround search failed for {project_id}/{location}: {exc}"
+            # Surfaced (not just logged) so a permissions gap does not read as a
+            # green run with zero Spanner entities.
+            self.source_report.warning(
+                title="Dataplex Spanner search failed",
+                message="search_entries workaround failed for a project/location. Skipping.",
+                context=f"project_id={project_id}, location={location}",
+                exc=exc,
             )
             return
 
