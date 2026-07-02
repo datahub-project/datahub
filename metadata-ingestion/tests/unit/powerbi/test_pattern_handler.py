@@ -345,6 +345,46 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
 
 
 # ---------------------------------------------------------------------------
+# AbstractLineage.create_table_column_lineage — column casing
+# ---------------------------------------------------------------------------
+
+
+def test_create_table_column_lineage_preserves_column_casing():
+    # Regression: the direct table-reference CLL path must preserve the original
+    # column casing on BOTH the downstream (PowerBI) and upstream (warehouse) refs.
+    # Lowercasing the upstream column makes it miss the warehouse's PascalCase schema,
+    # so DataHub draws no column-level edge even though the data is present.
+    config = _build_config()
+    columns = [
+        Column(
+            name="OrgID",
+            dataType="Int64",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        ),
+        Column(
+            name="SettingValue",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        ),
+    ]
+    instance = _build_oracle_lineage(config=config, columns=columns)
+    upstream_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,db.schema.org_settings,PROD)"
+    )
+
+    cll = instance.create_table_column_lineage(upstream_urn)
+
+    by_downstream = {info.downstream.column: info for info in cll}
+    assert set(by_downstream) == {"OrgID", "SettingValue"}  # downstream keeps casing
+    # Upstream column casing preserved (not lowercased) -> matches PascalCase schema.
+    assert by_downstream["OrgID"].upstreams[0].column == "OrgID"
+    assert by_downstream["SettingValue"].upstreams[0].column == "SettingValue"
+    assert by_downstream["OrgID"].upstreams[0].table == upstream_urn
+
+
+# ---------------------------------------------------------------------------
 # OracleLineage.create_lineage — Oracle.Database routing branches
 # ---------------------------------------------------------------------------
 
