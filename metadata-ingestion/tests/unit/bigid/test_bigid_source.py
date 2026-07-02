@@ -272,6 +272,39 @@ def test_make_dataset_urn_snowflake_lowercased():
     )
 
 
+def test_make_dataset_urn_lowercase_override_disables_lowercasing():
+    """A per-connection convert_urns_to_lowercase=False keeps mixed case even for
+    a platform that is lowercased by default (matches a native connector run with
+    convert_urns_to_lowercase: false)."""
+    source = _make_source(
+        datasource_platform_mapping={
+            "SF_CONN": {"platform": "snowflake", "convert_urns_to_lowercase": False},
+        }
+    )
+
+    urn = source._make_dataset_urn("SF_CONN.MY_DB.MY_SCHEMA.MY_TABLE", "SF_CONN")
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.MY_TABLE,PROD)"
+    )
+
+
+def test_make_dataset_urn_lowercase_override_forces_lowercasing():
+    """A per-connection convert_urns_to_lowercase=True lowercases a platform that is
+    not in the default lowercase set."""
+    source = _make_source(
+        datasource_platform_mapping={
+            "PG_CONN": {"platform": "postgres", "convert_urns_to_lowercase": True},
+        }
+    )
+
+    urn = source._make_dataset_urn("PG_CONN.MY_DB.MY_SCHEMA.MY_TABLE", "PG_CONN")
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table,PROD)"
+    )
+
+
 def test_make_dataset_urn_with_platform_instance():
     source = _make_source(
         datasource_platform_mapping={

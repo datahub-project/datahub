@@ -48,6 +48,14 @@ class ConnectionPlatformConfig(ConfigModel):
         default=None,
         description="DataHub platform instance identifier for this connection.",
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description="Override dataset-name casing for this connection so BigID's enrichment "
+        "URN byte-matches the one the native connector emitted. When set, forces (`true`) or "
+        "disables (`false`) lowercasing of the dataset-name segment. Leave unset to use the "
+        "built-in per-platform default (Snowflake, BigQuery and Redshift are lowercased). Set "
+        "`false` for, e.g., a Snowflake connection ingested with `convert_urns_to_lowercase: false`.",
+    )
 
 
 class BigIDSourceConfig(
@@ -128,7 +136,7 @@ class BigIDSourceConfig(
 
     confidence_level_tag: bool = Field(
         default=False,
-        description="Emit urn:li:tag:bigid.confidence:{LEVEL} alongside each GlossaryTerm on a column. "
+        description="Emit `urn:li:tag:bigid.confidence:{LEVEL}` alongside each GlossaryTerm on a column. "
         "Lossy (can't tie level to a specific term when multiple exist), but visible in DataHub UI.",
     )
 
@@ -147,7 +155,7 @@ class BigIDSourceConfig(
         default=DomainMode.NONE,
         description="Domain handling mode. "
         "'none': store raw domain/sub_domain in customProperties only. "
-        "'auto_namespaced': auto-create GUID-based urn:li:domain entities "
+        "'auto_namespaced': auto-create GUID-based `urn:li:domain` entities "
         "(one per BigID domain/sub-domain, keyed deterministically by name). "
         "'config_map': map BigID domain values to existing DataHub domain URNs.",
     )
@@ -159,7 +167,7 @@ class BigIDSourceConfig(
     owner_type: OwnerType = Field(
         default=OwnerType.USER,
         description="How to interpret BigID owner strings. "
-        "'user' → urn:li:corpuser:{owner}. 'group' → urn:li:corpGroup:{owner}. "
+        "'user' → `urn:li:corpuser:{owner}`. 'group' → `urn:li:corpGroup:{owner}`. "
         "'none' → stored in customProperties only.",
     )
 

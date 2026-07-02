@@ -62,7 +62,7 @@ A read-only role granting the **Data Catalog**, **Classification**, **Business G
 
 BigID connection `type` values are mapped to DataHub platform names automatically (for example `rdb-postgresql` → `postgres`, `snowflake` → `snowflake`). Two levers let you override this:
 
-- `datasource_platform_mapping` — per-connection overrides of platform, `env`, and `platform_instance`. Required when a connection's type has no built-in mapping, or when a dataset's URN must match a specific platform instance created by a native connector.
+- `datasource_platform_mapping` — per-connection overrides of platform, `env`, `platform_instance`, and `convert_urns_to_lowercase`. Required when a connection's type has no built-in mapping, or when a dataset's URN must match a specific platform instance created by a native connector. Set `convert_urns_to_lowercase` on a connection when the native connector's URN casing differs from BigID's default (Snowflake, BigQuery and Redshift are lowercased by default) — for example a Snowflake source ingested with `convert_urns_to_lowercase: false`.
 - `connection_pattern` — regex allow/deny patterns matched against the BigID connection name. Use this to scope ingestion to a subset of connections in large deployments that expose hundreds of data sources.
 
 #### Confidence Filtering

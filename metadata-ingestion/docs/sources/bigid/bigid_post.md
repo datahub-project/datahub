@@ -23,7 +23,7 @@ To avoid overwriting the platform instance already set by a native connector (e.
 
 #### Datasets are not being enriched
 
-The connector matches BigID objects to existing DataHub dataset URNs. If enrichment does not appear, verify that the resolved platform, `env`, and `platform_instance` produce a URN that matches the one created by your native connector. Use `datasource_platform_mapping` to align them.
+The connector matches BigID objects to existing DataHub dataset URNs. If enrichment does not appear, verify that the resolved platform, `env`, `platform_instance`, and URN casing produce a URN that matches the one created by your native connector. Use `datasource_platform_mapping` to align them — including `convert_urns_to_lowercase` when the native connector's casing differs from BigID's per-platform default.
 
 #### No enrichment applied at all
 

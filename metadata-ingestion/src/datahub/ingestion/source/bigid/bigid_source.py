@@ -1401,7 +1401,8 @@ class BigIDSource(StatefulIngestionSourceBase):
 
     def _cleansed_dataset_name(self, fqn: str, source_name: str) -> Optional[str]:
         # BigID FQN is {connection_name}.{remaining}; the DataHub URN drops the connection
-        # segment and lowercases to match the native connector's URN. Reserved-char encoding
+        # segment and (per _should_lowercase) may lowercase to match the native connector's
+        # URN casing. Reserved-char encoding
         # and the platform_instance prefix are left to the SDK helper, which encodes exactly
         # as native connectors do (notably, a literal ':' must stay un-encoded or URNs won't match).
         if not fqn or not source_name:
@@ -1415,10 +1416,17 @@ class BigIDSource(StatefulIngestionSourceBase):
             parts = fqn.split(".", 1)
             remaining = parts[1] if len(parts) > 1 else fqn
 
-        if self._get_platform(source_name) in LOWERCASE_PLATFORMS:
+        if self._should_lowercase(source_name):
             remaining = remaining.lower()
 
         return remaining
+
+    def _should_lowercase(self, source_name: str) -> bool:
+        # A per-connection override wins; otherwise fall back to the per-platform heuristic.
+        override = self.config.datasource_platform_mapping.get(source_name)
+        if override is not None and override.convert_urns_to_lowercase is not None:
+            return override.convert_urns_to_lowercase
+        return self._get_platform(source_name) in LOWERCASE_PLATFORMS
 
     def _make_dataset_urn(self, fqn: str, source_name: str) -> Optional[str]:
         name = self._cleansed_dataset_name(fqn, source_name)
