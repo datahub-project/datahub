@@ -41,11 +41,13 @@ export function stripDotSlashFromAssets() {
     };
 }
 
-// Fails fast with a clear message if lazy icon stubs haven't been generated.
-// Prevents silent fallback-to-AppWindow when running outside Gradle.
-function assertLazyIconsGenerated(): PluginOption {
+// Ensure lazy icon stubs + the names index exist before build starts. Runs the generator
+// script if either is missing, so `yarn start` / `yarn build` invoked directly (without
+// going through the Gradle task chain that wires up `generateLazyIconStubs`) works out of
+// the box — no manual "run this script first" step for developers on a fresh clone.
+function ensureLazyIconsGenerated(): PluginOption {
     return {
-        name: 'assert-lazy-icons-generated',
+        name: 'ensure-lazy-icons-generated',
         buildStart() {
             const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
             const namesFile = path.resolve(__dirname, 'src/app/mfeframework/lazyIconNames.ts');
@@ -53,12 +55,18 @@ function assertLazyIconsGenerated(): PluginOption {
                 fs.existsSync(iconsDir) &&
                 fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
             const hasNames = fs.existsSync(namesFile);
-            if (!hasStubs || !hasNames) {
+            if (hasStubs && hasNames) return;
+
+            const scriptPath = path.resolve(__dirname, 'scripts/generate-lazy-icon-stubs.js');
+            // eslint-disable-next-line no-console
+            console.log('[Lazy Icons] Stubs or names index missing — generating now.');
+            // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+            const { spawnSync } = require('child_process');
+            const result = spawnSync(process.execPath, [scriptPath], { stdio: 'inherit' });
+            if (result.status !== 0) {
                 throw new Error(
-                    '\n\n  [Lazy Icons] Icon stubs or names index are missing. Generate them before starting:\n\n' +
-                        '    ./gradlew :datahub-web-react:generateLazyIconStubs\n' +
-                        '    — or —\n' +
-                        '    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n\n',
+                    `[Lazy Icons] Generator failed (exit ${result.status}). Run manually:\n` +
+                        `    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n`,
                 );
             }
         },
@@ -142,7 +150,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
-            assertLazyIconsGenerated(),
+            ensureLazyIconsGenerated(),
             ...devPlugins,
             react(),
             federation({
