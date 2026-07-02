@@ -11,6 +11,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
+import sqlglot
+import sqlglot.expressions
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic import field_validator, model_validator
@@ -552,7 +554,6 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
     def __init__(self, config: ClickHouseConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "clickhouse")
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
-        self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
 
         # Initialize query log aggregator if needed
@@ -791,9 +792,11 @@ ORDER BY event_time ASC
                 user=CorpUserUrn(user) if user else None,
                 # Don't pass current_database as default_db. ClickHouse uses 2-level
                 # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # Passing current_database as default_schema (not default_db) correctly fills
+                # the schema level: unqualified "table" -> "current_db.table", while
+                # already-qualified "other_db.table" stays unchanged.
                 default_db=None,
+                default_schema=row.get("current_database"),
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:
@@ -827,24 +830,6 @@ ORDER BY event_time ASC
         if self._should_extract_query_log():
             yield from self._extract_query_log()
 
-    def _get_all_tables(self) -> Set[str]:
-        all_tables_query: str = textwrap.dedent(
-            """\
-        SELECT database, name AS table_name
-          FROM system.tables
-         WHERE name NOT LIKE '.inner%'"""
-        )
-
-        all_tables_set = set()
-
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        for db_row in engine.execute(text(all_tables_query)):
-            all_tables_set.add(f"{db_row['database']}.{db_row['table_name']}")
-
-        return all_tables_set
-
     def _populate_lineage_map(
         self, query: str, lineage_type: LineageCollectorType
     ) -> None:
@@ -860,9 +845,6 @@ ORDER BY event_time ASC
         :rtype: None
         """
         assert self._lineage_map is not None
-
-        if not self._all_tables_set:
-            self._all_tables_set = self._get_all_tables()
 
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
@@ -902,15 +884,6 @@ ORDER BY event_time ASC
                 ]
 
                 for source in sources:
-                    # Filtering out tables which does not exist in ClickHouse
-                    # It was deleted in the meantime
-                    if (
-                        source.platform == LineageDatasetPlatform.CLICKHOUSE
-                        and source.path not in self._all_tables_set
-                    ):
-                        logger.warning(f"{source.path} missing table")
-                        continue
-
                     target.upstreams.add(source)
 
                 # Merging downstreams if dataset already exists and has downstreams
@@ -936,7 +909,7 @@ ORDER BY event_time ASC
 
     def _populate_lineage(self) -> None:
         # only dictionaries with clickhouse as a source are supported
-        table_lineage_query = textwrap.dedent(
+        distributed_lineage_query = textwrap.dedent(
             """\
         SELECT extractAll(engine_full, '''(.*?)''')[2] AS source_schema
              , extractAll(engine_full, '''(.*?)''')[3] AS source_table
@@ -944,14 +917,6 @@ ORDER BY event_time ASC
              , name                                    AS target_table
           FROM system.tables
          WHERE engine IN ('Distributed')
-        UNION ALL
-        SELECT extract(create_table_query, 'DB ''(.*?)''')    AS source_schema
-             , extract(create_table_query, 'TABLE ''(.*?)''') AS source_table
-             , database                                       AS target_schema
-             , name                                           AS target_table
-          FROM system.tables
-         WHERE engine IN ('Dictionary')
-           AND create_table_query LIKE '%SOURCE(CLICKHOUSE(%'
          ORDER BY target_schema, target_table, source_schema, source_table"""
         )
 
@@ -1016,10 +981,93 @@ ORDER BY event_time ASC
             self._lineage_map = defaultdict()
 
         if self.config.include_tables:
-            # Populate table level lineage for dictionaries and distributed tables
+            # Log debug info to aid diagnosing lineage issues
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
+            try:
+                dbs = [row[0] for row in engine.execute(text("SHOW DATABASES"))]
+                logger.debug(f"Visible databases: {dbs}")
+                for row in engine.execute(
+                    text(
+                        "SELECT database, name, create_table_query"
+                        " FROM system.tables"
+                        " WHERE engine = 'Dictionary'"
+                    )
+                ):
+                    logger.debug(
+                        f"Dictionary DDL: {row['database']}.{row['name']}: "
+                        f"{row['create_table_query']}"
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to log debug info: {e}")
+
+            # Populate table level lineage for distributed tables
             self._populate_lineage_map(
-                query=table_lineage_query, lineage_type=LineageCollectorType.TABLE
+                query=distributed_lineage_query,
+                lineage_type=LineageCollectorType.TABLE,
             )
+
+            # Populate dictionary source lineage from DDL
+            try:
+                for row in engine.execute(
+                    text(
+                        "SELECT database, name, create_table_query"
+                        " FROM system.tables"
+                        " WHERE engine = 'Dictionary'"
+                        " AND create_table_query LIKE '%SOURCE(CLICKHOUSE(%'"
+                    )
+                ):
+                    ddl = row["create_table_query"]
+                    target_name = f"{row['database']}.{row['name']}"
+                    target_path = (
+                        f"{self.config.platform_instance + '.' if self.config.platform_instance else ''}"
+                        f"{target_name}"
+                    )
+                    sources: List[str] = []
+
+                    table_match = re.search(r"TABLE\s+'([^']+)'", ddl)
+                    if table_match:
+                        db_match = re.search(r"DB\s+'([^']+)'", ddl)
+                        db = db_match.group(1) if db_match else row["database"]
+                        sources.append(f"{db}.{table_match.group(1)}")
+                    else:
+                        query_match = re.search(
+                            r"(?<!INVALIDATE_)QUERY\s+'((?:[^'\\]|\\.)*)'", ddl
+                        )
+                        if query_match:
+                            try:
+                                query_sql = query_match.group(1).replace("\\'", "'")
+                                parsed = sqlglot.parse_one(
+                                    query_sql, dialect="clickhouse"
+                                )
+                                for table in parsed.find_all(sqlglot.exp.Table):
+                                    if table.db and table.name:
+                                        sources.append(f"{table.db}.{table.name}")
+                            except Exception as e:
+                                logger.debug(
+                                    f"Failed to parse dictionary QUERY for "
+                                    f"{row['database']}.{row['name']}: {e}"
+                                )
+
+                    if sources:
+                        target = self._lineage_map.get(target_path) or LineageItem(
+                            dataset=LineageDataset(
+                                platform=LineageDatasetPlatform.CLICKHOUSE,
+                                path=target_path,
+                            ),
+                            upstreams=set(),
+                            collector_type=LineageCollectorType.TABLE,
+                        )
+                        for source_path in sources:
+                            target.upstreams.add(
+                                LineageDataset(
+                                    platform=LineageDatasetPlatform.CLICKHOUSE,
+                                    path=source_path,
+                                )
+                            )
+                        self._lineage_map[target_path] = target
+            except Exception as e:
+                logger.warning(f"Failed to extract dictionary lineage: {e}")
 
         if self.config.include_views:
             # Populate table level lineage for views
