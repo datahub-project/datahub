@@ -22,3 +22,8 @@ datahub:
             capacity: 100
             refillTokens: 100
             refillPeriodSeconds: 60
+          getEntities:
+            capacity: 250
+            refillTokens: 50 # independent of capacity
+            exemptSystemActor: true
+            # refillPeriodSeconds omitted on purpose -> should default to 60

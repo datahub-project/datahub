@@ -86,4 +86,50 @@ public class RateLimitPropertiesEnvBindingTest {
     assertEquals(heavy.getCapacity(), 100);
     assertEquals(heavy.getRefillTokens(), 100);
   }
+
+  @Test
+  public void testHeavyResolversEmptyByDefaultWhenAbsent() {
+    // heavyResolvers is optional; when no block is present the map is empty (and non-null, so the
+    // scoped chain never NPEs looking one up).
+    Map<String, RateLimitProperties.BucketLimits> resolvers =
+        new RateLimitProperties.ScopedLimits().getHeavyResolvers();
+    assertTrue(resolvers.isEmpty());
+  }
+
+  @Test
+  public void testAllHeavyResolversBind() {
+    // Every entry in the map binds — not just the first.
+    Map<String, RateLimitProperties.BucketLimits> resolvers =
+        bindWithEnv(Map.of()).getScoped().getHeavyResolvers();
+    assertEquals(resolvers.size(), 2);
+    assertTrue(resolvers.containsKey("searchAcrossEntities"));
+    assertTrue(resolvers.containsKey("getEntities"));
+  }
+
+  @Test
+  public void testHeavyResolverPeriodDefaultsTo60WhenOmitted() {
+    // A resolver entry may omit refillPeriodSeconds; it must default to 60, not 0 (a 0-second
+    // period would be an invalid/degenerate bucket).
+    RateLimitProperties.BucketLimits heavy =
+        bindWithEnv(Map.of()).getScoped().getHeavyResolvers().get("getEntities");
+    assertEquals(heavy.getRefillPeriodSeconds(), 60);
+  }
+
+  @Test
+  public void testHeavyResolverRefillTokensIndependentOfCapacity() {
+    // Per-resolver capacity and refillTokens are independently configurable.
+    RateLimitProperties.BucketLimits heavy =
+        bindWithEnv(Map.of()).getScoped().getHeavyResolvers().get("getEntities");
+    assertEquals(heavy.getCapacity(), 250);
+    assertEquals(heavy.getRefillTokens(), 50);
+  }
+
+  @Test
+  public void testHeavyResolverExemptSystemActorBinds() {
+    // The optional exemptSystemActor flag binds per resolver, defaulting to false when unset.
+    Map<String, RateLimitProperties.BucketLimits> resolvers =
+        bindWithEnv(Map.of()).getScoped().getHeavyResolvers();
+    assertTrue(resolvers.get("getEntities").isExemptSystemActor());
+    assertFalse(resolvers.get("searchAcrossEntities").isExemptSystemActor());
+  }
 }

@@ -219,10 +219,10 @@ Per-actor bucket entries are stored under a composite Hazelcast key `{ruleId}:ac
 
 **Merge behavior when overriding via a mounted config file:**
 
-The policy file (`rate-limit-config.yaml`) is loaded by Spring as a property source, and a file mounted at `RATE_LIMITS_CONFIG_FILE` is layered on top of the bundled defaults (it must use a Spring resource prefix, e.g. `file:/etc/datahub/rate-limits.yaml`). Because this is Spring property binding rather than a wholesale Jackson overlay:
+Bundled defaults live in `application.yaml`. A file mounted at `RATE_LIMITS_CONFIG_FILE` is loaded by Spring as a property source and layered on top (it must use a Spring resource prefix, e.g. `file:/etc/datahub/rate-limits.yaml`). Because this is Spring property binding:
 
 - **Scalars and map entries** (e.g. the scoped bucket sizes, `scoped.heavyResolvers.*`) from the mounted file override or add to the bundled values key by key.
-- **Rule lists** (`capacity.rules`, `endpoint.rules`) are bound by index, not replaced wholesale — keep rule lists defined in a single source. The bundled file ships empty rule lists, so a mounted file that declares rules simply provides them.
+- **Rule lists** (`capacity.rules`, `endpoint.rules`) are bound by index, not replaced wholesale — keep rule lists defined in a single source. `application.yaml` ships empty rule lists, so a mounted file that declares rules simply provides them.
 
 ```yaml
 datahub:
@@ -265,7 +265,7 @@ datahub:
 
 ## Configuration reference
 
-Bundled defaults (toggles in `application.yaml`; policy — rule lists, scoped bucket sizes — in `rate-limit-config.yaml`). No per-actor endpoint rule ships; `endpoint.rules` is empty:
+Bundled defaults live entirely in `application.yaml` (every value env-overridable). No per-actor endpoint rule ships; `endpoint.rules` is empty:
 
 ```yaml
 rateLimits:
@@ -297,7 +297,7 @@ rateLimits:
   scoped:
     enabled: false # RATE_LIMITS_SCOPED_ENABLED
     refundDisabled: false # RATE_LIMITS_SCOPED_REFUND_DISABLED
-    # Bucket sizes (env-overridable per deployment) live in rate-limit-config.yaml:
+    # Bucket sizes (env-overridable per deployment):
     actor: { capacity: 2000, refillTokens: 2000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_ACTOR_CAPACITY
     browser: { capacity: 5000, refillTokens: 5000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_BROWSER_CAPACITY
     sdk: { capacity: 500, refillTokens: 500, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_SDK_CAPACITY
@@ -342,9 +342,9 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 
 ### Tier 2 — override policy file
 
-The bundled policy ships in `rate-limit-config.yaml`, which GMS loads as a Spring property source (so its `${ENV:default}` placeholders resolve). To override it per deployment, mount your own file and point `RATE_LIMITS_CONFIG_FILE` at it **with a Spring resource prefix** (e.g. `file:/etc/datahub/rate-limits.yaml`); it is layered on top of the bundled defaults. Override files use the full **`datahub.gms.rateLimits:`** path (the same keys Spring binds), not a bare `rateLimits:` fragment.
+Bundled defaults ship in `application.yaml` (Tier 1). To override them per deployment, mount your own file and point `RATE_LIMITS_CONFIG_FILE` at it **with a Spring resource prefix** (e.g. `file:/etc/datahub/rate-limits.yaml`); it is loaded as a property source and layered on top. When `RATE_LIMITS_CONFIG_FILE` is unset it resolves to the bundled `rate-limit-config.yaml`, which is empty and contributes nothing. Override files use the full **`datahub.gms.rateLimits:`** path (the same keys Spring binds), not a bare `rateLimits:` fragment.
 
-**Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (the bundled file ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map, which a scalar env var can't express.
+**Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (`application.yaml` ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map and rule lists, which a scalar env var can't express (and which are empty in the bundled defaults, so a mounted file simply provides them).
 
 ```yaml
 datahub:

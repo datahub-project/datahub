@@ -178,33 +178,64 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
-    # GMS HTTP service rate limiting — SWITCH PANEL (disabled by default).
-    # Only the on/off switches live here. The full policy — retry tuning, excludedPaths, tenantId,
-    # capacity limits, REST/auth rules, scoped bucket sizes, and the heavy-resolver map — lives in
-    # rate-limit-config.yaml, which CommonApplicationConfig @PropertySource's so it binds into the
-    # same datahub.gms.rateLimits.* tree and resolves ${ENV} placeholders.
-    # endpoint.enabled / scoped.enabled MUST stay here: the early Hazelcast bootstrap @Conditional
-    # reads them before the policy file's @PropertySource is guaranteed loaded.
-    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
-    # Guide: docs/deploy/gms-rate-limiting.md
+    # GMS HTTP API rate limiting (disabled by default; not MCP ingestion or Kafka lag throttle).
+    # Bundled defaults (Tier 1), all env-overridable. Optional mounted RATE_LIMITS_CONFIG_FILE
+    # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
+    # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
-      # Master kill switch for ALL rate limiting.
-      enabled: ${RATE_LIMITS_ENABLED:true}
-      # Allow requests through when a limiter throws unexpectedly.
+      enabled: ${RATE_LIMITS_ENABLED:true} # master kill switch
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
-      # Select rules by browser/non-browser class. Advisory; off by default.
-      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false}
-      # Adaptive in-flight limits (Gradient2, per-pod). Limits/pools are in rate-limit-config.yaml.
+      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
+      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      # Namespaces bucket keys ({tenantId}:actor:{urn}) so deployments sharing a store stay isolated; set to global.id.
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false} # select rules by browser/non-browser class
+      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
+      # Adaptive in-flight limits (Netflix Gradient2), per pod.
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
-      # Cluster-wide token buckets (Bucket4j/Hazelcast). Knobs/rules are in rate-limit-config.yaml.
+        default:
+          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
+          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
+        graphql:
+          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
+          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
+          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
+          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
+          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
+          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
+        rules: [] # per-path rules via mounted override
+      # Cluster-wide token buckets (Bucket4j) via Hazelcast.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
-      # Scoped chain (per-actor -> class -> fleet-global). Sizes/heavy resolvers are in
-      # rate-limit-config.yaml; only the switches are here.
+        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
+        rules: [] # per-path rules via mounted override
+      # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
+      # heavyResolvers is a per-resolver map, populated via the mounted override.
       scoped:
-        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:true}
         refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
+        actor:
+          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillPeriodSeconds: 60
+        browser:
+          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillPeriodSeconds: 60
+        sdk:
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
+          refillPeriodSeconds: 60
+        global:
+          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillPeriodSeconds: 60
+        heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 

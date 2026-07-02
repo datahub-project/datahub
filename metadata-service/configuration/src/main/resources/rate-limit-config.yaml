@@ -1,90 +1,12 @@
-# DataHub rate-limit POLICY (default, bundled) — loaded by Spring as a property source.
+# Optional rate-limit override (Tier 2) — intentionally empty.
 #
-# CommonApplicationConfig @PropertySource's this file, so it binds into datahub.gms.rateLimits.*
-# exactly like application.yaml — which means ${ENV:default} placeholders ARE resolved here. That is
-# what makes the policy per-tenant from a single shared file: each deployment sets the
-# RATE_LIMITS_SCOPED_* env vars (one file, different env → different limits), no per-tenant copy.
+# Defaults live in application.yaml. This is the fallback target when RATE_LIMITS_CONFIG_FILE is
+# unset (contributes nothing). Point RATE_LIMITS_CONFIG_FILE at a mounted file to override keys;
+# scalars/map entries overlay per key, rule lists are index-bound (bundled lists are empty). Example:
 #
-# What lives where, and why:
-#   - application.yaml keeps ONLY the switches (enabled / failOpen / clientClassEnabled / the three
-#     layer *.enabled / scoped.refundDisabled / metrics.detailed). endpoint.enabled and
-#     scoped.enabled must stay there because the early Hazelcast bootstrap @Conditional reads them
-#     before this file's @PropertySource is guaranteed loaded.
-#   - this file holds everything else — the values/policy: retry tuning, excludedPaths, tenantId,
-#     capacity limits/pools, endpoint Hazelcast knobs, REST/auth rule lists, scoped bucket sizes,
-#     and the heavy-resolver map. So "is a layer on?" -> application.yaml; "what are the numbers?"
-#     -> here.
-#
-# Per-customer heavy resolvers: mount a file at RATE_LIMITS_CONFIG_FILE; it is layered on top
-# (higher precedence — map entries like heavyResolvers merge, scalars override).
-datahub:
-  gms:
-    rateLimits:
-      # Retry-After behavior (capacity uses the minimum as-is; endpoint may return a longer wait).
-      minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
-      retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
-      excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      # Namespaces every tenant-scoped bucket key (e.g. {tenantId}:actor:{urn}) so a shared
-      # Hazelcast/ES store stays isolated across deployments. Set to the deployment's global.id.
-      # Empty = single un-namespaced scope (standalone OSS).
-      tenantId: ${RATE_LIMITS_TENANT_ID:}
-      # Adaptive in-flight (Gradient2) pools — per pod. Enforced only when capacity.enabled.
-      capacity:
-        default:
-          enabled: ${RATE_LIMITS_CAPACITY_DEFAULT_ENABLED:true}
-          initialLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT:200}
-          minLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT:20}
-          maxLimit: ${RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT:5000}
-        graphql:
-          enabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED:true}
-          pathPattern: ${RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN:/api/graphql}
-          operationRulesEnabled: ${RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED:true}
-          initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
-          minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
-          maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        # Per-path capacity (Gradient2) rules. Empty by default; enforced only when capacity.enabled.
-        rules: []
-      # Cluster-wide token buckets (Bucket4j/Hazelcast). The endpoint.enabled switch is in
-      # application.yaml; these knobs configure the Hazelcast bucket map (read by CacheConfig).
-      endpoint:
-        hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        # Idle eviction window (not TTL) for bucket entries in Hazelcast.
-        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
-        # LRU per-node backstop on bucket entry count.
-        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
-        # Per-path REST/auth token-bucket rules (e.g. signup, oauth register). Per-actor GraphQL
-        # throttling is NOT a rule — it's the scoped chain's actor bucket. Empty by default; enforced
-        # only when endpoint.enabled.
-        rules: []
-      # Scoped chain bucket SIZES (the toggles scoped.enabled / scoped.refundDisabled are in
-      # application.yaml). Each size is env-overridable per deployment; set `disabled: true` on a
-      # bucket to turn just that one off. Enforced only when scoped.enabled=true.
-      # NOTE: one env var per bucket drives BOTH capacity and refillTokens (so the bucket holds N
-      # tokens and refills N per period — a flat N/period rate). To set an independent refill rate
-      # (capacity != refillTokens), override the bucket in a mounted RATE_LIMITS_CONFIG_FILE.
-      scoped:
-        # Per-actor (tenant-scoped) — {tenantId}:actor:{urn}. Fairness; one actor can't flood.
-        actor:
-          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillPeriodSeconds: 60
-        # Browser class (tenant-scoped) — {tenantId}:browser. Generous; curated UI traffic.
-        browser:
-          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
-          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
-          refillPeriodSeconds: 60
-        # SDK class (tenant-scoped) — {tenantId}:sdk. Tight; programmatic/automation.
-        sdk:
-          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillTokens: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillPeriodSeconds: 60
-        # Fleet-wide ceiling (cross-tenant, shared map) — global. The only non-tenant bucket.
-        global:
-          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
-          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
-          refillPeriodSeconds: 60
-        # Per-resolver HEAVY buckets — {tenantId}:op:{resolver}, keyed by top-level GraphQL field
-        # name. Empty by default; add per-customer via a mounted RATE_LIMITS_CONFIG_FILE overlay:
-        #   datahub: { gms: { rateLimits: { scoped: { heavyResolvers:
-        #     searchAcrossEntities: { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 } } } } }
-        heavyResolvers: {}
+#   datahub:
+#     gms:
+#       rateLimits:
+#         scoped:
+#           heavyResolvers:
+#             searchAcrossEntities: { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 }

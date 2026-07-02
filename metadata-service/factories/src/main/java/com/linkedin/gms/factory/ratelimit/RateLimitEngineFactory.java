@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.ratelimit.RateLimitConfigValidator;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -15,10 +16,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
 
 @Slf4j
 @Configuration
+// Loads the optional operator override (Tier 2); defaults live in application.yaml. Declared on the
+// factory so it applies wherever the engine is built (GMS, datahub-upgrade).
+// RATE_LIMITS_CONFIG_FILE
+// is a Spring resource URI (e.g. file:/etc/datahub/rate-limits.yaml); when unset it resolves to the
+// bundled empty rate-limit-config.yaml. ignoreResourceNotFound tolerates a set-but-missing path.
+@PropertySource(
+    name = "rateLimitConfigOverride",
+    value = "${RATE_LIMITS_CONFIG_FILE:classpath:/rate-limit-config.yaml}",
+    ignoreResourceNotFound = true,
+    factory = YamlPropertySourceFactory.class)
 public class RateLimitEngineFactory {
 
   static final String CONFIG_FILE_ENV = "RATE_LIMITS_CONFIG_FILE";
