@@ -39,4 +39,18 @@ public class TimeseriesAspectServiceConfig {
    * single-URN path automatically.
    */
   @Builder.Default private int topHitsPerBucketLimit = 100;
+
+  /** Configuration for {@code batchGetAggregatedStats} outer-terms-bucket queries. */
+  @Builder.Default private BatchAggConfig batchAgg = new BatchAggConfig();
+
+  @Data
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class BatchAggConfig {
+    /**
+     * Maximum number of URNs per sub-batch ES query. Smaller values reduce peak ES heap pressure
+     * from the outer terms bucket; larger values reduce round-trips. Default: 50.
+     */
+    private int maxUrnsPerBatch = 50;
+  }
 }
