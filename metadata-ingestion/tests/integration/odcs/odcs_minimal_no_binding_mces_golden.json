@@ -1,0 +1,111 @@
+[
+{
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:odcs",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "odcs",
+            "displayName": "Open Data Contract Standard",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "assets/platforms/odcslogo.png"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000001.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000001",
+                "odcs.schemaName": "my_table",
+                "odcs.qualityRuleCount": "0",
+                "odcs.version": "1.0.0",
+                "odcs.apiVersion": "v3.1.0",
+                "odcs.status": "active",
+                "odcs.physicalName": "my_table",
+                "odcs.sourceFile": "odcs_minimal.odcs.yaml"
+            },
+            "name": "my_table",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000001.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "my_table",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": true
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000001.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_no_binding_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
