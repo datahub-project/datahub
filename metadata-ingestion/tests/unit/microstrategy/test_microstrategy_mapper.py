@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Type, TypeVar
+from typing import Dict, Iterable, Optional, Type, TypeVar
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -12,12 +12,15 @@ from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
+    MetricEnrichment,
     MSTRObject,
     ReportDefinition,
+    extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
+    ContainerClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
     InputFieldsClass,
@@ -117,6 +120,7 @@ def _mapper(
     emit_dashboard_dataset_edges: bool = False,
     extract_warehouse_lineage: bool = False,
     extract_report_sql_lineage: bool = False,
+    metric_glossary_term_mapping: Optional[Dict[str, str]] = None,
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
@@ -125,6 +129,7 @@ def _mapper(
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
             "extract_report_sql_lineage": extract_report_sql_lineage,
+            "metric_glossary_term_mapping": metric_glossary_term_mapping or {},
         }
     )
     return MicroStrategyMapper(config, MicroStrategyReport())
@@ -249,7 +254,7 @@ def test_report_chart_uses_report_source_dataset_inputs_and_fields() -> None:
             "availableObjects": report_definition.available_objects,
         }
     )
-    dataset_urn = mapper.lineage.report_source_dataset_urn(
+    dataset_urn = mapper.lineage.dataset_urn(
         "project-1",
         report_object.id,
         source_dataset,
@@ -707,8 +712,7 @@ def test_report_source_dataset_includes_model_fine_grained_lineage() -> None:
         }
     )
     upstream_dataset_urn = (
-        "urn:li:dataset:"
-        "(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
     )
     source_dataset.field_warehouse_upstreams = {
         "Revenue": [f"urn:li:schemaField:({upstream_dataset_urn},net_sales_amt)"]
@@ -741,7 +745,9 @@ def test_report_source_dataset_includes_model_fine_grained_lineage() -> None:
 def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    dashboard.datasets[0].available_objects["metrics"][0]["modelFactIds"] = ["fact-1"]
+    dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
+        fact_ids=["fact-1"]
+    )
     upstream_dataset_urn = (
         "urn:li:dataset:"
         "(urn:li:dataPlatform:snowflake,sales_db.orders.fact_orders,PROD)"
@@ -824,7 +830,9 @@ def test_dataset_workunits_include_model_fine_grained_lineage() -> None:
 def test_dataset_workunits_skip_model_lineage_without_dataset_sql_context() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    dashboard.datasets[0].available_objects["metrics"][0]["modelFactIds"] = ["fact-1"]
+    dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
+        fact_ids=["fact-1"]
+    )
     index = mapper.lineage.model_lineage_index_from_tables(
         [
             {
@@ -900,11 +908,11 @@ def test_dashboard_properties_include_direct_dependency_summary() -> None:
 def test_metric_expression_is_preserved_in_field_json_props() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    metric = dashboard.datasets[0].available_objects["metrics"][0]
-    metric["modelExpression"] = {
-        "text": "Sum(Revenue)",
-        "tokens": '[{"id": "fact-1", "name": "Revenue Fact", "type": "fact"}]',
-    }
+    dashboard.datasets[0].metric_enrichments["METRIC-1"] = MetricEnrichment(
+        expression_text="Sum(Revenue)",
+        expression_tokens='[{"id": "fact-1", "name": "Revenue Fact", "type": "fact"}]',
+        fact_ids=["FACT-1"],
+    )
 
     schema = _aspect(
         mapper.gen_dataset_workunits(
@@ -919,3 +927,59 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
 
     assert "microstrategyMetricExpressionText" in (revenue.jsonProps or "")
     assert "Revenue Fact" in (revenue.jsonProps or "")
+
+
+def test_extract_folder_parts_from_search_result_payloads() -> None:
+    assert extract_folder_parts({"location": "/Shared Reports/Finance"}) == [
+        "Shared Reports",
+        "Finance",
+    ]
+    assert extract_folder_parts({"folder": {"path": "/A/B"}}) == ["A", "B"]
+    assert extract_folder_parts({"name": "no folder info"}) == []
+
+
+def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:
+    mapper = _mapper()
+    dashboard_object = MSTRObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard", "location": "/A/B"}
+    )
+    project_urn = mapper.project_key("project-1").as_urn()
+    folder_a_key = mapper.folder_key("project-1", "A")
+    folder_ab_key = mapper.folder_key("project-1", "A/B")
+
+    workunits = list(mapper.gen_folder_containers("project-1", dashboard_object))
+    parents: Dict[str, str] = {}
+    for workunit in workunits:
+        container = workunit.get_aspect_of_type(ContainerClass)
+        if container:
+            parents[workunit.get_urn()] = container.container
+
+    assert parents[folder_a_key.as_urn()] == project_urn
+    assert parents[folder_ab_key.as_urn()] == folder_a_key.as_urn()
+    assert (
+        mapper.folder_container_for_dashboard("project-1", dashboard_object)
+        == folder_ab_key
+    )
+
+
+def test_metric_glossary_term_mapping_attaches_term_to_schema_field() -> None:
+    mapper = _mapper(
+        metric_glossary_term_mapping={"Revenue": "urn:li:glossaryTerm:Revenue"}
+    )
+    dashboard = _definition()
+
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        ),
+        SchemaMetadataClass,
+    )
+    revenue = next(field for field in schema.fields if field.fieldPath == "Revenue")
+
+    assert revenue.glossaryTerms is not None
+    assert [term.urn for term in revenue.glossaryTerms.terms] == [
+        "urn:li:glossaryTerm:Revenue"
+    ]

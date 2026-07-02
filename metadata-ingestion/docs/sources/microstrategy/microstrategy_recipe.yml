@@ -11,17 +11,17 @@ source:
     platform_instance: production
     env: PROD
 
-    project_pattern:
-      allow:
-        - ".*"
-
-    dashboard_pattern:
-      allow:
-        - "^Sales Performance$"
-
-    report_pattern:
-      allow:
-        - "^Sales Report$"
+    # Optional regex filters. All projects, dashboards, and reports are
+    # ingested by default; scope them like this when needed:
+    # project_pattern:
+    #   allow:
+    #     - "^Finance$"
+    # dashboard_pattern:
+    #   allow:
+    #     - "^Quarterly Business Review$"
+    # report_pattern:
+    #   deny:
+    #     - "^Scratch.*"
 
     extract_dashboards: true
     extract_charts: true
@@ -40,6 +40,11 @@ source:
     # field-level metric / attribute / fact lineage.
     extract_warehouse_lineage: false
     extract_report_sql_lineage: false
+
+    # If a warehouse (e.g. Snowflake) was ingested with a platform_instance,
+    # map it here so warehouse lineage URNs match that instance.
+    # warehouse_platform_instance_map:
+    #   snowflake: my_snowflake_instance
 
     # Disabled by default to keep DataHub lineage graphs focused on
     # dataset -> visualization edges.

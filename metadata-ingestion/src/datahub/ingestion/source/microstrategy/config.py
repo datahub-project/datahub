@@ -94,7 +94,11 @@ class MicroStrategyConfig(
     )
     folder_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns to filter folder containers by name.",
+        description=(
+            "Regex patterns to filter folder containers by name. When an "
+            "intermediate folder is denied, its children re-parent to the "
+            "nearest allowed ancestor rather than being dropped."
+        ),
     )
 
     include_hidden: bool = Field(
@@ -187,7 +191,10 @@ class MicroStrategyConfig(
         description=(
             "Whether to execute report SQL-view APIs and emit coarse table-level "
             "lineage from report source datasets to source warehouse datasets. "
-            "Disabled by default for the same reason as `extract_warehouse_lineage`."
+            "Disabled by default for the same reason as `extract_warehouse_lineage`. "
+            "Field-level model lineage for report source datasets also requires "
+            "this flag, because model lineage only attaches to datasets with "
+            "known warehouse upstreams."
         ),
     )
     warehouse_lineage_sql_timeout_seconds: int = Field(
@@ -217,11 +224,13 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
-    prefer_embedded_dataset_schema: bool = Field(
-        default=True,
+    warehouse_platform_instance_map: Dict[str, str] = Field(
+        default_factory=dict,
         description=(
-            "Use datasets embedded in dossier/document definitions as the primary "
-            "schema source. This is the most reliable path for dashboard datasets."
+            "Optional mapping from warehouse platform name (for example `snowflake`) "
+            "to the DataHub platform instance used when that warehouse was ingested. "
+            "Required for warehouse lineage URNs to match when the warehouse source "
+            "uses a `platform_instance`."
         ),
     )
 

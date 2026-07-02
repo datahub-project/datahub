@@ -1284,7 +1284,9 @@ metabase = [
     { name = "sqlglot", extra = ["c"] },
 ]
 microstrategy = [
+    { name = "patchy" },
     { name = "requests" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 mlflow = [
     { name = "mlflow-skinny" },
@@ -2575,6 +2577,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'mariadb'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'matillion-dpc'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'metabase'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'microstrategy'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'mode'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'mssql'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'mssql-odbc'", specifier = "==2.8.0" },
@@ -3082,6 +3085,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mariadb'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'matillion-dpc'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'metabase'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'microstrategy'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mode'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql-odbc'", specifier = "==30.8.0" },

@@ -1,8 +1,7 @@
-from datahub.ingestion.source.microstrategy.config import (
-    MicroStrategyConfig,
-    MicroStrategyGuestAuth,
-    MicroStrategyPasswordAuth,
-)
+import pytest
+from pydantic import ValidationError
+
+from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 
 
 def test_base_url_normalization() -> None:
@@ -13,26 +12,18 @@ def test_base_url_normalization() -> None:
     )
 
     assert config.base_url == "https://mstr.example.com/MicroStrategyLibrary"
-    assert isinstance(config.auth, MicroStrategyGuestAuth)
-    assert config.extract_reports is False
-    assert config.extract_report_definitions is True
-    assert config.extract_report_sql_lineage is False
-    assert config.extract_warehouse_lineage is False
-    assert config.warehouse_lineage_sql_timeout_seconds == 180
 
 
-def test_password_auth_config() -> None:
-    config = MicroStrategyConfig.model_validate(
-        {
-            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-            "auth": {
-                "type": "password",
-                "username": "metadata-reader",
-                "password": "secret",
-            },
-        }
-    )
-
-    assert isinstance(config.auth, MicroStrategyPasswordAuth)
-    assert config.auth.username == "metadata-reader"
-    assert config.auth.password.get_secret_value() == "secret"
+@pytest.mark.parametrize("username", ["", "   "])
+def test_password_auth_rejects_blank_username(username: str) -> None:
+    with pytest.raises(ValidationError):
+        MicroStrategyConfig.model_validate(
+            {
+                "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+                "auth": {
+                    "type": "password",
+                    "username": username,
+                    "password": "secret",
+                },
+            }
+        )

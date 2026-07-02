@@ -24,6 +24,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceReference,
     Visualization,
 )
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -53,7 +54,6 @@ class ModelLineageIndex:
     fact_upstreams: Dict[str, List[ModelFieldLineage]]
     attribute_upstreams: Dict[str, List[ModelFieldLineage]]
     attribute_form_upstreams: Dict[Tuple[str, str], List[ModelFieldLineage]]
-    table_count: int = 0
 
     def fact_field_urns(self, fact_ids: Iterable[str]) -> List[str]:
         upstreams: List[str] = []
@@ -91,33 +91,22 @@ class ModelLineageIndex:
 
 
 class MicroStrategyLineageExtractor:
-    def __init__(self, config: MicroStrategyConfig):
+    def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
         self.config = config
+        self.report = report
 
     def dataset_urn(
         self,
         project_id: str,
-        dashboard_id: str,
+        parent_id: str,
         dataset: DatasetObject,
     ) -> str:
+        """URN for a MicroStrategy dataset scoped to its parent dashboard or report."""
         return make_dataset_urn_with_platform_instance(
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            name=f"{project_id}.{dashboard_id}.{dataset.id}".lower(),
-        )
-
-    def report_source_dataset_urn(
-        self,
-        project_id: str,
-        report_id: str,
-        dataset: DatasetObject,
-    ) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            name=f"{project_id}.{report_id}.{dataset.id}".lower(),
+            name=f"{project_id}.{parent_id}.{dataset.id}".lower(),
         )
 
     def visualization_inputs(
@@ -189,11 +178,13 @@ class MicroStrategyLineageExtractor:
         if not sql.strip():
             return []
 
-        try:
-            from datahub.sql_parsing.sqlglot_lineage import (
-                create_lineage_sql_parsed_result,
-            )
+        # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
+        # which is expensive to import and only needed for opt-in SQL lineage.
+        from datahub.sql_parsing.sqlglot_lineage import (
+            create_lineage_sql_parsed_result,
+        )
 
+        try:
             parsed = create_lineage_sql_parsed_result(
                 query=sql,
                 default_db=context.database,
@@ -205,19 +196,31 @@ class MicroStrategyLineageExtractor:
                 override_dialect=_sqlglot_dialect(context.platform),
                 generate_column_lineage=False,
             )
-            if parsed.in_tables:
-                return sorted(set(parsed.in_tables))
-        except Exception:
-            logger.debug(
-                "Falling back to MicroStrategy SQL-view table extraction",
-                exc_info=True,
-            )
+        except Exception as error:
+            self._report_sql_parse_failure(sql, context, error)
+            return []
+        if parsed.debug_info.table_error is not None:
+            self._report_sql_parse_failure(sql, context, parsed.debug_info.table_error)
+            return []
+        return sorted(set(parsed.in_tables))
 
-        return sorted(
-            {
-                self.warehouse_dataset_urn(context, table_name)
-                for table_name in extract_tables_from_sql(sql)
-            }
+    def _report_sql_parse_failure(
+        self,
+        sql: str,
+        context: WarehouseLineageContext,
+        error: Exception,
+    ) -> None:
+        self.report.report_sql_parse_failure(
+            f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}"
+        )
+        self.report.warning(
+            title="Failed to parse MicroStrategy SQL view",
+            message=(
+                "The SQL returned by a MicroStrategy SQL-view API could not be "
+                "parsed; warehouse lineage for this dataset was skipped."
+            ),
+            context=f"platform={context.platform}",
+            exc=error,
         )
 
     def model_lineage_index_from_tables(
@@ -290,7 +293,6 @@ class MicroStrategyLineageExtractor:
             fact_upstreams=fact_upstreams,
             attribute_upstreams=attribute_upstreams,
             attribute_form_upstreams=attribute_form_upstreams,
-            table_count=len(model_tables),
         )
 
     @staticmethod
@@ -365,11 +367,17 @@ def datahub_platform_for_source_type(*values: Optional[str]) -> Optional[str]:
 def warehouse_context_from_datasources(
     datasources: List[Datasource],
     env: str,
+    platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Optional[WarehouseLineageContext]:
     contexts = {
         context
         for datasource in datasources
-        if (context := warehouse_context_from_datasource(datasource, env)) is not None
+        if (
+            context := warehouse_context_from_datasource(
+                datasource, env, platform_instance_map
+            )
+        )
+        is not None
     }
     if len(contexts) == 1:
         return next(iter(contexts))
@@ -379,6 +387,7 @@ def warehouse_context_from_datasources(
 def warehouse_context_from_datasource(
     datasource: DatasourceReference,
     env: str,
+    platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Optional[WarehouseLineageContext]:
     platform = datahub_platform_for_datasource(datasource)
     if not platform:
@@ -386,6 +395,7 @@ def warehouse_context_from_datasource(
     return WarehouseLineageContext(
         platform=platform,
         env=env,
+        platform_instance=(platform_instance_map or {}).get(platform),
         database=datasource.database_name,
         schema=datasource.schema_name,
     )
@@ -394,9 +404,15 @@ def warehouse_context_from_datasource(
 def matching_datasource_for_context(
     datasources: List[Datasource],
     context: WarehouseLineageContext,
+    platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Optional[Datasource]:
     for datasource in datasources:
-        if warehouse_context_from_datasource(datasource, context.env) == context:
+        if (
+            warehouse_context_from_datasource(
+                datasource, context.env, platform_instance_map
+            )
+            == context
+        ):
             return datasource
     return None
 
@@ -404,11 +420,16 @@ def matching_datasource_for_context(
 def warehouse_context_with_connection(
     context: WarehouseLineageContext,
     connection: DatasourceConnection,
+    platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> WarehouseLineageContext:
+    platform = datahub_platform_for_connection(connection) or context.platform
+    platform_instance = (platform_instance_map or {}).get(
+        platform, context.platform_instance
+    )
     return WarehouseLineageContext(
-        platform=datahub_platform_for_connection(connection) or context.platform,
+        platform=platform,
         env=context.env,
-        platform_instance=context.platform_instance,
+        platform_instance=platform_instance,
         database=connection.database_name or context.database,
         schema=connection.schema_name or context.schema,
     )
@@ -438,26 +459,6 @@ def sql_view_dataset_name(entry: Dict[str, object]) -> Optional[str]:
     return None
 
 
-def extract_tables_from_sql(sql: str) -> List[str]:
-    if not sql.strip():
-        return []
-
-    cte_names = _extract_cte_names(sql)
-    tables: Set[str] = set()
-    for match in _TABLE_REFERENCE_PATTERN.finditer(sql):
-        reference = match.group("reference")
-        if reference.startswith("("):
-            continue
-        parts = _identifier_parts(reference)
-        if not parts:
-            continue
-        table_name = ".".join(parts)
-        if _is_ignored_table_name(table_name, cte_names):
-            continue
-        tables.add(table_name)
-    return sorted(tables)
-
-
 def qualify_table_name(
     table_name: str,
     database: Optional[str] = None,
@@ -475,36 +476,36 @@ def qualify_table_name(
 
 
 def metric_fact_ids_from_model(model: Dict[str, object]) -> List[str]:
-    fact_ids: Set[str] = set()
-    for target in _expression_targets(model):
-        subtype = str(target.get("subType") or target.get("subtype") or "").lower()
-        if subtype == "fact":
-            object_id = _object_id(target)
-            if object_id:
-                fact_ids.add(_normalize_object_id(object_id))
-    return sorted(fact_ids)
+    return _expression_target_ids(model, "fact")
 
 
 def metric_metric_ids_from_model(model: Dict[str, object]) -> List[str]:
-    metric_ids: Set[str] = set()
+    return _expression_target_ids(model, "metric")
+
+
+def _expression_target_ids(model: Dict[str, object], subtype: str) -> List[str]:
+    object_ids: Set[str] = set()
     for target in _expression_targets(model):
-        subtype = str(target.get("subType") or target.get("subtype") or "").lower()
-        if subtype == "metric":
+        target_subtype = str(
+            target.get("subType") or target.get("subtype") or ""
+        ).lower()
+        if target_subtype == subtype:
             object_id = _object_id(target)
             if object_id:
-                metric_ids.add(_normalize_object_id(object_id))
-    return sorted(metric_ids)
+                object_ids.add(_normalize_object_id(object_id))
+    return sorted(object_ids)
 
 
+# Generic BI vocabulary excluded from the name-token overlap heuristic used to
+# infer visualization -> dataset lineage. Only genuinely non-discriminating
+# words belong here; business terms (e.g. "SALES") must NOT be added because
+# they legitimately distinguish datasets on real tenants.
 _LINEAGE_STOP_WORDS = {
     "AND",
     "DASHBOARD",
     "DATA",
     "DATASET",
     "REPORT",
-    "SALES",
-    "SALON",
-    "SERVICE",
     "TOTAL",
     "VISUALIZATION",
 }
@@ -592,6 +593,11 @@ def _expression_targets(model: Dict[str, object]) -> List[Dict[str, object]]:
         value = token.get("value")
         if isinstance(value, dict):
             targets.append(value)
+            continue
+        # Some MicroStrategy versions inline the object reference directly on
+        # the token instead of nesting it under target/value.
+        if token.get("objectId") or token.get("id"):
+            targets.append(token)
     return targets
 
 
@@ -651,34 +657,6 @@ def _dedupe_sorted(values: Iterable[str]) -> List[str]:
     return sorted(set(values))
 
 
-def _extract_cte_names(sql: str) -> Set[str]:
-    cte_names: Set[str] = set()
-    for match in re.finditer(
-        r"(?:with|,)\s+(?P<name>[A-Za-z_][\w$#]*)\s+as\s*\(",
-        sql,
-        re.IGNORECASE,
-    ):
-        cte_names.add(match.group("name").lower())
-    return cte_names
-
-
-def _identifier_parts(reference: str) -> List[str]:
-    parts: List[str] = []
-    for match in _IDENTIFIER_PATTERN.finditer(reference):
-        value = next(group for group in match.groups() if group)
-        parts.append(value)
-    return parts
-
-
-def _is_ignored_table_name(table_name: str, cte_names: Set[str]) -> bool:
-    lowered = table_name.lower()
-    if lowered in _SQL_KEYWORDS or lowered in cte_names:
-        return True
-    if "." in table_name:
-        return False
-    return bool(_VOLATILE_TABLE_PATTERN.match(table_name.upper()))
-
-
 _MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM = {
     "athena": "athena",
     "big_query": "bigquery",
@@ -714,33 +692,57 @@ _DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT = {
     "teradata": "teradata",
 }
 
+# Keywords and function names excluded when extracting column identifiers from
+# model expression text (e.g. `SUM(QTY_SOLD * UNIT_PRICE)` must yield only the
+# column names, never the function tokens).
 _SQL_KEYWORDS = {
+    "abs",
+    "and",
     "as",
+    "avg",
+    "between",
+    "case",
+    "cast",
+    "coalesce",
+    "count",
     "cross",
     "delete",
+    "distinct",
+    "else",
+    "end",
+    "first",
     "full",
     "group",
     "having",
+    "if",
+    "in",
     "inner",
     "into",
+    "is",
     "join",
+    "last",
     "left",
+    "max",
+    "median",
+    "min",
+    "not",
+    "null",
+    "nullif",
     "on",
+    "or",
     "order",
     "outer",
     "right",
+    "round",
     "select",
     "set",
+    "stdev",
+    "sum",
+    "then",
+    "trunc",
     "update",
+    "var",
+    "when",
     "where",
     "with",
 }
-
-_IDENTIFIER = r"(?:\"([^\"]+)\"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][\w$#]*))"
-_IDENTIFIER_PATH = rf"{_IDENTIFIER}(?:\s*\.\s*{_IDENTIFIER}){{0,2}}"
-_TABLE_REFERENCE_PATTERN = re.compile(
-    rf"\b(?:from|join)\s+(?P<reference>{_IDENTIFIER_PATH}|\()",
-    re.IGNORECASE,
-)
-_IDENTIFIER_PATTERN = re.compile(_IDENTIFIER)
-_VOLATILE_TABLE_PATTERN = re.compile(r"^T[A-Z0-9]{10,}$")

@@ -776,7 +776,9 @@ metabase = [
 ]
 
 microstrategy = [
+    "patchy==2.8.0",
     "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
 ]
 
 mlflow = [

@@ -721,7 +721,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
-    "microstrategy": {"requests<3.0.0"},
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -988,6 +988,7 @@ base_dev_requirements = {
             "feast",
             "iceberg",
             "iceberg-catalog",
+            "microstrategy",
             "mlflow",
             "mongodb",
             "json-schema",

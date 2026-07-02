@@ -1,7 +1,19 @@
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import (
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -28,6 +40,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceReference,
     FolderKey,
+    MetricEnrichment,
     MSTRObject,
     Project,
     ProjectKey,
@@ -62,25 +75,28 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    StatusClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 class MicroStrategyMapper:
     def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
         self.config = config
         self.report = report
-        self.lineage = MicroStrategyLineageExtractor(config)
+        self.lineage = MicroStrategyLineageExtractor(config, report)
 
     def project_key(self, project_id: str) -> ProjectKey:
         return ProjectKey(
             platform=self.config.platform,
             instance=self.config.platform_instance,
+            env=self.config.env,
             project_id=project_id,
         )
 
@@ -88,6 +104,7 @@ class MicroStrategyMapper:
         return FolderKey(
             platform=self.config.platform,
             instance=self.config.platform_instance,
+            env=self.config.env,
             project_id=project_id,
             folder_path=folder_path,
         )
@@ -153,7 +170,7 @@ class MicroStrategyMapper:
         project_id: str,
         dashboard_object: MSTRObject,
     ) -> Iterable[MetadataWorkUnit]:
-        _, parts = extract_folder_parts(dashboard_object.model_dump())
+        parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
         current_path = ""
         for part in parts:
@@ -173,7 +190,7 @@ class MicroStrategyMapper:
     def folder_container_for_dashboard(
         self, project_id: str, dashboard_object: MSTRObject
     ) -> ProjectKey:
-        _, parts = extract_folder_parts(dashboard_object.model_dump())
+        parts = extract_folder_parts(dashboard_object.model_dump())
         allowed_parts = [
             part for part in parts if self.config.folder_pattern.allowed(part)
         ]
@@ -188,93 +205,17 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         parent_key: ProjectKey,
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_dataset_scanned()
-        dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.config.platform),
-                instance=(
-                    builder.make_dataplatform_instance_urn(
-                        self.config.platform,
-                        self.config.platform_instance,
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
+        yield from self._gen_dataset_entity_workunits(
+            project_id=project_id,
+            parent_id=dashboard.id,
+            dataset=dataset,
+            parent_key=parent_key,
+            custom_properties=self._dataset_custom_properties(
+                project_id=project_id,
+                dashboard=dashboard,
+                dataset=dataset,
             ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DatasetPropertiesClass(
-                name=dataset.name,
-                description=dataset.description,
-                qualifiedName=f"{project_id}.{dashboard.id}.{dataset.id}".lower(),
-                externalUrl=f"{self.config.base_url}/app/{project_id}/{dashboard.id}",
-                customProperties=self._dataset_custom_properties(
-                    project_id=project_id,
-                    dashboard=dashboard,
-                    dataset=dataset,
-                ),
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.MICROSTRATEGY_DATASET]),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SchemaMetadataClass(
-                schemaName=dataset.name,
-                platform=builder.make_data_platform_urn(self.config.platform),
-                version=0,
-                hash="",
-                platformSchema=OtherSchemaClass(rawSchema=""),
-                fields=self._schema_fields(dataset),
-            ),
-        ).as_workunit()
-        fine_grained_lineages = self._fine_grained_lineages(dataset_urn, dataset)
-        if fine_grained_lineages:
-            self.report.report_model_lineage_edges(len(fine_grained_lineages))
-        coarse_upstream_urns = (
-            sorted(set(dataset.warehouse_upstream_urns))
-            if self.config.extract_warehouse_lineage
-            else []
-        )
-        if coarse_upstream_urns:
-            self.report.report_warehouse_lineage_edges(len(coarse_upstream_urns))
-        upstream_urns = sorted(
-            set(coarse_upstream_urns).union(
-                upstream_urn
-                for upstreams in dataset.field_warehouse_upstreams.values()
-                for field_urn in upstreams
-                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
-                if upstream_urn
-            )
-        )
-        if upstream_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=upstream_urn,
-                            type=DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                        for upstream_urn in upstream_urns
-                    ],
-                    fineGrainedLineages=fine_grained_lineages or None,
-                ),
-            ).as_workunit()
-        yield from add_entity_to_container(
-            container_key=parent_key,
-            entity_type="dataset",
-            entity_urn=dataset_urn,
+            include_coarse_lineage=self.config.extract_warehouse_lineage,
         )
 
     def gen_report_source_dataset_workunits(
@@ -284,43 +225,40 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         parent_key: ProjectKey,
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_dataset_scanned()
-        dataset_urn = self.lineage.report_source_dataset_urn(
-            project_id,
-            report_object.id,
-            dataset,
+        yield from self._gen_dataset_entity_workunits(
+            project_id=project_id,
+            parent_id=report_object.id,
+            dataset=dataset,
+            parent_key=parent_key,
+            custom_properties=self._report_source_dataset_custom_properties(
+                project_id=project_id,
+                report_object=report_object,
+                dataset=dataset,
+            ),
+            include_coarse_lineage=self.config.extract_report_sql_lineage,
         )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.config.platform),
-                instance=(
-                    builder.make_dataplatform_instance_urn(
-                        self.config.platform,
-                        self.config.platform_instance,
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
+    def _gen_dataset_entity_workunits(
+        self,
+        project_id: str,
+        parent_id: str,
+        dataset: DatasetObject,
+        parent_key: ProjectKey,
+        custom_properties: Dict[str, str],
+        include_coarse_lineage: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_dataset_scanned()
+        dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
+
+        yield self._platform_instance_workunit(dataset_urn)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
                 name=dataset.name,
                 description=dataset.description,
-                qualifiedName=f"{project_id}.{report_object.id}.{dataset.id}".lower(),
-                externalUrl=f"{self.config.base_url}/app/{project_id}/{report_object.id}",
-                customProperties=self._report_source_dataset_custom_properties(
-                    project_id=project_id,
-                    report_object=report_object,
-                    dataset=dataset,
-                ),
+                qualifiedName=f"{project_id}.{parent_id}.{dataset.id}".lower(),
+                externalUrl=f"{self.config.base_url}/app/{project_id}/{parent_id}",
+                customProperties=custom_properties,
             ),
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
@@ -343,19 +281,14 @@ class MicroStrategyMapper:
             self.report.report_model_lineage_edges(len(fine_grained_lineages))
         coarse_upstream_urns = (
             sorted(set(dataset.warehouse_upstream_urns))
-            if self.config.extract_report_sql_lineage
+            if include_coarse_lineage
             else []
         )
         if coarse_upstream_urns:
             self.report.report_warehouse_lineage_edges(len(coarse_upstream_urns))
         upstream_urns = sorted(
-            set(coarse_upstream_urns).union(
-                upstream_urn
-                for upstreams in dataset.field_warehouse_upstreams.values()
-                for field_urn in upstreams
-                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
-                if upstream_urn
-            )
+            set(coarse_upstream_urns)
+            | _upstream_dataset_urns(dataset.field_warehouse_upstreams)
         )
         if upstream_urns:
             yield MetadataChangeProposalWrapper(
@@ -376,6 +309,22 @@ class MicroStrategyMapper:
             entity_type="dataset",
             entity_urn=dataset_urn,
         )
+
+    def _platform_instance_workunit(self, entity_urn: str) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=builder.make_data_platform_urn(self.config.platform),
+                instance=(
+                    builder.make_dataplatform_instance_urn(
+                        self.config.platform,
+                        self.config.platform_instance,
+                    )
+                    if self.config.platform_instance
+                    else None
+                ),
+            ),
+        ).as_workunit()
 
     def gen_report_workunits(
         self,
@@ -390,7 +339,7 @@ class MicroStrategyMapper:
         report_urn = self.report_urn(project_id, report_object.id)
         input_urn: Optional[str] = None
         if self.config.extract_lineage and source_dataset is not None:
-            input_urn = self.lineage.report_source_dataset_urn(
+            input_urn = self.lineage.dataset_urn(
                 project_id,
                 report_object.id,
                 source_dataset,
@@ -400,24 +349,7 @@ class MicroStrategyMapper:
         if inputs:
             self.report.report_chart_lineage_edges(len(inputs))
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=report_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.config.platform),
-                instance=(
-                    builder.make_dataplatform_instance_urn(
-                        self.config.platform,
-                        self.config.platform_instance,
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=report_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
+        yield self._platform_instance_workunit(report_urn)
         yield MetadataChangeProposalWrapper(
             entityUrn=report_urn,
             aspect=ChartInfoClass(
@@ -482,24 +414,7 @@ class MicroStrategyMapper:
         elif visualization.datasets:
             self.report.report_unresolved_visualization()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=chart_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.config.platform),
-                instance=(
-                    builder.make_dataplatform_instance_urn(
-                        self.config.platform,
-                        self.config.platform_instance,
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=chart_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
+        yield self._platform_instance_workunit(chart_urn)
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=ChartInfoClass(
@@ -546,7 +461,7 @@ class MicroStrategyMapper:
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dashboard_scanned()
         dashboard_urn = self.dashboard_urn(project_id, dashboard.id)
-        chart_urns = _dedupe_preserving_order(
+        chart_urns = deduplicate_list(
             [
                 self.chart_urn(project_id, dashboard.id, visualization.key)
                 for visualization in dashboard.visualizations
@@ -575,24 +490,7 @@ class MicroStrategyMapper:
         if dashboard_dataset_edges:
             self.report.report_dashboard_dataset_edges(len(dashboard_dataset_edges))
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn,
-            aspect=DataPlatformInstanceClass(
-                platform=builder.make_data_platform_urn(self.config.platform),
-                instance=(
-                    builder.make_dataplatform_instance_urn(
-                        self.config.platform,
-                        self.config.platform_instance,
-                    )
-                    if self.config.platform_instance
-                    else None
-                ),
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
+        yield self._platform_instance_workunit(dashboard_urn)
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=DashboardInfoClass(
@@ -648,61 +546,49 @@ class MicroStrategyMapper:
     ) -> Tuple[List[SchemaFieldClass], Dict[str, List[SchemaFieldClass]]]:
         fields: List[SchemaFieldClass] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
-        seen: Set[str] = set()
-        available_objects = dataset.available_objects or {}
-        metrics = _coerce_list(available_objects.get("metrics"))
-        attributes = _coerce_list(available_objects.get("attributes"))
 
-        for metric in metrics:
-            if not isinstance(metric, dict):
-                continue
-            name = _field_name(metric)
-            field_path = _dedupe_field_path(name, seen)
-            field = self._make_schema_field(
-                field_path=field_path,
-                native_type=_field_native_type(metric) or "Metric",
-                description=metric.get("description"),
-                tag_urns=[MEASURE_TAG_URN]
-                if self.config.tag_measures_and_dimensions
-                else [],
-                json_props={
-                    "microstrategyObjectId": str(metric.get("id", "")),
-                    "microstrategyObjectType": "metric",
-                    **_metric_expression_json_props(metric),
-                },
-                glossary_term_urn=self._term_for(
-                    metric, self.config.metric_glossary_term_mapping
-                ),
-                numeric=True,
-            )
-            fields.append(field)
-            _add_schema_field_object_mapping(fields_by_object_id, metric, field)
-            if report_fields:
-                self.report.report_metric_field()
-
-        for attribute in attributes:
-            if not isinstance(attribute, dict):
-                continue
-            forms = _coerce_list(attribute.get("forms"))
-            if not forms:
-                forms = [attribute]
-            for form in forms:
-                if not isinstance(form, dict):
-                    continue
-                field_path = _attribute_field_path(attribute, form, len(forms))
-                field_path = _dedupe_field_path(field_path, seen)
-                temporal = _is_temporal(form) or _is_temporal(attribute)
+        for spec in _iter_dataset_fields(dataset):
+            if spec.kind == "metric":
+                metric = spec.item
+                enrichment = _metric_enrichment_for(dataset, metric)
+                schema_field = self._make_schema_field(
+                    field_path=spec.field_path,
+                    native_type=_field_native_type(metric) or "Metric",
+                    description=_optional_str(metric.get("description")),
+                    tag_urns=[MEASURE_TAG_URN]
+                    if self.config.tag_measures_and_dimensions
+                    else [],
+                    json_props={
+                        "microstrategyObjectId": str(metric.get("id", "")),
+                        "microstrategyObjectType": "metric",
+                        **_metric_expression_json_props(enrichment),
+                    },
+                    glossary_term_urn=self._term_for(
+                        metric, self.config.metric_glossary_term_mapping
+                    ),
+                    numeric=True,
+                )
+                fields.append(schema_field)
+                _add_schema_field_object_mapping(
+                    fields_by_object_id, metric, schema_field
+                )
+                if report_fields:
+                    self.report.report_metric_field()
+            else:
+                attribute = spec.item
+                form = spec.form or attribute
                 tag_urns: List[str] = []
                 if self.config.tag_measures_and_dimensions:
                     tag_urns.append(DIMENSION_TAG_URN)
-                    if temporal:
+                    if spec.temporal:
                         tag_urns.append(TEMPORAL_TAG_URN)
-                field = self._make_schema_field(
-                    field_path=field_path,
+                schema_field = self._make_schema_field(
+                    field_path=spec.field_path,
                     native_type=_field_native_type(form)
                     or _field_native_type(attribute)
                     or "Attribute",
-                    description=form.get("description") or attribute.get("description"),
+                    description=_optional_str(form.get("description"))
+                    or _optional_str(attribute.get("description")),
                     tag_urns=tag_urns,
                     json_props={
                         "microstrategyObjectId": str(attribute.get("id", "")),
@@ -717,11 +603,15 @@ class MicroStrategyMapper:
                         fallback=attribute,
                     ),
                 )
-                fields.append(field)
-                _add_schema_field_object_mapping(fields_by_object_id, attribute, field)
-                _add_schema_field_object_mapping(fields_by_object_id, form, field)
+                fields.append(schema_field)
+                _add_schema_field_object_mapping(
+                    fields_by_object_id, attribute, schema_field
+                )
+                _add_schema_field_object_mapping(
+                    fields_by_object_id, form, schema_field
+                )
                 if report_fields:
-                    self.report.report_attribute_field(temporal=temporal)
+                    self.report.report_attribute_field(temporal=spec.temporal)
 
         return sorted(fields, key=lambda field: field.fieldPath), fields_by_object_id
 
@@ -746,24 +636,10 @@ class MicroStrategyMapper:
                 continue
             _, fields_by_object_id = self._schema_fields_and_object_map(dataset)
             for object_id in visualization_object_ids:
-                for field in fields_by_object_id.get(object_id, []):
-                    schema_field_urn = builder.make_schema_field_urn(
-                        dataset_urn,
-                        field.fieldPath,
-                    )
-                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
-                        schemaFieldUrn=schema_field_urn,
-                        schemaField=field,
-                    )
+                for schema_field in fields_by_object_id.get(object_id, []):
+                    _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
-        if not input_fields_by_urn:
-            return None
-        return InputFieldsClass(
-            fields=[
-                input_fields_by_urn[schema_field_urn]
-                for schema_field_urn in sorted(input_fields_by_urn)
-            ]
-        )
+        return _input_fields_aspect(input_fields_by_urn)
 
     def _dataset_input_fields(
         self,
@@ -778,34 +654,13 @@ class MicroStrategyMapper:
                 _normalize_object_id(object_id) for object_id in object_ids
             }
             for object_id in normalized_object_ids:
-                for field in fields_by_object_id.get(object_id, []):
-                    schema_field_urn = builder.make_schema_field_urn(
-                        dataset_urn,
-                        field.fieldPath,
-                    )
-                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
-                        schemaFieldUrn=schema_field_urn,
-                        schemaField=field,
-                    )
+                for schema_field in fields_by_object_id.get(object_id, []):
+                    _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
         else:
-            for field in fields:
-                schema_field_urn = builder.make_schema_field_urn(
-                    dataset_urn,
-                    field.fieldPath,
-                )
-                input_fields_by_urn[schema_field_urn] = InputFieldClass(
-                    schemaFieldUrn=schema_field_urn,
-                    schemaField=field,
-                )
+            for schema_field in fields:
+                _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
-        if not input_fields_by_urn:
-            return None
-        return InputFieldsClass(
-            fields=[
-                input_fields_by_urn[schema_field_urn]
-                for schema_field_urn in sorted(input_fields_by_urn)
-            ]
-        )
+        return _input_fields_aspect(input_fields_by_urn)
 
     def _model_field_upstreams(
         self,
@@ -817,37 +672,21 @@ class MicroStrategyMapper:
             return {}
 
         field_upstreams: Dict[str, List[str]] = {}
-        seen: Set[str] = set()
-        available_objects = dataset.available_objects or {}
-
-        for metric in _coerce_list(available_objects.get("metrics")):
-            if not isinstance(metric, dict):
-                continue
-            field_path = _dedupe_field_path(_field_name(metric), seen)
-            fact_ids = [
-                str(fact_id)
-                for fact_id in _coerce_list(metric.get("modelFactIds"))
-                if fact_id
-            ]
-            upstreams = _filter_schema_field_upstreams(
-                model_lineage_index.fact_field_urns(fact_ids),
-                allowed_upstream_urns,
-            )
-            if upstreams:
-                field_upstreams[field_path] = upstreams
-
-        for attribute in _coerce_list(available_objects.get("attributes")):
-            if not isinstance(attribute, dict):
-                continue
-            attribute_id = str(attribute.get("id") or attribute.get("objectId") or "")
-            forms = _coerce_list(attribute.get("forms"))
-            if not forms:
-                forms = [attribute]
-            for form in forms:
-                if not isinstance(form, dict):
-                    continue
-                field_path = _attribute_field_path(attribute, form, len(forms))
-                field_path = _dedupe_field_path(field_path, seen)
+        for spec in _iter_dataset_fields(dataset):
+            if spec.kind == "metric":
+                enrichment = _metric_enrichment_for(dataset, spec.item)
+                upstreams = _filter_schema_field_upstreams(
+                    model_lineage_index.fact_field_urns(
+                        enrichment.fact_ids if enrichment else []
+                    ),
+                    allowed_upstream_urns,
+                )
+            else:
+                attribute = spec.item
+                form = spec.form or attribute
+                attribute_id = str(
+                    attribute.get("id") or attribute.get("objectId") or ""
+                )
                 upstreams = _filter_schema_field_upstreams(
                     model_lineage_index.attribute_field_urns(
                         attribute_id,
@@ -855,8 +694,8 @@ class MicroStrategyMapper:
                     ),
                     allowed_upstream_urns,
                 )
-                if upstreams:
-                    field_upstreams[field_path] = upstreams
+            if upstreams:
+                field_upstreams[spec.field_path] = upstreams
 
         return field_upstreams
 
@@ -965,35 +804,18 @@ class MicroStrategyMapper:
         }
         properties.update(_dataset_semantic_count_properties(dataset))
         if self.config.extract_warehouse_lineage and dataset.warehouse_upstream_urns:
-            upstream_platforms = sorted(
-                {
-                    platform
-                    for platform in (
-                        _platform_from_dataset_urn(upstream_urn)
-                        for upstream_urn in dataset.warehouse_upstream_urns
-                    )
-                    if platform
-                }
+            properties.update(
+                _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
             )
-            properties["microstrategyWarehouseUpstreamCount"] = str(
-                len(set(dataset.warehouse_upstream_urns))
-            )
-            if upstream_platforms:
-                properties["microstrategyWarehouseUpstreamPlatforms"] = json.dumps(
-                    upstream_platforms
-                )
         if dataset.field_warehouse_upstreams:
             upstream_field_urns = {
                 field_urn
                 for upstreams in dataset.field_warehouse_upstreams.values()
                 for field_urn in upstreams
             }
-            upstream_dataset_urns = {
-                upstream_urn
-                for field_urn in upstream_field_urns
-                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
-                if upstream_urn
-            }
+            upstream_dataset_urns = _upstream_dataset_urns(
+                dataset.field_warehouse_upstreams
+            )
             properties["microstrategyModelLineageFieldCount"] = str(
                 len(dataset.field_warehouse_upstreams)
             )
@@ -1207,6 +1029,12 @@ def _normalize_object_id(value: object) -> str:
     return str(value).strip().upper()
 
 
+def _optional_str(value: object) -> Optional[str]:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
 def _field_name(item: Dict[str, object]) -> str:
     for key in ("name", "title", "id"):
         value = item.get(key)
@@ -1252,15 +1080,101 @@ def _field_native_type(item: Dict[str, object]) -> Optional[str]:
     return None
 
 
-def _metric_expression_json_props(metric: Dict[str, object]) -> Dict[str, str]:
-    expression = metric.get("modelExpression")
-    if not isinstance(expression, dict):
+def _metric_expression_json_props(
+    enrichment: Optional[MetricEnrichment],
+) -> Dict[str, str]:
+    if enrichment is None:
         return {}
     values = {
-        "microstrategyMetricExpressionText": expression.get("text"),
-        "microstrategyMetricExpressionTokens": expression.get("tokens"),
+        "microstrategyMetricExpressionText": enrichment.expression_text,
+        "microstrategyMetricExpressionTokens": enrichment.expression_tokens,
     }
     return {key: str(value) for key, value in values.items() if value}
+
+
+def _metric_enrichment_for(
+    dataset: DatasetObject,
+    metric: Dict[str, object],
+) -> Optional[MetricEnrichment]:
+    metric_id = metric.get("id") or metric.get("objectId")
+    if not metric_id:
+        return None
+    return dataset.metric_enrichments.get(_normalize_object_id(metric_id))
+
+
+@dataclass
+class _FieldSpec:
+    field_path: str
+    kind: Literal["metric", "attribute"]
+    item: Dict[str, object]
+    form: Optional[Dict[str, object]] = None
+    temporal: bool = False
+
+
+def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
+    """Single source of truth for schema-field paths.
+
+    Both schema emission and model field lineage iterate this generator, so
+    fine-grained lineage downstream field paths always match the emitted
+    schema field paths.
+    """
+    seen: Set[str] = set()
+    available_objects = dataset.available_objects or {}
+
+    for metric in _coerce_list(available_objects.get("metrics")):
+        if not isinstance(metric, dict):
+            continue
+        yield _FieldSpec(
+            field_path=_dedupe_field_path(_field_name(metric), seen),
+            kind="metric",
+            item=metric,
+        )
+
+    for attribute in _coerce_list(available_objects.get("attributes")):
+        if not isinstance(attribute, dict):
+            continue
+        forms = _coerce_list(attribute.get("forms"))
+        if not forms:
+            forms = [attribute]
+        for form in forms:
+            if not isinstance(form, dict):
+                continue
+            yield _FieldSpec(
+                field_path=_dedupe_field_path(
+                    _attribute_field_path(attribute, form, len(forms)), seen
+                ),
+                kind="attribute",
+                item=attribute,
+                form=form,
+                temporal=_is_temporal(form) or _is_temporal(attribute),
+            )
+
+
+def _add_input_field(
+    input_fields_by_urn: Dict[str, InputFieldClass],
+    dataset_urn: str,
+    schema_field: SchemaFieldClass,
+) -> None:
+    schema_field_urn = builder.make_schema_field_urn(
+        dataset_urn, schema_field.fieldPath
+    )
+    input_fields_by_urn[schema_field_urn] = InputFieldClass(
+        schemaFieldUrn=schema_field_urn,
+        schemaField=schema_field,
+    )
+
+
+def _input_fields_aspect(
+    input_fields_by_urn: Dict[str, InputFieldClass],
+) -> Optional[InputFieldsClass]:
+    if not input_fields_by_urn:
+        return None
+    return InputFieldsClass(
+        fields=[
+            input_fields_by_urn[schema_field_urn]
+            for schema_field_urn in sorted(input_fields_by_urn)
+        ]
+    )
 
 
 def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]:
@@ -1302,7 +1216,8 @@ def _warehouse_upstream_properties(upstream_urns: Sequence[str]) -> Dict[str, st
         {
             platform
             for platform in (
-                _platform_from_dataset_urn(upstream_urn) for upstream_urn in upstream_urns
+                _platform_from_dataset_urn(upstream_urn)
+                for upstream_urn in upstream_urns
             )
             if platform
         }
@@ -1318,16 +1233,18 @@ def _warehouse_upstream_properties(upstream_urns: Sequence[str]) -> Dict[str, st
 
 
 def _platform_from_dataset_urn(dataset_urn: str) -> Optional[str]:
-    match = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),", dataset_urn)
-    return match.group(1) if match else None
+    try:
+        parsed = DatasetUrn.from_string(dataset_urn)
+    except InvalidUrnError:
+        return None
+    return parsed.platform.removeprefix("urn:li:dataPlatform:")
 
 
 def _schema_field_dataset_urn(schema_field_urn: str) -> Optional[str]:
-    match = re.match(
-        r"^urn:li:schemaField:\((urn:li:dataset:\(.+\)),.+\)$",
-        schema_field_urn,
-    )
-    return match.group(1) if match else None
+    try:
+        return SchemaFieldUrn.from_string(schema_field_urn).parent
+    except InvalidUrnError:
+        return None
 
 
 def _filter_schema_field_upstreams(
@@ -1358,30 +1275,29 @@ def _filter_schema_field_upstreams(
 def _dataset_lineage_match_keys(dataset_urn: Optional[str]) -> Set[str]:
     if not dataset_urn:
         return set()
-    match = re.match(
-        r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),(.+),([^,]+)\)$",
-        dataset_urn,
-    )
-    if not match:
+    try:
+        parsed = DatasetUrn.from_string(dataset_urn)
+    except InvalidUrnError:
         return set()
-    platform = match.group(1).lower()
-    qualified_name = re.sub(r"\.+", ".", match.group(2).strip(".").lower())
+    platform = parsed.platform.removeprefix("urn:li:dataPlatform:").lower()
+    qualified_name = re.sub(r"\.+", ".", parsed.name.strip(".").lower())
     parts = [part for part in qualified_name.split(".") if part]
     keys = {f"{platform}:{qualified_name}"}
-    if parts:
-        keys.add(f"{platform}:table:{parts[-1]}")
+    # Require at least schema.table for the relaxed match; a bare table name
+    # would attach lineage across identically-named tables in other schemas.
+    if len(parts) >= 2:
+        keys.add(f"{platform}:table:{parts[-2]}.{parts[-1]}")
     return keys
 
 
-def _dedupe_preserving_order(values: Sequence[str]) -> List[str]:
-    seen: Set[str] = set()
-    deduped: List[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        deduped.append(value)
-    return deduped
+def _upstream_dataset_urns(field_upstreams: Dict[str, List[str]]) -> Set[str]:
+    urns: Set[str] = set()
+    for upstreams in field_upstreams.values():
+        for field_urn in upstreams:
+            dataset_urn = _schema_field_dataset_urn(field_urn)
+            if dataset_urn:
+                urns.add(dataset_urn)
+    return urns
 
 
 def _audit_stamp(date_value: Optional[str], owner: str) -> Optional[AuditStampClass]:

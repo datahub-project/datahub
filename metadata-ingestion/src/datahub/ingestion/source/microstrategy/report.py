@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
@@ -33,6 +34,15 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     dashboard_dataset_edges: int = 0
     unresolved_visualizations: int = 0
     api_errors: int = 0
+    malformed_objects_skipped: LossyList[str] = field(default_factory=LossyList)
+    filtered_projects: LossyList[str] = field(default_factory=LossyList)
+    filtered_dashboards: LossyList[str] = field(default_factory=LossyList)
+    filtered_reports: LossyList[str] = field(default_factory=LossyList)
+    sql_parse_failures: LossyList[str] = field(default_factory=LossyList)
+    sql_view_rows_unmatched: int = 0
+    sql_view_rows_without_context: int = 0
+    sql_views_without_statement: int = 0
+    failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
 
     def report_project_scanned(self) -> None:
         self.projects_scanned += 1
@@ -110,3 +120,21 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_api_error(self) -> None:
         self.api_errors += 1
+
+    def report_malformed_object(self, context: str) -> None:
+        self.malformed_objects_skipped.append(context)
+
+    def report_sql_parse_failure(self, context: str) -> None:
+        self.sql_parse_failures.append(context)
+
+    def report_sql_view_row_unmatched(self) -> None:
+        self.sql_view_rows_unmatched += 1
+
+    def report_sql_view_row_without_context(self) -> None:
+        self.sql_view_rows_without_context += 1
+
+    def report_sql_view_without_statement(self) -> None:
+        self.sql_views_without_statement += 1
+
+    def report_failed_metric_model(self, metric_id: str) -> None:
+        self.failed_metric_model_ids.append(metric_id)

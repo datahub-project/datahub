@@ -1,8 +1,9 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar
 
 import requests
+from pydantic import BaseModel, ValidationError
 
 from datahub.ingestion.source.microstrategy.config import (
     MicroStrategyConfig,
@@ -12,6 +13,7 @@ from datahub.ingestion.source.microstrategy.config import (
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
+    MSTR_OBJECT_TYPE_DASHBOARD,
     MSTR_OBJECT_TYPE_REPORT,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -23,6 +25,16 @@ from datahub.ingestion.source.microstrategy.models import (
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 logger = logging.getLogger(__name__)
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+# Retry only genuinely transient statuses; other 4xx errors fail fast so bad
+# credentials or missing objects are not re-hammered max_retries times.
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+# Cap backoff so a hostile Retry-After header or large max_retries cannot
+# stall ingestion for minutes per request.
+_MAX_RETRY_DELAY_SECONDS = 60
 
 
 class MicroStrategyAPIError(RuntimeError):
@@ -69,6 +81,41 @@ class MicroStrategyClient:
             logger.debug("MicroStrategy logout failed", exc_info=True)
         self.session.close()
 
+    def _parse_model(
+        self,
+        model_cls: Type[_ModelT],
+        item: Dict[str, Any],
+        context: str,
+    ) -> Optional[_ModelT]:
+        """Validate one API object, reporting and skipping malformed items so a
+        single bad object cannot abort the whole ingestion run."""
+        try:
+            return model_cls.model_validate(item)
+        except ValidationError as error:
+            self.report.report_malformed_object(
+                f"{context}: {model_cls.__name__} id={item.get('id') or item.get('objectId')!r}"
+            )
+            self.report.warning(
+                title="Skipped malformed MicroStrategy object",
+                message="An API object did not match the expected shape and was skipped.",
+                context=f"{context}, model={model_cls.__name__}, keys={sorted(item)[:10]}",
+                exc=error,
+            )
+            return None
+
+    def _parse_models(
+        self,
+        model_cls: Type[_ModelT],
+        items: Iterable[Any],
+        context: str,
+    ) -> List[_ModelT]:
+        parsed = [
+            self._parse_model(model_cls, item, context)
+            for item in items
+            if isinstance(item, dict)
+        ]
+        return [item for item in parsed if item is not None]
+
     def list_projects(self) -> List[Project]:
         payload = self._get_json("/api/projects")
         projects: Any
@@ -78,53 +125,33 @@ class MicroStrategyClient:
             projects = payload.get("projects") or payload.get("result") or []
         else:
             projects = []
-        return [
-            Project.model_validate(project)
-            for project in projects
-            if isinstance(project, dict)
-        ]
+        if not projects:
+            self._warn_if_unrecognized_shape(
+                payload, "/api/projects", recognized_keys={"projects", "result"}
+            )
+        return self._parse_models(Project, projects, "GET /api/projects")
 
     def list_datasources(self, project_id: str) -> List[Datasource]:
-        payload = self._get_json("/api/datasources", project_id=project_id)
+        path = "/api/datasources"
+        payload = self._get_json(path, project_id=project_id)
         datasources = self._extract_list(payload, "datasources")
-        return [
-            Datasource.model_validate(datasource)
-            for datasource in datasources
-            if isinstance(datasource, dict)
-        ]
+        if not datasources:
+            self._warn_if_unrecognized_shape(
+                payload, path, recognized_keys={"datasources", "result", "items"}
+            )
+        return self._parse_models(
+            Datasource, datasources, f"GET {path} project_id={project_id}"
+        )
 
     def list_project_datasources(self, project_id: str) -> List[Datasource]:
-        payload = self._get_json(
-            f"/api/projects/{project_id}/datasources",
-            project_id=project_id,
-        )
+        path = f"/api/projects/{project_id}/datasources"
+        payload = self._get_json(path, project_id=project_id)
         datasources = self._extract_list(payload, "datasources")
-        return [
-            Datasource.model_validate(datasource)
-            for datasource in datasources
-            if isinstance(datasource, dict)
-        ]
-
-    def get_datasource(self, project_id: str, datasource_id: str) -> Datasource:
-        payload = self._get_json(
-            f"/api/datasources/{datasource_id}",
-            project_id=project_id,
-        )
-        result = payload.get("result") if isinstance(payload, dict) else None
-        return Datasource.model_validate(
-            result if isinstance(result, dict) else payload
-        )
-
-    def list_datasource_connections(
-        self, project_id: str
-    ) -> List[DatasourceConnection]:
-        payload = self._get_json("/api/datasources/connections", project_id=project_id)
-        connections = self._extract_list(payload, "connections")
-        return [
-            DatasourceConnection.model_validate(connection)
-            for connection in connections
-            if isinstance(connection, dict)
-        ]
+        if not datasources:
+            self._warn_if_unrecognized_shape(
+                payload, path, recognized_keys={"datasources", "result", "items"}
+            )
+        return self._parse_models(Datasource, datasources, f"GET {path}")
 
     def get_datasource_connection(
         self, connection_id: str, project_id: Optional[str] = None
@@ -134,38 +161,41 @@ class MicroStrategyClient:
             project_id=project_id,
         )
         result = payload.get("result") if isinstance(payload, dict) else None
-        return DatasourceConnection.model_validate(
-            result if isinstance(result, dict) else payload
-        )
+        try:
+            return DatasourceConnection.model_validate(
+                result if isinstance(result, dict) else payload
+            )
+        except ValidationError as error:
+            raise MicroStrategyAPIError(
+                f"MicroStrategy datasource connection {connection_id} response did "
+                "not match the expected shape"
+            ) from error
 
     def search_dashboards(self, project_id: str) -> Iterable[MSTRObject]:
-        for item in self._metadata_search(
-            project_id=project_id,
-            type_filter="55",
-        ):
-            yield MSTRObject.model_validate(item)
+        yield from self._search_typed_objects(
+            project_id, MSTR_OBJECT_TYPE_DASHBOARD, "dashboard search"
+        )
 
     def search_reports(self, project_id: str) -> Iterable[MSTRObject]:
-        for item in self._metadata_search(
-            project_id=project_id,
-            type_filter=str(MSTR_OBJECT_TYPE_REPORT),
-        ):
-            yield MSTRObject.model_validate(item)
+        yield from self._search_typed_objects(
+            project_id, MSTR_OBJECT_TYPE_REPORT, "report search"
+        )
 
-    def search_objects(
+    def _search_typed_objects(
         self,
         project_id: str,
-        type_filter: str,
-        limit: Optional[int] = None,
-    ) -> List[MSTRObject]:
-        results: List[MSTRObject] = []
+        object_type: int,
+        context: str,
+    ) -> Iterable[MSTRObject]:
         for item in self._metadata_search(
-            project_id=project_id, type_filter=type_filter
+            project_id=project_id,
+            type_filter=str(object_type),
         ):
-            results.append(MSTRObject.model_validate(item))
-            if limit is not None and len(results) >= limit:
-                break
-        return results
+            parsed = self._parse_model(
+                MSTRObject, item, f"{context} project_id={project_id}"
+            )
+            if parsed is not None:
+                yield parsed
 
     def get_object_dependencies(
         self,
@@ -194,22 +224,19 @@ class MicroStrategyClient:
             project_id=project_id,
             params={"searchId": search_id, "offset": 0, "limit": -1},
         )
-        return [
-            MSTRObject.model_validate(item)
-            for item in self._extract_search_results(result)
-        ]
+        return self._parse_models(
+            MSTRObject,
+            self._extract_search_results(result),
+            f"object dependencies object_id={object_id}",
+        )
 
     def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        """Raw model JSON; shape varies by MicroStrategy version and is parsed
+        by the lineage helpers."""
         return self._get_json(
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
-        )
-
-    def get_model_table(self, project_id: str, table_id: str) -> Dict[str, Any]:
-        return self._get_json(
-            f"/api/model/tables/{table_id}",
-            project_id=project_id,
         )
 
     def list_model_tables(
@@ -231,6 +258,8 @@ class MicroStrategyClient:
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
     ) -> Dict[str, Any]:
+        """Raw definition JSON; shape varies by MicroStrategy version and is
+        parsed by DashboardDefinition.from_api_response."""
         return self._get_json(
             f"/api/v2/dossiers/{dossier_id}/definition",
             project_id=project_id,
@@ -279,7 +308,7 @@ class MicroStrategyClient:
             raise MicroStrategyAPIError(
                 "MicroStrategy document instance response did not include "
                 f"an instance id for {document_id}"
-        )
+            )
         return instance_id
 
     def create_report_instance(self, project_id: str, report_id: str) -> str:
@@ -318,13 +347,6 @@ class MicroStrategyClient:
         ):
             return [payload]
         return []
-
-    def get_cube_sql_view(self, project_id: str, cube_id: str) -> Dict[str, Any]:
-        return self._get_json(
-            f"/api/v2/cubes/{cube_id}/sqlView",
-            project_id=project_id,
-            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
-        )
 
     def get_report_sql_view(
         self,
@@ -402,6 +424,7 @@ class MicroStrategyClient:
         type_filter: Optional[str] = None,
     ) -> Iterable[Dict[str, Any]]:
         offset = 0
+        total: Optional[int] = None
         while True:
             payload: Dict[str, Any] = {
                 "limit": self.config.page_size,
@@ -417,12 +440,62 @@ class MicroStrategyClient:
                 params=payload,
             )
             items = self._extract_search_results(result)
+            if total is None:
+                total = self._extract_total(result)
             if not items:
+                if offset == 0:
+                    self._warn_if_unrecognized_shape(result, "/api/searches/results")
                 break
             yield from items
-            if len(items) < self.config.page_size:
-                break
             offset += len(items)
+            if total is not None:
+                if offset >= total:
+                    break
+            elif len(items) < self.config.page_size:
+                # Without a total count, a short page is the only end-of-results
+                # signal; servers that cap page size below the requested limit
+                # should be reporting totalItems.
+                break
+
+    def _warn_if_unrecognized_shape(
+        self,
+        response: Any,
+        path: str,
+        recognized_keys: Optional[Set[str]] = None,
+    ) -> None:
+        """Surface response-shape drift instead of silently returning nothing."""
+        if not isinstance(response, dict) or not response:
+            return
+        recognized = recognized_keys or {
+            "result",
+            "results",
+            "objects",
+            "items",
+            "totalItems",
+            "totalCount",
+        }
+        if recognized.isdisjoint(response):
+            self.report.warning(
+                title="Unrecognized MicroStrategy API response shape",
+                message=(
+                    "The API returned a non-empty payload with no recognized result "
+                    "keys; entities may be silently missing from ingestion."
+                ),
+                context=f"path={path}, keys={sorted(response)[:10]}",
+            )
+
+    @staticmethod
+    def _extract_total(response: Any) -> Optional[int]:
+        if not isinstance(response, dict):
+            return None
+        for source in (response, response.get("result")):
+            if not isinstance(source, dict):
+                continue
+            for key in ("totalItems", "totalCount"):
+                value = source.get(key)
+                if isinstance(value, int) and value >= 0:
+                    return value
+        return None
 
     @staticmethod
     def _extract_search_results(response: Any) -> List[Dict[str, Any]]:
@@ -542,23 +615,46 @@ class MicroStrategyClient:
                     verify=self.config.verify_ssl,
                     **kwargs,
                 )
-                if expected_statuses and response.status_code in expected_statuses:
-                    return response
-                if response.status_code >= 500 and attempt < attempts - 1:
-                    time.sleep(2**attempt)
-                    continue
-                response.raise_for_status()
-                return response
             except requests.RequestException as error:
+                # Network-level failures (connection errors, timeouts) are
+                # transient; HTTP error statuses are handled below so that
+                # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    time.sleep(2**attempt)
+                    time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
                     continue
                 self.report.report_api_error()
                 raise MicroStrategyAPIError(
                     f"MicroStrategy API request failed: {method} {path}: {error}"
                 ) from error
 
+            if expected_statuses and response.status_code in expected_statuses:
+                return response
+            if (
+                response.status_code in _RETRYABLE_STATUS_CODES
+                and attempt < attempts - 1
+            ):
+                time.sleep(self._retry_delay(response, attempt))
+                continue
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as error:
+                self.report.report_api_error()
+                raise MicroStrategyAPIError(
+                    f"MicroStrategy API request failed: {method} {path}: {error}"
+                ) from error
+            return response
+
         raise MicroStrategyAPIError(
             f"MicroStrategy API request failed: {method} {path}: {last_error}"
         )
+
+    @staticmethod
+    def _retry_delay(response: requests.Response, attempt: int) -> float:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return min(max(float(retry_after), 1.0), _MAX_RETRY_DELAY_SECONDS)
+            except ValueError:
+                pass
+        return float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))

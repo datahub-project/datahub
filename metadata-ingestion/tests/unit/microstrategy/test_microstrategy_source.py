@@ -1,9 +1,14 @@
+from typing import Any, Dict, Iterator, List
+from unittest import mock
+
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
+    Datasource,
     MSTRObject,
     ReportDefinition,
 )
@@ -17,9 +22,7 @@ def _source(extra_config: dict | None = None) -> MicroStrategySource:
     }
     if extra_config:
         config_dict.update(extra_config)
-    config = MicroStrategyConfig.model_validate(
-        config_dict
-    )
+    config = MicroStrategyConfig.model_validate(config_dict)
     return MicroStrategySource(config, PipelineContext(run_id="test"))
 
 
@@ -199,3 +202,220 @@ def test_report_sql_lineage_attaches_upstreams_to_report_source_dataset() -> Non
     assert dataset.warehouse_upstream_urns == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
     ]
+
+
+def test_test_connection_reports_capable_when_login_and_projects_succeed() -> None:
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.source.MicroStrategyClient"
+    ):
+        report = MicroStrategySource.test_connection(
+            {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+
+
+def test_test_connection_reports_login_failure() -> None:
+    with mock.patch(
+        "datahub.ingestion.source.microstrategy.source.MicroStrategyClient"
+    ) as client_cls:
+        client_cls.return_value.login.side_effect = MicroStrategyAPIError(
+            "invalid credentials"
+        )
+        report = MicroStrategySource.test_connection(
+            {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+        )
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+
+
+def test_test_connection_handles_invalid_config_without_raising() -> None:
+    report = MicroStrategySource.test_connection({})
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+
+
+def test_get_project_source_warehouses_falls_back_to_datasource_inventory() -> None:
+    source = _source()
+    datasource = Datasource.model_validate(
+        {
+            "id": "source-1",
+            "name": "Sales Warehouse",
+            "database": {"type": "snow_flake"},
+        }
+    )
+
+    class FakeClient:
+        def list_project_datasources(self, project_id: str) -> List[Datasource]:
+            raise MicroStrategyAPIError("forbidden")
+
+        def list_datasources(self, project_id: str) -> List[Datasource]:
+            return [datasource]
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._get_project_source_warehouses("project-1") == [datasource]
+    assert len(source.report.warnings) == 1
+
+
+def test_get_project_source_warehouses_returns_empty_when_both_apis_fail() -> None:
+    source = _source()
+
+    class FakeClient:
+        def list_project_datasources(self, project_id: str) -> List[Datasource]:
+            raise MicroStrategyAPIError("forbidden")
+
+        def list_datasources(self, project_id: str) -> List[Datasource]:
+            raise MicroStrategyAPIError("also forbidden")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._get_project_source_warehouses("project-1") == []
+    assert source.report.source_warehouse_api_failures == 1
+    assert len(source.report.warnings) == 1
+
+
+def test_get_dashboard_definition_falls_back_to_document_definition() -> None:
+    source = _source(
+        {
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+        }
+    )
+    dashboard_object = MSTRObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard"}
+    )
+
+    class FakeClient:
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("not a dossier")
+
+        def get_document_definition(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            return {
+                "result": {
+                    "definition": {"datasets": [{"id": "ds-1", "name": "Sales Cube"}]}
+                }
+            }
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    dashboard = source._get_dashboard_definition("project-1", dashboard_object)
+
+    assert dashboard is not None
+    assert [dataset.id for dataset in dashboard.datasets] == ["ds-1"]
+
+
+def test_get_dashboard_definition_returns_none_when_both_apis_fail() -> None:
+    source = _source(
+        {
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+        }
+    )
+    dashboard_object = MSTRObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard"}
+    )
+
+    class FakeClient:
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("not a dossier")
+
+        def get_document_definition(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("not a document either")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._get_dashboard_definition("project-1", dashboard_object) is None
+    assert len(source.report.warnings) == 1
+
+
+def test_metric_model_fact_ids_terminates_on_metric_cycles() -> None:
+    source = _source()
+    models: Dict[str, Dict[str, Any]] = {
+        "METRIC-A": {
+            "expression": {
+                "tokens": [
+                    {"target": {"objectId": "fact-1", "subType": "fact"}},
+                    {"target": {"objectId": "metric-b", "subType": "metric"}},
+                ]
+            }
+        },
+        "METRIC-B": {
+            "expression": {
+                "tokens": [
+                    {"target": {"objectId": "fact-2", "subType": "fact"}},
+                    {"target": {"objectId": "metric-a", "subType": "metric"}},
+                ]
+            }
+        },
+    }
+
+    class FakeClient:
+        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+            return models[metric_id.upper()]
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    fact_ids = source._metric_model_fact_ids(
+        "project-1",
+        models["METRIC-A"],
+        visited={"METRIC-A"},
+    )
+
+    assert fact_ids == ["FACT-1", "FACT-2"]
+
+
+def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
+    source = _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+        }
+    )
+    dashboards = [
+        MSTRObject.model_validate({"id": "dash-1", "name": "Broken Dashboard"}),
+        MSTRObject.model_validate({"id": "dash-2", "name": "Healthy Dashboard"}),
+    ]
+
+    class FakeClient:
+        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+            return iter(dashboards)
+
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            if dossier_id == "dash-1":
+                raise ValueError("unexpected definition failure")
+            return {"result": {"definition": {"datasets": [], "chapters": []}}}
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1",
+            warehouse_context=None,
+            model_lineage_index=None,
+        )
+    )
+    urns = {workunit.get_urn() for workunit in workunits}
+
+    assert source.mapper.dashboard_urn("project-1", "dash-2") in urns
+    assert source.mapper.dashboard_urn("project-1", "dash-1") not in urns
+    assert len(source.report.warnings) == 1

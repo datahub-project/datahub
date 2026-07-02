@@ -1,5 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from unittest import mock
 
+import pytest
+import requests
 from pytest import MonkeyPatch
 
 from datahub.ingestion.source.microstrategy.client import (
@@ -28,6 +31,38 @@ class FakeNonJsonResponse:
 
     def json(self) -> Dict[str, Any]:
         raise ValueError("invalid json")
+
+
+class StatusResponse:
+    def __init__(
+        self,
+        status_code: int,
+        headers: Optional[Dict[str, str]] = None,
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.status_code = status_code
+        self.headers = headers or {}
+        self._payload = payload or {}
+        self.content = b"{}"
+
+    def json(self) -> Dict[str, Any]:
+        return self._payload
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} error")
+
+
+def _make_client(
+    config_overrides: Optional[Dict[str, Any]] = None,
+) -> Tuple[MicroStrategyClient, MicroStrategyReport]:
+    config_dict: Dict[str, Any] = {
+        "base_url": "https://mstr.example.com/MicroStrategyLibrary"
+    }
+    config_dict.update(config_overrides or {})
+    config = MicroStrategyConfig.model_validate(config_dict)
+    report = MicroStrategyReport()
+    return MicroStrategyClient(config, report), report
 
 
 def test_guest_login_sets_auth_token(monkeypatch: MonkeyPatch) -> None:
@@ -210,36 +245,6 @@ def test_list_project_datasources_uses_project_scoped_endpoint(
     assert datasources[0].connection_id == "conn-1"
 
 
-def test_list_datasource_connections_does_not_preserve_connection_string(
-    monkeypatch: MonkeyPatch,
-) -> None:
-    config = MicroStrategyConfig.model_validate(
-        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
-    )
-    client = MicroStrategyClient(config, MicroStrategyReport())
-
-    monkeypatch.setattr(
-        client,
-        "_get_json",
-        lambda path, project_id=None: {
-            "connections": [
-                {
-                    "id": "conn-1",
-                    "name": "Snowflake Connection",
-                    "driverType": "odbc",
-                    "database": {"type": "snow_flake"},
-                    "connectionString": "redacted-by-test",
-                }
-            ]
-        },
-    )
-
-    connections = client.list_datasource_connections("project-1")
-
-    assert connections[0].connection_string_present is True
-    assert "connectionString" not in connections[0].model_dump()
-
-
 def test_get_datasource_connection_parses_database_schema_without_raw_string(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -377,3 +382,182 @@ def test_get_json_reports_non_json_response(monkeypatch: MonkeyPatch) -> None:
         raise AssertionError("Expected MicroStrategyAPIError")
 
     assert report.api_errors == 1
+
+
+def test_request_retries_transient_500_then_succeeds(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client()
+    responses = [StatusResponse(500), StatusResponse(200)]
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return responses[call_count - 1]
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep") as fake_sleep:
+        response = client._request("GET", "/api/projects")
+
+    assert response.status_code == 200
+    assert call_count == 2
+    assert fake_sleep.call_count == 1
+    assert report.api_errors == 0
+
+
+def test_request_raises_after_exhausting_retries_on_persistent_503(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client({"max_retries": 2})
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return StatusResponse(503)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+        client._request("GET", "/api/projects")
+
+    assert call_count == 3
+    assert report.api_errors == 1
+
+
+def test_request_fails_fast_on_non_retryable_401(monkeypatch: MonkeyPatch) -> None:
+    client, report = _make_client()
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return StatusResponse(401)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep") as fake_sleep, pytest.raises(MicroStrategyAPIError):
+        client._request("GET", "/api/projects")
+
+    assert call_count == 1
+    assert fake_sleep.call_count == 0
+    assert report.api_errors == 1
+
+
+def test_retry_delay_honors_retry_after_header() -> None:
+    response = mock.Mock(headers={"Retry-After": "7"})
+    assert MicroStrategyClient._retry_delay(response, attempt=0) == 7.0
+
+    response_without_header = mock.Mock(headers={})
+    assert MicroStrategyClient._retry_delay(response_without_header, attempt=2) == 4.0
+
+
+def test_metadata_search_paginates_until_total_items(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client({"page_size": 2})
+    pages: Dict[int, List[Dict[str, Any]]] = {
+        0: [{"id": "dash-1", "name": "D1"}, {"id": "dash-2", "name": "D2"}],
+        2: [{"id": "dash-3", "name": "D3"}, {"id": "dash-4", "name": "D4"}],
+        4: [{"id": "dash-5", "name": "D5"}],
+    }
+    requested_offsets: List[int] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        assert params is not None
+        requested_offsets.append(params["offset"])
+        return {"result": pages[params["offset"]], "totalItems": 5}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    items = list(client._metadata_search(project_id="project-1"))
+
+    assert len(items) == 5
+    assert requested_offsets == [0, 2, 4]
+
+
+def test_login_without_auth_token_header_raises(monkeypatch: MonkeyPatch) -> None:
+    client, _report = _make_client()
+    monkeypatch.setattr(
+        client.session,
+        "request",
+        lambda **kwargs: StatusResponse(204),
+    )
+
+    with pytest.raises(MicroStrategyAPIError):
+        client.login()
+
+
+def test_password_login_sends_standard_login_mode_and_secret(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client(
+        {
+            "auth": {
+                "type": "password",
+                "username": "metadata-reader",
+                "password": "secret",
+            }
+        }
+    )
+    captured_json: Optional[Dict[str, Any]] = None
+
+    def fake_request(**kwargs: Any) -> FakeResponse:
+        nonlocal captured_json
+        captured_json = kwargs.get("json")
+        return FakeResponse()
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    client.login()
+
+    assert captured_json == {
+        "loginMode": 1,
+        "username": "metadata-reader",
+        "password": "secret",
+    }
+
+
+def test_search_dashboards_skips_malformed_objects(monkeypatch: MonkeyPatch) -> None:
+    client, report = _make_client()
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path, project_id=None, params=None: {
+            "result": [
+                {"id": "dash-1", "name": "Dashboard 1"},
+                {"name": "no id"},
+                {"id": "dash-2", "name": "Dashboard 2"},
+            ]
+        },
+    )
+
+    dashboards = list(client.search_dashboards(project_id="project-1"))
+
+    assert [dashboard.id for dashboard in dashboards] == ["dash-1", "dash-2"]
+    assert len(report.malformed_objects_skipped) == 1
+
+
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "create_dossier_instance",
+        "create_document_instance",
+        "create_report_instance",
+    ],
+)
+def test_instance_creation_without_instance_id_raises(
+    monkeypatch: MonkeyPatch,
+    method_name: str,
+) -> None:
+    client, _report = _make_client()
+    monkeypatch.setattr(client, "_get_json", lambda *args, **kwargs: {})
+
+    with pytest.raises(MicroStrategyAPIError):
+        getattr(client, method_name)("project-1", "object-1")

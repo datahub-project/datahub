@@ -4,9 +4,9 @@ MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8
 
 MSTR_OBJECT_TYPE_DASHBOARD = 55
-MSTR_OBJECT_TYPE_DOCUMENT = 55
-MSTR_OBJECT_TYPE_CUBE = 3
 MSTR_OBJECT_TYPE_REPORT = 3
+# Documents share object type 55 with dossiers; the subtype distinguishes them.
+MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"

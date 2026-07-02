@@ -190,6 +190,6 @@ def test_report_definition_extracts_source_and_available_objects() -> None:
     assert definition.source_name == "Sales Cube"
     assert definition.available_objects["metrics"][0]["id"] == "metric-1"
     assert definition.available_objects["attributes"][0]["id"] == "attr-1"
-    assert definition.object_ids == ["metric-1", "attr-1"]
+    assert definition.object_ids == ["attr-1", "metric-1"]
     assert definition.prompt_count == 1
     assert definition.has_filter is True

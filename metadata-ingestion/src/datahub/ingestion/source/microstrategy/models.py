@@ -1,13 +1,60 @@
 import hashlib
 import json
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 
+if TYPE_CHECKING:
+    from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+
+# Raw MicroStrategy REST payloads; shapes vary across server versions, so they
+# stay untyped until normalized by the model validators below.
 MSTRDict = Dict[str, Any]
+
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+
+def _validate_items(
+    model_cls: Type[_ModelT],
+    items: Iterable[Any],
+    context: str,
+    report: Optional["MicroStrategyReport"],
+) -> List[_ModelT]:
+    """Validate embedded definition objects one at a time so a single malformed
+    dataset or visualization degrades to a skipped item, not a skipped
+    dashboard."""
+    validated: List[_ModelT] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            validated.append(model_cls.model_validate(item))
+        except ValidationError as error:
+            if report is not None:
+                report.report_malformed_object(f"{context}: {model_cls.__name__}")
+                report.warning(
+                    title="Skipped malformed MicroStrategy object",
+                    message=(
+                        "An embedded definition object did not match the "
+                        "expected shape and was skipped."
+                    ),
+                    context=f"{context}, model={model_cls.__name__}",
+                    exc=error,
+                )
+    return validated
 
 
 class MicroStrategyBaseModel(BaseModel):
@@ -68,6 +115,15 @@ class MSTRObject(MicroStrategyBaseModel):
         return data
 
 
+class MetricEnrichment(MicroStrategyBaseModel):
+    """Metric model details fetched separately from the modeling API and joined
+    onto dataset metrics by metric ID."""
+
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    fact_ids: List[str] = Field(default_factory=list)
+
+
 class DatasetObject(MicroStrategyBaseModel):
     id: str
     name: str
@@ -80,7 +136,8 @@ class DatasetObject(MicroStrategyBaseModel):
     )
     warehouse_upstream_urns: List[str] = Field(default_factory=list)
     field_warehouse_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
-    raw: MSTRDict = Field(default_factory=dict)
+    # Keyed by normalized (upper-cased) metric object ID.
+    metric_enrichments: Dict[str, MetricEnrichment] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -94,7 +151,6 @@ class DatasetObject(MicroStrategyBaseModel):
             )
             result["object_ids"] = _extract_object_ids(result)
             result["sourceWarehouse"] = _extract_datasource_reference(result)
-            result["raw"] = data
             return result
         return data
 
@@ -235,7 +291,6 @@ class DashboardDefinition(MicroStrategyBaseModel):
     datasets: List[DatasetObject] = Field(default_factory=list)
     visualizations: List[Visualization] = Field(default_factory=list)
     dependencies: List[MSTRObject] = Field(default_factory=list)
-    raw: MSTRDict = Field(default_factory=dict)
 
     @classmethod
     def from_api_response(
@@ -244,25 +299,22 @@ class DashboardDefinition(MicroStrategyBaseModel):
         object_name: str,
         response: MSTRDict,
         description: Optional[str] = None,
+        report: Optional["MicroStrategyReport"] = None,
     ) -> "DashboardDefinition":
         definition = _unwrap_definition(response)
-        datasets = [
-            DatasetObject.model_validate(dataset)
-            for dataset in _extract_datasets(definition)
-            if isinstance(dataset, dict)
-        ]
-        visualizations = [
-            Visualization.model_validate(visualization)
-            for visualization in _extract_visualizations(definition)
-            if isinstance(visualization, dict)
-        ]
+        context = f"dashboard definition dashboard_id={object_id}"
+        datasets = _validate_items(
+            DatasetObject, _extract_datasets(definition), context, report
+        )
+        visualizations = _validate_items(
+            Visualization, _extract_visualizations(definition), context, report
+        )
         return cls(
             id=object_id,
             name=object_name,
             description=description,
             datasets=datasets,
             visualizations=visualizations,
-            raw=definition,
         )
 
 
@@ -276,7 +328,6 @@ class ReportDefinition(MicroStrategyBaseModel):
     object_ids: List[str] = Field(default_factory=list)
     prompt_count: int = Field(default=0, alias="promptCount")
     has_filter: bool = Field(default=False, alias="hasFilter")
-    raw: MSTRDict = Field(default_factory=dict)
 
     @classmethod
     def from_api_response(
@@ -315,7 +366,6 @@ class ReportDefinition(MicroStrategyBaseModel):
                 or root.get("viewFilter")
                 or root.get("qualification")
             ),
-            raw=definition,
         )
 
     @classmethod
@@ -331,7 +381,6 @@ class ReportDefinition(MicroStrategyBaseModel):
             source_name=source_name,
             available_objects=available_objects,
             object_ids=_extract_object_ids({"availableObjects": available_objects}),
-            raw=raw,
         )
 
 
@@ -358,8 +407,6 @@ def _extract_datasets(definition: MSTRDict) -> List[MSTRDict]:
         return [dataset for dataset in datasets if isinstance(dataset, dict)]
     if isinstance(datasets, dict):
         values = datasets.get("datasets") or datasets.get("items") or datasets.values()
-        if isinstance(values, list):
-            return [dataset for dataset in values if isinstance(dataset, dict)]
         return [dataset for dataset in values if isinstance(dataset, dict)]
     return []
 
@@ -648,11 +695,15 @@ def _extract_object_ids(value: Any) -> List[str]:
         if isinstance(node, dict):
             node_type = str(node.get("type") or node.get("objectType") or "").lower()
             parent = (parent_key or "").lower()
-            if node_type in {
+            if node_type in {"metric", "attribute"} or parent in {
                 "metric",
+                "metrics",
                 "attribute",
-                "templateMetrics".lower(),
-            } or parent in {"metric", "metrics", "attribute", "attributes"}:
+                "attributes",
+                # templateMetrics is a container key in dossier definitions,
+                # not an object type.
+                "templatemetrics",
+            }:
                 object_id = _first_str(node, ["id", "objectId"])
                 if object_id and object_id != "00000000000000000000000000000000":
                     object_ids.append(object_id)
@@ -666,13 +717,10 @@ def _extract_object_ids(value: Any) -> List[str]:
     return sorted(set(object_ids))
 
 
-def extract_folder_parts(raw_object: MSTRDict) -> Tuple[Optional[str], List[str]]:
+def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
-        folder_id = _first_str(folder, ["id", "objectId"])
         path = _first_str(folder, ["path", "name"])
     else:
-        folder_id = None
         path = str(folder) if folder else None
-    parts = [part for part in (path or "").strip("/").split("/") if part]
-    return folder_id, parts
+    return [part for part in (path or "").strip("/").split("/") if part]

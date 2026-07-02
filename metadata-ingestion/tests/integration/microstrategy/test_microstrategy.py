@@ -99,6 +99,7 @@ def _dashboards(
                 "subtype": "14081",
                 "description": "Sales performance dashboard",
                 "owner": {"username": "sales_owner"},
+                "location": "/Shared Reports/Finance",
             }
         )
     ]
@@ -228,14 +229,19 @@ def _metric_model(
     _project_id: str,
     _metric_id: str,
 ) -> Dict[str, Any]:
+    # Shape matches what /api/model/metrics/{id}?showExpressionAs=tokens returns:
+    # object references are nested under each token's "target".
     return {
         "expression": {
             "text": "Sum(Revenue Fact)",
             "tokens": [
                 {
-                    "objectId": "fact-1",
-                    "name": "Revenue Fact",
-                    "subType": "fact",
+                    "type": "object_reference",
+                    "target": {
+                        "objectId": "fact-1",
+                        "subType": "fact",
+                        "name": "NET_SALES_AMT",
+                    },
                 }
             ],
         }
