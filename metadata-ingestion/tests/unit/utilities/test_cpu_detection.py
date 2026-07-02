@@ -1,3 +1,5 @@
+import logging
+
 from datahub.utilities import cpu_detection
 from datahub.utilities.cpu_detection import (
     WorkerDecision,
@@ -27,6 +29,15 @@ class TestCgroupParsing:
     def test_malformed_input_returns_none(self):
         assert cpu_detection._parse_cgroup_v2_cpu_max("garbage") is None
         assert cpu_detection._parse_cgroup_v1_cpu_quota("x", "y") is None
+
+    def test_cgroup_v2_negative_quota_returns_none(self):
+        assert cpu_detection._parse_cgroup_v2_cpu_max("-100 100000") is None
+
+    def test_cgroup_v1_zero_quota_returns_none(self):
+        assert cpu_detection._parse_cgroup_v1_cpu_quota("0", "100000") is None
+
+    def test_cgroup_v1_zero_period_returns_none(self):
+        assert cpu_detection._parse_cgroup_v1_cpu_quota("200000", "0") is None
 
 
 class TestGetAvailableCpuCount:
@@ -80,3 +91,8 @@ class TestResolveWorkerCount:
         decision = resolve_worker_count(4, detected_cpus=1)
         assert decision.workers == 1
         assert decision.fell_back_to_serial
+
+    def test_explicit_over_capacity_emits_warning(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="datahub.utilities.cpu_detection"):
+            resolve_worker_count(100, detected_cpus=8)
+        assert "100" in caplog.text and "7" in caplog.text

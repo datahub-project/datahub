@@ -7,8 +7,6 @@ and OOM. This module detects the actual usable CPU budget by consulting cgroup
 quotas and CPU affinity before falling back to os.cpu_count().
 """
 
-from __future__ import annotations
-
 import logging
 import math
 import os
@@ -33,7 +31,7 @@ def _parse_cgroup_v2_cpu_max(content: str) -> Optional[float]:
     try:
         quota = float(quota_str)
         period = float(period_str)
-        if period == 0:
+        if quota <= 0 or period <= 0:
             return None
         return quota / period
     except ValueError:
@@ -51,7 +49,7 @@ def _parse_cgroup_v1_cpu_quota(quota_str: str, period_str: str) -> Optional[floa
         period = int(period_str.strip())
     except ValueError:
         return None
-    if quota == -1:
+    if quota <= 0:
         return None
     if period == 0:
         return None
@@ -156,7 +154,10 @@ def resolve_worker_count(
     detected = detected_cpus if detected_cpus is not None else get_available_cpu_count()
     usable = max(1, detected - reserve)
 
-    # A single usable core makes multiprocessing pointless — stay serial.
+    # Only fall back to serial when there is strictly fewer than 2 CPUs detected.
+    # With exactly 2 CPUs, usable=1 after reserving one core — callers treat
+    # workers=1 as a degenerate single-worker pool (not serial), which preserves
+    # the multiprocessing code path and avoids a special case in the caller.
     if detected < 2:
         return WorkerDecision(
             workers=1,
