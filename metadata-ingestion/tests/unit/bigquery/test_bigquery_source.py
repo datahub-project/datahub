@@ -22,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryUsageConfig,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
@@ -1475,6 +1476,40 @@ def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
     config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
     assert config.max_query_duration == timedelta(minutes=30)
     assert config.usage.max_query_duration == timedelta(minutes=15)  # default
+
+
+@pytest.mark.parametrize(
+    "field", ["start_time", "end_time", "bucket_duration", "max_query_duration"]
+)
+def test_bigquery_usage_config_field_description_mentions_deprecation(field: str):
+    # The generated connector docs page renders these `description=` strings, so the
+    # deprecation must be visible there too, not just in the runtime warning.
+    description = BigQueryUsageConfig.model_fields[field].description
+    assert description is not None
+    assert "deprecated" in description.lower()
+
+
+def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
+    # Guards the bigquery.py seam that maps self.config.usage.* into
+    # BigQueryQueriesExtractorConfig(...) - a typo'd kwarg here would otherwise only
+    # surface if some other test happened to exercise the full queries-v2 codepath.
+    config = BigQueryV2Config.model_validate(
+        {
+            "usage": {
+                "format_sql_queries": True,
+                "include_top_n_queries": False,
+                "queries_character_limit": 1000,
+                "top_n_queries": 5,
+            }
+        }
+    )
+    fake_source = SimpleNamespace(config=config)
+    queries_config = BigqueryV2Source._build_queries_extractor_config(fake_source)
+
+    assert queries_config.format_sql_queries is True
+    assert queries_config.include_top_n_queries is False
+    assert queries_config.queries_character_limit == 1000
+    assert queries_config.top_n_queries == 5
 
 
 def test_bigquery_config_apply_view_usage_to_tables_warns_under_queries_v2(

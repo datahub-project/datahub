@@ -1,7 +1,7 @@
 import logging
 import re
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
@@ -116,11 +117,36 @@ class BigQueryUsageConfig(BaseUsageConfig):
         "query_log_delay", month="April", year=2023
     )
 
+    # start_time/end_time/bucket_duration are inherited from BaseTimeWindowConfig but
+    # redeclared here (rather than editing the shared base class, which other connectors
+    # also use) solely to surface the BigQuery-specific deprecation in generated docs.
+    # See forward_usage_time_window_fields on BigQueryV2Config for the runtime behavior.
+    start_time: datetime = Field(
+        default=None,  # type: ignore
+        description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, "
+        "depending on `bucket_duration`). You can also specify relative time with respect to end_time "
+        "such as '-7 days' Or '-7d'. **Deprecated**: set the top-level `start_time` instead - it governs "
+        "lineage, usage, and operations together.",
+    )
+    end_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc),
+        description="Latest date of lineage/usage to consider. Default: Current time in UTC. "
+        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, usage, and "
+        "operations together.",
+    )
+    bucket_duration: BucketDuration = Field(
+        default=BucketDuration.DAY,
+        description="Size of the time window to aggregate usage stats. "
+        "**Deprecated**: set the top-level `bucket_duration` instead - it governs lineage, usage, and "
+        "operations together.",
+    )
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens "
         "within our time range but the query completion event is delayed and happens after the configured"
-        " end time.",
+        " end time. **Deprecated**: set the top-level `max_query_duration` instead. Note it only takes "
+        "effect with the legacy extraction path (`use_queries_v2: False`).",
     )
 
     apply_view_usage_to_tables: bool = Field(
