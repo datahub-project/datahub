@@ -1,13 +1,16 @@
+import json
 import time
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
-from datahub.ingestion.source.bigid.bigid_source import BigIDSource, _is_idsor_attr
+from datahub.ingestion.source.bigid.bigid_source import BigIDSource
+from datahub.ingestion.source.bigid.bigid_utils import _is_idsor_attr
 from datahub.ingestion.source.bigid.config import BigIDSourceConfig
 from datahub.ingestion.source.bigid.constants import BIGID_PLATFORM_NAME
 from datahub.ingestion.source.bigid.models import (
@@ -18,9 +21,55 @@ from datahub.ingestion.source.bigid.models import (
     BigIDGlossaryItem,
     IDSoRAttributeInfo,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    GlossaryTermAssociationClass,
+    MetadataAttributionClass,
+    MetadataChangeProposalClass,
+)
 
 FROZEN_TIME = "2026-01-15T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# Typed accessors — workunit.metadata is a MCE|MCP|MCPW union and aspects are
+# Optional. The connector emits both MCPW (SDK/typed aspects) and raw MCP
+# (JSON-patch ops), so these narrow away the MCE case and expose the shared
+# proposal attributes so mypy can check the assertion bodies.
+# ---------------------------------------------------------------------------
+
+
+def _mcp(wu: Any) -> Any:
+    md = wu.metadata
+    assert isinstance(md, (MetadataChangeProposalClass, MetadataChangeProposalWrapper))
+    return md
+
+
+def _aspect(wu: Any) -> Any:
+    return _mcp(wu).aspect
+
+
+def _aspect_name(wu: Any) -> Any:
+    return _mcp(wu).aspectName
+
+
+def _change_type(wu: Any) -> Any:
+    return _mcp(wu).changeType
+
+
+def _entity_urn(wu: Any) -> str:
+    urn = _mcp(wu).entityUrn
+    assert urn is not None
+    return urn
+
+
+def _attribution(assoc: GlossaryTermAssociationClass) -> MetadataAttributionClass:
+    assert assoc.attribution is not None
+    return assoc.attribution
+
+
+def _client(source: BigIDSource) -> MagicMock:
+    return cast(MagicMock, source.client)
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +107,36 @@ def _glossary_items(raw: list[dict[str, Any]]) -> list[BigIDGlossaryItem]:
     return [BigIDGlossaryItem.model_validate(item) for item in raw]
 
 
+def _patch_ops(workunits: list) -> list[dict[str, Any]]:
+    # Field enrichment is emitted as editableSchemaMetadata PATCH ops (JSON-Pointer list).
+    ops: list[dict[str, Any]] = []
+    for wu in workunits:
+        value = getattr(_aspect(wu), "value", None)
+        if value is not None:
+            ops.extend(json.loads(value.decode()))
+    return ops
+
+
+def _patched_field_terms(
+    workunits: list, field_path: str
+) -> list[GlossaryTermAssociationClass]:
+    prefix = f"/editableSchemaFieldInfo/{field_path}/glossaryTerms/terms/"
+    return [
+        GlossaryTermAssociationClass.from_obj(op["value"])
+        for op in _patch_ops(workunits)
+        if op["path"].startswith(prefix)
+    ]
+
+
+def _patched_field_tag_urns(workunits: list, field_path: str) -> list[str]:
+    prefix = f"/editableSchemaFieldInfo/{field_path}/globalTags/tags/"
+    return [
+        op["value"]["tag"]
+        for op in _patch_ops(workunits)
+        if op["path"].startswith(prefix)
+    ]
+
+
 @pytest.fixture(autouse=True)
 def freeze_time():
     with time_machine.travel(FROZEN_TIME, tick=False):
@@ -69,7 +148,7 @@ def freeze_time():
 # ---------------------------------------------------------------------------
 
 
-def _make_config(**overrides) -> dict[str, Any]:
+def _make_config(**overrides: Any) -> dict[str, Any]:
     base = {
         "bigid_url": "https://bigid.example.com",
         "access_token": "test-token",
@@ -79,7 +158,7 @@ def _make_config(**overrides) -> dict[str, Any]:
     return base
 
 
-def _make_source(**config_overrides) -> BigIDSource:
+def _make_source(**config_overrides: Any) -> BigIDSource:
     """Create a BigIDSource with a mocked BigIDClient."""
     config_dict = _make_config(**config_overrides)
     ctx = MagicMock()
@@ -101,14 +180,14 @@ def _make_source(**config_overrides) -> BigIDSource:
 
 def test_load_registries_populates_platform_map():
     source = _make_source()
-    source.client.get_connections.return_value = _connections(
+    _client(source).get_connections.return_value = _connections(
         [
             {"name": "my_snowflake", "type": "snowflake"},
             {"name": "my_mysql", "type": "rdb-mysql"},
         ]
     )
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.return_value = []
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.return_value = []
 
     source._load_registries()
 
@@ -122,13 +201,13 @@ def test_load_registries_explicit_override_wins():
             "my_conn": {"platform": "bigquery", "env": "DEV"},
         }
     )
-    source.client.get_connections.return_value = _connections(
+    _client(source).get_connections.return_value = _connections(
         [
             {"name": "my_conn", "type": "rdb-mysql"},  # would auto-detect as mysql
         ]
     )
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.return_value = []
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.return_value = []
 
     source._load_registries()
 
@@ -137,13 +216,13 @@ def test_load_registries_explicit_override_wins():
 
 def test_load_registries_unknown_type_warns():
     source = _make_source()
-    source.client.get_connections.return_value = _connections(
+    _client(source).get_connections.return_value = _connections(
         [
             {"name": "exotic_conn", "type": "some-unknown-type"},
         ]
     )
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.return_value = []
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.return_value = []
 
     source._load_registries()
 
@@ -190,6 +269,7 @@ def test_make_dataset_urn_with_platform_instance():
     source._platform_map["sf_conn"] = "snowflake"
 
     urn = source._make_dataset_urn("sf_conn.mydb.myschema.mytable", "sf_conn")
+    assert urn is not None
     assert "prod_acct.mydb.myschema.mytable" in urn
 
 
@@ -217,19 +297,19 @@ def test_make_dataset_urn_encodes_parentheses_in_table_name():
     assert urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,schema.table%28v2%29,PROD)"
 
 
-def test_make_dataset_urn_encodes_comma_and_colon():
-    """Commas and colons in the name component must be percent-encoded."""
+def test_make_dataset_urn_encodes_reserved_chars_like_native_connectors():
+    """The name component is encoded by the shared URN helper exactly as native
+    connectors encode it, so BigID enrichment lands on the same dataset URN. Commas
+    (tuple delimiters) are percent-encoded; a literal colon is a valid name char and
+    is left untouched — encoding it would break the match against the native URN."""
     source = _make_source()
     source._platform_map["my_db"] = "mysql"
 
     urn = source._make_dataset_urn("my_db.schema,v2:prod.table", "my_db")
+    assert urn is not None
     assert "%2C" in urn  # comma encoded
-    assert "%3A" in urn  # colon encoded
-    # Raw delimiter characters must not appear in the name segment
-    name_segment = urn[urn.index("mysql,") + len("mysql,") :]
-    name_segment = name_segment.rsplit(",", 1)[0]  # strip trailing ,PROD
-    assert "," not in name_segment
-    assert ":" not in name_segment
+    assert "%3A" not in urn  # colon left literal, matching native connectors
+    assert "schema%2Cv2:prod.table" in urn
 
 
 # ---------------------------------------------------------------------------
@@ -376,9 +456,9 @@ def test_emit_glossary_terms_custom_properties():
         wu
         for wu in workunits
         if hasattr(wu.metadata, "aspect")
-        and "GlossaryTermInfo" in type(wu.metadata.aspect).__name__
+        and "GlossaryTermInfo" in type(_aspect(wu)).__name__
     )
-    aspect = term_info_wu.metadata.aspect
+    aspect = _aspect(term_info_wu)
     assert aspect.name == "Customer ID"
     assert aspect.definition == "Unique customer identifier"
     assert aspect.customProperties["bigid_type"] == "Business Term"
@@ -402,7 +482,7 @@ def test_emit_glossary_terms_emits_ownership_when_owner_set():
     )
 
     workunits = list(source._emit_glossary_terms())
-    wu_types = [type(wu.metadata.aspect).__name__ for wu in workunits]
+    wu_types = [type(_aspect(wu)).__name__ for wu in workunits]
     assert "OwnershipClass" in wu_types
 
 
@@ -421,13 +501,17 @@ def test_emit_glossary_terms_no_ownership_when_owner_type_none():
     )
 
     workunits = list(source._emit_glossary_terms())
-    wu_types = [type(wu.metadata.aspect).__name__ for wu in workunits]
+    wu_types = [type(_aspect(wu)).__name__ for wu in workunits]
     assert "OwnershipClass" not in wu_types
 
 
 # ---------------------------------------------------------------------------
 # Tag routing
 # ---------------------------------------------------------------------------
+
+
+def _tag_props(workunits):
+    return next(_aspect(wu) for wu in workunits if _aspect_name(wu) == "tagProperties")
 
 
 def test_tag_routing_sensitivity_classification_emits_tag():
@@ -438,22 +522,22 @@ def test_tag_routing_sensitivity_classification_emits_tag():
         )
     )
     assert len(workunits) == 2  # TagProperties + Status
-    aspect = workunits[0].metadata.aspect
-    assert (
-        workunits[0].metadata.entityUrn
-        == "urn:li:tag:bigid.system.sensitivityClassification.Sensitivity:Confidential"
-    )
-    assert aspect.name == "Sensitivity : Confidential"
-    assert aspect.description == "system.sensitivityClassification.Sensitivity"
+    urn = "urn:li:tag:bigid.system.sensitivityClassification.Sensitivity:Confidential"
+    assert all(_entity_urn(wu) == urn for wu in workunits)
+    props = _tag_props(workunits)
+    assert props.name == "Sensitivity : Confidential"
+    assert props.description == "system.sensitivityClassification.Sensitivity"
 
 
 def test_tag_urn_preserves_system_prefix():
     source = _make_source()
     workunits = list(source._emit_tag_entity("system.risk.riskGroup", "High"))
-    aspect = workunits[0].metadata.aspect
-    assert "bigid.system.risk.riskGroup:High" in workunits[0].metadata.entityUrn
-    assert aspect.name == "riskGroup : High"
-    assert aspect.description == "system.risk.riskGroup"
+    assert all(
+        "bigid.system.risk.riskGroup:High" in _entity_urn(wu) for wu in workunits
+    )
+    props = _tag_props(workunits)
+    assert props.name == "riskGroup : High"
+    assert props.description == "system.risk.riskGroup"
 
 
 @pytest.mark.parametrize(
@@ -498,20 +582,18 @@ def test_risk_score_emitted_as_patch_not_upsert():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     workunits = list(source._process_catalog())
-    risk_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "structuredProperties"
-    ]
+    risk_wus = [wu for wu in workunits if _aspect_name(wu) == "structuredProperties"]
 
     assert len(risk_wus) == 1, (
         "Expected exactly one structuredProperties workunit for riskScore"
     )
-    assert risk_wus[0].metadata.changeType == ChangeTypeClass.PATCH, (
+    assert _change_type(risk_wus[0]) == ChangeTypeClass.PATCH, (
         "riskScore must use PATCH to avoid clobbering user-defined structured properties"
     )
 
@@ -534,15 +616,13 @@ def test_risk_score_non_numeric_skipped():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     workunits = list(source._process_catalog())
-    risk_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "structuredProperties"
-    ]
+    risk_wus = [wu for wu in workunits if _aspect_name(wu) == "structuredProperties"]
 
     assert risk_wus == [], (
         "Non-numeric riskScore must produce no structuredProperties workunit"
@@ -557,18 +637,20 @@ def test_risk_score_non_numeric_skipped():
 @pytest.mark.parametrize(
     ("config", "domain_val", "sub_domain_val", "expected"),
     [
-        # auto_namespaced: sub-domain wins over domain when both present
+        # auto_namespaced: sub-domain wins over domain when both present.
+        # The hashed name is env-scoped (default env=PROD) so domains never merge
+        # across environments; see test_domain_urn_scoped_by_env_and_instance.
         (
             {"domain_mode": "auto_namespaced"},
             "Customer",
             "Identity",
-            DomainKey(name="Identity", platform=BIGID_PLATFORM_NAME).as_urn(),
+            DomainKey(name="PROD/Identity", platform=BIGID_PLATFORM_NAME).as_urn(),
         ),
         (
             {"domain_mode": "auto_namespaced"},
             "Customer",
             "",
-            DomainKey(name="Customer", platform=BIGID_PLATFORM_NAME).as_urn(),
+            DomainKey(name="PROD/Customer", platform=BIGID_PLATFORM_NAME).as_urn(),
         ),
         ({"domain_mode": "none"}, "Customer", "Identity", None),
         # config_map: exact key mapping wins
@@ -607,6 +689,23 @@ def test_resolve_domain_urn(config, domain_val, sub_domain_val, expected):
     assert source._resolve_domain_urn(domain_val, sub_domain_val) == expected
 
 
+def test_domain_urn_scoped_by_env_and_instance():
+    """The same BigID domain name must resolve to distinct urn:li:domain entities
+    across different env / platform_instance so they never silently merge."""
+    prod = _make_source(env="PROD")
+    dev = _make_source(env="DEV")
+    prod_inst = _make_source(env="PROD", platform_instance="acct1")
+
+    prod_urn = prod._domain_urn("Finance")
+    dev_urn = dev._domain_urn("Finance")
+    prod_inst_urn = prod_inst._domain_urn("Finance")
+
+    # All three are distinct: env and platform_instance each change the GUID.
+    assert len({prod_urn, dev_urn, prod_inst_urn}) == 3
+    # Deterministic: same config → same URN.
+    assert prod_urn == _make_source(env="PROD")._domain_urn("Finance")
+
+
 def test_emit_glossary_terms_config_map_missing_key_no_domain_aspect():
     """A glossary term with an unmapped domain must not emit a DomainsClass aspect."""
     source = _make_source(
@@ -626,7 +725,7 @@ def test_emit_glossary_terms_config_map_missing_key_no_domain_aspect():
     )
 
     workunits = list(source._emit_glossary_terms())
-    aspect_names = {type(wu.metadata.aspect).__name__ for wu in workunits}
+    aspect_names = {type(_aspect(wu)).__name__ for wu in workunits}
     assert "DomainsClass" not in aspect_names
 
 
@@ -660,7 +759,7 @@ def test_emit_dataset_profile_numeric_column():
         )
     )
     assert len(workunits) == 1
-    profile = workunits[0].metadata.aspect
+    profile = _aspect(workunits[0])
     assert profile.rowCount is None  # fieldCount is scan sample size, not row count
     assert profile.columnCount == 1
 
@@ -699,7 +798,7 @@ def test_emit_dataset_profile_textual_column():
             int(time.time() * 1000),
         )
     )
-    fp = workunits[0].metadata.aspect.fieldProfiles[0]
+    fp = _aspect(workunits[0]).fieldProfiles[0]
     assert fp.min == "Aaron"
     assert fp.max == "Zara"
     assert fp.sampleValues == ["Aaron", "Zara"]
@@ -719,7 +818,7 @@ def test_emit_dataset_profile_empty_column_profile_skipped():
     )
     # Profile is emitted but no fieldProfiles since columnProfile was empty
     assert len(workunits) == 1
-    profile = workunits[0].metadata.aspect
+    profile = _aspect(workunits[0])
     assert profile.fieldProfiles is None
 
 
@@ -770,23 +869,21 @@ def test_source_detail_includes_friendly_name_for_high_only():
         )
     )
     assert len(workunits) == 1
-    editable = workunits[0].metadata.aspect
-    field_info = editable.editableSchemaFieldInfo[0]
-    terms = field_info.glossaryTerms.terms
+    terms = _patched_field_terms(workunits, "contact")
     assert len(terms) == 2
 
     high_assoc = next(
-        t for t in terms if t.attribution.sourceDetail["confidence_level"] == "HIGH"
+        t for t in terms if _attribution(t).sourceDetail["confidence_level"] == "HIGH"
     )
     med_assoc = next(
-        t for t in terms if t.attribution.sourceDetail["confidence_level"] == "MEDIUM"
+        t for t in terms if _attribution(t).sourceDetail["confidence_level"] == "MEDIUM"
     )
 
     assert (
-        high_assoc.attribution.sourceDetail["classifier_friendly_name"]
+        _attribution(high_assoc).sourceDetail["classifier_friendly_name"]
         == "Email Address"
     )
-    assert "classifier_friendly_name" not in med_assoc.attribution.sourceDetail
+    assert "classifier_friendly_name" not in _attribution(med_assoc).sourceDetail
 
 
 def test_source_detail_attribution_fields_populated():
@@ -825,8 +922,8 @@ def test_source_detail_attribution_fields_populated():
         )
     )
     assert len(workunits) == 1
-    terms = workunits[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms
-    sd = terms[0].attribution.sourceDetail
+    terms = _patched_field_terms(workunits, "email_col")
+    sd = _attribution(terms[0]).sourceDetail
 
     assert sd["classifier_name"] == "classifier.Email"
     assert sd["classifier_type"] == "value"
@@ -834,8 +931,8 @@ def test_source_detail_attribution_fields_populated():
     assert sd["bigid_connection"] == "sales_conn"
     assert sd["row_count"] == "1500"
     assert sd["distinct_count"] == "900"
-    assert terms[0].attribution.source == "urn:li:dataPlatform:bigid"
-    assert terms[0].attribution.actor == "urn:li:corpuser:datahub"
+    assert _attribution(terms[0]).source == "urn:li:dataPlatform:bigid"
+    assert _attribution(terms[0]).actor == "urn:li:corpuser:datahub"
 
 
 # ---------------------------------------------------------------------------
@@ -847,7 +944,7 @@ def test_process_catalog_object_column_fetch_failure_continues():
     """A BigIDAPIError from get_columns must be warned and processing must continue."""
     source = _make_source()
     source._platform_map["my_conn"] = "postgres"
-    source.client.get_columns.side_effect = BigIDAPIError("connection timed out")
+    _client(source).get_columns.side_effect = BigIDAPIError("connection timed out")
 
     obj = {
         "fullyQualifiedName": "my_conn.public.orders",
@@ -863,7 +960,7 @@ def test_process_catalog_object_column_fetch_failure_continues():
     assert source.report.datasets_enriched == 1
 
     # Column-dependent aspects must not be emitted
-    aspect_names = {type(wu.metadata.aspect).__name__ for wu in workunits}
+    aspect_names = {type(_aspect(wu)).__name__ for wu in workunits}
     assert "EditableSchemaMetadataClass" not in aspect_names
     assert "DatasetProfileClass" not in aspect_names
 
@@ -878,9 +975,9 @@ def test_process_catalog_object_column_fetch_failure_continues():
 
 def test_load_registries_connections_api_error_warns():
     source = _make_source()
-    source.client.get_connections.side_effect = BigIDAPIError("timeout")
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.return_value = []
+    _client(source).get_connections.side_effect = BigIDAPIError("timeout")
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.return_value = []
 
     source._load_registries()
 
@@ -890,9 +987,9 @@ def test_load_registries_connections_api_error_warns():
 
 def test_load_registries_classifications_api_error_warns():
     source = _make_source()
-    source.client.get_connections.return_value = []
-    source.client.get_all_classifications.side_effect = BigIDAPIError("timeout")
-    source.client.get_glossary_items.return_value = []
+    _client(source).get_connections.return_value = []
+    _client(source).get_all_classifications.side_effect = BigIDAPIError("timeout")
+    _client(source).get_glossary_items.return_value = []
 
     source._load_registries()
 
@@ -902,9 +999,9 @@ def test_load_registries_classifications_api_error_warns():
 
 def test_load_registries_glossary_items_api_error_warns():
     source = _make_source()
-    source.client.get_connections.return_value = []
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.side_effect = BigIDAPIError("timeout")
+    _client(source).get_connections.return_value = []
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.side_effect = BigIDAPIError("timeout")
 
     source._load_registries()
 
@@ -914,10 +1011,10 @@ def test_load_registries_glossary_items_api_error_warns():
 
 def test_load_registries_idsor_attributes_api_error_warns():
     source = _make_source()
-    source.client.get_connections.return_value = []
-    source.client.get_all_classifications.return_value = []
-    source.client.get_glossary_items.return_value = []
-    source.client.get_idsor_attribute_map.side_effect = BigIDAPIError("timeout")
+    _client(source).get_connections.return_value = []
+    _client(source).get_all_classifications.return_value = []
+    _client(source).get_glossary_items.return_value = []
+    _client(source).get_idsor_attribute_map.side_effect = BigIDAPIError("timeout")
 
     source._load_registries()
 
@@ -946,10 +1043,10 @@ def test_process_catalog_excludes_hidden_tags():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     with patch.object(source, "_emit_tag_entity") as mock_emit:
         list(source._process_catalog())
@@ -974,10 +1071,10 @@ def test_process_catalog_excludes_wrong_application_type():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     with patch.object(source, "_emit_tag_entity") as mock_emit:
         list(source._process_catalog())
@@ -1010,10 +1107,10 @@ def test_process_catalog_excludes_field_type_tags():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     with patch.object(source, "_emit_tag_entity") as mock_emit:
         list(source._process_catalog())
@@ -1041,10 +1138,10 @@ def test_connection_pattern_filters_denied_objects():
         "scanner_type_group": "structured",
         "tags": [],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([denied, allowed])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     list(source._process_catalog())
 
@@ -1100,11 +1197,10 @@ def test_confidence_level_tag_deduplicated_per_field():
         )
     )
     editable_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+        wu for wu in workunits if _aspect_name(wu) == "editableSchemaMetadata"
     ]
     assert len(editable_wus) == 1
-    field_info = editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0]
-    tag_urns = [t.tag for t in field_info.globalTags.tags]
+    tag_urns = _patched_field_tag_urns(workunits, "contact")
     assert tag_urns == ["urn:li:tag:bigid.confidence:HIGH"]
 
 
@@ -1182,9 +1278,7 @@ def test_classifier_term_deduplication():
             now_ms,
         )
     )
-    term_info_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
-    ]
+    term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1, (
         "Expected exactly one GlossaryTermInfo for deduplicated classifier"
     )
@@ -1256,13 +1350,11 @@ def test_unlinked_classifier_friendly_name_in_attribution():
         )
     )
     editable_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+        wu for wu in workunits if _aspect_name(wu) == "editableSchemaMetadata"
     ]
     assert len(editable_wus) == 1
-    terms = (
-        editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms
-    )
-    sd = terms[0].attribution.sourceDetail
+    terms = _patched_field_terms(workunits, "phone")
+    sd = _attribution(terms[0]).sourceDetail
     assert sd["classifier_friendly_name"] == "Phone Number"
 
 
@@ -1317,30 +1409,18 @@ def test_idsor_path1_reuses_existing_term():
         )
     )
     editable_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+        wu for wu in workunits if _aspect_name(wu) == "editableSchemaMetadata"
     ]
     assert len(editable_wus) == 1
-    term_urn = (
-        editable_wus[0]
-        .metadata.aspect.editableSchemaFieldInfo[0]
-        .glossaryTerms.terms[0]
-        .urn
-    )
-    assert term_urn == "urn:li:glossaryTerm:bigid.bt_email"
+    terms = _patched_field_terms(workunits, "col")
+    assert terms[0].urn == "urn:li:glossaryTerm:bigid.bt_email"
     # GlossaryTermInfo is now emitted for the linked term so the UI shows "Email", not "bt_email"
-    term_info_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
-    ]
+    term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.bt_email"
-    assert term_info_wus[0].metadata.aspect.name == "Email"
-    assert (
-        term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
-    )
-    assert (
-        term_info_wus[0].metadata.aspect.customProperties["bigid_glossary_id"]
-        == "bt_email"
-    )
+    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.bt_email"
+    assert _aspect(term_info_wus[0]).name == "Email"
+    assert _aspect(term_info_wus[0]).parentNode == "urn:li:glossaryNode:bigid.idsor"
+    assert _aspect(term_info_wus[0]).customProperties["bigid_glossary_id"] == "bt_email"
     assert source.report.idsor_terms_emitted == 1
 
 
@@ -1376,15 +1456,10 @@ def test_idsor_path2_autogenerates_under_idsor_node():
             now_ms,
         )
     )
-    term_info_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
-    ]
+    term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert (
-        term_info_wus[0].metadata.entityUrn
-        == "urn:li:glossaryTerm:bigid.idsor.full_name"
-    )
-    aspect = term_info_wus[0].metadata.aspect
+    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.idsor.full_name"
+    aspect = _aspect(term_info_wus[0])
     assert aspect.name == "Full Name"
     assert aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
     assert aspect.customProperties["bigid_type"] == "idsor_attribute"
@@ -1421,16 +1496,10 @@ def test_idsor_path3_autogenerates_from_raw_name():
             now_ms,
         )
     )
-    term_info_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
-    ]
+    term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert (
-        term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.idsor.country"
-    )
-    assert (
-        term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
-    )
+    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.idsor.country"
+    assert _aspect(term_info_wus[0]).parentNode == "urn:li:glossaryNode:bigid.idsor"
     assert source.report.idsor_terms_emitted == 1
 
 
@@ -1464,14 +1533,11 @@ def test_idsor_source_detail_includes_row_count():
         )
     )
     editable_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+        wu for wu in workunits if _aspect_name(wu) == "editableSchemaMetadata"
     ]
-    sd = (
-        editable_wus[0]
-        .metadata.aspect.editableSchemaFieldInfo[0]
-        .glossaryTerms.terms[0]
-        .attribution.sourceDetail
-    )
+    assert len(editable_wus) == 1
+    terms = _patched_field_terms(workunits, "col")
+    sd = _attribution(terms[0]).sourceDetail
     assert sd["classifier_type"] == "idsor_attribute"
     assert sd["row_count"] == "10255"
 
@@ -1511,9 +1577,7 @@ def test_idsor_deduplication():
             now_ms,
         )
     )
-    term_info_wus = [
-        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
-    ]
+    term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
     assert source.report.idsor_terms_emitted == 1
 
@@ -1595,7 +1659,7 @@ def test_process_catalog_object_empty_object_name_warns_and_skips_column_fetch()
 
     list(source._process_catalog_object(_catalog_object(obj), {}))
 
-    source.client.get_columns.assert_not_called()
+    _client(source).get_columns.assert_not_called()
     assert any("missing-object-name" in str(w) for w in source.report.warnings)
 
 
@@ -1623,10 +1687,10 @@ def test_process_catalog_per_item_exception_does_not_abort_loop():
         "scanner_type_group": "structured",
         "tags": [],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter(
+    _client(source).get_catalog_objects.side_effect = lambda: iter(
         _catalog_objects([bad_obj, good_obj])
     )
-    source.client.get_columns.return_value = []
+    _client(source).get_columns.return_value = []
 
     call_count = 0
     original = source._process_catalog_object
@@ -1638,7 +1702,7 @@ def test_process_catalog_per_item_exception_does_not_abort_loop():
             raise RuntimeError("simulated bad object")
         yield from original(obj, name_map)
 
-    source._process_catalog_object = raise_first
+    source._process_catalog_object = raise_first  # type: ignore[method-assign]
 
     list(source._process_catalog())
 
@@ -1669,8 +1733,8 @@ def test_process_catalog_api_error_mid_iteration_warns():
         yield _catalog_object(good_obj)
         raise BigIDAPIError("network reset")
 
-    source.client.get_catalog_objects.side_effect = _fail_after_one
-    source.client.get_columns.return_value = []
+    _client(source).get_catalog_objects.side_effect = _fail_after_one
+    _client(source).get_columns.return_value = []
 
     list(source._process_catalog())
 

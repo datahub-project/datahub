@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -14,6 +14,23 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.str_enum import StrEnum
+
+
+class DomainMode(StrEnum):
+    """How BigID domain/sub_domain values are mapped into DataHub."""
+
+    NONE = "none"
+    AUTO_NAMESPACED = "auto_namespaced"
+    CONFIG_MAP = "config_map"
+
+
+class OwnerType(StrEnum):
+    """How BigID owner strings are interpreted when building owner URNs."""
+
+    USER = "user"
+    GROUP = "group"
+    NONE = "none"
 
 
 class ConnectionPlatformConfig(ConfigModel):
@@ -55,12 +72,15 @@ class BigIDSourceConfig(
 
     user_token: Optional[SecretStr] = Field(
         default=None,
-        description="Long-lived BigID user token. Exchanged for a short-lived access token at startup.",
+        description="Long-lived BigID user token, generated under Administration → Access "
+        "Management → System Users (Save the user after generating so the token activates). "
+        "Exchanged for a short-lived session token at startup. Provide the raw token — no "
+        "'Bearer' prefix.",
     )
     access_token: Optional[SecretStr] = Field(
         default=None,
-        description="Short-lived BigID access token. Used directly; primarily for testing. "
-        "Provide either this or user_token.",
+        description="Short-lived BigID session token, used directly without the startup "
+        "exchange; primarily for testing. Provide either this or user_token.",
     )
     timeout: int = Field(default=60, description="HTTP request timeout in seconds.")
     max_retries: int = Field(
@@ -78,6 +98,22 @@ class BigIDSourceConfig(
         "source) name. Use this to scope ingestion to a subset of connections in large BigID "
         "deployments that expose hundreds of data sources. Catalog objects whose source "
         "connection is denied are skipped entirely.",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex allow/deny patterns matched against the BigID catalog object's "
+        "fully-qualified name. Complements connection_pattern with finer, dataset-level "
+        "scoping for large deployments where a single connection exposes many objects. "
+        "Objects whose fully-qualified name is denied are skipped.",
+    )
+    max_catalog_objects: Optional[int] = Field(
+        default=None,
+        description="Optional cap on the number of catalog objects buffered in memory during "
+        "a single run. The connector buffers the full catalog so tag entities can be emitted "
+        "before the datasets that reference them; at 100k+ objects this buffer can reach "
+        "several hundred MB. When set, objects beyond this limit are skipped with a warning. "
+        "None (the default) means no cap — narrow connection_pattern/dataset_pattern instead "
+        "when possible.",
     )
 
     create_datasets: bool = Field(
@@ -112,8 +148,8 @@ class BigIDSourceConfig(
         description="Allow-list of BigID item types to sync. "
         "OOTB Personal Data Items are always included regardless of this filter.",
     )
-    domain_mode: Literal["none", "auto_namespaced", "config_map"] = Field(
-        default="none",
+    domain_mode: DomainMode = Field(
+        default=DomainMode.NONE,
         description="Domain handling mode. "
         "'none': store raw domain/sub_domain in customProperties only. "
         "'auto_namespaced': auto-create GUID-based urn:li:domain entities "
@@ -125,8 +161,8 @@ class BigIDSourceConfig(
         description="Used when domain_mode='config_map'. "
         "Maps BigID domain string → DataHub domain URN.",
     )
-    owner_type: Literal["user", "group", "none"] = Field(
-        default="user",
+    owner_type: OwnerType = Field(
+        default=OwnerType.USER,
         description="How to interpret BigID owner strings. "
         "'user' → urn:li:corpuser:{owner}. 'group' → urn:li:corpGroup:{owner}. "
         "'none' → stored in customProperties only.",
@@ -148,7 +184,7 @@ class BigIDSourceConfig(
         description="Emit GlossaryTerms for classifier findings that have no Business Glossary "
         "linkage in BigID. Terms are auto-generated on demand (only when a column finding "
         "references the classifier) and placed under the same 'bigid' root GlossaryNode. "
-        "URN pattern: urn:li:glossaryTerm:bigid.classifier.<slug>.",
+        "URN pattern: urn:li:glossaryTerm:bigid.classifier.{slug}.",
     )
     sync_idsor: bool = Field(
         default=True,
@@ -157,7 +193,7 @@ class BigIDSourceConfig(
         "and only appear when a Correlation Set is configured and enabled in the scan profile. "
         "When the attribute links to an existing Business Glossary term (via glossaryId), that "
         "term is reused. Otherwise an auto-generated term is created under a dedicated "
-        "'bigid.idsor' GlossaryNode. URN pattern: urn:li:glossaryTerm:bigid.idsor.<slug>.",
+        "'bigid.idsor' GlossaryNode. URN pattern: urn:li:glossaryTerm:bigid.idsor.{slug}.",
     )
     sync_unstructured_enrichment: bool = Field(
         default=False,

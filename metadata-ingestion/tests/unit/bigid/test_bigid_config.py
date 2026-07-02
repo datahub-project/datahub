@@ -13,6 +13,7 @@ def test_config_accepts_single_token():
     cfg = BigIDSourceConfig.model_validate(
         {"bigid_url": "https://bigid.example.com", "access_token": "tok"}
     )
+    assert cfg.access_token is not None
     assert cfg.access_token.get_secret_value() == "tok"
 
 

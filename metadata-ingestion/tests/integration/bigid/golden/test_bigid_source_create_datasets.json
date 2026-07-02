@@ -32,11 +32,11 @@
   {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "editableSchemaMetadata",
     "aspect": {
-      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"customer_email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"MEDIUM\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"distinct_count\": \"8500\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"region\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.idsor.country\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"country\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"40000\", \"classifier_friendly_name\": \"Country\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
-      "contentType": "application/json"
+      "value": "[{\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/customer_email/glossaryTerms/terms/urn:li:glossaryTerm:bigid.bt_email\", \"value\": {\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"MEDIUM\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"distinct_count\": \"8500\"}}}}, {\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/region/glossaryTerms/terms/urn:li:glossaryTerm:bigid.idsor.country\", \"value\": {\"urn\": \"urn:li:glossaryTerm:bigid.idsor.country\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"country\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"40000\", \"classifier_friendly_name\": \"Country\"}}}}]",
+      "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
       "lastObserved": 1706788800000,
@@ -92,11 +92,11 @@
   {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint,documents,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "globalTags",
     "aspect": {
-      "value": "{\"tags\": [{\"tag\": \"urn:li:tag:bigid.DataClass:Internal\"}]}",
-      "contentType": "application/json"
+      "value": "{\"arrayPrimaryKeys\": {\"tags\": [\"attribution\\u241fsource\", \"tag\"]}, \"patch\": [{\"op\": \"add\", \"path\": \"/tags//urn:li:tag:bigid.DataClass:Internal\", \"value\": {\"tag\": \"urn:li:tag:bigid.DataClass:Internal\"}}]}",
+      "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
       "lastObserved": 1706788800000,
@@ -152,11 +152,11 @@
   {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "editableSchemaMetadata",
     "aspect": {
-      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"9980\", \"distinct_count\": \"9750\", \"classifier_friendly_name\": \"Email Address\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"full_name\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_full_name\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.FULL_NAME\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"classifier_friendly_name\": \"Full Name\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"phone\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.classifier.phone\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.PHONE\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"8500\", \"distinct_count\": \"7900\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
-      "contentType": "application/json"
+      "value": "[{\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/email/glossaryTerms/terms/urn:li:glossaryTerm:bigid.bt_email\", \"value\": {\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"9980\", \"distinct_count\": \"9750\", \"classifier_friendly_name\": \"Email Address\"}}}}, {\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/full_name/glossaryTerms/terms/urn:li:glossaryTerm:bigid.bt_full_name\", \"value\": {\"urn\": \"urn:li:glossaryTerm:bigid.bt_full_name\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.FULL_NAME\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"classifier_friendly_name\": \"Full Name\"}}}}, {\"op\": \"add\", \"path\": \"/editableSchemaFieldInfo/phone/glossaryTerms/terms/urn:li:glossaryTerm:bigid.classifier.phone\", \"value\": {\"urn\": \"urn:li:glossaryTerm:bigid.classifier.phone\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.PHONE\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"8500\", \"distinct_count\": \"7900\"}}}}]",
+      "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
       "lastObserved": 1706788800000,
@@ -167,11 +167,11 @@
   {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "globalTags",
     "aspect": {
-      "value": "{\"tags\": [{\"tag\": \"urn:li:tag:bigid.Classification:PII\"}]}",
-      "contentType": "application/json"
+      "value": "{\"arrayPrimaryKeys\": {\"tags\": [\"attribution\\u241fsource\", \"tag\"]}, \"patch\": [{\"op\": \"add\", \"path\": \"/tags//urn:li:tag:bigid.Classification:PII\", \"value\": {\"tag\": \"urn:li:tag:bigid.Classification:PII\"}}]}",
+      "contentType": "application/json-patch+json"
     },
     "systemMetadata": {
       "lastObserved": 1706788800000,
@@ -467,36 +467,6 @@
   {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:bigid.idsor.country",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-      "value": "{\"removed\": false}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1706788800000,
-      "runId": "integration-test-run",
-      "lastRunId": "no-run-id-provided"
-    }
-  },
-  {
-    "entityType": "structuredProperty",
-    "entityUrn": "urn:li:structuredProperty:bigid.riskScore",
-    "changeType": "UPSERT",
-    "aspectName": "propertyDefinition",
-    "aspect": {
-      "value": "{\"qualifiedName\": \"bigid.riskScore\", \"displayName\": \"BigID Risk Score\", \"valueType\": \"urn:li:dataType:datahub.number\", \"cardinality\": \"SINGLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"Numeric risk score from BigID (0\\u2013100).\", \"immutable\": false}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1706788800000,
-      "runId": "integration-test-run",
-      "lastRunId": "no-run-id-provided"
-    }
-  },
-  {
-    "entityType": "structuredProperty",
-    "entityUrn": "urn:li:structuredProperty:bigid.riskScore",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

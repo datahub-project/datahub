@@ -32,7 +32,11 @@ from datahub.ingestion.source.bigid.bigid_utils import (
     _rank_to_float,
     _slugify,
 )
-from datahub.ingestion.source.bigid.config import BigIDSourceConfig
+from datahub.ingestion.source.bigid.config import (
+    BigIDSourceConfig,
+    DomainMode,
+    OwnerType,
+)
 from datahub.ingestion.source.bigid.constants import (
     APP_TYPE_RISK,
     BIGID_DATA_PLATFORM_URN,
@@ -49,9 +53,11 @@ from datahub.ingestion.source.bigid.constants import (
     CLF_TYPE_VALUE,
     DATAHUB_ACTOR_URN,
     LOWERCASE_PLATFORMS,
+    PERSONAL_DATA_ITEM_TYPE,
     RISK_SCORE_TAG_NAME,
     SCANNER_TYPE_STRUCTURED,
     TAG_TYPE_OBJECT,
+    TERM_SOURCE_EXTERNAL,
 )
 from datahub.ingestion.source.bigid.models import (
     AttrEnrichment,
@@ -78,12 +84,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
-    DatasetPropertiesClass,
     DomainPropertiesClass,
     DomainsClass,
-    EditableSchemaFieldInfoClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
     GlossaryNodeInfoClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
@@ -98,8 +100,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StructuredPropertyDefinitionClass,
     TagAssociationClass,
-    TagPropertiesClass,
 )
+from datahub.sdk.dataset import Dataset
+from datahub.sdk.tag import Tag
 from datahub.specific.dataset import DatasetPatchBuilder
 
 logger = logging.getLogger(__name__)
@@ -130,7 +133,10 @@ logger = logging.getLogger(__name__)
     "Domain entities created when domain_mode is auto_namespaced or config_map",
 )
 @capability(
-    SourceCapability.DELETION_DETECTION, "Stale entity removal via stateful ingestion"
+    SourceCapability.DELETION_DETECTION,
+    "Stale entity removal via stateful ingestion. Only meaningful with create_datasets=True: "
+    "in pure enrichment mode the connector owns no Dataset entities, so there is nothing for "
+    "stale removal to soft-delete (glossary terms, tags and domains are shared, not per-run).",
 )
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -221,15 +227,13 @@ class BigIDSource(StatefulIngestionSourceBase):
     def _load_and_emit(self) -> Iterator[MetadataWorkUnit]:
         self._load_registries()
 
-        # Emit the riskScore definition before any catalog passes so GMS commits it
-        # before dataset structuredProperties usages arrive in later batches.
-        yield from self._emit_risk_score_structured_property()
-
+        # riskScore StructuredProperty definition is emitted lazily in _process_catalog
+        # (only when a risk-score tag is present).
         yield from self._emit_root_glossary_node()
         if self.config.sync_idsor:
             yield from self._emit_idsor_glossary_node()
 
-        if self.config.domain_mode == "auto_namespaced":
+        if self.config.domain_mode == DomainMode.AUTO_NAMESPACED:
             yield from self._emit_domain_entities()
 
         yield from self._emit_glossary_terms()
@@ -348,10 +352,21 @@ class BigIDSource(StatefulIngestionSourceBase):
 
     def _domain_urn(self, value: str) -> str:
         # GUID-based domain URN via DomainKey (urn:li:domain:<guid>) rather than a
-        # human-readable slug. platform=bigid namespaces the hash so BigID domains
-        # never collide with same-named domains from other sources. The human-
-        # readable label is carried separately on DomainPropertiesClass.name.
-        return DomainKey(name=value, platform=BIGID_PLATFORM_NAME).as_urn()
+        # human-readable slug. platform=bigid namespaces the hash so BigID domains never
+        # collide with same-named domains from other sources. The GUID is additionally
+        # scoped by env + platform_instance so the same BigID domain name ingested into
+        # different environments or platform instances yields distinct urn:li:domain
+        # entities instead of silently merging (mirrors how DataProductKey is scoped by
+        # env + instance). DomainKey natively hashes `instance`; env is NOT a DomainKey
+        # field (passing it is silently ignored), so it is folded into the hashed name.
+        # Only the deterministic GUID is affected — the human-readable label is carried
+        # separately on DomainPropertiesClass.name.
+        hashed_name = f"{self.config.env}/{value}" if self.config.env else value
+        return DomainKey(
+            name=hashed_name,
+            platform=BIGID_PLATFORM_NAME,
+            instance=self.config.platform_instance,
+        ).as_urn()
 
     def _emit_domain_entities(self) -> Iterator[MetadataWorkUnit]:
         seen_domains: set[str] = set()
@@ -416,14 +431,20 @@ class BigIDSource(StatefulIngestionSourceBase):
                 yield status_wu
                 self._emitted_domain_urns.add(sub_urn)
 
+    @staticmethod
+    def _bigid_term_urn(suffix: str) -> str:
+        # All BigID terms live under the `bigid.` glossary namespace; the shared
+        # builder handles the urn:li:glossaryTerm: prefix.
+        return builder.make_term_urn(f"bigid.{suffix}")
+
     def _glossary_term_urn(self, item: BigIDGlossaryItem) -> str:
         if item.glossary_id:
-            return f"urn:li:glossaryTerm:bigid.{item.glossary_id}"
-        return f"urn:li:glossaryTerm:bigid.{_slugify(item.name or 'unknown')}"
+            return self._bigid_term_urn(item.glossary_id)
+        return self._bigid_term_urn(_slugify(item.name or "unknown"))
 
     def _should_include_item(self, item: BigIDGlossaryItem) -> bool:
         # OOTB Personal Data Items are always included: column enrichment references their URNs.
-        if item.is_ootb and item.item_type == "Personal Data Item":
+        if item.is_ootb and item.item_type == PERSONAL_DATA_ITEM_TYPE:
             return True
         return item.item_type in self.config.item_types
 
@@ -467,7 +488,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         term_info = GlossaryTermInfoClass(
             name=item.name,
             definition=item.description or "",
-            termSource="EXTERNAL",
+            termSource=TERM_SOURCE_EXTERNAL,
             parentNode=root_node_urn,
             customProperties=custom_props,
         )
@@ -480,8 +501,8 @@ class BigIDSource(StatefulIngestionSourceBase):
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        if owner_val and self.config.owner_type != "none":
-            if self.config.owner_type == "user":
+        if owner_val and self.config.owner_type != OwnerType.NONE:
+            if self.config.owner_type == OwnerType.USER:
                 owner_urn = builder.make_user_urn(owner_val)
             else:
                 owner_urn = builder.make_group_urn(owner_val)
@@ -497,7 +518,10 @@ class BigIDSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-        if self.config.domain_mode in ("auto_namespaced", "config_map"):
+        if self.config.domain_mode in (
+            DomainMode.AUTO_NAMESPACED,
+            DomainMode.CONFIG_MAP,
+        ):
             domain_urn = self._resolve_domain_urn(domain_val, sub_domain_val)
             if domain_urn:
                 yield MetadataChangeProposalWrapper(
@@ -510,12 +534,12 @@ class BigIDSource(StatefulIngestionSourceBase):
     def _resolve_domain_urn(
         self, domain_val: str, sub_domain_val: str
     ) -> Optional[str]:
-        if self.config.domain_mode == "auto_namespaced":
+        if self.config.domain_mode == DomainMode.AUTO_NAMESPACED:
             if sub_domain_val:
                 return self._domain_urn(sub_domain_val)
             if domain_val:
                 return self._domain_urn(domain_val)
-        elif self.config.domain_mode == "config_map":
+        elif self.config.domain_mode == DomainMode.CONFIG_MAP:
             key = sub_domain_val or domain_val
             return self.config.domain_mapping.get(key)
         return None
@@ -531,16 +555,29 @@ class BigIDSource(StatefulIngestionSourceBase):
         # Buffer the whole catalog so unique tag entities can be emitted before the
         # datasets that reference them, in a single pass over the catalog API.
         # ponytail: single global in-memory buffer, O(n) memory in catalog size (~2 KB
-        # per object, so ~200 MB–1 GB at 100k–500k objects). Scope with connection_pattern
-        # if that bites; the upgrade path is a streaming two-pass over the catalog API.
+        # per object, so ~200 MB–1 GB at 100k–500k objects). max_catalog_objects caps the
+        # buffer; scope with connection_pattern/dataset_pattern to stay under it. The full
+        # upgrade path is a streaming two-pass over the catalog API.
         seen_tag_pairs: set[TagPair] = set()
         catalog_objects: list[BigIDCatalogObject] = []
+        max_objects = self.config.max_catalog_objects
 
         try:
             for obj in self.client.get_catalog_objects():
                 if not self.config.connection_pattern.allowed(obj.source):
                     self.report.report_connection_filtered(obj.source)
                     continue
+                if not self.config.dataset_pattern.allowed(obj.fully_qualified_name):
+                    self.report.report_dataset_filtered(obj.fully_qualified_name)
+                    continue
+                if max_objects is not None and len(catalog_objects) >= max_objects:
+                    self.report.warning(
+                        "catalog-buffer-truncated",
+                        context=f"Reached max_catalog_objects={max_objects}; remaining "
+                        "objects were skipped. Increase the limit or narrow "
+                        "connection_pattern/dataset_pattern to cover the full catalog.",
+                    )
+                    break
                 catalog_objects.append(obj)
                 if self.config.sync_tags:
                     seen_tag_pairs.update(self._object_tag_pairs(obj))
@@ -550,6 +587,15 @@ class BigIDSource(StatefulIngestionSourceBase):
                 context=f"Fetch interrupted after {len(catalog_objects)} objects: {exc}",
                 exc=exc,
             )
+
+        # Definition must land before the dataset patches that reference it.
+        has_risk_score = any(
+            tag_pair.application_type == APP_TYPE_RISK
+            and RISK_SCORE_TAG_NAME in tag_pair.tag_name
+            for tag_pair in seen_tag_pairs
+        )
+        if has_risk_score:
+            yield from self._emit_risk_score_structured_property()
 
         # Emit Tag entities before any dataset enrichment so they exist first.
         for tag_pair in seen_tag_pairs:
@@ -602,18 +648,16 @@ class BigIDSource(StatefulIngestionSourceBase):
     def _emit_tag_entity(
         self, tag_name: str, tag_value: str
     ) -> Iterator[MetadataWorkUnit]:
-        tag_urn = f"urn:li:tag:bigid.{_encode_urn_name(tag_name)}:{_encode_urn_name(tag_value)}"
-        yield MetadataChangeProposalWrapper(
-            entityUrn=tag_urn,
-            aspect=TagPropertiesClass(
-                name=self._tag_display_name(tag_name, tag_value),
-                description=tag_name,
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=tag_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
+        # Status(removed=False) rides along as an extra aspect so a re-sync resurrects a
+        # previously soft-deleted tag. The id is pre-encoded; TagUrn preserves it verbatim.
+        tag_id = f"bigid.{_encode_urn_name(tag_name)}:{_encode_urn_name(tag_value)}"
+        tag = Tag(
+            name=tag_id,
+            display_name=self._tag_display_name(tag_name, tag_value),
+            description=tag_name,
+            extra_aspects=[StatusClass(removed=False)],
+        )
+        yield from tag.as_workunits()
         self.report.tag_entities_emitted += 1
 
     def _emit_risk_score_structured_property(
@@ -807,25 +851,33 @@ class BigIDSource(StatefulIngestionSourceBase):
             extract.tag_assocs.append(TagAssociationClass(tag=tag_urn))
         return extract
 
+    @staticmethod
+    def _patch_workunits(
+        dataset_urn: str, patch: DatasetPatchBuilder
+    ) -> Iterator[MetadataWorkUnit]:
+        # One MCP per patched aspect; key the id on the aspect so they don't collide.
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=f"{dataset_urn}-patch-{mcp.aspectName}", mcp_raw=mcp
+            )
+
     def _emit_dataset_tags(
         self, dataset_urn: str, object_tags: list[BigIDTag]
     ) -> Iterator[MetadataWorkUnit]:
         extract = self._extract_dataset_tag_associations(object_tags, dataset_urn)
-        if extract.tag_assocs:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=GlobalTagsClass(tags=extract.tag_assocs),
-            ).as_workunit()
+        if not extract.tag_assocs and extract.risk_score is None:
+            return
+        # Patch (not UPSERT) so BigID tags are added alongside — never overwriting — tags a
+        # steward curated in the DataHub UI or that another connector already set.
+        patch = DatasetPatchBuilder(dataset_urn)
+        for tag_assoc in extract.tag_assocs:
+            patch.add_tag(tag_assoc)
         if extract.risk_score is not None:
-            for mcp in (
-                DatasetPatchBuilder(dataset_urn)
-                .set_structured_property(
-                    self.config.risk_score_structured_property_urn,
-                    extract.risk_score,
-                )
-                .build()
-            ):
-                yield MetadataWorkUnit(id=f"{dataset_urn}-riskScore-patch", mcp_raw=mcp)
+            patch.set_structured_property(
+                self.config.risk_score_structured_property_urn,
+                extract.risk_score,
+            )
+        yield from self._patch_workunits(dataset_urn, patch)
 
     def _emit_platform_instance(
         self, dataset_urn: str, source_name: str
@@ -861,39 +913,49 @@ class BigIDSource(StatefulIngestionSourceBase):
         if dataset_urn in self._seen_dataset_urns:
             return
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DatasetPropertiesClass(
-                name=object_name,
-                qualifiedName=fqn,
-                customProperties={"bigid_source": "true"},
-            ),
-        ).as_workunit()
-
+        platform = self._get_platform(obj.source)
+        schema: Optional[SchemaMetadataClass] = None
         if is_structured and columns:
-            schema_fields = []
-            for column in sorted(columns, key=lambda col: col.order):
-                schema_fields.append(
-                    SchemaFieldClass(
-                        fieldPath=column.column_name,
-                        type=_map_field_type(column.field_type),
-                        nativeDataType=column.field_type,
-                        nullable=column.nullable,
-                        isPartOfKey=column.is_primary,
-                    )
+            schema_fields = [
+                SchemaFieldClass(
+                    fieldPath=column.column_name,
+                    type=_map_field_type(column.field_type),
+                    nativeDataType=column.field_type,
+                    nullable=column.nullable,
+                    isPartOfKey=column.is_primary,
                 )
-            platform = self._get_platform(obj.source)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SchemaMetadataClass(
-                    schemaName=fqn,
-                    platform=builder.make_data_platform_urn(platform),
-                    version=0,
-                    hash="",
-                    platformSchema=OtherSchemaClass(rawSchema=""),
-                    fields=schema_fields,
-                ),
-            ).as_workunit()
+                for column in sorted(columns, key=lambda col: col.order)
+            ]
+            schema = SchemaMetadataClass(
+                schemaName=fqn,
+                platform=builder.make_data_platform_urn(platform),
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=schema_fields,
+            )
+
+        # Pass name + platform_instance separately so the SDK builds the exact same URN as
+        # _make_dataset_urn. Drop the SDK's auto dataPlatformInstance aspect: _emit_platform_instance
+        # emits it conditionally, so enrichment mode never clobbers a native connector's
+        # instance with a null value.
+        name = self._cleansed_dataset_name(fqn, obj.source)
+        if name is None:
+            return
+        dataset = Dataset(
+            platform=platform,
+            name=name,
+            platform_instance=self._get_platform_instance(obj.source),
+            env=self._get_env(obj.source),
+            display_name=object_name,
+            qualified_name=fqn,
+            custom_properties={"bigid_source": "true"},
+            schema=schema,
+        )
+        for mcp in dataset.as_mcps():
+            if mcp.aspectName == DataPlatformInstanceClass.ASPECT_NAME:
+                continue
+            yield mcp.as_workunit()
 
         self._seen_dataset_urns.add(dataset_urn)
         self.report.datasets_created += 1
@@ -943,32 +1005,17 @@ class BigIDSource(StatefulIngestionSourceBase):
         if not editable_fields:
             return
 
-        field_info_list: list[EditableSchemaFieldInfoClass] = []
+        # Patch each field's editableSchemaMetadata so BigID terms/tags merge with — rather
+        # than overwrite — anything a steward curated in the DataHub UI. Each term keeps its
+        # BigID attribution (sourceDetail) because the full association object is patched in.
+        patch = DatasetPatchBuilder(dataset_urn)
         for field_path, field in editable_fields.items():
-            field_glossary_terms = GlossaryTermsClass(
-                terms=field.terms,
-                auditStamp=AuditStampClass(time=now_ms, actor=DATAHUB_ACTOR_URN),
-            )
-            field_tags = (
-                GlobalTagsClass(
-                    tags=[
-                        TagAssociationClass(tag=tag_urn) for tag_urn in field.tag_urns
-                    ]
-                )
-                if field.tag_urns
-                else None
-            )
-            field_info_list.append(
-                EditableSchemaFieldInfoClass(
-                    fieldPath=field_path,
-                    glossaryTerms=field_glossary_terms,
-                    globalTags=field_tags,
-                )
-            )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=EditableSchemaMetadataClass(editableSchemaFieldInfo=field_info_list),
-        ).as_workunit()
+            field_helper = patch.for_field(field_path)
+            for term_assoc in field.terms:
+                field_helper.add_term(term_assoc)
+            for tag_urn in field.tag_urns:
+                field_helper.add_tag(TagAssociationClass(tag=tag_urn))
+        yield from self._patch_workunits(dataset_urn, patch)
 
     @staticmethod
     def _build_clf_stats(
@@ -1001,7 +1048,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         info = self._idsor_attr_map.get(attr_name)
         if info and info.glossary_id:
             # Path 1: linked to an existing BigID glossary item — reuse its URN.
-            term_urn = f"urn:li:glossaryTerm:bigid.{info.glossary_id}"
+            term_urn = self._bigid_term_urn(info.glossary_id)
             return IDSoRResolution(
                 term_urn=term_urn,
                 resolved_friendly=info.friendly_name,
@@ -1017,7 +1064,7 @@ class BigIDSource(StatefulIngestionSourceBase):
                     "IDSoR path 2: empty slug for attr %r — skipping", attr_name
                 )
                 return None
-            term_urn = f"urn:li:glossaryTerm:bigid.idsor.{slug}"
+            term_urn = self._bigid_term_urn(f"idsor.{slug}")
             return IDSoRResolution(
                 term_urn=term_urn,
                 resolved_friendly=info.friendly_name,
@@ -1030,7 +1077,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         if not slug:
             logger.debug("IDSoR path 3: empty slug for attr %r — skipping", attr_name)
             return None
-        term_urn = f"urn:li:glossaryTerm:bigid.idsor.{slug}"
+        term_urn = self._bigid_term_urn(f"idsor.{slug}")
         return IDSoRResolution(
             term_urn=term_urn,
             resolved_friendly=attr_name.replace("_", " ").title(),
@@ -1059,7 +1106,7 @@ class BigIDSource(StatefulIngestionSourceBase):
 
         if glossary_id:
             return TermResolution(
-                term_urn=f"urn:li:glossaryTerm:bigid.{glossary_id}",
+                term_urn=self._bigid_term_urn(glossary_id),
                 resolved_friendly=self._friendly_name_map.get(glossary_id),
                 pending_term=None,
                 clf_type=self._classifier_type(attr_name),
@@ -1180,7 +1227,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         slug = _slugify(self._strip_classifier_prefix(attr_name))
         if not slug:
             return None
-        return f"urn:li:glossaryTerm:bigid.classifier.{slug}"
+        return self._bigid_term_urn(f"classifier.{slug}")
 
     def _emit_pending_terms(
         self, pending_new_terms: list[PendingTerm]
@@ -1237,7 +1284,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         term_info = GlossaryTermInfoClass(
             name=display_name,
             definition=f"Auto-generated from BigID classifier: {attr_name}",
-            termSource="EXTERNAL",
+            termSource=TERM_SOURCE_EXTERNAL,
             parentNode=BIGID_ROOT_GLOSSARY_NODE_URN,
             customProperties={
                 "bigid_type": "classifier",
@@ -1253,13 +1300,17 @@ class BigIDSource(StatefulIngestionSourceBase):
         self.report.classifier_terms_emitted += 1
         self._emitted_classifier_term_urns.add(term_urn)
 
-    def _emit_idsor_linked_term(
-        self, attr_name: str, term_urn: str
+    def _emit_idsor_term_entity(
+        self,
+        attr_name: str,
+        term_urn: str,
+        *,
+        definition: str,
+        warning_key: str,
+        emitted_urns: set[str],
+        include_glossary_id: bool,
     ) -> Iterator[MetadataWorkUnit]:
-        # Path 1 terms are referenced by their BigID glossaryId but typically do not appear
-        # in the business_glossary_items response, so the glossary sync step never emits
-        # their GlossaryTermInfo. Emitting it here gives the term a human-readable name in
-        # the UI instead of the raw fn_item_* id.
+        # Shared body for linked path-1 terms and auto-generated terms.
         info = self._idsor_attr_map.get(attr_name)
         display_name = (
             info.friendly_name if info else attr_name.replace("_", " ").title()
@@ -1268,49 +1319,49 @@ class BigIDSource(StatefulIngestionSourceBase):
             "bigid_type": "idsor_attribute",
             "bigid_attribute_name": attr_name,
         }
-        if info and info.glossary_id:
+        if include_glossary_id and info and info.glossary_id:
             custom_props["bigid_glossary_id"] = info.glossary_id
         term_info = GlossaryTermInfoClass(
             name=display_name,
-            definition=f"Linked from BigID IDSoR attribute: {attr_name}",
-            termSource="EXTERNAL",
+            definition=definition,
+            termSource=TERM_SOURCE_EXTERNAL,
             parentNode=BIGID_IDSOR_GLOSSARY_NODE_URN,
             customProperties=custom_props,
         )
-        mcps = self._try_build_term_mcps(
-            term_urn, term_info, "idsor-linked-term-build-failed", attr_name
-        )
+        mcps = self._try_build_term_mcps(term_urn, term_info, warning_key, attr_name)
         if mcps is None:
             return
         yield from mcps
         self.report.idsor_terms_emitted += 1
-        self._emitted_idsor_linked_term_urns.add(term_urn)
+        emitted_urns.add(term_urn)
+
+    def _emit_idsor_linked_term(
+        self, attr_name: str, term_urn: str
+    ) -> Iterator[MetadataWorkUnit]:
+        # Path 1 terms are referenced by their BigID glossaryId but typically do not appear
+        # in the business_glossary_items response, so the glossary sync step never emits
+        # their GlossaryTermInfo. Emitting it here gives the term a human-readable name in
+        # the UI instead of the raw fn_item_* id.
+        yield from self._emit_idsor_term_entity(
+            attr_name,
+            term_urn,
+            definition=f"Linked from BigID IDSoR attribute: {attr_name}",
+            warning_key="idsor-linked-term-build-failed",
+            emitted_urns=self._emitted_idsor_linked_term_urns,
+            include_glossary_id=True,
+        )
 
     def _emit_idsor_term(
         self, attr_name: str, term_urn: str
     ) -> Iterator[MetadataWorkUnit]:
-        info = self._idsor_attr_map.get(attr_name)
-        display_name = (
-            info.friendly_name if info else attr_name.replace("_", " ").title()
-        )
-        term_info = GlossaryTermInfoClass(
-            name=display_name,
+        yield from self._emit_idsor_term_entity(
+            attr_name,
+            term_urn,
             definition=f"Auto-generated from BigID IDSoR attribute: {attr_name}",
-            termSource="EXTERNAL",
-            parentNode=BIGID_IDSOR_GLOSSARY_NODE_URN,
-            customProperties={
-                "bigid_type": "idsor_attribute",
-                "bigid_attribute_name": attr_name,
-            },
+            warning_key="idsor-term-build-failed",
+            emitted_urns=self._emitted_idsor_term_urns,
+            include_glossary_id=False,
         )
-        mcps = self._try_build_term_mcps(
-            term_urn, term_info, "idsor-term-build-failed", attr_name
-        )
-        if mcps is None:
-            return
-        yield from mcps
-        self.report.idsor_terms_emitted += 1
-        self._emitted_idsor_term_urns.add(term_urn)
 
     def _emit_dataset_profile(
         self,
@@ -1361,9 +1412,13 @@ class BigIDSource(StatefulIngestionSourceBase):
         # Global default from PlatformInstanceConfigMixin.
         return self.config.platform_instance
 
-    def _make_dataset_urn(self, fqn: str, source_name: str) -> Optional[str]:
-        # BigID FQN is {connection_name}.{remaining}; the DataHub URN drops the connection
-        # segment and becomes urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env}).
+    def _cleansed_dataset_name(self, fqn: str, source_name: str) -> Optional[str]:
+        # URN name component: BigID FQN is {connection_name}.{remaining}; the DataHub URN drops
+        # the connection segment. Lowercasing matches how the native connector emits the URN so
+        # enrichment lands on the same entity. Reserved-char encoding and the platform_instance
+        # prefix are deliberately left to make_dataset_urn_with_platform_instance / the SDK
+        # Dataset, which encode identically to native connectors (crucially, a literal ':' is a
+        # valid name char and must NOT be percent-encoded, or the URN won't match).
         if not fqn or not source_name:
             return None
 
@@ -1375,17 +1430,18 @@ class BigIDSource(StatefulIngestionSourceBase):
             parts = fqn.split(".", 1)
             remaining = parts[1] if len(parts) > 1 else fqn
 
-        platform = self._get_platform(source_name)
-        env = self._get_env(source_name)
-        platform_instance = self._get_platform_instance(source_name)
-
-        if platform in LOWERCASE_PLATFORMS:
+        if self._get_platform(source_name) in LOWERCASE_PLATFORMS:
             remaining = remaining.lower()
 
-        if platform_instance:
-            dataset_name = f"{platform_instance}.{remaining}"
-        else:
-            dataset_name = remaining
+        return remaining
 
-        safe_name = _encode_urn_name(dataset_name)
-        return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{safe_name},{env})"
+    def _make_dataset_urn(self, fqn: str, source_name: str) -> Optional[str]:
+        name = self._cleansed_dataset_name(fqn, source_name)
+        if name is None:
+            return None
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=self._get_platform(source_name),
+            name=name,
+            platform_instance=self._get_platform_instance(source_name),
+            env=self._get_env(source_name),
+        )

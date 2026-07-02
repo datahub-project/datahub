@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 from typing import Any, Optional
 from unittest.mock import patch
 
@@ -33,6 +34,32 @@ def _parse_aspect(mcp: dict[str, Any]) -> dict[str, Any]:
     if isinstance(raw, dict) and "value" in raw:
         return json.loads(raw["value"])
     return raw or {}
+
+
+# Field enrichment is emitted as editableSchemaMetadata PATCH ops; these helpers reconstruct
+# the added terms/tags per field so content assertions can inspect them.
+_ESM_TERM_RE = re.compile(
+    r"^/editableSchemaFieldInfo/(?P<field>.+)/glossaryTerms/terms/"
+)
+_ESM_TAG_RE = re.compile(r"^/editableSchemaFieldInfo/(?P<field>.+)/globalTags/tags/")
+
+
+def _field_term_map(mcp: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    terms: dict[str, list[dict[str, Any]]] = {}
+    for op in json.loads(mcp["aspect"]["value"]):
+        match = _ESM_TERM_RE.match(op["path"])
+        if match:
+            terms.setdefault(match.group("field"), []).append(op["value"])
+    return terms
+
+
+def _field_tag_map(mcp: dict[str, Any]) -> dict[str, list[str]]:
+    tags: dict[str, list[str]] = {}
+    for op in json.loads(mcp["aspect"]["value"]):
+        match = _ESM_TAG_RE.match(op["path"])
+        if match:
+            tags.setdefault(match.group("field"), []).append(op["value"]["tag"])
+    return tags
 
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -296,19 +323,14 @@ def test_confidence_threshold_filters_low_findings() -> None:
         and "orders" in m.get("entityUrn", "").lower()
     ]
     if orders_editable:
-        aspect = _parse_aspect(orders_editable[0])
-        all_term_urns = {
-            term["urn"]
-            for field in aspect.get("editableSchemaFieldInfo", [])
-            for term in field.get("glossaryTerms", {}).get("terms", [])
-        }
+        term_map = _field_term_map(orders_editable[0])
+        all_terms = [term for terms in term_map.values() for term in terms]
         # The MEDIUM classifier finding for EMAIL must not appear
-        assert "urn:li:glossaryTerm:bigid.bt_email" not in all_term_urns or all(
+        assert all(
             # bt_email may appear via IDSoR path 1 (HIGH rank) — that's correct
             term.get("attribution", {}).get("sourceDetail", {}).get("classifier_type")
             == "idsor_attribute"
-            for field in aspect.get("editableSchemaFieldInfo", [])
-            for term in field.get("glossaryTerms", {}).get("terms", [])
+            for term in all_terms
             if term.get("urn") == "urn:li:glossaryTerm:bigid.bt_email"
         ), "MEDIUM classifier finding for EMAIL must be filtered at threshold=0.75"
 
@@ -406,8 +428,9 @@ def test_domain_mode_auto_namespaced_emits_domain_entities() -> None:
     )
     domain_urns = {m["entityUrn"] for m in domain_mcps}
     # "Customer" is a domain on the glossary fixture; its URN is the deterministic
-    # DomainKey GUID, not a human-readable slug.
-    expected = DomainKey(name="Customer", platform=BIGID_PLATFORM_NAME).as_urn()
+    # DomainKey GUID, not a human-readable slug. The hashed name is env-scoped
+    # (BASE_CONFIG env=PROD) so domains stay distinct across environments.
+    expected = DomainKey(name="PROD/Customer", platform=BIGID_PLATFORM_NAME).as_urn()
     assert expected in domain_urns, (
         f"Expected GUID domain URN {expected} for 'Customer', got: {domain_urns}"
     )
@@ -455,12 +478,8 @@ def test_idsor_path1_reuses_existing_glossary_term() -> None:
         and "orders" in m.get("entityUrn", "").lower()
     ]
     assert orders_editable, "ORDERS dataset must have editableSchemaMetadata"
-    aspect = _parse_aspect(orders_editable[0])
-    all_term_urns = {
-        term["urn"]
-        for field in aspect.get("editableSchemaFieldInfo", [])
-        for term in field.get("glossaryTerms", {}).get("terms", [])
-    }
+    term_map = _field_term_map(orders_editable[0])
+    all_term_urns = {term["urn"] for terms in term_map.values() for term in terms}
     assert "urn:li:glossaryTerm:bigid.bt_email" in all_term_urns, (
         "IDSoR customer_email (path 1) must reuse the existing bt_email GlossaryTerm"
     )
@@ -671,12 +690,10 @@ def test_no_duplicate_term_urns_per_field() -> None:
     for mcp in mcps:
         if mcp.get("aspectName") != "editableSchemaMetadata":
             continue
-        aspect = _parse_aspect(mcp)
-        for field in aspect.get("editableSchemaFieldInfo", []):
-            urns = [t["urn"] for t in field.get("glossaryTerms", {}).get("terms", [])]
+        for field_path, terms in _field_term_map(mcp).items():
+            urns = [t["urn"] for t in terms]
             assert len(urns) == len(set(urns)), (
-                f"Duplicate term URNs on {mcp['entityUrn']} "
-                f"field {field['fieldPath']!r}: {urns}"
+                f"Duplicate term URNs on {mcp['entityUrn']} field {field_path!r}: {urns}"
             )
 
 
@@ -687,9 +704,7 @@ def test_confidence_level_tag_emits_on_classified_fields() -> None:
     for mcp in mcps:
         if mcp.get("aspectName") != "editableSchemaMetadata":
             continue
-        aspect = _parse_aspect(mcp)
-        for field in aspect.get("editableSchemaFieldInfo", []):
-            tag_urns = [t["tag"] for t in field.get("globalTags", {}).get("tags", [])]
+        for tag_urns in _field_tag_map(mcp).values():
             if any("bigid.confidence:" in u for u in tag_urns):
                 found_confidence_tag = True
                 # Each tag must be one of the known confidence levels
@@ -710,11 +725,9 @@ def test_confidence_level_tag_not_emitted_by_default() -> None:
     for mcp in mcps:
         if mcp.get("aspectName") != "editableSchemaMetadata":
             continue
-        aspect = _parse_aspect(mcp)
-        for field in aspect.get("editableSchemaFieldInfo", []):
-            tag_urns = [t["tag"] for t in field.get("globalTags", {}).get("tags", [])]
+        for field_path, tag_urns in _field_tag_map(mcp).items():
             assert not any("bigid.confidence:" in u for u in tag_urns), (
-                f"Unexpected confidence tag on field {field['fieldPath']!r}: {tag_urns}"
+                f"Unexpected confidence tag on field {field_path!r}: {tag_urns}"
             )
 
 

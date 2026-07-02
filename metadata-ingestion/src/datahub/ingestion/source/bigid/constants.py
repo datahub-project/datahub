@@ -1,3 +1,5 @@
+from datahub.emitter.mce_builder import make_data_platform_urn, make_user_urn
+
 # BigID ds-connection `type` → DataHub platform name.
 # Source: `type` field values from GET /api/v1/ds-connections; verified against BigID 6.x.
 BIGID_TYPE_TO_PLATFORM: dict[str, str] = {
@@ -25,8 +27,8 @@ BIGID_TYPE_TO_PLATFORM: dict[str, str] = {
     # Partner integrations
     "mongodb": "mongodb",
     "azure-sql": "mssql",
-    "sap-hana": "saphana",
-    "adls-v2": "adls-gen2",
+    "sap-hana": "hana",
+    "adls-v2": "abs",
     # Intentionally unmapped (no standard DataHub platform name):
     #   smb_v2, gdrive-v2, onedrive-v2, o365-outlook-v2, sap-successfactors-v2
     #   amazon-sagemaker, azure-openai, openai, hugging-face, atlas-vectorsearch
@@ -39,15 +41,22 @@ LOWERCASE_PLATFORMS: set[str] = {"snowflake", "bigquery", "redshift"}
 BIGID_ROOT_GLOSSARY_NODE_URN = "urn:li:glossaryNode:bigid"
 BIGID_IDSOR_GLOSSARY_NODE_URN = "urn:li:glossaryNode:bigid.idsor"
 
+# GlossaryTermInfo.termSource value: BigID terms originate outside DataHub.
+TERM_SOURCE_EXTERNAL = "EXTERNAL"
+
+# BigID glossary item_type for out-of-the-box Personal Data Items. These are always
+# emitted because column enrichment references their term URNs.
+PERSONAL_DATA_ITEM_TYPE = "Personal Data Item"
+
 # BigID tag name fragment routed to a structured property rather than a Tag entity.
 RISK_SCORE_TAG_NAME = "riskScore"
 
 # Actor stamped on every aspect this connector emits.
-DATAHUB_ACTOR_URN = "urn:li:corpuser:datahub"
-# DataHub data platform name for BigID; the "urn:li:dataPlatform:" form is the
+DATAHUB_ACTOR_URN = make_user_urn("datahub")
+# DataHub data platform name for BigID; the data-platform URN form is the
 # provenance recorded on GlossaryTerm attributions.
 BIGID_PLATFORM_NAME = "bigid"
-BIGID_DATA_PLATFORM_URN = f"urn:li:dataPlatform:{BIGID_PLATFORM_NAME}"
+BIGID_DATA_PLATFORM_URN = make_data_platform_urn(BIGID_PLATFORM_NAME)
 
 # BigID attributeDetails `name` prefixes. MD:: must be tested before the bare
 # classifier prefix since it is a longer match on the same string.

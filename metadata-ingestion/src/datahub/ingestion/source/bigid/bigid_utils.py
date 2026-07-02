@@ -59,7 +59,7 @@ def _map_field_type(field_type: str) -> SchemaFieldDataTypeClass:
 
     if matches("varchar", "char", "text", "string", "nvarchar", "clob"):
         return SchemaFieldDataTypeClass(type=StringTypeClass())
-    if any(needle in normalized for needle in _NUMERIC_TYPES):
+    if matches(*_NUMERIC_TYPES):
         return SchemaFieldDataTypeClass(type=NumberTypeClass())
     if matches("bool", "boolean", "bit"):
         return SchemaFieldDataTypeClass(type=BooleanTypeClass())
@@ -95,9 +95,12 @@ def _encode_urn_name(name: str) -> str:
 
 
 def _coerce_int(value: Union[int, str, None]) -> Optional[int]:
-    # BigID returns counts/sizes as either ints or numeric strings; a falsy value
-    # (0, "", None) yields None so the field is omitted from the profile.
-    if not value:
+    # BigID returns counts/sizes as ints or numeric strings. None and blank strings
+    # mean "absent" (field omitted from the profile); a genuine 0 is a valid count and
+    # must be preserved rather than dropped by a falsy check.
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
         return None
     try:
         return int(value)
