@@ -332,7 +332,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value={ALL_ACTORS_VALUE}>{t('allUsers')}</Select.Option>
+                    <Select.Option data-testid="option-all-users" value={ALL_ACTORS_VALUE}>
+                        {t('allUsers')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
             <Form.Item label={<Typography.Text strong>{t('groupsLabel')}</Typography.Text>}>
@@ -374,7 +376,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
                     {/* eslint-disable-next-line i18next/no-literal-string */}
-                    <Select.Option value="All">{t('allGroups')}</Select.Option>
+                    <Select.Option data-testid="option-all-groups" value="All">
+                        {t('allGroups')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
         </ActorForm>

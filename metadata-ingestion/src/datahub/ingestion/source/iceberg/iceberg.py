@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import uuid
-from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -49,12 +48,6 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import NamespaceKey
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -64,15 +57,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    AutoSystemMetadata,
-    auto_fix_duplicate_schema_field_paths,
-    auto_fix_empty_field_paths,
-    auto_lowercase_urns,
-    auto_materialize_referenced_tags_terms,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import (
@@ -84,11 +70,32 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms import (
+    AutoMaterializeReferencedTagsTermsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_empty_schema_field_paths import (
+    ValidateEmptySchemaFieldPathsProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
@@ -167,51 +174,19 @@ class IcebergSource(StatefulIngestionSourceBase):
         config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # This source needs to overwrite standard `get_workunit_processor`, because it is unique in terms of usage
-        # of parallelism. Because of this, 2 processors won't work as expected:
-        # 1. browse_path_processor - it needs aspects for a single entity to be continuous - which is not guaranteed
-        #    in this source
-        # 2. automatic stamping with systemMetadata - in current implementation of the Source class this processor
-        #    would have been applied in a thread (single) shared between the source, processors and transformers.
-        #    Since the metadata scraping happens in separate threads, this could lead to difference between
-        #    time used by systemMetadata and actual time at which metadata was read
-        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-            and (
-                (
-                    hasattr(
-                        self.ctx.pipeline_config.source.config,
-                        "convert_urns_to_lowercase",
-                    )
-                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
-                )
-                or (
-                    hasattr(self.ctx.pipeline_config.source.config, "get")
-                    and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
-                    )
-                )
-            )
-        ):
-            auto_lowercase_dataset_urns = auto_lowercase_urns
-
+    def get_allowed_workunit_processors(self):
+        # Explicit whitelist: this source uses parallel threads for metadata scraping,
+        # so processors that assume sequential, per-entity ordering (auto_status_aspect,
+        # auto_browse_path_v2) are unsafe. New processors must be explicitly opted in here.
         return [
-            auto_lowercase_dataset_urns,
-            auto_materialize_referenced_tags_terms,
-            partial(
-                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
-            ),
-            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
-            partial(auto_workunit_reporter, self.get_report()),
-            auto_patch_last_modified,
-            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            EnsureAspectSizeProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:

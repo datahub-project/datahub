@@ -6,12 +6,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -53,7 +51,6 @@ public class RelatedDocumentsResolverTest {
 
   private DocumentService mockService;
   private EntityClient mockEntityClient;
-  private GroupService mockGroupService;
   private RelatedDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private RelatedDocumentsInput input;
@@ -63,7 +60,6 @@ public class RelatedDocumentsResolverTest {
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
     mockEntityClient = mock(EntityClient.class);
-    mockGroupService = mock(GroupService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup mock parent entity
@@ -105,11 +101,8 @@ public class RelatedDocumentsResolverTest {
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
 
-    // Mock GroupService to return empty groups by default
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(Collections.emptyList());
-
-    resolver = new RelatedDocumentsResolver(mockService, mockEntityClient, mockGroupService);
+    // Session group membership is stubbed via TestUtils.withSessionGroupMembership when needed
+    resolver = new RelatedDocumentsResolver(mockService, mockEntityClient);
   }
 
   private EntityResponse createPublishedDocumentResponse(String documentUrn, String ownerUrn) {
@@ -389,14 +382,10 @@ public class RelatedDocumentsResolverTest {
 
   @Test
   public void testContextDocumentsWithGroupOwnership() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN);
+    QueryContext mockContext =
+        getMockAllowContext(TEST_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Mock user belongs to a group
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
 
     // Create unpublished document owned by user's group
     Map<com.linkedin.common.urn.Urn, EntityResponse> entityResponseMap = new HashMap<>();

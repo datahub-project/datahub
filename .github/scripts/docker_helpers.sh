@@ -15,7 +15,14 @@ export QUICKSTART_TAG="quickstart"
 export SHA_TAG_PREFIX="sha-"
 
 function get_short_sha {
-    echo $(git rev-parse --short "$GITHUB_SHA"|head -c7)
+    # On pull_request events GITHUB_SHA is the ephemeral merge commit, which isn't a useful
+    # reference. Prefer the PR branch HEAD sha (passed explicitly by the workflow) so tags
+    # pin to the actual reviewed commit.
+    if [ -n "${GITHUB_PR_HEAD_SHA:-}" ]; then
+        echo "${GITHUB_PR_HEAD_SHA}" | head -c7
+    else
+        echo $(git rev-parse --short "$GITHUB_SHA"|head -c7)
+    fi
 }
 
 export SHORT_SHA=$(get_short_sha)
@@ -24,15 +31,15 @@ echo "SHORT_SHA: $SHORT_SHA"
 echo "SHA_TAG: $SHA_TAG"
 
 function get_tag {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG},g" -e 's,refs/tags/,,g' -e 's,refs/heads/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g'  -e 's,/,-,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG},g" -e 's,refs/tags/,,g' -e 's,refs/heads/,,g' -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA},g"  -e 's,/,-,g')
 }
 
 function get_tag_slim {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-slim,g" -e 's,refs/tags/\(.*\),\1-slim,g' -e 's,refs/heads/\(.*\),\1-slim,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-slim,g'  -e 's,/,-,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-slim,g" -e 's,refs/tags/\(.*\),\1-slim,g' -e 's,refs/heads/\(.*\),\1-slim,g' -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA}-slim,g"  -e 's,/,-,g')
 }
 
 function get_tag_full {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-full,g" -e 's,refs/tags/\(.*\),\1-full,g' -e 's,refs/heads/\(.*\),\1-full,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-full,g'  -e 's,/,-,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-full,g" -e 's,refs/tags/\(.*\),\1-full,g' -e 's,refs/heads/\(.*\),\1-full,g' -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA}-full,g"  -e 's,/,-,g')
 }
 
 function get_python_docker_release_v() {
@@ -57,9 +64,9 @@ if [ ${TEST_DOCKER_HELPERS:-0} -eq 1 ]; then
     REF="refs/tags/v0.1.2rc1"    get_tag_slim # 'v0.1.2rc1-slim'
     REF="refs/tags/v0.1.2rc1"    get_tag_full # 'v0.1.2rc1-full'
 
-    REF="refs/pull/4788/merge"    get_tag # 'pr4788'
-    REF="refs/pull/4788/merge"    get_tag_slim # 'pr4788-slim'
-    REF="refs/pull/4788/merge"    get_tag_full # 'pr4788-full'
+    REF="refs/pull/4788/merge"    get_tag # 'pr4788-<short_sha>'
+    REF="refs/pull/4788/merge"    get_tag_slim # 'pr4788-<short_sha>-slim'
+    REF="refs/pull/4788/merge"    get_tag_full # 'pr4788-<short_sha>-full'
 
     REF="refs/heads/branch-name" get_tag # 'branch-name'
     REF="refs/heads/branch-name" get_tag_slim # 'branch-name-slim'
@@ -73,15 +80,15 @@ if [ ${TEST_DOCKER_HELPERS:-0} -eq 1 ]; then
 fi
 
 function get_unique_tag {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG},g" -e 's,refs/tags/,,g' -e "s,refs/heads/.*,${SHA_TAG},g"  -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG},g" -e 's,refs/tags/,,g' -e "s,refs/heads/.*,${SHA_TAG},g"  -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA},g")
 }
 
 function get_unique_tag_slim {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-slim,g" -e 's,refs/tags/\(.*\),\1-slim,g' -e "s,refs/heads/.*,${SHA_TAG}-slim,g" -e 's,refs/pull/\([0-9]*\).*,pr\1-slim,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-slim,g" -e 's,refs/tags/\(.*\),\1-slim,g' -e "s,refs/heads/.*,${SHA_TAG}-slim,g" -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA}-slim,g")
 }
 
 function get_unique_tag_full {
-    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-full,g" -e 's,refs/tags/\(.*\),\1-full,g' -e "s,refs/heads/.*,${SHA_TAG}-full,g" -e 's,refs/pull/\([0-9]*\).*,pr\1-full,g')
+    echo $(echo ${REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${SHA_TAG}-full,g" -e 's,refs/tags/\(.*\),\1-full,g' -e "s,refs/heads/.*,${SHA_TAG}-full,g" -e "s,refs/pull/\([0-9]*\).*,pr\1-${SHORT_SHA}-full,g")
 }
 
 function get_platforms_based_on_branch {

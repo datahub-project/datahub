@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, NewType, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -473,7 +474,9 @@ class InformaticaSourceReport(StaleEntityRemovalSourceReport):
             self.raw_objects_by_type.get(object_type, 0) + 1
         )
         if object_type not in self.sample_paths_by_type:
-            self.sample_paths_by_type[object_type] = LossyList()
+            self.sample_paths_by_type[object_type] = LossyList(
+                max_elements=get_report_info_sample_size()
+            )
         self.sample_paths_by_type[object_type].append(path or "<empty path>")
 
     def report_filtered(self, reason: str, object_type: str, detail: str = "") -> None:

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { CorpGroup, Entity, EntityType } from '@src/types.generated';
 
 /**
@@ -14,7 +16,7 @@ export function isCorpGroup(entity?: Entity | null | undefined): entity is CorpG
  * sync.
  */
 export function getExternalGroupMembershipTooltip(externalGroupType: string | undefined): string {
-    return `Membership for this group cannot be edited in DataHub as it originates from ${
-        externalGroupType || 'outside DataHub'
-    }.`;
+    return i18next.t('entity.types:group.externalMembershipTooltip', {
+        externalGroupType: externalGroupType || i18next.t('entity.types:group.outsideDataHubFallback'),
+    });
 }

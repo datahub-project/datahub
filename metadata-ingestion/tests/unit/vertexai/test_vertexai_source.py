@@ -3,6 +3,7 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import NotFound
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
@@ -412,6 +413,24 @@ def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     assert len(experiments) == 1
     assert isinstance(experiments[0], Experiment)
     assert experiments[0]._metadata_context is regular_ctx
+
+
+def test_list_experiments_returns_empty_on_not_found(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    """Projects without a Vertex AI Metadata Store return 404 — must skip, not crash."""
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            side_effect=NotFound("Requested Metadata Store default not found"),
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+    ):
+        experiments = experiment_extractor._list_experiments_rate_limited()
+
+    assert experiments == []
+    warning_titles = [w.title for w in experiment_extractor.report.warnings]
+    assert "Vertex AI Metadata Store not found" in warning_titles
 
 
 def test_list_experiment_runs_combines_context_and_execution_nodes(

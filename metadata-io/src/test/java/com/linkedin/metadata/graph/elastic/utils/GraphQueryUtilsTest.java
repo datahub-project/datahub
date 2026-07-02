@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
@@ -378,6 +380,98 @@ public class GraphQueryUtilsTest {
     assertTrue(GraphQueryUtils.isRelationshipConnectedToInput(relationship, TEST_URN_1, pathStore));
     assertFalse(
         GraphQueryUtils.isRelationshipConnectedToInput(relationship, TEST_URN_3, pathStore));
+  }
+
+  @Test
+  public void testBuildQueryWithTripletFilter() {
+    GraphQueryConfiguration config = new GraphQueryConfiguration();
+    config.setGraphStatusEnabled(true);
+
+    Filter emptyFilter = new Filter();
+    emptyFilter.setOr(new ConjunctiveCriterionArray());
+    RelationshipFilter relationshipFilter =
+        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+
+    GraphFilters filters =
+        new GraphFilters(emptyFilter, emptyFilter, null, null, Set.of(), relationshipFilter);
+
+    // Add triplets
+    Set<Pair<String, LineageRegistry.EdgeInfo>> triplets = new HashSet<>();
+    triplets.add(
+        Pair.of(
+            "dataset",
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.OUTGOING, "dataset")));
+    triplets.add(
+        Pair.of(
+            "chart",
+            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.OUTGOING, "dataset")));
+    filters.setAllowedEdgeTriplets(triplets);
+
+    BoolQueryBuilder result = GraphQueryUtils.buildQuery(mockOpContext, config, filters);
+
+    assertNotNull(result);
+    // Should have filter clauses including the triplet bool query
+    assertFalse(result.filter().isEmpty());
+
+    // Verify the triplet filter is present: look for a bool query with should clauses
+    String queryString = result.toString();
+    assertTrue(queryString.contains("DownstreamOf"), "Query should contain DownstreamOf triplet");
+    assertTrue(queryString.contains("Consumes"), "Query should contain Consumes triplet");
+    assertTrue(
+        queryString.contains("minimum_should_match"),
+        "Query should have minimum_should_match for triplets");
+  }
+
+  @Test
+  public void testBuildQueryWithoutTripletFilter() {
+    GraphQueryConfiguration config = new GraphQueryConfiguration();
+    config.setGraphStatusEnabled(true);
+
+    Filter emptyFilter = new Filter();
+    emptyFilter.setOr(new ConjunctiveCriterionArray());
+    RelationshipFilter relationshipFilter =
+        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+
+    // null triplets (default)
+    GraphFilters filters =
+        new GraphFilters(emptyFilter, emptyFilter, null, null, Set.of(), relationshipFilter);
+
+    BoolQueryBuilder result = GraphQueryUtils.buildQuery(mockOpContext, config, filters);
+
+    assertNotNull(result);
+    String queryString = result.toString();
+    // With no types, no triplets, and empty filters, the only filters should be soft-delete
+    assertFalse(
+        queryString.contains("DownstreamOf"),
+        "Query should not contain triplet filters when not set");
+  }
+
+  @Test
+  public void testBuildQueryWithEmptyTripletFilter() {
+    GraphQueryConfiguration config = new GraphQueryConfiguration();
+    config.setGraphStatusEnabled(true);
+
+    Filter emptyFilter = new Filter();
+    emptyFilter.setOr(new ConjunctiveCriterionArray());
+    RelationshipFilter relationshipFilter =
+        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+
+    GraphFilters filters =
+        new GraphFilters(emptyFilter, emptyFilter, null, null, Set.of(), relationshipFilter);
+    filters.setAllowedEdgeTriplets(Set.of()); // empty set
+
+    BoolQueryBuilder result = GraphQueryUtils.buildQuery(mockOpContext, config, filters);
+
+    assertNotNull(result);
+    // Empty triplet set should not add any triplet filter clause
+    // Count filter clauses - should be same as without triplets
+    GraphFilters filtersNoTriplets =
+        new GraphFilters(emptyFilter, emptyFilter, null, null, Set.of(), relationshipFilter);
+    BoolQueryBuilder resultNoTriplets =
+        GraphQueryUtils.buildQuery(mockOpContext, config, filtersNoTriplets);
+
+    assertEquals(result.filter().size(), resultNoTriplets.filter().size());
   }
 
   @Test

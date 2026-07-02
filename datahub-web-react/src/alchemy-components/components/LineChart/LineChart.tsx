@@ -22,6 +22,9 @@ import usePreparedLineChartScales from '@components/components/LineChart/hooks/u
 import { Datum, LineChartProps } from '@components/components/LineChart/types';
 import { Popover } from '@components/components/Popover';
 
+// CSS keyword used to hide the series fill/stroke when the chart has no data (not user-facing text).
+const TRANSPARENT = 'transparent';
+
 export function LineChart({
     data,
     isEmpty,
@@ -201,9 +204,9 @@ export function LineChart({
                                 <AreaSeries<AxisScale, AxisScale, Datum>
                                     dataKey="line-chart-seria-01"
                                     data={data}
-                                    fill={!isEmpty ? areaColor : 'transparent'}
+                                    fill={!isEmpty ? areaColor : TRANSPARENT}
                                     curve={curveMonotoneX}
-                                    lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
+                                    lineProps={{ stroke: !isEmpty ? lineColor : TRANSPARENT }}
                                     y0Accessor={y0Accessor}
                                     {...accessors}
                                 />

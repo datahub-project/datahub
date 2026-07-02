@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { DomainsPage } from '../../pages/domains.page';
+import { DomainsPage } from '../../pages/domains/domains.page';
 
 test.use({ featureName: 'mutations-v2' });
 

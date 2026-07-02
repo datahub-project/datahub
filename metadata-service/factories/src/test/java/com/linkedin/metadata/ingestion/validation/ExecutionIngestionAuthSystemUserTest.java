@@ -104,6 +104,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     assertEquals(
         validator
             .validateProposed(
+                systemOperationContext,
                 Set.of(item),
                 systemOperationContext.getRetrieverContext(),
                 systemOperationContext.asSession(
@@ -118,7 +119,10 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     assertEquals(
         validator
             .validateProposed(
-                Set.of(item), systemOperationContext.getRetrieverContext(), systemOperationContext)
+                systemOperationContext,
+                Set.of(item),
+                systemOperationContext.getRetrieverContext(),
+                systemOperationContext)
             .count(),
         0,
         "Expected Execution Request to be allowed when the system user has execute permission on the Ingestion source");

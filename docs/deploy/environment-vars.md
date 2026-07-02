@@ -40,14 +40,14 @@ Reference Links:
 
 ### Authorization Configuration
 
-| Environment Variable                                    | Default | Description                                                      | Components |
-| ------------------------------------------------------- | ------- | ---------------------------------------------------------------- | ---------- |
-| `AUTH_POLICIES_ENABLED`                                 | `true`  | Enable the default DataHub policies-based authorizer             | GMS        |
-| `POLICY_CACHE_REFRESH_INTERVAL_SECONDS`                 | `120`   | Cache refresh interval for policies in seconds                   | GMS        |
-| `POLICY_CACHE_FETCH_SIZE`                               | `1000`  | Cache policy fetch size                                          | GMS        |
-| `REST_API_AUTHORIZATION_ENABLED`                        | `true`  | Enable authorization of reads, writes, and deletes on REST APIs  | GMS        |
-| `VIEW_AUTHORIZATION_ENABLED`                            | `false` | Controls whether entity pages can limit access based on policies | GMS        |
-| `VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED` | `true`  | Enable peer group recommendations for view authorization         | GMS        |
+| Environment Variable                                    | Default | Description                                                                                                                                 | Components |
+| ------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `AUTH_POLICIES_ENABLED`                                 | `true`  | Enable the default DataHub policies-based authorizer                                                                                        | GMS        |
+| `POLICY_CACHE_REFRESH_INTERVAL_SECONDS`                 | `120`   | Cache refresh interval for policies in seconds                                                                                              | GMS        |
+| `POLICY_CACHE_FETCH_SIZE`                               | `1000`  | Cache policy fetch size                                                                                                                     | GMS        |
+| `REST_API_AUTHORIZATION_ENABLED`                        | `true`  | Enable authorization of reads, writes, and deletes on REST APIs                                                                             | GMS        |
+| `VIEW_AUTHORIZATION_ENABLED`                            | `false` | Enable View-Based Access Control (VBAC) — restrict entity visibility based on policies (core; search access-control pushdown is Cloud-only) | GMS        |
+| `VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED` | `true`  | Enable peer group recommendations for view authorization                                                                                    | GMS        |
 
 ## Ingestion Configuration
 
@@ -71,15 +71,16 @@ Reference Links:
 
 ## DataHub Core Configuration
 
-| Environment Variable                   | Default     | Description                                                       | Components |
-| -------------------------------------- | ----------- | ----------------------------------------------------------------- | ---------- |
-| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                               | GMS        |
-| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                     | GMS        |
-| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                          | Frontend   |
-| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                          | Frontend   |
-| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                       | Frontend   |
-| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority) | Frontend   |
-| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                              | Frontend   |
+| Environment Variable                   | Default     | Description                                                                                                               | Components |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SERVER_TYPE`                  | `prod`      | DataHub server type                                                                                                       | GMS        |
+| `DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS` | `55000`     | Async request timeout for GMS                                                                                             | GMS        |
+| `DATAHUB_GMS_HOST`                     | `localhost` | GMS host                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_PORT`                     | `8080`      | GMS port                                                                                                                  | Frontend   |
+| `DATAHUB_GMS_USE_SSL`                  | `false`     | Use SSL for GMS connections                                                                                               | Frontend   |
+| `DATAHUB_GMS_URI`                      | `null`      | URI instead of separate host/port/ssl parameters (takes priority)                                                         | Frontend   |
+| `DATAHUB_GMS_SSL_PROTOCOL`             | `null`      | SSL protocol for GMS                                                                                                      | Frontend   |
+| `DATAHUB_READ_ONLY`                    | `false`     | Disable metadata writes on GMS (does not enable read pool; see [Primary storage read pool](primary-storage-read-pool.md)) | GMS        |
 
 ### Plugin Configuration
 
@@ -148,22 +149,22 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 
 ## Search Service Configuration
 
-| Environment Variable                                  | Default             | Description                                                                 | Components |
-| ----------------------------------------------------- | ------------------- | --------------------------------------------------------------------------- | ---------- |
-| `SEARCH_SERVICE_BATCH_SIZE`                           | `100`               | Search service batch size                                                   | GMS        |
-| `SEARCH_SERVICE_ENABLE_CACHE`                         | `false`             | Enable search service cache                                                 | GMS        |
-| `SEARCH_SERVICE_ENABLE_CACHE_EVICTION`                | `false`             | Enable search service cache eviction                                        | GMS        |
-| `SEARCH_SERVICE_CACHE_IMPLEMENTATION`                 | `caffeine`          | Search service cache implementation                                         | GMS        |
-| `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`               | `hazelcast-service` | Hazelcast service name for search cache                                     | GMS        |
-| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED`   | `true`              | Enable container expansion in search filters                                | GMS        |
-| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE` | `100`               | Page size for container expansion                                           | GMS        |
-| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT`     | `100`               | Limit for container expansion                                               | GMS        |
-| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED`      | `true`              | Enable domain expansion in search filters                                   | GMS        |
-| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE`    | `100`               | Page size for domain expansion                                              | GMS        |
-| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT`        | `100`               | Limit for domain expansion                                                  | GMS        |
-| `SEARCH_SERVICE_LIMIT_RESULTS_MAX`                    | `10000`             | Maximum allowed result count for queries                                    | GMS        |
-| `SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT`            | `5000`              | Default API result limit                                                    | GMS        |
-| `SEARCH_SERVICE_LIMIT_RESULTS_STRICT`                 | `false`             | Throw exception if strict is true, otherwise override with default and warn | GMS        |
+| Environment Variable                                  | Default             | Description                                                                          | Components |
+| ----------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------ | ---------- |
+| `SEARCH_SERVICE_BATCH_SIZE`                           | `100`               | Search service batch size                                                            | GMS        |
+| `SEARCH_SERVICE_ENABLE_CACHE`                         | `false`             | Enable search service cache                                                          | GMS        |
+| `SEARCH_SERVICE_ENABLE_CACHE_EVICTION`                | `false`             | Enable search service cache eviction                                                 | GMS        |
+| `SEARCH_SERVICE_CACHE_IMPLEMENTATION`                 | `caffeine`          | Search service cache implementation                                                  | GMS        |
+| `SEARCH_SERVICE_HAZELCAST_SERVICE_NAME`               | `hazelcast-service` | Shared Hazelcast cluster DNS name (entity graph, optional search cache, rate limits) | GMS        |
+| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED`   | `true`              | Enable container expansion in search filters                                         | GMS        |
+| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_PAGE_SIZE` | `100`               | Page size for container expansion                                                    | GMS        |
+| `SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_LIMIT`     | `100`               | Limit for container expansion                                                        | GMS        |
+| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED`      | `true`              | Enable domain expansion in search filters                                            | GMS        |
+| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE`    | `100`               | Page size for domain expansion                                                       | GMS        |
+| `SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT`        | `100`               | Limit for domain expansion                                                           | GMS        |
+| `SEARCH_SERVICE_LIMIT_RESULTS_MAX`                    | `10000`             | Maximum allowed result count for queries                                             | GMS        |
+| `SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT`            | `5000`              | Default API result limit                                                             | GMS        |
+| `SEARCH_SERVICE_LIMIT_RESULTS_STRICT`                 | `false`             | Throw exception if strict is true, otherwise override with default and warn          | GMS        |
 
 ## Timeseries Aspect Service
 
@@ -249,6 +250,28 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
 | `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
 | `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
+
+#### EBean read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+
+| Environment Variable                        | Default                           | Description                                                                 | Components |
+| ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |
+| `EBEAN_READ_POOL_ENABLED`                   | `false`                           | Enable a dedicated read pool for aspect DAO reads                           | GMS        |
+| `EBEAN_READ_POOL_URL`                       | _same as primary `EBEAN_URL`_     | JDBC URL for the read pool; omit for **split-pool** mode (same DB, 2 pools) | GMS        |
+| `EBEAN_READ_REPLICA_URL`                    | _(deprecated alias)_              | Legacy alias for `EBEAN_READ_POOL_URL`                                      | GMS        |
+| `EBEAN_READ_POOL_MIN_CONNECTIONS`           | _same as `EBEAN_MIN_CONNECTIONS`_ | Minimum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_CONNECTIONS`           | _same as `EBEAN_MAX_CONNECTIONS`_ | Maximum connections for the read pool                                       | GMS        |
+| `EBEAN_READ_POOL_MAX_INACTIVE_TIME_IN_SECS` | _same as primary_                 | Max inactive time (seconds) for the read pool                               | GMS        |
+| `EBEAN_READ_POOL_MAX_AGE_MINUTES`           | _same as primary_                 | Max connection age (minutes) for the read pool                              | GMS        |
+| `EBEAN_READ_POOL_LEAK_TIME_MINUTES`         | _same as primary_                 | Leak detection time (minutes) for the read pool                             | GMS        |
+| `EBEAN_READ_POOL_WAIT_TIMEOUT_MILLIS`       | _same as primary_                 | Pool wait timeout (ms) for the read pool                                    | GMS        |
+
+**Modes:** If `EBEAN_READ_POOL_URL` matches the primary URL, GMS uses **split-pool** mode (isolated connections, no replica lag benefit). If the URL points at a read replica host, GMS uses **replica** mode and isolates entity-cache keys by read preference.
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the read pool is **not** registered even if `EBEAN_READ_POOL_ENABLED=true` (writes remain disabled on DAOs; a second pool would not help).
 
 #### Cross-Cloud IAM Authentication
 
@@ -367,6 +390,24 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `CASSANDRA_DATACENTER`          | `datacenter1` | Cassandra datacenter  | GMS, MCE Consumer, System Update |
 | `CASSANDRA_KEYSPACE`            | `datahub`     | Cassandra keyspace    | GMS, MCE Consumer, System Update |
 | `CASSANDRA_USE_SSL`             | `false`       | Use SSL for Cassandra | GMS, MCE Consumer, System Update |
+
+#### Cassandra read pool (optional)
+
+See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
+
+When `entityService.impl=cassandra`, GMS can route non-locking aspect reads to a separate Cassandra session. Same routing semantics as the EBean read pool above (see the guide for replica credentials).
+
+| Environment Variable                  | Default                          | Description                                                          | Components |
+| ------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ---------- |
+| `CASSANDRA_READ_POOL_ENABLED`         | `false`                          | Enable a dedicated read session for aspect DAO reads                 | GMS        |
+| `CASSANDRA_READ_POOL_HOSTS`           | _same as `CASSANDRA_HOSTS`_      | Contact points for the read pool; omit for split-pool (same cluster) | GMS        |
+| `CASSANDRA_READ_REPLICA_HOSTS`        | _(deprecated alias)_             | Legacy alias for `CASSANDRA_READ_POOL_HOSTS`                         | GMS        |
+| `CASSANDRA_READ_POOL_PORT`            | _same as `CASSANDRA_PORT`_       | Port for the read pool                                               | GMS        |
+| `CASSANDRA_READ_POOL_DATACENTER`      | _same as `CASSANDRA_DATACENTER`_ | Datacenter for the read pool                                         | GMS        |
+| `CASSANDRA_READ_POOL_MIN_CONNECTIONS` | `2`                              | Minimum connections for the read pool                                | GMS        |
+| `CASSANDRA_READ_POOL_MAX_CONNECTIONS` | `8`                              | Maximum connections for the read pool                                | GMS        |
+
+**Read-only deployments:** When `DATAHUB_READ_ONLY=true`, the Cassandra read pool is not registered even if `CASSANDRA_READ_POOL_ENABLED=true`.
 
 ### Elasticsearch Configuration
 
@@ -619,6 +660,93 @@ Reference Links:
 | ---------------------- | ------- | ------------- | ---------- |
 | `server.server-header` | `false` | Server header | GMS        |
 
+## GMS Rate Limiting
+
+**GMS HTTP service rate limits only** — caps incoming API traffic to GMS (GraphQL, OpenAPI, Rest.li, `/auth/*`). Configured under **`datahub.gms.rateLimits`** in `application.yaml`. This is **not** MCP ingestion throttling, MCE/MCL consumer backpressure, or Kafka lag throttle (`MCP_*` / `metadataChangeProposal.throttle`).
+
+Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
+
+Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
+
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                             | Components |
+| ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                               | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor) | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)            | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                        | GMS        |
+| `RATE_LIMITS_CONFIG_FILE_ENABLED`                      | `false`                             | `rateLimits.configFile.enabled`                                                                                | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `/etc/datahub/rate-limits.yaml`     | `rateLimits.configFile.path`                                                                                   | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | —                                   | JSON overlay merged at startup (partial `rateLimits` object)                                                   | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                      | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                            | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                     | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                         | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)         | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                         | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                 | GMS        |
+
+### Entity graph cache
+
+**Unified hierarchy snapshots for View-Based Access Control (VBAC), policy expansion, and search filter rewriters** — configured under **`datahub.gms.entityGraphCache`** in `application.yaml`. Graph definitions live in **`entity-graph-cache.yaml`** (bundled on the classpath by default). When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared Hazelcast client for distributed graph snapshots (`entityGraphSnapshots.full` for `FULL`-scope graphs; `entityGraphSnapshots.<graphId>` per `PARTIAL`-scope graph) — independent of `searchService.cacheImplementation` or `SEARCH_SERVICE_ENABLE_CACHE`.
+
+Each graph entry requires **`buildSource`** (`primary`, `graph`, or `search`) — the sole store used to build that graph’s snapshots. When the cache is enabled, GMS requires bundled graphs from **`KnownEntityGraph`**: **`DOMAIN`** → `domain` (`search` + `FULL`), **`GLOSSARY`** → `glossary` (`graph` + `PARTIAL`), **`CONTAINER`** → `container` (`graph` + `PARTIAL`), and **`MEMBERSHIP`** → `membership` (`graph` + `FULL`). Optional YAML **`bindings.*`** remain available for custom operator graphs. See [GMS Entity Graph Cache — Known graphs and bindings](./gms-entity-graph-cache.md#known-graphs-and-bindings).
+
+VBAC restricted entities and **search filter rewriters** are **core** features; the cache accelerates domain hierarchy expansion for policy evaluation and filter rewriting. **Search access-control pushdown** (injecting policy clauses into Elasticsearch queries via Search Access Controls) is **DataHub Cloud only** — see [GMS Entity Graph Cache — Purpose and call sites](./gms-entity-graph-cache.md#purpose-and-call-sites).
+
+Full operations guide: [GMS Entity Graph Cache](./gms-entity-graph-cache.md). Invalidation design and implementer notes: [Invalidation — For implementers](./gms-entity-graph-cache.md#for-implementers).
+
+| Environment Variable                     | Default                   | YAML path / effect                                                                                                                                                                                                                | Components |
+| ---------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `ENTITY_GRAPH_CACHE_ENABLED`             | `true`                    | `entityGraphCache.enabled` — when `true`, `EntityGraphCacheFactory` loads Hazelcast snapshots and config; when `false`, only `EntityGraphCache.NO_OP` is registered. Non-GMS modules default `false` in `application.properties`. | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED` | `true`                    | `entityGraphCache.configFile.enabled`                                                                                                                                                                                             | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE`         | `entity-graph-cache.yaml` | `entityGraphCache.configFile.path` (classpath, then filesystem)                                                                                                                                                                   | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_JSON`         | —                         | `entityGraphCache.configJson` — JSON overlay merged at startup (also set via env placeholder in `application.yaml`)                                                                                                               | GMS        |
+
+Per-graph refresh timing (`population.intervalSeconds`) and graph bounds (`bounds.maxVertices`, `bounds.maxEdges`) are configured in `entity-graph-cache.yaml` or via `ENTITY_GRAPH_CACHE_CONFIG_JSON` — not global env vars. Example overlay to raise domain graph limits (membership bounds use the same JSON overlay pattern — see [membership graph](./gms-entity-graph-cache.md#bundled-membership-graph-membershipgraph)):
+
+```json
+{
+  "graphs": {
+    "domain": { "bounds": { "maxVertices": 10000, "maxEdges": 15000 } }
+  }
+}
+```
+
+When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (no automatic rebuild). Recovery: delete domains to reduce vertex count, or raise bounds and manually drop the graph in Hazelcast. See [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes).
+
+`ENTITY_GRAPH_CACHE_ENABLED=true` on **GMS** requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable, or on MAE/MCE/upgrade pods where the graph cache is not loaded (see [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
+
+**Smoke tests:** `pytest tests/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
+
+Pod-level eviction (`entityGraphCache.eviction.local`, `memoryPressure`, and `hazelcast` in `application.yaml`) has **no dedicated environment variables** — edit `application.yaml` or mount a customized GMS config. Defaults below match bundled `metadata-service/configuration/src/main/resources/application.yaml`.
+
+| YAML path                                                            | Default           | Effect                                                                        | Components |
+| -------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------- | ---------- |
+| `entityGraphCache.eviction.local.enabled`                            | `true`            | Enable per-pod LRU cache of deserialized graph views                          | GMS        |
+| `entityGraphCache.eviction.local.maxViews`                           | `16`              | Max cached views per graph id on each GMS pod                                 | GMS        |
+| `entityGraphCache.eviction.local.maxEstimatedBytes`                  | `268435456`       | Estimated heap cap for local views (~256 MiB) per graph id                    | GMS        |
+| `entityGraphCache.eviction.memoryPressure.enabled`                   | `true`            | Monitor heap usage and evict local views under pressure                       | GMS        |
+| `entityGraphCache.eviction.memoryPressure.checkIntervalSeconds`      | `30`              | Heap check interval                                                           | GMS        |
+| `entityGraphCache.eviction.memoryPressure.heapUsageThresholdPercent` | `85`              | Trigger eviction when heap usage reaches this percent                         | GMS        |
+| `entityGraphCache.eviction.memoryPressure.action`                    | `EVICT_LOCAL_LRU` | `EVICT_LOCAL_LRU` (default) or `EVICT_ALL_LOCAL`                              | GMS        |
+| `entityGraphCache.eviction.memoryPressure.cooldownSeconds`           | `120`             | Minimum time between pressure-driven evictions                                | GMS        |
+| `entityGraphCache.eviction.memoryPressure.hysteresisPercent`         | `5`               | Clear pressure when heap falls below threshold minus this percent (85% → 80%) | GMS        |
+| `entityGraphCache.eviction.hazelcast.evictionPolicy`                 | `MAX_SIZE`        | Hazelcast map eviction policy for snapshot IMaps                              | GMS        |
+| `entityGraphCache.eviction.hazelcast.maxSizePerNode`                 | `32`              | Max snapshot entries per cluster node (`entityGraphSnapshots.*`)              | GMS        |
+| `entityGraphCache.eviction.hazelcast.maxSizePolicy`                  | `PER_NODE`        | Size limit scope for snapshot IMaps                                           | GMS        |
+| `entityGraphCache.eviction.hazelcast.heapMaxSizePercent`             | `0`               | Heap-percent cap (`0` = disabled; use entry count instead)                    | GMS        |
+| `entityGraphCache.eviction.hazelcast.ttlSeconds`                     | `0`               | Snapshot TTL (`0` = no TTL eviction)                                          | GMS        |
+| `entityGraphCache.eviction.hazelcast.backupCount`                    | `1`               | Hazelcast backup replicas for snapshot IMaps                                  | GMS        |
+
+The `entityGraphStatus` Hazelcast map does **not** use size eviction. Graph cache invalidation requires the **sync gate** (UI source or sync-index header); async Kafka ingestion and non-gated synchronous ingest can leave graphs stale for up to `population.intervalSeconds` — see [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes). See [GMS Entity Graph Cache — Configuration reference](./gms-entity-graph-cache.md#configuration-reference).
+
 ## Feature Flags
 
 Reference Links:
@@ -866,10 +994,11 @@ The following environment variables are used in the codebase but may not be expl
 
 ### Secret Service Configuration
 
-| Environment Variable                  | Default          | Description                            | Components |
-| ------------------------------------- | ---------------- | -------------------------------------- | ---------- |
-| `SECRET_SERVICE_ENCRYPTION_KEY`       | `ENCRYPTION_KEY` | Secret service encryption key          | GMS        |
-| `SECRET_SERVICE_V1_ALGORITHM_ENABLED` | `true`           | Enable v1 algorithm for secret service | GMS        |
+| Environment Variable                  | Default          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Components |
+| ------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `SECRET_SERVICE_ENCRYPTION_KEY`       | `ENCRYPTION_KEY` | Secret service encryption key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | GMS        |
+| `SECRET_SERVICE_V1_ALGORITHM_ENABLED` | `true`           | Enable v1 algorithm for secret service                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | GMS        |
+| `SECRET_SERVICE_CALLER_GUARD_MODE`    | `ENFORCE`        | **Secure by default.** Controls `SecretService` enforcement when a caller other than a trusted ingestion worker attempts to decrypt a secret. Trusted workers are **datahub-actions** in OSS (system client credentials) and **embedded executors** on DataHub Cloud. `ENFORCE` throws `SecurityException` (default). `AUDIT` logs a warning but allows the call (staged rollout only). `DISABLED` disables enforcement (break-glass; contact administrator). See [Ingestion executor security](../docker/ingestion-executor-security.md) and [Remote Executor secret security](../managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations). | GMS        |
 
 ### Health Check Configuration
 
@@ -993,7 +1122,7 @@ The following environment variables are used in the codebase but may not be expl
 
 | Environment Variable                          | Default    | Description                                    | Components        |
 | --------------------------------------------- | ---------- | ---------------------------------------------- | ----------------- |
-| `MCP_CONSUMER_BATCH_ENABLED`                  | `false`    | Enable MCP consumer batch processing           | GMS, MCE Consumer |
+| `MCP_CONSUMER_BATCH_ENABLED`                  | `true`     | Enable MCP consumer batch processing           | GMS, MCE Consumer |
 | `MCP_CONSUMER_BATCH_SIZE`                     | `15744000` | MCP consumer batch size                        | GMS, MCE Consumer |
 | `MCP_VALIDATION_IGNORE_UNKNOWN`               | `true`     | Ignore unknown fields in MCP validation        | GMS, MCE Consumer |
 | `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS`        | `true`     | Enable privilege constraints in MCP validation | GMS, MCE Consumer |
@@ -1158,6 +1287,8 @@ Reference Links:
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
 | `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
 | `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
 | `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
 | `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |

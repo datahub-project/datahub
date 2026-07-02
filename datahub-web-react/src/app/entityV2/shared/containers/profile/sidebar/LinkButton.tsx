@@ -18,7 +18,7 @@ interface Props {
 export default function LinkButton({ link }: Props) {
     return (
         <StyledAnchor href={safeUrl(link.url)} target="_blank" rel="noreferrer">
-            <Button variant="text" color="violet">
+            <Button variant="text" color="primary">
                 <LinkIcon url={link.url} />
                 {link.description || link.label}
             </Button>

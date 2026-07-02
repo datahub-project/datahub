@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.linkedin.data.codec.AbstractJacksonDataCodec;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.filter.RestliLoggingFilter;
+import com.linkedin.metadata.filter.RestliThrottleResponseFilter;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.r2.filter.FilterChains;
@@ -73,6 +74,7 @@ public class RAPServletFactory {
     RestLiConfig config = new RestLiConfig();
     config.setDocumentationRequestHandler(new DefaultDocumentationRequestHandler());
     config.setResourcePackageNames("com.linkedin.metadata.resources");
+    config.addFilter(new RestliThrottleResponseFilter());
     config.addFilter(new RestliLoggingFilter());
 
     RestLiServer restLiServer = new RestLiServer(config, springInjectResourceFactory, parseqEngine);

@@ -1,5 +1,6 @@
 import { ErrorRounded } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -48,6 +49,7 @@ const Container = styled.div`
 `;
 
 export default function UpstreamHealth() {
+    const { t } = useTranslation('entity.shared.stats');
     const themeConfig = useTheme();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -235,7 +237,7 @@ export default function UpstreamHealth() {
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
                         <ErrorRounded style={{ color: themeConfig.colors.textError, fontSize: '18' }} />
-                        <Title>Some upstreams are unhealthy</Title>
+                        <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />
                 </TitleWrapper>

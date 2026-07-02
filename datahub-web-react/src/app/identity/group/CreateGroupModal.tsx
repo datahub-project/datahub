@@ -147,6 +147,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             title={t('groups.createModal.title')}
             open
             onCancel={onClose}
+            dataTestId="create-group-modal"
             buttons={[
                 {
                     text: tc('cancel'),
@@ -166,6 +167,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             <FormSection>
                 <Input
                     id="name"
+                    inputTestId="group-name-input"
                     label={t('groups.createModal.name.label')}
                     isRequired
                     placeholder={t('groups.createModal.name.placeholder')}
@@ -181,6 +183,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             <FormSection>
                 <TextArea
                     id="description"
+                    data-testid="group-description-input"
                     label={t('groups.createModal.description.label')}
                     placeholder={t('groups.createModal.description.placeholder')}
                     value={stagedDescription}
@@ -214,6 +217,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <FormSection>
                         <Input
                             id="groupId"
+                            inputTestId="group-id-input"
                             label={t('groups.createModal.groupId.label')}
                             placeholder={t('groups.createModal.groupId.placeholder')}
                             value={stagedId || ''}

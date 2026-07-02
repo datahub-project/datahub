@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
@@ -22,22 +23,18 @@ type Props = {
 };
 
 export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
+    const { t } = useTranslation('entity.shared.profile');
     const entityRegistry = useEntityRegistryV2();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
 
-    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
-    const validGroups = groupsDetails.filter((detail) => {
-        const group = detail?.entity as CorpGroup | undefined;
-        return group && (group.info || group.editableProperties);
-    });
-    const groupsDetailsCount = validGroups.length;
+    const groupsDetailsCount = groupsDetails.length;
     return (
         <SidebarSection
-            title="Groups"
+            title={t('sidebar.groupsTitle')}
             content={
                 <>
                     <GroupsContainer>
-                        {validGroups.map((groupDetail, index) => {
+                        {groupsDetails.map((groupDetail, index) => {
                             const group = groupDetail.entity as CorpGroup;
                             return (
                                 group &&

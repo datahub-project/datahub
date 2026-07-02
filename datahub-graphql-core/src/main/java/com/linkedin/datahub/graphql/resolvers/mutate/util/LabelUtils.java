@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -236,23 +237,12 @@ public class LabelUtils {
 
   public static boolean isAuthorizedToUpdateTags(
       @Nonnull QueryContext context, Urn targetUrn, String subResource, Collection<Urn> tagUrns) {
-
-    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are
-    // authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(
-                        isTargetingSchema
-                            ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
-                            : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorizedForTags(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups, tagUrns);
+    boolean fieldLevel = subResource != null && !subResource.isEmpty();
+    return AuthUtil.isAuthorizedForTagModification(
+        context.getOperationContext(),
+        targetUrn,
+        tagUrns,
+        AuthUtil.tagModificationPrivilege(targetUrn, fieldLevel));
   }
 
   public static boolean isAuthorizedToUpdateTerms(

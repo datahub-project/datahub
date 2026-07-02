@@ -12,6 +12,7 @@ type Props = {
 };
 
 const EmptySectionText = ({ message }: Props) => {
+    // eslint-disable-next-line i18next/no-literal-string -- trailing punctuation appended uniformly to all empty-state messages
     return <EmptyContentMessage>{message}.</EmptyContentMessage>;
 };
 

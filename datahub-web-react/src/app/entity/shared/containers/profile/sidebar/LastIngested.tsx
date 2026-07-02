@@ -2,6 +2,7 @@ import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Image, Popover } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -84,16 +85,20 @@ const PreviewImage = styled(Image)`
 `;
 
 function TooltipContent() {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <div>
             <TooltipSection>
-                <StyledDot color={green[5]} /> Synchronized in the&nbsp;<b>past week</b>
+                <StyledDot color={green[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedPastWeek" components={{ bold: <b /> }} />
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={orange[5]} /> Synchronized in the&nbsp;<b>past month</b>
+                <StyledDot color={orange[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedPastMonth" components={{ bold: <b /> }} />
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={red[5]} /> Synchronized&nbsp;<b>more than a month ago</b>
+                <StyledDot color={red[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedMoreThanMonth" components={{ bold: <b /> }} />
             </TooltipSection>
         </div>
     );
@@ -115,6 +120,7 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
@@ -130,39 +136,61 @@ function LastIngested({ lastIngested }: Props) {
                     <PopoverContentWrapper>
                         <Title>
                             <StyledDot color={lastIngestedColor} />
-                            Last Synchronized
+                            {t('lastIngested.title')}
                         </Title>
                         <RelativeDescription>
-                            This {displayedEntityType.toLocaleLowerCase()} was last synchronized&nbsp;
-                            <b>{toRelativeTimeString(lastIngested)}</b>
+                            <Trans
+                                t={t}
+                                i18nKey="lastIngested.relativeDescription"
+                                values={{
+                                    entityType: displayedEntityType.toLocaleLowerCase(),
+                                    relativeTime: toRelativeTimeString(lastIngested),
+                                }}
+                                components={{ bold: <b /> }}
+                            />
                         </RelativeDescription>
-                        <SubText>Synchronized on {toLocalDateTimeString(lastIngested)}</SubText>
+                        <SubText>
+                            {t('lastIngested.syncedOn', { dateTime: toLocalDateTimeString(lastIngested) })}
+                        </SubText>
                     </PopoverContentWrapper>
                 }
             >
                 <MainContent>
                     <StyledDot color={lastIngestedColor} />
-                    Last synchronized&nbsp;
-                    <b>{toRelativeTimeString(lastIngested)}</b>
+                    <Trans
+                        t={t}
+                        i18nKey="lastIngested.lastSynchronized"
+                        values={{ relativeTime: toRelativeTimeString(lastIngested) }}
+                        components={{ bold: <b /> }}
+                    />
                 </MainContent>
             </Popover>
             <Popover
                 title={
                     <HelpHeader>
-                        This represents the time that the entity was last synchronized with&nbsp;
-                        {platformName ? (
-                            <strong>
-                                {platformLogoUrl && (
-                                    <>
-                                        <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
-                                        &nbsp;
-                                    </>
-                                )}
-                                {platformName}
-                            </strong>
-                        ) : (
-                            <>the source platform</>
-                        )}
+                        <Trans
+                            t={t}
+                            i18nKey="lastIngested.helpHeader"
+                            components={{
+                                platform: platformName ? (
+                                    <strong>
+                                        {platformLogoUrl && (
+                                            <>
+                                                <PreviewImage
+                                                    preview={false}
+                                                    src={platformLogoUrl}
+                                                    alt={platformName}
+                                                />
+                                                &nbsp;
+                                            </>
+                                        )}
+                                        {platformName}
+                                    </strong>
+                                ) : (
+                                    <>{t('lastIngested.sourcePlatformFallback')}</>
+                                ),
+                            }}
+                        />
                     </HelpHeader>
                 }
                 content={TooltipContent}

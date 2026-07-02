@@ -79,7 +79,17 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+          // Postgres PgQueue/PgCron credentials
+          "postgres.pgQueue.pool.password",
+          "postgres.pgCron.admin.password",
+          "postgres.pgCron.iam.awsSecretAccessKey",
+          "postgres.pgCron.iam.awsSessionToken",
+          // Auth token for fetching the per-connector CLI version matrix from a private host
+          // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
+          // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
+          // catches it without needing a new keyword in SENSITIVE_PATTERNS.
+          "ingestion.cliVersionMatrix.http.authToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -140,6 +150,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.setup.preCreateTopics",
           "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
+          "kafka.setup.reconcileExistingTopicConfigs",
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
@@ -159,7 +170,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
           // Shim properties
-          "elasticsearch.shim.*");
+          "elasticsearch.shim.*",
+          // Postgres PgQueue configuration (non-credential settings)
+          "postgres.pgQueue.topicDefaults.*",
+          "postgres.pgQueue.topics.*.*",
+          "postgres.pgQueue.maintenance.*",
+          "postgres.pgQueue.retention.*",
+          "postgres.pgQueue.producer.*",
+          "datahub.gms.rateLimits.capacity.rules[*].*",
+          "datahub.gms.rateLimits.endpoint.rules[*].*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -196,6 +215,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "secretService.callerGuardMode",
           "kubernetes.serviceHost",
           "kubernetes.operationsApiEnabled",
           "tokenService",
@@ -290,6 +310,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.producer.schemaRegistryUrl",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
+          "kafka.producer.initializationRetryBackoffMs",
+          "kafka.producer.initializationRetryCount",
+          "kafka.producer.initializationRetryMaxBackoffMs",
+          "kafka.producer.initializationRetryMaxTotalWaitMs",
           "kafka.producer.maxRequestSize",
           "kafka.producer.requestTimeout",
           "kafka.producer.retryCount",
@@ -474,6 +498,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
+          // Messaging transport
+          "datahub.messaging.transport",
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -494,6 +520,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.lineageGraphV3",
           "featureFlags.lineageSearchCacheEnabled",
           "featureFlags.logicalModelsEnabled",
+          "featureFlags.metricsEnabled",
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
           "elasticsearch.search.pointInTimeCreationEnabled",
@@ -528,6 +555,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showSimplifiedHomepageByDefault",
           "featureFlags.showTestsInHealthIcon",
           "featureFlags.i18nEnabled",
+          "featureFlags.timeseriesAspectBatchLoadEnabled",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
@@ -536,7 +564,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.datasourceUsername",
           "cassandra.hosts",
           "cassandra.port",
+          "cassandra.readPool.datacenter",
+          "cassandra.readPool.enabled",
+          "cassandra.readPool.hosts",
+          "cassandra.readPool.maxConnections",
+          "cassandra.readPool.minConnections",
+          "cassandra.readPool.port",
           "cassandra.useSsl",
+          "ebean.autoCommit",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
@@ -547,6 +582,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.maxConnections",
           "ebean.maxInactiveTimeSeconds",
           "ebean.minConnections",
+          "ebean.readPool.enabled",
+          "ebean.readPool.leakTimeMinutes",
+          "ebean.readPool.maxAgeMinutes",
+          "ebean.readPool.maxConnections",
+          "ebean.readPool.maxInactiveTimeSeconds",
+          "ebean.readPool.minConnections",
+          "ebean.readPool.url",
+          "ebean.readPool.waitTimeoutMillis",
           "ebean.url",
           "ebean.useIamAuth",
           "ebean.username",
@@ -725,6 +768,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.shapeLogging.responseSizeThresholdBytes",
           "graphQL.shapeLogging.errorCountThreshold",
           "graphQL.otel.enableOtelGraphqlTraces",
+          "graphQL.otel.resolverSpans.enabled",
+          "graphQL.otel.resolverSpans.includeTrivialDataFetchers",
+          "graphQL.otel.resolverSpans.topLevelOnly",
+          "graphQL.otel.resolverSpans.allowedPaths",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
@@ -738,8 +785,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "incidents.hook.maxIncidentHistory",
           "ingestion.batchRefreshCount",
           "ingestion.defaultCliVersion",
+          "ingestion.deploymentId",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
+          "ingestion.cliVersionMatrix.http.refreshSeconds",
+          "ingestion.cliVersionMatrix.http.url",
+          "ingestion.cliVersionMatrix.source",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
@@ -849,6 +900,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
+          "metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled",
+          "metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled",
           "metadataChangeProposal.validation.urlValidation.allowHttp",
           "metadataChangeProposal.validation.urlValidation.enabled",
           "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
@@ -895,12 +948,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.enabledIngestion",
           "telemetry.enabledServer",
           "telemetry.enableThirdPartyLogging",
+          "timeseriesAspectService.batchLoadEnabled",
           "timeseriesAspectService.limit.results.apiDefault",
           "timeseriesAspectService.limit.results.max",
           "timeseriesAspectService.limit.results.strict",
           "timeseriesAspectService.query.concurrency",
           "timeseriesAspectService.query.queueSize",
           "timeseriesAspectService.query.threadKeepAlive",
+          "timeseriesAspectService.topHitsPerBucketLimit",
+          "timeseriesAspectService.topHitsThreshold",
           "updateIndices.consumerGroupSuffix",
           "updateIndices.enabled",
           "usageClient.numRetries",
@@ -1021,9 +1077,17 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "maeConsumer.enabled",
           "maeConsumer.elasticsearch.socketTimeoutMs",
           "maeConsumer.elasticsearch.connectionRequestTimeoutMs",
+          // MCE consumer pgQueue poll tuning
+          "mceConsumer.pgQueue.metadataChangeProposalMaxBatch",
+          "mceConsumer.pgQueue.batchMetadataChangeProposalMaxBatch",
+          "maeConsumer.pgQueue.usageEventsMaxBatch",
+          "maeConsumer.pgQueue.metadataChangeLogMaxBatch",
+          "peConsumer.pgQueue.platformEventMaxBatch",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
+          "metadataChangeLog.consumer.batch.maxMessages",
+          "metadataChangeLog.consumer.batch.maxAgeMs",
           "metadataChangeLog.throttle.timeseries.entityIndex.enabled",
           "metadataChangeLog.throttle.timeseries.timeseriesIndex.enabled",
           "metadataChangeLog.throttle.timeseries.observe.enabled",
@@ -1046,7 +1110,83 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Elasticsearch Build Indices - Parallel reindex execution configuration
           "elasticsearch.buildIndices.rethrottleExecutorPoolSize",
-          "elasticsearch.buildIndices.minimumReplicasForPromotion"
+          "elasticsearch.buildIndices.minimumReplicasForPromotion",
+          // Postgres PgQueue configuration
+          "postgres.pgQueue.inheritKafkaTopics",
+          "postgres.pgQueue.schema",
+          "postgres.pgQueue.tablePrefix",
+          "postgres.pgQueue.pool.driver",
+          "postgres.pgQueue.pool.leakTimeMinutes",
+          "postgres.pgQueue.pool.maxAgeMinutes",
+          "postgres.pgQueue.pool.maxConnections",
+          "postgres.pgQueue.pool.maxInactiveTimeSeconds",
+          "postgres.pgQueue.pool.minConnections",
+          "postgres.pgQueue.pool.url",
+          "postgres.pgQueue.pool.username",
+          "postgres.pgQueue.pool.waitTimeoutMillis",
+          "postgres.pgQueue.consumerPoll.emptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.mclEmptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.missingTopicSleepMillis",
+          "postgres.pgQueue.consumerPoll.errorRecoverySleepMillis",
+          // Postgres PgCron configuration
+          "postgres.pgCron.cronSchema",
+          "postgres.pgCron.admin.driver",
+          "postgres.pgCron.admin.jdbcUrl",
+          "postgres.pgCron.admin.username",
+          "postgres.pgCron.iam.awsAccessKeyId",
+          "postgres.pgCron.iam.awsRegion",
+          "postgres.pgCron.iam.cloudProvider",
+          "postgres.pgCron.iam.gcpProject",
+          "postgres.pgCron.iam.googleApplicationCredentials",
+          "postgres.pgCron.iam.instanceConnectionName",
+          "postgres.pgCron.iam.postgresUseIamAuth",
+          "postgres.pgCron.iam.useIamAuth",
+          // Postgres schema
+          "postgres.schema",
+          // Bootstrap configuration
+          "bootstrap.async.workerThreads",
+          // GMS HTTP service rate limiting (under datahub.gms)
+          "datahub.gms.rateLimits.failOpen",
+          "datahub.gms.rateLimits.minRetryAfterSeconds",
+          "datahub.gms.rateLimits.retryAfterJitterPercent",
+          "datahub.gms.rateLimits.excludedPaths",
+          "datahub.gms.rateLimits.configFile.enabled",
+          "datahub.gms.rateLimits.configFile.path",
+          "datahub.gms.rateLimits.capacity.default.enabled",
+          "datahub.gms.rateLimits.capacity.default.initialLimit",
+          "datahub.gms.rateLimits.capacity.default.minLimit",
+          "datahub.gms.rateLimits.capacity.default.maxLimit",
+          "datahub.gms.rateLimits.capacity.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.pathPattern",
+          "datahub.gms.rateLimits.capacity.graphql.operationRulesEnabled",
+          "datahub.gms.rateLimits.capacity.graphql.enabled",
+          "datahub.gms.rateLimits.capacity.graphql.initialLimit",
+          "datahub.gms.rateLimits.capacity.graphql.minLimit",
+          "datahub.gms.rateLimits.capacity.graphql.maxLimit",
+          "datahub.gms.rateLimits.capacity.rules",
+          "datahub.gms.rateLimits.endpoint.enabled",
+          "datahub.gms.rateLimits.endpoint.hazelcastMapName",
+          "datahub.gms.rateLimits.endpoint.rules",
+          "datahub.gms.rateLimits.metrics.detailed",
+          "datahub.gms.entityGraphCache.enabled",
+          "datahub.gms.entityGraphCache.configFile.enabled",
+          "datahub.gms.entityGraphCache.configFile.path",
+          "datahub.gms.entityGraphCache.configJson",
+          "datahub.gms.entityGraphCache.eviction.local.enabled",
+          "datahub.gms.entityGraphCache.eviction.local.maxViews",
+          "datahub.gms.entityGraphCache.eviction.local.maxEstimatedBytes",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.enabled",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.checkIntervalSeconds",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.heapUsageThresholdPercent",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.action",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.cooldownSeconds",
+          "datahub.gms.entityGraphCache.eviction.memoryPressure.hysteresisPercent",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.evictionPolicy",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.maxSizePerNode",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.maxSizePolicy",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.heapMaxSizePercent",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.ttlSeconds",
+          "datahub.gms.entityGraphCache.eviction.hazelcast.backupCount"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

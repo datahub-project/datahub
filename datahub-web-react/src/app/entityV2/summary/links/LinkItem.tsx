@@ -2,6 +2,7 @@ import { Icon, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
@@ -54,6 +55,7 @@ type Props = {
 };
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const entityRegistry = useEntityRegistryV2();
     const hasLinkPermissions = useLinkPermission();
 
@@ -82,11 +84,20 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                 </LeftSection>
                 <RightSection>
                     <Text color="gray" size="sm">
-                        Added{' '}
-                        <Tooltip title={formatDateString(link.created.time)}>
-                            <span>{toRelativeTimeString(link.created.time) || 'recently'}</span>
-                        </Tooltip>{' '}
-                        by{' '}
+                        <Trans
+                            t={t}
+                            i18nKey="links.addedBy"
+                            components={{
+                                time: (
+                                    <Tooltip title={formatDateString(link.created.time)}>
+                                        <span />
+                                    </Tooltip>
+                                ),
+                            }}
+                            values={{
+                                relativeTime: toRelativeTimeString(link.created.time) || t('links.recently'),
+                            }}
+                        />
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
                     {hasLinkPermissions && (

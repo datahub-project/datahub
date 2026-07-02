@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
@@ -37,53 +39,51 @@ const getAssertionStdOperator = ({ operator, isPlural }: { operator: AssertionSt
     return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
 };
 
-/* untranslated-text -- sentence fragment, word order differs by language */
 export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
-            return 'Null count';
+            return i18next.t('entity.profile.validations:fieldMetricType.nullCount');
         case FieldMetricType.NullPercentage:
-            return 'Null percentage';
+            return i18next.t('entity.profile.validations:fieldMetricType.nullPercentage');
         case FieldMetricType.UniqueCount:
-            return 'Unique count';
+            return i18next.t('entity.profile.validations:fieldMetricType.uniqueCount');
         case FieldMetricType.UniquePercentage:
-            return 'Unique percentage';
+            return i18next.t('entity.profile.validations:fieldMetricType.uniquePercentage');
         case FieldMetricType.MaxLength:
-            return 'Max length';
+            return i18next.t('entity.profile.validations:fieldMetricType.maxLength');
         case FieldMetricType.MinLength:
-            return 'Min length';
+            return i18next.t('entity.profile.validations:fieldMetricType.minLength');
         case FieldMetricType.EmptyCount:
-            return 'Empty count';
+            return i18next.t('entity.profile.validations:fieldMetricType.emptyCount');
         case FieldMetricType.EmptyPercentage:
-            return 'Empty percentage';
+            return i18next.t('entity.profile.validations:fieldMetricType.emptyPercentage');
         case FieldMetricType.Max:
-            return 'Max';
+            return i18next.t('entity.profile.validations:fieldMetricType.max');
         case FieldMetricType.Min:
-            return 'Min';
+            return i18next.t('entity.profile.validations:fieldMetricType.min');
         case FieldMetricType.Mean:
-            return 'Average';
+            return i18next.t('entity.profile.validations:fieldMetricType.average');
         case FieldMetricType.Median:
-            return 'Median';
+            return i18next.t('entity.profile.validations:fieldMetricType.median');
         case FieldMetricType.NegativeCount:
-            return 'Negative count';
+            return i18next.t('entity.profile.validations:fieldMetricType.negativeCount');
         case FieldMetricType.NegativePercentage:
-            return 'Negative percentage';
+            return i18next.t('entity.profile.validations:fieldMetricType.negativePercentage');
         case FieldMetricType.Stddev:
-            return 'Standard deviation';
+            return i18next.t('entity.profile.validations:fieldMetricType.standardDeviation');
         case FieldMetricType.ZeroCount:
-            return 'Zero count';
+            return i18next.t('entity.profile.validations:fieldMetricType.zeroCount');
         case FieldMetricType.ZeroPercentage:
-            return 'Zero percentage';
+            return i18next.t('entity.profile.validations:fieldMetricType.zeroPercentage');
         default:
             throw new Error(`Unknown field metric type ${metric}`);
     }
 };
 
-/* untranslated-text -- sentence fragment, word order differs by language */
 const getFieldTransformType = (transform: FieldTransformType) => {
     switch (transform) {
         case FieldTransformType.Length:
-            return 'Length';
+            return i18next.t('entity.profile.validations:fieldTransformType.length');
         default:
             throw new Error(`Unknown field transform type ${transform}`);
     }

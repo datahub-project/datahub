@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
@@ -86,6 +87,7 @@ type FieldDetailsProps = {
 };
 
 export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refetchNotes }: FieldDetailsProps) => {
+    const { t } = useTranslation('entity.profile.schema');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
@@ -119,7 +121,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
             )}
             <FieldDetailsContent>
                 <PopularityContainer>
-                    <DetailLabel>Popularity</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.popularity')}</DetailLabel>
                     <DetailValue>
                         <FieldPopularity
                             isFieldSelected={false}
@@ -130,7 +132,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                     </DetailValue>
                 </PopularityContainer>
                 <NotesWrapper>
-                    <DetailLabel>Notes</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.notes')}</DetailLabel>
                     {isSchemaEditable && (
                         <StyledButton
                             variant="text"
@@ -140,12 +142,12 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                                 setIsPostModalVisible(true);
                             }}
                         >
-                            + Add Note
+                            {t('fieldDetails.addNote')}
                         </StyledButton>
                     )}
                 </NotesWrapper>
                 <DeprecationWrapper>
-                    <DetailLabel>Deprecation</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.deprecation')}</DetailLabel>
                     {!deprecation?.deprecated && (
                         <MarkAsDeprecatedButtonContainer>
                             <MarkAsDeprecatedButton onClick={() => setIsDeprecationModalVisible(true)} />

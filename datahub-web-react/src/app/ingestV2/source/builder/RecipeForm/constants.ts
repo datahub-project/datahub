@@ -14,6 +14,23 @@ import {
     USER_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/azure';
 import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/bigid';
+import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -90,6 +107,11 @@ import {
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
 import {
+    CONFLUENCE_DOCUMENTS_IMPORT_MODE,
+    GITHUB_DOCUMENTS_IMPORT_MODE,
+    NOTION_DOCUMENTS_IMPORT_MODE,
+} from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
+import {
     DORIS,
     DORIS_DATABASE,
     DORIS_HOST_PORT,
@@ -114,6 +136,14 @@ import {
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
 import {
+    GITHUB_DOCUMENTS_BRANCH,
+    GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
+    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+    GITHUB_DOCUMENTS_PATH_PREFIX,
+    GITHUB_DOCUMENTS_REPOSITORY,
+    GITHUB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/github-documents';
+import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
     GLUE_AWS_AUTHORIZATION_METHOD,
@@ -130,6 +160,12 @@ import {
     GLUE_PROFILING_ENABLED,
     GLUE_REMOVE_STALE_METADATA_ENABLED,
 } from '@app/ingestV2/source/builder/RecipeForm/glue';
+import {
+    HEX_PROJECT_ALLOW,
+    HEX_PROJECT_DENY,
+    HEX_TOKEN,
+    HEX_WORKSPACE_NAME,
+} from '@app/ingestV2/source/builder/RecipeForm/hex';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -309,6 +345,13 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/tidb';
+import {
     TRINO,
     TRINO_DATABASE,
     TRINO_HOST_PORT,
@@ -338,10 +381,12 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    BIGID,
     CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    GITHUB_DOCUMENTS,
     MATILLION_DPC,
     MYSQL,
     NOTION,
@@ -352,6 +397,7 @@ import {
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
@@ -592,6 +638,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
     [DORIS]: {
         fields: [DORIS_HOST_PORT, DORIS_USERNAME, DORIS_PASSWORD, DORIS_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
@@ -639,6 +697,21 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
+    },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
     },
     [MATILLION_DPC]: {
         fields: [
@@ -712,10 +785,28 @@ export const RECIPE_FIELDS: RecipeFields = {
             SKIP_USERS_WITHOUT_GROUP,
         ],
     },
+    [HEX]: {
+        fields: [HEX_WORKSPACE_NAME, HEX_TOKEN],
+        filterFields: [HEX_PROJECT_ALLOW, HEX_PROJECT_DENY],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Hex Projects from ingestion.',
+    },
     [NOTION]: {
-        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS, NOTION_DOCUMENTS_IMPORT_MODE],
         filterFields: [],
         advancedFields: [],
+    },
+    [GITHUB_DOCUMENTS]: {
+        fields: [
+            GITHUB_DOCUMENTS_TOKEN,
+            GITHUB_DOCUMENTS_REPOSITORY,
+            GITHUB_DOCUMENTS_BRANCH,
+            GITHUB_DOCUMENTS_PATH_PREFIX,
+            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            GITHUB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [
@@ -724,6 +815,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             CONFLUENCE_USERNAME,
             CONFLUENCE_API_TOKEN,
             CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+            CONFLUENCE_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
         advancedFields: [],
