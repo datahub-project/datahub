@@ -25,7 +25,6 @@ classes, project-key lookup) live in ``dataplex_ids.py``.
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -84,9 +83,6 @@ from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-
-logger = logging.getLogger(__name__)
-
 
 # ----------------------------------------------------------------------------
 # Context + result
@@ -377,13 +373,20 @@ def build_dataset(
         fqn_regex, name_format, entry.fully_qualified_name
     )
     if dataset_name is None:
-        logger.debug(
-            "Skipping dataset build for entry %s: unable to extract dataset name from FQN %s",
-            entry.name,
-            entry.fully_qualified_name,
+        ctx.report.warning(
+            title="Unparseable Dataplex fully_qualified_name",
+            message=(
+                "Recognized the entry type but could not derive a dataset name "
+                "from its fully_qualified_name. Skipping the dataset."
+            ),
+            context=(
+                f"entry_type={entry.entry_type}, "
+                f"entry_name={entry.name}, "
+                f"fully_qualified_name={entry.fully_qualified_name}"
+            ),
         )
-        # Preserve prior behavior: a project container may still be emitted even
-        # when the primary entity cannot be built.
+        # A project container may still be emitted even when the primary entity
+        # cannot be built (matches the prior independent-emission behavior).
         if additional:
             return EntryMappingResult(additional_entities=additional)
         return None
@@ -487,11 +490,20 @@ def build_container(
 
     identity_fields = parse_with_regex(fqn_regex, entry.fully_qualified_name)
     if identity_fields is None:
-        logger.debug(
-            "Skipping container build for entry %s: unable to build container key from FQN %s",
-            entry.name,
-            entry.fully_qualified_name,
+        ctx.report.warning(
+            title="Unparseable Dataplex fully_qualified_name",
+            message=(
+                "Recognized the entry type but could not build a container key "
+                "from its fully_qualified_name. Skipping the container."
+            ),
+            context=(
+                f"entry_type={entry.entry_type}, "
+                f"entry_name={entry.name}, "
+                f"fully_qualified_name={entry.fully_qualified_name}"
+            ),
         )
+        # A project container may still be emitted even when the primary entity
+        # cannot be built (matches the prior independent-emission behavior).
         if additional:
             return EntryMappingResult(additional_entities=additional)
         return None
