@@ -742,6 +742,23 @@ def test_unchanged_raw_mcp_is_not_reserialized():
     assert out.metadata.aspect is original_generic_aspect
 
 
+def test_workunit_level_counters_track_lineage_and_modified():
+    # The deser/reser cost ratio is per-workunit: both workunits carry a lineage aspect
+    # (deserialization paid), but only the in-scope one is mutated (re-serialization).
+    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    try:
+        healed = _upstream_wu(LOWER)  # snowflake, configured -> normalized -> modified
+        out_of_scope = _upstream_wu(
+            make_dataset_urn("bigquery", "P.D.T")
+        )  # not configured
+        list(processor.process(iter([healed, out_of_scope])))
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_workunits_with_lineage == 2
+    assert processor.report.num_workunits_modified == 1
+
+
 def test_module_import_does_not_pull_sqlglot():
     # Importing this module (e.g. via the workunit_processors package) must not drag
     # in sqlglot, or connectors that don't declare it would break. The invariant rests
