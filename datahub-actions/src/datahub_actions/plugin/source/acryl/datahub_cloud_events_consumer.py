@@ -2,7 +2,6 @@ import logging
 import time
 from typing import List, Optional
 
-import requests
 from pydantic import BaseModel, Field
 from requests.exceptions import (
     ChunkedEncodingError,
@@ -143,10 +142,11 @@ class DataHubEventsConsumer:
         # Remove keys where the value is None
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Pass along the session headers from the graph for authentication.
-        headers = dict(self.graph._session.headers)
-
-        response = requests.get(endpoint, params=params, headers=headers)
+        # Poll through the graph's session so authentication applies per request.
+        # Copying session.headers into a bare requests.get only worked for
+        # static tokens baked into the headers; an OAuth token provider lives in
+        # session.auth and would be silently bypassed (unauthenticated 401s).
+        response = self.graph._session.get(endpoint, params=params)
         response.raise_for_status()
 
         external_events_response = ExternalEventsResponse.model_validate(
