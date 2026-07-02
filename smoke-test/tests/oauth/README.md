@@ -11,9 +11,18 @@ provider → `TokenProviderAuth` → GMS external-OAuth validation).
   (client-credentials enabled): `datahub-executor` (audience `datahub-gms`,
   accepted) and `datahub-wrong-aud` (audience `not-datahub`, rejected).
 - `docker-compose.oauth.yml` — overlay that adds Keycloak, configures GMS's
-  `EXTERNAL_OAUTH_*` to trust the realm, and provides a `tester` runner.
+  `EXTERNAL_OAUTH_*` to trust the realm, and provides a `tester` runner. Public
+  images only (no registry creds), so it runs in generic CI.
 - `test_oauth_cli_gms.py` — positive (valid audience → `me` query succeeds) and
   negative (wrong audience → rejected) tests.
+- `run-oauth-ci.sh` — CI entrypoint: brings up quickstart + the OAuth overlay,
+  waits for readiness, runs `test_oauth_cli_gms.py`, always tears down. Wired into
+  `.github/workflows/oauth-smoke.yml` (path-gated + on-demand + nightly).
+
+> Bind-mount paths in the overlays are anchored on `${DATAHUB_OAUTH_HARNESS_DIR:-.}`.
+> Run standalone from this directory and the default `.` works; when layering under
+> the quickstart compose from elsewhere, set `DATAHUB_OAUTH_HARNESS_DIR` to this
+> directory's absolute path (the CI script does this automatically).
 
 ## Why run from inside the compose network
 
@@ -37,7 +46,7 @@ issuer, and the JWKS URL all on internal hostnames and consistent.
 
    ```bash
    docker compose -f <quickstart-compose> -f smoke-test/tests/oauth/docker-compose.oauth.yml \
-     exec tester sh -c "pip install -e /repo/metadata-ingestion && pytest /smoke/tests/oauth/test_oauth_cli_gms.py -v"
+     exec tester sh -c "pip install -e /repo/metadata-ingestion && pytest /smoke/test_oauth_cli_gms.py -v"
    ```
 
    Expected: 2 passed.

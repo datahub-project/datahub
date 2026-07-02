@@ -4,7 +4,7 @@ token fetched from an OSS IdP (Keycloak).
 Run from inside the compose network (see docker-compose.oauth.yml / README.md):
 
     docker compose -f <quickstart> -f docker-compose.oauth.yml exec tester sh -c \\
-      "pip install -e /repo/metadata-ingestion && pytest /smoke/tests/oauth/test_oauth_cli_gms.py -v"
+      "pip install -e /repo/metadata-ingestion && pytest /smoke/test_oauth_cli_gms.py -v"
 
 Required env (set on the `tester` service):
   DATAHUB_GMS_URL          - internal GMS URL, e.g. http://datahub-gms:8080

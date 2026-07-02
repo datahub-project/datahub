@@ -1,0 +1,73 @@
+name: OAuth Smoke Test
+
+# Regression canary for the GMS external-OAuth path (EXTERNAL_OAUTH_*): a
+# Keycloak-issued client-credentials JWT is accepted when the audience matches and
+# rejected when it doesn't.
+#
+# Scope: this job runs the *released* stack — `datahub docker quickstart` pulls the
+# pinned release GMS images and the tester installs the released acryl-datahub — so
+# it validates the shipped OAuth surface plus this harness, NOT GMS or SDK changes
+# on the triggering ref. It therefore only path-triggers on the harness itself;
+# gating GMS auth changes would require building PR images in this job first.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+  push:
+    branches:
+      - master
+    paths:
+      - "smoke-test/tests/oauth/**"
+      - ".github/workflows/oauth-smoke.yml"
+  pull_request:
+    paths:
+      - "smoke-test/tests/oauth/**"
+      - ".github/workflows/oauth-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  oauth-smoke:
+    name: OAuth Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+
+      - name: Install datahub CLI
+        run: |
+          CLI_VERSION=$(grep 'cliVersion' gradle/versioning/cliVersion.gradle | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+          echo "Installing acryl-datahub==${CLI_VERSION}"
+          pip install "acryl-datahub==${CLI_VERSION}"
+
+      - name: Run OAuth smoke test
+        run: bash smoke-test/tests/oauth/run-oauth-ci.sh
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+
+      - name: Upload logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
