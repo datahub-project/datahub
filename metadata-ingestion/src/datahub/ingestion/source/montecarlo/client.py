@@ -180,7 +180,9 @@ class MonteCarloClient:
         message = f"Monte Carlo returned a {kind} without an id/uuid; skipping it."
         if self.report is not None:
             self.report.warning(
-                title=f"Skipped {kind} with missing id", message=message, context=repr(raw)
+                title=f"Skipped {kind} with missing id",
+                message=message,
+                context=repr(raw),
             )
         else:
             logger.warning("%s %r", message, raw)

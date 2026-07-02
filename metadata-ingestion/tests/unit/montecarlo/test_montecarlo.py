@@ -595,7 +595,10 @@ def test_emit_reports_fetch_failure_as_failure_not_crash() -> None:
 
     wus = list(
         source._emit(
-            "monitor", fetch, source.report.report_monitor_scanned, lambda item: iter(())
+            "monitor",
+            fetch,
+            source.report.report_monitor_scanned,
+            lambda item: iter(()),
         )
     )
     assert wus == []
@@ -624,6 +627,8 @@ def test_emit_skips_failing_item_and_continues() -> None:
 def test_alert_tolerates_malformed_created_time() -> None:
     # A non-ISO/garbage timestamp is nulled rather than raising, so one bad alert
     # doesn't abort the whole alert page.
-    assert MonteCarloAlert(uuid="x", created_time="not-a-timestamp").created_time is None
+    assert (
+        MonteCarloAlert(uuid="x", created_time="not-a-timestamp").created_time is None
+    )
     parsed = MonteCarloAlert(uuid="y", created_time="2026-05-20T08:00:00Z").created_time
     assert parsed is not None and parsed.year == 2026
