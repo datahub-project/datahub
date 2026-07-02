@@ -303,6 +303,58 @@ def test_get_connections_non_dict_raises():
 
 
 # ---------------------------------------------------------------------------
+# 15a-c. Happy-path envelope unwrapping — the path the integration test bypasses
+# ---------------------------------------------------------------------------
+
+
+def test_get_connections_unwraps_envelope():
+    client = _client_with_access_token()
+    payload = {
+        "data": {"ds_connections": [{"name": "Snowflake-Prod", "type": "snowflake"}]}
+    }
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_connections()
+    assert [(c.name, c.conn_type) for c in result] == [("Snowflake-Prod", "snowflake")]
+
+
+def test_get_all_classifications_unwraps_envelope():
+    client = _client_with_access_token()
+    payload = {
+        "data": {
+            "classifications": [
+                {
+                    "original_name": "classifier.EMAIL",
+                    "glossary_id": "bt_email",
+                    "friendly_name": "Email",
+                }
+            ]
+        }
+    }
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_all_classifications()
+    assert [(c.original_name, c.glossary_id) for c in result] == [
+        ("classifier.EMAIL", "bt_email")
+    ]
+
+
+def test_get_glossary_items_returns_models():
+    client = _client_with_access_token()
+    payload = [
+        {
+            "_id": "aaa",
+            "glossary_id": "bt_email",
+            "type": "Business Term",
+            "name": "Email",
+        }
+    ]
+    with patch.object(client, "_request", return_value=payload):
+        result = client.get_glossary_items()
+    assert [(g.glossary_id, g.name, g.item_type) for g in result] == [
+        ("bt_email", "Email", "Business Term")
+    ]
+
+
+# ---------------------------------------------------------------------------
 # 16. get_columns — filter expression format is correct for normal names
 # ---------------------------------------------------------------------------
 
