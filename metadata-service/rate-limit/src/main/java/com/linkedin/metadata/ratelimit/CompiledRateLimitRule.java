@@ -3,12 +3,14 @@ package com.linkedin.metadata.ratelimit;
 import com.linkedin.metadata.config.ratelimit.CapacityLimitConfig;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.config.ratelimit.RateLimitRuleType;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Builder;
 import lombok.Getter;
 import org.springframework.util.AntPathMatcher;
 
@@ -29,7 +31,10 @@ final class CompiledRateLimitRule {
   private final Integer endpointCapacity;
   private final Integer refillTokens;
   private final Integer refillPeriodSeconds;
+  private final boolean perActor;
+  private final Set<ClientClass> clientClasses;
 
+  @Builder
   private CompiledRateLimitRule(
       String id,
       RateLimitRuleType type,
@@ -40,7 +45,9 @@ final class CompiledRateLimitRule {
       CapacityLimitConfig capacityConfig,
       Integer endpointCapacity,
       Integer refillTokens,
-      Integer refillPeriodSeconds) {
+      Integer refillPeriodSeconds,
+      boolean perActor,
+      Set<ClientClass> clientClasses) {
     this.id = id;
     this.type = type;
     this.pathPattern = pathPattern;
@@ -53,6 +60,8 @@ final class CompiledRateLimitRule {
     this.endpointCapacity = endpointCapacity;
     this.refillTokens = refillTokens;
     this.refillPeriodSeconds = refillPeriodSeconds;
+    this.perActor = perActor;
+    this.clientClasses = clientClasses == null ? Set.of() : Set.copyOf(clientClasses);
   }
 
   static CompiledRateLimitRule fromCapacityRuleConfig(
@@ -84,32 +93,38 @@ final class CompiledRateLimitRule {
       }
       capacityConfig.setEnabled(true);
     }
-    return new CompiledRateLimitRule(
-        config.getId(),
-        type,
-        config.getPathPattern(),
-        normalizeMethods(config.getMethods()),
-        config.getGraphqlOperationNames(),
-        rank,
-        capacityConfig,
-        config.getCapacity(),
-        config.getRefillTokens(),
-        config.getRefillPeriodSeconds());
+    return CompiledRateLimitRule.builder()
+        .id(config.getId())
+        .type(type)
+        .pathPattern(config.getPathPattern())
+        .methods(normalizeMethods(config.getMethods()))
+        .graphqlOperationNames(config.getGraphqlOperationNames())
+        .specificityRank(rank)
+        .capacityConfig(capacityConfig)
+        .endpointCapacity(config.getCapacity())
+        .refillTokens(config.getRefillTokens())
+        .refillPeriodSeconds(config.getRefillPeriodSeconds())
+        .perActor(config.isPerActor())
+        .clientClasses(normalizeClientClasses(config.getClientTypes()))
+        .build();
   }
 
   static CompiledRateLimitRule materializedCapacityRule(
       String id, String pathPattern, int rank, CapacityLimitConfig capacityConfig) {
-    return new CompiledRateLimitRule(
-        id,
-        RateLimitRuleType.capacity,
-        pathPattern,
-        Set.of("POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"),
-        List.of(),
-        rank,
-        capacityConfig,
-        null,
-        null,
-        null);
+    return CompiledRateLimitRule.builder()
+        .id(id)
+        .type(RateLimitRuleType.capacity)
+        .pathPattern(pathPattern)
+        .methods(Set.of("POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"))
+        .graphqlOperationNames(List.of())
+        .specificityRank(rank)
+        .capacityConfig(capacityConfig)
+        .endpointCapacity(null)
+        .refillTokens(null)
+        .refillPeriodSeconds(null)
+        .perActor(false)
+        .clientClasses(Set.of())
+        .build();
   }
 
   boolean matchesPath(@Nonnull AntPathMatcher matcher, @Nonnull String path) {
@@ -125,6 +140,22 @@ final class CompiledRateLimitRule {
       return true;
     }
     return operationName != null && graphqlOperationNames.contains(operationName);
+  }
+
+  /**
+   * A class-agnostic rule (empty {@code clientClasses}) matches any client. A {@code null} client
+   * class is a wildcard — it matches every rule — used when client-class selection is disabled so
+   * class-scoped rules behave as if class-agnostic (current behavior).
+   */
+  boolean matchesClientClass(@Nullable ClientClass clientClass) {
+    if (clientClasses.isEmpty() || clientClass == null) {
+      return true;
+    }
+    return clientClasses.contains(clientClass);
+  }
+
+  boolean isClientClassScoped() {
+    return !clientClasses.isEmpty();
   }
 
   boolean isOperationScoped() {
@@ -157,6 +188,31 @@ final class CompiledRateLimitRule {
         .collect(Collectors.toUnmodifiableSet());
   }
 
+  /**
+   * Parses configured {@code clientTypes} (case- and hyphen-insensitive) into {@link ClientClass}.
+   * Empty/null = class-agnostic. Unrecognized values are ignored rather than failing startup —
+   * client class is advisory, and tolerating unknown values keeps the config forward-compatible
+   * with finer-grained types a newer config may declare.
+   */
+  private static Set<ClientClass> normalizeClientClasses(List<String> clientTypes) {
+    if (clientTypes == null || clientTypes.isEmpty()) {
+      return Set.of();
+    }
+    Set<ClientClass> classes = EnumSet.noneOf(ClientClass.class);
+    for (String value : clientTypes) {
+      if (value == null) {
+        continue;
+      }
+      String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+      for (ClientClass candidate : ClientClass.values()) {
+        if (candidate.name().equals(normalized)) {
+          classes.add(candidate);
+        }
+      }
+    }
+    return classes.isEmpty() ? Set.of() : Set.copyOf(classes);
+  }
+
   static int compareSpecificity(CompiledRateLimitRule left, CompiledRateLimitRule right) {
     int rankCompare = Integer.compare(left.specificityRank, right.specificityRank);
     if (rankCompare != 0) {
@@ -165,6 +221,14 @@ final class CompiledRateLimitRule {
     int patternCompare = Integer.compare(right.patternSpecificity, left.patternSpecificity);
     if (patternCompare != 0) {
       return patternCompare;
+    }
+    // At equal path specificity, a class-scoped rule outranks a class-agnostic one. Deliberate:
+    // even when client-class selection is disabled (null class is a wildcard, so both rules match),
+    // the more specific class-scoped rule wins — i.e. a stricter class rule still applies rather
+    // than the looser catch-all. Asserted by RuleSelector/CompiledRateLimitRule tests.
+    int classCompare = Boolean.compare(left.isClientClassScoped(), right.isClientClassScoped());
+    if (classCompare != 0) {
+      return classCompare;
     }
     return left.id.compareTo(right.id);
   }

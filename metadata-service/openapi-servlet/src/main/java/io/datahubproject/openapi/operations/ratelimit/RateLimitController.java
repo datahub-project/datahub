@@ -51,7 +51,7 @@ public class RateLimitController {
     if (authFailure != null) {
       return authFailure;
     }
-    return ResponseEntity.ok(rateLimitEngine.getConfig());
+    return ResponseEntity.ok(rateLimitEngine.getRedactedConfig());
   }
 
   @GetMapping(path = "/status", produces = MediaType.APPLICATION_JSON_VALUE)

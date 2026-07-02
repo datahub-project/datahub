@@ -159,7 +159,7 @@ public class RateLimitFilterTest {
 
     filter.doFilter(request, response, (req, resp) -> {});
 
-    verify(engine, never()).evaluateAndAcquireRest(any(), any());
+    verify(engine, never()).evaluateAndAcquireRest(any(), any(), any());
     verify(engine, never()).release(any(), anyBoolean());
   }
 
@@ -168,7 +168,7 @@ public class RateLimitFilterTest {
     when(engine.isExcluded(any())).thenReturn(false);
     when(engine.isGraphQLPost(any(), any())).thenReturn(false);
     RateLimitDecision decision = RateLimitDecision.builder().allowed(true).build();
-    when(engine.evaluateAndAcquireRest(any(), any())).thenReturn(decision);
+    when(engine.evaluateAndAcquireRest(any(), any(), any())).thenReturn(decision);
     RateLimitLease lease = new RateLimitLease(null, "_default_capacity", null, 0L);
     when(engine.toLease(decision)).thenReturn(lease);
     Mockito.doNothing().when(engine).applyHeaders(any(), any());

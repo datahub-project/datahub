@@ -13,6 +13,7 @@ final class RateLimitMetrics {
   private static final String ADAPTIVE_LIMIT = "gms.rate_limit.adaptive.limit";
   private static final String ADAPTIVE_INFLIGHT = "gms.rate_limit.adaptive.inflight";
   private static final String ENDPOINT_REMAINING = "gms.rate_limit.endpoint.remaining";
+  private static final String FAIL_OPEN = "gms.rate_limit.fail_open";
 
   private final MeterRegistry meterRegistry;
   private final boolean detailed;
@@ -41,6 +42,19 @@ final class RateLimitMetrics {
             "graphql_operation",
             graphqlOperationTag);
     meterRegistry.counter(REQUESTS, tags).increment();
+  }
+
+  /**
+   * Records a fail-open event — rate-limit evaluation threw and the request was allowed through
+   * because {@code failOpen=true}. A spike here means limiting is effectively disabled (e.g. a
+   * Hazelcast disruption, possibly induced), so it is worth alerting on. {@code stage} tags which
+   * limiter failed (front gate vs heavy resolver).
+   */
+  void recordFailOpen(@Nonnull String stage) {
+    if (meterRegistry == null) {
+      return;
+    }
+    meterRegistry.counter(FAIL_OPEN, Tags.of("stage", stage)).increment();
   }
 
   /**

@@ -38,7 +38,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return;
     }
 
-    RateLimitDecision decision = engine.evaluateAndAcquireRest(request.getRequestURI(), method);
+    // Classify from the frontend-stamped header (advisory; trusted on the frontend-proxied hop, and
+    // only applied when clientClassEnabled=true). Absent → NON_BROWSER.
+    ClientClass clientClass =
+        ClientClassifier.fromRequestSource(
+            request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));
+    RateLimitDecision decision =
+        engine.evaluateAndAcquireRest(request.getRequestURI(), method, clientClass);
     if (!decision.isAllowed()) {
       engine.writeDeniedResponse(response, decision);
       return;
