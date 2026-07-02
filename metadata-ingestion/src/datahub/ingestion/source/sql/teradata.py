@@ -792,6 +792,27 @@ def _strip_padded_autoincrement(row: Any, col_info: Dict[str, Any]) -> None:
         col_info["autoincrement"] = val in ("GA", "GD")
 
 
+def _report_table_missing_from_cache(self: Any, schema: str, table_name: str) -> None:
+    """Record a table that was discovered but absent from the cache at column
+    extraction time, so the run report shows a count and the affected names
+    rather than a silent log line."""
+    if hasattr(self, "report"):
+        self.report.increment_tables_missing_from_cache()
+        self.report.warning(
+            title="Table missing from cache during column extraction",
+            message=(
+                "Table was not found in the cache when extracting columns, "
+                "likely dropped after table discovery. The dataset is emitted "
+                "without columns."
+            ),
+            context=f"{schema}.{table_name}",
+        )
+    else:
+        logger.warning(
+            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
+        )
+
+
 def optimized_get_columns(
     self: Any,
     connection: Connection,
@@ -829,9 +850,10 @@ def optimized_get_columns(
             break
 
     if td_table is None:
-        logger.warning(
-            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
-        )
+        # The table was listed during caching but is no longer in the cache at
+        # column-extraction time (e.g. dropped between the two phases). We still
+        # emit the dataset, just without columns.
+        _report_table_missing_from_cache(self, schema, table_name)
         return []
 
     res: List[Any] = []
@@ -1035,6 +1057,11 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_primary_keys_processed: int = 0
     column_extraction_duration_seconds: float = 0.0
 
+    # Tables that were listed during caching but were no longer present in the
+    # cache at column-extraction time (e.g. dropped between the two phases).
+    # Their datasets are still emitted, but without columns.
+    num_tables_missing_from_cache: int = 0
+
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
@@ -1124,6 +1151,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_column_extraction_failures(self) -> None:
         with self._lock:
             self.num_column_extraction_failures += 1
+
+    def increment_tables_missing_from_cache(self) -> None:
+        with self._lock:
+            self.num_tables_missing_from_cache += 1
 
     def increment_primary_keys_processed(self) -> None:
         with self._lock:
@@ -1791,6 +1822,17 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             _use_qvci = self.config.use_qvci
             _use_dbc_columns_for_views = self.config.use_dbc_columns_for_views
             _tables_needing_extraction = self._tables_needing_column_extraction
+
+            # The patched dialect functions below run with a TeradataDialect instance
+            # as `self` (SQLAlchemy calls them via Inspector -> dialect), not this
+            # source. They read `self.report` to record run-level metrics (columns
+            # processed, extraction failures, tables missing from cache, column
+            # extraction duration, etc.). The dialect has no report of its own, so
+            # without this attach those `getattr/hasattr(self, "report")` checks are
+            # always False and the metrics silently stay at 0. Attach the source's
+            # report to the dialect class so the metrics are actually populated.
+            setattr(TeradataDialect, "report", self.report)  # noqa: B010
+
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
