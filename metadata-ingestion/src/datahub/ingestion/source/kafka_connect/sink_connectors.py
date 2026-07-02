@@ -504,6 +504,111 @@ class ClickHouseSinkConnector(BaseConnector):
 
 
 @dataclass
+class IcebergSinkConnector(BaseConnector):
+    @dataclass
+    class IcebergParser:
+        tables: List[str]
+        topics_to_tables: Dict[str, List[str]]
+
+    def get_parser(self, connector_manifest: ConnectorManifest) -> IcebergParser:
+        # Parse configured tables
+        tables_config = connector_manifest.config.get(
+            ConnectorConfigKeys.ICEBERG_TABLES, ""
+        )
+        tables = parse_comma_separated_list(tables_config)
+
+        # Resolve topics (same intersection logic as ClickHouse)
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+        subscribed_topics = set(self.get_topics_from_config())
+
+        if subscribed_topics and available_topics:
+            topic_list = list(available_topics.intersection(subscribed_topics))
+            logger.debug(
+                f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                f"(intersection of {len(available_topics)} runtime topics and "
+                f"{len(subscribed_topics)} configured topics)"
+            )
+        elif subscribed_topics:
+            topic_list = list(subscribed_topics)
+            logger.debug(
+                f"Runtime topics empty for {connector_manifest.name}, "
+                f"using {len(topic_list)} topics from connector config"
+            )
+        else:
+            topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
+
+        # All-to-all mapping: each topic → all configured tables
+        topics_to_tables: Dict[str, List[str]] = {}
+        for topic in topic_list:
+            topics_to_tables[topic] = tables if tables else []
+
+        return self.IcebergParser(tables=tables, topics_to_tables=topics_to_tables)
+
+    def get_topics_from_config(self) -> List[str]:
+        config = self.connector_manifest.config
+
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
+
+        return []
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return dict(self.connector_manifest.config)
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        try:
+            lineages: List[KafkaConnectLineage] = []
+            parser = self.get_parser(self.connector_manifest)
+
+            for topic, target_tables in parser.topics_to_tables.items():
+                for target_dataset in target_tables:
+                    fine_grained = self._extract_fine_grained_lineage(
+                        source_dataset=topic,
+                        source_platform=KAFKA,
+                        target_dataset=target_dataset,
+                        target_platform="iceberg",
+                    )
+
+                    lineages.append(
+                        KafkaConnectLineage(
+                            source_dataset=topic,
+                            source_platform=KAFKA,
+                            target_dataset=target_dataset,
+                            target_platform="iceberg",
+                            fine_grained_lineages=fine_grained,
+                        )
+                    )
+
+            return lineages
+        except Exception as e:
+            self.report.warning(
+                f"Unexpected error resolving lineage for Iceberg sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+        return []
+
+    def get_platform(self) -> str:
+        return "iceberg"
+
+
+@dataclass
 class BigQuerySinkConnector(BaseConnector):
     @dataclass
     class BQParser:
@@ -1340,4 +1445,7 @@ CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
 )
 CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
+)
+ICEBERG_SINK_CONNECTOR_CLASS: Final[str] = (
+    "org.apache.iceberg.connect.IcebergSinkConnector"
 )
