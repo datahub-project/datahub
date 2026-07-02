@@ -10,6 +10,7 @@ from google.cloud import dataplex_v1
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     ENTRY_MAPPERS,
+    DatasetIdentity,
     EntryMappingContext,
     dataset_urn_from_fqn_only,
     get_entry_mapper,
@@ -345,7 +346,9 @@ def test_dataset_name_format_fields_are_captured_by_fqn_regex(short_name: str) -
     """Guardrail: every field referenced by a dataset name format must be a named
     group in that mapper's FQN regex, else name extraction silently fails."""
     mapper = ENTRY_MAPPERS[short_name]
-    fmt_fields = _format_fields(mapper.datahub_dataset_name_format)  # type: ignore[attr-defined]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, DatasetIdentity)
+    fmt_fields = _format_fields(identity.name_format)
     regex_groups = set(mapper.dataplex_fqn_regex.groupindex.keys())
     assert fmt_fields.issubset(regex_groups), (
         f"{short_name}: format fields {fmt_fields} not all in regex groups {regex_groups}"
