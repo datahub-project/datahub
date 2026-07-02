@@ -1,0 +1,65 @@
+apply plugin: 'java-library'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    // Wrapped DataHub services — compileOnly so we don't drag GMS into our jar.
+    compileOnly project(':datahub-graphql-core')
+    compileOnly project(':metadata-service:services')
+    compileOnly project(':metadata-service:restli-client-api')
+    compileOnly project(':metadata-service:auth-impl')
+    compileOnly project(':metadata-service:auth-config')
+    compileOnly project(':metadata-service:factories')
+    compileOnly project(':metadata-auth:auth-api')
+    compileOnly project(':metadata-operation-context')
+
+    // graphql-java is provided transitively by datahub-graphql-core
+    compileOnly externalDependency.graphqlJava
+
+    // Spring (provided by GMS at runtime)
+    compileOnly externalDependency.springContext
+    compileOnly externalDependency.springBeans
+    compileOnly externalDependency.springBoot
+
+    compileOnly externalDependency.slf4jApi
+
+    // JWT validation for the Keycloak authenticator. jjwt + jackson are on the GMS classpath
+    // (auth-impl pins jjwt 0.11.2), so compileOnly here — we don't bundle them.
+    compileOnly 'io.jsonwebtoken:jjwt-api:0.11.2'
+    compileOnly externalDependency.jacksonDataBind
+
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+
+    implementation externalDependency.caffeine
+
+    testImplementation project(':datahub-graphql-core')
+    testImplementation project(':metadata-service:services')
+    testImplementation project(':metadata-service:restli-client-api')
+    testImplementation project(':metadata-service:auth-impl')
+    testImplementation project(':metadata-auth:auth-api')
+    testImplementation project(':metadata-operation-context')
+    testImplementation externalDependency.graphqlJava
+    testImplementation externalDependency.junitJupiterApi
+    testImplementation externalDependency.junitJupiterParams
+    testRuntimeOnly externalDependency.junitJupiterEngine
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.assertJ
+    testCompileOnly externalDependency.lombok
+    testAnnotationProcessor externalDependency.lombok
+
+    // JWT libs for authenticator unit tests (mint + verify RS256 with a generated key).
+    testImplementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.2'
+    testImplementation externalDependency.jacksonDataBind
+}
+
+test {
+    useJUnitPlatform()
+}

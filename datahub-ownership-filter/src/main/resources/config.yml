@@ -1,0 +1,10 @@
+plugins:
+  - name: "ownership-authorizer"
+    type: "authorizer"
+    enabled: "true"
+    params:
+      className: "io.datahub.ownership.auth.OwnershipAuthorizer"
+      configs:
+        adminUserUrns: "urn:li:corpuser:datahub"
+        adminGroupUrns: "urn:li:corpGroup:admins"
+        gatedPrivileges: "VIEW_ENTITY_PAGE,GET_ENTITY,VIEW_DATASET_USAGE,VIEW_DATASET_PROFILE"
