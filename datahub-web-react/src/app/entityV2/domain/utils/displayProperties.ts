@@ -19,9 +19,8 @@ export type DomainDisplayPropertiesInput = {
 // expects. We continue to write it for every icon (Phosphor picks included) because
 // the enum currently has only one value and migrating it would be a breaking model
 // change. Only the `icon.name` field carries meaningful state — post-migration writes
-// always store a Phosphor name. Any lingering MUI names on legacy domains can be
-// rewritten with the operator script at
-// `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`.
+// always store a Phosphor name. Lingering MUI names on legacy domains render as the
+// letter avatar via the `hasLazyIcon` check in `resolveDomainIconDisplay` below.
 const LEGACY_ICON_LIBRARY = IconLibrary.Material;
 const LEGACY_ICON_STYLE = 'Outlined';
 
@@ -98,9 +97,7 @@ export type DomainIconDisplay = {
  * stays visible.
  *
  * New writes always store a Phosphor name, so this is a straight pass-through +
- * loadability check. Legacy MUI names (from installations that have not yet run the
- * operator migration script at
- * `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`) will
+ * loadability check. Legacy MUI names on domains that predate the Phosphor cutover
  * fail the `hasLazyIcon` check and cleanly fall back to the letter avatar — the same
  * behavior we surface for a domain that never had an icon.
  */

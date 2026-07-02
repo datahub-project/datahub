@@ -71,9 +71,8 @@ export default function EditDomainModal({ onClose }: Props) {
     // `resolveDomainIconDisplay` returns the stored icon name plus a loadability flag. We
     // only need the name here — passing it into `pinnedIcons` guarantees the user's current
     // pick shows up as a picker cell even if it isn't in our curated set, so they can keep
-    // their selection without an accidental clear. Legacy MUI-named aspects that haven't
-    // been rewritten by the operator migration script will pin an unrenderable name —
-    // harmless; the user just picks something new.
+    // their selection without an accidental clear. Legacy MUI-named aspects (pre-Phosphor)
+    // pin an unrenderable name — harmless; the user just picks something new.
     const { iconName: displayedIconName } = resolveDomainIconDisplay(entityData?.displayProperties?.icon?.name);
 
     const [stagedName, setStagedName] = useState<string>(initialName);

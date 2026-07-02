@@ -186,9 +186,8 @@ import { Wine } from '@phosphor-icons/react/dist/csr/Wine';
 // DomainColoredIcon. The picker also "pins" the currently-stored icon at the top so it's
 // always visible while editing, even if it's no longer part of the curated set.
 //
-// Legacy MUI icon names on existing domains can be rewritten to their Phosphor equivalents
-// with the operator script at
-// `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`.
+// Legacy MUI icon names on pre-Phosphor domains fall back to the letter avatar via the
+// `hasLazyIcon` guard — the user can pick a new icon in the edit modal if they want one.
 
 export const DOMAIN_ICON_LIBRARY: readonly string[] = [
     // Business & finance
