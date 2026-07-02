@@ -807,7 +807,9 @@ class BigIDSource(StatefulIngestionSourceBase):
             )
             if enrichment is None:
                 continue
-            # Confidence-level tags are per-field context; skip them for unstructured datasets.
+            # Unstructured content has no column schema, so there is no fieldPath to attach a
+            # field-level confidence tag to; skip them (confidence still rides on the term's
+            # MetadataAttribution sourceDetail).
             if enrichment.term_assoc.urn not in seen_term_urns:
                 seen_term_urns.add(enrichment.term_assoc.urn)
                 term_assocs.append(enrichment.term_assoc)

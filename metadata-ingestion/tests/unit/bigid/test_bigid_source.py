@@ -1032,6 +1032,22 @@ def test_load_registries_idsor_attributes_api_error_warns():
     assert any("idsor" in str(w) for w in source.report.warnings)
 
 
+def test_load_and_emit_skips_catalog_when_both_registries_fail():
+    """When glossary items AND classifications both fail, nothing can be enriched, so the
+    catalog scan is skipped entirely rather than wasting API quota on every object."""
+    source = _make_source()
+    _client(source).get_connections.return_value = []
+    _client(source).get_all_classifications.side_effect = BigIDAPIError("boom")
+    _client(source).get_glossary_items.side_effect = BigIDAPIError("boom")
+    _client(source).get_idsor_attribute_map.return_value = {}
+
+    workunits = list(source._load_and_emit())
+
+    assert workunits == []
+    _client(source).get_catalog_objects.assert_not_called()
+    assert any("registries-empty" in str(f) for f in source.report.failures)
+
+
 # ---------------------------------------------------------------------------
 # _process_catalog pass-1 tag filtering
 # ---------------------------------------------------------------------------
@@ -1429,6 +1445,68 @@ def test_idsor_path1_reuses_existing_term():
     assert _aspect(term_info_wus[0]).parentNode == BIGID_IDSOR_GLOSSARY_NODE_URN
     assert _aspect(term_info_wus[0]).customProperties["bigid_glossary_id"] == "bt_email"
     assert source.report.idsor_terms_emitted == 1
+
+
+def test_business_glossary_term_wins_over_idsor_linked_term():
+    """Cross-path dedup: a term the business-glossary path already emitted is not re-emitted
+    (with different content) by the IDSoR path-1 linked-term path. First emit wins, so the
+    curated business-glossary definition is kept. Guards against a regression if the emission
+    paths are reordered."""
+    source = _make_source(minimum_confidence_threshold=0.0)
+    # bt_email is defined as a business glossary term (emitted first)...
+    source._glossary_items = _glossary_items(
+        [
+            {
+                "_id": "id1",
+                "glossary_id": "bt_email",
+                "type": "Business Term",
+                "name": "Email Address",
+                "description": "Curated business definition",
+            }
+        ]
+    )
+    # ...and is also the IDSoR path-1 target for the same glossary_id.
+    source._idsor_attr_map["customer_email"] = IDSoRAttributeInfo(
+        friendly_name="IDSoR Email", glossary_id="bt_email"
+    )
+
+    # Business glossary path runs first (as it does in _load_and_emit).
+    glossary_wus = list(source._emit_glossary_terms())
+    # Then the column-enrichment IDSoR path processes the linked attribute.
+    idsor_wus = list(
+        source._emit_schema_field_enrichment(
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
+            _columns(
+                [
+                    {
+                        "columnName": "col",
+                        "fieldType": "varchar",
+                        "attributeDetails": [IDSOR_ATTR],
+                        "fieldClassifications": [],
+                        "columnProfile": {},
+                    }
+                ]
+            ),
+            "conn",
+            {},
+            int(time.time() * 1000),
+        )
+    )
+
+    email_urn = _term_urn("bt_email")
+    term_infos = [
+        wu
+        for wu in glossary_wus + idsor_wus
+        if _aspect_name(wu) == "glossaryTermInfo" and _entity_urn(wu) == email_urn
+    ]
+    assert len(term_infos) == 1
+    assert _aspect(term_infos[0]).name == "Email Address"
+    assert source.report.idsor_terms_emitted == 0
+    # The field association still references the shared term URN even though the entity
+    # was not re-emitted.
+    assert _term_urn("bt_email") in [
+        t.urn for t in _patched_field_terms(idsor_wus, "col")
+    ]
 
 
 def test_idsor_path2_autogenerates_under_idsor_node():
