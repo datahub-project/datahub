@@ -71,7 +71,7 @@ export const DashboardStatsSummary = ({
             undefined,
         (!!effectiveViewCount && (
             <StatText>
-                <Icon icon={Eye} color="textTertiary" style={{ marginRight: 8 }} />
+                <Icon icon={Eye} color="textTertiary" size="md" style={{ marginRight: 8 }} />
                 {viewCountLast30Days
                     ? t('shared.viewsLast30DaysCount', {
                           count: effectiveViewCount,
@@ -96,7 +96,7 @@ export const DashboardStatsSummary = ({
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
-                <Icon icon={UsersThree} color="textTertiary" style={{ marginRight: 8 }} />
+                <Icon icon={UsersThree} color="textTertiary" size="md" style={{ marginRight: 8 }} />
                 {t('shared.usersCount', {
                     count: uniqueUserCountLast30Days,
                     formattedCount: formatNumber(uniqueUserCountLast30Days),
@@ -124,14 +124,14 @@ export const DashboardStatsSummary = ({
                         <div>
                             {t('shared.changedOnDate', { date: toLocalDateTimeString(lastUpdatedMs) })}{' '}
                             <Tooltip title={t('dashboard.lastChangedTooltip')}>
-                                <Icon icon={Question} color="textTertiary" style={{ paddingLeft: 4 }} />
+                                <Icon icon={Question} color="textTertiary" size="md" style={{ paddingLeft: 4 }} />
                             </Tooltip>
                         </div>
                     </>
                 }
             >
                 <StatText>
-                    <Icon icon={Clock} color="textTertiary" style={{ marginRight: 8 }} />
+                    <Icon icon={Clock} color="textTertiary" size="md" style={{ marginRight: 8 }} />
                     {t('shared.changedRelativeTime', { time: toRelativeTimeString(lastUpdatedMs) })}
                 </StatText>
             </Popover>
