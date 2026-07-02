@@ -31,7 +31,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataSource,
     TeradataTable,
     ViewErrorCategory,
-    _categorize_view_error,
+    _categorize_teradata_error,
     _engine_connect_with_retry,
     _execute_with_retry,
     _fetchmany_with_retry,
@@ -4239,8 +4239,8 @@ class TestExecuteWithCursorFallback:
         assert result is expected
 
 
-class TestCategorizeViewError:
-    """Unit tests for _categorize_view_error."""
+class TestCategorizeTeradataError:
+    """Unit tests for _categorize_teradata_error."""
 
     @pytest.mark.parametrize(
         "exc, expected",
@@ -4356,11 +4356,11 @@ class TestCategorizeViewError:
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
-        assert _categorize_view_error(exc) == expected
+        assert _categorize_teradata_error(exc) == expected
 
 
 class TestErrorCategorizationReport:
-    """Report counters are wired correctly to _categorize_view_error categories."""
+    """Report counters are wired correctly to _categorize_teradata_error categories."""
 
     def test_increment_schema_discovery_failures(self) -> None:
         report = TeradataReport()
@@ -4546,7 +4546,7 @@ class TestViewProcessingErrorCounters:
 
     Both the single-threaded path (_process_views_single_threaded, max_workers=1)
     and the multi-threaded path (_loop_views_with_connection_pool, max_workers>1)
-    use _categorize_view_error to route failures to the right sub-counter.
+    use _categorize_teradata_error to route failures to the right sub-counter.
     """
 
     # ------------------------------------------------------------------

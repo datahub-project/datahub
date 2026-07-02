@@ -326,8 +326,8 @@ class ViewErrorCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
-def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
-    """Classify a view-processing exception for report error-breakdown counters.
+def _categorize_teradata_error(exc: BaseException) -> ViewErrorCategory:
+    """Classify a Teradata exception for report error-breakdown counters.
 
     Returns one of the ``ViewErrorCategory`` enum members:
         ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
@@ -1078,7 +1078,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_db_retries: int = 0
 
     # Per-phase error breakdown for self-service diagnostics; categories align
-    # with _categorize_view_error() so support can pinpoint root cause quickly.
+    # with _categorize_teradata_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
     historical_lineage_check_failures: int = 0
     view_timeout_errors: int = 0
@@ -2391,7 +2391,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                 except Exception as e:
-                    _error_category = _categorize_view_error(e)
+                    _error_category = _categorize_teradata_error(e)
                     self.report.increment_view_error(_error_category)
                     logger.error(
                         f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -2462,7 +2462,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             # here, so skip increment_view_error.
                             pass
                         except Exception as e:
-                            _error_category = _categorize_view_error(e)
+                            _error_category = _categorize_teradata_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
                             # fut.result() can raise for infrastructure-level exceptions
                             # (e.g. concurrent.futures internals) that are NOT caught by
@@ -2635,7 +2635,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                     except Exception as e:
-                        _error_category = _categorize_view_error(e)
+                        _error_category = _categorize_teradata_error(e)
                         self.report.increment_view_error(_error_category)
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -3475,7 +3475,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # failing the entire run. A missing grant (permission error) is
             # surfaced under a distinct, actionable title and counted separately
             # so it isn't lost in the generic sizing-failure bucket.
-            if _categorize_view_error(e) is ViewErrorCategory.PERMISSION:
+            if _categorize_teradata_error(e) is ViewErrorCategory.PERMISSION:
                 self.report.increment_profiling_permission_error()
                 self.report.warning(
                     title="Unauthorized to size tables for profiling",
