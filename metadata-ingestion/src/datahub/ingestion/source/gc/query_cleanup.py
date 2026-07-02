@@ -234,15 +234,22 @@ class QueryCleanup:
         # thread, so report updates need no locking.
         futures: Dict["Future[None]", Urn] = {}
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            for query_urn in self._iter_candidate_urns():
-                if self._deletion_limit_reached() or self._times_up():
-                    break
-                futures[executor.submit(self._hard_delete_one, query_urn)] = query_urn
-                # Bound in-flight work and let completed deletes advance the report so
-                # the deletion/runtime caps can trip mid-stream.
-                if len(futures) >= self.config.max_workers:
-                    futures = self._collect_hard_deletes(futures, FIRST_COMPLETED)
-            self._collect_hard_deletes(futures, ALL_COMPLETED)
+            try:
+                for query_urn in self._iter_candidate_urns():
+                    if self._deletion_limit_reached() or self._times_up():
+                        break
+                    futures[executor.submit(self._hard_delete_one, query_urn)] = (
+                        query_urn
+                    )
+                    # Bound in-flight work and let completed deletes advance the report
+                    # so the deletion/runtime caps can trip mid-stream.
+                    if len(futures) >= self.config.max_workers:
+                        futures = self._collect_hard_deletes(futures, FIRST_COMPLETED)
+            finally:
+                # Drain in-flight futures even if enumeration raises mid-stream, so
+                # deletes that already completed are still recorded in the report.
+                if futures:
+                    self._collect_hard_deletes(futures, ALL_COMPLETED)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.enabled:
