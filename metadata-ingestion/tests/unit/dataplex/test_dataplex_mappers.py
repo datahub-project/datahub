@@ -325,7 +325,7 @@ def test_dataset_name_format_fields_are_captured_by_fqn_regex(short_name: str) -
     group in that mapper's FQN regex, else name extraction silently fails."""
     mapper = ENTRY_MAPPERS[short_name]
     fmt_fields = _format_fields(mapper.datahub_dataset_name_format)  # type: ignore[attr-defined]
-    regex_groups = set(mapper.fqn_regex.groupindex.keys())  # type: ignore[attr-defined]
+    regex_groups = set(mapper.fqn_regex.groupindex.keys())
     assert fmt_fields.issubset(regex_groups), (
         f"{short_name}: format fields {fmt_fields} not all in regex groups {regex_groups}"
     )
