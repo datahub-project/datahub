@@ -88,6 +88,7 @@ class DatasetContainerSubTypes(StrEnum):
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
+    MATILLION_FOLDER = "Folder"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"

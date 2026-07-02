@@ -76,7 +76,6 @@ class SourceCapability(Enum):
     TAGS = "Extract Tags"
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
-    CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
     GLOSSARY_TERMS = "Glossary Terms"
 

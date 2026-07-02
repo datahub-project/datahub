@@ -5,13 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
-import {
-    CronSchedule,
-    FixedIntervalSchedule,
-    FreshnessAssertionInfo,
-    FreshnessAssertionScheduleType,
-    FreshnessAssertionType,
-} from '@types';
+import { CronSchedule, FreshnessAssertionInfo, FreshnessAssertionScheduleType, FreshnessAssertionType } from '@types';
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
@@ -24,30 +18,6 @@ const getCronAsLabel = (cronSchedule: CronSchedule) => {
         return '';
     }
     return `${removeTimePrefix(cronToString(cron).toLocaleLowerCase())} (${timezone})`;
-};
-
-/* untranslated-text -- sentence fragment, word order differs by language */
-export const createCronText = (cronSchedule: CronSchedule) => {
-    return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
-};
-
-/* untranslated-text -- sentence fragment, word order differs by language */
-export const createFixedIntervalText = (
-    fixedIntervalSchedule?: FixedIntervalSchedule | null,
-    monitorSchedule?: Maybe<CronSchedule>,
-) => {
-    if (!fixedIntervalSchedule) {
-        return 'No interval found!';
-    }
-    const { multiple, unit } = fixedIntervalSchedule;
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
-};
-
-/* untranslated-text -- sentence fragment, word order differs by language */
-export const createSinceTheLastCheckText = (monitorSchedule?: Maybe<CronSchedule>) => {
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `since the previous check${cronText}.`;
 };
 
 /**

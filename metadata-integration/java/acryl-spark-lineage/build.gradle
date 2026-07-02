@@ -9,6 +9,11 @@ apply plugin: 'maven-publish'
 apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
+// Pin Java 17 bytecode: this agent shadow jar (and the modules it bundles) must run on managed
+// Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17). The rest of the
+// repo targets Java 21; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
+ext.javaClassVersionOverride = 17
+
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 // Define supported Scala versions - always build for both
@@ -223,6 +228,10 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
+      // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
+      exclude 'io.openlineage.spark.extension.**'
+    }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
