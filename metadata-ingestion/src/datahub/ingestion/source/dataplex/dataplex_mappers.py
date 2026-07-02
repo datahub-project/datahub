@@ -152,8 +152,8 @@ class EntryMapper(ABC):
 
     @property
     @abstractmethod
-    def fqn_regex(self) -> Pattern[str]:
-        """Regex that parses this entry type's ``fully_qualified_name``.
+    def dataplex_fqn_regex(self) -> Pattern[str]:
+        """Regex that parses this entry type's Dataplex ``fully_qualified_name``.
 
         Universal to every mapper (both Dataset and Container entries parse the
         FQN for identity), so it is part of the contract rather than an inline
@@ -557,7 +557,7 @@ class BigQueryDatasetMapper(EntryMapper):
     dataplex_entry_type_short_name = "bigquery-dataset"
     datahub_platform = "bigquery"
     datahub_main_entity_type = Container
-    fqn_regex = BIGQUERY_DATASET_FQN_REGEX
+    dataplex_fqn_regex = BIGQUERY_DATASET_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -567,7 +567,7 @@ class BigQueryDatasetMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.BIGQUERY_DATASET,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexBigQueryDataset,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -578,7 +578,7 @@ class BigQueryTableMapper(EntryMapper):
     dataplex_entry_type_short_name = "bigquery-table"
     datahub_platform = "bigquery"
     datahub_main_entity_type = Dataset
-    fqn_regex = BIGQUERY_TABLE_FQN_REGEX
+    dataplex_fqn_regex = BIGQUERY_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{dataset_id}.{table_id}"
 
     def map(
@@ -590,7 +590,7 @@ class BigQueryTableMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TABLE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexBigQueryDataset,
@@ -602,7 +602,7 @@ class BigQueryViewMapper(EntryMapper):
     dataplex_entry_type_short_name = "bigquery-view"
     datahub_platform = "bigquery"
     datahub_main_entity_type = Dataset
-    fqn_regex = BIGQUERY_TABLE_FQN_REGEX
+    dataplex_fqn_regex = BIGQUERY_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{dataset_id}.{table_id}"
 
     def map(
@@ -614,7 +614,7 @@ class BigQueryViewMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.VIEW,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexBigQueryDataset,
@@ -625,7 +625,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloudsql-mysql-instance"
     datahub_platform = "cloudsql"
     datahub_main_entity_type = Container
-    fqn_regex = MYSQL_INSTANCE_FQN_REGEX
+    dataplex_fqn_regex = MYSQL_INSTANCE_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -635,7 +635,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.INSTANCE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSqlMySqlInstance,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -646,7 +646,7 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloudsql-mysql-database"
     datahub_platform = "cloudsql"
     datahub_main_entity_type = Container
-    fqn_regex = MYSQL_DATABASE_FQN_REGEX
+    dataplex_fqn_regex = MYSQL_DATABASE_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -656,7 +656,7 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.DATABASE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSqlMySqlDatabase,
             parent_entry_regex=MYSQL_INSTANCE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexCloudSqlMySqlInstance,
@@ -667,7 +667,7 @@ class CloudSqlMySqlTableMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloudsql-mysql-table"
     datahub_platform = "cloudsql"
     datahub_main_entity_type = Dataset
-    fqn_regex = MYSQL_TABLE_FQN_REGEX
+    dataplex_fqn_regex = MYSQL_TABLE_FQN_REGEX
     datahub_dataset_name_format = (
         "{project_id}.{location}.{instance_id}.{database_id}.{table_id}"
     )
@@ -681,7 +681,7 @@ class CloudSqlMySqlTableMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TABLE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=MYSQL_DATABASE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexCloudSqlMySqlDatabase,
@@ -692,7 +692,7 @@ class CloudSpannerInstanceMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-spanner-instance"
     datahub_platform = "spanner"
     datahub_main_entity_type = Container
-    fqn_regex = SPANNER_INSTANCE_FQN_REGEX
+    dataplex_fqn_regex = SPANNER_INSTANCE_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -702,7 +702,7 @@ class CloudSpannerInstanceMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.INSTANCE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSpannerInstance,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -713,7 +713,7 @@ class CloudSpannerDatabaseMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-spanner-database"
     datahub_platform = "spanner"
     datahub_main_entity_type = Container
-    fqn_regex = SPANNER_DATABASE_FQN_REGEX
+    dataplex_fqn_regex = SPANNER_DATABASE_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -723,7 +723,7 @@ class CloudSpannerDatabaseMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.DATABASE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSpannerDatabase,
             parent_entry_regex=SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexCloudSpannerInstance,
@@ -734,7 +734,7 @@ class CloudSpannerTableMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-spanner-table"
     datahub_platform = "spanner"
     datahub_main_entity_type = Dataset
-    fqn_regex = SPANNER_TABLE_FQN_REGEX
+    dataplex_fqn_regex = SPANNER_TABLE_FQN_REGEX
     datahub_dataset_name_format = (
         "{project_id}.regional-{location}.{instance_id}.{database_id}.{table_id}"
     )
@@ -748,7 +748,7 @@ class CloudSpannerTableMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TABLE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexCloudSpannerDatabase,
@@ -759,7 +759,7 @@ class CloudSpannerGraphMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-spanner-graph"
     datahub_platform = "spanner"
     datahub_main_entity_type = Dataset
-    fqn_regex = SPANNER_GRAPH_FQN_REGEX
+    dataplex_fqn_regex = SPANNER_GRAPH_FQN_REGEX
     # Spanner tables and graphs share a namespace so names never collide.
     datahub_dataset_name_format = (
         "{project_id}.regional-{location}.{instance_id}.{database_id}.{graph_id}"
@@ -774,7 +774,7 @@ class CloudSpannerGraphMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.GRAPH,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexCloudSpannerDatabase,
@@ -786,7 +786,7 @@ class CloudBigtableInstanceMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-bigtable-instance"
     datahub_platform = "bigtable"
     datahub_main_entity_type = Container
-    fqn_regex = BIGTABLE_INSTANCE_FQN_REGEX
+    dataplex_fqn_regex = BIGTABLE_INSTANCE_FQN_REGEX
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -796,7 +796,7 @@ class CloudBigtableInstanceMapper(EntryMapper):
             ctx,
             platform=self.datahub_platform,
             subtype=DatasetContainerSubTypes.INSTANCE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexBigtableInstance,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -807,7 +807,7 @@ class CloudBigtableTableMapper(EntryMapper):
     dataplex_entry_type_short_name = "cloud-bigtable-table"
     datahub_platform = "bigtable"
     datahub_main_entity_type = Dataset
-    fqn_regex = BIGTABLE_TABLE_FQN_REGEX
+    dataplex_fqn_regex = BIGTABLE_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{instance_id}.{table_id}"
 
     def map(
@@ -819,7 +819,7 @@ class CloudBigtableTableMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TABLE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
             parent_key_class=DataplexBigtableInstance,
@@ -830,7 +830,7 @@ class PubSubTopicMapper(EntryMapper):
     dataplex_entry_type_short_name = "pubsub-topic"
     datahub_platform = "pubsub"
     datahub_main_entity_type = Dataset
-    fqn_regex = PUBSUB_TOPIC_FQN_REGEX
+    dataplex_fqn_regex = PUBSUB_TOPIC_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{topic_id}"
 
     def map(
@@ -843,7 +843,7 @@ class PubSubTopicMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TOPIC,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -854,7 +854,7 @@ class VertexAiDatasetMapper(EntryMapper):
     dataplex_entry_type_short_name = "vertexai-dataset"
     datahub_platform = "vertexai"
     datahub_main_entity_type = Dataset
-    fqn_regex = VERTEX_AI_DATASET_FQN_REGEX
+    dataplex_fqn_regex = VERTEX_AI_DATASET_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{location}.{dataset_id}"
 
     def map(
@@ -866,7 +866,7 @@ class VertexAiDatasetMapper(EntryMapper):
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
             subtype=DatasetSubTypes.TABLE,
-            fqn_regex=self.fqn_regex,
+            fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
             parent_entry_regex=None,
             parent_key_class=None,
@@ -947,7 +947,7 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
             continue
         urn = dataset_urn_from_fqn(
             fully_qualified_name,
-            mapper.fqn_regex,
+            mapper.dataplex_fqn_regex,
             # dataset_name_format only exists on dataset mappers, guarded above.
             mapper.datahub_dataset_name_format,  # type: ignore[attr-defined]
             mapper.datahub_platform,
