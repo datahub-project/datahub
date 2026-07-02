@@ -1,66 +1,47 @@
 /**
  * BigID Recipe Form Fields (V2 Ingestion UI)
  *
- * Note: This file is intentionally duplicated in both V1 (ingest) and V2 (ingestV2) folders
- * to maintain backward compatibility during the UI transition period. Any changes should be
- * applied to both files until V1 is fully deprecated.
+ * The plain (non-filter) fields are the single source of truth in the V1 form
+ * (`ingest/source/builder/RecipeForm/bigid.ts`) and re-exported here, so a field added or
+ * edited in V1 automatically applies to V2. This file only redefines the connection allow/deny
+ * fields, which V2 upgrades to FilterRecipeField (a type V1's `common` does not provide).
  *
  * IMPORTANT: For per-connection platform overrides (datasource_platform_mapping), use the
  * YAML editor mode. That nested structure maps BigID connection names to DataHub platforms,
  * environments, and platform instances and is best expressed as YAML.
  */
+import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/bigid';
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 import { FilterRecipeField, FilterRule, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
-export const BIGID_URL: RecipeField = {
-    name: 'bigid_url',
-    label: 'BigID URL',
-    tooltip: 'Base URL of the BigID instance, e.g. https://bigid.example.com.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.bigid_url',
-    placeholder: 'https://bigid.example.com',
-    rules: null,
-    required: true,
-};
-
-export const BIGID_USER_TOKEN: RecipeField = {
-    name: 'user_token',
-    label: 'User Token',
-    tooltip: 'Long-lived BigID user token. Exchanged for a short-lived access token at startup.',
-    type: FieldType.SECRET,
-    fieldPath: 'source.config.user_token',
-    placeholder: 'your-bigid-user-token',
-    rules: null,
-};
-
-export const BIGID_ACCESS_TOKEN: RecipeField = {
-    name: 'access_token',
-    label: 'Access Token',
-    tooltip: 'Short-lived BigID access token. Used directly; provide either this or a User Token.',
-    type: FieldType.SECRET,
-    fieldPath: 'source.config.access_token',
-    placeholder: 'your-bigid-access-token',
-    rules: null,
-};
-
-export const BIGID_ENV: RecipeField = {
-    name: 'env',
-    label: 'Environment',
-    tooltip: 'The environment for all emitted metadata (e.g., PROD, DEV, STAGING).',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.env',
-    placeholder: 'PROD',
-    rules: null,
-};
-
-export const BIGID_PLATFORM_INSTANCE: RecipeField = {
-    name: 'platform_instance',
-    label: 'Platform Instance',
-    tooltip: 'Unique identifier for this BigID instance. Useful when ingesting from multiple BigID accounts.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.platform_instance',
-    placeholder: 'bigid-prod',
-    rules: null,
+export {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
 };
 
 const bigidConnectionAllowFieldPath = 'source.config.connection_pattern.allow';
@@ -95,91 +76,6 @@ export const BIGID_CONNECTION_DENY: FilterRecipeField = {
     placeholder: 'sandbox-.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, bigidConnectionDenyFieldPath),
-};
-
-export const BIGID_MIN_CONFIDENCE: RecipeField = {
-    name: 'minimum_confidence_threshold',
-    label: 'Minimum Confidence Threshold',
-    tooltip:
-        'Only sync classification findings at or above this confidence (0.0–1.0). ' +
-        'BigID ranks map to HIGH = 0.75, MEDIUM = 0.50, LOW = 0.25.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.minimum_confidence_threshold',
-    placeholder: '0.5',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_CREATE_DATASETS: RecipeField = {
-    name: 'create_datasets',
-    label: 'Create Datasets',
-    tooltip:
-        'Emit Dataset + SchemaMetadata for objects not yet in DataHub. ' +
-        'Leave off for pure enrichment mode (only enriches existing datasets).',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.create_datasets',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_CONFIDENCE_LEVEL_TAG: RecipeField = {
-    name: 'confidence_level_tag',
-    label: 'Emit Confidence-Level Tags',
-    tooltip: 'Emit a bigid.confidence:{LEVEL} tag alongside each GlossaryTerm on a column.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.confidence_level_tag',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_SYNC_TAGS: RecipeField = {
-    name: 'sync_tags',
-    label: 'Sync Tags',
-    tooltip: 'Emit BigID tags as DataHub Tag entities.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.sync_tags',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_SYNC_UNLINKED_CLASSIFIERS: RecipeField = {
-    name: 'sync_unlinked_classifiers',
-    label: 'Sync Unlinked Classifiers',
-    tooltip: 'Emit GlossaryTerms for classifier findings that have no Business Glossary linkage in BigID.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.sync_unlinked_classifiers',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_SYNC_IDSOR: RecipeField = {
-    name: 'sync_idsor',
-    label: 'Sync IDSoR Findings',
-    tooltip: 'Emit GlossaryTerms for IDSoR (Identity Source of Record) attribute findings.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.sync_idsor',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_SYNC_UNSTRUCTURED: RecipeField = {
-    name: 'sync_unstructured_enrichment',
-    label: 'Enrich Unstructured Sources',
-    tooltip: 'Emit dataset-level GlossaryTerms and profiles for unstructured/email sources (SharePoint, Drive, etc.).',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.sync_unstructured_enrichment',
-    rules: null,
-    section: 'Advanced',
-};
-
-export const BIGID_STATEFUL_INGESTION: RecipeField = {
-    name: 'stateful_ingestion.enabled',
-    label: 'Enable Stateful Ingestion',
-    tooltip: 'Enable stateful ingestion to track and remove stale metadata.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.stateful_ingestion.enabled',
-    rules: null,
-    section: 'Advanced',
 };
 
 const allFields: RecipeField[] = [

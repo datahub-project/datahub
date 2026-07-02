@@ -672,6 +672,20 @@ def test_risk_score_non_numeric_skipped():
     )
 
 
+def test_risk_score_property_definition_paired_with_status():
+    """The riskScore StructuredProperty definition ships Status(removed=False) so a
+    re-sync resurrects it if soft-deleted (parity with nodes, terms, domains, tags)."""
+    source = _make_source()
+    prop_urn = source.config.risk_score_structured_property_urn
+
+    workunits = list(source._emit_risk_score_structured_property())
+
+    aspects = [_aspect_name(wu) for wu in workunits]
+    assert "propertyDefinition" in aspects
+    assert "status" in aspects
+    assert all(_entity_urn(wu) == prop_urn for wu in workunits)
+
+
 # ---------------------------------------------------------------------------
 # Domain resolution
 # ---------------------------------------------------------------------------

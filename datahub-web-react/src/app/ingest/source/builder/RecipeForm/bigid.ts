@@ -1,15 +1,14 @@
 /**
- * BigID Recipe Form Fields (V1 Ingestion UI)
- *
- * Note: This file is intentionally duplicated in both V1 (ingest) and V2 (ingestV2) folders
- * to maintain backward compatibility during the UI transition period. Any changes should be
- * applied to both files until V1 is fully deprecated.
+ * BigID Recipe Form Fields (V1 Ingestion UI) — SOURCE OF TRUTH for the shared, non-filter
+ * fields. The V2 form (`ingestV2/source/builder/RecipeForm/bigid.ts`) re-uses these exports and
+ * only redefines the connection allow/deny fields (V2 uses FilterRecipeField, which V1 lacks).
+ * Add or edit a plain field here and V2 picks it up automatically — no need to touch both files.
  *
  * IMPORTANT: For per-connection platform overrides (datasource_platform_mapping), use the
  * YAML editor mode. That nested structure maps BigID connection names to DataHub platforms,
  * environments, and platform instances and is best expressed as YAML.
  */
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const BIGID_URL: RecipeField = {
     name: 'bigid_url',
@@ -62,28 +61,34 @@ export const BIGID_PLATFORM_INSTANCE: RecipeField = {
     rules: null,
 };
 
+const bigidConnectionAllowFieldPath = 'source.config.connection_pattern.allow';
 export const BIGID_CONNECTION_ALLOW: RecipeField = {
     name: 'connection_pattern.allow',
     label: 'Connection Allow Patterns',
     tooltip: 'Only include BigID connections (data sources) whose name matches these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.connection_pattern.allow',
+    fieldPath: bigidConnectionAllowFieldPath,
     rules: null,
     section: 'Connections',
     placeholder: '.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, bigidConnectionAllowFieldPath),
 };
 
+const bigidConnectionDenyFieldPath = 'source.config.connection_pattern.deny';
 export const BIGID_CONNECTION_DENY: RecipeField = {
     name: 'connection_pattern.deny',
     label: 'Connection Deny Patterns',
     tooltip: 'Exclude BigID connections (data sources) whose name matches these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.connection_pattern.deny',
+    fieldPath: bigidConnectionDenyFieldPath,
     rules: null,
     section: 'Connections',
     placeholder: 'sandbox-.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, bigidConnectionDenyFieldPath),
 };
 
 export const BIGID_MIN_CONFIDENCE: RecipeField = {

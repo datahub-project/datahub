@@ -693,6 +693,12 @@ class BigIDSource(StatefulIngestionSourceBase):
                 description=RISK_SCORE_PROPERTY_DESCRIPTION,
             ),
         ).as_workunit()
+        # Pair Status(removed=False) like the other owned entities so a re-sync
+        # resurrects the property definition if it was previously soft-deleted.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=prop_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
 
     def _process_catalog_object(
         self,
