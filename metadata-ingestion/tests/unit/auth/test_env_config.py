@@ -45,11 +45,13 @@ def test_oidc_client_credentials(monkeypatch):
 
     auth = build_auth_config_from_env()
     assert auth is not None and auth.type == "oidc_client_credentials"
-    assert auth.config["token_endpoint"] == "https://idp/token"
-    assert auth.config["client_id"] == "cid"
-    assert auth.config["scope"] == "openid"
+    config = auth.config
+    assert isinstance(config, dict)
+    assert config["token_endpoint"] == "https://idp/token"
+    assert config["client_id"] == "cid"
+    assert config["scope"] == "openid"
     # Secrets are SecretStr so dumps/reprs mask them.
-    assert auth.config["client_secret"].get_secret_value() == "s3cret-value"
+    assert config["client_secret"].get_secret_value() == "s3cret-value"
     assert "s3cret-value" not in repr(auth)
 
 
@@ -141,3 +143,23 @@ def test_rest_sink_emitter_carries_auth(monkeypatch):
     )
     emitter = DatahubRestSink._make_emitter(sink_config)
     assert isinstance(emitter._session.auth, TokenProviderAuth)
+
+
+def test_datapack_sink_config_carries_auth(monkeypatch):
+    # Regression: the datapack loader builds its own sink config from the client
+    # config; dropping auth there made demo-data / datapack loads emit
+    # unauthenticated in OAuth mode.
+    from datahub.cli.datapack.loader import _build_datapack_sink_config
+    from datahub.ingestion.graph.config import DatahubClientConfig
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    client_config = DatahubClientConfig(
+        server="http://gms:8080", auth=build_auth_config_from_env()
+    )
+    sink_config = _build_datapack_sink_config(client_config)
+    assert sink_config["auth"] is client_config.auth
+    assert "token" not in sink_config
