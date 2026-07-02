@@ -1,0 +1,1091 @@
+"""
+Google Drive source for DataHub ingestion.
+
+Ingests Google Docs (and optionally Google Slides / Sheets) from Google Drive
+as DataHub Document entities with full-text markdown content and optional
+vector embeddings for semantic search.
+
+Architecture
+------------
+This source follows the same pattern as the Confluence and Notion sources:
+
+1.  Authenticate against the Google Drive API (service account or ADC).
+2.  Discover files (respecting ``folder_ids``, ``recursive``, and MIME-type filters).
+3.  Export each file to markdown (primary) or HTML→markdown (fallback).
+4.  Emit DataHub ``Document`` entities via the SDK.
+5.  Optionally generate chunked embeddings via ``DocumentChunkingSource``
+    (enables semantic search).
+6.  Optionally materialise Google Drive folder entities to preserve hierarchy.
+"""
+
+import hashlib
+import io
+import json
+import logging
+import time
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+from datahub.ingestion.source.google_drive.google_drive_config import (
+    GoogleDriveSourceConfig,
+)
+from datahub.ingestion.source.google_drive.google_drive_report import (
+    GoogleDriveSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
+from datahub.metadata.schema_classes import (
+    DataPlatformInfoClass,
+    DataPlatformInstanceClass,
+    DocumentStateClass,
+    PlatformTypeClass,
+)
+from datahub.sdk.document import Document
+
+logger = logging.getLogger(__name__)
+
+# Mime types ----------------------------------------------------------------
+MIME_GOOGLE_DOC = "application/vnd.google-apps.document"
+MIME_GOOGLE_SLIDES = "application/vnd.google-apps.presentation"
+MIME_GOOGLE_SHEETS = "application/vnd.google-apps.spreadsheet"
+MIME_GOOGLE_FOLDER = "application/vnd.google-apps.folder"
+
+# Export targets
+EXPORT_MARKDOWN = "text/markdown"
+EXPORT_HTML = "text/html"
+EXPORT_TEXT = "text/plain"
+EXPORT_CSV = "text/csv"
+
+# Fields to request from Drive API
+_DRIVE_FILE_FIELDS = (
+    "id,name,mimeType,webViewLink,parents,createdTime,modifiedTime,"
+    "lastModifyingUser,owners,starred,trashed,size"
+)
+_DRIVE_FOLDER_FIELDS = "id,name,mimeType,parents,webViewLink"
+
+# Bump when the export/parsing algorithm changes to force re-ingestion
+EXTRACTION_ALGO_VERSION = "1"
+
+# Subtype for folder document entities (matches DataHub convention)
+FOLDER_SUBTYPE = "Folder"
+
+
+@platform_name("Google Drive")
+@config_class(GoogleDriveSourceConfig)
+@support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
+    """
+    Ingests Google Docs (and optionally Slides / Sheets) from Google Drive as
+    DataHub Document entities.
+
+    ## Capabilities
+
+    - **Full-text extraction**: Exports Google Docs to Markdown; falls back to
+      HTML → Markdown conversion when the native markdown export is unavailable.
+    - **Google Slides**: Optional export of presentations as plain text.
+    - **Google Sheets**: Optional export of spreadsheets as CSV text.
+    - **Folder hierarchy**: Materialises Drive folders as DataHub Document
+      entities so files preserve their parent-child relationships in the UI.
+    - **Semantic search**: Optional chunked embeddings via Cohere, AWS Bedrock,
+      or Vertex AI for semantic search within DataHub.
+    - **Stateful ingestion**: Tracks previously ingested documents so stale
+      entities are removed when files are deleted from Drive.
+    - **Incremental updates**: Skips unchanged documents using content hashing
+      to avoid redundant re-processing.
+
+    ## Authentication
+
+    See ``GoogleDriveAuthConfig`` for details.  The short version:
+
+    - Service account JSON key file (``credentials.service_account_key_file``)
+    - Service account JSON string (``credentials.service_account_key_json``)
+    - Application Default Credentials (nothing to configure — works on GCP or
+      after ``gcloud auth application-default login``)
+
+    ## Quick-start recipe
+
+    ```yaml
+    source:
+      type: google-drive
+      config:
+        credentials:
+          service_account_key_file: "/secrets/sa-key.json"
+        folder_ids:
+          - "1A2B3C4D5E6F7G8H9I0J"
+
+    sink:
+      type: datahub-rest
+      config:
+        server: "http://localhost:8080"
+    ```
+    """
+
+    platform = "google-drive"
+
+    report: GoogleDriveSourceReport
+
+    def __init__(self, config: GoogleDriveSourceConfig, ctx: PipelineContext):
+        super().__init__(config, ctx)  # type: ignore[arg-type]
+        self.config = config
+        self.report = GoogleDriveSourceReport()
+
+        # Build Google Drive API client
+        self._drive_service = self._build_drive_service()
+
+        # html→markdown converter (fallback for Docs that don't support markdown export)
+        self._html_converter: Optional[Any] = None
+        try:
+            import html2text as _html2text
+
+            self._html_converter = _html2text.HTML2Text()
+            self._html_converter.ignore_links = False
+            self._html_converter.ignore_images = True
+            self._html_converter.ignore_emphasis = False
+        except ImportError:
+            logger.warning(
+                "html2text is not installed — HTML fallback for Docs export is disabled. "
+                "Install it with: pip install html2text"
+            )
+
+        # Rate limiter: tokens per second derived from requests_per_minute
+        self._min_request_interval = 60.0 / self.config.requests_per_minute
+        self._last_request_time: float = 0.0
+
+        # Captures the most recent export-stage failure detail (HTTP status,
+        # missing-dependency message, etc.) so callers of _extract_text can
+        # distinguish "real export error" from "genuinely empty document" when
+        # extraction yields no text. Reset at the start of each _extract_text call.
+        self._last_extraction_error: Optional[str] = None
+
+        # Stale-entity removal (deletion detection) is wired automatically by the
+        # base class: because get_report() returns a StaleEntityRemovalSourceReport
+        # and the config enables stateful ingestion, AutoStaleEntityRemovalProcessor
+        # is added by StatefulIngestionSourceBase.get_workunit_processors() and
+        # harvests emitted entity URNs on its own. No manual handler is needed.
+
+        # Initialise chunking/embedding sub-component
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            DataHubConnectionConfig,
+            DocumentChunkingSourceConfig,
+        )
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            DocumentChunkingSource,
+        )
+
+        # Only pass embedding / max_documents when configured. Both fields are
+        # non-optional on DocumentChunkingSourceConfig with sensible defaults
+        # (a disabled EmbeddingConfig with provider=None, and an unbounded
+        # max_documents); passing None explicitly overrides those defaults and
+        # fails validation.
+        chunking_kwargs: Dict[str, Any] = dict(
+            datahub=DataHubConnectionConfig(),
+            chunking=config.chunking,
+        )
+        if config.embedding is not None:
+            chunking_kwargs["embedding"] = config.embedding
+        if config.max_documents is not None:
+            chunking_kwargs["max_documents"] = config.max_documents
+        chunking_config = DocumentChunkingSourceConfig(**chunking_kwargs)
+        self.chunking_source = DocumentChunkingSource(
+            ctx=ctx,
+            config=chunking_config,
+            standalone=False,
+            graph=ctx.graph,
+        )
+
+    # ------------------------------------------------------------------
+    # Authentication helpers
+    # ------------------------------------------------------------------
+
+    def _build_drive_service(self) -> Any:
+        """Build and return an authenticated ``googleapiclient`` Drive v3 service."""
+        from googleapiclient.discovery import build  # type: ignore[import-untyped]
+
+        creds = self._get_credentials()
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+    def _get_credentials(self) -> Any:
+        """Resolve Google credentials from config or Application Default Credentials."""
+        import json as _json
+
+        from google.oauth2 import service_account  # type: ignore[import-untyped]
+
+        scopes = ["https://www.googleapis.com/auth/drive.readonly"]
+
+        if self.config.credentials.service_account_key_file:
+            logger.info("Using service account key file for authentication")
+            creds = service_account.Credentials.from_service_account_file(
+                self.config.credentials.service_account_key_file, scopes=scopes
+            )
+            return self._maybe_delegate(creds)
+
+        if self.config.credentials.service_account_key_json:
+            logger.info("Using service account JSON string for authentication")
+            key_data = _json.loads(
+                self.config.credentials.service_account_key_json.get_secret_value()
+            )
+            creds = service_account.Credentials.from_service_account_info(
+                key_data, scopes=scopes
+            )
+            return self._maybe_delegate(creds)
+
+        # Fall back to Application Default Credentials
+        logger.info("Using Application Default Credentials")
+        import google.auth  # type: ignore[import-untyped]
+
+        if self.config.delegated_user_email:
+            logger.warning(
+                "delegated_user_email is set but is only supported with service "
+                "account credentials (domain-wide delegation), not Application "
+                "Default Credentials. Ignoring it."
+            )
+        credentials, _ = google.auth.default(scopes=scopes)
+        return credentials
+
+    def _maybe_delegate(self, creds: Any) -> Any:
+        """Apply domain-wide delegation (user impersonation) when configured.
+
+        When ``delegated_user_email`` is set, the service account impersonates
+        that Workspace user, so the connector reads that user's Drive (and
+        org-shared content) without each folder being shared with the service
+        account directly. Requires the service account to have domain-wide
+        delegation authorized for the Drive scope in the Google Workspace admin
+        console.
+        """
+        if self.config.delegated_user_email:
+            logger.info(
+                f"Applying domain-wide delegation, impersonating "
+                f"{self.config.delegated_user_email}"
+            )
+            return creds.with_subject(self.config.delegated_user_email)
+        return creds
+
+    # ------------------------------------------------------------------
+    # Rate limiting
+    # ------------------------------------------------------------------
+
+    def _rate_limit(self) -> None:
+        """Simple token-bucket rate limiter to stay within Drive API quotas."""
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self._min_request_interval:
+            time.sleep(self._min_request_interval - elapsed)
+        self._last_request_time = time.monotonic()
+
+    # ------------------------------------------------------------------
+    # Drive API helpers
+    # ------------------------------------------------------------------
+
+    def _verify_folder_access(self, folder_id: str) -> bool:
+        """Verify a configured folder is reachable, reporting a failure if not.
+
+        Listing the children of an inaccessible or non-existent folder returns an
+        empty result rather than an error, so without this explicit metadata
+        fetch a permissions/wrong-ID problem looks identical to an empty folder
+        (a silent no-op). A ``files().get`` surfaces 404/403 so the user gets a
+        clear, actionable signal instead of silently ingesting nothing.
+        """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+        self._rate_limit()
+        try:
+            self._drive_service.files().get(
+                fileId=folder_id,
+                fields="id,name",
+                supportsAllDrives=True,
+            ).execute()
+            return True
+        except HttpError as e:
+            status = getattr(getattr(e, "resp", None), "status", "unknown")
+            self.report.report_failure(
+                message=(
+                    "Configured folder is not accessible. Check that the folder ID "
+                    "is correct and that the folder has been explicitly shared with "
+                    "the service account's email (or the authenticated user). Note "
+                    "that a service account is a distinct identity in the "
+                    "'*.iam.gserviceaccount.com' domain, so organization-wide "
+                    "link-sharing does not grant it access — the folder must be "
+                    "shared with it directly. See the setup guide: "
+                    "https://docs.datahub.com/docs/generated/ingestion/sources/google-drive"
+                ),
+                title="Folder not accessible",
+                context=f"folder_id={folder_id} (HTTP {status})",
+            )
+            return False
+
+    def _list_files_in_folder(
+        self, folder_id: str, recursive: bool
+    ) -> List[Dict[str, Any]]:
+        """Return all matching files under *folder_id*.
+
+        Args:
+            folder_id: Google Drive folder ID.
+            recursive: Whether to recurse into sub-folders.
+
+        Returns:
+            List of Drive file metadata dicts.
+        """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+        mime_types = self._selected_mime_types()
+        results: List[Dict[str, Any]] = []
+        sub_folder_ids: List[str] = []
+
+        page_token: Optional[str] = None
+        while True:
+            self._rate_limit()
+            # Query: files whose parent is folder_id AND are not trashed
+            query = f"'{folder_id}' in parents and trashed = false"
+            try:
+                response = (
+                    self._drive_service.files()
+                    .list(
+                        q=query,
+                        fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
+                        pageSize=200,
+                        pageToken=page_token,
+                        # Required to enumerate files that live in or are shared via
+                        # Shared Drives; without these, such files are invisible.
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True,
+                    )
+                    .execute()
+                )
+            except HttpError as e:
+                self.report.report_failure(
+                    title="Failed to list Drive files",
+                    message="A Drive API call failed while paginating files in a folder; returning partial results discovered so far.",
+                    context=f"folder_id={folder_id}, page_token={page_token}: {e}",
+                )
+                break
+            for f in response.get("files", []):
+                if f["mimeType"] == MIME_GOOGLE_FOLDER:
+                    self.report.report_folder_discovered()
+                    if recursive:
+                        sub_folder_ids.append(f["id"])
+                elif f["mimeType"] in mime_types:
+                    results.append(f)
+                    self.report.report_file_discovered()
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        # Recurse into sub-folders
+        for sub_id in sub_folder_ids:
+            results.extend(self._list_files_in_folder(sub_id, recursive=recursive))
+
+        return results
+
+    def _list_all_accessible_files(self) -> List[Dict[str, Any]]:
+        """Return all Drive files accessible to the authenticated account."""
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+        mime_types = self._selected_mime_types()
+        mime_query = " or ".join(f"mimeType = '{m}'" for m in mime_types)
+        query = f"({mime_query}) and trashed = false"
+
+        results: List[Dict[str, Any]] = []
+        page_token: Optional[str] = None
+        while True:
+            self._rate_limit()
+            try:
+                response = (
+                    self._drive_service.files()
+                    .list(
+                        q=query,
+                        fields=f"nextPageToken, files({_DRIVE_FILE_FIELDS})",
+                        pageSize=200,
+                        pageToken=page_token,
+                        # Include Shared Drive content (invisible without these flags).
+                        includeItemsFromAllDrives=True,
+                        supportsAllDrives=True,
+                    )
+                    .execute()
+                )
+            except HttpError as e:
+                self.report.report_failure(
+                    title="Failed to list Drive files",
+                    message="A Drive API call failed while paginating all accessible files; returning partial results discovered so far.",
+                    context=f"page_token={page_token}: {e}",
+                )
+                break
+            for f in response.get("files", []):
+                results.append(f)
+                self.report.report_file_discovered()
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        return results
+
+    def _get_folder_metadata(self, folder_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch folder metadata by ID. Returns None on failure.
+
+        Returning None lets the ancestor walk in ``_collect_folder_ancestors``
+        stop gracefully at the inaccessible folder rather than crashing the
+        whole run, but the failure is still surfaced via the report so it is
+        not silent.
+        """
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
+
+        try:
+            self._rate_limit()
+            return (
+                self._drive_service.files()
+                .get(
+                    fileId=folder_id,
+                    fields=_DRIVE_FOLDER_FIELDS,
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
+        except HttpError as e:
+            self.report.report_warning(
+                title="Could not fetch folder metadata",
+                message="Failed to fetch metadata for a folder while walking the ancestor chain.",
+                context=f"folder_id={folder_id}: {e}",
+            )
+            return None
+        except Exception as e:
+            self.report.report_warning(
+                title="Could not fetch folder metadata",
+                message="Unexpected error while fetching folder metadata.",
+                context=f"folder_id={folder_id}: {e}",
+            )
+            return None
+
+    def _collect_folder_ancestors(
+        self, file_metadata: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Return ordered list of ancestor folder metadata (root → direct parent)."""
+        ancestors: List[Dict[str, Any]] = []
+        parent_ids: List[str] = list(file_metadata.get("parents", []))
+
+        # Walk up the parent chain (Drive files have at most one parent)
+        while parent_ids:
+            parent_id = parent_ids[0]
+            meta = self._get_folder_metadata(parent_id)
+            if not meta:
+                break
+            # Stop at drive root (no further parents)
+            if meta.get("mimeType") == MIME_GOOGLE_FOLDER:
+                ancestors.insert(0, meta)
+                parent_ids = list(meta.get("parents", []))
+            else:
+                break
+
+        return ancestors
+
+    # ------------------------------------------------------------------
+    # Content export
+    # ------------------------------------------------------------------
+
+    def _export_media(
+        self,
+        file_id: str,
+        mime_type: str,
+        *,
+        label: str,
+        error_label: str,
+        quiet_http_statuses: Tuple[int, ...] = (),
+    ) -> Optional[str]:
+        """Export a Drive file via the ``export_media`` API and decode the result.
+
+        Args:
+            file_id: Drive file ID to export.
+            mime_type: Target export MIME type (one of the ``EXPORT_*`` constants).
+            label: Human-readable label used in log messages (e.g. "Markdown",
+                "HTML").
+            error_label: Lowercase/format-specific label used in the
+                ``_last_extraction_error`` detail string (e.g. "markdown",
+                "plain-text"), preserving the historical error-message wording
+                per export format.
+            quiet_http_statuses: ``HttpError`` statuses that mean "this export
+                format is unavailable for this file" rather than a real failure;
+                these are logged at debug level instead of warning. Only
+                meaningful when ``googleapiclient.errors.HttpError`` can be
+                imported (always true at runtime; tests stub the module).
+
+        Returns:
+            Decoded text on success, or ``None`` on failure (with
+            ``self._last_extraction_error`` populated).
+        """
+        from googleapiclient.http import (
+            MediaIoBaseDownload,  # type: ignore[import-untyped]
+        )
+
+        try:
+            self._rate_limit()
+            request = self._drive_service.files().export_media(
+                fileId=file_id, mimeType=mime_type
+            )
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            return fh.getvalue().decode("utf-8")
+        except Exception as e:
+            # Only the markdown export path distinguishes "format unavailable"
+            # (403/415) from a real failure; other export formats never had
+            # this special-casing, so we only import/check HttpError here, on
+            # demand, to keep that behavior identical (and to keep tests that
+            # don't stub googleapiclient.errors.HttpError as a real exception
+            # class working for the HTML/plain-text paths).
+            if quiet_http_statuses:
+                from googleapiclient.errors import (
+                    HttpError,  # type: ignore[import-untyped]
+                )
+
+                if isinstance(e, HttpError):
+                    if e.resp.status in quiet_http_statuses:
+                        # Export format not available for this file type
+                        logger.debug(
+                            f"{label} export unavailable for {file_id} ({e.resp.status})"
+                        )
+                    else:
+                        logger.warning(f"{label} export failed for {file_id}: {e}")
+                    self._last_extraction_error = (
+                        f"{error_label} export HTTP {e.resp.status}: {e}"
+                    )
+                    return None
+            logger.warning(f"{label} export error for {file_id}: {e}")
+            self._last_extraction_error = f"{error_label} export error: {e}"
+            return None
+
+    def _export_doc_as_markdown(self, file_id: str) -> Optional[str]:
+        """Export a Google Doc as Markdown. Returns None on failure."""
+        return self._export_media(
+            file_id,
+            EXPORT_MARKDOWN,
+            label="Markdown",
+            error_label="markdown",
+            quiet_http_statuses=(403, 415),
+        )
+
+    def _export_doc_as_html(self, file_id: str) -> Optional[str]:
+        """Export a Google Doc as HTML. Returns None on failure."""
+        return self._export_media(
+            file_id, EXPORT_HTML, label="HTML", error_label="HTML"
+        )
+
+    def _export_as_plain_text(
+        self, file_id: str, mime_type: str = EXPORT_TEXT
+    ) -> Optional[str]:
+        """Export a file to a text format (plain text for Slides, CSV for Sheets)."""
+        return self._export_media(
+            file_id, mime_type, label="Plain-text", error_label="plain-text"
+        )
+
+    def _extract_text(self, file_metadata: Dict[str, Any]) -> Optional[str]:
+        """Extract text from a Drive file, choosing the best export format.
+
+        On failure, ``self._last_extraction_error`` is populated with the
+        underlying cause (export API error, missing html2text dependency,
+        etc.) so callers can distinguish a real export failure from a
+        genuinely empty/unsupported document.
+        """
+        file_id = file_metadata["id"]
+        mime_type = file_metadata["mimeType"]
+        self._last_extraction_error = None
+
+        if mime_type == MIME_GOOGLE_DOC:
+            # Try markdown first (cleanest for DataHub docs)
+            text = self._export_doc_as_markdown(file_id)
+            if text:
+                return text
+            # Fallback: HTML → markdown
+            if self._html_converter:
+                html = self._export_doc_as_html(file_id)
+                if html:
+                    self._last_extraction_error = None
+                    return self._html_converter.handle(html)
+            elif self._last_extraction_error is None:
+                self._last_extraction_error = (
+                    "html2text is not installed; HTML fallback unavailable"
+                )
+            # Last resort: plain text
+            text = self._export_as_plain_text(file_id)
+            if text:
+                self._last_extraction_error = None
+            return text
+
+        elif mime_type == MIME_GOOGLE_SLIDES:
+            text = self._export_as_plain_text(file_id, EXPORT_TEXT)
+            if text:
+                self._last_extraction_error = None
+            return text
+
+        elif mime_type == MIME_GOOGLE_SHEETS:
+            # CSV preserves the tabular structure of spreadsheets.
+            text = self._export_as_plain_text(file_id, EXPORT_CSV)
+            if text:
+                self._last_extraction_error = None
+            return text
+
+        self._last_extraction_error = f"unsupported MIME type: {mime_type}"
+        return None
+
+    # ------------------------------------------------------------------
+    # Entity building helpers
+    # ------------------------------------------------------------------
+
+    def _selected_mime_types(self) -> List[str]:
+        """Return the list of MIME types to ingest based on config."""
+        types: List[str] = []
+        if self.config.include_docs:
+            types.append(MIME_GOOGLE_DOC)
+        if self.config.include_slides:
+            types.append(MIME_GOOGLE_SLIDES)
+        if self.config.include_sheets:
+            types.append(MIME_GOOGLE_SHEETS)
+        return types
+
+    def _build_doc_id(self, file_id: str) -> str:
+        """Build the document ID for a Drive file.
+
+        Google Drive file IDs are globally unique and permanent, so the URN needs
+        no credential-derived scoping — the same file resolves to the same URN
+        regardless of which account/credentials (or key-file path) ingested it.
+        ``platform_instance`` is an optional, explicit prefix for separating
+        multiple logical instances; set it when you need that separation.
+        """
+        if self.config.platform_instance:
+            return f"google-drive-{self.config.platform_instance}-{file_id}"
+        return f"google-drive-{file_id}"
+
+    def _parse_timestamp(self, ts: Optional[str]) -> Optional[datetime]:
+        if not ts:
+            return None
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00")).replace(
+                tzinfo=None
+            )
+        except Exception as e:
+            logger.debug(f"Could not parse timestamp {ts!r}: {e}")
+            return None
+
+    def _build_custom_properties(
+        self, file_metadata: Dict[str, Any], content_hash: str
+    ) -> Dict[str, str]:
+        """Build the customProperties dict for a Document entity."""
+        owners = file_metadata.get("owners", [])
+        owner_email = owners[0].get("emailAddress", "") if owners else ""
+        owner_name = owners[0].get("displayName", "") if owners else ""
+
+        lmu = file_metadata.get("lastModifyingUser", {})
+        last_modifier = lmu.get("emailAddress", "") if isinstance(lmu, dict) else ""
+
+        return {
+            "file_id": file_metadata["id"],
+            "mime_type": file_metadata.get("mimeType", ""),
+            "owner_email": owner_email,
+            "owner_name": owner_name,
+            "last_modifying_user_email": last_modifier,
+            "content_hash": content_hash,
+            "extraction_algo_version": EXTRACTION_ALGO_VERSION,
+        }
+
+    def _add_platform_instance(self, doc: Document) -> None:
+        """Attach a DataPlatformInstance aspect.
+
+        The ``instance`` component is only set when ``platform_instance`` is
+        explicitly configured (mirroring the standard source behavior); otherwise
+        the aspect carries just the platform.
+        """
+        instance_urn = (
+            make_dataplatform_instance_urn(self.platform, self.config.platform_instance)
+            if self.config.platform_instance
+            else None
+        )
+        doc._set_aspect(
+            DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=instance_urn,
+            )
+        )
+
+    def _create_document(
+        self,
+        *,
+        external_url: str,
+        external_id: str,
+        **common_kwargs: Any,
+    ) -> Document:
+        """Dispatch to ``Document.create_document`` or ``create_external_document``.
+
+        ``common_kwargs`` are the fields shared by both constructors (id, title,
+        text, status, custom_properties, parent_document, and any
+        entity-specific extras like subtype/created_time/last_modified_time).
+        ``external_url``/``external_id`` are only used in EXTERNAL mode, since
+        NATIVE documents don't track an external system reference.
+        """
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(**common_kwargs)
+        return Document.create_external_document(
+            platform=self.platform,
+            external_url=external_url,
+            external_id=external_id,
+            **common_kwargs,
+        )
+
+    def _build_document(
+        self,
+        *,
+        doc_id: str,
+        title: str,
+        text: str,
+        external_url: str,
+        file_id: str,
+        custom_properties: Dict[str, str],
+        parent_urn: Optional[str],
+        created_time: Optional[datetime],
+        last_modified_time: Optional[datetime],
+    ) -> Document:
+        return self._create_document(
+            id=doc_id,
+            title=title,
+            text=text,
+            status=DocumentStateClass.PUBLISHED,
+            custom_properties=custom_properties,
+            parent_document=parent_urn,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
+            external_url=external_url,
+            external_id=file_id,
+        )
+
+    def _build_folder_document(
+        self,
+        *,
+        folder_metadata: Dict[str, Any],
+        parent_urn: Optional[str],
+    ) -> Document:
+        folder_id = folder_metadata["id"]
+        doc_id = self._build_doc_id(folder_id)
+        title = folder_metadata.get("name", folder_id)
+        url = folder_metadata.get(
+            "webViewLink", f"https://drive.google.com/drive/folders/{folder_id}"
+        )
+
+        return self._create_document(
+            id=doc_id,
+            title=title,
+            text="",
+            status=DocumentStateClass.PUBLISHED,
+            subtype=FOLDER_SUBTYPE,
+            custom_properties={"folder_id": folder_id},
+            parent_document=parent_urn,
+            external_url=url,
+            external_id=folder_id,
+        )
+
+    # ------------------------------------------------------------------
+    # Ingestion helpers
+    # ------------------------------------------------------------------
+
+    def _emit_platform_metadata(self) -> Iterable[MetadataWorkUnit]:
+        """Emit the DataPlatformInfo aspect with the Google Drive logo."""
+        platform_urn = make_data_platform_urn(self.platform)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=platform_urn,
+            aspect=DataPlatformInfoClass(
+                name=self.platform,
+                type=PlatformTypeClass.OTHERS,
+                datasetNameDelimiter="/",
+                displayName="Google Drive",
+                logoUrl="assets/platforms/googledrivelogo.png",
+            ),
+        ).as_workunit()
+
+    def _ingest_folder_chain(
+        self,
+        file_metadata: Dict[str, Any],
+        already_emitted_folders: Set[str],
+    ) -> Tuple[Optional[str], List[MetadataWorkUnit]]:
+        """Materialise ancestor folders for *file_metadata* if not already emitted.
+
+        Returns (parent_urn, list_of_workunits).  The returned parent_urn is the
+        URN of the direct parent folder (or None if the file is at Drive root).
+        """
+        if not self.config.ingest_folders:
+            return None, []
+
+        ancestors = self._collect_folder_ancestors(file_metadata)
+        if not ancestors:
+            return None, []
+
+        workunits: List[MetadataWorkUnit] = []
+        parent_urn: Optional[str] = self.config.parent_document_urn
+
+        for folder_meta in ancestors:
+            folder_id = folder_meta["id"]
+            doc_id = self._build_doc_id(folder_id)
+            folder_urn = f"urn:li:document:{doc_id}"
+
+            if folder_id not in already_emitted_folders:
+                doc = self._build_folder_document(
+                    folder_metadata=folder_meta,
+                    parent_urn=parent_urn,
+                )
+                self._add_platform_instance(doc)
+                workunits.extend(doc.as_workunits())
+                already_emitted_folders.add(folder_id)
+                self.report.report_folder_ingested(folder_urn)
+
+            parent_urn = folder_urn
+
+        return parent_urn, workunits
+
+    def _ingest_file(
+        self,
+        file_metadata: Dict[str, Any],
+        already_emitted_folders: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Yield workunits for a single Drive file."""
+        file_id = file_metadata["id"]
+        title = file_metadata.get("name", file_id)
+
+        try:
+            # Extract text content
+            text = self._extract_text(file_metadata)
+            if not text:
+                logger.warning(
+                    f"Could not extract text from {file_id} ({title}), skipping"
+                )
+                # _last_extraction_error distinguishes a real export failure
+                # (API error, missing html2text dependency) from a genuinely
+                # empty/unsupported document, since both surface here as "no text".
+                detail = self._last_extraction_error or "no text content available"
+                self.report.report_doc_failed(
+                    file_id, f"Text extraction returned empty ({detail})"
+                )
+                return
+
+            # Check minimum text length
+            if len(text) < self.config.filtering.min_text_length:
+                self.report.report_doc_skipped_too_short(
+                    file_id, len(text), self.config.filtering.min_text_length
+                )
+                return
+
+            # Content hash (used for dedup / force-re-embed detection)
+            hash_input = json.dumps(
+                {
+                    "modifiedTime": file_metadata.get("modifiedTime", ""),
+                    "algo_version": EXTRACTION_ALGO_VERSION,
+                },
+                sort_keys=True,
+            )
+            content_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+            custom_properties = self._build_custom_properties(
+                file_metadata, content_hash
+            )
+
+            # Timestamps
+            created_time = self._parse_timestamp(file_metadata.get("createdTime"))
+            last_modified_time = self._parse_timestamp(
+                file_metadata.get("modifiedTime")
+            )
+
+            # Materialise ancestor folders (if enabled) and get parent URN
+            parent_urn, folder_workunits = self._ingest_folder_chain(
+                file_metadata, already_emitted_folders
+            )
+            yield from folder_workunits
+
+            # Use configured parent URN if no folder chain
+            if parent_urn is None:
+                parent_urn = self.config.parent_document_urn
+
+            doc_id = self._build_doc_id(file_id)
+            external_url = file_metadata.get(
+                "webViewLink",
+                f"https://drive.google.com/file/d/{file_id}/view",
+            )
+
+            doc = self._build_document(
+                doc_id=doc_id,
+                title=title,
+                text=text,
+                external_url=external_url,
+                file_id=file_id,
+                custom_properties=custom_properties,
+                parent_urn=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
+            self._add_platform_instance(doc)
+            yield from doc.as_workunits()
+
+            # Chunking / embedding (enables semantic search)
+            document_urn = f"urn:li:document:{doc_id}"
+            elements = [
+                {
+                    "type": "NarrativeText",
+                    "text": text,
+                    "metadata": {
+                        "file_id": file_id,
+                        "title": title,
+                        "url": external_url,
+                    },
+                }
+            ]
+            try:
+                yield from self.chunking_source.process_elements_inline(
+                    document_urn=document_urn, elements=elements
+                )
+            except RuntimeError:
+                if self.chunking_source.report.num_documents_limit_reached:
+                    self.report.num_documents_limit_reached = True
+                    raise
+                logger.warning(
+                    f"Embedding generation failed for {document_urn}; "
+                    "document will be ingested without embeddings."
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Embedding generation failed for {document_urn}: {e}; "
+                    "document will be ingested without embeddings."
+                )
+
+            self.report.report_doc_processed(len(text), document_urn)
+
+        except Exception as e:
+            logger.error(
+                f"Failed to ingest file {file_id} ({title}): {e}", exc_info=True
+            )
+            self.report.report_doc_failed(file_id, str(e))
+            if not self.config.advanced.continue_on_failure:
+                raise
+
+    # ------------------------------------------------------------------
+    # StatefulIngestionSourceBase interface
+    # ------------------------------------------------------------------
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        """Main ingestion loop."""
+        yield from self._emit_platform_metadata()
+
+        # Discover files
+        if self.config.folder_ids:
+            all_files: List[Dict[str, Any]] = []
+            for folder_id in self.config.folder_ids:
+                if not self._verify_folder_access(folder_id):
+                    continue
+                logger.info(f"Listing files in folder: {folder_id}")
+                all_files.extend(
+                    self._list_files_in_folder(
+                        folder_id, recursive=self.config.recursive
+                    )
+                )
+        else:
+            logger.info("No folder_ids specified — listing all accessible Drive files")
+            all_files = self._list_all_accessible_files()
+
+        # Deduplicate by file ID
+        unique_files: Dict[str, Dict[str, Any]] = {
+            f["id"]: f for f in all_files if not f.get("trashed", False)
+        }
+
+        logger.info(f"Discovered {len(unique_files)} unique file(s) to ingest")
+
+        # Apply max_documents limit
+        file_list = list(unique_files.values())
+        if self.config.max_documents is not None:
+            file_list = file_list[: self.config.max_documents]
+            logger.info(
+                f"max_documents={self.config.max_documents} applied, processing {len(file_list)} file(s)"
+            )
+
+        # Track emitted folders to avoid duplicates
+        emitted_folders: Set[str] = set()
+
+        for file_metadata in file_list:
+            if self.chunking_source.report.num_documents_limit_reached:
+                self.report.num_documents_limit_reached = True
+                logger.info("Document limit reached, stopping ingestion")
+                break
+
+            try:
+                yield from self._ingest_file(file_metadata, emitted_folders)
+            except RuntimeError:
+                # Raised when document limit is hit inside _ingest_file
+                if self.report.num_documents_limit_reached:
+                    break
+                raise
+
+    def get_report(self) -> GoogleDriveSourceReport:
+        return self.report
+
+    def close(self) -> None:
+        super().close()
+
+    # ------------------------------------------------------------------
+    # TestableSource interface
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        """Test that the Google Drive API is reachable and credentials work."""
+        report = TestConnectionReport()
+
+        try:
+            config = GoogleDriveSourceConfig.parse_obj(config_dict)
+            ctx = PipelineContext(run_id="test-connection")
+            source = GoogleDriveSource(config, ctx)
+
+            # Try a minimal API call
+            source._rate_limit()
+            resp = (
+                source._drive_service.files()
+                .list(
+                    q="trashed = false",
+                    fields="files(id,name)",
+                    pageSize=1,
+                    includeItemsFromAllDrives=True,
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
+
+            report.basic_connectivity = CapabilityReport(capable=True)
+            file_count = len(resp.get("files", []))
+            logger.info(f"Test connection succeeded; sample file count: {file_count}")
+
+        except Exception as e:
+            report.basic_connectivity = CapabilityReport(
+                capable=False,
+                failure_reason=str(e),
+            )
+            logger.error(f"Test connection failed: {e}")
+
+        return report
