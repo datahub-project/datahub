@@ -110,7 +110,7 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.config.emit_assertions:
+        if self.config.include_assertions:
             yield from self._emit(
                 "monitor",
                 self.client.get_monitors,
@@ -126,7 +126,7 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
 
         # Alerts are emitted after definitions so run events can attach to the
         # assertions ingested above.
-        if self.config.emit_alerts:
+        if self.config.include_alerts:
             yield from self._emit(
                 "alert",
                 self.client.get_alerts,

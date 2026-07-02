@@ -103,7 +103,6 @@ class MonteCarloAssertionDef(BaseModel):
     resource_id: Optional[str] = None
     severity: Optional[str] = None
     data_quality_dimension: Optional[str] = None
-    is_custom_rule: bool = False
 
     @property
     def native_type(self) -> str:
@@ -174,18 +173,20 @@ class MonteCarloClient:
         self.page_size = page_size
         self.report = report
 
-    def _report_missing_id(self, kind: str, raw: Dict[str, Any]) -> None:
-        """Record a Monte Carlo record dropped for lacking an id/uuid, so the drop
-        is visible in the ingestion report rather than only in server logs."""
-        message = f"Monte Carlo returned a {kind} without an id/uuid; skipping it."
+    def _warn(self, title: str, message: str, context: str) -> None:
+        """Surface a dropped/malformed record in the ingestion report when a report
+        is available, falling back to the logger (e.g. during test_connection)."""
         if self.report is not None:
-            self.report.warning(
-                title=f"Skipped {kind} with missing id",
-                message=message,
-                context=repr(raw),
-            )
+            self.report.warning(title=title, message=message, context=context)
         else:
-            logger.warning("%s %r", message, raw)
+            logger.warning("%s (%s)", message, context)
+
+    def _report_missing_id(self, kind: str, raw: Dict[str, Any]) -> None:
+        self._warn(
+            title=f"Skipped {kind} with missing id",
+            message=f"Monte Carlo returned a {kind} without an id/uuid; skipping it.",
+            context=repr(raw),
+        )
 
     def _call(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -237,8 +238,6 @@ class MonteCarloClient:
 
     def get_monitors(self) -> Iterable[MonteCarloAssertionDef]:
         variables: Dict[str, Any] = {}
-        if self.config.monitor_types_allow:
-            variables["monitorTypes"] = self.config.monitor_types_allow
         if self.config.domain_ids:
             variables["domainIds"] = self.config.domain_ids
         for raw in self._paginate_offset(_MONITORS_QUERY, "getMonitors", variables):
@@ -246,16 +245,18 @@ class MonteCarloClient:
             if not uuid:
                 self._report_missing_id("monitor", raw)
                 continue
+            monitor_type = raw.get("monitorType")
+            if not self.config.monitor_type_pattern.allowed(monitor_type or ""):
+                continue
             yield MonteCarloAssertionDef(
                 uuid=uuid,
                 name=raw.get("name"),
                 description=raw.get("description"),
-                monitor_type=raw.get("monitorType"),
+                monitor_type=monitor_type,
                 entity_mcons=raw.get("entityMcons") or [],
                 resource_id=raw.get("resourceId"),
                 severity=raw.get("severity"),
                 data_quality_dimension=raw.get("dataQualityDimension"),
-                is_custom_rule=False,
             )
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
@@ -271,7 +272,6 @@ class MonteCarloClient:
                 custom_sql=raw.get("customSql"),
                 entity_mcons=raw.get("entityMcons") or [],
                 severity=raw.get("severity"),
-                is_custom_rule=True,
             )
 
     def get_alerts(self) -> Iterable[MonteCarloAlert]:
@@ -302,8 +302,11 @@ class MonteCarloClient:
             return None
         full_table_id = table.get("fullTableId")
         if not full_table_id:
-            logger.warning(
-                "getTable response missing fullTableId for mcon=%s; skipping.", mcon
+            self._warn(
+                title="Monte Carlo asset has no table id",
+                message="getTable returned no fullTableId; the asset cannot be resolved "
+                "to a dataset URN and is skipped.",
+                context=f"mcon={mcon}",
             )
             return None
         warehouse = table.get("warehouse") or {}

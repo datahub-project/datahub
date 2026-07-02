@@ -12,8 +12,8 @@ source:
         platform_instance: prod
         env: PROD
 
-    emit_assertions: true # monitors + custom rules -> Assertion entities
-    emit_alerts: true # alerts/incidents -> AssertionRunEvent failures
+    include_assertions: true # monitors + custom rules -> Assertion entities
+    include_alerts: true # alerts/incidents -> AssertionRunEvent failures
     alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
 
     # stateful_ingestion:

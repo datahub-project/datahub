@@ -78,28 +78,30 @@ class MonteCarloSourceConfig(
         "automatically. Leave unset to skip (and warn about) unresolvable assets.",
     )
 
-    emit_assertions: bool = Field(
+    include_assertions: bool = Field(
         default=True,
-        description="Emit Monte Carlo monitors and custom rules as DataHub assertions.",
+        description="Ingest Monte Carlo monitors and custom rules as DataHub assertions.",
     )
-    emit_alerts: bool = Field(
+    include_alerts: bool = Field(
         default=True,
-        description="Emit Monte Carlo alerts/incidents as assertion run events (failures).",
+        description="Ingest Monte Carlo alerts/incidents as assertion run events (failures). "
+        "Requires include_assertions, since run events attach to the assertions built from "
+        "monitors.",
     )
     alerts_lookback_days: pydantic.PositiveInt = Field(
         default=30,
         description="How many days back to fetch alerts/incidents for. Only applies when "
-        "emit_alerts is enabled.",
+        "include_alerts is enabled.",
     )
 
     monitor_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for monitor/rule names to filter in/out.",
     )
-    monitor_types_allow: List[str] = Field(
-        default=[],
-        description="Optional allow-list of Monte Carlo user-defined monitor types. Empty "
-        "means all types are ingested.",
+    monitor_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Monte Carlo monitor types (e.g. 'FRESHNESS', "
+        "'VOLUME') to filter in/out.",
     )
     domain_ids: List[str] = Field(
         default=[],
@@ -111,3 +113,14 @@ class MonteCarloSourceConfig(
         description="Stateful ingestion configuration. Enables soft-deletion of assertions "
         "whose Monte Carlo monitor no longer exists.",
     )
+
+    @pydantic.model_validator(mode="after")
+    def _require_assertions_for_alerts(self) -> "MonteCarloSourceConfig":
+        # Alert run events attach to the assertions built from monitors, so ingesting
+        # alerts without assertions would silently produce no run events.
+        if self.include_alerts and not self.include_assertions:
+            raise ValueError(
+                "include_alerts requires include_assertions: alert run events attach to "
+                "the assertions built from monitors and cannot be ingested on their own."
+            )
+        return self

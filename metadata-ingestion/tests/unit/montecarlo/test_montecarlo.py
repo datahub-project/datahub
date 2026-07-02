@@ -49,7 +49,13 @@ class FakeResolverClient:
 def test_alerts_default_window_is_30_days() -> None:
     cfg = make_config()
     assert cfg.alerts_lookback_days == 30
-    assert cfg.emit_alerts is True
+    assert cfg.include_alerts is True
+
+
+def test_include_alerts_requires_include_assertions() -> None:
+    # Alerts attach to assertions, so this combination is rejected at config time.
+    with pytest.raises(ValueError):
+        make_config(include_alerts=True, include_assertions=False)
 
 
 def test_parse_mcon() -> None:
@@ -490,18 +496,17 @@ def test_client_get_monitors_parses_list() -> None:
     assert len(monitors) == 1
     assert monitors[0].uuid == "m1"
     assert monitors[0].native_type == "FRESHNESS"
-    assert not monitors[0].is_custom_rule
 
 
-def test_client_get_monitors_passes_filter_variables() -> None:
-    """monitor_types_allow and domain_ids are forwarded as GraphQL variables."""
+def test_client_get_monitors_forwards_domain_ids() -> None:
+    """domain_ids are forwarded to the API as a GraphQL variable."""
     captured: Dict[str, Any] = {}
 
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         captured.update(variables)
         return {"getMonitors": []}
 
-    cfg = make_config(monitor_types_allow=["FRESHNESS"], domain_ids=["dom-1"])
+    cfg = make_config(domain_ids=["dom-1"])
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.config = cfg
     client.page_size = 100
@@ -509,8 +514,24 @@ def test_client_get_monitors_passes_filter_variables() -> None:
     client._call = fake_call  # type: ignore[method-assign]
 
     list(client.get_monitors())
-    assert captured.get("monitorTypes") == ["FRESHNESS"]
     assert captured.get("domainIds") == ["dom-1"]
+
+
+def test_client_get_monitors_filters_by_type_pattern() -> None:
+    """monitor_type_pattern filters monitors client-side by their monitorType."""
+    cfg = make_config(monitor_type_pattern={"allow": ["FRESHNESS"]})
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = cfg
+    client.page_size = 100
+    client.report = None
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "getMonitors": [
+            {"uuid": "m1", "monitorType": "FRESHNESS"},
+            {"uuid": "m2", "monitorType": "VOLUME"},
+        ]
+    }
+    monitors = list(client.get_monitors())
+    assert [m.uuid for m in monitors] == ["m1"]
 
 
 def test_client_get_custom_rules_paginates() -> None:
@@ -537,7 +558,6 @@ def test_client_get_custom_rules_paginates() -> None:
     client = _client_with_responses([page1, page2])
     rules = list(client.get_custom_rules())
     assert [r.uuid for r in rules] == ["r1", "r2"]
-    assert rules[0].is_custom_rule
     assert rules[0].custom_sql == "select 1"
 
 
