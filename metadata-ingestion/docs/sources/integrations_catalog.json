@@ -1021,6 +1021,7 @@
     "img_path": "img/logos/platforms/notion.svg"
   },
   "github": {
+    "description": "Import files and documentation from GitHub repositories into DataHub as Documents, keeping them discoverable and governed alongside the rest of your metadata. Ingested on a schedule through UI or CLI ingestion.",
     "img_path": "img/logos/platforms/github.png"
   },
   "github-documents": {
