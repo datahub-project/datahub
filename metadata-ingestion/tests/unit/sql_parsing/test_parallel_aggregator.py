@@ -8,7 +8,8 @@ normalizing ordering.
 """
 
 from datetime import datetime, timezone
-from typing import List, Union
+from typing import Iterator, List, Union
+from unittest.mock import patch
 
 import pytest
 import time_machine
@@ -26,6 +27,22 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.sql_parsing.sql_parsing_common import QueryType
 
 _StreamItem = Union[ObservedQuery, PreparsedQuery]
+
+# Patch CPU detection to a high value so that explicitly-requested worker counts
+# (workers=2, workers=4) are never clamped in constrained CI environments.
+# Individual tests that exercise clamping/detection-fallback override this via
+# monkeypatch on ``datahub.utilities.cpu_detection.get_available_cpu_count``.
+_DETECTED_CPUS_DEFAULT = 32
+
+
+@pytest.fixture(autouse=True)
+def _pin_cpu_detection() -> Iterator[None]:
+    with patch(
+        "datahub.utilities.cpu_detection.get_available_cpu_count",
+        return_value=_DETECTED_CPUS_DEFAULT,
+    ):
+        yield
+
 
 # Freeze wall-clock so audit stamps that fall back to datetime.now() (for
 # downstream tables with no explicit timestamp) are identical across the serial
@@ -535,3 +552,125 @@ def test_feature_off_is_default() -> None:
     aggregator.close()
     assert len(mcps) > 0
     assert aggregator.report.sql_parsing_parallel_enabled is False
+
+
+# ---------------------------------------------------------------------------
+# CPU-detection / clamping tests
+# ---------------------------------------------------------------------------
+
+_SIMPLE_ITEMS: List[_StreamItem] = [
+    ObservedQuery(
+        query="create table foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+        session_id="s1",
+        timestamp=datetime(2024, 2, 6, 1, 23, 45, tzinfo=timezone.utc),
+    ),
+    ObservedQuery(
+        query="insert into downstream (a, b) select a, b from upstream1",
+        default_db="dev",
+        default_schema="public",
+        session_id="s2",
+        timestamp=datetime(2024, 2, 6, 1, 23, 46, tzinfo=timezone.utc),
+    ),
+]
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_clamped_worker_count_report_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When sql_parsing_workers exceeds detected capacity the pool is built with
+    the clamped count, report.sql_parsing_workers_clamped is True, and
+    report.sql_parsing_cpu_detected reflects the detection result.
+
+    Output must still equal the serial run (correctness not affected by clamping).
+    """
+    detected = 2
+
+    monkeypatch.setattr(
+        "datahub.utilities.cpu_detection.get_available_cpu_count",
+        lambda: detected,
+    )
+
+    # Request far more workers than the detected capacity allows.
+    requested_workers = 16
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.DISABLED,
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=requested_workers,
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.bar").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.upstream1").urn(),
+        {"a": "int", "b": "int"},
+    )
+
+    with aggregator.parallel_sql_parsing_scope():
+        for item in _SIMPLE_ITEMS:
+            aggregator.add(item)
+
+    parallel_mcps = sorted(list(aggregator.gen_metadata()), key=_mcp_key)
+    report = aggregator.report
+    aggregator.close()
+
+    # Workers clamped: detected=2 → usable=1 (reserve 1) → workers=1 (clamped from 16).
+    assert report.sql_parsing_workers_clamped is True
+    assert report.sql_parsing_cpu_detected == detected
+
+    # Parallel path still produces correct output.
+    serial_mcps = _run_serial(_SIMPLE_ITEMS)
+    assert [_mcp_key(m) for m in parallel_mcps] == [_mcp_key(m) for m in serial_mcps]
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_detection_serial_fallback_one_cpu(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When fewer than 2 CPUs are detected the scope falls back to serial execution.
+
+    Asserts:
+    - output equals a plain serial run,
+    - report.sql_parsing_fell_back_to_serial is True,
+    - report.sql_parsing_cpu_detected reflects the single-CPU detection.
+    """
+    monkeypatch.setattr(
+        "datahub.utilities.cpu_detection.get_available_cpu_count",
+        lambda: 1,
+    )
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.DISABLED,
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=None,
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.bar").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.upstream1").urn(),
+        {"a": "int", "b": "int"},
+    )
+
+    with aggregator.parallel_sql_parsing_scope():
+        for item in _SIMPLE_ITEMS:
+            aggregator.add(item)
+
+    parallel_mcps = sorted(list(aggregator.gen_metadata()), key=_mcp_key)
+    report = aggregator.report
+    aggregator.close()
+
+    assert report.sql_parsing_fell_back_to_serial is True
+    assert report.sql_parsing_cpu_detected == 1
+
+    serial_mcps = _run_serial(_SIMPLE_ITEMS)
+    assert [_mcp_key(m) for m in parallel_mcps] == [_mcp_key(m) for m in serial_mcps]

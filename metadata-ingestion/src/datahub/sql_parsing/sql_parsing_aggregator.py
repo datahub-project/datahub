@@ -4,7 +4,6 @@ import enum
 import functools
 import json
 import logging
-import os
 import pathlib
 import tempfile
 import threading
@@ -86,6 +85,7 @@ from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
+from datahub.utilities.cpu_detection import WorkerDecision, resolve_worker_count
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
@@ -129,8 +129,10 @@ class SqlParsingParallelismConfig(ConfigModel):
         default=False,
         description=(
             "Parse SQL queries across multiple processes to speed up lineage/usage "
-            "extraction. Off by default. Defaults to os.cpu_count() workers when "
-            "sql_parsing_workers is not set."
+            "extraction. Off by default. When sql_parsing_workers is not set, the "
+            "worker count is auto-detected from cgroup CPU quota, CPU affinity, and "
+            "os.cpu_count() (whichever is smallest), minus one core reserved for the "
+            "main process."
         ),
     )
     sql_parsing_workers: Optional[int] = Field(
@@ -138,7 +140,9 @@ class SqlParsingParallelismConfig(ConfigModel):
         ge=1,
         description=(
             "Number of worker processes for parallel SQL parsing. "
-            "Defaults to os.cpu_count() when not set."
+            "When not set, defaults to a cgroup/CPU-aware auto-detected safe value. "
+            "Explicit values are clamped to detected CPU capacity to prevent "
+            "over-subscription in containerized environments."
         ),
     )
 
@@ -384,6 +388,8 @@ class SqlAggregatorReport(Report):
     sql_parsing_parallelism: Optional[int] = None
     sql_parsing_fell_back_to_serial: bool = False
     num_queries_parsed_in_parallel: int = 0
+    sql_parsing_cpu_detected: Optional[int] = None
+    sql_parsing_workers_clamped: bool = False
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -662,18 +668,21 @@ class SqlParsingAggregator(Closeable):
         # parallel_sql_parsing_scope(). When disabled, everything runs inline
         # exactly as before.
         self._use_parallel_sql_parsing = use_parallel_sql_parsing
-        # Naive default; cgroup/CPU-aware sizing + clamping is added in a
-        # follow-up PR. We trust the user-provided worker count here.
         self._workers: Optional[int] = None
+        self._worker_decision: Optional[WorkerDecision] = None
         if use_parallel_sql_parsing:
-            self._workers = (
-                sql_parsing_workers
-                if sql_parsing_workers is not None
-                else (os.cpu_count() or 1)
-            )
+            decision = resolve_worker_count(sql_parsing_workers)
+            self._worker_decision = decision
             logger.info(
-                "Parallel SQL parsing requested with %d worker(s).", self._workers
+                "Parallel SQL parsing requested. %s",
+                decision.reason,
             )
+            if decision.fell_back_to_serial:
+                # Fewer than 2 CPUs detected — treat as if the feature is on but
+                # force the serial path inside parallel_sql_parsing_scope().
+                self._workers = None
+            else:
+                self._workers = decision.workers
         self._parallel_parser: Optional[ParallelSqlParser] = None
         self._partition_executor: Optional[PartitionExecutor] = None
         self._parallel_active: bool = False
@@ -708,7 +717,12 @@ class SqlParsingAggregator(Closeable):
         as it does today.
         """
         workers = self._workers
-        if not self._use_parallel_sql_parsing or workers is None:
+        if not self._use_parallel_sql_parsing:
+            yield
+            return
+        if workers is None:
+            # Detection fell back to serial (< 2 CPUs) — record it and run inline.
+            self._populate_parallel_report(workers=None, active=False)
             yield
             return
 
@@ -764,6 +778,9 @@ class SqlParsingAggregator(Closeable):
         self.report.sql_parsing_fell_back_to_serial = (
             not active and self._use_parallel_sql_parsing
         )
+        if self._worker_decision is not None:
+            self.report.sql_parsing_cpu_detected = self._worker_decision.detected_cpus
+            self.report.sql_parsing_workers_clamped = self._worker_decision.clamped
 
     def close(self) -> None:
         # Defensively tear down the parallel machinery in case a connector never
