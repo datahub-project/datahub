@@ -1,19 +1,20 @@
 import logging
 import time
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from threading import Lock
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.env_vars import get_report_info_sample_size
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
+from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -46,7 +47,8 @@ class QueryCleanupConfig(ConfigModel):
             "(False) soft-deletes here and lets soft_deleted_entities_cleanup hard-delete them "
             "on a later run, which additionally calls deleteReferences to clear inbound pointers. "
             "This shortcut skips that step, so `via` pointers on lineage aspects are left "
-            "pointing at the deleted query."
+            "pointing at the deleted query. Hard deletes are issued one at a time; soft deletes "
+            "are emitted as workunits and batched by the sink."
         ),
     )
 
@@ -55,31 +57,9 @@ class QueryCleanupConfig(ConfigModel):
         description="The number of entities to fetch in a batch from search.",
     )
 
-    max_workers: int = Field(
-        10,
-        description="The number of workers to use for deletion.",
-    )
-
-    delay: Optional[float] = Field(
-        0.25,
-        description="Delay between each batch.",
-    )
-
-    futures_max_at_time: int = Field(
-        1000,
-        description=(
-            "Max number of in-flight delete operations to have pending at a time. "
-            "Bounds memory when streaming a large candidate set; the selection loop "
-            "throttles once this many deletes are outstanding."
-        ),
-    )
-
     limit_entities_delete: Optional[int] = Field(
         25000,
-        description=(
-            "Approximate max number of queries to delete in a single run. "
-            "Concurrent workers may overshoot this by up to max_workers entities."
-        ),
+        description="Approximate max number of queries to delete in a single run.",
     )
 
     runtime_limit_seconds: int = Field(
@@ -91,15 +71,21 @@ class QueryCleanupConfig(ConfigModel):
 @dataclass
 class QueryCleanupReport(SourceReport):
     num_queries_found: int = 0
-    num_queries_invalid_urn: int = 0
     num_queries_soft_deleted: int = 0
     num_queries_hard_deleted: int = 0
-    num_queries_processed: int = 0
     sample_deleted_queries: LossyList[str] = field(
         default_factory=lambda: LossyList(max_elements=get_report_info_sample_size())
     )
     qc_runtime_limit_reached: bool = False
     qc_deletion_limit_reached: bool = False
+
+    def report_query_soft_deleted(self, urn: str) -> None:
+        self.num_queries_soft_deleted += 1
+        self.sample_deleted_queries.append(urn)
+
+    def report_query_hard_deleted(self, urn: str) -> None:
+        self.num_queries_hard_deleted += 1
+        self.sample_deleted_queries.append(urn)
 
 
 class QueryCleanup:
@@ -107,7 +93,10 @@ class QueryCleanup:
     Maintenance source that soft-deletes old SYSTEM queries by age alone (aggressive policy).
 
     Selection is a single server-side filter on `source == SYSTEM` and
-    `lastModifiedAt < cutoff`. The existing SoftDeletedEntitiesCleanup completes the hard-delete second pass.
+    `lastModifiedAt < cutoff`. Soft deletes are emitted as status workunits and left to the
+    sink to batch and write (the same mechanism as stale-entity removal); the existing
+    SoftDeletedEntitiesCleanup completes the hard-delete second pass. Hard deletes, when
+    enabled, have no bulk endpoint and are issued imperatively one at a time.
     """
 
     def __init__(
@@ -125,8 +114,6 @@ class QueryCleanup:
         self.report = report
         self.dry_run = dry_run
         self.start_time = time.time()
-        self._report_lock: Lock = Lock()
-        self.last_print_time = 0.0
 
     def _get_urns(self) -> Iterable[str]:
         cutoff_millis = int(
@@ -154,77 +141,16 @@ class QueryCleanup:
             ],
         )
 
-    def _update_report(self, urn: str) -> None:
-        """Thread-safe method to update report fields after a delete."""
-        with self._report_lock:
-            if self.config.hard_delete_entities:
-                self.report.num_queries_hard_deleted += 1
-            else:
-                self.report.num_queries_soft_deleted += 1
-            self.report.sample_deleted_queries.append(urn)
-
-    def delete_query(self, urn: Urn) -> None:
-        if self.dry_run:
-            logger.info(
-                f"Dry run is on, otherwise it would have deleted {urn} "
-                f"(hard_delete={self.config.hard_delete_entities})"
-            )
-            return
-        if self._deletion_limit_reached() or self._times_up():
-            return
-        self.graph.delete_entity(urn=urn.urn(), hard=self.config.hard_delete_entities)
-        self._update_report(urn.urn())
-
-    def _print_report(self) -> None:
-        time_taken = round(time.time() - self.last_print_time, 1)
-        # Print report every 2 minutes
-        if time_taken > 120:
-            self.last_print_time = time.time()
-            logger.info(f"\n{self.report.as_string()}")
-
-    def _process_futures(self, futures: Dict[Future, Urn]) -> Dict[Future, Urn]:
-        done, not_done = wait(futures, return_when=FIRST_COMPLETED)
-
-        for future in done:
-            self._print_report()
-            if future.exception():
-                self.report.failure(
-                    title="Failed to delete query",
-                    message="Failed to delete query",
-                    context=futures[future].urn(),
-                    exc=future.exception(),
-                )
-            self.report.num_queries_processed += 1
-            # Throttle once every batch_size completions rather than on every
-            # wait() return, so `delay` matches its documented per-batch meaning.
-            if (
-                self.config.delay
-                and self.report.num_queries_processed % self.config.batch_size == 0
-            ):
-                logger.debug(
-                    f"Sleeping for {self.config.delay} seconds before processing next batch"
-                )
-                time.sleep(self.config.delay)
-
-        remaining = {
-            future: urn for future, urn in futures.items() if future in not_done
-        }
-        return remaining
-
     def _times_up(self) -> bool:
         if (
             self.config.runtime_limit_seconds
             and time.time() - self.start_time > self.config.runtime_limit_seconds
         ):
-            with self._report_lock:
-                self.report.qc_runtime_limit_reached = True
+            self.report.qc_runtime_limit_reached = True
             return True
         return False
 
     def _deletion_limit_reached(self) -> bool:
-        # Approximate cap: the counter reads need no lock (int reads are atomic
-        # under the GIL), but the check-then-delete gap means concurrent workers
-        # can overshoot the limit by up to max_workers entities.
         num_deleted = (
             self.report.num_queries_soft_deleted + self.report.num_queries_hard_deleted
         )
@@ -232,36 +158,50 @@ class QueryCleanup:
             self.config.limit_entities_delete
             and num_deleted >= self.config.limit_entities_delete
         ):
-            with self._report_lock:
-                self.report.qc_deletion_limit_reached = True
+            self.report.qc_deletion_limit_reached = True
             return True
         return False
 
-    def cleanup_queries(self) -> None:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.enabled:
             return
         self.start_time = time.time()
 
-        futures: Dict[Future, Urn] = dict()
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            for urn in self._get_urns():
-                try:
-                    self.report.num_queries_found += 1
-                    query_urn = Urn.from_string(urn)
-                except InvalidUrnError as e:
-                    logger.error(f"Failed to parse urn {urn} with error {e}")
-                    self.report.num_queries_invalid_urn += 1
-                    continue
+        for urn in self._get_urns():
+            try:
+                query_urn = Urn.from_string(urn)
+            except InvalidUrnError as e:
+                self.report.warning(
+                    title="Skipped query with unparseable urn",
+                    message="Search returned a query urn that could not be parsed; skipping it.",
+                    context=urn,
+                    exc=e,
+                )
+                continue
+            self.report.num_queries_found += 1
 
-                self._print_report()
-                while len(futures) >= self.config.futures_max_at_time:
-                    futures = self._process_futures(futures)
-                if self._deletion_limit_reached() or self._times_up():
-                    break
-                future = executor.submit(self.delete_query, query_urn)
-                futures[future] = query_urn
+            if self._deletion_limit_reached() or self._times_up():
+                break
 
-            logger.info(f"Waiting for {len(futures)} futures to complete")
-            while len(futures) > 0:
-                self._print_report()
-                futures = self._process_futures(futures)
+            if self.dry_run:
+                logger.info(
+                    f"Dry run is on, otherwise it would have deleted {query_urn} "
+                    f"(hard_delete={self.config.hard_delete_entities})"
+                )
+                # Record the candidate so a dry run still previews what would go.
+                self.report.sample_deleted_queries.append(query_urn.urn())
+                continue
+
+            if self.config.hard_delete_entities:
+                # There is no bulk hard-delete endpoint, so hard delete imperatively
+                # (one at a time) rather than through the workunit stream.
+                self.graph.delete_entity(urn=query_urn.urn(), hard=True)
+                self.report.report_query_hard_deleted(query_urn.urn())
+            else:
+                # Soft delete is a plain status write, so hand it to the sink as a
+                # workunit and let it batch/async the write (like stale-entity removal).
+                self.report.report_query_soft_deleted(query_urn.urn())
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=query_urn.urn(),
+                    aspect=StatusClass(removed=True),
+                ).as_workunit()
