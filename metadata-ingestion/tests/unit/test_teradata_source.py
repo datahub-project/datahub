@@ -4859,6 +4859,140 @@ class TestViewProcessingErrorCounters:
         assert expected_fragment in source.report.warnings[0].message
 
 
+class TestFilterDropDebugLogging:
+    """Pattern-filtered tables and views are dropped (not processed) and recorded.
+
+    A fully-filtered Teradata run emits only database containers with everything else
+    in ``report.filtered``. These tests assert the behavior at each drop point: the
+    denied object is recorded in ``report.filtered`` and its ``_process_*`` handler is
+    never invoked. Covers both view processing paths (single- and multi-threaded) and
+    the base ``loop_tables`` path that Teradata tables use.
+    """
+
+    def test_single_threaded_view_drop_reports_and_skips_processing(self):
+        """A view denied by view_pattern is recorded in report.filtered and never
+        handed to _process_view (single-threaded path)."""
+        source = _create_source_patched(
+            {"max_workers": 1, "view_pattern": {"deny": [".*"]}}
+        )
+        process_view = MagicMock()
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source,
+                "_retry_connect",
+                side_effect=_mock_retry_connect(_make_mock_conn()),
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=_make_mock_inspector("testdb"),
+            ),
+            patch.object(source, "_process_view", process_view),
+        ):
+            wus = list(
+                source._process_views_single_threaded(
+                    ["denied_view"], "testdb", source.config
+                )
+            )
+
+        assert wus == []
+        process_view.assert_not_called()
+        assert "testdb.denied_view" in list(source.report.filtered)
+
+    def test_multi_threaded_view_drop_reports_and_skips_processing(self):
+        """A view denied by view_pattern is recorded in report.filtered and never
+        handed to _process_view (multi-threaded path)."""
+        source = _create_source_patched(
+            {"max_workers": 2, "view_pattern": {"deny": [".*"]}}
+        )
+        process_view = MagicMock()
+
+        with (
+            patch.object(
+                source, "_get_or_create_pooled_engine", return_value=MagicMock()
+            ),
+            patch.object(
+                source,
+                "_retry_connect",
+                side_effect=_mock_retry_connect(_make_mock_conn()),
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=_make_mock_inspector("testdb"),
+            ),
+            patch.object(source, "_process_view", process_view),
+        ):
+            wus = list(
+                source._loop_views_with_connection_pool(
+                    ["denied_view"], "testdb", source.config
+                )
+            )
+
+        assert wus == []
+        process_view.assert_not_called()
+        assert "testdb.denied_view" in list(source.report.filtered)
+
+    def test_allowed_view_is_processed_and_not_dropped(self):
+        """A view that passes view_pattern is handed to _process_view and is not
+        recorded in report.filtered."""
+        source = _create_source_patched(
+            {"max_workers": 1, "view_pattern": {"allow": ["testdb.allowed_view"]}}
+        )
+        process_view = MagicMock(return_value=iter([]))
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source,
+                "_retry_connect",
+                side_effect=_mock_retry_connect(_make_mock_conn()),
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=_make_mock_inspector("testdb"),
+            ),
+            patch.object(source, "_process_view", process_view),
+        ):
+            list(
+                source._process_views_single_threaded(
+                    ["allowed_view"], "testdb", source.config
+                )
+            )
+
+        process_view.assert_called_once()
+        assert "testdb.allowed_view" not in list(source.report.filtered)
+
+    def test_table_drop_reports_and_skips_processing(self):
+        """A table denied by table_pattern is recorded in report.filtered and never
+        handed to _process_table. Teradata tables flow through the base loop_tables
+        via cached_loop_tables, which sources table names from _tables_cache."""
+        source = _create_source_patched({"table_pattern": {"deny": [".*"]}})
+        source._tables_cache["testdb"] = [
+            TeradataTable(
+                database="testdb",
+                name="denied_table",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+                request_text=None,
+            )
+        ]
+        process_table = MagicMock(return_value=iter([]))
+
+        with patch.object(source, "_process_table", process_table):
+            wus = list(source.cached_loop_tables(MagicMock(), "testdb", source.config))
+
+        assert wus == []
+        process_table.assert_not_called()
+        assert "testdb.denied_table" in list(source.report.filtered)
+
+
 # ---------------------------------------------------------------------------
 # Helpers for _fetch_lineage_entries_chunked tests
 # ---------------------------------------------------------------------------
