@@ -31,8 +31,9 @@ yarn-error.log*
 # gql codegen
 *.generated.ts
 
-# generated lazy icon stubs (produced by scripts/generate-lazy-icon-stubs.js)
+# generated lazy icon stubs & names index (produced by scripts/generate-lazy-icon-stubs.js)
 /src/app/mfeframework/lazy-icons/
+/src/app/mfeframework/lazyIconNames.ts
 /.vscode
 
 .yarn-test-sentinel

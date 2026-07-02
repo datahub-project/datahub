@@ -1,8 +1,10 @@
-// antd `Form` and `Collapse` are retained because alchemy does not currently provide
-// equivalents for `Form` (with field-level rules / Form.useForm) or collapsible panels.
+// antd `Form` is retained because alchemy does not currently provide an equivalent
+// (field-level rules / `Form.useForm`).
 import { toast } from '@components';
-import { Collapse, Form } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Form } from 'antd';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
@@ -12,6 +14,10 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import OwnersSection from '@app/domainV2/OwnersSection';
+import {
+    buildDomainDisplayInput,
+    buildOptimisticDomainDisplayProperties,
+} from '@app/entityV2/domain/utils/displayProperties';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
@@ -26,6 +32,14 @@ import { useCreateDomainMutation } from '@graphql/domain.generated';
 import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
 
+// Shares one lazy chunk with the edit-domain flow — Vite dedupes the same import specifier.
+// See EditDomainModal / IconPicker for the rationale on the single-chunk static-import layout.
+const ChatIconPicker = lazy(() =>
+    import('@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker').then((mod) => ({
+        default: mod.ChatIconPicker,
+    })),
+);
+
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
         padding-bottom: 2px;
@@ -38,6 +52,45 @@ const FormItemWithMargin = styled(FormItem)`
 
 const FormItemNoMargin = styled(FormItem)`
     margin-bottom: 0px;
+`;
+
+// Match the AdvancedHeader / AdvancedBody styling used by CreateGlossaryEntityModal
+// so both create flows share the same "Advanced Options" disclosure. Only the create
+// flow needs this — EditDomainModal no longer has an Advanced section since its former
+// contents (icon picker) were moved inline.
+const AdvancedHeader = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    background: transparent;
+    border: 0;
+    color: ${(p) => p.theme.colors.textSecondary};
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+        color: ${(p) => p.theme.colors.text};
+    }
+`;
+
+const AdvancedBody = styled.div`
+    padding-top: 8px;
+`;
+
+// Cap body height so the whole modal (body + ~120px of header/footer chrome) stays around
+// 80vh even when the icon picker is visible. Content that overflows scrolls in-place —
+// matches the pattern used in PolicyBuilderModal / QueryModal.
+//
+// Padding + negative margin on the horizontal axis is a workaround for the CSS rule that
+// coerces the sibling axis to non-visible when one axis is set (so `overflow-y: auto`
+// implicitly clips X too). Without the 4px inline gutter, the Alchemy Input's
+// `outline: 1px solid` focus indicator gets sheared off at the container edge.
+const ScrollableBody = styled.div`
+    max-height: 65vh;
+    overflow-y: auto;
+    padding: 4px;
+    margin: -4px;
 `;
 
 type Props = {
@@ -73,6 +126,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     // the deterministic palette color generated from the URN instead of persisting the default
     // gray placeholder and overriding it.
     const [colorWasPicked, setColorWasPicked] = useState(false);
+    // Empty string == user did not pick an icon → letter avatar (initial of the domain name).
+    // Only persisted after successful creation, and only when non-empty (see onCreateDomain).
+    const [stagedIconName, setStagedIconName] = useState<string>('');
+    const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
     const [form] = Form.useForm();
     const { loaded: userLoaded, user } = useUserContext();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
@@ -115,18 +172,20 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     });
                     toast.success(t('create.success'), { duration: 3 });
                     const newDomainUrn = data?.createDomain || '';
-                    // Only persist the color if the user actually picked one. Otherwise we'd
-                    // save the gray placeholder default and override the deterministic palette
-                    // color the UI would have generated from the URN. Best-effort follow-up so
-                    // a color failure doesn't block creation.
-                    if (newDomainUrn && colorWasPicked) {
+                    // Only persist display properties the user actually set. Skipping the color
+                    // when unset lets the backend fall back to the deterministic palette color
+                    // generated from the URN; skipping the icon leaves the domain rendering the
+                    // letter avatar. Best-effort follow-up so a display-properties failure
+                    // doesn't block domain creation itself.
+                    const displayInput = buildDomainDisplayInput({
+                        colorHex: colorWasPicked ? selectedColor : undefined,
+                        iconName: stagedIconName || undefined,
+                    });
+                    if (newDomainUrn && displayInput) {
                         updateDisplayPropertiesMutation({
-                            variables: {
-                                urn: newDomainUrn,
-                                input: { colorHex: selectedColor },
-                            },
+                            variables: { urn: newDomainUrn, input: displayInput },
                         }).catch((e) => {
-                            console.error('Failed to set domain color after creation', e);
+                            console.error('Failed to set domain display properties after creation', e);
                         });
                     }
                     onCreate?.(
@@ -136,6 +195,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         form.getFieldValue(DESCRIPTION_FIELD_NAME),
                         selectedParentUrn || undefined,
                     );
+                    // Populate `displayProperties` on the optimistic sidebar entry with the same
+                    // values we just sent to `updateDisplayProperties`. Without this the sidebar
+                    // shows the letter-avatar + palette-from-URN fallback until a full page
+                    // refresh — the picked color and icon don't propagate because the create
+                    // mutation itself returns only the URN, so Apollo can't normalize the aspect
+                    // into the sidebar's `listDomains` cache.
                     const newDomain: UpdatedDomain = {
                         urn: newDomainUrn,
                         type: EntityType.Domain,
@@ -145,6 +210,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                             description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
                         },
                         parentDomain: selectedParentUrn || undefined,
+                        displayProperties: buildOptimisticDomainDisplayProperties({
+                            colorHex: colorWasPicked ? selectedColor : undefined,
+                            iconName: stagedIconName || undefined,
+                        }),
                     };
                     setNewDomain(newDomain);
                     form.resetFields();
@@ -181,7 +250,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     onClick: onClose,
                 },
                 {
-                    text: tc('save'),
+                    text: tc('create'),
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
@@ -189,98 +258,123 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 },
             ]}
         >
-            <Form
-                form={form}
-                initialValues={{}}
-                layout="vertical"
-                onFieldsChange={() => {
-                    setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
-                }}
-            >
-                <FormItemWithMargin
-                    name={NAME_FIELD_NAME}
-                    rules={[
-                        {
-                            required: true,
-                            message: t('create.nameRequired'),
-                        },
-                        { whitespace: true },
-                        { min: 1, max: 150 },
-                    ]}
-                    hasFeedback
+            <ScrollableBody>
+                <Form
+                    form={form}
+                    initialValues={{}}
+                    layout="vertical"
+                    onFieldsChange={() => {
+                        setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
+                    }}
                 >
-                    <Input
-                        label={tl('name')}
-                        data-testid="create-domain-name"
-                        placeholder={t('create.namePlaceholder')}
-                    />
-                </FormItemWithMargin>
-                <FormItemWithMargin
-                    name={DESCRIPTION_FIELD_NAME}
-                    rules={[{ whitespace: true }, { min: 1, max: 500 }]}
-                    hasFeedback
-                >
-                    <TextArea
-                        label={tl('description')}
-                        placeholder={t('create.descriptionPlaceholder')}
-                        data-testid="create-domain-description"
-                    />
-                </FormItemWithMargin>
-                <FormItemWithMargin>
-                    <Label>{tl('color')}</Label>
-                    <ColorPicker
-                        initialColor={selectedColor}
-                        onChange={(c) => {
-                            setSelectedColor(c);
-                            setColorWasPicked(true);
-                        }}
-                    />
-                </FormItemWithMargin>
-                {isNestedDomainsEnabled && (
-                    <FormItemWithMargin>
-                        <Label>{t('create.parentLabel')}</Label>
-                        <DomainSelector
-                            selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
-                            onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
-                            placeholder={t('create.parentPlaceholder')}
-                            label=""
-                            isMultiSelect={false}
+                    <FormItemWithMargin
+                        name={NAME_FIELD_NAME}
+                        rules={[
+                            {
+                                required: true,
+                                message: t('create.nameRequired'),
+                            },
+                            { whitespace: true },
+                            { min: 1, max: 150 },
+                        ]}
+                        hasFeedback
+                    >
+                        <Input
+                            label={tl('name')}
+                            data-testid="create-domain-name"
+                            placeholder={t('create.namePlaceholder')}
+                            isRequired
                         />
                     </FormItemWithMargin>
-                )}
-                {/* Owners Section */}
-                <FormItemNoMargin>
-                    <OwnersSection
-                        selectedOwnerUrns={selectedOwnerUrns}
-                        setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        isDisabled={!hasInitializedDefaultOwner}
-                        isLoading={!hasInitializedDefaultOwner}
-                    />
-                </FormItemNoMargin>
-                <Collapse ghost>
-                    <Collapse.Panel header={<Label>{t('create.advancedOptions')}</Label>} key="1">
-                        <FormItemWithMargin
-                            name={ID_FIELD_NAME}
-                            rules={[
-                                () => ({
-                                    validator(_, value) {
-                                        if (value && validateCustomUrnId(value)) {
-                                            return Promise.resolve();
-                                        }
-                                        return Promise.reject(new Error(t('create.idInvalid')));
-                                    },
-                                }),
-                            ]}
-                        >
-                            <Input
-                                label={t('create.idLabel')}
-                                data-testid="create-domain-id"
-                                placeholder={t('create.idPlaceholder')}
+                    <FormItemWithMargin
+                        name={DESCRIPTION_FIELD_NAME}
+                        rules={[{ whitespace: true }, { min: 1, max: 500 }]}
+                        hasFeedback
+                    >
+                        <TextArea
+                            label={tl('description')}
+                            placeholder={t('create.descriptionPlaceholder')}
+                            data-testid="create-domain-description"
+                        />
+                    </FormItemWithMargin>
+                    {isNestedDomainsEnabled && (
+                        <FormItemWithMargin>
+                            <Label>{`${t('create.parentLabel')} ${tl('optional')}`}</Label>
+                            <DomainSelector
+                                selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
+                                onDomainsChange={(selectedDomainUrns) =>
+                                    setSelectedParentUrn(selectedDomainUrns[0] || '')
+                                }
+                                placeholder={t('create.parentPlaceholder')}
+                                label=""
+                                isMultiSelect={false}
                             />
                         </FormItemWithMargin>
-                    </Collapse.Panel>
-                </Collapse>
-            </Form>
+                    )}
+                    <FormItemWithMargin>
+                        <Label>{tl('color')}</Label>
+                        <ColorPicker
+                            initialColor={selectedColor}
+                            onChange={(c) => {
+                                setSelectedColor(c);
+                                setColorWasPicked(true);
+                            }}
+                        />
+                    </FormItemWithMargin>
+                    <FormItemWithMargin>
+                        <Label>{`${tl('icon')} ${tl('optional')}`}</Label>
+                        <Suspense fallback={null}>
+                            {/* Always mirror the color preview onto the icon tint — even before */}
+                            {/* the user actively picks a color the ColorPicker already displays */}
+                            {/* the default violet, so the icons should match. `colorWasPicked` */}
+                            {/* still gates persistence (see mutation input above): if it's false */}
+                            {/* we skip writing colorHex so the backend falls back to the */}
+                            {/* deterministic URN-hashed palette color. */}
+                            <ChatIconPicker
+                                color={selectedColor}
+                                onIconPick={setStagedIconName}
+                                selectedIcon={stagedIconName}
+                            />
+                        </Suspense>
+                    </FormItemWithMargin>
+                    {/* Owners Section */}
+                    <FormItemNoMargin>
+                        <OwnersSection
+                            selectedOwnerUrns={selectedOwnerUrns}
+                            setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
+                            isDisabled={!hasInitializedDefaultOwner}
+                            isLoading={!hasInitializedDefaultOwner}
+                        />
+                    </FormItemNoMargin>
+                    <AdvancedHeader type="button" onClick={() => setShowAdvanced((prev) => !prev)}>
+                        {showAdvanced ? <CaretDown size={14} /> : <CaretRight size={14} />}
+                        {t('create.advancedOptions')}
+                    </AdvancedHeader>
+                    {showAdvanced && (
+                        <AdvancedBody>
+                            <FormItemWithMargin
+                                name={ID_FIELD_NAME}
+                                rules={[
+                                    () => ({
+                                        validator(_, value) {
+                                            if (value && validateCustomUrnId(value)) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error(t('create.idInvalid')));
+                                        },
+                                    }),
+                                ]}
+                            >
+                                <Input
+                                    label={t('create.idLabel')}
+                                    data-testid="create-domain-id"
+                                    placeholder={t('create.idPlaceholder')}
+                                />
+                            </FormItemWithMargin>
+                        </AdvancedBody>
+                    )}
+                </Form>
+            </ScrollableBody>
         </Modal>
     );
 }

@@ -64,6 +64,7 @@
     "linkVersion.selectPlaceholder": "Select a {{entityName}} to link",
     "linkVersion.success": "Linked {{entityName}}!",
     "linkVersion.title": "Link a Newer Version",
+    "menuAction.editDomainTooltip": "Edit domain",
     "menuAction.moveTooltip": "Move this {{entityName}}",
     "menuAction.raiseIncidentTooltip": "Raise an incident",
     "menuItem.addTerm": "Add Term",

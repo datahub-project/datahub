@@ -1,4 +1,5 @@
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import type { IconProps } from '@phosphor-icons/react/dist/lib/types';
 import React, { Suspense } from 'react';
 
 // Resolves Phosphor icons by name for admin-configured features (e.g. MFE nav, custom pages).
@@ -13,23 +14,22 @@ type AnyComponent = React.ComponentType<any>;
 const iconCache = new Map<string, React.LazyExoticComponent<AnyComponent>>();
 
 function getCachedLazyIcon(name: string): React.LazyExoticComponent<AnyComponent> {
-    if (!iconCache.has(name)) {
-        iconCache.set(
-            name,
-            React.lazy(async (): Promise<{ default: AnyComponent }> => {
-                const { loadIcon } = await loadIconLoader();
-                return loadIcon(name);
-            }),
-        );
+    let cached = iconCache.get(name);
+    if (!cached) {
+        cached = React.lazy(async (): Promise<{ default: AnyComponent }> => {
+            const { loadIcon } = await loadIconLoader();
+            return loadIcon(name);
+        });
+        iconCache.set(name, cached);
     }
-    return iconCache.get(name)!;
+    return cached;
 }
 
-export function getLazyIcon(name: string): JSX.Element {
+export function getLazyIcon(name: string, props?: IconProps): JSX.Element {
     const LazyIcon = getCachedLazyIcon(name);
     return (
-        <Suspense fallback={<AppWindow />}>
-            <LazyIcon />
+        <Suspense fallback={<AppWindow {...props} />}>
+            <LazyIcon {...props} />
         </Suspense>
     );
 }

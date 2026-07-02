@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { resolveDomainEntityColor, resolveDomainIconDisplay } from '@app/entityV2/domain/utils/displayProperties';
+import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
 import { hexToRgb, hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
-import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
 
 import { Domain } from '@types';
 
@@ -32,35 +33,29 @@ type Props = {
     onClick?: () => void;
 };
 
-// looks through the object keys of the icons module and finds the best match for the search string
-// returns the icon if found, otherwise returns undefined
-function getIcon(search: string, icons: Record<string, React.ElementType>): React.ElementType | undefined {
-    if (!search.trim()) return undefined;
-
-    const icon = Object.keys(icons).find((key) => key.toLowerCase().includes(search.toLowerCase()));
-    return icon ? icons[icon] : undefined;
-}
-
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20, onClick }: Props): JSX.Element => {
-    const icons = useMuiIcons();
-    const iconName = domain?.displayProperties?.icon?.name || '';
-    const MaterialIcon = icons ? getIcon(iconName, icons) : undefined;
+    // Read-side backward-compat lives in `resolveDomainIconDisplay` — it maps historical MUI
+    // names to Phosphor and guards against rendering the AppWindow fallback for unknown names,
+    // returning `showIcon: false` so we fall through to the letter avatar instead.
+    const { iconName, showIcon } = resolveDomainIconDisplay(domain?.displayProperties?.icon?.name);
 
     const generateColor = useGenerateDomainColorFromPalette();
-    const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
+    const domainColor = resolveDomainEntityColor(domain, generateColor);
 
     const domainHexColor = iconColor || domainColor;
     const [r, g, b] = hexToRgb(domainHexColor);
     const domainBackgroundColor = `rgb(${getLighterRGBColor(r, g, b).join(', ')})`;
     const domainIconColor = hexToRgba(domainHexColor, 1.0);
 
+    // Lazy-load only the specific icon this domain uses — each Phosphor icon lives in its own
+    // async chunk (see mfeframework/lazy-icons/), preserving the tree-shake work from PR #16338.
     return (
         <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>
-            {MaterialIcon ? (
-                <MaterialIcon style={{ color: domainIconColor, fontSize }} />
+            {showIcon ? (
+                getLazyIcon(iconName, { color: domainIconColor, size: fontSize, weight: 'regular' })
             ) : (
                 <DomainCharacterIcon color={domainIconColor} $fontSize={fontSize}>
-                    {domain?.properties?.name.charAt(0)}
+                    {domain?.properties?.name?.charAt(0) ?? ''}
                 </DomainCharacterIcon>
             )}
         </DomainIconContainer>

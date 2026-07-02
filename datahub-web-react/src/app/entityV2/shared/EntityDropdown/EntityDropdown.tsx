@@ -1,7 +1,7 @@
 import { Menu } from '@components';
-import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
@@ -9,7 +9,6 @@ import { GitCommit } from '@phosphor-icons/react/dist/csr/GitCommit';
 import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
 import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
-import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Share } from '@phosphor-icons/react/dist/csr/Share';
@@ -27,6 +26,7 @@ import analytics from '@app/analytics/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
+import EditDomainModal from '@app/entityV2/domain/EditDomainModal';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -61,11 +61,9 @@ import DeprecatedIcon from '@images/deprecated-status.svg?react';
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
 const INCIDENTS_TAB_NAME = 'Incidents';
 
-const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
+const StyledMoreIcon = styled(DotsThreeVertical)`
     &&& {
         display: flex;
-        font-size: 20px;
-        padding: 2px;
 
         :hover {
             color: ${(p) => p.theme.colors.textBrand};
@@ -142,6 +140,7 @@ const EntityDropdown = (props: Props) => {
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
+    const [isEditDomainModalVisible, setIsEditDomainModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: tcf('updating') });
@@ -313,14 +312,21 @@ const EntityDropdown = (props: Props) => {
         });
     }
 
-    if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
-        menuItemsList.push({
-            type: 'item' as const,
-            key: '9',
-            title: tc('edit'),
-            icon: Pencil,
-            onClick: onEdit,
-        });
+    if (menuItems.has(EntityMenuItems.EDIT)) {
+        // Domains open a dedicated modal owned by this dropdown; other entity types keep
+        // the previous behavior of relying on an external onEdit callback.
+        const editHandler = isDomainEntity ? () => setIsEditDomainModalVisible(true) : onEdit;
+        if (editHandler) {
+            menuItemsList.push({
+                type: 'item' as const,
+                key: '9',
+                title: tc('edit'),
+                icon: PencilSimple,
+                disabled: isDomainEntity && !me.platformPrivileges?.manageDomains,
+                onClick: editHandler,
+                'data-testid': 'entity-menu-edit-button',
+            });
+        }
     }
 
     if (menuItems.has(EntityMenuItems.EDIT_GLOSSARY)) {
@@ -516,7 +522,7 @@ const EntityDropdown = (props: Props) => {
     return (
         <>
             <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
-                <StyledMoreIcon />
+                <StyledMoreIcon size={16} weight="bold" />
             </Menu>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
@@ -575,6 +581,9 @@ const EntityDropdown = (props: Props) => {
                 />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
+            {isEditDomainModalVisible && isDomainEntity && (
+                <EditDomainModal onClose={() => setIsEditDomainModalVisible(false)} />
+            )}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

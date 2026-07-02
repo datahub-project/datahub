@@ -33,6 +33,16 @@ import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.EDIT,
+    EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
+]);
+
+// Preview cards / search results omit Edit — that action only makes sense on the domain's own profile.
+const previewHeaderDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
@@ -95,9 +105,6 @@ export class DomainEntity implements Entity<Domain> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
-            isNameEditable
-            isIconEditable
-            isColorEditable
             tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -194,7 +201,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
-                headerDropdownItems={headerDropdownItems}
+                headerDropdownItems={previewHeaderDropdownItems}
                 previewType={previewType}
             />
         );
@@ -213,7 +220,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
-                headerDropdownItems={headerDropdownItems}
+                headerDropdownItems={previewHeaderDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
         );
