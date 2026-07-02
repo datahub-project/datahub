@@ -4871,7 +4871,7 @@ class TestFilterDropDebugLogging:
 
     def test_single_threaded_view_drop_reports_and_skips_processing(
         self, caplog: pytest.LogCaptureFixture
-    ):
+    ) -> None:
         """A view denied by view_pattern is recorded in report.filtered and never
         handed to _process_view (single-threaded path).
 
@@ -4913,7 +4913,7 @@ class TestFilterDropDebugLogging:
         assert "testdb.denied_view" in list(source.report.filtered)
         assert "Dropped view by view_pattern: testdb.denied_view" in caplog.text
 
-    def test_multi_threaded_view_drop_reports_and_skips_processing(self):
+    def test_multi_threaded_view_drop_reports_and_skips_processing(self) -> None:
         """A view denied by view_pattern is recorded in report.filtered and never
         handed to _process_view (multi-threaded path)."""
         source = _create_source_patched(
@@ -4947,7 +4947,7 @@ class TestFilterDropDebugLogging:
         process_view.assert_not_called()
         assert "testdb.denied_view" in list(source.report.filtered)
 
-    def test_mixed_allow_deny_drops_denied_and_processes_allowed(self):
+    def test_mixed_allow_deny_drops_denied_and_processes_allowed(self) -> None:
         """With a denied and an allowed view in the same call, the denied one is
         dropped and the allowed one is still processed.
 
@@ -4986,7 +4986,7 @@ class TestFilterDropDebugLogging:
         assert "testdb.denied_view" in list(source.report.filtered)
         assert "testdb.allowed_view" not in list(source.report.filtered)
 
-    def test_table_drop_reports_and_skips_processing(self):
+    def test_table_drop_reports_and_skips_processing(self) -> None:
         """A table denied by table_pattern is recorded in report.filtered and never
         handed to _process_table. Teradata tables flow through the base loop_tables
         via cached_loop_tables, which sources table names from _tables_cache."""
