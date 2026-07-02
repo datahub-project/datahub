@@ -38,6 +38,12 @@
               max_workers: {{soft_deleted_entities_cleanup.max_workers}}{{^soft_deleted_entities_cleanup.max_workers}}10{{/soft_deleted_entities_cleanup.max_workers}}
               limit_entities_delete: {{soft_deleted_entities_cleanup.limit_entities_delete}}{{^soft_deleted_entities_cleanup.limit_entities_delete}}25000{{/soft_deleted_entities_cleanup.limit_entities_delete}}
               runtime_limit_seconds: {{soft_deleted_entities_cleanup.runtime_limit_seconds}}{{^soft_deleted_entities_cleanup.runtime_limit_seconds}}7200{{/soft_deleted_entities_cleanup.runtime_limit_seconds}}
+            query_cleanup:
+              enabled: {{query_cleanup.enabled}}{{^query_cleanup.enabled}}false{{/query_cleanup.enabled}}
+              retention_days: {{query_cleanup.retention_days}}{{^query_cleanup.retention_days}}90{{/query_cleanup.retention_days}}
+              batch_size: {{query_cleanup.batch_size}}{{^query_cleanup.batch_size}}500{{/query_cleanup.batch_size}}
+              limit_entities_delete: {{query_cleanup.limit_entities_delete}}{{^query_cleanup.limit_entities_delete}}25000{{/query_cleanup.limit_entities_delete}}
+              runtime_limit_seconds: {{query_cleanup.runtime_limit_seconds}}{{^query_cleanup.runtime_limit_seconds}}7200{{/query_cleanup.runtime_limit_seconds}}
             execution_request_cleanup:
               keep_history_min_count: {{execution_request_cleanup.keep_history_min_count}}{{^execution_request_cleanup.keep_history_min_count}}10{{/execution_request_cleanup.keep_history_min_count}}
               keep_history_max_count: {{execution_request_cleanup.keep_history_max_count}}{{^execution_request_cleanup.keep_history_max_count}}1000{{/execution_request_cleanup.keep_history_max_count}}
