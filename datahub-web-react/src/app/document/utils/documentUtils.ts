@@ -292,6 +292,25 @@ export function isAllowedRelatedAssetUrn(urn: string): boolean {
 }
 
 /**
+ * Splits an array of URNs into document URNs and asset URNs.
+ *
+ * @param urns - Array of URNs to categorize
+ * @returns Object with separate `documentUrns` and `assetUrns` arrays
+ */
+export function categorizeUrns(urns: string[]): { documentUrns: string[]; assetUrns: string[] } {
+    const documentUrns: string[] = [];
+    const assetUrns: string[] = [];
+    urns.forEach((urn) => {
+        if (urn.includes(':document:')) {
+            documentUrns.push(urn);
+        } else {
+            assetUrns.push(urn);
+        }
+    });
+    return { documentUrns, assetUrns };
+}
+
+/**
  * Extracts a URN from a markdown link, properly handling nested parentheses.
  * Markdown links have the format: [text](url)
  * URNs can have nested parens like: urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),task)

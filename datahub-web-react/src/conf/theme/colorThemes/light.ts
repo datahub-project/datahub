@@ -231,7 +231,7 @@ const lightTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet600,
 
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,

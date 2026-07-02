@@ -14,8 +14,16 @@ buildscript {
       : ext.jdkVersionDefault
   }
 
-  // Main bytecode version selector
+  // Main bytecode version selector.
+  // A per-module ext.javaClassVersionOverride takes precedence over the global default: it lets the
+  // modules bundled into the acryl-spark-lineage agent shadow jar pin Java 17 bytecode so the agent
+  // runs on managed Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17),
+  // while the rest of the repo targets 21. (javaClassVersionDefault is always present via
+  // gradle.properties, so the override must be checked first.)
   ext.javaClassVersion = { p ->
+    if (p.hasProperty('javaClassVersionOverride')) {
+      return Integer.valueOf(String.valueOf(p.getProperty('javaClassVersionOverride')))
+    }
     return p.hasProperty('javaClassVersionDefault')
       ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault'))
       : ext.javaClassVersionDefault
