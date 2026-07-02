@@ -265,6 +265,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 title="Config option deprecation warning",
             )
 
+        # Unlike the forwarded usage.start_time/end_time/bucket_duration/max_query_duration
+        # fields, these two are never popped from self.config.usage, so we can still see
+        # here whether the user set them - surface it in the structured report (visible
+        # in the UI), not just the config-validation-time logger.warning.
+        if self.config.use_queries_v2:
+            if self.config.usage.include_read_operational_stats:
+                self.report.report_warning(
+                    message="`usage.include_read_operational_stats` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                )
+            if self.config.usage.apply_view_usage_to_tables:
+                self.report.report_warning(
+                    message="`usage.apply_view_usage_to_tables` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                )
+
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
         return BigQueryQueriesExtractorConfig(
             window=self.config,

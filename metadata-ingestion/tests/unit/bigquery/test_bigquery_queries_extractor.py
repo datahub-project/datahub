@@ -23,7 +23,10 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
@@ -1296,9 +1299,20 @@ class TestQueriesExtractorUsageConfigWiring:
             == DEFAULT_QUERIES_CHARACTER_LIMIT
         )
 
-    def test_format_sql_queries_true_forwarded_to_aggregator(self):
-        from unittest.mock import patch
+    def test_top_n_queries_too_big_for_character_limit_rejected_at_parse_time(self):
+        # The standalone bigquery-queries source uses BigQueryQueriesExtractorConfig
+        # directly (not via BigQueryUsageConfig, which already validates this combo),
+        # so this class needs its own copy of the check - otherwise an inconsistent
+        # combo only blows up later inside BaseUsageConfig(...) mid-ingestion.
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractorConfig,
+        )
 
+        with pytest.raises(ValidationError) as excinfo:
+            BigQueryQueriesExtractorConfig(top_n_queries=2, queries_character_limit=20)
+        assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
+
+    def test_format_sql_queries_true_forwarded_to_aggregator(self):
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
             BigQueryQueriesExtractorConfig,
         )
@@ -1314,8 +1328,6 @@ class TestQueriesExtractorUsageConfigWiring:
             assert kwargs["usage_config"].format_sql_queries is True
 
     def test_format_sql_queries_default_not_forwarded_as_true(self):
-        from unittest.mock import patch
-
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
             BigQueryQueriesExtractorConfig,
         )
@@ -1328,8 +1340,6 @@ class TestQueriesExtractorUsageConfigWiring:
             assert kwargs["format_queries"] is False
 
     def test_include_top_n_queries_false_forwarded_to_aggregator_usage_config(self):
-        from unittest.mock import patch
-
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
             BigQueryQueriesExtractorConfig,
         )
@@ -1344,8 +1354,6 @@ class TestQueriesExtractorUsageConfigWiring:
             assert kwargs["usage_config"].include_top_n_queries is False
 
     def test_queries_character_limit_forwarded_to_aggregator_usage_config(self):
-        from unittest.mock import patch
-
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
             BigQueryQueriesExtractorConfig,
         )

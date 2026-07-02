@@ -20,7 +20,10 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.configuration.time_window_config import BucketDuration
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    BucketDuration,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
@@ -120,25 +123,26 @@ class BigQueryUsageConfig(BaseUsageConfig):
     # start_time/end_time/bucket_duration are inherited from BaseTimeWindowConfig but
     # redeclared here (rather than editing the shared base class, which other connectors
     # also use) solely to surface the BigQuery-specific deprecation in generated docs.
+    # Descriptions are composed from the base class's text plus a deprecation suffix,
+    # rather than duplicated verbatim, so they can't silently drift out of sync.
     # See forward_usage_time_window_fields on BigQueryV2Config for the runtime behavior.
     start_time: datetime = Field(
         default=None,  # type: ignore
-        description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, "
-        "depending on `bucket_duration`). You can also specify relative time with respect to end_time "
-        "such as '-7 days' Or '-7d'. **Deprecated**: set the top-level `start_time` instead - it governs "
-        "lineage, usage, and operations together.",
+        description=f"{BaseTimeWindowConfig.model_fields['start_time'].description} "
+        "**Deprecated**: set the top-level `start_time` instead - it governs lineage, "
+        "usage, and operations together.",
     )
     end_time: datetime = Field(
         default_factory=lambda: datetime.now(tz=timezone.utc),
-        description="Latest date of lineage/usage to consider. Default: Current time in UTC. "
-        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, usage, and "
-        "operations together.",
+        description=f"{BaseTimeWindowConfig.model_fields['end_time'].description} "
+        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, "
+        "usage, and operations together.",
     )
     bucket_duration: BucketDuration = Field(
         default=BucketDuration.DAY,
-        description="Size of the time window to aggregate usage stats. "
-        "**Deprecated**: set the top-level `bucket_duration` instead - it governs lineage, usage, and "
-        "operations together.",
+        description=f"{BaseTimeWindowConfig.model_fields['bucket_duration'].description} "
+        "**Deprecated**: set the top-level `bucket_duration` instead - it governs "
+        "lineage, usage, and operations together.",
     )
 
     max_query_duration: timedelta = Field(
@@ -583,6 +587,10 @@ class BigQueryV2Config(
         # both use the top-level copies. These are connector-wide settings governing
         # lineage, usage, and operations together, so they belong at the top level only.
         if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
+            # Intentional: this only handles the YAML/dict recipe path. Programmatic
+            # construction with an already-built BigQueryUsageConfig object (rather than
+            # a dict) bypasses forwarding and conflict detection - recipes always come
+            # from YAML, so this is low risk in practice.
             return values
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)

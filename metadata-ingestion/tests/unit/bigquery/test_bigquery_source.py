@@ -1416,13 +1416,33 @@ def test_bigquery_config_usage_bucket_duration_forwarded_to_top_level():
     assert config.bucket_duration == BucketDuration.HOUR
 
 
-def test_bigquery_config_usage_and_top_level_start_time_conflict_raises():
+def test_bigquery_config_programmatic_usage_object_bypasses_forwarding():
+    # Documents an intentional gap: forwarding only handles the YAML/dict recipe
+    # path. Passing an already-built BigQueryUsageConfig object programmatically
+    # skips both forwarding and conflict detection. Recipes always come from YAML,
+    # so this is accepted as low risk rather than fixed.
+    config = BigQueryV2Config(
+        usage=BigQueryUsageConfig(start_time="2023-01-01T00:00:00Z")
+    )
+    assert config.usage.start_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
+    assert config.start_time != datetime(2023, 1, 1, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "field,top_level_value,usage_value",
+    [
+        ("start_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("end_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("bucket_duration", "DAY", "HOUR"),
+        ("max_query_duration", "PT30M", "PT45M"),
+    ],
+)
+def test_bigquery_config_usage_and_top_level_field_conflict_raises(
+    field: str, top_level_value: str, usage_value: str
+) -> None:
     with pytest.raises(ValidationError):
         BigQueryV2Config.model_validate(
-            {
-                "start_time": "2023-01-01T00:00:00Z",
-                "usage": {"start_time": "2023-02-01T00:00:00Z"},
-            }
+            {field: top_level_value, "usage": {field: usage_value}}
         )
 
 
@@ -1438,16 +1458,6 @@ def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
 def test_bigquery_config_usage_max_query_duration_forwarded_to_top_level():
     config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
     assert config.max_query_duration == timedelta(minutes=30)
-
-
-def test_bigquery_config_usage_and_top_level_max_query_duration_conflict_raises():
-    with pytest.raises(ValidationError):
-        BigQueryV2Config.model_validate(
-            {
-                "max_query_duration": "PT30M",
-                "usage": {"max_query_duration": "PT45M"},
-            }
-        )
 
 
 def test_bigquery_config_usage_end_time_forwarded_to_top_level():
@@ -1513,6 +1523,36 @@ def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
     assert queries_config.include_top_n_queries is False
     assert queries_config.queries_character_limit == 1000
     assert queries_config.top_n_queries == 5
+
+
+def test_bigquery_source_reports_legacy_only_usage_fields_under_queries_v2():
+    # The logger.warning fired at config-validation time is easy to miss; this also
+    # surfaces in the structured ingestion report, which is what shows up in the UI.
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": True, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_path():
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": False, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
 
 
 def test_bigquery_config_apply_view_usage_to_tables_warns_under_queries_v2(
