@@ -169,7 +169,7 @@ class DataHubGcSource(Source):
                 with self.report.new_stage("Query Cleanup"):
                     yield from self.query_cleanup.get_workunits()
             except Exception as e:
-                self.report.failure("While trying to cleanup queries ", exc=e)
+                self.report.failure("While trying to cleanup queries", exc=e)
         if self.config.soft_deleted_entities_cleanup.enabled:
             try:
                 with self.report.new_stage("Soft Deleted Entities Cleanup"):
