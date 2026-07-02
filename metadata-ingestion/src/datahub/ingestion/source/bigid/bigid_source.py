@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -36,6 +37,7 @@ from datahub.ingestion.source.bigid.constants import (
     APP_TYPE_RISK,
     BIGID_DATA_PLATFORM_URN,
     BIGID_IDSOR_GLOSSARY_NODE_URN,
+    BIGID_PLATFORM_NAME,
     BIGID_ROOT_GLOSSARY_NODE_URN,
     BIGID_TYPE_TO_PLATFORM,
     BUSINESS_TERM_PREFIX,
@@ -344,6 +346,13 @@ class BigIDSource(StatefulIngestionSourceBase):
         ).as_workunit()
         self.report.glossary_nodes_emitted += 1
 
+    def _domain_urn(self, value: str) -> str:
+        # GUID-based domain URN via DomainKey (urn:li:domain:<guid>) rather than a
+        # human-readable slug. platform=bigid namespaces the hash so BigID domains
+        # never collide with same-named domains from other sources. The human-
+        # readable label is carried separately on DomainPropertiesClass.name.
+        return DomainKey(name=value, platform=BIGID_PLATFORM_NAME).as_urn()
+
     def _emit_domain_entities(self) -> Iterator[MetadataWorkUnit]:
         seen_domains: set[str] = set()
         seen_sub_domains: dict[str, str] = {}  # sub_domain value → parent domain value
@@ -357,7 +366,7 @@ class BigIDSource(StatefulIngestionSourceBase):
                 seen_sub_domains[sub_domain_val] = domain_val
 
         for domain_val in seen_domains:
-            domain_urn = builder.make_domain_urn(f"bigid.{_slugify(domain_val)}")
+            domain_urn = self._domain_urn(domain_val)
             if domain_urn not in self._emitted_domain_urns:
                 try:
                     props_wu = MetadataChangeProposalWrapper(
@@ -380,8 +389,8 @@ class BigIDSource(StatefulIngestionSourceBase):
                 self._emitted_domain_urns.add(domain_urn)
 
         for sub_domain_val, parent_domain_val in seen_sub_domains.items():
-            sub_urn = builder.make_domain_urn(f"bigid.{_slugify(sub_domain_val)}")
-            parent_urn = builder.make_domain_urn(f"bigid.{_slugify(parent_domain_val)}")
+            sub_urn = self._domain_urn(sub_domain_val)
+            parent_urn = self._domain_urn(parent_domain_val)
             if sub_urn not in self._emitted_domain_urns:
                 try:
                     props_wu = MetadataChangeProposalWrapper(
@@ -503,9 +512,9 @@ class BigIDSource(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         if self.config.domain_mode == "auto_namespaced":
             if sub_domain_val:
-                return builder.make_domain_urn(f"bigid.{_slugify(sub_domain_val)}")
+                return self._domain_urn(sub_domain_val)
             if domain_val:
-                return builder.make_domain_urn(f"bigid.{_slugify(domain_val)}")
+                return self._domain_urn(domain_val)
         elif self.config.domain_mode == "config_map":
             key = sub_domain_val or domain_val
             return self.config.domain_mapping.get(key)

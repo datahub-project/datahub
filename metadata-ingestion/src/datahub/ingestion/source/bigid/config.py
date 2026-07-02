@@ -116,7 +116,8 @@ class BigIDSourceConfig(
         default="none",
         description="Domain handling mode. "
         "'none': store raw domain/sub_domain in customProperties only. "
-        "'auto_namespaced': auto-create urn:li:domain:bigid.{slug} entities. "
+        "'auto_namespaced': auto-create GUID-based urn:li:domain entities "
+        "(one per BigID domain/sub-domain, keyed deterministically by name). "
         "'config_map': map BigID domain values to existing DataHub domain URNs.",
     )
     domain_mapping: dict[str, str] = Field(

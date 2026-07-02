@@ -9,9 +9,11 @@ from unittest.mock import patch
 import pytest
 import time_machine
 
+from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigid.bigid_api import BigIDClient
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource
+from datahub.ingestion.source.bigid.constants import BIGID_PLATFORM_NAME
 from datahub.ingestion.source.bigid.models import (
     BigIDCatalogObject,
     BigIDClassification,
@@ -396,15 +398,18 @@ def test_unlinked_classifier_term_content() -> None:
 
 
 def test_domain_mode_auto_namespaced_emits_domain_entities() -> None:
-    """auto_namespaced mode must produce domainProperties MCPs with bigid.-namespaced URNs."""
+    """auto_namespaced mode must produce domainProperties MCPs with GUID-based domain URNs."""
     mcps = _run_source({"domain_mode": "auto_namespaced"})
     domain_mcps = [m for m in mcps if m.get("aspectName") == "domainProperties"]
     assert domain_mcps, (
         "Expected at least one domainProperties MCP in auto_namespaced mode"
     )
     domain_urns = {m["entityUrn"] for m in domain_mcps}
-    assert any("bigid." in u for u in domain_urns), (
-        f"Expected at least one domain URN containing 'bigid.', got: {domain_urns}"
+    # "Customer" is a domain on the glossary fixture; its URN is the deterministic
+    # DomainKey GUID, not a human-readable slug.
+    expected = DomainKey(name="Customer", platform=BIGID_PLATFORM_NAME).as_urn()
+    assert expected in domain_urns, (
+        f"Expected GUID domain URN {expected} for 'Customer', got: {domain_urns}"
     )
 
 

@@ -5,9 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import time_machine
 
+from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource, _is_idsor_attr
 from datahub.ingestion.source.bigid.config import BigIDSourceConfig
+from datahub.ingestion.source.bigid.constants import BIGID_PLATFORM_NAME
 from datahub.ingestion.source.bigid.models import (
     BigIDAttributeDetail,
     BigIDCatalogObject,
@@ -560,13 +562,13 @@ def test_risk_score_non_numeric_skipped():
             {"domain_mode": "auto_namespaced"},
             "Customer",
             "Identity",
-            "urn:li:domain:bigid.identity",
+            DomainKey(name="Identity", platform=BIGID_PLATFORM_NAME).as_urn(),
         ),
         (
             {"domain_mode": "auto_namespaced"},
             "Customer",
             "",
-            "urn:li:domain:bigid.customer",
+            DomainKey(name="Customer", platform=BIGID_PLATFORM_NAME).as_urn(),
         ),
         ({"domain_mode": "none"}, "Customer", "Identity", None),
         # config_map: exact key mapping wins

@@ -44,8 +44,10 @@ RISK_SCORE_TAG_NAME = "riskScore"
 
 # Actor stamped on every aspect this connector emits.
 DATAHUB_ACTOR_URN = "urn:li:corpuser:datahub"
-# Provenance recorded on GlossaryTerm attributions.
-BIGID_DATA_PLATFORM_URN = "urn:li:dataPlatform:bigid"
+# DataHub data platform name for BigID; the "urn:li:dataPlatform:" form is the
+# provenance recorded on GlossaryTerm attributions.
+BIGID_PLATFORM_NAME = "bigid"
+BIGID_DATA_PLATFORM_URN = f"urn:li:dataPlatform:{BIGID_PLATFORM_NAME}"
 
 # BigID attributeDetails `name` prefixes. MD:: must be tested before the bare
 # classifier prefix since it is a longer match on the same string.
