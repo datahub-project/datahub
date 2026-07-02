@@ -1020,6 +1020,9 @@
     "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
   },
+  "github": {
+    "img_path": "img/logos/platforms/github.png"
+  },
   "github-documents": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",
