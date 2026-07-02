@@ -1,0 +1,169 @@
+import logging
+from dataclasses import dataclass
+from typing import Dict, Optional, Protocol
+
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.source.montecarlo.client import ResolvedTable
+from datahub.ingestion.source.montecarlo.config import (
+    MonteCarloPlatformDetail,
+    MonteCarloSourceConfig,
+)
+from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
+
+logger = logging.getLogger(__name__)
+
+# Monte Carlo connection/warehouse types -> DataHub platform names.
+CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
+    "snowflake": "snowflake",
+    "bigquery": "bigquery",
+    "redshift": "redshift",
+    "databricks": "databricks",
+    "databricks-metastore": "databricks",
+    "databricks-sql": "databricks",
+    "spark": "spark",
+    "presto": "presto",
+    "hive": "hive",
+    "glue": "glue",
+    "athena": "athena",
+    "postgres": "postgres",
+    "mysql": "mysql",
+    "oracle": "oracle",
+    "sql-server": "mssql",
+    "synapse": "mssql",
+    "teradata": "teradata",
+    "transactional-db": "postgres",
+}
+
+# Warehouse platforms whose DataHub source emits lowercased dataset URNs by
+# default (Snowflake sets convert_urns_to_lowercase=True; Redshift folds unquoted
+# identifiers to lowercase). MC assertion URNs must match those exactly to attach
+# to the right dataset, so we lowercase the table path for these platforms only.
+# Case-preserving platforms (e.g. BigQuery) keep the original case. The
+# convert_urns_to_lowercase config flag forces lowercase everywhere when set.
+LOWERCASE_URN_PLATFORMS = {"snowflake", "redshift"}
+
+
+class TableResolverClient(Protocol):
+    """The subset of the Monte Carlo client the resolver depends on."""
+
+    def get_table(self, mcon: str) -> Optional[ResolvedTable]: ...
+
+
+@dataclass(frozen=True)
+class ParsedMcon:
+    account_id: str
+    resource_id: str
+    object_type: str
+    object_id: str
+
+
+def parse_mcon(mcon: str) -> Optional[ParsedMcon]:
+    """Parse ``MCON++{account}++{resource}++{object_type}++{object_id}``."""
+    if not mcon or not mcon.startswith("MCON++"):
+        return None
+    parts = mcon.split("++")
+    if len(parts) != 5:
+        return None
+    _, account_id, resource_id, object_type, object_id = parts
+    return ParsedMcon(
+        account_id=account_id,
+        resource_id=resource_id,
+        object_type=object_type,
+        object_id=object_id,
+    )
+
+
+class MconResolver:
+    """Resolves Monte Carlo MCONs into DataHub dataset (and field) URNs.
+
+    Each MCON is resolved via ``getTable`` to obtain the full table path and the
+    warehouse connection type, which is then mapped to a DataHub platform. Results
+    are cached per MCON to avoid repeated API calls.
+    """
+
+    def __init__(
+        self,
+        config: MonteCarloSourceConfig,
+        client: TableResolverClient,
+        report: MonteCarloSourceReport,
+    ) -> None:
+        self.config = config
+        self.client = client
+        self.report = report
+        self._cache: Dict[str, Optional[str]] = {}
+
+    def _platform_detail(
+        self, resource_id: str, connection_type: Optional[str]
+    ) -> Optional[MonteCarloPlatformDetail]:
+        mapped = self.config.connection_to_platform_map.get(resource_id)
+        if mapped is not None:
+            return mapped
+        platform: Optional[str] = None
+        if connection_type:
+            platform = CONNECTION_TYPE_TO_PLATFORM.get(connection_type.lower())
+        platform = platform or self.config.default_platform
+        if platform is None:
+            return None
+        return MonteCarloPlatformDetail(
+            platform=platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def dataset_urn_for_mcon(self, mcon: str) -> Optional[str]:
+        if mcon in self._cache:
+            return self._cache[mcon]
+        urn = self._resolve(mcon)
+        self._cache[mcon] = urn
+        return urn
+
+    def _resolve(self, mcon: str) -> Optional[str]:
+        try:
+            resolved = self.client.get_table(mcon)
+            parsed = parse_mcon(mcon)
+            if resolved is None or parsed is None:
+                self.report.report_mcon_resolution_failed()
+                self.report.warning(
+                    title="Unresolvable Monte Carlo asset",
+                    message="Could not resolve MCON to a warehouse table; skipping.",
+                    context=mcon,
+                )
+                return None
+
+            detail = self._platform_detail(parsed.resource_id, resolved.connection_type)
+            if detail is None:
+                self.report.mcons_unmapped_platform.append(mcon)
+                self.report.warning(
+                    title="Unmapped Monte Carlo warehouse",
+                    message="No platform mapping for this warehouse connection type. "
+                    "Add it to connection_to_platform_map or set default_platform.",
+                    context=f"{mcon} (connection_type={resolved.connection_type})",
+                )
+                return None
+
+            # Match the casing the warehouse source emits so the assertion attaches
+            # to the same dataset entity: Snowflake/Redshift lowercase URNs, BigQuery
+            # and other platforms preserve case. convert_urns_to_lowercase forces
+            # lowercase everywhere.
+            table_id = resolved.full_table_id
+            if (
+                self.config.convert_urns_to_lowercase
+                or detail.platform in LOWERCASE_URN_PLATFORMS
+            ):
+                table_id = table_id.lower()
+            self.report.report_mcon_resolved()
+            return make_dataset_urn_with_platform_instance(
+                platform=detail.platform,
+                name=table_id,
+                platform_instance=detail.platform_instance,
+                env=detail.env,
+            )
+        except Exception as e:
+            self.report.report_mcon_resolution_failed()
+            self.report.warning(
+                title="Error resolving Monte Carlo asset",
+                message="Failed to resolve MCON to a dataset URN; skipping.",
+                context=mcon,
+                exc=e,
+            )
+            return None
