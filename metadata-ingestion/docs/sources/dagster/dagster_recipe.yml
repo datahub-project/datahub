@@ -1,0 +1,43 @@
+source:
+  type: dagster
+  config:
+    # Dagster OSS webserver. For Dagster+, use https://<org>.dagster.cloud
+    host: "http://localhost:3000"
+
+    # How to write to DataHub:
+    #   enrich (default) — only top up assets that already exist (e.g. created by
+    #     the Dagster plugin) with PATCH metadata; requires the sink below.
+    #   full — create/own the assets as standalone Datasets (initial load, or
+    #     when running without the Dagster plugin).
+    extraction_mode: enrich
+
+    # Dagster+ (Cloud) settings — omit for OSS.
+    # is_cloud: true
+    # deployment: prod
+    # token: "${DAGSTER_CLOUD_TOKEN}"
+
+    # Filtering (optional)
+    job_pattern:
+      allow: [".*"]
+    asset_pattern:
+      allow: [".*"]
+
+    # Lower this if the Dagster webserver times out on very large repositories.
+    asset_page_size: 1000
+
+    # Feature toggles
+    include_assets: true # emit Software-Defined Assets as Datasets
+    include_asset_lineage: true # table-level asset -> asset lineage
+    include_column_lineage: true # fine-grained column lineage (when assets expose it)
+    include_ownership: true
+    include_tags: true
+    include_metadata: true
+    # Emit Dagster jobs/ops as DataFlow/DataJob. Off by default so the graph
+    # shows only assets; set true if you want the orchestration nodes too.
+    include_jobs: false
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs
