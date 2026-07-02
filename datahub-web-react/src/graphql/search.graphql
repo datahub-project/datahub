@@ -211,10 +211,16 @@ fragment autoCompleteFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on GlossaryNode {
         properties {
             name
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
     }
     ... on Domain {
@@ -927,6 +933,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -1310,6 +1319,9 @@ fragment facetFields on FacetMetadata {
                 }
                 parentNodes {
                     ...parentNodesFields
+                }
+                displayProperties {
+                    ...displayPropertiesFields
                 }
             }
             ... on DataPlatform {

@@ -10,6 +10,7 @@ import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
 import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
 import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
@@ -27,6 +28,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
@@ -132,6 +134,7 @@ const EntityDropdown = (props: Props) => {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState(false);
+    const [isEditGlossaryModalVisible, setIsEditGlossaryModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
@@ -317,6 +320,17 @@ const EntityDropdown = (props: Props) => {
             title: tc('edit'),
             icon: Pencil,
             onClick: onEdit,
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.EDIT_GLOSSARY)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '9b',
+            title: tc('edit'),
+            icon: PencilSimple,
+            onClick: () => setIsEditGlossaryModalVisible(true),
+            'data-testid': 'entity-menu-edit-glossary-button',
         });
     }
 
@@ -527,6 +541,15 @@ const EntityDropdown = (props: Props) => {
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
                     isCloning
+                />
+            )}
+            {isEditGlossaryModalVisible && isGlossaryEntity && (
+                <EditGlossaryEntityModal
+                    urn={urn}
+                    entityType={entityType}
+                    entityData={entityData}
+                    onClose={() => setIsEditGlossaryModalVisible(false)}
+                    refetchData={refetchForEntity}
                 />
             )}
             {isDeprecationModalVisible && (

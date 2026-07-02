@@ -29,8 +29,6 @@ smoke-test-python:
   - "smoke-test/pyproject.toml"
   - "smoke-test/requirements.txt"
   - "smoke-test/build.gradle"
-smoke-test-cypress:
-  - "smoke-test/tests/cypress/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
 playwright-e2e:

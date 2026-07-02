@@ -28,6 +28,7 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
+import type { IngestionSourceListDeepLinkState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import {
     DEFAULT_SOURCE_SORT_CRITERION,
     buildOwnerEntities,
@@ -200,6 +201,7 @@ export const IngestionSourceList = ({
     const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
     const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
     const [isModalWaiting, setIsModalWaiting] = useState<boolean>(false);
+    const [createModalInitialState, setCreateModalInitialState] = useState<SourceBuilderState | undefined>();
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -290,6 +292,16 @@ export const IngestionSourceList = ({
     const isLastPage = totalSources <= pageSize * page;
     // this is required when the ingestion source has not been created
     const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        const deepLinkState = location.state as IngestionSourceListDeepLinkState | undefined;
+        if (deepLinkState?.openCreateIngestionModal && deepLinkState.initialBuilderState) {
+            setCreateModalInitialState(deepLinkState.initialBuilderState);
+            setSelectedSourceType(deepLinkState.sourceType);
+            setShowCreateModal(true);
+            history.replace({ pathname: location.pathname, search: location.search });
+        }
+    }, [history, location.pathname, location.search, location.state, setShowCreateModal]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
@@ -608,6 +620,7 @@ export const IngestionSourceList = ({
         setShowCreateModal(false);
         setIsViewingRecipe(false);
         setFocusSourceUrn(undefined);
+        setCreateModalInitialState(undefined);
     };
 
     const onChangeSort = useCallback(
@@ -702,7 +715,11 @@ export const IngestionSourceList = ({
                 )}
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
+                initialState={
+                    focusSource
+                        ? mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))
+                        : createModalInitialState
+                }
                 open={showCreateModal}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
