@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -30,6 +31,8 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
+import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -1143,5 +1146,115 @@ public class TimeseriesAspectServiceUnitTest {
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
     verify(bulkProcessor).add(any(OperationContext.class), eq(docId), captor.capture());
     Assert.assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsEmptyUrns() throws IOException {
+    // Empty URN list must return immediately without touching ES.
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            Collections.emptyList(),
+            null,
+            null,
+            "urn");
+
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
+    verify(searchClient, never()).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsBatchPathSingleCall() throws IOException {
+    // With batchLoadEnabled=true (default) all URNs in one sub-batch → exactly 1 ES call
+    // regardless of N (contrast: per-URN path would call N times).
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:111"),
+            UrnUtils.getUrn("urn:li:dataset:222"),
+            UrnUtils.getUrn("urn:li:dataset:333"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            null,
+            null,
+            "urn");
+
+    Assert.assertEquals(result.size(), 3);
+    // 3 URNs fit in one sub-batch → exactly 1 ES call.
+    verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsSubBatching() throws IOException {
+    // With maxUrnsPerBatch=2 and 5 URNs the service issues ceil(5/2)=3 ES calls.
+    TimeseriesAspectServiceConfig subBatchConfig =
+        TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchAggMaxUrnsPerBatch(2).build();
+    ElasticSearchTimeseriesAspectService subBatchService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            subBatchConfig,
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    // Minimal valid response: outer URN agg with no buckets (all input URNs → empty tables).
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:1"),
+            UrnUtils.getUrn("urn:li:dataset:2"),
+            UrnUtils.getUrn("urn:li:dataset:3"),
+            UrnUtils.getUrn("urn:li:dataset:4"),
+            UrnUtils.getUrn("urn:li:dataset:5"));
+
+    Map<Urn, GenericTable> result =
+        subBatchService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            null,
+            null,
+            "urn");
+
+    // All 5 URNs present (each got an empty table from the absent-from-ES fallback).
+    Assert.assertEquals(result.size(), 5);
+    // 3 sub-batches: [1,2] [3,4] [5] → 3 ES calls.
+    verify(searchClient, times(3)).search(any(), any(), any());
   }
 }
