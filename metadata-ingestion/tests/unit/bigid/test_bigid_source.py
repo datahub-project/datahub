@@ -1,19 +1,3 @@
-"""
-Unit tests for BigIDSource — focused on business logic of the source class:
-  - Platform registry loading (_load_registries)
-  - FQN → URN construction (_make_dataset_urn)
-  - Classification resolution (_resolve_attr_to_glossary_id)
-  - GlossaryTerm emission (_emit_glossary_terms)
-  - Tag routing (_emit_tag_entity)
-  - Confidence threshold filtering (_emit_schema_field_enrichment)
-  - Domain resolution (_resolve_domain_urn)
-  - DatasetProfile field derivation (_emit_dataset_profile)
-  - MetadataAttribution sourceDetail
-  - Error handling (_process_catalog_object)
-"""
-
-from __future__ import annotations
-
 import time
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -22,12 +6,54 @@ import pytest
 import time_machine
 
 from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
-from datahub.ingestion.source.bigid.bigid_config import BigIDSourceConfig
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource, _is_idsor_attr
-from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
+from datahub.ingestion.source.bigid.config import BigIDSourceConfig
+from datahub.ingestion.source.bigid.models import (
+    BigIDAttributeDetail,
+    BigIDCatalogObject,
+    BigIDColumn,
+    BigIDConnection,
+    BigIDGlossaryItem,
+    IDSoRAttributeInfo,
+)
 from datahub.metadata.schema_classes import ChangeTypeClass
 
 FROZEN_TIME = "2026-01-15T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# Model builders — the connector consumes typed models (validated at the
+# BigIDClient boundary), so tests build the same models from raw dicts that
+# mirror the BigID API JSON.
+# ---------------------------------------------------------------------------
+
+
+def _columns(raw: list[dict[str, Any]]) -> list[BigIDColumn]:
+    return [BigIDColumn.model_validate(item) for item in raw]
+
+
+def _attr(raw: dict[str, Any]) -> BigIDAttributeDetail:
+    return BigIDAttributeDetail.model_validate(raw)
+
+
+def _catalog_object(raw: dict[str, Any]) -> BigIDCatalogObject:
+    return BigIDCatalogObject.model_validate(raw)
+
+
+def _catalog_objects(raw: list[dict[str, Any]]) -> list[BigIDCatalogObject]:
+    return [BigIDCatalogObject.model_validate(item) for item in raw]
+
+
+def _connections(raw: list[dict[str, Any]]) -> list[BigIDConnection]:
+    return [BigIDConnection.model_validate(item) for item in raw]
+
+
+def _glossary_item(raw: dict[str, Any]) -> BigIDGlossaryItem:
+    return BigIDGlossaryItem.model_validate(raw)
+
+
+def _glossary_items(raw: list[dict[str, Any]]) -> list[BigIDGlossaryItem]:
+    return [BigIDGlossaryItem.model_validate(item) for item in raw]
 
 
 @pytest.fixture(autouse=True)
@@ -73,10 +99,12 @@ def _make_source(**config_overrides) -> BigIDSource:
 
 def test_load_registries_populates_platform_map():
     source = _make_source()
-    source.client.get_connections.return_value = [
-        {"name": "my_snowflake", "type": "snowflake"},
-        {"name": "my_mysql", "type": "rdb-mysql"},
-    ]
+    source.client.get_connections.return_value = _connections(
+        [
+            {"name": "my_snowflake", "type": "snowflake"},
+            {"name": "my_mysql", "type": "rdb-mysql"},
+        ]
+    )
     source.client.get_all_classifications.return_value = []
     source.client.get_glossary_items.return_value = []
 
@@ -92,9 +120,11 @@ def test_load_registries_explicit_override_wins():
             "my_conn": {"platform": "bigquery", "env": "DEV"},
         }
     )
-    source.client.get_connections.return_value = [
-        {"name": "my_conn", "type": "rdb-mysql"},  # would auto-detect as mysql
-    ]
+    source.client.get_connections.return_value = _connections(
+        [
+            {"name": "my_conn", "type": "rdb-mysql"},  # would auto-detect as mysql
+        ]
+    )
     source.client.get_all_classifications.return_value = []
     source.client.get_glossary_items.return_value = []
 
@@ -105,9 +135,11 @@ def test_load_registries_explicit_override_wins():
 
 def test_load_registries_unknown_type_warns():
     source = _make_source()
-    source.client.get_connections.return_value = [
-        {"name": "exotic_conn", "type": "some-unknown-type"},
-    ]
+    source.client.get_connections.return_value = _connections(
+        [
+            {"name": "exotic_conn", "type": "some-unknown-type"},
+        ]
+    )
     source.client.get_all_classifications.return_value = []
     source.client.get_glossary_items.return_value = []
 
@@ -138,8 +170,13 @@ def test_make_dataset_urn_snowflake_lowercased():
     source = _make_source()
     source._platform_map["SNOWFLAKE_PROD"] = "snowflake"
 
-    urn = source._make_dataset_urn("SNOWFLAKE_PROD.MY_DB.MY_SCHEMA.MY_TABLE", "SNOWFLAKE_PROD")
-    assert urn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+    urn = source._make_dataset_urn(
+        "SNOWFLAKE_PROD.MY_DB.MY_SCHEMA.MY_TABLE", "SNOWFLAKE_PROD"
+    )
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+    )
 
 
 def test_make_dataset_urn_with_platform_instance():
@@ -187,7 +224,7 @@ def test_make_dataset_urn_encodes_comma_and_colon():
     assert "%2C" in urn  # comma encoded
     assert "%3A" in urn  # colon encoded
     # Raw delimiter characters must not appear in the name segment
-    name_segment = urn[urn.index("mysql,") + len("mysql,"):]
+    name_segment = urn[urn.index("mysql,") + len("mysql,") :]
     name_segment = name_segment.rsplit(",", 1)[0]  # strip trailing ,PROD
     assert "," not in name_segment
     assert ":" not in name_segment
@@ -198,40 +235,33 @@ def test_make_dataset_urn_encodes_comma_and_colon():
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_classifier_prefix_via_all_classifications():
+@pytest.mark.parametrize(
+    ("glossary_id_map", "attr_name", "name_map", "expected"),
+    [
+        # classifier.* resolved via the all-classifications map
+        (
+            {"classifier.Email": "fn_ootb_email"},
+            "classifier.Email",
+            {},
+            "fn_ootb_email",
+        ),
+        # MD:: metadata classifiers keep their full key in the map
+        (
+            {"classifier.MD::Postal Code - MD": "fn_postal_code"},
+            "classifier.MD::Postal Code - MD",
+            {},
+            "fn_postal_code",
+        ),
+        # businessTerm.* resolved via the glossary name lookup
+        ({}, "businessTerm.First Name", {"First Name": "bt_item_HK2A"}, "bt_item_HK2A"),
+        ({}, "unknownPrefix.Something", {}, None),  # unrecognised prefix
+        ({}, "classifier.NonExistent", {}, None),  # classifier absent from map
+    ],
+)
+def test_resolve_attr_to_glossary_id(glossary_id_map, attr_name, name_map, expected):
     source = _make_source()
-    source._glossary_id_map["classifier.Email"] = "fn_ootb_email"
-
-    result = source._resolve_attr_to_glossary_id("classifier.Email", {})
-    assert result == "fn_ootb_email"
-
-
-def test_resolve_classifier_md_prefix():
-    source = _make_source()
-    source._glossary_id_map["classifier.MD::Postal Code - MD"] = "fn_postal_code"
-
-    result = source._resolve_attr_to_glossary_id("classifier.MD::Postal Code - MD", {})
-    assert result == "fn_postal_code"
-
-
-def test_resolve_business_term_prefix_via_name_lookup():
-    source = _make_source()
-    name_map = {"First Name": "bt_item_HK2A"}
-
-    result = source._resolve_attr_to_glossary_id("businessTerm.First Name", name_map)
-    assert result == "bt_item_HK2A"
-
-
-def test_resolve_unknown_prefix_returns_none():
-    source = _make_source()
-    result = source._resolve_attr_to_glossary_id("unknownPrefix.Something", {})
-    assert result is None
-
-
-def test_resolve_classifier_not_in_map_returns_none():
-    source = _make_source()
-    result = source._resolve_attr_to_glossary_id("classifier.NonExistent", {})
-    assert result is None
+    source._glossary_id_map.update(glossary_id_map)
+    assert source._resolve_attr_to_glossary_id(attr_name, name_map) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +269,21 @@ def test_resolve_classifier_not_in_map_returns_none():
 # ---------------------------------------------------------------------------
 
 
-def test_confidence_threshold_filters_low():
-    """With threshold 0.75 (HIGH), MEDIUM and LOW findings are skipped."""
-    source = _make_source(minimum_confidence_threshold=0.75)
+@pytest.mark.parametrize(
+    ("threshold", "ranks", "expected_below", "expected_workunits"),
+    [
+        # HIGH threshold: the MEDIUM finding is filtered, HIGH passes (two findings
+        # on one classifier so only the surviving HIGH yields an association)
+        (0.75, ["MEDIUM", "HIGH"], 1, 1),
+        (0.0, ["LOW"], 0, 1),  # threshold 0 lets even LOW through
+        (0.50, ["MEDIUM"], 0, 1),  # MEDIUM (0.50) sits on the boundary — inclusive
+        (0.51, ["MEDIUM"], 1, 0),  # just above MEDIUM's score filters it
+    ],
+)
+def test_confidence_threshold_filtering(
+    threshold, ranks, expected_below, expected_workunits
+):
+    source = _make_source(minimum_confidence_threshold=threshold)
     source._glossary_id_map["classifier.Email"] = "fn_email"
 
     columns = [
@@ -249,115 +291,24 @@ def test_confidence_threshold_filters_low():
             "columnName": "email",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["MEDIUM"], "type": "Classification"},
-                {"name": "classifier.Email", "ranks": ["HIGH"], "type": "Classification"},
+                {"name": "classifier.Email", "ranks": [rank], "type": "Classification"}
+                for rank in ranks
             ],
             "fieldClassifications": [],
             "columnProfile": {},
         }
     ]
-    now_ms = int(time.time() * 1000)
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "my_conn",
             {},
-            now_ms,
+            int(time.time() * 1000),
         )
     )
-    # Only HIGH passes threshold — one association
-    assert source.report.findings_below_threshold == 1
-    assert len(workunits) == 1
-
-
-def test_confidence_threshold_zero_passes_all():
-    source = _make_source(minimum_confidence_threshold=0.0)
-    source._glossary_id_map["classifier.Email"] = "fn_email"
-
-    columns = [
-        {
-            "columnName": "email",
-            "fieldType": "varchar",
-            "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["LOW"], "type": "Classification"},
-            ],
-            "fieldClassifications": [],
-            "columnProfile": {},
-        }
-    ]
-    now_ms = int(time.time() * 1000)
-    workunits = list(
-        source._emit_schema_field_enrichment(
-            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
-            "my_conn",
-            {},
-            now_ms,
-        )
-    )
-    assert source.report.findings_below_threshold == 0
-    assert len(workunits) == 1
-
-
-def test_confidence_threshold_medium_exactly_at_boundary_passes():
-    """At threshold=0.50, MEDIUM findings (score=0.50) must pass — boundary is inclusive."""
-    source = _make_source(minimum_confidence_threshold=0.50)
-    source._glossary_id_map["classifier.Email"] = "fn_email"
-
-    columns = [
-        {
-            "columnName": "email",
-            "fieldType": "varchar",
-            "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["MEDIUM"], "type": "Classification"},
-            ],
-            "fieldClassifications": [],
-            "columnProfile": {},
-        }
-    ]
-    now_ms = int(time.time() * 1000)
-    workunits = list(
-        source._emit_schema_field_enrichment(
-            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
-            "my_conn",
-            {},
-            now_ms,
-        )
-    )
-    assert source.report.findings_below_threshold == 0
-    assert len(workunits) == 1
-
-
-def test_confidence_threshold_just_above_medium_filters_it():
-    """At threshold=0.51, MEDIUM findings (score=0.50) must be filtered out."""
-    source = _make_source(minimum_confidence_threshold=0.51)
-    source._glossary_id_map["classifier.Email"] = "fn_email"
-
-    columns = [
-        {
-            "columnName": "email",
-            "fieldType": "varchar",
-            "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["MEDIUM"], "type": "Classification"},
-            ],
-            "fieldClassifications": [],
-            "columnProfile": {},
-        }
-    ]
-    now_ms = int(time.time() * 1000)
-    workunits = list(
-        source._emit_schema_field_enrichment(
-            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
-            "my_conn",
-            {},
-            now_ms,
-        )
-    )
-    assert source.report.findings_below_threshold == 1
-    assert len(workunits) == 0
+    assert source.report.findings_below_threshold == expected_below
+    assert len(workunits) == expected_workunits
 
 
 # ---------------------------------------------------------------------------
@@ -367,49 +318,63 @@ def test_confidence_threshold_just_above_medium_filters_it():
 
 def test_glossary_term_urn_uses_glossary_id():
     source = _make_source()
-    item = {"glossary_id": "bt_item_HK2A", "name": "First Name"}
+    item = _glossary_item({"glossary_id": "bt_item_HK2A", "name": "First Name"})
     assert source._glossary_term_urn(item) == "urn:li:glossaryTerm:bigid.bt_item_HK2A"
 
 
 def test_glossary_term_urn_falls_back_to_name_slug():
     source = _make_source()
-    item = {"glossary_id": "", "name": "My Custom Term"}
+    item = _glossary_item({"glossary_id": "", "name": "My Custom Term"})
     assert source._glossary_term_urn(item) == "urn:li:glossaryTerm:bigid.my_custom_term"
 
 
 def test_should_include_item_respects_type_filter():
     source = _make_source(item_types=["Business Term"])
-    assert source._should_include_item({"type": "Business Term", "glossary_id": "x"})
-    assert not source._should_include_item({"type": "Personal Data Category", "glossary_id": "y"})
+    assert source._should_include_item(
+        _glossary_item({"type": "Business Term", "glossary_id": "x"})
+    )
+    assert not source._should_include_item(
+        _glossary_item({"type": "Personal Data Category", "glossary_id": "y"})
+    )
 
 
 def test_should_include_ootb_personal_data_item_regardless_of_filter():
     """OOTB Personal Data Items are always included — column enrichment references their URNs."""
     source = _make_source(item_types=["Business Term"])  # PDI not in allow-list
-    item = {"type": "Personal Data Item", "is_ootb": True, "glossary_id": "fn_ootb_email"}
+    item = _glossary_item(
+        {
+            "type": "Personal Data Item",
+            "is_ootb": True,
+            "glossary_id": "fn_ootb_email",
+        }
+    )
     assert source._should_include_item(item)
 
 
 def test_emit_glossary_terms_custom_properties():
     source = _make_source()
-    source._glossary_items = [
-        {
-            "_id": "abc123",
-            "glossary_id": "bt_HK1",
-            "type": "Business Term",
-            "name": "Customer ID",
-            "description": "Unique customer identifier",
-            "is_ootb": False,
-            "update_date": "2024-01-01T00:00:00Z",
-        }
-    ]
+    source._glossary_items = _glossary_items(
+        [
+            {
+                "_id": "abc123",
+                "glossary_id": "bt_HK1",
+                "type": "Business Term",
+                "name": "Customer ID",
+                "description": "Unique customer identifier",
+                "is_ootb": False,
+                "update_date": "2024-01-01T00:00:00Z",
+            }
+        ]
+    )
 
     workunits = list(source._emit_glossary_terms())
     assert len(workunits) >= 2
 
     term_info_wu = next(
-        wu for wu in workunits
-        if hasattr(wu.metadata, "aspect") and "GlossaryTermInfo" in type(wu.metadata.aspect).__name__
+        wu
+        for wu in workunits
+        if hasattr(wu.metadata, "aspect")
+        and "GlossaryTermInfo" in type(wu.metadata.aspect).__name__
     )
     aspect = term_info_wu.metadata.aspect
     assert aspect.name == "Customer ID"
@@ -422,15 +387,17 @@ def test_emit_glossary_terms_custom_properties():
 
 def test_emit_glossary_terms_emits_ownership_when_owner_set():
     source = _make_source(owner_type="user")
-    source._glossary_items = [
-        {
-            "_id": "abc",
-            "glossary_id": "bt_1",
-            "type": "Business Term",
-            "name": "Term A",
-            "owner": "alice",
-        }
-    ]
+    source._glossary_items = _glossary_items(
+        [
+            {
+                "_id": "abc",
+                "glossary_id": "bt_1",
+                "type": "Business Term",
+                "name": "Term A",
+                "owner": "alice",
+            }
+        ]
+    )
 
     workunits = list(source._emit_glossary_terms())
     wu_types = [type(wu.metadata.aspect).__name__ for wu in workunits]
@@ -439,15 +406,17 @@ def test_emit_glossary_terms_emits_ownership_when_owner_set():
 
 def test_emit_glossary_terms_no_ownership_when_owner_type_none():
     source = _make_source(owner_type="none")
-    source._glossary_items = [
-        {
-            "_id": "abc",
-            "glossary_id": "bt_1",
-            "type": "Business Term",
-            "name": "Term A",
-            "owner": "alice",
-        }
-    ]
+    source._glossary_items = _glossary_items(
+        [
+            {
+                "_id": "abc",
+                "glossary_id": "bt_1",
+                "type": "Business Term",
+                "name": "Term A",
+                "owner": "alice",
+            }
+        ]
+    )
 
     workunits = list(source._emit_glossary_terms())
     wu_types = [type(wu.metadata.aspect).__name__ for wu in workunits]
@@ -461,10 +430,17 @@ def test_emit_glossary_terms_no_ownership_when_owner_type_none():
 
 def test_tag_routing_sensitivity_classification_emits_tag():
     source = _make_source()
-    workunits = list(source._emit_tag_entity("system.sensitivityClassification.Sensitivity", "Confidential"))
+    workunits = list(
+        source._emit_tag_entity(
+            "system.sensitivityClassification.Sensitivity", "Confidential"
+        )
+    )
     assert len(workunits) == 2  # TagProperties + Status
     aspect = workunits[0].metadata.aspect
-    assert workunits[0].metadata.entityUrn == "urn:li:tag:bigid.system.sensitivityClassification.Sensitivity:Confidential"
+    assert (
+        workunits[0].metadata.entityUrn
+        == "urn:li:tag:bigid.system.sensitivityClassification.Sensitivity:Confidential"
+    )
     assert aspect.name == "Sensitivity : Confidential"
     assert aspect.description == "system.sensitivityClassification.Sensitivity"
 
@@ -478,17 +454,23 @@ def test_tag_urn_preserves_system_prefix():
     assert aspect.description == "system.risk.riskGroup"
 
 
-def test_tag_display_name_strips_system_prefix():
-    assert BigIDSource._tag_display_name("system.sensitivityClassification.Sensitivity", "Restricted") == "Sensitivity : Restricted"
-    assert BigIDSource._tag_display_name("system.risk.riskGroup", "high") == "riskGroup : high"
-
-
-def test_tag_display_name_preserves_user_defined_name():
-    assert BigIDSource._tag_display_name("Sen.Priority", "P3") == "Sen.Priority : P3"
-
-
-def test_tag_display_name_no_dot_in_name():
-    assert BigIDSource._tag_display_name("Sensitivity", "Confidential") == "Sensitivity : Confidential"
+@pytest.mark.parametrize(
+    ("tag_name", "tag_value", "expected"),
+    [
+        # system.* prefix stripped, leaf name retained
+        (
+            "system.sensitivityClassification.Sensitivity",
+            "Restricted",
+            "Sensitivity : Restricted",
+        ),
+        ("system.risk.riskGroup", "high", "riskGroup : high"),
+        # user-defined names (not system.*) are preserved verbatim, dots and all
+        ("Sen.Priority", "P3", "Sen.Priority : P3"),
+        ("Sensitivity", "Confidential", "Sensitivity : Confidential"),
+    ],
+)
+def test_tag_display_name(tag_name, tag_value, expected):
+    assert BigIDSource._tag_display_name(tag_name, tag_value) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -514,16 +496,19 @@ def test_risk_score_emitted_as_patch_not_upsert():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter([obj])
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([obj])
+    )
     source.client.get_columns.return_value = []
 
     workunits = list(source._process_catalog())
     risk_wus = [
-        wu for wu in workunits
-        if wu.metadata.aspectName == "structuredProperties"
+        wu for wu in workunits if wu.metadata.aspectName == "structuredProperties"
     ]
 
-    assert len(risk_wus) == 1, "Expected exactly one structuredProperties workunit for riskScore"
+    assert len(risk_wus) == 1, (
+        "Expected exactly one structuredProperties workunit for riskScore"
+    )
     assert risk_wus[0].metadata.changeType == ChangeTypeClass.PATCH, (
         "riskScore must use PATCH to avoid clobbering user-defined structured properties"
     )
@@ -547,13 +532,19 @@ def test_risk_score_non_numeric_skipped():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter([obj])
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([obj])
+    )
     source.client.get_columns.return_value = []
 
     workunits = list(source._process_catalog())
-    risk_wus = [wu for wu in workunits if wu.metadata.aspectName == "structuredProperties"]
+    risk_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "structuredProperties"
+    ]
 
-    assert risk_wus == [], "Non-numeric riskScore must produce no structuredProperties workunit"
+    assert risk_wus == [], (
+        "Non-numeric riskScore must produce no structuredProperties workunit"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -561,40 +552,57 @@ def test_risk_score_non_numeric_skipped():
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_domain_urn_auto_namespaced_sub_domain_takes_priority():
-    source = _make_source(domain_mode="auto_namespaced")
-    urn = source._resolve_domain_urn("Customer", "Identity")
-    assert urn == "urn:li:domain:bigid.identity"
-
-
-def test_resolve_domain_urn_auto_namespaced_domain_only():
-    source = _make_source(domain_mode="auto_namespaced")
-    urn = source._resolve_domain_urn("Customer", "")
-    assert urn == "urn:li:domain:bigid.customer"
-
-
-def test_resolve_domain_urn_none_mode_returns_none():
-    source = _make_source(domain_mode="none")
-    assert source._resolve_domain_urn("Customer", "Identity") is None
-
-
-def test_resolve_domain_urn_config_map():
-    source = _make_source(
-        domain_mode="config_map",
-        domain_mapping={"Identity": "urn:li:domain:existing-identity"},
-    )
-    urn = source._resolve_domain_urn("Customer", "Identity")
-    assert urn == "urn:li:domain:existing-identity"
-
-
-def test_resolve_domain_urn_config_map_missing_key_returns_none():
-    """An unmapped domain key in config_map mode must return None — no domain linked."""
-    source = _make_source(
-        domain_mode="config_map",
-        domain_mapping={"Finance": "urn:li:domain:finance"},
-    )
-    assert source._resolve_domain_urn("Customer", "") is None
-    assert source._resolve_domain_urn("Customer", "Identity") is None
+@pytest.mark.parametrize(
+    ("config", "domain_val", "sub_domain_val", "expected"),
+    [
+        # auto_namespaced: sub-domain wins over domain when both present
+        (
+            {"domain_mode": "auto_namespaced"},
+            "Customer",
+            "Identity",
+            "urn:li:domain:bigid.identity",
+        ),
+        (
+            {"domain_mode": "auto_namespaced"},
+            "Customer",
+            "",
+            "urn:li:domain:bigid.customer",
+        ),
+        ({"domain_mode": "none"}, "Customer", "Identity", None),
+        # config_map: exact key mapping wins
+        (
+            {
+                "domain_mode": "config_map",
+                "domain_mapping": {"Identity": "urn:li:domain:existing-identity"},
+            },
+            "Customer",
+            "Identity",
+            "urn:li:domain:existing-identity",
+        ),
+        # config_map: keys absent from the mapping resolve to no domain
+        (
+            {
+                "domain_mode": "config_map",
+                "domain_mapping": {"Finance": "urn:li:domain:finance"},
+            },
+            "Customer",
+            "",
+            None,
+        ),
+        (
+            {
+                "domain_mode": "config_map",
+                "domain_mapping": {"Finance": "urn:li:domain:finance"},
+            },
+            "Customer",
+            "Identity",
+            None,
+        ),
+    ],
+)
+def test_resolve_domain_urn(config, domain_val, sub_domain_val, expected):
+    source = _make_source(**config)
+    assert source._resolve_domain_urn(domain_val, sub_domain_val) == expected
 
 
 def test_emit_glossary_terms_config_map_missing_key_no_domain_aspect():
@@ -603,15 +611,17 @@ def test_emit_glossary_terms_config_map_missing_key_no_domain_aspect():
         domain_mode="config_map",
         domain_mapping={"Finance": "urn:li:domain:finance"},
     )
-    source._glossary_items = [
-        {
-            "_id": "x",
-            "glossary_id": "bt_1",
-            "type": "Business Term",
-            "name": "Customer ID",
-            "domain": "Customer",  # not in mapping
-        }
-    ]
+    source._glossary_items = _glossary_items(
+        [
+            {
+                "_id": "x",
+                "glossary_id": "bt_1",
+                "type": "Business Term",
+                "name": "Customer ID",
+                "domain": "Customer",  # not in mapping
+            }
+        ]
+    )
 
     workunits = list(source._emit_glossary_terms())
     aspect_names = {type(wu.metadata.aspect).__name__ for wu in workunits}
@@ -640,11 +650,13 @@ def test_emit_dataset_profile_numeric_column():
             },
         }
     ]
-    workunits = list(source._emit_dataset_profile(
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-        columns,
-        int(time.time() * 1000),
-    ))
+    workunits = list(
+        source._emit_dataset_profile(
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            _columns(columns),
+            int(time.time() * 1000),
+        )
+    )
     assert len(workunits) == 1
     profile = workunits[0].metadata.aspect
     assert profile.rowCount is None  # fieldCount is scan sample size, not row count
@@ -678,11 +690,13 @@ def test_emit_dataset_profile_textual_column():
             },
         }
     ]
-    workunits = list(source._emit_dataset_profile(
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-        columns,
-        int(time.time() * 1000),
-    ))
+    workunits = list(
+        source._emit_dataset_profile(
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            _columns(columns),
+            int(time.time() * 1000),
+        )
+    )
     fp = workunits[0].metadata.aspect.fieldProfiles[0]
     assert fp.min == "Aaron"
     assert fp.max == "Zara"
@@ -694,11 +708,13 @@ def test_emit_dataset_profile_textual_column():
 def test_emit_dataset_profile_empty_column_profile_skipped():
     source = _make_source()
     columns = [{"columnName": "col_no_profile", "columnProfile": {}}]
-    workunits = list(source._emit_dataset_profile(
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-        columns,
-        int(time.time() * 1000),
-    ))
+    workunits = list(
+        source._emit_dataset_profile(
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            _columns(columns),
+            int(time.time() * 1000),
+        )
+    )
     # Profile is emitted but no fieldProfiles since columnProfile was empty
     assert len(workunits) == 1
     profile = workunits[0].metadata.aspect
@@ -726,8 +742,16 @@ def test_source_detail_includes_friendly_name_for_high_only():
             "columnName": "contact",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["HIGH"], "type": "Classification"},
-                {"name": "classifier.Phone", "ranks": ["MEDIUM"], "type": "Classification"},
+                {
+                    "name": "classifier.Email",
+                    "ranks": ["HIGH"],
+                    "type": "Classification",
+                },
+                {
+                    "name": "classifier.Phone",
+                    "ranks": ["MEDIUM"],
+                    "type": "Classification",
+                },
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -737,7 +761,7 @@ def test_source_detail_includes_friendly_name_for_high_only():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "my_conn",
             {},
             now_ms,
@@ -749,10 +773,17 @@ def test_source_detail_includes_friendly_name_for_high_only():
     terms = field_info.glossaryTerms.terms
     assert len(terms) == 2
 
-    high_assoc = next(t for t in terms if t.attribution.sourceDetail["confidence_level"] == "HIGH")
-    med_assoc = next(t for t in terms if t.attribution.sourceDetail["confidence_level"] == "MEDIUM")
+    high_assoc = next(
+        t for t in terms if t.attribution.sourceDetail["confidence_level"] == "HIGH"
+    )
+    med_assoc = next(
+        t for t in terms if t.attribution.sourceDetail["confidence_level"] == "MEDIUM"
+    )
 
-    assert high_assoc.attribution.sourceDetail["classifier_friendly_name"] == "Email Address"
+    assert (
+        high_assoc.attribution.sourceDetail["classifier_friendly_name"]
+        == "Email Address"
+    )
     assert "classifier_friendly_name" not in med_assoc.attribution.sourceDetail
 
 
@@ -765,7 +796,11 @@ def test_source_detail_attribution_fields_populated():
             "columnName": "email_col",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "classifier.Email", "ranks": ["HIGH"], "type": "Classification"},
+                {
+                    "name": "classifier.Email",
+                    "ranks": ["HIGH"],
+                    "type": "Classification",
+                },
             ],
             "fieldClassifications": [
                 {
@@ -781,7 +816,7 @@ def test_source_detail_attribution_fields_populated():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "sales_conn",
             {},
             now_ms,
@@ -820,7 +855,7 @@ def test_process_catalog_object_column_fetch_failure_continues():
         "tags": [],
     }
 
-    workunits = list(source._process_catalog_object(obj, {}))
+    workunits = list(source._process_catalog_object(_catalog_object(obj), {}))
 
     # Enrichment counter incremented — object was not skipped
     assert source.report.datasets_enriched == 1
@@ -909,7 +944,9 @@ def test_process_catalog_excludes_hidden_tags():
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter([obj])
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([obj])
+    )
     source.client.get_columns.return_value = []
 
     with patch.object(source, "_emit_tag_entity") as mock_emit:
@@ -930,17 +967,143 @@ def test_process_catalog_excludes_wrong_application_type():
             {
                 "tagName": "Classification",
                 "tagValue": "PII",
+                "tagType": "OBJECT",
                 "properties": {"hidden": False, "applicationType": "unknownType"},
             }
         ],
     }
-    source.client.get_catalog_objects.side_effect = lambda: iter([obj])
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([obj])
+    )
     source.client.get_columns.return_value = []
 
     with patch.object(source, "_emit_tag_entity") as mock_emit:
         list(source._process_catalog())
 
     mock_emit.assert_not_called()
+
+
+def test_process_catalog_excludes_field_type_tags():
+    """FIELD-scoped tags must not become dataset Tag entities.
+
+    Column enrichment references confidence tags and terms from attributeDetails,
+    never these tags, so emitting them would create orphaned TagProperties entities.
+    """
+    source = _make_source()
+    source._platform_map["my_conn"] = "mysql"
+    obj = {
+        "fullyQualifiedName": "my_conn.schema.table",
+        "source": "my_conn",
+        "objectName": "table",
+        "scanner_type_group": "structured",
+        "tags": [
+            {
+                "tagName": "Sensitivity",
+                "tagValue": "PII",
+                "tagType": "FIELD",
+                "properties": {
+                    "hidden": False,
+                    "applicationType": "sensitivityClassification",
+                },
+            }
+        ],
+    }
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([obj])
+    )
+    source.client.get_columns.return_value = []
+
+    with patch.object(source, "_emit_tag_entity") as mock_emit:
+        list(source._process_catalog())
+
+    mock_emit.assert_not_called()
+
+
+def test_connection_pattern_filters_denied_objects():
+    """Objects whose source connection is denied by connection_pattern are skipped."""
+    source = _make_source(connection_pattern={"deny": ["^sandbox-.*"]})
+    source._platform_map["sandbox-db"] = "mysql"
+    source._platform_map["prod-db"] = "mysql"
+
+    denied = {
+        "fullyQualifiedName": "sandbox-db.s.t",
+        "source": "sandbox-db",
+        "objectName": "t",
+        "scanner_type_group": "structured",
+        "tags": [],
+    }
+    allowed = {
+        "fullyQualifiedName": "prod-db.s.t",
+        "source": "prod-db",
+        "objectName": "t",
+        "scanner_type_group": "structured",
+        "tags": [],
+    }
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([denied, allowed])
+    )
+    source.client.get_columns.return_value = []
+
+    list(source._process_catalog())
+
+    assert source.report.objects_filtered_by_connection == 1
+    assert "sandbox-db" in list(source.report.filtered_connections)
+    # Only the allowed object was enriched
+    assert source.report.datasets_enriched == 1
+
+
+# ---------------------------------------------------------------------------
+# Confidence-level tag deduplication (per field)
+# ---------------------------------------------------------------------------
+
+
+def test_confidence_level_tag_deduplicated_per_field():
+    """Two same-rank findings on one field must yield a single confidence tag URN.
+
+    GMS rejects a GlobalTagsClass containing duplicate tag URNs, so the field's
+    tag list must be deduplicated even when multiple classifiers share a rank.
+    """
+    source = _make_source(minimum_confidence_threshold=0.0, confidence_level_tag=True)
+    source._glossary_id_map["classifier.Email"] = "fn_email"
+    source._glossary_id_map["classifier.Phone"] = "fn_phone"
+
+    columns = [
+        {
+            "columnName": "contact",
+            "fieldType": "varchar",
+            "attributeDetails": [
+                {
+                    "name": "classifier.Email",
+                    "ranks": ["HIGH"],
+                    "type": "Classification",
+                },
+                {
+                    "name": "classifier.Phone",
+                    "ranks": ["HIGH"],
+                    "type": "Classification",
+                },
+            ],
+            "fieldClassifications": [],
+            "columnProfile": {},
+        }
+    ]
+    now_ms = int(time.time() * 1000)
+    workunits = list(
+        source._emit_schema_field_enrichment(
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            _columns(columns),
+            "my_conn",
+            {},
+            now_ms,
+        )
+    )
+    editable_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+    ]
+    assert len(editable_wus) == 1
+    field_info = editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0]
+    tag_urns = [t.tag for t in field_info.globalTags.tags]
+    assert tag_urns == ["urn:li:tag:bigid.confidence:HIGH"]
 
 
 # ---------------------------------------------------------------------------
@@ -962,23 +1125,20 @@ def test_make_dataset_urn_fallback_when_fqn_does_not_start_with_source():
 # ---------------------------------------------------------------------------
 
 
-def test_classifier_term_urn_plain():
-    source = _make_source()
-    assert source._classifier_term_urn("classifier.PHONE") == "urn:li:glossaryTerm:bigid.classifier.phone"
-
-
-def test_classifier_term_urn_strips_md_prefix():
-    source = _make_source()
-    assert (
-        source._classifier_term_urn("classifier.MD::Postal Code")
-        == "urn:li:glossaryTerm:bigid.classifier.postal_code"
-    )
-
-
-def test_classifier_term_urn_returns_none_for_empty_suffix():
-    source = _make_source()
-    # "classifier." with empty bare name → empty slug → None
-    assert source._classifier_term_urn("classifier.") is None
+@pytest.mark.parametrize(
+    ("attr_name", "expected"),
+    [
+        ("classifier.PHONE", "urn:li:glossaryTerm:bigid.classifier.phone"),
+        # MD:: metadata prefix is stripped before slugifying
+        (
+            "classifier.MD::Postal Code",
+            "urn:li:glossaryTerm:bigid.classifier.postal_code",
+        ),
+        ("classifier.", None),  # empty bare name → empty slug → None
+    ],
+)
+def test_classifier_term_urn(attr_name, expected):
+    assert _make_source()._classifier_term_urn(attr_name) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -994,14 +1154,18 @@ def test_classifier_term_deduplication():
         {
             "columnName": "phone1",
             "fieldType": "varchar",
-            "attributeDetails": [{"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}],
+            "attributeDetails": [
+                {"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}
+            ],
             "fieldClassifications": [],
             "columnProfile": {},
         },
         {
             "columnName": "phone2",
             "fieldType": "varchar",
-            "attributeDetails": [{"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}],
+            "attributeDetails": [
+                {"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}
+            ],
             "fieldClassifications": [],
             "columnProfile": {},
         },
@@ -1010,17 +1174,18 @@ def test_classifier_term_deduplication():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "my_conn",
             {},
             now_ms,
         )
     )
     term_info_wus = [
-        wu for wu in workunits
-        if wu.metadata.aspectName == "glossaryTermInfo"
+        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
     ]
-    assert len(term_info_wus) == 1, "Expected exactly one GlossaryTermInfo for deduplicated classifier"
+    assert len(term_info_wus) == 1, (
+        "Expected exactly one GlossaryTermInfo for deduplicated classifier"
+    )
     assert source.report.classifier_terms_emitted == 1
 
 
@@ -1036,7 +1201,9 @@ def test_threshold_filters_medium_unlinked_classifier():
         {
             "columnName": "col",
             "fieldType": "varchar",
-            "attributeDetails": [{"name": "classifier.PHONE", "ranks": ["MEDIUM"], "type": "classifier"}],
+            "attributeDetails": [
+                {"name": "classifier.PHONE", "ranks": ["MEDIUM"], "type": "classifier"}
+            ],
             "fieldClassifications": [],
             "columnProfile": {},
         }
@@ -1045,7 +1212,7 @@ def test_threshold_filters_medium_unlinked_classifier():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "my_conn",
             {},
             now_ms,
@@ -1069,7 +1236,9 @@ def test_unlinked_classifier_friendly_name_in_attribution():
         {
             "columnName": "phone",
             "fieldType": "varchar",
-            "attributeDetails": [{"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}],
+            "attributeDetails": [
+                {"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}
+            ],
             "fieldClassifications": [],
             "columnProfile": {},
         }
@@ -1078,15 +1247,19 @@ def test_unlinked_classifier_friendly_name_in_attribution():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
-            columns,
+            _columns(columns),
             "my_conn",
             {},
             now_ms,
         )
     )
-    editable_wus = [wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"]
+    editable_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+    ]
     assert len(editable_wus) == 1
-    terms = editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms
+    terms = (
+        editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms
+    )
     sd = terms[0].attribution.sourceDetail
     assert sd["classifier_friendly_name"] == "Phone Number"
 
@@ -1095,21 +1268,33 @@ def test_unlinked_classifier_friendly_name_in_attribution():
 # IDSoR — detection and three-path term resolution
 # ---------------------------------------------------------------------------
 
-IDSOR_ATTR = {"name": "customer_email", "count": 49000, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+IDSOR_ATTR = {
+    "name": "customer_email",
+    "count": 49000,
+    "ranks": ["HIGH"],
+    "type": ["IDSoR Attribute"],
+}
 
 
 def test_idsor_detection_true():
-    assert _is_idsor_attr(IDSOR_ATTR) is True
+    assert _is_idsor_attr(_attr(IDSOR_ATTR)) is True
 
 
 def test_idsor_detection_false_for_classifier():
-    assert _is_idsor_attr({"name": "classifier.EMAIL", "ranks": ["HIGH"], "type": "classifier"}) is False
+    assert (
+        _is_idsor_attr(
+            _attr({"name": "classifier.EMAIL", "ranks": ["HIGH"], "type": "classifier"})
+        )
+        is False
+    )
 
 
 def test_idsor_path1_reuses_existing_term():
     """Path 1: glossaryId present → reuse term URN and emit GlossaryTermInfo with friendly name."""
     source = _make_source(minimum_confidence_threshold=0.0)
-    source._idsor_attr_map["customer_email"] = IDSoRAttributeInfo(friendly_name="Email", glossary_id="bt_email")
+    source._idsor_attr_map["customer_email"] = IDSoRAttributeInfo(
+        friendly_name="Email", glossary_id="bt_email"
+    )
     columns = [
         {
             "columnName": "col",
@@ -1123,33 +1308,57 @@ def test_idsor_path1_reuses_existing_term():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
-    editable_wus = [wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"]
+    editable_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+    ]
     assert len(editable_wus) == 1
-    term_urn = editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms[0].urn
+    term_urn = (
+        editable_wus[0]
+        .metadata.aspect.editableSchemaFieldInfo[0]
+        .glossaryTerms.terms[0]
+        .urn
+    )
     assert term_urn == "urn:li:glossaryTerm:bigid.bt_email"
     # GlossaryTermInfo is now emitted for the linked term so the UI shows "Email", not "bt_email"
-    term_info_wus = [wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"]
+    term_info_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
+    ]
     assert len(term_info_wus) == 1
     assert term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.bt_email"
     assert term_info_wus[0].metadata.aspect.name == "Email"
-    assert term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
-    assert term_info_wus[0].metadata.aspect.customProperties["bigid_glossary_id"] == "bt_email"
+    assert (
+        term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
+    )
+    assert (
+        term_info_wus[0].metadata.aspect.customProperties["bigid_glossary_id"]
+        == "bt_email"
+    )
     assert source.report.idsor_terms_emitted == 1
 
 
 def test_idsor_path2_autogenerates_under_idsor_node():
     """Path 2: in map but no glossaryId → auto-gen urn:li:glossaryTerm:bigid.idsor.<slug>."""
     source = _make_source(minimum_confidence_threshold=0.0)
-    source._idsor_attr_map["full_name"] = IDSoRAttributeInfo(friendly_name="Full Name", glossary_id=None)
+    source._idsor_attr_map["full_name"] = IDSoRAttributeInfo(
+        friendly_name="Full Name", glossary_id=None
+    )
     columns = [
         {
             "columnName": "col",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "full_name", "count": 30000, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+                {
+                    "name": "full_name",
+                    "count": 30000,
+                    "ranks": ["HIGH"],
+                    "type": ["IDSoR Attribute"],
+                }
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -1159,12 +1368,20 @@ def test_idsor_path2_autogenerates_under_idsor_node():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
-    term_info_wus = [wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"]
+    term_info_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
+    ]
     assert len(term_info_wus) == 1
-    assert term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.idsor.full_name"
+    assert (
+        term_info_wus[0].metadata.entityUrn
+        == "urn:li:glossaryTerm:bigid.idsor.full_name"
+    )
     aspect = term_info_wus[0].metadata.aspect
     assert aspect.name == "Full Name"
     assert aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
@@ -1181,7 +1398,12 @@ def test_idsor_path3_autogenerates_from_raw_name():
             "columnName": "col",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "country", "count": 10255, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+                {
+                    "name": "country",
+                    "count": 10255,
+                    "ranks": ["HIGH"],
+                    "type": ["IDSoR Attribute"],
+                }
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -1191,13 +1413,22 @@ def test_idsor_path3_autogenerates_from_raw_name():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
-    term_info_wus = [wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"]
+    term_info_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
+    ]
     assert len(term_info_wus) == 1
-    assert term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.idsor.country"
-    assert term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
+    assert (
+        term_info_wus[0].metadata.entityUrn == "urn:li:glossaryTerm:bigid.idsor.country"
+    )
+    assert (
+        term_info_wus[0].metadata.aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
+    )
     assert source.report.idsor_terms_emitted == 1
 
 
@@ -1209,7 +1440,12 @@ def test_idsor_source_detail_includes_row_count():
             "columnName": "col",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "country", "count": 10255, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+                {
+                    "name": "country",
+                    "count": 10255,
+                    "ranks": ["HIGH"],
+                    "type": ["IDSoR Attribute"],
+                }
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -1219,11 +1455,21 @@ def test_idsor_source_detail_includes_row_count():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
-    editable_wus = [wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"]
-    sd = editable_wus[0].metadata.aspect.editableSchemaFieldInfo[0].glossaryTerms.terms[0].attribution.sourceDetail
+    editable_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "editableSchemaMetadata"
+    ]
+    sd = (
+        editable_wus[0]
+        .metadata.aspect.editableSchemaFieldInfo[0]
+        .glossaryTerms.terms[0]
+        .attribution.sourceDetail
+    )
     assert sd["classifier_type"] == "idsor_attribute"
     assert sd["row_count"] == "10255"
 
@@ -1231,21 +1477,41 @@ def test_idsor_source_detail_includes_row_count():
 def test_idsor_deduplication():
     """Two columns with the same IDSoR attribute emit exactly one GlossaryTermInfo."""
     source = _make_source(minimum_confidence_threshold=0.0)
-    idsor_attr = {"name": "country", "count": 100, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+    idsor_attr = {
+        "name": "country",
+        "count": 100,
+        "ranks": ["HIGH"],
+        "type": ["IDSoR Attribute"],
+    }
     columns = [
-        {"columnName": "col1", "fieldType": "varchar", "attributeDetails": [idsor_attr],
-         "fieldClassifications": [], "columnProfile": {}},
-        {"columnName": "col2", "fieldType": "varchar", "attributeDetails": [idsor_attr],
-         "fieldClassifications": [], "columnProfile": {}},
+        {
+            "columnName": "col1",
+            "fieldType": "varchar",
+            "attributeDetails": [idsor_attr],
+            "fieldClassifications": [],
+            "columnProfile": {},
+        },
+        {
+            "columnName": "col2",
+            "fieldType": "varchar",
+            "attributeDetails": [idsor_attr],
+            "fieldClassifications": [],
+            "columnProfile": {},
+        },
     ]
     now_ms = int(time.time() * 1000)
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
-    term_info_wus = [wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"]
+    term_info_wus = [
+        wu for wu in workunits if wu.metadata.aspectName == "glossaryTermInfo"
+    ]
     assert len(term_info_wus) == 1
     assert source.report.idsor_terms_emitted == 1
 
@@ -1266,7 +1532,10 @@ def test_idsor_disabled_skips_all_idsor_findings():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
     assert workunits == []
@@ -1280,7 +1549,12 @@ def test_idsor_threshold_filter():
             "columnName": "col",
             "fieldType": "varchar",
             "attributeDetails": [
-                {"name": "country", "count": 5000, "ranks": ["MEDIUM"], "type": ["IDSoR Attribute"]}
+                {
+                    "name": "country",
+                    "count": 5000,
+                    "ranks": ["MEDIUM"],
+                    "type": ["IDSoR Attribute"],
+                }
             ],
             "fieldClassifications": [],
             "columnProfile": {},
@@ -1290,7 +1564,10 @@ def test_idsor_threshold_filter():
     workunits = list(
         source._emit_schema_field_enrichment(
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.orders,PROD)",
-            columns, "conn", {}, now_ms,
+            _columns(columns),
+            "conn",
+            {},
+            now_ms,
         )
     )
     assert workunits == []
@@ -1314,7 +1591,7 @@ def test_process_catalog_object_empty_object_name_warns_and_skips_column_fetch()
         "tags": [],
     }
 
-    list(source._process_catalog_object(obj, {}))
+    list(source._process_catalog_object(_catalog_object(obj), {}))
 
     source.client.get_columns.assert_not_called()
     assert any("missing-object-name" in str(w) for w in source.report.warnings)
@@ -1330,11 +1607,23 @@ def test_process_catalog_per_item_exception_does_not_abort_loop():
     source = _make_source()
     source._platform_map["my_conn"] = "mysql"
 
-    bad_obj = {"fullyQualifiedName": "my_conn.schema.bad", "source": "my_conn",
-               "objectName": "bad", "scanner_type_group": "structured", "tags": []}
-    good_obj = {"fullyQualifiedName": "my_conn.schema.good", "source": "my_conn",
-                "objectName": "good", "scanner_type_group": "structured", "tags": []}
-    source.client.get_catalog_objects.side_effect = lambda: iter([bad_obj, good_obj])
+    bad_obj = {
+        "fullyQualifiedName": "my_conn.schema.bad",
+        "source": "my_conn",
+        "objectName": "bad",
+        "scanner_type_group": "structured",
+        "tags": [],
+    }
+    good_obj = {
+        "fullyQualifiedName": "my_conn.schema.good",
+        "source": "my_conn",
+        "objectName": "good",
+        "scanner_type_group": "structured",
+        "tags": [],
+    }
+    source.client.get_catalog_objects.side_effect = lambda: iter(
+        _catalog_objects([bad_obj, good_obj])
+    )
     source.client.get_columns.return_value = []
 
     call_count = 0
@@ -1375,7 +1664,7 @@ def test_process_catalog_api_error_mid_iteration_warns():
     }
 
     def _fail_after_one():
-        yield good_obj
+        yield _catalog_object(good_obj)
         raise BigIDAPIError("network reset")
 
     source.client.get_catalog_objects.side_effect = _fail_after_one

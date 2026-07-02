@@ -1,13 +1,9 @@
-"""Configuration classes for the BigID DataHub connector."""
-
-from __future__ import annotations
-
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -19,51 +15,13 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 
-# ---------------------------------------------------------------------------
-# Platform type mapping — BigID ds-connection `type` → DataHub platform name
-# Source: `type` field values from the GET /api/v1/ds-connections response; verified against BigID 6.x
-# ---------------------------------------------------------------------------
-
-BIGID_TYPE_TO_PLATFORM: dict[str, str] = {
-    # Relational databases
-    "rdb-mysql": "mysql",
-    "rdb-postgresql": "postgres",
-    "rdb-mssql": "mssql",
-    "rdb-oracle": "oracle",
-    "rdb-db2": "db2",
-    "rdb-redshift": "redshift",
-    "rdb-hive": "hive",
-    "rdb-teradata": "teradata",
-    # Cloud warehouses / lakehouses
-    "snowflake": "snowflake",
-    "gcp-big-query": "bigquery",
-    "databricks-v2": "databricks",
-    # Object / file storage
-    "s3-v2": "s3",
-    # SaaS / other structured sources
-    "salesforce": "salesforce",
-    "kafka": "kafka",
-    # Collaboration / document stores (unstructured; platform name used for URN only)
-    "sharepoint-online-v2": "sharepoint",
-    "confluence-v2": "confluence",
-    # Partner integrations
-    "mongodb": "mongodb",
-    "azure-sql": "mssql",
-    "sap-hana": "saphana",
-    "adls-v2": "adls-gen2",
-    # Intentionally unmapped (no standard DataHub platform name):
-    #   smb_v2, gdrive-v2, onedrive-v2, o365-outlook-v2, sap-successfactors-v2
-    #   amazon-sagemaker, azure-openai, openai, hugging-face, atlas-vectorsearch
-}
-
-# Platforms where identifiers should be lowercased for canonical URN form
-LOWERCASE_PLATFORMS = {"snowflake", "bigquery", "redshift"}
-
 
 class ConnectionPlatformConfig(ConfigModel):
     """Per-connection platform override for a single BigID data source."""
 
-    platform: str = Field(description="DataHub platform name (e.g. 'snowflake', 'mysql').")
+    platform: str = Field(
+        description="DataHub platform name (e.g. 'snowflake', 'mysql')."
+    )
     env: Optional[str] = Field(
         default=None,
         description="Environment override for this connection (e.g. 'PROD', 'DEV'). "
@@ -75,11 +33,12 @@ class ConnectionPlatformConfig(ConfigModel):
     )
 
 
-class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin):
-    # ------------------------------------------------------------------
-    # Auth
-    # ------------------------------------------------------------------
-    bigid_url: str = Field(description="Base URL of the BigID instance (e.g. 'https://bigid.example.com').")
+class BigIDSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
+    bigid_url: str = Field(
+        description="Base URL of the BigID instance (e.g. 'https://bigid.example.com')."
+    )
 
     @field_validator("bigid_url", mode="before")
     @classmethod
@@ -104,36 +63,36 @@ class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin
         "Provide either this or user_token.",
     )
     timeout: int = Field(default=60, description="HTTP request timeout in seconds.")
-    max_retries: int = Field(default=3, description="Maximum number of retries for transient errors.")
+    max_retries: int = Field(
+        default=3, description="Maximum number of retries for transient errors."
+    )
 
-    # ------------------------------------------------------------------
-    # Platform / URN resolution
-    # ------------------------------------------------------------------
     datasource_platform_mapping: dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description="Map BigID connection name → platform config. "
         "Auto-detected from ds-connections API if omitted; explicit entries override.",
     )
+    connection_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex allow/deny patterns matched against the BigID connection (data "
+        "source) name. Use this to scope ingestion to a subset of connections in large BigID "
+        "deployments that expose hundreds of data sources. Catalog objects whose source "
+        "connection is denied are skipped entirely.",
+    )
 
-    # ------------------------------------------------------------------
-    # Dataset creation
-    # ------------------------------------------------------------------
     create_datasets: bool = Field(
         default=False,
         description="If True, emit DatasetProperties + SchemaMetadata for datasets not yet in DataHub. "
         "Default False (pure enrichment mode — never emits structural aspects).",
     )
 
-    # ------------------------------------------------------------------
-    # Classification findings
-    # ------------------------------------------------------------------
     minimum_confidence_threshold: float = Field(
         default=0.0,
         ge=0.0,
         le=1.0,
         description="Filter column classification findings below this confidence level. "
-        "Accepts 0.0–1.0 (not a rank string). "
-        "HIGH ≥ 0.75, MEDIUM ≥ 0.50, LOW ≥ 0.0.",
+        "Accepts 0.0–1.0 (not a rank string). BigID ranks map to: "
+        "HIGH = 0.75, MEDIUM = 0.50, LOW = 0.25 (unknown ranks = 0.0).",
     )
 
     confidence_level_tag: bool = Field(
@@ -142,9 +101,6 @@ class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin
         "Lossy (can't tie level to a specific term when multiple exist), but visible in DataHub UI.",
     )
 
-    # ------------------------------------------------------------------
-    # Business Glossary
-    # ------------------------------------------------------------------
     item_types: list[str] = Field(
         default_factory=lambda: [
             "Business Term",
@@ -175,10 +131,9 @@ class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin
         "'none' → stored in customProperties only.",
     )
 
-    # ------------------------------------------------------------------
-    # Tags
-    # ------------------------------------------------------------------
-    sync_tags: bool = Field(default=True, description="Emit BigID tags as DataHub Tag entities.")
+    sync_tags: bool = Field(
+        default=True, description="Emit BigID tags as DataHub Tag entities."
+    )
     tag_application_types: list[str] = Field(
         default_factory=lambda: ["sensitivityClassification", "risk", "userDefined"],
         description="BigID applicationType values to sync as tags.",
@@ -217,7 +172,7 @@ class BigIDSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="after")
-    def _require_some_token(self) -> BigIDSourceConfig:
+    def _require_some_token(self) -> "BigIDSourceConfig":
         if not self.access_token and not self.user_token:
             raise ValueError("Either user_token or access_token must be provided.")
         return self

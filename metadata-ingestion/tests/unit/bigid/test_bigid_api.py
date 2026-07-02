@@ -1,5 +1,3 @@
-"""Unit tests for BigIDClient."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +9,7 @@ from datahub.ingestion.source.bigid.bigid_api import (
     BigIDAPIError,
     BigIDClient,
 )
-from datahub.ingestion.source.bigid.bigid_utils import IDSoRAttributeInfo
+from datahub.ingestion.source.bigid.models import IDSoRAttributeInfo
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -77,7 +75,10 @@ def test_get_access_token_exchanges_user_token():
 
 def test_get_access_token_http_error_raises():
     client = _client_with_user_token()
-    with patch.object(client.session, "get", side_effect=_http_error(503)), pytest.raises(BigIDAPIError, match="Token refresh failed"):
+    with (
+        patch.object(client.session, "get", side_effect=_http_error(503)),
+        pytest.raises(BigIDAPIError, match="Token refresh failed"),
+    ):
         client._get_access_token()
 
 
@@ -90,7 +91,10 @@ def test_get_access_token_missing_token_key_raises():
     client = _client_with_user_token()
     mock_resp = MagicMock()
     mock_resp.json.return_value = {"status": "ok"}
-    with patch.object(client.session, "get", return_value=mock_resp), pytest.raises(BigIDAPIError):
+    with (
+        patch.object(client.session, "get", return_value=mock_resp),
+        pytest.raises(BigIDAPIError),
+    ):
         client._get_access_token()
 
 
@@ -115,7 +119,10 @@ def test_request_success():
 
 def test_request_http_500_raises():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=_http_error(500)), pytest.raises(BigIDAPIError, match="HTTP 500"):
+    with (
+        patch.object(client.session, "get", side_effect=_http_error(500)),
+        pytest.raises(BigIDAPIError, match="HTTP 500"),
+    ):
         client._request("/api/v1/something")
 
 
@@ -126,7 +133,10 @@ def test_request_http_500_raises():
 
 def test_request_timeout_raises():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=requests.exceptions.Timeout), pytest.raises(BigIDAPIError, match="Timeout"):
+    with (
+        patch.object(client.session, "get", side_effect=requests.exceptions.Timeout),
+        pytest.raises(BigIDAPIError, match="Timeout"),
+    ):
         client._request("/api/v1/something")
 
 
@@ -171,7 +181,10 @@ def test_request_401_retries_with_user_token():
 
 def test_request_401_no_user_token_raises_immediately():
     client = _client_with_access_token()
-    with patch.object(client.session, "get", side_effect=_http_error(401)) as mock_get, pytest.raises(BigIDAPIError, match="HTTP 401"):
+    with (
+        patch.object(client.session, "get", side_effect=_http_error(401)) as mock_get,
+        pytest.raises(BigIDAPIError, match="HTTP 401"),
+    ):
         client._request("/api/v1/data")
     assert mock_get.call_count == 1
 
@@ -183,10 +196,10 @@ def test_request_401_no_user_token_raises_immediately():
 
 def test_get_columns_list_response():
     client = _client_with_access_token()
-    rows = [{"col": "a", "objectName": "my_table"}]
+    rows = [{"columnName": "a", "objectName": "my_table"}]
     with patch.object(client, "_request", return_value=rows):
         result = client.get_columns("my_table", "my_source")
-    assert result == rows
+    assert [c.column_name for c in result] == ["a"]
 
 
 # ---------------------------------------------------------------------------
@@ -196,10 +209,10 @@ def test_get_columns_list_response():
 
 def test_get_columns_results_key():
     client = _client_with_access_token()
-    rows = [{"col": "b", "objectName": "my_table"}]
+    rows = [{"columnName": "b", "objectName": "my_table"}]
     with patch.object(client, "_request", return_value={"results": rows}):
         result = client.get_columns("my_table", "my_source")
-    assert result == rows
+    assert [c.column_name for c in result] == ["b"]
 
 
 # ---------------------------------------------------------------------------
@@ -209,10 +222,10 @@ def test_get_columns_results_key():
 
 def test_get_columns_data_key():
     client = _client_with_access_token()
-    rows = [{"col": "c", "objectName": "my_table"}]
+    rows = [{"columnName": "c", "objectName": "my_table"}]
     with patch.object(client, "_request", return_value={"data": rows}):
         result = client.get_columns("my_table", "my_source")
-    assert result == rows
+    assert [c.column_name for c in result] == ["c"]
 
 
 # ---------------------------------------------------------------------------
@@ -224,12 +237,24 @@ def test_get_columns_fqn_isolates_same_named_tables():
     client = _client_with_access_token()
     # Two tables share objectName but differ by schema; FQN picks the right one
     rows = [
-        {"col": "x", "objectName": "finance_customers", "fullyQualifiedName": "Finance.demo_env.finance_customers"},
-        {"col": "y", "objectName": "finance_customers", "fullyQualifiedName": "Finance.dptest.finance_customers"},
+        {
+            "columnName": "x",
+            "objectName": "finance_customers",
+            "fullyQualifiedName": "Finance.demo_env.finance_customers",
+        },
+        {
+            "columnName": "y",
+            "objectName": "finance_customers",
+            "fullyQualifiedName": "Finance.dptest.finance_customers",
+        },
     ]
     with patch.object(client, "_request", return_value=rows):
-        result = client.get_columns("finance_customers", "Finance", fqn="Finance.demo_env.finance_customers")
-    assert result == [rows[0]]
+        result = client.get_columns(
+            "finance_customers", "Finance", fqn="Finance.demo_env.finance_customers"
+        )
+    assert [c.fully_qualified_name for c in result] == [
+        "Finance.demo_env.finance_customers"
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -241,12 +266,12 @@ def test_get_columns_excludes_substring_siblings():
     client = _client_with_access_token()
     # BigID substring-matches "my_table" against "my_table2"; client must drop the sibling
     rows = [
-        {"col": "x", "objectName": "my_table"},
-        {"col": "y", "objectName": "my_table2"},
+        {"columnName": "x", "objectName": "my_table"},
+        {"columnName": "y", "objectName": "my_table2"},
     ]
     with patch.object(client, "_request", return_value=rows):
         result = client.get_columns("my_table", "my_source")
-    assert result == [{"col": "x", "objectName": "my_table"}]
+    assert [c.object_name for c in result] == ["my_table"]
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +281,10 @@ def test_get_columns_excludes_substring_siblings():
 
 def test_get_glossary_items_non_list_raises():
     client = _client_with_access_token()
-    with patch.object(client, "_request", return_value={"error": "bad"}), pytest.raises(BigIDAPIError):
+    with (
+        patch.object(client, "_request", return_value={"error": "bad"}),
+        pytest.raises(BigIDAPIError),
+    ):
         client.get_glossary_items()
 
 
@@ -267,7 +295,10 @@ def test_get_glossary_items_non_list_raises():
 
 def test_get_connections_non_dict_raises():
     client = _client_with_access_token()
-    with patch.object(client, "_request", return_value=[1, 2, 3]), pytest.raises(BigIDAPIError):
+    with (
+        patch.object(client, "_request", return_value=[1, 2, 3]),
+        pytest.raises(BigIDAPIError),
+    ):
         client.get_connections()
 
 
@@ -328,14 +359,19 @@ def _idsor_response(attributes: list) -> dict:
 
 def test_get_idsor_attribute_map_normal():
     client = _client_with_access_token()
-    payload = _idsor_response([
-        {
-            "attributeType": "IDSoR Attribute",
-            "attributeName": "full_name",
-            "displayName": "Full Name",
-            "friendlyName": {"friendlyName": "Full Name", "glossaryId": "fn_item_abc"},
-        }
-    ])
+    payload = _idsor_response(
+        [
+            {
+                "attributeType": "IDSoR Attribute",
+                "attributeName": "full_name",
+                "displayName": "Full Name",
+                "friendlyName": {
+                    "friendlyName": "Full Name",
+                    "glossaryId": "fn_item_abc",
+                },
+            }
+        ]
+    )
     with patch.object(client, "_request", return_value=payload):
         result = client.get_idsor_attribute_map()
 
@@ -348,14 +384,16 @@ def test_get_idsor_attribute_map_normal():
 
 def test_get_idsor_attribute_map_empty_attribute_name_skipped():
     client = _client_with_access_token()
-    payload = _idsor_response([
-        {
-            "attributeType": "IDSoR Attribute",
-            "attributeName": "",  # empty — must be skipped
-            "displayName": "Should Not Appear",
-            "friendlyName": {},
-        }
-    ])
+    payload = _idsor_response(
+        [
+            {
+                "attributeType": "IDSoR Attribute",
+                "attributeName": "",  # empty — must be skipped
+                "displayName": "Should Not Appear",
+                "friendlyName": {},
+            }
+        ]
+    )
     with patch.object(client, "_request", return_value=payload):
         result = client.get_idsor_attribute_map()
 
@@ -365,14 +403,16 @@ def test_get_idsor_attribute_map_empty_attribute_name_skipped():
 def test_get_idsor_attribute_map_empty_friendly_name_obj():
     """When friendlyName is {} (uncurated), fall back to displayName."""
     client = _client_with_access_token()
-    payload = _idsor_response([
-        {
-            "attributeType": "IDSoR Attribute",
-            "attributeName": "passport_number",
-            "displayName": "Passport Number",
-            "friendlyName": {},
-        }
-    ])
+    payload = _idsor_response(
+        [
+            {
+                "attributeType": "IDSoR Attribute",
+                "attributeName": "passport_number",
+                "displayName": "Passport Number",
+                "friendlyName": {},
+            }
+        ]
+    )
     with patch.object(client, "_request", return_value=payload):
         result = client.get_idsor_attribute_map()
 
@@ -385,27 +425,32 @@ def test_get_idsor_attribute_map_empty_friendly_name_obj():
 def test_get_idsor_attribute_map_non_dict_response_raises():
     """A non-dict response (e.g. a list) must raise BigIDAPIError."""
     client = _client_with_access_token()
-    with patch.object(client, "_request", return_value=[]), pytest.raises(BigIDAPIError):
+    with (
+        patch.object(client, "_request", return_value=[]),
+        pytest.raises(BigIDAPIError),
+    ):
         client.get_idsor_attribute_map()
 
 
 def test_get_idsor_attribute_map_non_idsor_types_excluded():
     """Only IDSoR Attribute entries should appear in the map; Classification entries are skipped."""
     client = _client_with_access_token()
-    payload = _idsor_response([
-        {
-            "attributeType": "Classification",
-            "attributeName": "email_classifier",
-            "displayName": "Email",
-            "friendlyName": {},
-        },
-        {
-            "attributeType": "IDSoR Attribute",
-            "attributeName": "email",
-            "displayName": "Email",
-            "friendlyName": {"friendlyName": "Email", "glossaryId": None},
-        },
-    ])
+    payload = _idsor_response(
+        [
+            {
+                "attributeType": "Classification",
+                "attributeName": "email_classifier",
+                "displayName": "Email",
+                "friendlyName": {},
+            },
+            {
+                "attributeType": "IDSoR Attribute",
+                "attributeName": "email",
+                "displayName": "Email",
+                "friendlyName": {"friendlyName": "Email", "glossaryId": None},
+            },
+        ]
+    )
     with patch.object(client, "_request", return_value=payload):
         result = client.get_idsor_attribute_map()
 
