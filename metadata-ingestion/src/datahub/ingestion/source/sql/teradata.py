@@ -3477,28 +3477,26 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # so it isn't lost in the generic sizing-failure bucket.
             if _categorize_teradata_error(e) is ViewErrorCategory.PERMISSION:
                 self.report.increment_profiling_permission_error()
-                self.report.warning(
-                    title="Unauthorized to size tables for profiling",
-                    message=(
-                        "Permission denied querying DBC.TableSizeV to apply "
-                        "profile_table_size_limit. Profiling will proceed without "
-                        "size-based filtering for this schema. Grant the ingestion "
-                        "user SELECT on DBC.TableSizeV to skip large tables."
-                    ),
-                    context=f"schema={schema}",
-                    exc=e,
+                title = "Unauthorized to size tables for profiling"
+                message = (
+                    "Permission denied querying DBC.TableSizeV to apply "
+                    "profile_table_size_limit. Profiling will proceed without "
+                    "size-based filtering for this schema. Grant the ingestion "
+                    "user SELECT on DBC.TableSizeV to skip large tables."
                 )
             else:
-                self.report.warning(
-                    title="Could not size tables for profiling",
-                    message=(
-                        "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
-                        "Profiling will proceed without size-based filtering for this schema. "
-                        "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
-                    ),
-                    context=f"schema={schema}",
-                    exc=e,
+                title = "Could not size tables for profiling"
+                message = (
+                    "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
+                    "Profiling will proceed without size-based filtering for this schema. "
+                    "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
                 )
+            self.report.warning(
+                title=title,
+                message=message,
+                context=f"schema={schema}",
+                exc=e,
+            )
             return None
 
         # Teradata object names are case-insensitive, and DBC casing may differ
