@@ -1,14 +1,9 @@
 /**
- * BigID Recipe Form Fields (V2 Ingestion UI)
+ * BigID Recipe Form Fields (V2). Plain fields are defined once in the V1 form
+ * (`ingest/source/builder/RecipeForm/bigid.ts`) and re-exported here; V2 only redefines the
+ * connection allow/deny fields as FilterRecipeField (a type V1's `common` does not provide).
  *
- * The plain (non-filter) fields are the single source of truth in the V1 form
- * (`ingest/source/builder/RecipeForm/bigid.ts`) and re-exported here, so a field added or
- * edited in V1 automatically applies to V2. This file only redefines the connection allow/deny
- * fields, which V2 upgrades to FilterRecipeField (a type V1's `common` does not provide).
- *
- * IMPORTANT: For per-connection platform overrides (datasource_platform_mapping), use the
- * YAML editor mode. That nested structure maps BigID connection names to DataHub platforms,
- * environments, and platform instances and is best expressed as YAML.
+ * datasource_platform_mapping has no form field — set it via the YAML editor.
  */
 import {
     BIGID_ACCESS_TOKEN,
