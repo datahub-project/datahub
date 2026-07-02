@@ -92,7 +92,7 @@ class TestQueryCleanup:
 
         wus = list(self.cleanup.get_workunits())
 
-        # Hard delete is imperative, so it yields no workunits.
+        # Hard delete runs through the worker pool, so it yields no workunits.
         assert wus == []
         assert self.mock_graph.delete_entity.call_count == 2
         self.mock_graph.delete_entity.assert_any_call(urn=urns[0], hard=True)
