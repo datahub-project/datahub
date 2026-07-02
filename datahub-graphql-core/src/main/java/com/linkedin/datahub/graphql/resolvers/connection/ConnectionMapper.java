@@ -91,6 +91,9 @@ public class ConnectionMapper {
     if (opContext != null
         && opContext.getRequestContext() != null
         && opContext.getRequestContext().getAgentClass().isHuman()) {
+      // Return an empty (non-null) blob: the GraphQL schema declares blob as String! (non-null),
+      // so leaving it null surfaces as a GraphQL error even though the underlying write succeeded.
+      result.setBlob("");
       return result;
     }
     result.setBlob(secretService.decrypt(opContext, gmsJsonConnection.getEncryptedBlob()));
