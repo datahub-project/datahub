@@ -8,7 +8,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 from typing_extensions import TypeGuard
 
@@ -62,6 +72,16 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
     num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
+    # Workunit-level counts for the deser/reser cost ratio: a raw MCP is deserialized
+    # once per lineage-bearing workunit and re-serialized only when mutated. The ratio
+    # num_workunits_modified / num_workunits_with_lineage tells whether skipping the
+    # deserialization when nothing needs fixing would be worthwhile.
+    num_workunits_with_lineage: int = (
+        0  # Carried a lineage aspect (deserialization paid)
+    )
+    num_workunits_modified: int = (
+        0  # A lineage aspect was actually mutated (re-serialized)
+    )
 
 
 @dataclass
@@ -148,6 +168,18 @@ class AutoResolveLineageUrnsProcessor(
         # configured platforms that matched nothing (a common cause is a case/spelling
         # typo in the config, since platform names are compared case-sensitively).
         self._seen_reference_platforms: Set[str] = set()
+        # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
+        # These are the aspects a BI / orchestration source emits that carry *upstream
+        # dataset* references — the only refs affected by cross-source casing mismatch:
+        # upstreamLineage (table + fineGrained columns), dashboardInfo / chartInfo inputs,
+        # and dataJobInputOutput inputs (dbt / Airflow / Spark). Other lineage aspects
+        # don't target datasets or are the entity's own outputs (see the dev guide).
+        self._normalizers: List[Tuple[Type[_Aspect], Callable[..., bool]]] = [
+            (UpstreamLineageClass, self._normalize_upstream_lineage),
+            (DashboardInfoClass, self._normalize_dashboard_info),
+            (DataJobInputOutputClass, self._normalize_datajob_io),
+            (ChartInfoClass, self._normalize_chart_info),
+        ]
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -169,37 +201,9 @@ class AutoResolveLineageUrnsProcessor(
         return getattr(ctx.pipeline_context, "graph", None) is not None
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        # We resolve these four aspects because they are the ones a BI / orchestration
-        # source emits that carry *upstream dataset* references into the warehouse — the
-        # only references that suffer the cross-source casing mismatch this processor
-        # fixes. `upstreamLineage` (table + `fineGrainedLineage` columns) is the core BI
-        # path; `dashboardInfo` / `chartInfo` inputs cover dashboards and warehouse-
-        # querying charts (Superset/Mode/Redash); `dataJobInputOutput` inputs cover the
-        # dbt / Airflow / Spark path. Other lineage aspects either don't target datasets
-        # or are the entity's own outputs (see the dev guide's coverage table).
-        #
-        # We mutate the typed aspect (via get_aspect_of_type) rather than the
-        # transform_urns() helper that auto_lowercase_urns uses: that helper rewrites
-        # *every* URN uniformly (URN -> URN), but we must be selective (only upstream
-        # references, never the entity or downstream fields) AND set a non-URN field
-        # (matchType), neither of which transform_urns can express. For MCE/MCPW
-        # get_aspect_of_type returns the *live* aspect, so this is an in-place edit with
-        # no (de)serialization; only a raw MCP is deserialized, and we re-serialize it
-        # (via _write_back_if_mcp) only when we actually changed something.
         for wu in stream:
             try:
-                upstream = wu.get_aspect_of_type(UpstreamLineageClass)
-                if upstream is not None and self._normalize_upstream_lineage(upstream):
-                    self._write_back_if_mcp(wu, upstream)
-                dashboard = wu.get_aspect_of_type(DashboardInfoClass)
-                if dashboard is not None and self._normalize_dashboard_info(dashboard):
-                    self._write_back_if_mcp(wu, dashboard)
-                datajob = wu.get_aspect_of_type(DataJobInputOutputClass)
-                if datajob is not None and self._normalize_datajob_io(datajob):
-                    self._write_back_if_mcp(wu, datajob)
-                chart = wu.get_aspect_of_type(ChartInfoClass)
-                if chart is not None and self._normalize_chart_info(chart):
-                    self._write_back_if_mcp(wu, chart)
+                self._resolve_workunit(wu)
             except Exception as e:
                 self.report.num_exceptions += 1
                 logger.warning(
@@ -207,11 +211,39 @@ class AutoResolveLineageUrnsProcessor(
                     exc_info=True,
                 )
             yield wu
+        self._warn_unmatched_platforms()
 
-        # After the stream, flag any configured platform that no reference used. The
-        # usual cause is a case/spelling mismatch in the config (platform names are
-        # compared case-sensitively, e.g. 'snowflake' != 'Snowflake'), which would
-        # otherwise silently heal nothing for that platform.
+    def _resolve_workunit(self, wu: MetadataWorkUnit) -> None:
+        """Reconcile casing on each lineage aspect the workunit carries, in place.
+
+        We edit the typed aspect (via get_aspect_of_type) rather than the uniform
+        transform_urns() helper: we must be selective (only upstream refs, never the
+        entity or downstream fields) and set a non-URN field (matchType). For MCE/MCPW
+        get_aspect_of_type returns the *live* aspect (in-place edit, no (de)serialization);
+        a raw MCP is deserialized to inspect, and re-serialized (via _write_back_if_mcp)
+        only when something actually changed.
+        """
+        had_lineage = False
+        modified = False
+        for aspect_cls, normalize in self._normalizers:
+            aspect = wu.get_aspect_of_type(aspect_cls)
+            if aspect is None:
+                continue
+            had_lineage = True
+            if normalize(aspect):
+                self._write_back_if_mcp(wu, aspect)
+                modified = True
+        if had_lineage:
+            self.report.num_workunits_with_lineage += 1
+        if modified:
+            self.report.num_workunits_modified += 1
+
+    def _warn_unmatched_platforms(self) -> None:
+        """Warn about configured platforms that no reference used this run.
+
+        The usual cause is a case/spelling mismatch in the config (platform names are
+        compared case-sensitively), which would otherwise silently heal nothing.
+        """
         unmatched = {
             entry.platform for entry in self._config
         } - self._seen_reference_platforms
