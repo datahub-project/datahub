@@ -5,7 +5,8 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 
@@ -83,25 +84,33 @@ class CachingTokenProvider(TokenProvider):
         self._fetch = fetch
         self._refresh_buffer_seconds = refresh_buffer_seconds
         self._lock = threading.Lock()
-        self._cached: Optional[TokenResult] = None
+        self._cached: Optional[Tuple[TokenResult, float]] = None
 
     def get_token(self) -> TokenResult:
         with self._lock:
-            if self._cached is not None and not self._is_stale(self._cached):
-                return self._cached
-            self._cached = self._fetch()
-            return self._cached
+            if self._cached is not None and not self._is_stale(*self._cached):
+                return self._cached[0]
+            result = self._fetch()
+            self._cached = (result, time.time())
+            return result
 
     def invalidate(self) -> None:
         with self._lock:
             self._cached = None
 
-    def _is_stale(self, cached: TokenResult) -> bool:
+    def _is_stale(self, cached: TokenResult, fetched_at: float) -> bool:
         # No reported expiry -> always re-fetch. The underlying acquisition is
         # cheap (a projected-token file read, or azure-identity's own caching).
         if cached.expires_at is None:
             return True
-        return time.time() >= (cached.expires_at - self._refresh_buffer_seconds)
+        # Clamp the buffer to half the token's observed lifetime: with an IdP
+        # issuing tokens whose lifetime <= the buffer (e.g. Keycloak's default
+        # 300s access tokens vs the default 300s buffer), a fixed buffer would
+        # mark every token permanently stale and turn each client request into
+        # a synchronous IdP round trip.
+        lifetime = cached.expires_at - fetched_at
+        buffer = min(self._refresh_buffer_seconds, lifetime / 2)
+        return time.time() >= (cached.expires_at - buffer)
 
 
 class TokenProviderAuth(requests.auth.AuthBase):
@@ -118,6 +127,9 @@ class TokenProviderAuth(requests.auth.AuthBase):
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         self._thread_local.retried = False
+        self._thread_local.original_host = (
+            urlparse(request.url).hostname if request.url else None
+        )
         request.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         if self._retry_on_401:
             request.register_hook("response", self._handle_401)
@@ -127,6 +139,14 @@ class TokenProviderAuth(requests.auth.AuthBase):
         self, response: requests.Response, **kwargs: object
     ) -> requests.Response:
         if response.status_code != 401 or getattr(self._thread_local, "retried", False):
+            return response
+        # Never re-attach the token after a cross-host redirect: requests strips
+        # Authorization when redirected to another host (should_strip_auth), and
+        # retrying here would hand the GMS credential to that other host.
+        response_host = (
+            urlparse(response.request.url).hostname if response.request.url else None
+        )
+        if response_host != getattr(self._thread_local, "original_host", None):
             return response
         invalidate = getattr(self._provider, "invalidate", None)
         if invalidate is None:

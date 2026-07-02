@@ -30,17 +30,54 @@ def test_caching_provider_caches_until_refresh_buffer():
     assert len(calls) == 1  # second call served from cache
 
 
-def test_caching_provider_refetches_when_within_buffer():
+def test_caching_provider_clamps_buffer_for_short_lived_tokens():
+    # A token whose lifetime <= the refresh buffer (e.g. Keycloak's default
+    # 300s tokens vs the default 300s buffer) must still get useful caching:
+    # the buffer clamps to half the lifetime instead of marking every token
+    # permanently stale (one IdP round trip per client request).
     calls = []
 
     def fetch() -> TokenResult:
         calls.append(1)
-        return TokenResult("t", time.time() + 100)  # expires inside 300s buffer
+        return TokenResult("t", time.time() + 100)
 
     provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
     provider.get_token()
     provider.get_token()
-    assert len(calls) == 2  # always stale -> re-fetch
+    assert len(calls) == 1  # cached: effective buffer is 50s, not 300s
+
+
+def test_caching_provider_refetches_within_clamped_buffer():
+    calls = []
+
+    def fetch() -> TokenResult:
+        calls.append(1)
+        # 100s lifetime -> clamped 50s buffer; pretend it was fetched 60s ago
+        # by reporting an expiry only 40s away.
+        return TokenResult("t", time.time() + 40)
+
+    provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
+    provider.get_token()
+    # Simulate the passage of time: shift the recorded fetch time back so the
+    # cached token sits inside its clamped refresh window.
+    assert provider._cached is not None
+    result, fetched_at = provider._cached
+    provider._cached = (result, fetched_at - 60)
+    provider.get_token()
+    assert len(calls) == 2
+
+
+def test_caching_provider_refetches_expired_token():
+    calls = []
+
+    def fetch() -> TokenResult:
+        calls.append(1)
+        return TokenResult("t", time.time() - 1)  # already expired
+
+    provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
+    provider.get_token()
+    provider.get_token()
+    assert len(calls) == 2
 
 
 def test_caching_provider_refetches_when_expiry_unknown():
@@ -135,3 +172,57 @@ def test_auth_does_not_retry_when_provider_cannot_invalidate(requests_mock):
     requests_mock.get("http://gms/api", status_code=401)
     resp = requests.get("http://gms/api", auth=auth)
     assert resp.status_code == 401
+
+
+def test_auth_does_not_retry_401_across_hosts():
+    # requests strips Authorization on cross-host redirects; the 401-retry hook
+    # must not re-attach the GMS credential to a response coming from another
+    # host, or a redirecting server could capture the token.
+    provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
+    auth = TokenProviderAuth(provider)
+
+    original = requests.PreparedRequest()
+    original.prepare(method="GET", url="http://gms:8080/config")
+    auth(original)
+
+    redirected = requests.PreparedRequest()
+    redirected.prepare(method="GET", url="http://evil.example.com/config", headers={})
+    response = requests.Response()
+    response.status_code = 401
+    response.request = redirected
+    response._content = b""
+
+    result = auth._handle_401(response)
+    assert result is response  # returned untouched, no cross-host retry
+
+
+def test_auth_retries_401_on_same_host_via_hook():
+    provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
+    auth = TokenProviderAuth(provider)
+
+    original = requests.PreparedRequest()
+    original.prepare(method="GET", url="http://gms:8080/config")
+    auth(original)
+
+    class _FakeConnection:
+        def __init__(self):
+            self.sent = []
+
+        def send(self, prepared, **kwargs):
+            self.sent.append(prepared)
+            ok = requests.Response()
+            ok.status_code = 200
+            ok.request = prepared
+            ok._content = b""
+            return ok
+
+    response = requests.Response()
+    response.status_code = 401
+    response.request = original
+    response._content = b""
+    connection = _FakeConnection()
+    response.connection = connection  # type: ignore[attr-defined]
+
+    result = auth._handle_401(response)
+    assert result.status_code == 200
+    assert len(connection.sent) == 1  # same-host 401 still retried once
