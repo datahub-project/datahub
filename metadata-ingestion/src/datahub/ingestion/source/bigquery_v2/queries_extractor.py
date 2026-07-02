@@ -49,6 +49,7 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
+    SqlParsingParallelismConfig,
 )
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
@@ -89,7 +90,7 @@ class BigQueryJob(TypedDict):
     # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
-class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
+class BigQueryQueriesExtractorConfig(SqlParsingParallelismConfig, BigQueryBaseConfig):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -221,6 +222,8 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
+            use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+            sql_parsing_workers=self.config.sql_parsing_workers,
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -353,7 +356,11 @@ class BigQueryQueriesExtractor(Closeable):
             self.report.num_unique_queries = len(queries_deduped)
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
-        with self.report.audit_log_load_timer, queries_deduped:
+        with (
+            self.report.audit_log_load_timer,
+            queries_deduped,
+            self.aggregator.parallel_sql_parsing_scope(),
+        ):
             log_timer = ProgressTimer(timedelta(minutes=1))
             report_timer = ProgressTimer(timedelta(minutes=5))
 
