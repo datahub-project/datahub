@@ -21,12 +21,18 @@ import {
     isAnyOptionSelected,
     isFilterOptionSelected,
 } from '@app/searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME, STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@src/app/shared/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
-import { AggregationMetadata, EntityType } from '@types';
+import { AggregationMetadata, EntityType, FilterOperator } from '@types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -534,8 +540,15 @@ describe('filter utils - getStructuredPropFilterDisplayName', () => {
         ).toBe('10/01/2024');
     });
 
-    it('should return a properly formatted number if it is a number type', () => {
-        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0')).toBe('90');
+    it('should return a properly formatted number when entity has NUMBER valueType', () => {
+        const entity = { definition: { valueType: { urn: NUMBER_TYPE_URN } } } as any;
+        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0', entity)).toBe('90');
+    });
+
+    it('should return the raw string when no entity is provided (avoids parseFloat corrupting UUIDs)', () => {
+        // Without entity type info we cannot safely call parseFloat — a value like "02d22a5f-..."
+        // would be silently truncated to "2". Fall through to raw rendering instead.
+        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0')).toBe('90.0');
     });
 
     it('should strip rich text formatting to be displayed', () => {
@@ -565,5 +578,114 @@ describe('filter utils - getFilterDisplayName', () => {
         const option = { value: 'testValue' };
         const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
         expect(getFilterDisplayName(option, field)).toBe(undefined);
+    });
+});
+
+describe('filter utils - getStructuredPropFilterDisplayName NUMBER type', () => {
+    it('should format a number value correctly when entity has NUMBER valueType', () => {
+        const entity = { definition: { valueType: { urn: NUMBER_TYPE_URN } } } as any;
+        expect(getStructuredPropFilterDisplayName('structuredProperties.count', '42.0', entity)).toBe('42');
+        expect(getStructuredPropFilterDisplayName('structuredProperties.count', '1000.0', entity)).toBe('1000');
+    });
+
+    it('should NOT corrupt a UUID-shaped value when no entity/type info is provided', () => {
+        // parseFloat('550e8400-e29b-41d4-a716-446655440000') === Infinity before the fix
+        const result = getStructuredPropFilterDisplayName(
+            'structuredProperties.uuidProp',
+            '550e8400-e29b-41d4-a716-446655440000',
+        );
+        expect(result).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should NOT corrupt a UUID-shaped value even when entity has STRING valueType', () => {
+        const entity = { definition: { valueType: { urn: STRING_TYPE_URN } } } as any;
+        const result = getStructuredPropFilterDisplayName(
+            'structuredProperties.uuidProp',
+            '550e8400-e29b-41d4-a716-446655440000',
+            entity,
+        );
+        expect(result).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should return undefined for URN values regardless of entity type', () => {
+        const entity = { definition: { valueType: { urn: URN_TYPE_URN } } } as any;
+        expect(
+            getStructuredPropFilterDisplayName('structuredProperties.steward', 'urn:li:corpuser:admin', entity),
+        ).toBe(undefined);
+    });
+});
+
+describe('filter utils - getNewFilters with availableFilters (TEXT condition)', () => {
+    const makeStringPropFilter = (hasAllowedValues: boolean) => ({
+        field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+        aggregations: [],
+        entity: {
+            __typename: 'StructuredPropertyEntity',
+            definition: {
+                valueType: { urn: STRING_TYPE_URN },
+                allowedValues: hasAllowedValues ? [{ value: { __typename: 'StringValue', stringValue: 'a' } }] : [],
+            },
+        } as any,
+    });
+
+    it('should set condition=CONTAIN for a free-form STRING structured property', () => {
+        const availableFilters = [makeStringPropFilter(false)];
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+            [],
+            ['550e8400-e29b-41d4-a716-446655440000'],
+            availableFilters,
+        );
+        expect(result[0].condition).toBe(FilterOperator.Contain);
+    });
+
+    it('should NOT set condition=CONTAIN for a STRING structured property with allowedValues (ENUM)', () => {
+        const availableFilters = [makeStringPropFilter(true)];
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+            [],
+            ['someValue'],
+            availableFilters,
+        );
+        expect(result[0].condition).toBeUndefined();
+    });
+
+    it('should set condition=CONTAIN for a free-form RICH_TEXT structured property', () => {
+        const richTextFilter = {
+            field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.notes`,
+            aggregations: [],
+            entity: {
+                __typename: 'StructuredPropertyEntity',
+                definition: {
+                    valueType: { urn: RICH_TEXT_TYPE_URN },
+                    allowedValues: [],
+                },
+            } as any,
+        };
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.notes`,
+            [],
+            ['hello world'],
+            [richTextFilter],
+        );
+        expect(result[0].condition).toBe(FilterOperator.Contain);
+    });
+
+    it('should NOT set condition for a NUMBER structured property', () => {
+        const numberFilter = {
+            field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.count`,
+            aggregations: [],
+            entity: {
+                __typename: 'StructuredPropertyEntity',
+                definition: { valueType: { urn: NUMBER_TYPE_URN }, allowedValues: [] },
+            } as any,
+        };
+        const result = getNewFilters(`${STRUCTURED_PROPERTIES_FILTER_NAME}.count`, [], ['42'], [numberFilter]);
+        expect(result[0].condition).toBeUndefined();
+    });
+
+    it('should default to no condition when availableFilters is omitted', () => {
+        const result = getNewFilters('platform', [], ['snowflake']);
+        expect(result[0].condition).toBeUndefined();
     });
 });

@@ -49,7 +49,13 @@ import {
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
@@ -72,10 +78,26 @@ import {
 } from '@types';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
+/**
+ * Picks the backend condition to use when a brand-new filter is created for a field. Mirrors the
+ * field type's natural default: date fields use GreaterThan, free-form TEXT fields use CONTAINS, and
+ * everything else falls back to the backend default (EQUAL). Without this, the "More" menu created
+ * every filter with no condition, so a free-form text property (e.g. a UUID) applied as an exact
+ * EQUAL match and partial values never matched.
+ */
+function getNewFilterCondition(filterField: string, availableFilters: FacetMetadata[]): FilterOperator | undefined {
+    if (filterField === LAST_MODIFIED_FILTER_NAME) {
+        return FilterOperator.GreaterThan;
+    }
+    const field = getKnownFilterField(filterField) || getDynamicFilterField(filterField, availableFilters);
+    return field.type === FieldType.TEXT ? FilterOperator.Contain : undefined;
+}
+
 export function getNewFilters(
     filterField: string,
     activeFilters: FacetFilterInput[],
     selectedFilterValues: string[],
+    availableFilters: FacetMetadata[] = [],
 ): FacetFilterInput[] {
     if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
         return activeFilters
@@ -89,7 +111,7 @@ export function getNewFilters(
             field: filterField,
             values: selectedFilterValues,
             // TODO: Define on filter field instead
-            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+            condition: getNewFilterCondition(filterField, availableFilters),
         },
     ].filter((f) => !(f.values?.length === 0));
 }
@@ -485,6 +507,7 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
     if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME) && entity) {
         const structuredPropEntity = entity as StructuredPropertyEntity;
         const valueTypeUrn = structuredPropEntity.definition?.valueType?.urn;
+        const hasAllowedValues = !!structuredPropEntity.definition?.allowedValues?.length;
         if (valueTypeUrn === URN_TYPE_URN) {
             type = FieldType.ENTITY;
             // Prefer the explicit typeQualifier allowedTypes; fall back to inference from aggregations.
@@ -492,6 +515,14 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
             if (qualifierTypes?.length) {
                 entityTypes = qualifierTypes.map((t) => t.type).filter(Boolean) as EntityType[];
             }
+        } else if ((valueTypeUrn === STRING_TYPE_URN || valueTypeUrn === RICH_TEXT_TYPE_URN) && !hasAllowedValues) {
+            // Free-form text properties (no constrained allowedValues) are not enumerable — e.g. one
+            // holding arbitrary UUIDs. Render them as a type-a-value TEXT filter (which applies a
+            // CONTAINS query), like the description / field-path text filters, instead of an
+            // aggregation bucket picker that can only surface the top-N distinct values and breaks on
+            // high-cardinality values. Properties WITH allowedValues stay ENUM so users can pick from
+            // the constrained set.
+            type = FieldType.TEXT;
         }
     }
 
@@ -555,8 +586,11 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
         return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
-    // check for structured prop number values
-    if (!Number.isNaN(parseFloat(value))) {
+    // check for structured prop number values. Detect by the property's declared value type rather
+    // than sniffing the string with parseFloat — parseFloat parses a leading numeric chunk and
+    // ignores the rest, so values like "550e8400-..." (a UUID) became "Infinity" and "02d22a5f-..."
+    // became "2". When the value type is unknown, fall through to render the raw value verbatim.
+    if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === NUMBER_TYPE_URN) {
         return parseFloat(value).toString();
     }
 
@@ -573,13 +607,17 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
 function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
     // First, check whether this is a well-supported filter field.
     const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
+    // When no explicit condition is set (e.g. an available-but-unapplied filter in the "More" menu),
+    // fall back to the field type's natural default: free-form TEXT fields filter by CONTAINS,
+    // everything else by EQUALS. Mirrors getDefaultFieldOperatorType, inlined to avoid a circular
+    // import between this module and value/utils.
     const operator =
         (filter.condition &&
             convertBackendToFrontendOperatorType({
                 operator: filter.condition,
                 negated: filter.negated || false,
             })) ||
-        FilterOperatorType.EQUALS;
+        (field.type === FieldType.TEXT ? FilterOperatorType.CONTAINS : FilterOperatorType.EQUALS);
 
     const values = getFilterValues(filter, availableFilters);
     const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
@@ -721,6 +759,8 @@ export function getFilterDisplayName(option: FilterValueOption, field: FilterFie
     }
 
     return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
-        ? getStructuredPropFilterDisplayName(field.field, option.value)
+        ? // pass the field's structured-property entity so the formatter can detect the value type
+          // (NUMBER/DATE) — without it, numeric buckets render as the raw double (e.g. "42000.0").
+          getStructuredPropFilterDisplayName(field.field, option.value, field.entity)
         : undefined;
 }

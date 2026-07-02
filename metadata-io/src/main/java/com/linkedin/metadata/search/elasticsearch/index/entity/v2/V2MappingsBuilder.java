@@ -242,6 +242,35 @@ public class V2MappingsBuilder implements MappingsBuilder {
         .build();
   }
 
+  /**
+   * Mapping for URN-typed structured-property values. Identical to {@link #getMappingsForUrn()} but
+   * also exposes a ".keyword" subfield. Structured-property values are filtered and aggregated by
+   * exact match, which targets "&lt;field&gt;.keyword" (see {@link
+   * com.linkedin.metadata.search.utils.ESUtils#toKeywordField} and {@link
+   * com.linkedin.metadata.models.StructuredPropertyUtils#toStructuredPropertyFacetName}). The
+   * shared URN mapping only provides ".delimited"/".ngram", so without ".keyword" URN-typed
+   * structured property filters and facets silently return nothing. Regular URN filter fields
+   * (owners, domains, ...) likewise expose a keyword subfield for exact match.
+   */
+  private Map<String, Object> getMappingsForStructuredPropertyUrn() {
+    Map<String, Object> subFields = new HashMap<>();
+    subFields.put(
+        DELIMITED,
+        ImmutableMap.of(
+            TYPE, ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER, URN_ANALYZER,
+            SEARCH_ANALYZER, URN_SEARCH_ANALYZER,
+            SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
+    subFields.put(
+        NGRAM,
+        getPartialNgramConfigWithOverrides(ImmutableMap.of(ANALYZER, PARTIAL_URN_COMPONENT)));
+    subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+    return ImmutableMap.<String, Object>builder()
+        .put(TYPE, ESUtils.KEYWORD_FIELD_TYPE)
+        .put(FIELDS, subFields)
+        .build();
+  }
+
   private static Map<String, Object> getMappingsForRunId() {
     return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
   }
@@ -270,7 +299,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
                   break;
                 case URN:
-                  mappingForField = getMappingsForUrn();
+                  mappingForField = getMappingsForStructuredPropertyUrn();
                   break;
                 case NUMBER:
                   mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
