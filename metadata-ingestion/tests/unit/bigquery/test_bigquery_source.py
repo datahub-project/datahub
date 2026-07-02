@@ -1481,7 +1481,9 @@ def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
 @pytest.mark.parametrize(
     "field", ["start_time", "end_time", "bucket_duration", "max_query_duration"]
 )
-def test_bigquery_usage_config_field_description_mentions_deprecation(field: str):
+def test_bigquery_usage_config_field_description_mentions_deprecation(
+    field: str,
+) -> None:
     # The generated connector docs page renders these `description=` strings, so the
     # deprecation must be visible there too, not just in the runtime warning.
     description = BigQueryUsageConfig.model_fields[field].description
@@ -1503,8 +1505,9 @@ def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
             }
         }
     )
-    fake_source = SimpleNamespace(config=config)
-    queries_config = BigqueryV2Source._build_queries_extractor_config(fake_source)
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    queries_config = fake_source._build_queries_extractor_config()
 
     assert queries_config.format_sql_queries is True
     assert queries_config.include_top_n_queries is False
