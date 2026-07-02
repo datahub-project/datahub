@@ -38,13 +38,14 @@ def _make_aggregator(
     *,
     use_parallel: bool,
     workers: int = 2,
+    query_log: QueryLogSetting = QueryLogSetting.DISABLED,
 ) -> SqlParsingAggregator:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
-        query_log=QueryLogSetting.DISABLED,
+        query_log=query_log,
         use_parallel_sql_parsing=use_parallel,
         sql_parsing_workers=workers if use_parallel else None,
     )
@@ -250,6 +251,197 @@ def test_fallback_to_serial(monkeypatch: pytest.MonkeyPatch) -> None:
     parallel, report = _run_parallel(items)
     assert [_mcp_key(m) for m in parallel] == [_mcp_key(m) for m in serial]
     assert report.sql_parsing_fell_back_to_serial is True
+
+
+def _logged_query_tuples(aggregator: SqlParsingAggregator) -> list:
+    """Snapshot the aggregator's logged queries as comparable tuples, sorted so
+    that concurrent-append ordering does not affect the comparison."""
+    entries = [
+        (
+            lq.query,
+            lq.session_id,
+            lq.timestamp,
+            lq.user,
+            lq.default_db,
+            lq.default_schema,
+        )
+        for lq in aggregator._logged_queries
+    ]
+    return sorted(entries, key=repr)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def _run_with_query_log(items: List[_StreamItem], *, use_parallel: bool) -> tuple:
+    aggregator = _make_aggregator(
+        use_parallel=use_parallel,
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    if use_parallel:
+        with aggregator.parallel_sql_parsing_scope():
+            for item in items:
+                aggregator.add(item)
+    else:
+        for item in items:
+            aggregator.add(item)
+    mcps = sorted(list(aggregator.gen_metadata()), key=_mcp_key)
+    logged = _logged_query_tuples(aggregator)
+    report = aggregator.report
+    aggregator.close()
+    return mcps, logged, report
+
+
+def test_equivalence_with_query_logging() -> None:
+    """Covers C1: with STORE_ALL query logging, the parallel path appends to the
+    shared FileBackedList query log from worker threads. Serial and parallel must
+    produce identical MCPs AND an identical set of logged queries (no lost or
+    corrupted log entries)."""
+    items: List[_StreamItem] = [
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+            session_id="s1",
+            timestamp=_ts(10),
+        ),
+        ObservedQuery(
+            query="insert into downstream (a, b) select a, b from upstream1",
+            default_db="dev",
+            default_schema="public",
+            session_id="s2",
+            timestamp=_ts(20),
+        ),
+        ObservedQuery(
+            query="insert into downstream (a, c) select a, c from upstream2",
+            default_db="dev",
+            default_schema="public",
+            session_id="s3",
+            timestamp=_ts(25),
+        ),
+        ObservedQuery(
+            query="create table baz as select a, 2*b as b from bar",
+            default_db="dev",
+            default_schema="public",
+            session_id="s4",
+            timestamp=_ts(40),
+        ),
+    ]
+
+    serial_mcps, serial_logged, serial_report = _run_with_query_log(
+        items, use_parallel=False
+    )
+    parallel_mcps, parallel_logged, parallel_report = _run_with_query_log(
+        items, use_parallel=True
+    )
+
+    assert [_mcp_key(m) for m in parallel_mcps] == [_mcp_key(m) for m in serial_mcps]
+    assert len(parallel_logged) == len(serial_logged)
+    assert parallel_logged == serial_logged
+    assert parallel_report.num_sql_parsed == serial_report.num_sql_parsed
+
+
+def _make_stress_items() -> List[_StreamItem]:
+    """Dozens of sessions, several queries each: a mix of temp producer/consumer
+    sessions and plain non-temp sessions, interleaved by timestamp."""
+    items: List[_StreamItem] = []
+    ts = 0
+    num_temp_sessions = 12
+    num_plain_sessions = 12
+
+    # Interleave: for each "round", emit one query from several sessions.
+    for round_idx in range(3):
+        for s in range(num_plain_sessions):
+            ts += 1
+            # Distinct output table per (session, round) so there are no
+            # cross-session query-fingerprint collisions whose "latest timestamp"
+            # would be apply-order-dependent (that would make even a correct
+            # serial run non-deterministic vs parallel). Lineage still flows from
+            # a shared upstream, exercising the real parse path.
+            upstream = "upstream1" if round_idx % 2 == 0 else "upstream2"
+            cols = "a, b" if round_idx % 2 == 0 else "a, c"
+            items.append(
+                ObservedQuery(
+                    query=(
+                        f"create table out_{s}_{round_idx} as "
+                        f"select {cols} from {upstream}"
+                    ),
+                    default_db="dev",
+                    default_schema="public",
+                    session_id=f"plain_{s}",
+                    timestamp=_ts(ts),
+                )
+            )
+        for s in range(num_temp_sessions):
+            ts += 1
+            if round_idx == 0:
+                # Temp producer.
+                items.append(
+                    ObservedQuery(
+                        query="create temp table foo as select a, b+c as c from bar",
+                        default_db="dev",
+                        default_schema="public",
+                        session_id=f"temp_{s}",
+                        timestamp=_ts(ts),
+                    )
+                )
+            else:
+                # Temp consumer.
+                items.append(
+                    ObservedQuery(
+                        query=f"create table foo_{s}_{round_idx} as select * from foo",
+                        default_db="dev",
+                        default_schema="public",
+                        session_id=f"temp_{s}",
+                        timestamp=_ts(ts),
+                    )
+                )
+    return items
+
+
+@pytest.mark.parametrize("run_idx", range(3))
+def test_high_volume_many_sessions_stress(run_idx: int) -> None:
+    """Covers C2/I1/I2: a higher-volume, many-session interleaved stream with a
+    mix of temp and non-temp sessions and workers>=2. Asserts:
+
+    - serial-vs-parallel MCP equivalence (no lineage loss),
+    - report.num_sql_parsed matches the serial count (no lost/double accounting),
+    - report.num_queries_parsed_in_parallel equals the number of non-temp
+      observed queries that were actually pool-parsed (> 0), proving the
+      observability contract.
+
+    Repeated a few times via parametrization since races are timing-dependent.
+    """
+    items = _make_stress_items()
+
+    serial = _run_serial(items)
+    parallel, report = _run_parallel(items, workers=4)
+
+    assert [_mcp_key(m) for m in parallel] == [_mcp_key(m) for m in serial]
+
+    serial_report = _make_aggregator(use_parallel=False)
+    for item in items:
+        serial_report.add(item)
+    list(serial_report.gen_metadata())
+    expected_num_sql_parsed = serial_report.report.num_sql_parsed
+    serial_report.close()
+
+    assert report.num_sql_parsed == expected_num_sql_parsed
+
+    # A query is pool-parsed iff its session had no temp tables registered at the
+    # time it was classified. That is every plain_* query, plus the temp
+    # producer (the "create temp table foo" runs before the temp table exists in
+    # its session). The temp *consumers* parse inline because their session then
+    # holds an in-memory temp schema that cannot ship to a worker.
+    num_pool_parsed_expected = sum(
+        1
+        for item in items
+        if isinstance(item, ObservedQuery)
+        and (
+            (item.session_id or "").startswith("plain_")
+            or item.query.strip().lower().startswith("create temp table")
+        )
+    )
+    assert report.num_queries_parsed_in_parallel > 0
+    assert report.num_queries_parsed_in_parallel == num_pool_parsed_expected
 
 
 def test_feature_off_is_default() -> None:

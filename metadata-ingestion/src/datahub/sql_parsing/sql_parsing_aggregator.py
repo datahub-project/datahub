@@ -10,7 +10,18 @@ import threading
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set, Union, cast
+from typing import (
+    Callable,
+    ContextManager,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Union,
+    cast,
+)
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -639,6 +650,20 @@ class SqlParsingAggregator(Closeable):
         # runs concurrently on worker processes.
         self._apply_lock = threading.Lock()
 
+    def _maybe_apply_lock(self) -> ContextManager[object]:
+        """Return the apply-lock when parallel parsing is active, else a no-op.
+
+        On the parallel path every side effect on shared aggregator state
+        (report counters, the query log, shared ``PerfTimer``s) must be
+        serialized because tasks run on concurrent PartitionExecutor threads.
+        On the serial path there is only one thread, so acquiring a lock would
+        be pure overhead and could subtly change behavior — return a
+        ``nullcontext`` so the serial path is byte-for-byte unchanged.
+        """
+        if self._parallel_active:
+            return self._apply_lock
+        return contextlib.nullcontext()
+
     @contextlib.contextmanager
     def parallel_sql_parsing_scope(self) -> Iterator[None]:
         """Explicit query-processing boundary for parallel SQL parsing.
@@ -1180,12 +1205,16 @@ class SqlParsingAggregator(Closeable):
                     )
                 )
                 if outcome.error is not None or outcome.result is None:
-                    self.report.num_observed_queries_failed += 1
-                    self.report.observed_query_parse_failures.append(
-                        f"{outcome.error} on query: {observed.query[:100]}"
-                    )
+                    # Failure bookkeeping mutates shared report state (counter +
+                    # LossyList) from a worker thread, so serialize it.
+                    with self._apply_lock:
+                        self.report.num_observed_queries_failed += 1
+                        self.report.observed_query_parse_failures.append(
+                            f"{outcome.error} on query: {observed.query[:100]}"
+                        )
                     return
                 parsed = outcome.result
+                # _account_parsed_query takes the apply-lock internally.
                 self._account_parsed_query(
                     observed.query,
                     default_db=observed.default_db,
@@ -1195,18 +1224,25 @@ class SqlParsingAggregator(Closeable):
                     user=observed.user,
                     parsed=parsed,
                 )
+                with self._apply_lock:
+                    self.report.num_queries_parsed_in_parallel += 1
 
-            if parsed.debug_info.error:
-                self.report.observed_query_parse_failures.append(
-                    f"{parsed.debug_info.error} on query: {observed.query[:100]}"
-                )
-            if parsed.debug_info.table_error:
-                self.report.num_observed_queries_failed += 1
-                return
-            elif parsed.debug_info.column_error:
-                self.report.num_observed_queries_column_failed += 1
-                if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-                    self.report.num_observed_queries_column_timeout += 1
+            # Recording parse-quality counters mutates shared report state
+            # (counters + LossyList) from a worker thread, so serialize it.
+            with self._apply_lock:
+                if parsed.debug_info.error:
+                    self.report.observed_query_parse_failures.append(
+                        f"{parsed.debug_info.error} on query: {observed.query[:100]}"
+                    )
+                if parsed.debug_info.table_error:
+                    self.report.num_observed_queries_failed += 1
+                    return
+                elif parsed.debug_info.column_error:
+                    self.report.num_observed_queries_column_failed += 1
+                    if isinstance(
+                        parsed.debug_info.column_error, CooperativeTimeoutError
+                    ):
+                        self.report.num_observed_queries_column_timeout += 1
 
             with self._apply_lock:
                 self._apply_observed_parse_result(
@@ -1218,10 +1254,13 @@ class SqlParsingAggregator(Closeable):
                     require_out_table_schema,
                 )
         except Exception as e:
-            self.report.num_observed_queries_failed += 1
-            self.report.observed_query_parse_failures.append(
-                f"{e!r} on query: {observed.query[:100]}"
-            )
+            # Serialize the failure bookkeeping — this runs on a worker thread and
+            # mutates shared report state (counter + LossyList).
+            with self._apply_lock:
+                self.report.num_observed_queries_failed += 1
+                self.report.observed_query_parse_failures.append(
+                    f"{e!r} on query: {observed.query[:100]}"
+                )
             logger.debug("Parallel observed-query task failed", exc_info=e)
 
     def _account_parsed_query(
@@ -1238,25 +1277,32 @@ class SqlParsingAggregator(Closeable):
         """Update the same report counters / query log that ``_run_sql_parser``
         would, for a result produced by a worker process (which cannot mutate the
         parent's report or query log). Keeps parallel and serial book-keeping
-        identical. Callers hold no lock; ``num_sql_parsed`` is a plain int under
-        the GIL and the query log append is thread-safe."""
-        self.report.num_sql_parsed += 1
+        identical.
 
-        if self.query_log == QueryLogSetting.STORE_ALL or (
-            self.query_log == QueryLogSetting.STORE_FAILED and parsed.debug_info.error
-        ):
-            self._logged_queries.append(
-                LoggedQuery(
-                    query=query,
-                    session_id=(
-                        session_id if session_id != _MISSING_SESSION_ID else None
-                    ),
-                    timestamp=timestamp,
-                    user=user.urn() if user else None,
-                    default_db=default_db,
-                    default_schema=default_schema,
+        Runs on a PartitionExecutor thread on the parallel path, so both the
+        ``num_sql_parsed`` increment and the ``_logged_queries.append`` (neither
+        of which is thread-safe: the increment is a non-atomic read-modify-write
+        and ``FileBackedList.append`` mutates a shared length/cache and may write
+        to SQLite) are serialized under the apply-lock."""
+        with self._maybe_apply_lock():
+            self.report.num_sql_parsed += 1
+
+            if self.query_log == QueryLogSetting.STORE_ALL or (
+                self.query_log == QueryLogSetting.STORE_FAILED
+                and parsed.debug_info.error
+            ):
+                self._logged_queries.append(
+                    LoggedQuery(
+                        query=query,
+                        session_id=(
+                            session_id if session_id != _MISSING_SESSION_ID else None
+                        ),
+                        timestamp=timestamp,
+                        user=user.urn() if user else None,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                    )
                 )
-            )
 
     def add_preparsed_query(
         self,
@@ -1618,29 +1664,40 @@ class SqlParsingAggregator(Closeable):
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
         override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
-        with self.report.sql_parsing_timer:
-            parsed = sqlglot_lineage(
-                query,
-                schema_resolver=schema_resolver,
-                default_db=default_db,
-                default_schema=default_schema,
-                override_dialect=override_dialect,
-            )
-        self.report.num_sql_parsed += 1
+        # On the parallel path this runs on a PartitionExecutor thread (the
+        # temp-session inline-parse case). The shared ``sql_parsing_timer`` is a
+        # non-reentrant ``PerfTimer`` and ``_logged_queries.append`` /
+        # ``num_sql_parsed`` are not thread-safe, so serialize the whole body
+        # under the apply-lock. Temp sessions are the minority and are inherently
+        # serial per session, so this adds no meaningful contention. On the serial
+        # path ``_maybe_apply_lock`` is a nullcontext, leaving behavior unchanged.
+        with self._maybe_apply_lock():
+            with self.report.sql_parsing_timer:
+                parsed = sqlglot_lineage(
+                    query,
+                    schema_resolver=schema_resolver,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                    override_dialect=override_dialect,
+                )
+            self.report.num_sql_parsed += 1
 
-        # Conditionally log the query.
-        if self.query_log == QueryLogSetting.STORE_ALL or (
-            self.query_log == QueryLogSetting.STORE_FAILED and parsed.debug_info.error
-        ):
-            query_log_entry = LoggedQuery(
-                query=query,
-                session_id=session_id if session_id != _MISSING_SESSION_ID else None,
-                timestamp=timestamp,
-                user=user.urn() if user else None,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
-            self._logged_queries.append(query_log_entry)
+            # Conditionally log the query.
+            if self.query_log == QueryLogSetting.STORE_ALL or (
+                self.query_log == QueryLogSetting.STORE_FAILED
+                and parsed.debug_info.error
+            ):
+                query_log_entry = LoggedQuery(
+                    query=query,
+                    session_id=(
+                        session_id if session_id != _MISSING_SESSION_ID else None
+                    ),
+                    timestamp=timestamp,
+                    user=user.urn() if user else None,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
+                self._logged_queries.append(query_log_entry)
 
         # Also add some extra logging.
         if parsed.debug_info.error:

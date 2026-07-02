@@ -127,10 +127,13 @@ class ParallelSqlParser(Closeable):
     """Parses SQL across worker processes to sidestep the GIL for pure-Python
     sqlglot work.
 
-    The pool is created lazily on first use. Each worker opens the schema
-    snapshot read-only (and, if ``graph_config`` is provided, rebuilds a live
-    graph client for cache-miss hydration). Results are yielded unordered; the
-    caller correlates them via :attr:`ParseTask.key`.
+    The pool is created eagerly at construction so that a
+    :class:`ParallelParserUnavailable` failure is raised deterministically here
+    (where the caller already handles it) rather than on a racing first parse
+    from a worker thread. Each worker opens the schema snapshot read-only (and,
+    if ``graph_config`` is provided, rebuilds a live graph client for cache-miss
+    hydration). Results are yielded unordered; the caller correlates them via
+    :attr:`ParseTask.key`.
     """
 
     num_workers: int
@@ -146,9 +149,7 @@ class ParallelSqlParser(Closeable):
     )
     _closed: bool = field(default=False, init=False, repr=False)
 
-    def _ensure_executor(self) -> ProcessPoolExecutor:
-        if self._executor is not None:
-            return self._executor
+    def __post_init__(self) -> None:
         try:
             # Spawn avoids inheriting the parent's threading.Lock / SQLite fds;
             # fork-with-threads can deadlock. (macOS already defaults to spawn.)
@@ -169,6 +170,14 @@ class ParallelSqlParser(Closeable):
             raise ParallelParserUnavailable(
                 f"Failed to create parallel SQL parser process pool: {e!r}"
             ) from e
+
+    def _ensure_executor(self) -> ProcessPoolExecutor:
+        # The pool is created eagerly in __post_init__; a None executor here means
+        # the parser was already closed, which is a caller bug on the parse path.
+        if self._executor is None:
+            raise ParallelParserUnavailable(
+                "Parallel SQL parser process pool is not available (parser was closed)."
+            )
         return self._executor
 
     def map_unordered(self, tasks: Iterable[ParseTask]) -> Iterator[ParseOutcome]:
