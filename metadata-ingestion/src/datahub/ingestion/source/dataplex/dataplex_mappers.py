@@ -120,6 +120,28 @@ class EntryMappingResult:
     lineage_entry: Optional[EntryDataTuple] = None
 
 
+@dataclass(frozen=True)
+class ParentEntryLink:
+    """How to derive a mapped entry's parent container from its Dataplex parent_entry.
+
+    ``dataplex_parent_entry_regex`` parses the ``parent_entry`` path; its named
+    groups populate ``datahub_schemakey_class``. The two are inseparable, so they
+    travel together and cannot drift apart. A mapper with no ``ParentEntryLink``
+    (the property returns ``None``) has no parent container finer than its owning
+    project; parent linkage then falls back to the project key.
+    """
+
+    dataplex_parent_entry_regex: Pattern[str]
+    datahub_schemakey_class: type[DataplexProjectId]
+
+    def container_key(self, parent_entry: str) -> Optional[DataplexProjectId]:
+        """Build the parent ``ContainerKey`` from a ``parent_entry`` path."""
+        fields = parse_with_regex(self.dataplex_parent_entry_regex, parent_entry)
+        if fields is None:
+            return None
+        return instantiate_key(self.datahub_schemakey_class, fields)
+
+
 # ----------------------------------------------------------------------------
 # Mapper interface
 # ----------------------------------------------------------------------------
@@ -207,6 +229,17 @@ class EntryMapper(ABC):
         FQN for identity), so it is part of the contract rather than an inline
         argument. Named groups must match the target ``ContainerKey`` fields.
         """
+
+    @property
+    def dataplex_parent_entry(self) -> Optional[ParentEntryLink]:
+        """How to derive the parent container from the entry's ``parent_entry``.
+
+        Defaults to ``None``, meaning the entry has no parent container finer than
+        its owning project — parent linkage falls back to the project key. Mappers
+        with an intermediate parent override it with a single ``ParentEntryLink``,
+        keeping the parent-entry regex and schema-key class together.
+        """
+        return None
 
     @property
     def datahub_additional_entity_types(self) -> tuple[type[Entity], ...]:
@@ -356,17 +389,6 @@ def _project_schema_key(
     return instantiate_key(project_key_class, identity_fields)
 
 
-def _parent_container_key(
-    parent_entry_regex: Pattern[str],
-    parent_key_class: type[DataplexProjectId],
-    parent_entry: str,
-) -> Optional[DataplexProjectId]:
-    identity_fields = parse_with_regex(parent_entry_regex, parent_entry)
-    if identity_fields is None:
-        return None
-    return instantiate_key(parent_key_class, identity_fields)
-
-
 def _build_project_container(
     entry: dataplex_v1.Entry, fqn_regex: Pattern[str], platform: str
 ) -> Optional[Container]:
@@ -414,8 +436,7 @@ def build_dataset(
     subtype: str,
     fqn_regex: Pattern[str],
     name_format: str,
-    parent_entry_regex: Optional[Pattern[str]],
-    parent_key_class: Optional[type[DataplexProjectId]],
+    parent: Optional[ParentEntryLink],
     include_graph_schema_fallback: bool = False,
 ) -> Optional[EntryMappingResult]:
     """Map a Dataplex entry to a DataHub Dataset (+ project container + lineage)."""
@@ -460,11 +481,9 @@ def build_dataset(
             )
 
     parent_container_key: Optional[DataplexProjectId] = None
-    if parent_entry_regex is not None and parent_key_class is not None:
+    if parent is not None:
         if entry.parent_entry:
-            parent_container_key = _parent_container_key(
-                parent_entry_regex, parent_key_class, entry.parent_entry
-            )
+            parent_container_key = parent.container_key(entry.parent_entry)
         else:
             ctx.report.warning(
                 title="Missing Dataplex parent_entry",
@@ -534,8 +553,7 @@ def build_container(
     subtype: str,
     fqn_regex: Pattern[str],
     container_key_class: type[DataplexProjectId],
-    parent_entry_regex: Optional[Pattern[str]],
-    parent_key_class: Optional[type[DataplexProjectId]],
+    parent: Optional[ParentEntryLink],
 ) -> Optional[EntryMappingResult]:
     """Map a Dataplex entry to a DataHub Container (+ project container)."""
     if not entry.fully_qualified_name:
@@ -569,14 +587,8 @@ def build_container(
 
     # Prefer parent linkage from Dataplex parent_entry; fall back to project key.
     container_parent_key: Optional[DataplexProjectId] = None
-    if (
-        parent_entry_regex is not None
-        and parent_key_class is not None
-        and entry.parent_entry
-    ):
-        container_parent_key = _parent_container_key(
-            parent_entry_regex, parent_key_class, entry.parent_entry
-        )
+    if parent is not None and entry.parent_entry:
+        container_parent_key = parent.container_key(entry.parent_entry)
     if container_parent_key is None:
         container_parent_key = _project_schema_key(
             fqn_regex, platform, entry.fully_qualified_name
@@ -617,8 +629,7 @@ class BigQueryDatasetMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.BIGQUERY_DATASET,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexBigQueryDataset,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -628,6 +639,10 @@ class BigQueryTableMapper(EntryMapper):
     datahub_main_entity_type = Dataset
     dataplex_fqn_regex = BIGQUERY_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{dataset_id}.{table_id}"
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexBigQueryDataset,
+    )
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -640,8 +655,7 @@ class BigQueryTableMapper(EntryMapper):
             subtype=DatasetSubTypes.TABLE,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexBigQueryDataset,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -652,6 +666,10 @@ class BigQueryViewMapper(EntryMapper):
     datahub_main_entity_type = Dataset
     dataplex_fqn_regex = BIGQUERY_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{dataset_id}.{table_id}"
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexBigQueryDataset,
+    )
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -664,8 +682,7 @@ class BigQueryViewMapper(EntryMapper):
             subtype=DatasetSubTypes.VIEW,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexBigQueryDataset,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -685,8 +702,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.INSTANCE,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSqlMySqlInstance,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -695,6 +711,10 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
     datahub_platform = "cloudsql"
     datahub_main_entity_type = Container
     dataplex_fqn_regex = MYSQL_DATABASE_FQN_REGEX
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=MYSQL_INSTANCE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexCloudSqlMySqlInstance,
+    )
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -706,8 +726,7 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.DATABASE,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSqlMySqlDatabase,
-            parent_entry_regex=MYSQL_INSTANCE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexCloudSqlMySqlInstance,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -718,6 +737,10 @@ class CloudSqlMySqlTableMapper(EntryMapper):
     dataplex_fqn_regex = MYSQL_TABLE_FQN_REGEX
     datahub_dataset_name_format = (
         "{project_id}.{location}.{instance_id}.{database_id}.{table_id}"
+    )
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=MYSQL_DATABASE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexCloudSqlMySqlDatabase,
     )
 
     def map(
@@ -731,8 +754,7 @@ class CloudSqlMySqlTableMapper(EntryMapper):
             subtype=DatasetSubTypes.TABLE,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=MYSQL_DATABASE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexCloudSqlMySqlDatabase,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -752,8 +774,7 @@ class CloudSpannerInstanceMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.INSTANCE,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSpannerInstance,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -762,6 +783,10 @@ class CloudSpannerDatabaseMapper(EntryMapper):
     datahub_platform = "spanner"
     datahub_main_entity_type = Container
     dataplex_fqn_regex = SPANNER_DATABASE_FQN_REGEX
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexCloudSpannerInstance,
+    )
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -773,8 +798,7 @@ class CloudSpannerDatabaseMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.DATABASE,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexCloudSpannerDatabase,
-            parent_entry_regex=SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexCloudSpannerInstance,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -785,6 +809,10 @@ class CloudSpannerTableMapper(EntryMapper):
     dataplex_fqn_regex = SPANNER_TABLE_FQN_REGEX
     datahub_dataset_name_format = (
         "{project_id}.regional-{location}.{instance_id}.{database_id}.{table_id}"
+    )
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexCloudSpannerDatabase,
     )
 
     def map(
@@ -798,8 +826,7 @@ class CloudSpannerTableMapper(EntryMapper):
             subtype=DatasetSubTypes.TABLE,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexCloudSpannerDatabase,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -811,6 +838,10 @@ class CloudSpannerGraphMapper(EntryMapper):
     # Spanner tables and graphs share a namespace so names never collide.
     datahub_dataset_name_format = (
         "{project_id}.regional-{location}.{instance_id}.{database_id}.{graph_id}"
+    )
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexCloudSpannerDatabase,
     )
 
     def map(
@@ -824,8 +855,7 @@ class CloudSpannerGraphMapper(EntryMapper):
             subtype=DatasetSubTypes.GRAPH,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexCloudSpannerDatabase,
+            parent=self.dataplex_parent_entry,
             include_graph_schema_fallback=True,
         )
 
@@ -846,8 +876,7 @@ class CloudBigtableInstanceMapper(EntryMapper):
             subtype=DatasetContainerSubTypes.INSTANCE,
             fqn_regex=self.dataplex_fqn_regex,
             container_key_class=DataplexBigtableInstance,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -857,6 +886,10 @@ class CloudBigtableTableMapper(EntryMapper):
     datahub_main_entity_type = Dataset
     dataplex_fqn_regex = BIGTABLE_TABLE_FQN_REGEX
     datahub_dataset_name_format = "{project_id}.{instance_id}.{table_id}"
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexBigtableInstance,
+    )
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -869,8 +902,7 @@ class CloudBigtableTableMapper(EntryMapper):
             subtype=DatasetSubTypes.TABLE,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
-            parent_key_class=DataplexBigtableInstance,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -893,8 +925,7 @@ class PubSubTopicMapper(EntryMapper):
             subtype=DatasetSubTypes.TOPIC,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 
@@ -916,8 +947,7 @@ class VertexAiDatasetMapper(EntryMapper):
             subtype=DatasetSubTypes.TABLE,
             fqn_regex=self.dataplex_fqn_regex,
             name_format=self.datahub_dataset_name_format,
-            parent_entry_regex=None,
-            parent_key_class=None,
+            parent=self.dataplex_parent_entry,
         )
 
 

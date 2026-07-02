@@ -193,6 +193,23 @@ def test_mapper_builds_expected_entity(
         assert result.lineage_entry is None
 
 
+@pytest.mark.parametrize("short_name,fqn,parent_entry,main_type,dataset_name", CASES)
+def test_parent_entry_link_present_iff_entry_has_parent(
+    short_name: str,
+    fqn: str,
+    parent_entry: str,
+    main_type: str,
+    dataset_name: Optional[str],
+) -> None:
+    """A mapper declares a ParentEntryLink exactly when the entry has a
+    parent_entry finer than its project; otherwise the property is None."""
+    mapper = ENTRY_MAPPERS[short_name]
+    if parent_entry:
+        assert mapper.dataplex_parent_entry is not None
+    else:
+        assert mapper.dataplex_parent_entry is None
+
+
 def test_dataset_with_parent_entry_links_parent_container() -> None:
     short_name, fqn, parent_entry = CASES[1][:3]  # bigquery-table
     result = ENTRY_MAPPERS[short_name].map(
