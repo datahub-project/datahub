@@ -36,7 +36,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class UpsertStructuredPropertiesResolver
     implements DataFetcher<
         CompletableFuture<com.linkedin.datahub.graphql.generated.StructuredProperties>> {
@@ -65,11 +67,18 @@ public class UpsertStructuredPropertiesResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // check authorization first
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
+            // check authorization
+            final List<Urn> propertyUrns =
+                updateMap.keySet().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+            log.info(
+                "Upserting structured properties for asset urn {}, with property urns {}",
+                assetUrn,
+                propertyUrns);
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
-                      "Not authorized to update properties on the gives urn %s", assetUrn));
+                      "Not authorized to update properties on the given urn %s", assetUrn));
             }
 
             final AuditStamp auditStamp =

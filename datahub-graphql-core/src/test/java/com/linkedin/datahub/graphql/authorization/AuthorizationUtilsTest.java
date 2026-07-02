@@ -3,11 +3,15 @@ package com.linkedin.datahub.graphql.authorization;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ViewProperties;
+import java.util.Arrays;
+import java.util.Collections;
 import org.testng.annotations.Test;
 
 public class AuthorizationUtilsTest {
@@ -99,5 +103,45 @@ public class AuthorizationUtilsTest {
     // This test validates the method exists and can be called
     boolean result = AuthorizationUtils.canManageDocuments(mockContext);
     // Result depends on the mock context setup
+  }
+
+  @Test
+  public void testCanEditPropertiesWithoutPropertyUrns() {
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+    QueryContext allowContext = getMockAllowContext();
+    assertTrue(AuthorizationUtils.canEditProperties(datasetUrn, allowContext));
+
+    QueryContext denyContext = getMockDenyContext();
+    assertFalse(AuthorizationUtils.canEditProperties(datasetUrn, denyContext));
+  }
+
+  @Test
+  public void testCanEditPropertiesWithPropertyUrns() {
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+    Urn propUrn1 = UrnUtils.getUrn("urn:li:structuredProperty:test1");
+    Urn propUrn2 = UrnUtils.getUrn("urn:li:structuredProperty:test2");
+
+    QueryContext allowContext = getMockAllowContext();
+    assertTrue(
+        AuthorizationUtils.canEditProperties(
+            datasetUrn, allowContext, Arrays.asList(propUrn1, propUrn2)));
+
+    QueryContext denyContext = getMockDenyContext();
+    assertFalse(
+        AuthorizationUtils.canEditProperties(
+            datasetUrn, denyContext, Arrays.asList(propUrn1, propUrn2)));
+  }
+
+  @Test
+  public void testCanEditPropertiesWithEmptyPropertyUrns() {
+    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+
+    QueryContext allowContext = getMockAllowContext();
+    assertTrue(
+        AuthorizationUtils.canEditProperties(datasetUrn, allowContext, Collections.emptyList()));
+
+    QueryContext denyContext = getMockDenyContext();
+    assertFalse(
+        AuthorizationUtils.canEditProperties(datasetUrn, denyContext, Collections.emptyList()));
   }
 }
