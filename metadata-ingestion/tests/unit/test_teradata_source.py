@@ -33,7 +33,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataSource,
     TeradataTable,
     ViewErrorCategory,
-    _categorize_view_error,
+    _categorize_teradata_error,
     _engine_connect_with_retry,
     _execute_with_retry,
     _fetchmany_with_retry,
@@ -4336,8 +4336,8 @@ class TestExecuteWithCursorFallback:
         assert result is expected
 
 
-class TestCategorizeViewError:
-    """Unit tests for _categorize_view_error."""
+class TestCategorizeTeradataError:
+    """Unit tests for _categorize_teradata_error."""
 
     @pytest.mark.parametrize(
         "exc, expected",
@@ -4453,11 +4453,11 @@ class TestCategorizeViewError:
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
-        assert _categorize_view_error(exc) == expected
+        assert _categorize_teradata_error(exc) == expected
 
 
 class TestErrorCategorizationReport:
-    """Report counters are wired correctly to _categorize_view_error categories."""
+    """Report counters are wired correctly to _categorize_teradata_error categories."""
 
     def test_increment_schema_discovery_failures(self) -> None:
         report = TeradataReport()
@@ -4643,7 +4643,7 @@ class TestViewProcessingErrorCounters:
 
     Both the single-threaded path (_process_views_single_threaded, max_workers=1)
     and the multi-threaded path (_loop_views_with_connection_pool, max_workers>1)
-    use _categorize_view_error to route failures to the right sub-counter.
+    use _categorize_teradata_error to route failures to the right sub-counter.
     """
 
     # ------------------------------------------------------------------
@@ -5813,6 +5813,47 @@ class TestGenerateProfileCandidates:
         # The warning should point at the DBC view so operators know what to grant;
         # match on a stable keyword rather than the full wording.
         assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
+        assert source.report.profiling_permission_errors == 1
+
+    def test_permission_failure_is_categorized_and_counted(self):
+        """A permission denial while sizing (e.g. [Error 3523] on DBC.TableSizeV)
+        is surfaced under the permission-specific title and counted, while still
+        falling back to no filtering so the run continues."""
+        source = self._source_with_size_limit(2)
+
+        exc = Exception(
+            "[Error 3523] user does not have SELECT access to DBC.TableSizeV"
+        )
+        with patch.object(source, "_retry_execute", side_effect=exc):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        assert source.report.profiling_permission_errors == 1
+        assert any(
+            w.title == "Unauthorized to size tables for profiling"
+            for w in source.report.warnings
+        )
+
+    def test_non_permission_failure_uses_generic_warning(self):
+        """A non-permission sizing failure (e.g. a timeout) keeps the generic
+        warning and does not increment the permission counter."""
+        source = self._source_with_size_limit(2)
+
+        with patch.object(
+            source, "_retry_execute", side_effect=Exception("request timed out")
+        ):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        assert source.report.profiling_permission_errors == 0
+        assert any(
+            w.title == "Could not size tables for profiling"
+            for w in source.report.warnings
+        )
 
     def test_eligibility_counts_size_skip_once_not_double_counted(self):
         """A table excluded by the size-filtered candidate list is counted in
