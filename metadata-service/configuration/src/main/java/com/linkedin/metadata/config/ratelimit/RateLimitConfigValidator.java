@@ -17,6 +17,11 @@ public final class RateLimitConfigValidator {
 
   private RateLimitConfigValidator() {}
 
+  /**
+   * Validates the general (non-scoped) config: capacity pools/rules, endpoint rules, retry, and
+   * tenantId. Scoped-chain sizing is validated separately by {@link #validateScoped} (called from
+   * the engine constructor), so the two entry points are disjoint — no check runs twice.
+   */
   public static void validate(RateLimitProperties config) {
     ensureNestedDefaults(config);
     String graphqlPath = config.getCapacity().getGraphql().getPathPattern();
@@ -34,7 +39,6 @@ public final class RateLimitConfigValidator {
     validateEndpointRules(config.getEndpoint().getRules(), graphqlPath, validationErrors);
     validateRetryAfterConfig(config, validationErrors);
     validateTenantId(config, validationErrors);
-    collectScopedErrors(config, validationErrors);
 
     if (!validationErrors.isEmpty()) {
       throw new IllegalStateException(
@@ -43,9 +47,10 @@ public final class RateLimitConfigValidator {
   }
 
   /**
-   * Validates only the scoped chain, throwing on any problem. Construction-time entry point for the
-   * engine so scoped sizing is checked even when the engine is built without going through the
-   * factory path (e.g. in tests); the factory path covers it via {@link #validate}.
+   * Validates only the scoped chain, throwing on any problem. This is the sole owner of scoped
+   * validation — the engine constructor calls it so scoped sizing is checked wherever the engine is
+   * built (including tests and the factory path), and {@link #validate} deliberately does not
+   * repeat it.
    */
   public static void validateScoped(RateLimitProperties config) {
     List<String> validationErrors = new ArrayList<>();

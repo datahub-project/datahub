@@ -101,7 +101,7 @@ Because pools are disjoint, **total concurrent load on a pod can exceed any sing
 
 **GraphQL lifecycle:** The servlet filter does not acquire capacity for `POST /api/graphql`. The GraphQL controller acquires before execution and releases when the `CompletableFuture` completes. Gradient2 receives `onSuccess` only when the execution has **no GraphQL errors** (HTTP 200 with an `errors` array in the body is treated as a failed execution for adaptive tuning).
 
-**Operation name selection:** Rule matching uses the request's `operationName` field when present. That value is **not cross-checked** against the parsed query document — a client can supply a less-restrictive operation name to bypass operation-scoped capacity rules (rank 4). When `operationName` is omitted, the server derives a name from the document (first named operation, or `graphql`). For abuse-sensitive deployments, prefer path-level limits (`capacity.graphql`), auth, or edge controls rather than relying solely on per-operation rules. Operation-scoped rules in `capacity.rules` / `endpoint.rules` are ignored when `capacity.graphql.operationRulesEnabled=false`.
+**Operation name selection & threat model:** Operation-scoped rule matching (rank 4) uses the request's `operationName`, or when it is omitted the first named operation in the query document. Both are **client-controlled** — the client authors the query and the JSON `operationName`, and the value is **not cross-checked** against the operation actually executed — so a client can rename or mis-name an operation to dodge or re-target an operation-scoped rule. This applies to **both** `capacity.rules` (adaptive, self-correcting) and `endpoint.rules` (hard token buckets): **operation-name matching is advisory, not a security boundary.** For abuse-resistant enforcement, key on dimensions the server observes rather than the client asserts — path/method (`capacity.graphql`, endpoint rules matched by `pathPattern`), the scoped actor chain (`scoped:actor`, keyed on the authenticated actor URN), or the heavy-resolver gate (`scoped.heavyResolvers`, keyed on the server-parsed top-level resolver names) — none of which the client can spoof. Note the unnamed-operation identity is also server-derived (sorted top-level field names). Operation-scoped rules are ignored entirely when `capacity.graphql.operationRulesEnabled=false`.
 
 **Async Spring MVC:** For controllers that return `CompletableFuture` (for example `/auth/*`), the servlet filter registers a servlet `AsyncListener` and holds the capacity slot until async processing completes, times out, or errors — same effective lifecycle as synchronous handlers. GraphQL uses a dedicated controller gate instead of the filter.
 
@@ -261,7 +261,7 @@ datahub:
             refillPeriodSeconds: 60
 ```
 
-> **Planned (not yet available):** An `agentClass` dimension (distinguishing browser UI sessions from SDK/CLI callers) and per-actor coverage for Rest.li / OpenAPI paths are under consideration. Behavior documented here reflects the current implementation only.
+> **Planned (not yet available):** Per-actor coverage for Rest.li / OpenAPI paths is under consideration — the scoped actor bucket and `perActor` endpoint rules currently apply to the GraphQL POST path only. (The browser-vs-SDK **client-class** distinction is already implemented — see `clientClassEnabled` and the `scoped:browser`/`scoped:sdk` buckets — and is modeled in code as `ClientClass`.) Behavior documented here reflects the current implementation only.
 
 ## Configuration reference
 
@@ -297,11 +297,13 @@ rateLimits:
   scoped:
     enabled: false # RATE_LIMITS_SCOPED_ENABLED
     refundDisabled: false # RATE_LIMITS_SCOPED_REFUND_DISABLED
-    # Bucket sizes (env-overridable per deployment):
-    actor: { capacity: 2000, refillTokens: 2000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_ACTOR_CAPACITY
-    browser: { capacity: 5000, refillTokens: 5000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_BROWSER_CAPACITY
-    sdk: { capacity: 500, refillTokens: 500, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_SDK_CAPACITY
-    global: { capacity: 20000, refillTokens: 20000, refillPeriodSeconds: 60 } # RATE_LIMITS_SCOPED_GLOBAL_CAPACITY
+    # Bucket sizes (env-overridable per deployment). Each field has its own env var:
+    # RATE_LIMITS_SCOPED_<BUCKET>_{CAPACITY,REFILL_TOKENS,REFILL_PERIOD_SECONDS}.
+    # refillTokens defaults to that bucket's CAPACITY; refillPeriodSeconds defaults to 60.
+    actor: { capacity: 2000, refillTokens: 2000, refillPeriodSeconds: 60 }
+    browser: { capacity: 5000, refillTokens: 5000, refillPeriodSeconds: 60 }
+    sdk: { capacity: 500, refillTokens: 500, refillPeriodSeconds: 60 }
+    global: { capacity: 20000, refillTokens: 20000, refillPeriodSeconds: 60 }
     heavyResolvers: {} # per-resolver buckets; add via mounted file
   metrics:
     detailed: false
@@ -339,6 +341,8 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                    |
 | `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                        |
 | `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_         | Tokens refilled per period for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`); defaults to that bucket's capacity                                     |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                          | Refill period (seconds) for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`)                                                                            |
 
 ### Tier 2 — override policy file
 
@@ -424,7 +428,7 @@ Prometheus metrics (tagged by `rule_id`, `type`, `outcome`, and optionally `grap
 
 `gms.rate_limit.requests` sets `graphql_operation` to the resolved operation name **only when an operation-scoped rule matched** (a rule with `graphqlOperationNames`); otherwise `none`. This bounds metric cardinality — arbitrary client-supplied operation names on the general GraphQL pool are not tagged.
 
-**Sampling — important for reading `outcome=allow`:** to keep hot-path overhead low, **allowed** requests are recorded at a 1-in-100 sample rate, while **denied** requests are always recorded. So `gms.rate_limit.requests{outcome=allow}` undercounts actual allowed traffic by ~100× — multiply by 100 for an approximate volume, and never compute an exact allow/deny ratio from the raw counters. Deny-based alerting is unaffected (denials are exact). Set `RATE_LIMITS_METRICS_DETAILED=true` (`metrics.detailed`) to disable sampling and record every request (higher cardinality/overhead — use selectively).
+**Sampling — important for reading `outcome=allow`:** to keep hot-path overhead low, **allowed** requests are recorded at a 1-in-100 sample rate, while **denied** requests are always recorded. So `gms.rate_limit.requests{outcome=allow}` undercounts actual allowed traffic by ~100× — multiply by 100 for an approximate volume, and never compute an exact allow/deny ratio from the raw counters. The ×100 estimate is a Poisson sample and has **high relative variance at low volumes**: a handful of sampled events implies a wide confidence interval (e.g. ~10 sampled ≈ 1,000 ± ~300), so treat low-traffic allow counts as rough order-of-magnitude only and prefer longer windows or `metrics.detailed` when you need accuracy. Deny-based alerting is unaffected (denials are exact). Set `RATE_LIMITS_METRICS_DETAILED=true` (`metrics.detailed`) to disable sampling and record every request (higher cardinality/overhead — use selectively).
 
 Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`, endpoint remaining near zero on auth rules. **Alert on any sustained `gms.rate_limit.fail_open` rate** — fail-open means rate-limit evaluation is throwing (e.g. Hazelcast connectivity loss) and requests are passing unlimited, so the protection is effectively off until it clears; there is no circuit-breaker, so this metric is the signal to investigate. For capacity planning, sum `gms.rate_limit.adaptive.inflight` across `rule_id` tags on a pod — each tag is an independent pool.
 
@@ -435,4 +439,4 @@ Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`,
 | `GET /openapi/v1/rate-limits/config` | Effective merged configuration                |
 | `GET /openapi/v1/rate-limits/status` | Live state on the pod that served the request |
 
-Status response includes `capacityEnabled`, `endpointEnabled`, plus per-rule `adaptive` (limit/inflight) and `endpoint` (remaining/capacity) maps.
+Status response includes `capacityEnabled`, `endpointEnabled`, `scopedEnabled`, plus per-rule `adaptive` (limit/inflight) and `endpoint` (remaining/capacity) maps, and a `scoped` map with the fixed-key buckets (`global`, `browser`, `sdk` — each remaining/capacity). Per-actor scoped buckets are omitted since their keys are unbounded.

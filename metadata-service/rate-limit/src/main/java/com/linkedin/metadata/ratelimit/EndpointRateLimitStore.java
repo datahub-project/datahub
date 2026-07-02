@@ -146,6 +146,16 @@ final class EndpointRateLimitStore {
     return bucket == null ? -1 : bucket.getBucket().getAvailableTokens();
   }
 
+  /**
+   * Read-only available tokens for a fixed-key scoped bucket (global/class), for status reporting.
+   * Like any distributed-bucket read this materializes the bucket at full capacity if it does not
+   * exist yet, so only call it for bounded, fixed keys — never the unbounded per-actor keys.
+   */
+  double scopedRemaining(
+      @Nonnull String key, @Nonnull RateLimitProperties.BucketLimits limits, boolean globalMap) {
+    return scopedBucket(key, limits, globalMap).getAvailableTokens();
+  }
+
   int capacity(@Nonnull String ruleId) {
     RegisteredEndpointBucket bucket = buckets.get(ruleId);
     return bucket == null ? -1 : bucket.getConfiguredCapacity();

@@ -75,6 +75,17 @@ final class RateLimitMetrics {
     return "none";
   }
 
+  /**
+   * Tag for heavy-resolver denials. The resolver name is a configured {@code heavyResolvers} key —
+   * a small bounded set, server-parsed from the query (not a spoofable client operation name) — so
+   * it is safe to emit directly for the {@code graphql_operation} dimension without exploding
+   * cardinality.
+   */
+  @Nonnull
+  static String graphqlOperationTagForResolver(@Nullable String resolverName) {
+    return StringUtils.hasText(resolverName) ? resolverName : "none";
+  }
+
   void registerAdaptiveGauges(String ruleId, AdaptiveCapacityLimiter limiter) {
     if (meterRegistry == null) {
       return;

@@ -117,7 +117,7 @@ public class GraphQLController {
       RateLimitDecision heavyDecision =
           rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
       if (heavyDecision != null && !heavyDecision.isAllowed()) {
-        rateLimitEngine.release(rateLimitEngine.toLease(frontGateDecision), false);
+        rateLimitEngine.releaseCapacity(frontGateDecision, false);
         rateLimitEngine.refundScopedChain(actorUrn, clientClass);
         return heavyDecision;
       }

@@ -219,22 +219,24 @@ datahub:
       scoped:
         enabled: ${RATE_LIMITS_SCOPED_ENABLED:true}
         refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
+        # refillTokens defaults to the bucket's capacity (nested placeholder) but can be set
+        # independently; refillPeriodSeconds defaults to 60.
         actor:
           capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
         browser:
           capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
-          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_TOKENS:${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_PERIOD_SECONDS:60}
         sdk:
           capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillTokens: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
         global:
           capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
-          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_TOKENS:${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_PERIOD_SECONDS:60}
         heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}

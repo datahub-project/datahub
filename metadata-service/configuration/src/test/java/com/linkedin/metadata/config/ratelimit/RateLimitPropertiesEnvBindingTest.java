@@ -57,9 +57,42 @@ public class RateLimitPropertiesEnvBindingTest {
   public void testScopedSdkCapacityComesFromEnv() {
     RateLimitProperties config = bindWithEnv(Map.of("RATE_LIMITS_SCOPED_SDK_CAPACITY", "100"));
     assertEquals(config.getScoped().getSdk().getCapacity(), 100);
+    // refillTokens has no env of its own set, so it falls back (nested placeholder) to capacity.
     assertEquals(config.getScoped().getSdk().getRefillTokens(), 100);
     // An unrelated bucket keeps its file default — the env var only touches what it names.
     assertEquals(config.getScoped().getActor().getCapacity(), 2000);
+  }
+
+  @Test
+  public void testScopedRefillTokensOverridableIndependentlyOfCapacity() {
+    // Setting only REFILL_TOKENS moves refillTokens without touching capacity — the two are
+    // independently configurable via env.
+    RateLimitProperties config =
+        bindWithEnv(Map.of("RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS", "300"));
+    assertEquals(config.getScoped().getActor().getRefillTokens(), 300);
+    assertEquals(config.getScoped().getActor().getCapacity(), 2000);
+  }
+
+  @Test
+  public void testScopedRefillPeriodOverridableFromEnv() {
+    RateLimitProperties config =
+        bindWithEnv(Map.of("RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS", "30"));
+    assertEquals(config.getScoped().getSdk().getRefillPeriodSeconds(), 30);
+  }
+
+  @Test
+  public void testScopedRefillTokensFallsBackToCapacityEnv() {
+    // With no REFILL_TOKENS env, the nested placeholder makes refillTokens track the capacity env.
+    RateLimitProperties config = bindWithEnv(Map.of("RATE_LIMITS_SCOPED_ACTOR_CAPACITY", "750"));
+    assertEquals(config.getScoped().getActor().getCapacity(), 750);
+    assertEquals(config.getScoped().getActor().getRefillTokens(), 750);
+    // Explicit REFILL_TOKENS wins over the capacity fallback.
+    RateLimitProperties overridden =
+        bindWithEnv(
+            Map.of(
+                "RATE_LIMITS_SCOPED_ACTOR_CAPACITY", "750",
+                "RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS", "200"));
+    assertEquals(overridden.getScoped().getActor().getRefillTokens(), 200);
   }
 
   @Test

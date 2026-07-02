@@ -11,12 +11,12 @@ datahub:
         enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
         actor:
           capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
         sdk:
           capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillTokens: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
-          refillPeriodSeconds: 60
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
         heavyResolvers:
           searchAcrossEntities:
             capacity: 100

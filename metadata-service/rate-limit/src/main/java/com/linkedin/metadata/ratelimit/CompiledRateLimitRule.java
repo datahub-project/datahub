@@ -3,6 +3,7 @@ package com.linkedin.metadata.ratelimit;
 import com.linkedin.metadata.config.ratelimit.CapacityLimitConfig;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.config.ratelimit.RateLimitRuleType;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -12,8 +13,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.AntPathMatcher;
 
+@Slf4j
 @Getter
 final class CompiledRateLimitRule {
   static final String DEFAULT_CAPACITY_ID = "_default_capacity";
@@ -204,10 +207,20 @@ final class CompiledRateLimitRule {
         continue;
       }
       String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+      boolean matched = false;
       for (ClientClass candidate : ClientClass.values()) {
         if (candidate.name().equals(normalized)) {
           classes.add(candidate);
+          matched = true;
         }
+      }
+      if (!matched) {
+        // A typo (e.g. "browsr") would otherwise silently make the rule class-agnostic; warn so the
+        // misconfiguration is visible rather than quietly widening the rule's scope.
+        log.warn(
+            "Ignoring unknown rate-limit clientType '{}' (expected one of {})",
+            value,
+            Arrays.toString(ClientClass.values()));
       }
     }
     return classes.isEmpty() ? Set.of() : Set.copyOf(classes);

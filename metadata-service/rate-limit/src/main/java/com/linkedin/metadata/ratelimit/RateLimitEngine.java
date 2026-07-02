@@ -223,6 +223,16 @@ public class RateLimitEngine {
     adaptiveCapacityLimiter.release(lease.getCapacityListener(), success);
   }
 
+  /**
+   * Releases the capacity acquisition held by a decision directly, without minting a throwaway
+   * {@link RateLimitLease}. Use this on unwind paths (e.g. a later gate denies after the front gate
+   * acquired) so the acquire is released exactly once from its own decision. Distinct name (not a
+   * {@code release} overload) so {@code any()}-style mock matchers stay unambiguous.
+   */
+  public void releaseCapacity(@Nonnull RateLimitDecision decision, boolean success) {
+    adaptiveCapacityLimiter.release(decision.getCapacityListener(), success);
+  }
+
   public void applyHeaders(
       @Nonnull HttpServletResponse response, @Nonnull RateLimitDecision decision) {
     RateLimitHeaderWriter.createHeaders(decision)
@@ -289,15 +299,51 @@ public class RateLimitEngine {
               });
     }
 
+    // Scoped chain: report only the fixed-key buckets (global + browser/sdk class). The per-actor
+    // bucket is keyed by {tenantId}:actor:{urn} — unbounded cardinality, so it is not enumerable.
+    RateLimitProperties.ScopedLimits scopedCfg = config.getScoped();
+    boolean scopedEnabled = scopedCfg != null && scopedCfg.isEnabled();
+    Map<String, Object> scoped = new HashMap<>();
+    if (scopedEnabled && endpointStore != null) {
+      String tenant = config.getTenantId();
+      addScopedBucketStatus(scoped, "global", scopedCfg.getGlobal(), "global", true);
+      addScopedBucketStatus(
+          scoped, "browser", scopedCfg.getBrowser(), tenantKey(tenant, "browser"), false);
+      addScopedBucketStatus(scoped, "sdk", scopedCfg.getSdk(), tenantKey(tenant, "sdk"), false);
+    }
+
     return Map.of(
         "capacityEnabled",
         config.getCapacity() != null && config.getCapacity().isEnabled(),
         "endpointEnabled",
         config.getEndpoint() != null && config.getEndpoint().isEnabled(),
+        "scopedEnabled",
+        scopedEnabled,
         "adaptive",
         adaptive,
         "endpoint",
-        endpoint);
+        endpoint,
+        "scoped",
+        scoped);
+  }
+
+  /**
+   * Adds a fixed-key scoped bucket's live state to {@code out} under {@code label}, skipping
+   * buckets that are absent or individually disabled. Uses the store's read-only peek.
+   */
+  private void addScopedBucketStatus(
+      @Nonnull Map<String, Object> out,
+      @Nonnull String label,
+      @Nullable RateLimitProperties.BucketLimits limits,
+      @Nonnull String key,
+      boolean globalMap) {
+    if (limits == null || limits.isDisabled()) {
+      return;
+    }
+    Map<String, Object> bucketStatus = new HashMap<>();
+    bucketStatus.put("remaining", endpointStore.scopedRemaining(key, limits, globalMap));
+    bucketStatus.put("capacity", limits.getCapacity());
+    out.put(label, bucketStatus);
   }
 
   @Nonnull
@@ -439,8 +485,16 @@ public class RateLimitEngine {
   @Nullable
   private RateLimitDecision consumeScopedChain(@Nonnull RateLimitContext ctx) {
     RateLimitProperties.ScopedLimits scoped = config.getScoped();
-    if (endpointStore == null || scoped == null || !scoped.isEnabled()) {
+    if (scoped == null || !scoped.isEnabled()) {
       return null;
+    }
+    // Invariant: needsDistributedStore() creates endpointStore whenever the scoped chain is active,
+    // so a null store here means a construction bug. Fail loud rather than silently skip the
+    // limiter.
+    if (endpointStore == null) {
+      throw new IllegalStateException(
+          "scoped rate limiting is enabled but the distributed store is null "
+              + "(constructor invariant violated)");
     }
 
     List<ScopedStep> steps = buildScopedSteps(ctx.actorUrn(), ctx.clientClass(), scoped);
@@ -492,7 +546,16 @@ public class RateLimitEngine {
 
   /**
    * Builds the ordered narrow → broad steps for this request. Disabled limiters and absent
-   * dimensions (no actor on REST, unclassified client, non-heavy resolver) are skipped.
+   * dimensions are skipped:
+   *
+   * <ul>
+   *   <li>the actor step when {@code actorUrn} is null — this front gate is driven by the GraphQL
+   *       controller, which passes the authenticated actor URN for every caller except the exempt
+   *       system principal; a null here means "no per-actor dimension for this request" (e.g. the
+   *       system principal). REST/OpenAPI paths do not run this scoped chain at all.
+   *   <li>the class step when the client is unclassified or {@code clientClassEnabled=false}.
+   * </ul>
+   *
    * Tenant-scoped keys are prefixed with the tenant id; only {@code global} is un-prefixed and
    * lives in the shared fleet map.
    */
@@ -586,7 +649,8 @@ public class RateLimitEngine {
               .retryAfterSeconds(endpointRetryAfterSeconds(probe))
               .build();
       logDeny(decision);
-      metrics.recordDecision(decision, RateLimitMetrics.graphqlOperationTag(resolverName));
+      metrics.recordDecision(
+          decision, RateLimitMetrics.graphqlOperationTagForResolver(resolverName));
       return decision;
     } catch (RuntimeException e) {
       if (config.isFailOpen()) {

@@ -70,9 +70,12 @@ public final class GraphQLOperationNameResolver {
    * <ul>
    *   <li>{@code queryName} — the operation name for display/context (named op, else {@code
    *       "graphql"}).
-   *   <li>{@code identity} — the rate-limit identity: named op name, or for an unnamed op the
-   *       sorted top-level field names (e.g. {@code "search,user"}), else {@code "graphql"}. This
-   *       is a schema-derived value, so it can't be spoofed the way a client operation name can.
+   *   <li>{@code identity} — the rate-limit identity: the operation name for a named op, or for an
+   *       unnamed op the sorted top-level field names (e.g. {@code "search,user"}), else {@code
+   *       "graphql"}. The operation name is client-controlled (the client writes both the query and
+   *       the JSON {@code operationName}), so name-based identity is advisory, not a security
+   *       boundary; only the unnamed-op fallback (top-level field names) is schema-derived. See the
+   *       threat-model note in docs/deploy/gms-rate-limiting.md.
    *   <li>{@code topLevelFields} — the operation's top-level field names (aliases collapsed,
    *       top-level inline fragments and fragment spreads resolved), used by the heavy-resolver
    *       gate.
