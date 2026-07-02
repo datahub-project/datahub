@@ -427,6 +427,11 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
 
 ## Changelog
 
+### Next
+
+- _Changes_:
+  - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
+
 ### Version 0.2.18
 
 - _Changes_:
