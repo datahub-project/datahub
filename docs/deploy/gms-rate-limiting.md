@@ -341,8 +341,8 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                    |
 | `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                        |
 | `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_         | Tokens refilled per period for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`); defaults to that bucket's capacity                                     |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                          | Refill period (seconds) for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`)                                                                            |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_         | Tokens refilled per period for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`); defaults to that bucket's capacity                                    |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                          | Refill period (seconds) for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`)                                                                           |
 
 ### Tier 2 — override policy file
 

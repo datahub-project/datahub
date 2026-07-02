@@ -24,7 +24,9 @@ import org.testng.annotations.Test;
 public class RateLimitPropertiesEnvBindingTest {
 
   private static final String RESOURCE = "rate-limit-env-binding-test.yaml";
-  private static final String PREFIX = "datahub.gms.rateLimits";
+  // Canonical (kebab) form — Binder rejects a bind name with uppercase letters. Spring's relaxed
+  // binding still matches the camelCase source keys (datahub.gms.rateLimits.*) to this name.
+  private static final String PREFIX = "datahub.gms.rate-limits";
 
   /**
    * Binds {@link RateLimitProperties} from the test YAML with the given env vars overlaid at
