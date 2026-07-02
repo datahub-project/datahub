@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 import tempfile
 from typing import Any, Dict, Iterable, List
@@ -7,7 +8,9 @@ import yaml
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.ingestion.graph.client import DataHubGraph
-from tests.utils import run_datahub_cmd, sync_elastic
+from tests.utils import delete_urns, run_datahub_cmd, sync_elastic
+
+logger = logging.getLogger(__name__)
 
 
 def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:
@@ -125,3 +128,29 @@ def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
 
     assert sorted(groups_owned) == all_groups
     assert sorted(groups_partof) == all_groups
+
+
+def test_long_name_group(auth_session: Any, graph_client: DataHubGraph) -> None:
+    long_id = "a" * 250
+    group_urn = f"urn:li:corpGroup:{long_id}"
+
+    logger.info("Upserting group with 250-character name")
+    group = CorpGroup(
+        id=long_id,
+        display_name="Long Name Test Group",
+        email="long_group@datahubproject.io",
+        description="Group with a maximum-length name",
+    )
+    datahub_upsert_group(auth_session, group)
+
+    logger.info("Fetching group back by URN")
+    group_dict = datahub_get_group(auth_session, group_urn)
+
+    assert group_dict["corpGroupKey"]["name"] == long_id, (
+        f"Name was truncated: expected {len(long_id)} chars, "
+        f"got {len(group_dict['corpGroupKey']['name'])}"
+    )
+    assert group_dict["corpGroupInfo"]["displayName"] == "Long Name Test Group"
+
+    logger.info("Cleaning up long-name group")
+    delete_urns(graph_client, [group_urn])
