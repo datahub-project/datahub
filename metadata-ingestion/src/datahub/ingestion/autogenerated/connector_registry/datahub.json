@@ -248,12 +248,6 @@
     "bigid": {
       "capabilities": [
         {
-          "capability": "CLASSIFICATION",
-          "description": "BigID classification findings as GlossaryTerms on SchemaFields",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "DATA_PROFILING",
           "description": "Column-level profiles from BigID columnProfile data",
           "subtype_modifier": null,
@@ -280,6 +274,12 @@
         {
           "capability": "TAGS",
           "description": "BigID tags applied to datasets and columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "BigID classification findings as GlossaryTerms on SchemaFields",
           "subtype_modifier": null,
           "supported": true
         },
