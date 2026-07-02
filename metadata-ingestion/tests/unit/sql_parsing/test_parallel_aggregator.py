@@ -13,13 +13,16 @@ from typing import List, Union
 import pytest
 import time_machine
 
+import datahub.metadata.schema_classes as models
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
     QueryLogSetting,
+    QueryMetadata,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.utilities import cpu_detection
 
 _StreamItem = Union[ObservedQuery, PreparsedQuery]
@@ -442,6 +445,72 @@ def test_high_volume_many_sessions_stress(run_idx: int) -> None:
     )
     assert report.num_queries_parsed_in_parallel > 0
     assert report.num_queries_parsed_in_parallel == num_pool_parsed_expected
+
+
+def test_add_to_query_map_latest_timestamp_is_max_not_last_written() -> None:
+    """_add_to_query_map must keep the maximum timestamp regardless of insertion order.
+
+    When the parallel path applies per-session results, the same query fingerprint
+    may be merged in a non-chronological order across sessions.  Before the fix,
+    ``current.latest_timestamp = new.latest_timestamp or current.latest_timestamp``
+    was last-writer-wins, so a later write with an EARLIER timestamp silently
+    replaced the correct (higher) value — a serial-vs-parallel divergence.
+
+    Regression test: insert LATER timestamp first, then EARLIER; assert the stored
+    value is the LATER one (the maximum).
+    """
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.DISABLED,
+    )
+
+    later_ts = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    earlier_ts = datetime(2024, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
+
+    fingerprint = "test-fingerprint-order-independence"
+
+    first = QueryMetadata(
+        query_id=fingerprint,
+        formatted_query_string="SELECT 1",
+        session_id="session_a",
+        query_type=QueryType.UNKNOWN,
+        lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
+        latest_timestamp=later_ts,
+        actor=None,
+        upstreams=[],
+        column_lineage=[],
+        column_usage={},
+        confidence_score=1.0,
+    )
+    second = QueryMetadata(
+        query_id=fingerprint,
+        formatted_query_string="SELECT 1",
+        session_id="session_b",
+        query_type=QueryType.UNKNOWN,
+        lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
+        latest_timestamp=earlier_ts,
+        actor=None,
+        upstreams=[],
+        column_lineage=[],
+        column_usage={},
+        confidence_score=1.0,
+    )
+
+    # Insert later-timestamp first, then earlier-timestamp second.
+    # After the fix the stored value must be the maximum (later_ts).
+    aggregator._add_to_query_map(first)
+    aggregator._add_to_query_map(second)
+
+    stored = aggregator._query_map[fingerprint]
+    assert stored.latest_timestamp == later_ts, (
+        f"Expected the maximum timestamp ({later_ts}), "
+        f"got {stored.latest_timestamp} — last-writer-wins bug is present."
+    )
+
+    aggregator.close()
 
 
 def test_feature_off_is_default() -> None:

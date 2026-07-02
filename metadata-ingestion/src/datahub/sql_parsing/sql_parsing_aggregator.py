@@ -1746,10 +1746,20 @@ class SqlParsingAggregator(Closeable):
         if query_fingerprint in self._query_map:
             current = self._query_map.for_mutation(query_fingerprint)
 
-            # This assumes that queries come in order of increasing timestamps,
-            # so the current query is more authoritative than the previous one.
             current.formatted_query_string = new.formatted_query_string
-            current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
+            # Take the maximum timestamp so that merge order does not matter.
+            # In serial mode timestamps arrive in ascending order, so max() is
+            # equivalent to the previous last-writer-wins behaviour; in the
+            # parallel path sessions may be applied out of global-timestamp order,
+            # making max() necessary for serial-vs-parallel equivalence.
+            if new.latest_timestamp is None:
+                pass  # keep current
+            elif current.latest_timestamp is None:
+                current.latest_timestamp = new.latest_timestamp
+            else:
+                current.latest_timestamp = max(
+                    current.latest_timestamp, new.latest_timestamp
+                )
             current.actor = new.actor or current.actor
 
             if current.used_temp_tables and not new.used_temp_tables:
