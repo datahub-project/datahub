@@ -2404,8 +2404,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
@@ -2654,8 +2658,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                         self.report.report_entity_scanned(dataset_name, ent_type="view")
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             self.report.report_dropped(dataset_name)
                             continue
 
