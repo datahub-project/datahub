@@ -150,3 +150,4 @@ src/datahub/metadata/
 
 # Build artifact — copied from constraints.txt by buildWheel task
 src/datahub/constraints.txt
+test_percent_bug.py
