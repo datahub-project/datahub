@@ -91,7 +91,7 @@ def test_server_extraction():
 
 def test_platform_extraction():
     for connection_string, result in zip(
-        test_connection_strings, platform_list, strict=False
+        test_connection_strings, platform_list, strict=True
     ):
         assert extract_platform(connection_string) == result
 
