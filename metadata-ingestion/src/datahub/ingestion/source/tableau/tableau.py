@@ -457,7 +457,12 @@ class TableauPageSizeConfig(ConfigModel):
 
     @property
     def effective_embedded_datasource_field_upstream_page_size(self) -> int:
-        return self.embedded_datasource_field_upstream_page_size or self.page_size * 10
+        # Tableau's fieldsConnection API has a hard limit of 1000 items per page.
+        # Requesting more results in silently truncated responses.
+        return min(
+            self.embedded_datasource_field_upstream_page_size or self.page_size * 10,
+            1000,
+        )
 
     published_datasource_page_size: Optional[int] = Field(
         default=None,
@@ -475,7 +480,12 @@ class TableauPageSizeConfig(ConfigModel):
 
     @property
     def effective_published_datasource_field_upstream_page_size(self) -> int:
-        return self.published_datasource_field_upstream_page_size or self.page_size * 10
+        # Tableau's fieldsConnection API has a hard limit of 1000 items per page.
+        # Requesting more results in silently truncated responses.
+        return min(
+            self.published_datasource_field_upstream_page_size or self.page_size * 10,
+            1000,
+        )
 
     virtual_connection_page_size: Optional[int] = Field(
         default=None,
@@ -1675,7 +1685,16 @@ class TableauSiteSource:
             if all(
                 # The format of the error messages is highly unpredictable, so we have to
                 # be extra defensive with our parsing.
-                error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
+                error
+                and (
+                    (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
+                    # Tableau's Metadata API sometimes returns NullValueInNonNullableField
+                    # when the node limit truncates the response before nested objects
+                    # (e.g. workbook.owner) can be fully resolved. The partial data is
+                    # still usable — treat as non-fatal.
+                    or (error.get(c.EXTENSIONS) or {}).get("classification")
+                    == "NullValueInNonNullableField"
+                )
                 for error in errors
             ):
                 # filter out PERMISSIONS_MODE_SWITCHED to report error in human-readable format
@@ -1736,6 +1755,9 @@ class TableauSiteSource:
                     # The Metadata API sometimes returns an 'unexpected error' message when querying
                     # embeddedDatasourcesConnection. Try retrying a couple of times.
                     or error.get("message") == "Unexpected error occurred"
+                    # RATE_EXCEEDED: Tableau Cloud throttling — the query cost
+                    # budget was exhausted. Retryable with backoff.
+                    or (error.get("extensions") or {}).get("code") == "RATE_EXCEEDED"
                     for error in errors
                 ):
                     # If it was only a timeout error, we can retry.
