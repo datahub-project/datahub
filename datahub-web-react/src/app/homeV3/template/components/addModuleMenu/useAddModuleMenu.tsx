@@ -78,6 +78,17 @@ export const ASSETS_MODULE: PageModuleFragment = {
     },
 };
 
+export const OUTPUT_PORTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:output_ports',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Output Ports',
+        type: DataHubPageModuleType.OutputPorts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:child_hierarchy',
     type: EntityType.DatahubPageModule,

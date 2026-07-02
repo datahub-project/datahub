@@ -43,6 +43,7 @@ const ModuleWrapper = memo(({ module, position }: ModuleWrapperProps) => (
 function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallRow }: Props) {
     const { templateType } = usePageTemplateContext();
     const showAddButtons = templateType === PageTemplateSurfaceType.HomePage;
+
     return (
         <RowWrapper>
             {showAddButtons && <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="left" />}
