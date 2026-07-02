@@ -219,6 +219,22 @@ class ParallelSqlParser(Closeable):
         for future in concurrent.futures.as_completed(pending):
             yield drain(future)
 
+    def parse_one(self, task: ParseTask) -> ParseOutcome:
+        """Parse a single task in a worker process and block until its outcome.
+
+        Unlike :meth:`map_unordered`, this submits exactly one task and waits for
+        it, so the caller can drive its own per-task ordering (e.g. a
+        PartitionExecutor) rather than relying on the unordered stream. A dead
+        worker process is surfaced as a :class:`ParseOutcome` with ``error`` set,
+        mirroring the drain behavior of :meth:`map_unordered`.
+        """
+        executor = self._ensure_executor()
+        future = executor.submit(_worker_parse, task)
+        try:
+            return future.result()
+        except Exception as e:
+            return ParseOutcome(key=task.key, result=None, error=repr(e))
+
     def close(self) -> None:
         if self._closed:
             return

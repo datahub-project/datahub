@@ -217,6 +217,47 @@ def test_context_manager(tmp_path: pathlib.Path) -> None:
     assert outcomes[0].error is None
 
 
+def test_parse_one_blocking(tmp_path: pathlib.Path) -> None:
+    """parse_one submits a single task and blocks for its outcome, producing a
+    result identical to in-process serial parsing."""
+    writable = _make_writable_resolver(tmp_path)
+    snap = tmp_path / "snapshot.db"
+    writable.snapshot_to(snap)
+
+    query = "SELECT order_id, amount FROM db.schema.orders"
+    expected = sqlglot_lineage(
+        query,
+        schema_resolver=writable,
+        default_db="db",
+        default_schema="schema",
+    )
+
+    with ParallelSqlParser(
+        num_workers=2,
+        snapshot_path=snap,
+        platform="snowflake",
+        platform_instance="prod",
+        env="PROD",
+    ) as parser:
+        outcome = parser.parse_one(
+            ParseTask(
+                key="only",
+                query=query,
+                default_db="db",
+                default_schema="schema",
+            )
+        )
+
+    assert outcome.key == "only"
+    assert outcome.error is None
+    assert outcome.result is not None
+    assert outcome.result.in_tables == expected.in_tables
+    assert outcome.result.out_tables == expected.out_tables
+    assert outcome.result.column_lineage == expected.column_lineage
+
+    writable.close()
+
+
 @pytest.mark.parametrize("outcome_key", ["a", "b"])
 def test_parse_outcome_shape(outcome_key: str) -> None:
     outcome = ParseOutcome(key=outcome_key, result=None, error="boom")
