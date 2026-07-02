@@ -1063,6 +1063,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -2391,6 +2397,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -2715,6 +2727,12 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4621,6 +4639,12 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
           "subtype_modifier": null,
           "supported": true
         },

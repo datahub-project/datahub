@@ -15,6 +15,10 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+)
 class MariaDBSource(MySQLSource):
     def get_platform(self):
         return "mariadb"

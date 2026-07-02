@@ -1,6 +1,8 @@
 # This import verifies that the dependencies are available.
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional
+import re
+from datetime import timezone
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
@@ -21,6 +23,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
@@ -38,10 +41,68 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import BytesTypeClass, QueryLanguageClass
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
+)
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_SCHEMAS = frozenset(
+    {"information_schema", "performance_schema", "mysql", "sys"}
+)
+
+# One row per normalized statement: DIGEST_TEXT has literals stripped to `?`,
+# COUNT_STAR is the execution count since the table was last reset, LAST_SEEN is
+# the most recent execution. This is the only query history enabled by default on
+# MariaDB 10.11 without the general query log.
+_PERFORMANCE_SCHEMA_DIGEST_QUERY = """
+SELECT
+    SCHEMA_NAME,
+    DIGEST_TEXT,
+    COUNT_STAR,
+    LAST_SEEN
+FROM performance_schema.events_statements_summary_by_digest
+WHERE DIGEST_TEXT IS NOT NULL
+  AND SCHEMA_NAME IS NOT NULL
+  AND LAST_SEEN >= %(start_time)s
+  AND LAST_SEEN <= %(end_time)s
+ORDER BY LAST_SEEN
+"""
+
+# Each row is a single executed statement with literal text, the executing user,
+# and a real timestamp. Requires general_log=ON and log_output=TABLE. `Init DB`
+# rows carry the session's current database (the missing piece in general_log),
+# so they are read alongside `Query` rows to resolve unqualified table names.
+_GENERAL_LOG_QUERY = """
+SELECT
+    event_time,
+    user_host,
+    thread_id,
+    command_type,
+    CONVERT(argument USING utf8mb4) AS argument
+FROM mysql.general_log
+WHERE command_type IN ('Query', 'Init DB')
+  AND event_time >= %(start_time)s
+  AND event_time <= %(end_time)s
+ORDER BY event_time, thread_id
+"""
+
+# user_host is formatted as `priv_user[login_user] @ host [ip]`; capture login_user.
+_USER_HOST_RE = re.compile(r"^[^\[]*\[([^\]]+)\]")
+
+# Leading `USE <db>` switches the session's current database.
+_USE_STATEMENT_RE = re.compile(r"^\s*USE\s+`?([^\s`;]+)`?", re.IGNORECASE)
+
+# Statement kinds worth parsing for lineage/usage; everything else (SET, SHOW,
+# COMMIT, administrative commands) carries no dataset usage and is skipped.
+_DML_LEADING_KEYWORDS = frozenset(
+    {"SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE", "WITH", "CALL", "MERGE"}
+)
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -70,6 +131,11 @@ class MySQLAuthMode(StrEnum):
 
     PASSWORD = "PASSWORD"
     AWS_IAM = "AWS_IAM"
+
+
+class MySQLUsageSource(StrEnum):
+    PERFORMANCE_SCHEMA = "performance_schema"
+    GENERAL_LOG = "general_log"
 
 
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
@@ -108,6 +174,32 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
+    include_usage_statistics: bool = Field(
+        default=False,
+        description="Generate usage statistics and query-based lineage from query history. "
+        "The source of that history is controlled by `usage_source`.",
+    )
+
+    usage_source: MySQLUsageSource = Field(
+        default=MySQLUsageSource.PERFORMANCE_SCHEMA,
+        description="Where to read query history from. `performance_schema` (default) reads "
+        "normalized digests from `events_statements_summary_by_digest` (no setup, no per-user "
+        "attribution). `general_log` reads literal statements with user and timestamp from "
+        "`mysql.general_log` (requires `general_log=ON` and `log_output=TABLE`).",
+    )
+
+    usage: BaseUsageConfig = Field(
+        default_factory=BaseUsageConfig,
+        description="Usage statistics config. Only used when `include_usage_statistics` is enabled.",
+    )
+
+    email_domain: Optional[str] = Field(
+        default=None,
+        description="Email domain of your organisation, appended to `general_log` usernames "
+        "(e.g. LDAP logins) so users display correctly. Ignored if the username already looks like "
+        "an email. Only used with `usage_source: general_log`.",
+    )
+
 
 @platform_name("MySQL")
 @config_class(MySQLConfig)
@@ -115,6 +207,10 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+)
 class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
@@ -144,6 +240,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 port=port,
                 aws_config=config.aws_config,
             )
+
+        if config.include_usage_statistics:
+            self.aggregator = self._build_usage_aggregator()
+            self.report.sql_aggregator = self.aggregator.report
 
     def get_platform(self):
         return "mysql"
@@ -252,3 +352,166 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     )
                 )
             return base_procedures
+
+    def _build_usage_aggregator(self) -> SqlParsingAggregator:
+        # The base class builds a lineage-only aggregator; swap in one that also
+        # emits usage and query entities for the digests we feed it later.
+        return SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=True,
+            generate_queries=True,
+            generate_query_usage_statistics=True,
+            generate_usage_statistics=True,
+            # Digests carry no actor, so write-operation stats would be low value.
+            generate_operations=False,
+            usage_config=self.config.usage,
+            eager_graph_load=False,
+        )
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Runs after the base has registered table schemas, so unqualified table
+        # references in the query history can resolve.
+        if self.config.include_usage_statistics:
+            self._populate_usage_aggregator()
+        yield from super()._generate_aggregator_workunits()
+
+    def _populate_usage_aggregator(self) -> None:
+        if self.config.usage_source == MySQLUsageSource.GENERAL_LOG:
+            queries: Iterable[ObservedQuery] = self._fetch_general_log_queries()
+            failure_title = "Failed to read usage from general_log"
+            failure_hint = (
+                "Ensure general_log=ON, log_output=TABLE, and the user has SELECT on "
+                "mysql.general_log. Usage statistics were skipped."
+            )
+        else:
+            queries = self._fetch_performance_schema_queries()
+            failure_title = "Failed to read usage from performance_schema"
+            failure_hint = (
+                "Ensure the statements_digest consumer is enabled and the user has SELECT "
+                "on performance_schema. Usage statistics were skipped."
+            )
+
+        try:
+            for observed_query in queries:
+                self.aggregator.add(observed_query)
+        except Exception as e:
+            # Metadata/profiling is already emitted; a query-history failure
+            # (consumer disabled, missing grant) must not abort the run.
+            self.report.warning(title=failure_title, message=failure_hint, exc=e)
+
+    def _fetch_performance_schema_queries(self) -> Iterable[ObservedQuery]:
+        engine = create_engine(self.config.get_sql_alchemy_url(), **self.config.options)
+        self._setup_rds_iam_event_listener(engine)
+        with engine.connect() as conn:
+            rows = conn.execute(
+                _PERFORMANCE_SCHEMA_DIGEST_QUERY,
+                {
+                    "start_time": self.config.usage.start_time,
+                    "end_time": self.config.usage.end_time,
+                },
+            )
+            for row in rows:
+                schema_name = row.SCHEMA_NAME
+                if schema_name.lower() in _SYSTEM_SCHEMAS:
+                    continue
+                if not self.config.database_pattern.allowed(schema_name):
+                    continue
+
+                count = int(row.COUNT_STAR or 0)
+                if count <= 0:
+                    continue
+
+                # LAST_SEEN is in the server timezone; treat it as UTC so it lands
+                # in the usage window (bucket may drift by the server's UTC offset).
+                timestamp = row.LAST_SEEN
+                if timestamp is not None and timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+                yield ObservedQuery(
+                    query=row.DIGEST_TEXT,
+                    timestamp=timestamp,
+                    # Two-tier: the schema is the database, so default_schema (not
+                    # default_db) yields `schema.table` URNs. Digests are aggregated
+                    # across users, so there is no actor to attribute.
+                    default_schema=schema_name,
+                    usage_multiplier=count,
+                )
+
+    def _fetch_general_log_queries(self) -> Iterable[ObservedQuery]:
+        engine = create_engine(self.config.get_sql_alchemy_url(), **self.config.options)
+        self._setup_rds_iam_event_listener(engine)
+        with engine.connect() as conn:
+            rows = conn.execute(
+                _GENERAL_LOG_QUERY,
+                {
+                    "start_time": self.config.usage.start_time,
+                    "end_time": self.config.usage.end_time,
+                },
+            )
+            # general_log has no schema column, so track each session's current
+            # database from `Init DB` rows and `USE` statements to resolve
+            # unqualified table names.
+            session_db: dict[str, str] = {}
+            for row in rows:
+                session_id = str(row.thread_id)
+                argument = row.argument or ""
+
+                if row.command_type == "Init DB":
+                    session_db[session_id] = argument.strip().strip("`")
+                    continue
+
+                use_match = _USE_STATEMENT_RE.match(argument)
+                if use_match:
+                    session_db[session_id] = use_match.group(1)
+                    continue
+
+                if not self._is_dml_statement(argument):
+                    continue
+
+                schema_name = session_db.get(session_id)
+                if schema_name is not None:
+                    if schema_name.lower() in _SYSTEM_SCHEMAS:
+                        continue
+                    if not self.config.database_pattern.allowed(schema_name):
+                        continue
+
+                timestamp = row.event_time
+                if timestamp is not None and timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+                yield ObservedQuery(
+                    query=argument,
+                    timestamp=timestamp,
+                    user=self._general_log_user_urn(row.user_host),
+                    default_schema=schema_name,
+                    session_id=session_id,
+                    usage_multiplier=1,
+                )
+
+    @staticmethod
+    def _is_dml_statement(argument: str) -> bool:
+        stripped = argument.lstrip()
+        if not stripped:
+            return False
+        leading_keyword = re.split(r"[\s(]", stripped, maxsplit=1)[0].upper()
+        return leading_keyword in _DML_LEADING_KEYWORDS
+
+    @staticmethod
+    def _parse_general_log_user(user_host: Optional[str]) -> Optional[str]:
+        if not user_host:
+            return None
+        match = _USER_HOST_RE.match(user_host)
+        return match.group(1) if match else None
+
+    def _general_log_user_urn(self, user_host: Optional[str]) -> Optional[CorpUserUrn]:
+        user = self._parse_general_log_user(user_host)
+        if not user:
+            return None
+        # LDAP/db logins are not emails; append the configured domain so usage maps
+        # to the real user. Leave it alone if it already looks like an email.
+        if "@" not in user and self.config.email_domain:
+            user = f"{user}@{self.config.email_domain}"
+        return CorpUserUrn(user)
