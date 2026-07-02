@@ -56,6 +56,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -367,12 +368,23 @@ class AbstractLineage(ABC):
         return None
 
     @staticmethod
-    def is_sql_query(query: Optional[str]) -> bool:
+    def is_sql_query(query: Optional[str], platform: Optional[str] = None) -> bool:
         if not query:
             return False
         query = native_sql_parser.remove_special_characters(query)
+        # Parse in the platform's dialect when known. An Odbc.Query against e.g.
+        # Snowflake can use dialect-specific syntax (``//`` comments, ``IFF``,
+        # ``::`` casts) that the default dialect rejects; without the dialect the
+        # query would be misclassified as a navigation expression and its lineage
+        # silently dropped ("Can not determine qualified table name").
         try:
-            expression = sqlglot.parse_one(query)
+            dialect = get_dialect(platform) if platform else None
+        except (ValueError, AttributeError):
+            # Platform has no sqlglot dialect (e.g. unresolved 'odbc'); fall back
+            # to the default dialect.
+            dialect = None
+        try:
+            expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
@@ -1317,12 +1329,35 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
         if accessor is None or accessor.next is None or accessor.next.next is None:
             return Lineage.empty()
 
-        # First is database name
-        db_name: str = accessor.items["Name"]
-        # Second is schema name
-        schema_name: str = accessor.next.items["Name"]
-        # Third is table name
-        table_name: str = accessor.next.next.items["Name"]
+        # The navigation chain encodes database/schema/table as the "Name" of each
+        # ``{[Name=..., Kind=...]}`` step. When a step's ``Name`` is a parameter or
+        # identifier reference (e.g. ``Source{[Name=DataSource,...]}`` or
+        # ``Name=@Database``) rather than a quoted literal, the resolver cannot
+        # supply a value for it (unless the dataset's M parameters were fetched and
+        # passed in), so the "Name" key is absent. Use ``.get`` and skip gracefully
+        # instead of raising ``KeyError`` — which previously surfaced as a confusing
+        # "Unknown M-Query Pattern" warning with no lineage.
+        db_name = accessor.items.get("Name")  # database name
+        schema_name = accessor.next.items.get("Name")  # schema name
+        table_name = accessor.next.next.items.get("Name")  # table name
+
+        if db_name is None or schema_name is None or table_name is None:
+            self.reporter.warning(
+                title="Unresolved data source name in M-Query",
+                message=(
+                    "Could not determine the database, schema or table name from "
+                    "the M-Query navigation. This typically happens when the name "
+                    "is a Power Query parameter or identifier reference (e.g. "
+                    "Name=DataSource or Name=@Database) instead of a quoted literal, "
+                    "and the dataset's parameter values were not available. Lineage "
+                    "for this table will be skipped."
+                ),
+                context=(
+                    f"table-full-name={self.table.full_name}, "
+                    f"db={db_name}, schema={schema_name}, table={table_name}"
+                ),
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -1589,7 +1624,7 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
-        if self.is_sql_query(query):
+        if self.is_sql_query(query, data_platform):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
