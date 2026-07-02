@@ -1,3 +1,4 @@
+import pathlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -531,3 +532,191 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+# ---------------------------------------------------------------------------
+# Snapshot / read-only SchemaResolver tests
+# ---------------------------------------------------------------------------
+
+
+def _make_writable_resolver(tmp_path: pathlib.Path) -> SchemaResolver:
+    """Build a file-backed writable SchemaResolver with two known schemas."""
+    cache_file = tmp_path / "schema_cache.db"
+    resolver = SchemaResolver(
+        platform="snowflake",
+        platform_instance="prod",
+        env="PROD",
+        graph=None,
+        _cache_filename=cache_file,
+    )
+    resolver.add_raw_schema_info(
+        urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.orders,PROD)",
+        schema_info={"order_id": "int", "amount": "float"},
+    )
+    resolver.add_raw_schema_info(
+        urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.customers,PROD)",
+        schema_info={"customer_id": "int", "name": "varchar"},
+    )
+    return resolver
+
+
+class TestSnapshotRoundTrip:
+    def test_snapshot_to_creates_file(self, tmp_path: pathlib.Path) -> None:
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        assert snap.exists()
+        assert snap.stat().st_size > 0
+
+    def test_load_readonly_returns_same_schemas(self, tmp_path: pathlib.Path) -> None:
+        """load_readonly must return identical schema info for tables added to the original."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            assert info is not None
+            assert info["order_id"] == "int"
+            assert info["amount"] == "float"
+
+            urn2, info2 = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info2 is not None
+            assert info2["customer_id"] == "int"
+            assert info2["name"] == "varchar"
+        finally:
+            ro.close()
+
+    def test_load_readonly_unknown_table_returns_none(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Resolving an unknown table via a read-only resolver returns (urn, None)."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="nonexistent")
+            )
+            assert urn is not None  # URN is always synthesized
+            assert info is None
+        finally:
+            ro.close()
+
+    def test_load_readonly_has_no_graph(self, tmp_path: pathlib.Path) -> None:
+        """The read-only resolver must not make graph calls (graph=None)."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            assert ro.graph is None
+        finally:
+            ro.close()
+
+    def test_snapshot_flushes_in_memory_cache(self, tmp_path: pathlib.Path) -> None:
+        """snapshot_to must persist entries that are still in the in-memory LRU cache."""
+        cache_file = tmp_path / "schema_cache.db"
+        resolver = SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=None,
+            _cache_filename=cache_file,
+        )
+        # Add an entry — it may still be in the LRU cache, not yet written to SQLite.
+        resolver.add_raw_schema_info(
+            urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.s.t,PROD)",
+            schema_info={"col": "text"},
+        )
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="s", table="t")
+            )
+            assert info is not None
+            assert info["col"] == "text"
+        finally:
+            ro.close()
+
+
+class TestConcurrentReadonlyResolvers:
+    def test_two_resolvers_same_snapshot(self, tmp_path: pathlib.Path) -> None:
+        """Two independent read-only resolvers on the same snapshot file work without locking errors."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro1 = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        ro2 = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            # Both open simultaneously — no locking error expected with immutable=1.
+            urn1, info1 = ro1.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            urn2, info2 = ro2.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info1 is not None
+            assert info2 is not None
+
+            # Cross-check: each resolver can see both tables.
+            _, orders_from_ro2 = ro2.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            _, customers_from_ro1 = ro1.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert orders_from_ro2 is not None
+            assert customers_from_ro1 is not None
+        finally:
+            ro1.close()
+            ro2.close()

@@ -80,33 +80,60 @@ class ConnectionWrapper:
         Union["FileBackedList", "FileBackedDict", "FileBackedCounter"]
     ]
 
-    def __init__(self, filename: Optional[pathlib.Path] = None):
+    def __init__(
+        self,
+        filename: Optional[pathlib.Path] = None,
+        read_only: bool = False,
+    ):
         self._temp_directory = None
         self._dependent_objects = []
+        self._read_only = read_only
 
-        # Warning: If filename is provided, the file will not be automatically cleaned up.
-        if not filename:
-            self._temp_directory = tempfile.mkdtemp()
-            filename = pathlib.Path(self._temp_directory) / _DEFAULT_FILE_NAME
-        self.filename = filename
+        if read_only:
+            # A read-only connection must target an existing file; a temp dir makes
+            # no sense here.
+            if not filename:
+                raise ValueError("filename is required when read_only=True")
+            self.filename = filename
+        else:
+            # Warning: If filename is provided, the file will not be automatically cleaned up.
+            if not filename:
+                self._temp_directory = tempfile.mkdtemp()
+                filename = pathlib.Path(self._temp_directory) / _DEFAULT_FILE_NAME
+            self.filename = filename
 
         # SQLite connections are technically not supposed to be used from multiple threads.
         # We bypass this restriction by setting `check_same_thread=False`. However, we
         # still need to be careful to avoid concurrent access.
         self.conn_lock = threading.Lock()
-        self.conn = sqlite3.connect(
-            filename, isolation_level=None, check_same_thread=False
-        )
-        self.conn.row_factory = sqlite3.Row
 
-        # These settings are optimized for performance.
-        # See https://www.sqlite.org/pragma.html for more information.
-        # Because we're only using these dbs to offload data from memory, we don't need
-        # to worry about data integrity too much.
-        self.conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
-        self.conn.execute('PRAGMA synchronous = "OFF"')
-        self.conn.execute('PRAGMA journal_mode = "MEMORY"')
-        self.conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
+        if read_only:
+            # Open with the URI filename API so we can pass mode=ro&immutable=1.
+            # immutable=1 tells SQLite the file will not change, allowing concurrent
+            # readers with no locking overhead and shared OS page-cache.
+            uri = f"file:{filename}?mode=ro&immutable=1"
+            self.conn = sqlite3.connect(
+                uri, uri=True, isolation_level=None, check_same_thread=False
+            )
+            self.conn.row_factory = sqlite3.Row
+            # Do NOT set locking_mode / synchronous / journal_mode — they are
+            # invalid or meaningless on an immutable read-only connection.
+        else:
+            self.conn = sqlite3.connect(
+                filename, isolation_level=None, check_same_thread=False
+            )
+            self.conn.row_factory = sqlite3.Row
+
+            # These settings are optimized for performance.
+            # See https://www.sqlite.org/pragma.html for more information.
+            # Because we're only using these dbs to offload data from memory, we don't need
+            # to worry about data integrity too much.
+            self.conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
+            self.conn.execute('PRAGMA synchronous = "OFF"')
+            self.conn.execute('PRAGMA journal_mode = "MEMORY"')
+            self.conn.execute(
+                f"PRAGMA journal_size_limit = {100 * 1024 * 1024}"
+            )  # 100MB
 
     @property
     def allow_table_name_reuse(self) -> bool:
@@ -116,6 +143,10 @@ class ConnectionWrapper:
         # which happens when filename is passed explicitly, then we need to allow table name reuse.
 
         return self._temp_directory is None
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
 
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
@@ -248,15 +279,18 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         # Create the table.
         # We could use the built-in sqlite `rowid` column, but that can get changed
         # if a VACUUM is performed and would break our ordering guarantees.
-        if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
-        self._conn.execute(
-            f"""CREATE TABLE {if_not_exists} {self.tablename} (
-                rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-                key TEXT UNIQUE,
-                value BLOB
-                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns)}
-            )"""
-        )
+        # Skip CREATE TABLE entirely when the underlying connection is read-only — the
+        # table already exists in the snapshot file and writes are not permitted.
+        if not self._conn.read_only:
+            if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
+            self._conn.execute(
+                f"""CREATE TABLE {if_not_exists} {self.tablename} (
+                    rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key TEXT UNIQUE,
+                    value BLOB
+                    {"".join(f", {column_name} BLOB" for column_name in self.extra_columns)}
+                )"""
+            )
 
         if not self.delay_index_creation:
             self.create_indexes()
@@ -269,6 +303,10 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
     def create_indexes(self) -> None:
         if self.indexes_created:
+            return
+        if self._conn.read_only:
+            # Indexes already exist in the snapshot; writes are not allowed.
+            self.indexes_created = True
             return
         # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns:

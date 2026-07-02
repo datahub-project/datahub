@@ -2,6 +2,7 @@ import contextlib
 import json
 import logging
 import pathlib
+import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
 
@@ -357,6 +358,46 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
         }
+
+    def snapshot_to(self, path: pathlib.Path) -> None:
+        """Flush all in-memory cache entries to SQLite then copy the DB file to *path*.
+
+        The resulting file is a self-contained SQLite database that worker processes
+        can open read-only with ``immutable=1``, avoiding all locking overhead.
+        """
+        self._schema_cache.flush()
+        shutil.copyfile(self._schema_cache._conn.filename, path)
+
+    @classmethod
+    def load_readonly(
+        cls,
+        path: pathlib.Path,
+        *,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+    ) -> "SchemaResolver":
+        """Open a snapshot created by :meth:`snapshot_to` as a read-only resolver.
+
+        The returned resolver has ``graph=None`` so it never makes network calls.
+        Multiple processes may open the same snapshot file simultaneously via
+        ``immutable=1``, which bypasses SQLite locking entirely and allows the OS
+        to share the page cache across processes.
+        """
+        ro_conn = ConnectionWrapper(filename=path, read_only=True)
+        resolver = cls.__new__(cls)
+        # Bypass __init__ — we wire the components manually so we can inject the
+        # read-only connection without triggering the normal writable-setup path.
+        resolver._platform = DataPlatformUrn(platform).platform_name
+        resolver.platform_instance = platform_instance
+        resolver.env = env
+        resolver.graph = None
+        resolver.report = None
+        resolver._schema_cache = FileBackedDict(
+            shared_connection=ro_conn,
+            extra_columns={"is_missing": lambda v: v is None},
+        )
+        return resolver
 
     def close(self) -> None:
         self._schema_cache.close()
