@@ -1087,7 +1087,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
         :param include_draft: Whether to include entities in DRAFT lifecycle state.
         :param sort_by: Optional searchable field to sort on (e.g. "lastModifiedAt"). If None, uses the backend's default scroll order.
-        :param sort_order: Sort direction when sort_by is set. Defaults to ASCENDING.
+        :param sort_order: Sort direction when sort_by is set; ignored when sort_by is None. Defaults to ASCENDING.
 
         :return: An iterable of urns that match the filters.
         """

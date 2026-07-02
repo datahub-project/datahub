@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 class DataHubGcSourceConfig(ConfigModel):
     dry_run: bool = Field(
         default=False,
-        description="Whether to perform a dry run or not. This is only supported for dataprocess cleanup and soft deleted entities cleanup.",
+        description="Whether to perform a dry run or not. This is only supported for dataprocess cleanup, query cleanup, and soft deleted entities cleanup.",
     )
 
     cleanup_expired_tokens: bool = Field(

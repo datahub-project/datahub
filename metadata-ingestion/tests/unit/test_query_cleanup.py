@@ -14,7 +14,6 @@ from datahub.ingestion.source.gc.query_cleanup import (
     QueryCleanupReport,
 )
 from datahub.metadata.schema_classes import StatusClass
-from datahub.utilities.urns._urn_base import Urn
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
@@ -33,7 +32,6 @@ class TestQueryCleanup:
             report=self.report,
             dry_run=False,
         )
-        self.sample_urn = Urn.from_string("urn:li:query:query-1")
 
     def test_init_requires_graph(self) -> None:
         self.mock_ctx.graph = None
