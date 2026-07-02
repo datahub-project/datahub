@@ -1,3 +1,6 @@
+import io
+import zipfile
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -5,7 +8,14 @@ from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.abs.config import DataLakeSourceConfig
+from datahub.ingestion.source.abs.source import ABSSource, SeekableABSFile, TableData
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+
+_ABS_INCLUDE = "https://testaccount.blob.core.windows.net/testcontainer/*.*"
+_ABS_ZIP_INCLUDE = "https://testaccount.blob.core.windows.net/testcontainer/*.zip"
 
 
 def test_service_principal_credentials_return_objects():
@@ -222,3 +232,182 @@ def test_sas_token_authentication():
     credential = config.get_credentials()
     assert isinstance(credential, str)
     assert credential == "test-sas-token"
+
+
+def _make_service_client(content: bytes) -> Mock:
+    def _download(offset: int = 0, length: int = -1) -> Mock:
+        chunk = content[offset : offset + length] if length >= 0 else content[offset:]
+        stream = Mock()
+        stream.readall.return_value = chunk
+        return stream
+
+    blob_client = Mock()
+    blob_client.get_blob_properties.return_value = {"size": len(content)}
+    blob_client.download_blob.side_effect = _download
+    service_client = Mock()
+    service_client.get_blob_client.return_value = blob_client
+    return service_client
+
+
+def _make_abs_source() -> ABSSource:
+    config = DataLakeSourceConfig(
+        platform="abs",
+        azure_config=AzureConnectionConfig(
+            account_name="testaccount",
+            container_name="testcontainer",
+            account_key="dGVzdA==",
+        ),
+        path_specs=[PathSpec(include=_ABS_INCLUDE)],
+    )
+    ctx = PipelineContext(run_id="test-abs-zip")
+    ctx.graph = Mock()
+    return ABSSource(config, ctx)
+
+
+def _table_data(full_path: str, rel_path: str = "data/file.zip") -> TableData:
+    return TableData(
+        display_name="test_table",
+        is_abs=False,
+        full_path=full_path,
+        rel_path=rel_path,
+        partitions=None,
+        timestamp=datetime.now(),
+        table_path=full_path,
+        size_in_bytes=1024,
+        number_of_files=1,
+    )
+
+
+def _make_zip(entries: dict) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+class TestSeekableABSFile:
+    def test_initial_state(self):
+        content = b"abcde"
+        f = SeekableABSFile(_make_service_client(content), "container", "blob/key")
+        assert f._size == len(content)
+        assert f.tell() == 0
+        assert f.seekable()
+        assert f.readable()
+
+    def test_sequential_reads(self):
+        f = SeekableABSFile(
+            _make_service_client(b"Hello, World!"), "container", "blob/key"
+        )
+        assert f.read(5) == b"Hello"
+        assert f.tell() == 5
+        assert f.read(2) == b", "
+        assert f.tell() == 7
+
+    def test_read_all(self):
+        content = b"complete content"
+        f = SeekableABSFile(_make_service_client(content), "container", "blob/key")
+        assert f.read() == content
+
+    def test_read_past_eof_returns_empty(self):
+        f = SeekableABSFile(_make_service_client(b"short"), "container", "blob/key")
+        f.read()
+        assert f.read(10) == b""
+
+    def test_seek_set(self):
+        f = SeekableABSFile(
+            _make_service_client(b"0123456789"), "container", "blob/key"
+        )
+        f.seek(4)
+        assert f.tell() == 4
+        assert f.read(3) == b"456"
+
+    def test_seek_from_current(self):
+        f = SeekableABSFile(
+            _make_service_client(b"0123456789"), "container", "blob/key"
+        )
+        f.read(3)
+        f.seek(2, 1)
+        assert f.tell() == 5
+
+    def test_seek_from_end(self):
+        f = SeekableABSFile(
+            _make_service_client(b"0123456789"), "container", "blob/key"
+        )
+        f.seek(-3, 2)
+        assert f.tell() == 7
+        assert f.read() == b"789"
+
+    def test_zipfile_round_trip(self):
+        csv_content = b"name,age\nAlice,30\n"
+        f = SeekableABSFile(
+            _make_service_client(_make_zip({"data.csv": csv_content})),
+            "container",
+            "data.csv.zip",
+        )
+        with zipfile.ZipFile(f) as zf:
+            assert zf.namelist() == ["data.csv"]
+            assert zf.read("data.csv") == csv_content
+
+
+class TestABSOpenZipEntry:
+    def test_single_csv_entry(self, tmp_path):
+        csv_bytes = b"name,age\nAlice,30\n"
+        zip_path = tmp_path / "data.csv.zip"
+        zip_path.write_bytes(_make_zip({"data.csv": csv_bytes}))
+
+        source = _make_abs_source()
+        file, ext = source._open_zip_entry(
+            _table_data(str(zip_path)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
+        )
+
+        assert file is not None
+        assert ext == ".csv"
+        assert file.read() == csv_bytes
+
+    def test_no_supported_files_returns_none(self, tmp_path):
+        zip_path = tmp_path / "data.zip"
+        zip_path.write_bytes(_make_zip({"README.txt": b"nothing here"}))
+
+        source = _make_abs_source()
+        file, ext = source._open_zip_entry(
+            _table_data(str(zip_path)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
+        )
+
+        assert file is None
+        assert source.report.warnings
+
+    def test_bad_zip_returns_none(self, tmp_path):
+        bad_zip = tmp_path / "bad.zip"
+        bad_zip.write_bytes(b"not a zip")
+
+        source = _make_abs_source()
+        file, ext = source._open_zip_entry(
+            _table_data(str(bad_zip)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
+        )
+
+        assert file is None
+        assert source.report.warnings
+
+
+def test_abs_get_fields_csv_zip(tmp_path):
+    zip_path = tmp_path / "products.csv.zip"
+    zip_path.write_bytes(_make_zip({"products.csv": b"product,price\nwidget,9.99\n"}))
+
+    source = _make_abs_source()
+    # Returning None forces get_fields to use the local-file code path, which is
+    # all we want to test here (the ABS network path is covered by SeekableABSFile tests).
+    with patch(
+        "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
+        return_value=None,
+    ):
+        fields = source.get_fields(
+            _table_data(str(zip_path)),
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/*.csv.zip",
+                enable_compression=True,
+            ),
+        )
+
+    field_names = {f.fieldPath for f in fields}
+    assert {"product", "price"}.issubset(field_names)

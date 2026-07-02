@@ -22,12 +22,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
 
-# These come from the smart_open library.
+# gz and bz2 come from the smart_open library (streamed, transparent decompression).
+# zip is handled separately using zipfile + seekable S3 range requests.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",
     # We have a monkeypatch on smart_open that aliases .gzip to .gz.
     "gzip",
+    "zip",
 ]
 
 java_to_python_mapping = {
@@ -115,7 +117,9 @@ class PathSpec(ConfigModel):
 
     enable_compression: bool = Field(
         True,
-        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
+        "For .zip archives, only the first file with a supported extension is read; archives containing "
+        "multiple files will emit a warning and process only the first matching entry.",
     )
 
     sample_files: bool = Field(
