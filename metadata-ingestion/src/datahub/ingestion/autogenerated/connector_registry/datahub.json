@@ -2478,7 +2478,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Visualization inputs when resolvable",
+          "description": "Visualization and report inputs when resolvable",
           "subtype_modifier": null,
           "supported": true
         },

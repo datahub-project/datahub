@@ -12,6 +12,7 @@ from datahub.ingestion.source.microstrategy.config import (
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
+    MSTR_OBJECT_TYPE_REPORT,
 )
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
@@ -144,6 +145,13 @@ class MicroStrategyClient:
         ):
             yield MSTRObject.model_validate(item)
 
+    def search_reports(self, project_id: str) -> Iterable[MSTRObject]:
+        for item in self._metadata_search(
+            project_id=project_id,
+            type_filter=str(MSTR_OBJECT_TYPE_REPORT),
+        ):
+            yield MSTRObject.model_validate(item)
+
     def search_objects(
         self,
         project_id: str,
@@ -236,6 +244,12 @@ class MicroStrategyClient:
             project_id=project_id,
         )
 
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        return self._get_json(
+            f"/api/v2/reports/{report_id}",
+            project_id=project_id,
+        )
+
     def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
         response = self._get_json(
             f"/api/dossiers/{dossier_id}/instances",
@@ -265,6 +279,23 @@ class MicroStrategyClient:
             raise MicroStrategyAPIError(
                 "MicroStrategy document instance response did not include "
                 f"an instance id for {document_id}"
+        )
+        return instance_id
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        response = self._get_json(
+            f"/api/v2/reports/{report_id}/instances",
+            project_id=project_id,
+            params={"executionStage": "resolve_prompts"},
+            method="POST",
+            json={},
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+        )
+        instance_id = self._extract_instance_id(response)
+        if not instance_id:
+            raise MicroStrategyAPIError(
+                "MicroStrategy report instance response did not include "
+                f"an instance id for {report_id}"
             )
         return instance_id
 
@@ -295,6 +326,18 @@ class MicroStrategyClient:
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
         )
 
+    def get_report_sql_view(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> Dict[str, Any]:
+        return self._get_json(
+            f"/api/v2/reports/{report_id}/instances/{instance_id}/sqlView",
+            project_id=project_id,
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+        )
+
     def delete_dossier_instance(
         self,
         project_id: str,
@@ -318,6 +361,20 @@ class MicroStrategyClient:
         response = self._request(
             "DELETE",
             f"/api/documents/{document_id}/instances/{instance_id}",
+            project_id=project_id,
+            expected_statuses={200, 202, 204, 404},
+        )
+        return response.status_code != 404
+
+    def delete_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> bool:
+        response = self._request(
+            "DELETE",
+            f"/api/v2/reports/{report_id}/instances/{instance_id}",
             project_id=project_id,
             expected_statuses={200, 202, 204, 404},
         )

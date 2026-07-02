@@ -11,7 +11,9 @@ from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageConte
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
+    DatasetObject,
     MSTRObject,
+    ReportDefinition,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
@@ -114,6 +116,7 @@ def _definition() -> DashboardDefinition:
 def _mapper(
     emit_dashboard_dataset_edges: bool = False,
     extract_warehouse_lineage: bool = False,
+    extract_report_sql_lineage: bool = False,
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
@@ -121,6 +124,7 @@ def _mapper(
             "platform_instance": "prod",
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
+            "extract_report_sql_lineage": extract_report_sql_lineage,
         }
     )
     return MicroStrategyMapper(config, MicroStrategyReport())
@@ -206,6 +210,86 @@ def test_chart_input_fields_reference_metric_and_attribute_fields() -> None:
     assert sorted(field.schemaFieldUrn for field in input_fields.fields) == [
         f"urn:li:schemaField:({expected_dataset_urn},Order Date)",
         f"urn:li:schemaField:({expected_dataset_urn},Revenue)",
+    ]
+
+
+def test_report_chart_uses_report_source_dataset_inputs_and_fields() -> None:
+    mapper = _mapper()
+    report_object = MSTRObject.model_validate(
+        {
+            "id": "report-1",
+            "name": "Sales Report",
+            "type": "3",
+            "owner": {"username": "metadata_reader"},
+        }
+    )
+    report_definition = ReportDefinition.from_api_response(
+        object_id="report-1",
+        object_name="Sales Report",
+        response={
+            "result": {
+                "definition": {
+                    "dataSource": {"id": "cube-1", "name": "Sales Cube"},
+                    "availableObjects": [
+                        {"id": "metric-1", "name": "Revenue", "type": "metric"},
+                        {
+                            "id": "attr-1",
+                            "name": "Region",
+                            "type": "attribute",
+                        },
+                    ],
+                }
+            }
+        },
+    )
+    source_dataset = DatasetObject.model_validate(
+        {
+            "id": report_definition.source_id,
+            "name": report_definition.source_name,
+            "availableObjects": report_definition.available_objects,
+        }
+    )
+    dataset_urn = mapper.lineage.report_source_dataset_urn(
+        "project-1",
+        report_object.id,
+        source_dataset,
+    )
+
+    dataset_properties = _aspect(
+        mapper.gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            mapper.project_key("project-1"),
+        ),
+        DatasetPropertiesClass,
+    )
+    workunits = list(
+        mapper.gen_report_workunits(
+            "project-1",
+            report_object,
+            report_definition,
+            source_dataset,
+            mapper.project_key("project-1"),
+        )
+    )
+    chart_info = _aspect(workunits, ChartInfoClass)
+    input_fields = _aspect(workunits, InputFieldsClass)
+    schema_fields = [field.schemaField for field in input_fields.fields]
+
+    assert dataset_properties.customProperties["microstrategyReportId"] == "report-1"
+    assert chart_info.inputs == [dataset_urn]
+    assert chart_info.inputEdges is not None
+    assert [edge.destinationUrn for edge in chart_info.inputEdges] == [dataset_urn]
+    assert chart_info.customProperties["microstrategyReportSourceId"] == "cube-1"
+    assert all(field is not None for field in schema_fields)
+    assert sorted(field.fieldPath for field in schema_fields if field is not None) == [
+        "Region",
+        "Revenue",
+    ]
+    assert sorted(field.schemaFieldUrn for field in input_fields.fields) == [
+        f"urn:li:schemaField:({dataset_urn},Region)",
+        f"urn:li:schemaField:({dataset_urn},Revenue)",
     ]
 
 
@@ -303,6 +387,33 @@ def test_dashboard_dataset_edges_are_disabled_by_default() -> None:
     assert [edge.destinationUrn for edge in dashboard_info.chartEdges] == [
         mapper.chart_urn("project-1", dashboard.id, dashboard.visualizations[0].key)
     ]
+
+
+def test_dashboard_info_can_include_report_chart_dependency_edges() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    dashboard_object = MSTRObject.model_validate(
+        {"id": dashboard.id, "name": dashboard.name}
+    )
+    report_urn = mapper.report_urn("project-1", "report-1")
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            dashboard_object,
+            dashboard,
+            mapper.project_key("project-1"),
+            extra_chart_urns=[report_urn],
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.chartEdges is not None
+    assert [edge.destinationUrn for edge in dashboard_info.chartEdges] == [
+        mapper.chart_urn("project-1", dashboard.id, dashboard.visualizations[0].key),
+        report_urn,
+    ]
+    assert dashboard_info.datasetEdges is None
 
 
 def test_dashboard_dataset_edges_are_opt_in() -> None:
@@ -544,6 +655,87 @@ def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> 
         dataset_properties.customProperties["microstrategyWarehouseUpstreamPlatforms"]
         == '["snowflake"]'
     )
+
+
+def test_report_source_dataset_warehouse_lineage_is_opt_in() -> None:
+    report_object = MSTRObject.model_validate(
+        {"id": "report-1", "name": "Sales Report", "type": "3"}
+    )
+    source_dataset = DatasetObject.model_validate(
+        {"id": "cube-1", "name": "Sales Cube"}
+    )
+    source_dataset.warehouse_upstream_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+    parent_key = _mapper().project_key("project-1")
+
+    default_workunits = list(
+        _mapper().gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            parent_key,
+        )
+    )
+    enabled_workunits = list(
+        _mapper(extract_report_sql_lineage=True).gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            parent_key,
+        )
+    )
+
+    assert _maybe_aspect(default_workunits, UpstreamLineageClass) is None
+    assert _aspect(enabled_workunits, UpstreamLineageClass).upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    )
+
+
+def test_report_source_dataset_includes_model_fine_grained_lineage() -> None:
+    mapper = _mapper()
+    report_object = MSTRObject.model_validate(
+        {"id": "report-1", "name": "Sales Report", "type": "3"}
+    )
+    source_dataset = DatasetObject.model_validate(
+        {
+            "id": "cube-1",
+            "name": "Sales Cube",
+            "availableObjects": {
+                "metrics": [{"id": "metric-1", "name": "Revenue", "type": "metric"}]
+            },
+        }
+    )
+    upstream_dataset_urn = (
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    )
+    source_dataset.field_warehouse_upstreams = {
+        "Revenue": [f"urn:li:schemaField:({upstream_dataset_urn},net_sales_amt)"]
+    }
+
+    upstream_lineage = _aspect(
+        mapper.gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            mapper.project_key("project-1"),
+        ),
+        UpstreamLineageClass,
+    )
+
+    assert [upstream.dataset for upstream in upstream_lineage.upstreams] == [
+        upstream_dataset_urn
+    ]
+    fine_grained_lineages = upstream_lineage.fineGrainedLineages or []
+    assert len(fine_grained_lineages) == 1
+    assert fine_grained_lineages[0].downstreams == [
+        (
+            "urn:li:schemaField:"
+            "(urn:li:dataset:(urn:li:dataPlatform:microstrategy,"
+            "prod.project-1.report-1.cube-1,PROD),Revenue)"
+        )
+    ]
 
 
 def test_dataset_workunits_include_model_fine_grained_lineage() -> None:

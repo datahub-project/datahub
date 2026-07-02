@@ -14,6 +14,9 @@ def test_base_url_normalization() -> None:
 
     assert config.base_url == "https://mstr.example.com/MicroStrategyLibrary"
     assert isinstance(config.auth, MicroStrategyGuestAuth)
+    assert config.extract_reports is False
+    assert config.extract_report_definitions is True
+    assert config.extract_report_sql_lineage is False
     assert config.extract_warehouse_lineage is False
     assert config.warehouse_lineage_sql_timeout_seconds == 180
 

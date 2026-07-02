@@ -19,8 +19,14 @@ source:
       allow:
         - "^Sales Performance$"
 
+    report_pattern:
+      allow:
+        - "^Sales Report$"
+
     extract_dashboards: true
     extract_charts: true
+    extract_reports: false
+    extract_report_definitions: true
     extract_cubes: true
     extract_lineage: true
     extract_visualization_details: true
@@ -33,6 +39,7 @@ source:
     # Keep disabled unless you want dataset -> warehouse table edges without
     # field-level metric / attribute / fact lineage.
     extract_warehouse_lineage: false
+    extract_report_sql_lineage: false
 
     # Disabled by default to keep DataHub lineage graphs focused on
     # dataset -> visualization edges.

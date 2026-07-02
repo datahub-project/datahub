@@ -107,6 +107,19 @@ class MicroStrategyLineageExtractor:
             name=f"{project_id}.{dashboard_id}.{dataset.id}".lower(),
         )
 
+    def report_source_dataset_urn(
+        self,
+        project_id: str,
+        report_id: str,
+        dataset: DatasetObject,
+    ) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            name=f"{project_id}.{report_id}.{dataset.id}".lower(),
+        )
+
     def visualization_inputs(
         self,
         project_id: str,

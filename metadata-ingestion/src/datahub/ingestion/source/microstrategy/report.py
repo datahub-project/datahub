@@ -10,11 +10,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     projects_scanned: int = 0
     folders_scanned: int = 0
     dashboards_scanned: int = 0
+    reports_scanned: int = 0
     charts_scanned: int = 0
     datasets_scanned: int = 0
     source_warehouses_scanned: int = 0
     source_warehouse_api_failures: int = 0
     dashboard_dependencies_scanned: int = 0
+    report_definition_api_failures: int = 0
+    report_sql_view_api_failures: int = 0
     metric_expressions_scanned: int = 0
     metric_expression_api_failures: int = 0
     model_tables_scanned: int = 0
@@ -40,6 +43,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_dashboard_scanned(self) -> None:
         self.dashboards_scanned += 1
 
+    def report_report_scanned(self) -> None:
+        self.reports_scanned += 1
+
     def report_chart_scanned(self) -> None:
         self.charts_scanned += 1
 
@@ -54,6 +60,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_dashboard_dependencies_scanned(self, count: int) -> None:
         self.dashboard_dependencies_scanned += count
+
+    def report_report_definition_api_failure(self) -> None:
+        self.report_definition_api_failures += 1
+
+    def report_report_sql_view_api_failure(self) -> None:
+        self.report_sql_view_api_failures += 1
 
     def report_metric_expression_scanned(self) -> None:
         self.metric_expressions_scanned += 1

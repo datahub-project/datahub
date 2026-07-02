@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -38,9 +38,11 @@ from datahub.ingestion.source.microstrategy.lineage import (
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
+    DatasetObject,
     Datasource,
     MSTRObject,
     ProjectKey,
+    ReportDefinition,
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -60,7 +62,10 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TAGS, "Metric, attribute, and temporal field tags")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `ingest_owner`")
-@capability(SourceCapability.LINEAGE_COARSE, "Visualization inputs when resolvable")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Visualization and report inputs when resolvable",
+)
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Modeling API field lineage from MicroStrategy metrics and attributes "
@@ -136,6 +141,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         warehouse_context,
                         model_lineage_index,
                     )
+                if self.config.extract_reports:
+                    yield from self._process_project_reports(
+                        project.id,
+                        warehouse_context,
+                        model_lineage_index,
+                    )
         finally:
             self.client.close()
 
@@ -180,7 +191,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if not self.config.extract_lineage:
             return None
         if not (
-            self.config.extract_warehouse_lineage or self.config.extract_model_lineage
+            self.config.extract_warehouse_lineage
+            or self.config.extract_model_lineage
+            or self.config.extract_report_sql_lineage
         ):
             return None
 
@@ -232,8 +245,64 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
             if model_lineage_index:
                 self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+            extra_chart_urns = self._dashboard_report_chart_urns(project_id, dashboard)
             yield from self._process_dashboard(
-                project_id, dashboard_object, dashboard, parent_key
+                project_id,
+                dashboard_object,
+                dashboard,
+                parent_key,
+                extra_chart_urns=extra_chart_urns,
+            )
+
+    def _process_project_reports(
+        self,
+        project_id: str,
+        warehouse_context: Optional[WarehouseLineageContext],
+        model_lineage_index: Optional[ModelLineageIndex],
+    ) -> Iterable[MetadataWorkUnit]:
+        for report_object in self.client.search_reports(project_id):
+            if not self.config.report_pattern.allowed(report_object.name):
+                continue
+            yield from self.mapper.gen_folder_containers(project_id, report_object)
+            parent_key = self.mapper.folder_container_for_dashboard(
+                project_id,
+                report_object,
+            )
+            report_definition = self._get_report_definition(project_id, report_object)
+            source_dataset = self._report_source_dataset(
+                report_object,
+                report_definition,
+            )
+            if source_dataset is not None:
+                if self.config.extract_metric_expressions:
+                    self._enrich_dataset_metric_expressions(
+                        project_id,
+                        source_dataset,
+                    )
+                if self.config.extract_report_sql_lineage and warehouse_context:
+                    self._enrich_report_sql_lineage(
+                        project_id=project_id,
+                        report_object=report_object,
+                        dataset=source_dataset,
+                        context=warehouse_context,
+                    )
+                if model_lineage_index:
+                    self.mapper.attach_dataset_model_lineage(
+                        source_dataset,
+                        model_lineage_index,
+                    )
+                yield from self.mapper.gen_report_source_dataset_workunits(
+                    project_id,
+                    report_object,
+                    source_dataset,
+                    parent_key,
+                )
+            yield from self.mapper.gen_report_workunits(
+                project_id,
+                report_object,
+                report_definition,
+                source_dataset,
+                parent_key,
             )
 
     def _get_dashboard_definition(
@@ -273,6 +342,55 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_metric_expressions:
             self._enrich_metric_expressions(project_id, dashboard)
         return dashboard
+
+    def _get_report_definition(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+    ) -> Optional[ReportDefinition]:
+        if not self.config.extract_report_definitions:
+            return ReportDefinition.from_search_result(report_object)
+
+        try:
+            response = self.client.get_report_definition(project_id, report_object.id)
+        except MicroStrategyAPIError as error:
+            self.report.report_report_definition_api_failure()
+            self.report.warning(
+                title="Failed to Fetch Report Definition",
+                message=(
+                    "Continuing with report search metadata only. Report source "
+                    "dataset fields may be unavailable."
+                ),
+                context=f"project_id={project_id}, report_id={report_object.id}",
+                exc=error,
+            )
+            return ReportDefinition.from_search_result(report_object)
+
+        return ReportDefinition.from_api_response(
+            object_id=report_object.id,
+            object_name=report_object.name,
+            description=report_object.description,
+            response=response,
+        )
+
+    @staticmethod
+    def _report_source_dataset(
+        report_object: MSTRObject,
+        report_definition: Optional[ReportDefinition],
+    ) -> Optional[DatasetObject]:
+        if report_definition is None:
+            return None
+        if not report_definition.source_id and not report_definition.available_objects:
+            return None
+        return DatasetObject.model_validate(
+            {
+                "id": report_definition.source_id or "source",
+                "name": report_definition.source_name
+                or f"{report_object.name} Source",
+                "description": report_definition.description,
+                "availableObjects": report_definition.available_objects,
+            }
+        )
 
     def _get_project_model_lineage_index(
         self,
@@ -369,23 +487,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard: DashboardDefinition,
     ) -> None:
         for dataset in dashboard.datasets:
-            for metric in _metric_items(dataset.available_objects):
-                metric_id = str(metric.get("id") or "")
-                if not metric_id:
-                    continue
-                model = self._get_metric_model(project_id, metric_id)
-                if not model:
-                    continue
-                summary = _metric_expression_summary(model)
-                if summary:
-                    metric["modelExpression"] = summary
-                fact_ids = self._metric_model_fact_ids(
-                    project_id,
-                    model,
-                    visited={metric_id.upper()},
-                )
-                if fact_ids:
-                    metric["modelFactIds"] = fact_ids
+            self._enrich_dataset_metric_expressions(project_id, dataset)
+
+    def _enrich_dataset_metric_expressions(
+        self,
+        project_id: str,
+        dataset: DatasetObject,
+    ) -> None:
+        for metric in _metric_items(dataset.available_objects):
+            metric_id = str(metric.get("id") or "")
+            if not metric_id:
+                continue
+            model = self._get_metric_model(project_id, metric_id)
+            if not model:
+                continue
+            summary = _metric_expression_summary(model)
+            if summary:
+                metric["modelExpression"] = summary
+            fact_ids = self._metric_model_fact_ids(
+                project_id,
+                model,
+                visited={metric_id.upper()},
+            )
+            if fact_ids:
+                metric["modelFactIds"] = fact_ids
 
     def _get_metric_model(
         self,
@@ -594,6 +719,62 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if upstream_urns:
                 dataset.warehouse_upstream_urns = upstream_urns
 
+    def _enrich_report_sql_lineage(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        dataset: DatasetObject,
+        context: WarehouseLineageContext,
+    ) -> None:
+        try:
+            instance_id = self.client.create_report_instance(
+                project_id,
+                report_object.id,
+            )
+        except MicroStrategyAPIError as error:
+            self.report.report_report_sql_view_api_failure()
+            self.report.warning(
+                title="Failed to Create Report Instance for Warehouse Lineage",
+                message="Skipping SQL-view warehouse lineage for this report.",
+                context=f"project_id={project_id}, report_id={report_object.id}",
+                exc=error,
+            )
+            return
+
+        try:
+            sql_view = self.client.get_report_sql_view(
+                project_id=project_id,
+                report_id=report_object.id,
+                instance_id=instance_id,
+            )
+        except MicroStrategyAPIError as error:
+            self.report.report_report_sql_view_api_failure()
+            self.report.warning(
+                title="Failed to Fetch Report SQL View",
+                message="Skipping source warehouse lineage for this report.",
+                context=f"project_id={project_id}, report_id={report_object.id}",
+                exc=error,
+            )
+            return
+        finally:
+            self._delete_report_instance(project_id, report_object.id, instance_id)
+
+        sql_statement = sql_statement_from_sql_view_entry(sql_view)
+        result = sql_view.get("result")
+        if not sql_statement and isinstance(result, dict):
+            sql_statement = sql_statement_from_sql_view_entry(result)
+        if not sql_statement:
+            return
+
+        self.report.report_warehouse_lineage_sql_views_scanned(1)
+        upstream_urns = self.mapper.lineage.warehouse_upstream_urns_from_sql(
+            sql_statement,
+            context,
+            graph=self.ctx.graph,
+        )
+        if upstream_urns:
+            dataset.warehouse_upstream_urns = upstream_urns
+
     def _create_dashboard_instance(
         self,
         project_id: str,
@@ -626,12 +807,48 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 exc_info=True,
             )
 
+    def _delete_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> None:
+        try:
+            self.client.delete_report_instance(project_id, report_id, instance_id)
+        except MicroStrategyAPIError:
+            logger.debug(
+                "MicroStrategy report instance cleanup failed",
+                exc_info=True,
+            )
+
+    def _dashboard_report_chart_urns(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+    ) -> List[str]:
+        if not self.config.extract_reports:
+            return []
+        report_urns: List[str] = []
+        seen: set[str] = set()
+        for dependency in dashboard.dependencies:
+            if not _is_report_dependency(dependency):
+                continue
+            if not self.config.report_pattern.allowed(dependency.name):
+                continue
+            report_urn = self.mapper.report_urn(project_id, dependency.id)
+            if report_urn in seen:
+                continue
+            seen.add(report_urn)
+            report_urns.append(report_urn)
+        return report_urns
+
     def _process_dashboard(
         self,
         project_id: str,
         dashboard_object: MSTRObject,
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
+        extra_chart_urns: Sequence[str] = (),
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_cubes:
             for dataset in dashboard.datasets:
@@ -646,7 +863,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         yield from self.mapper.gen_dashboard_workunits(
-            project_id, dashboard_object, dashboard, parent_key
+            project_id,
+            dashboard_object,
+            dashboard,
+            parent_key,
+            extra_chart_urns=extra_chart_urns,
         )
 
     def get_report(self) -> SourceReport:
@@ -659,6 +880,14 @@ def _metric_items(available_objects: Dict[str, Any]) -> Iterable[Dict[str, Any]]
         for metric in metrics:
             if isinstance(metric, dict):
                 yield metric
+
+
+def _is_report_dependency(dependency: MSTRObject) -> bool:
+    object_type = (dependency.type or "").strip()
+    if object_type == "3":
+        return True
+    descriptor = f"{dependency.name} {dependency.subtype}".lower()
+    return "report" in descriptor
 
 
 def _metric_expression_summary(model: Dict[str, Any]) -> Dict[str, str]:

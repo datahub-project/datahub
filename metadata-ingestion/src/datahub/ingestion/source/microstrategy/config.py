@@ -88,6 +88,10 @@ class MicroStrategyConfig(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns to filter MicroStrategy dossiers/dashboards by name.",
     )
+    report_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter MicroStrategy reports by name.",
+    )
     folder_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns to filter folder containers by name.",
@@ -104,6 +108,21 @@ class MicroStrategyConfig(
     extract_charts: bool = Field(
         default=True,
         description="Whether to extract visualizations as DataHub charts.",
+    )
+    extract_reports: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract MicroStrategy reports as DataHub charts. Disabled "
+            "by default because reports can be numerous and are independent from "
+            "dossier visualization extraction."
+        ),
+    )
+    extract_report_definitions: bool = Field(
+        default=True,
+        description=(
+            "Whether to fetch report definitions for source dataset, metric, and "
+            "attribute details when `extract_reports` is enabled."
+        ),
     )
     extract_cubes: bool = Field(
         default=True,
@@ -161,6 +180,14 @@ class MicroStrategyConfig(
             "is not field-level metric, attribute, or fact lineage. The connector "
             "discovers the warehouse platform from MicroStrategy datasource metadata "
             "and does not store raw SQL."
+        ),
+    )
+    extract_report_sql_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to execute report SQL-view APIs and emit coarse table-level "
+            "lineage from report source datasets to source warehouse datasets. "
+            "Disabled by default for the same reason as `extract_warehouse_lineage`."
         ),
     )
     warehouse_lineage_sql_timeout_seconds: int = Field(

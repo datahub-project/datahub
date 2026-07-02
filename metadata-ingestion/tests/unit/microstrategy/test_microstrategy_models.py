@@ -3,6 +3,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasetObject,
     Datasource,
     DatasourceConnection,
+    ReportDefinition,
 )
 
 
@@ -160,3 +161,35 @@ def test_dataset_preserves_source_warehouse_reference_when_present() -> None:
     assert dataset.source_warehouse is not None
     assert dataset.source_warehouse.id == "source-1"
     assert dataset.source_warehouse.database_type == "snow_flake"
+
+
+def test_report_definition_extracts_source_and_available_objects() -> None:
+    definition = ReportDefinition.from_api_response(
+        object_id="report-1",
+        object_name="Sales Report",
+        response={
+            "result": {
+                "definition": {
+                    "dataSource": {"id": "cube-1", "name": "Sales Cube"},
+                    "availableObjects": [
+                        {"id": "metric-1", "name": "Revenue", "type": "metric"},
+                        {
+                            "id": "attr-1",
+                            "name": "Region",
+                            "type": "attribute",
+                        },
+                    ],
+                    "prompts": [{"id": "prompt-1"}],
+                    "filter": {"id": "filter-1"},
+                }
+            }
+        },
+    )
+
+    assert definition.source_id == "cube-1"
+    assert definition.source_name == "Sales Cube"
+    assert definition.available_objects["metrics"][0]["id"] == "metric-1"
+    assert definition.available_objects["attributes"][0]["id"] == "attr-1"
+    assert definition.object_ids == ["metric-1", "attr-1"]
+    assert definition.prompt_count == 1
+    assert definition.has_filter is True

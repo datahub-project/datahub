@@ -31,6 +31,7 @@ from datahub.ingestion.source.microstrategy.models import (
     MSTRObject,
     Project,
     ProjectKey,
+    ReportDefinition,
     Visualization,
     extract_folder_parts,
 )
@@ -100,6 +101,13 @@ class MicroStrategyMapper:
             name=f"{project_id}.{dashboard_id}.{visualization_key}".lower(),
         )
 
+    def report_urn(self, project_id: str, report_id: str) -> str:
+        return builder.make_chart_urn(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            name=f"{project_id}.{report_id}".lower(),
+        )
+
     def dashboard_urn(self, project_id: str, dashboard_id: str) -> str:
         return builder.make_dashboard_urn(
             platform=self.config.platform,
@@ -113,10 +121,17 @@ class MicroStrategyMapper:
         model_lineage_index: ModelLineageIndex,
     ) -> None:
         for dataset in dashboard.datasets:
-            dataset.field_warehouse_upstreams = self._model_field_upstreams(
-                dataset,
-                model_lineage_index,
-            )
+            self.attach_dataset_model_lineage(dataset, model_lineage_index)
+
+    def attach_dataset_model_lineage(
+        self,
+        dataset: DatasetObject,
+        model_lineage_index: ModelLineageIndex,
+    ) -> None:
+        dataset.field_warehouse_upstreams = self._model_field_upstreams(
+            dataset,
+            model_lineage_index,
+        )
 
     def gen_project_container(
         self,
@@ -262,6 +277,192 @@ class MicroStrategyMapper:
             entity_urn=dataset_urn,
         )
 
+    def gen_report_source_dataset_workunits(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        dataset: DatasetObject,
+        parent_key: ProjectKey,
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_dataset_scanned()
+        dataset_urn = self.lineage.report_source_dataset_urn(
+            project_id,
+            report_object.id,
+            dataset,
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=builder.make_data_platform_urn(self.config.platform),
+                instance=(
+                    builder.make_dataplatform_instance_urn(
+                        self.config.platform,
+                        self.config.platform_instance,
+                    )
+                    if self.config.platform_instance
+                    else None
+                ),
+            ),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=dataset.name,
+                description=dataset.description,
+                qualifiedName=f"{project_id}.{report_object.id}.{dataset.id}".lower(),
+                externalUrl=f"{self.config.base_url}/app/{project_id}/{report_object.id}",
+                customProperties=self._report_source_dataset_custom_properties(
+                    project_id=project_id,
+                    report_object=report_object,
+                    dataset=dataset,
+                ),
+            ),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.MICROSTRATEGY_DATASET]),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=dataset.name,
+                platform=builder.make_data_platform_urn(self.config.platform),
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=self._schema_fields(dataset),
+            ),
+        ).as_workunit()
+        fine_grained_lineages = self._fine_grained_lineages(dataset_urn, dataset)
+        if fine_grained_lineages:
+            self.report.report_model_lineage_edges(len(fine_grained_lineages))
+        coarse_upstream_urns = (
+            sorted(set(dataset.warehouse_upstream_urns))
+            if self.config.extract_report_sql_lineage
+            else []
+        )
+        if coarse_upstream_urns:
+            self.report.report_warehouse_lineage_edges(len(coarse_upstream_urns))
+        upstream_urns = sorted(
+            set(coarse_upstream_urns).union(
+                upstream_urn
+                for upstreams in dataset.field_warehouse_upstreams.values()
+                for field_urn in upstreams
+                for upstream_urn in [_schema_field_dataset_urn(field_urn)]
+                if upstream_urn
+            )
+        )
+        if upstream_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=upstream_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                        for upstream_urn in upstream_urns
+                    ],
+                    fineGrainedLineages=fine_grained_lineages or None,
+                ),
+            ).as_workunit()
+        yield from add_entity_to_container(
+            container_key=parent_key,
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+        )
+
+    def gen_report_workunits(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        report_definition: Optional[ReportDefinition],
+        source_dataset: Optional[DatasetObject],
+        parent_key: ProjectKey,
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_report_scanned()
+        self.report.report_chart_scanned()
+        report_urn = self.report_urn(project_id, report_object.id)
+        input_urn: Optional[str] = None
+        if self.config.extract_lineage and source_dataset is not None:
+            input_urn = self.lineage.report_source_dataset_urn(
+                project_id,
+                report_object.id,
+                source_dataset,
+            )
+        inputs: List[str]
+        inputs = [input_urn] if input_urn else []
+        if inputs:
+            self.report.report_chart_lineage_edges(len(inputs))
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=report_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=builder.make_data_platform_urn(self.config.platform),
+                instance=(
+                    builder.make_dataplatform_instance_urn(
+                        self.config.platform,
+                        self.config.platform_instance,
+                    )
+                    if self.config.platform_instance
+                    else None
+                ),
+            ),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=report_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=report_urn,
+            aspect=ChartInfoClass(
+                title=report_object.name,
+                description=(
+                    (report_definition.description if report_definition else None)
+                    or report_object.description
+                    or ""
+                ),
+                lastModified=self._dashboard_audit_stamps(report_object),
+                chartUrl=f"{self.config.base_url}/app/{project_id}/{report_object.id}",
+                customProperties=self._report_properties(
+                    project_id=project_id,
+                    report_object=report_object,
+                    report_definition=report_definition,
+                    source_dataset=source_dataset,
+                ),
+                inputs=inputs,
+                inputEdges=[EdgeClass(destinationUrn=input_urn) for input_urn in inputs]
+                or None,
+            ),
+        ).as_workunit()
+        if input_urn and source_dataset:
+            input_fields = self._dataset_input_fields(
+                input_urn,
+                source_dataset,
+                report_definition.object_ids if report_definition else None,
+            )
+            if input_fields:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=report_urn,
+                    aspect=input_fields,
+                ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=report_urn,
+            aspect=SubTypesClass(typeNames=[BIAssetSubTypes.REPORT]),
+        ).as_workunit()
+        if self.config.ingest_owner and report_object.owner:
+            yield self._ownership_workunit(report_urn, report_object.owner)
+        yield from add_entity_to_container(
+            container_key=parent_key,
+            entity_type="chart",
+            entity_urn=report_urn,
+        )
+
     def gen_chart_workunits(
         self,
         project_id: str,
@@ -341,13 +542,17 @@ class MicroStrategyMapper:
         dashboard_object: MSTRObject,
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
+        extra_chart_urns: Sequence[str] = (),
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dashboard_scanned()
         dashboard_urn = self.dashboard_urn(project_id, dashboard.id)
-        chart_urns = [
-            self.chart_urn(project_id, dashboard.id, visualization.key)
-            for visualization in dashboard.visualizations
-        ]
+        chart_urns = _dedupe_preserving_order(
+            [
+                self.chart_urn(project_id, dashboard.id, visualization.key)
+                for visualization in dashboard.visualizations
+            ]
+            + list(extra_chart_urns)
+        )
         custom_properties = {
             "microstrategyProjectId": project_id,
             "microstrategyDashboardId": dashboard.id,
@@ -560,6 +765,48 @@ class MicroStrategyMapper:
             ]
         )
 
+    def _dataset_input_fields(
+        self,
+        dataset_urn: str,
+        dataset: DatasetObject,
+        object_ids: Optional[Sequence[str]] = None,
+    ) -> Optional[InputFieldsClass]:
+        fields, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+        input_fields_by_urn: Dict[str, InputFieldClass] = {}
+        if object_ids:
+            normalized_object_ids = {
+                _normalize_object_id(object_id) for object_id in object_ids
+            }
+            for object_id in normalized_object_ids:
+                for field in fields_by_object_id.get(object_id, []):
+                    schema_field_urn = builder.make_schema_field_urn(
+                        dataset_urn,
+                        field.fieldPath,
+                    )
+                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
+                        schemaFieldUrn=schema_field_urn,
+                        schemaField=field,
+                    )
+        else:
+            for field in fields:
+                schema_field_urn = builder.make_schema_field_urn(
+                    dataset_urn,
+                    field.fieldPath,
+                )
+                input_fields_by_urn[schema_field_urn] = InputFieldClass(
+                    schemaFieldUrn=schema_field_urn,
+                    schemaField=field,
+                )
+
+        if not input_fields_by_urn:
+            return None
+        return InputFieldsClass(
+            fields=[
+                input_fields_by_urn[schema_field_urn]
+                for schema_field_urn in sorted(input_fields_by_urn)
+            ]
+        )
+
     def _model_field_upstreams(
         self,
         dataset: DatasetObject,
@@ -758,6 +1005,58 @@ class MicroStrategyMapper:
             )
         properties.update(self._source_warehouse_properties(dataset.source_warehouse))
         return properties
+
+    def _report_source_dataset_custom_properties(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        dataset: DatasetObject,
+    ) -> Dict[str, str]:
+        properties = {
+            "microstrategyProjectId": project_id,
+            "microstrategyReportId": report_object.id,
+            "microstrategyReportSourceId": dataset.id,
+        }
+        properties.update(_dataset_semantic_count_properties(dataset))
+        if self.config.extract_report_sql_lineage and dataset.warehouse_upstream_urns:
+            properties.update(
+                _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
+            )
+        properties.update(self._source_warehouse_properties(dataset.source_warehouse))
+        return properties
+
+    def _report_properties(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        report_definition: Optional[ReportDefinition],
+        source_dataset: Optional[DatasetObject],
+    ) -> Dict[str, str]:
+        properties: Dict[str, str] = {
+            "microstrategyProjectId": project_id,
+            "microstrategyReportId": report_object.id,
+        }
+        properties.update(self._dashboard_object_properties(report_object))
+        if report_definition:
+            properties.update(
+                {
+                    "microstrategyReportPromptCount": str(
+                        report_definition.prompt_count
+                    ),
+                    "microstrategyReportHasFilter": str(
+                        report_definition.has_filter
+                    ).lower(),
+                }
+            )
+        if source_dataset:
+            properties.update(
+                {
+                    "microstrategyReportSourceId": source_dataset.id,
+                    "microstrategyReportSourceName": source_dataset.name,
+                }
+            )
+            properties.update(_dataset_semantic_count_properties(source_dataset))
+        return {key: value for key, value in properties.items() if value}
 
     @staticmethod
     def _source_warehouse_properties(
@@ -998,6 +1297,26 @@ def _dataset_semantic_count_properties(dataset: DatasetObject) -> Dict[str, str]
     }
 
 
+def _warehouse_upstream_properties(upstream_urns: Sequence[str]) -> Dict[str, str]:
+    upstream_platforms = sorted(
+        {
+            platform
+            for platform in (
+                _platform_from_dataset_urn(upstream_urn) for upstream_urn in upstream_urns
+            )
+            if platform
+        }
+    )
+    properties = {
+        "microstrategyWarehouseUpstreamCount": str(len(set(upstream_urns))),
+    }
+    if upstream_platforms:
+        properties["microstrategyWarehouseUpstreamPlatforms"] = json.dumps(
+            upstream_platforms
+        )
+    return properties
+
+
 def _platform_from_dataset_urn(dataset_urn: str) -> Optional[str]:
     match = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:([^,]+),", dataset_urn)
     return match.group(1) if match else None
@@ -1052,6 +1371,17 @@ def _dataset_lineage_match_keys(dataset_urn: Optional[str]) -> Set[str]:
     if parts:
         keys.add(f"{platform}:table:{parts[-1]}")
     return keys
+
+
+def _dedupe_preserving_order(values: Sequence[str]) -> List[str]:
+    seen: Set[str] = set()
+    deduped: List[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
 
 
 def _audit_stamp(date_value: Optional[str], owner: str) -> Optional[AuditStampClass]:

@@ -266,6 +266,75 @@ class DashboardDefinition(MicroStrategyBaseModel):
         )
 
 
+class ReportDefinition(MicroStrategyBaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    source_id: Optional[str] = Field(default=None, alias="sourceId")
+    source_name: Optional[str] = Field(default=None, alias="sourceName")
+    available_objects: MSTRDict = Field(default_factory=dict, alias="availableObjects")
+    object_ids: List[str] = Field(default_factory=list)
+    prompt_count: int = Field(default=0, alias="promptCount")
+    has_filter: bool = Field(default=False, alias="hasFilter")
+    raw: MSTRDict = Field(default_factory=dict)
+
+    @classmethod
+    def from_api_response(
+        cls,
+        object_id: str,
+        object_name: str,
+        response: MSTRDict,
+        description: Optional[str] = None,
+    ) -> "ReportDefinition":
+        result = response.get("result", response)
+        root = result if isinstance(result, dict) else response
+        definition = _unwrap_definition(response)
+        source_id, source_name = _extract_report_source(definition, root)
+        available_objects = _normalize_available_objects(
+            definition.get("availableObjects") or root.get("availableObjects")
+        )
+        prompts = _list_items(definition.get("prompts") or root.get("prompts"))
+        return cls(
+            id=object_id,
+            name=object_name,
+            description=(
+                description
+                or _first_str(definition, ["description"])
+                or _first_str(root, ["description"])
+            ),
+            source_id=source_id,
+            source_name=source_name,
+            available_objects=available_objects,
+            object_ids=_extract_object_ids({"availableObjects": available_objects}),
+            prompt_count=len(prompts),
+            has_filter=bool(
+                definition.get("filter")
+                or definition.get("viewFilter")
+                or definition.get("qualification")
+                or root.get("filter")
+                or root.get("viewFilter")
+                or root.get("qualification")
+            ),
+            raw=definition,
+        )
+
+    @classmethod
+    def from_search_result(cls, report_object: MSTRObject) -> "ReportDefinition":
+        raw = report_object.model_dump(by_alias=True, exclude_none=True)
+        source_id, source_name = _extract_report_source(raw)
+        available_objects = _normalize_available_objects(raw.get("availableObjects"))
+        return cls(
+            id=report_object.id,
+            name=report_object.name,
+            description=report_object.description,
+            source_id=source_id,
+            source_name=source_name,
+            available_objects=available_objects,
+            object_ids=_extract_object_ids({"availableObjects": available_objects}),
+            raw=raw,
+        )
+
+
 class ProjectKey(ContainerKey):
     project_id: str
 
@@ -327,6 +396,58 @@ def _normalize_available_objects(value: Any) -> MSTRDict:
     return normalized
 
 
+def _extract_report_source(*locations: MSTRDict) -> Tuple[Optional[str], Optional[str]]:
+    for location in locations:
+        for source_key in (
+            "dataSource",
+            "datasource",
+            "source",
+            "sourceObject",
+            "cube",
+            "dataset",
+        ):
+            source = location.get(source_key)
+            if isinstance(source, dict):
+                source_id = _first_str(
+                    source,
+                    [
+                        "id",
+                        "objectId",
+                        "sourceId",
+                        "dataSourceId",
+                        "datasetId",
+                        "cubeId",
+                    ],
+                )
+                if source_id:
+                    return source_id, _first_str(source, ["name", "title"])
+            elif isinstance(source, str) and source:
+                return source, None
+
+        source_id = _first_str(
+            location,
+            [
+                "sourceId",
+                "dataSourceId",
+                "datasourceId",
+                "datasetId",
+                "cubeId",
+            ],
+        )
+        if source_id:
+            return source_id, _first_str(
+                location,
+                [
+                    "sourceName",
+                    "dataSourceName",
+                    "datasourceName",
+                    "datasetName",
+                    "cubeName",
+                ],
+            )
+    return None, None
+
+
 def _normalize_datasource_reference(data: MSTRDict) -> MSTRDict:
     database = data.get("database")
     if not isinstance(database, dict):
@@ -363,6 +484,17 @@ def _normalize_datasource_reference(data: MSTRDict) -> MSTRDict:
     if isinstance(embedded, bool):
         result["connectionEmbedded"] = embedded
     return result
+
+
+def _list_items(value: Any) -> List[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        for key in ("items", "objects", "prompts"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                return nested
+    return []
 
 
 def _connection_param(connection_string: str, *param_names: str) -> Optional[str]:

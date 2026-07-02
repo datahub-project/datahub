@@ -112,6 +112,33 @@ def test_metadata_search_uses_quick_search_results_endpoint(
     assert results == [{"id": "dash-1", "name": "Dashboard 1"}]
 
 
+def test_search_reports_uses_report_object_type(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_params
+        captured_params = params
+        return {"result": [{"id": "report-1", "name": "Sales Report"}]}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    reports = list(client.search_reports(project_id="project-1"))
+
+    assert captured_params is not None
+    assert captured_params["type"] == "3"
+    assert reports[0].id == "report-1"
+
+
 def test_list_datasources_reads_datasource_management_response(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -273,6 +300,52 @@ def test_get_dossier_datasets_sql_extracts_dataset_rows(
             "id": "ds-1",
             "name": "Sales Cube",
             "sqlStatement": "select * from SALES_DB.SALES.fact_sales",
+        }
+    ]
+
+
+def test_report_instance_lifecycle_uses_v2_report_endpoints(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    calls: list[Dict[str, Any]] = []
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        method: str = "GET",
+        json: Optional[Dict[str, Any]] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        calls.append(
+            {
+                "path": path,
+                "project_id": project_id,
+                "params": params,
+                "method": method,
+                "json": json,
+                "timeout_seconds": timeout_seconds,
+            }
+        )
+        return {"instanceId": "instance-1"}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    instance_id = client.create_report_instance("project-1", "report-1")
+
+    assert instance_id == "instance-1"
+    assert calls == [
+        {
+            "path": "/api/v2/reports/report-1/instances",
+            "project_id": "project-1",
+            "params": {"executionStage": "resolve_prompts"},
+            "method": "POST",
+            "json": {},
+            "timeout_seconds": config.warehouse_lineage_sql_timeout_seconds,
         }
     ]
 
