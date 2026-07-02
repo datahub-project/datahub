@@ -7,6 +7,7 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.PathSpec;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -65,6 +66,7 @@ public class SparkConfigParser {
 
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
+  public static final String DATASET_CONNECTIONS_KEY = "metadata.dataset.connections";
   public static final String DATASET_INCLUDE_SCHEMA_METADATA_DEPRECATED_ALIAS =
       "metadata.dataset.experimental_include_schema_metadata";
   public static final String DATASET_INCLUDE_SCHEMA_METADATA =
@@ -178,6 +180,7 @@ public class SparkConfigParser {
     }
     builder.platformInstance(SparkConfigParser.getPlatformInstance(sparkConfig));
     builder.commonDatasetPlatformInstance(SparkConfigParser.getCommonPlatformInstance(sparkConfig));
+    builder.connectionInstanceMap(SparkConfigParser.getConnectionInstanceMap(sparkConfig));
     builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
     builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
@@ -224,6 +227,55 @@ public class SparkConfigParser {
     return datahubConfig.hasPath(DATASET_PLATFORM_INSTANCE_KEY)
         ? datahubConfig.getString(DATASET_PLATFORM_INSTANCE_KEY)
         : null;
+  }
+
+  /**
+   * Parses the {@code metadata.dataset.connections} block: connection identity (the canonical
+   * OpenLineage namespace authority — arn:aws:glue:{region}:{account}, snowflake://{account},
+   * postgres://{host}:{port}, ...) -> {platformInstance, env}. Lets a single Spark job stamp the
+   * correct per-connection instance on upstreams it reads from multiple accounts/regions/hosts. The
+   * platform is implied by the namespace scheme, so it is not part of the value.
+   */
+  public static Map<String, ConnectionInstanceDetail> getConnectionInstanceMap(
+      Config datahubConfig) {
+    HashMap<String, ConnectionInstanceDetail> map = new HashMap<>();
+    if (!datahubConfig.hasPath(DATASET_CONNECTIONS_KEY)) {
+      return map;
+    }
+    Config connections = datahubConfig.getConfig(DATASET_CONNECTIONS_KEY);
+    for (String namespace : connections.root().keySet()) {
+      // Quote the key so a namespace with colons/slashes is treated as a single literal path
+      // element.
+      Config connectionConfig = connections.getConfig("\"" + namespace + "\"");
+      ConnectionInstanceDetail.ConnectionInstanceDetailBuilder detailBuilder =
+          ConnectionInstanceDetail.builder();
+      if (connectionConfig.hasPath(PLATFORM_INSTANCE_KEY)) {
+        detailBuilder.platformInstance(
+            Optional.of(connectionConfig.getString(PLATFORM_INSTANCE_KEY)));
+      }
+      if (connectionConfig.hasPath(FABRIC_TYPE_KEY)) {
+        String envValue = connectionConfig.getString(FABRIC_TYPE_KEY);
+        try {
+          // Normalize + validate the env at config-load time so a bad value is reported once,
+          // loudly, with the exact recipe path — instead of being silently dropped to the job
+          // default fabric per dataset during URN construction (which would emit URNs under the
+          // wrong env and dangle lineage with no actionable signal).
+          detailBuilder.env(Optional.of(FabricType.valueOf(envValue.toUpperCase())));
+        } catch (IllegalArgumentException e) {
+          log.error(
+              "Invalid env '{}' for connection '{}' (under {}.\"{}\".{}); must be one of {}. "
+                  + "Ignoring this connection's env; its datasets will use the job default fabric.",
+              envValue,
+              namespace,
+              DATASET_CONNECTIONS_KEY,
+              namespace,
+              FABRIC_TYPE_KEY,
+              Arrays.toString(FabricType.values()));
+        }
+      }
+      map.put(namespace, detailBuilder.build());
+    }
+    return map;
   }
 
   public static Optional<Map<String, String>> getDatabricksTags(Config datahubConfig) {
