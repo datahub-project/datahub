@@ -186,7 +186,7 @@ export default function SchemaTable({
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
-    const { urn: entityUrn } = useEntityData();
+    const { urn: entityUrn, entityData } = useEntityData();
     const location = useLocation();
 
     // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change
@@ -231,7 +231,7 @@ export default function SchemaTable({
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
     const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
     const fieldColumn = useMemo(

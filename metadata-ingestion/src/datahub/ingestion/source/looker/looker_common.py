@@ -8,6 +8,7 @@ from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
 from typing import (
+    Any,
     Dict,
     Iterable,
     Iterator,
@@ -20,11 +21,13 @@ from typing import (
     cast,
 )
 
+import lkml
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
     LookmlModelExplore,
     LookmlModelExploreField,
+    LookmlModelExploreJoins,
     User,
     WriteQuery,
 )
@@ -98,6 +101,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TagPropertiesClass,
     TagSnapshotClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import TagUrn
 from datahub.sdk.dataset import Dataset
@@ -918,6 +922,69 @@ class LookerUtil:
 
 
 @dataclass
+class LookerExploreJoin:
+    """The structured definition of a single join within a Looker explore.
+
+    Looker's explore joins carry the relationship semantics (which view is
+    joined, on what condition, with what cardinality) that are needed to
+    reconstruct the explore's semantic model. The ingestion historically only
+    derived join membership for lineage and discarded these fields.
+    """
+
+    # name of the join (the joined view, or the join alias when `from` is set)
+    name: str
+    # `from` param: the actual view when the join is aliased
+    from_view: Optional[str] = None
+    sql_on: Optional[str] = None
+    relationship: Optional[str] = None  # e.g. many_to_one, one_to_one
+    join_type: Optional[str] = None  # e.g. left_outer, inner
+    foreign_key: Optional[str] = None
+
+    @classmethod
+    def from_api_join(
+        cls, join: LookmlModelExploreJoins
+    ) -> Optional["LookerExploreJoin"]:
+        if join.name is None:
+            return None
+        return cls(
+            name=join.name,
+            from_view=join.from_,
+            sql_on=join.sql_on,
+            relationship=join.relationship,
+            join_type=join.type,
+            foreign_key=join.foreign_key,
+        )
+
+    @classmethod
+    def from_lkml_join(cls, join: Dict[str, Any]) -> Optional["LookerExploreJoin"]:
+        name = join.get("name")
+        if name is None:
+            return None
+        return cls(
+            name=name,
+            from_view=join.get("from"),
+            sql_on=join.get("sql_on"),
+            relationship=join.get("relationship"),
+            join_type=join.get("type"),
+            foreign_key=join.get("foreign_key"),
+        )
+
+    def to_lookml_dict(self) -> Dict[str, Any]:
+        join_dict: Dict[str, Any] = {"name": self.name}
+        if self.from_view is not None:
+            join_dict["from"] = self.from_view
+        if self.join_type is not None:
+            join_dict["type"] = self.join_type
+        if self.relationship is not None:
+            join_dict["relationship"] = self.relationship
+        if self.foreign_key is not None:
+            join_dict["foreign_key"] = self.foreign_key
+        if self.sql_on is not None:
+            join_dict["sql_on"] = self.sql_on
+        return join_dict
+
+
+@dataclass
 class LookerExplore:
     name: str
     model_name: str
@@ -931,6 +998,10 @@ class LookerExplore:
         default_factory=dict
     )  # view_name is key and file_path is value. A single file may contains multiple views
     joins: Optional[List[str]] = None
+    # Structured join definitions (relationship semantics), used to reconstruct
+    # the explore's semantic model. Distinct from `joins`, which only holds the
+    # field names referenced in join conditions (retained for lineage).
+    join_definitions: Optional[List[LookerExploreJoin]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
@@ -959,6 +1030,7 @@ class LookerExplore:
     ) -> "LookerExplore":
         view_names: Set[str] = set()
         joins = None
+        join_definitions: List[LookerExploreJoin] = []
         assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
 
         # The view name that the explore refers to is resolved in the following order of priority:
@@ -977,6 +1049,9 @@ class LookerExplore:
                 if sql_on is not None:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
+                join_definition = LookerExploreJoin.from_lkml_join(join)
+                if join_definition is not None:
+                    join_definitions.append(join_definition)
 
         upstream_views: List[ProjectInclude] = []
         # create the list of extended explores
@@ -1030,6 +1105,7 @@ class LookerExplore:
             description=dict.get("description"),
             upstream_views=upstream_views,
             joins=joins,
+            join_definitions=join_definitions or None,
             # This method is getting called from lookml_source's get_internal_workunits method
             # & upstream_views_file_path is not in use in that code flow
             upstream_views_file_path={},
@@ -1063,6 +1139,7 @@ class LookerExplore:
                 if explore.name is not None:
                     views.add(explore.name)
 
+            join_definitions: List[LookerExploreJoin] = []
             if explore.joins is not None and explore.joins != []:
                 join_to_orig_name_map = {}
                 potential_views = []
@@ -1072,6 +1149,9 @@ class LookerExplore:
                         join_to_orig_name_map[e.name] = e.from_
                     elif e.name is not None:
                         potential_views.append(e.name)
+                    join_definition = LookerExploreJoin.from_api_join(e)
+                    if join_definition is not None:
+                        join_definitions.append(join_definition)
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -1240,6 +1320,7 @@ class LookerExplore:
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
+                join_definitions=join_definitions or None,
             )
             logger.debug(f"Created LookerExplore from API: {looker_explore}")
             return looker_explore
@@ -1307,6 +1388,26 @@ class LookerExplore:
     def _get_embed_url(self, base_url: str) -> str:
         base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
+
+    def _build_explore_view_logic(self) -> Optional[str]:
+        """Reconstruct the explore's LookML join graph as view logic.
+
+        The Looker API/LookML does not expose an explore's source file the way
+        it does for views, so the join relationships (sql_on, relationship,
+        type) are otherwise lost. Serializing them into a LookML `explore`
+        block lets downstream consumers reconstruct the semantic model
+        symmetrically with how views store their raw LookML in viewLogic.
+        """
+        if not self.join_definitions:
+            return None
+
+        explore_dict: Dict[str, Any] = {"name": self.name}
+        if self.label is not None:
+            explore_dict["label"] = self.label
+        explore_dict["joins"] = [
+            join.to_lookml_dict() for join in self.join_definitions
+        ]
+        return str(lkml.dump({"explore": explore_dict})).strip()
 
     def _to_metadata_events(
         self,
@@ -1431,6 +1532,24 @@ class LookerExplore:
             "looker.explore.file": self.source_file,
         }
 
+        explore_view_logic = self._build_explore_view_logic()
+        # Explores without joins intentionally emit no viewProperties so that
+        # join-less explores remain unchanged. As a result, if an explore that
+        # previously had joins later loses all of them, the prior viewLogic is
+        # not actively cleared; this is acceptable since the value is a
+        # reconstruction aid rather than authoritative lineage.
+        # viewLanguage is hardcoded rather than importing
+        # lookml_source.VIEW_LANGUAGE_LOOKML to avoid a circular import.
+        view_definition = (
+            ViewPropertiesClass(
+                materialized=False,
+                viewLogic=explore_view_logic,
+                viewLanguage="lookml",
+            )
+            if explore_view_logic is not None
+            else None
+        )
+
         return Dataset(
             platform=config.platform_name,
             name=config.explore_naming_pattern.replace_variables(
@@ -1449,6 +1568,7 @@ class LookerExplore:
             external_url=self._get_url(base_url),
             upstreams=upstream_lineage,
             schema=schema_metadata,
+            view_definition=view_definition,
             parent_container=[
                 "Explore",
                 gen_model_key(config, self.model_name).as_urn(),

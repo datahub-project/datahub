@@ -1498,7 +1498,7 @@ public class GmsGraphQLEngine {
                   "updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
                   "updateDisplayProperties",
-                  new UpdateDisplayPropertiesResolver(this.entityService))
+                  new UpdateDisplayPropertiesResolver(this.entityService, this.entityClient))
               .dataFetcher(
                   "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
@@ -2449,7 +2449,20 @@ public class GmsGraphQLEngine {
                             ((StructuredPropertyDefinition) env.getSource())
                                 .getEntityTypes().stream()
                                     .map(entityTypeType.getKeyProvider())
-                                    .collect(Collectors.toList()))));
+                                    .collect(Collectors.toList())))
+                .dataFetcher(
+                    "allowedPlatforms",
+                    new LoadableTypeBatchResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final StructuredPropertyDefinition def =
+                              (StructuredPropertyDefinition) env.getSource();
+                          return def.getAllowedPlatforms() == null
+                              ? Collections.emptyList()
+                              : def.getAllowedPlatforms().stream()
+                                  .map(dataPlatformType.getKeyProvider())
+                                  .collect(Collectors.toList());
+                        })));
     builder.type(
         "TypeQualifier",
         typeWiring ->

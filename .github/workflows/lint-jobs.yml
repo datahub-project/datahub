@@ -172,7 +172,7 @@ jobs:
     name: Lint on smoke tests
     runs-on: ${{ needs.setup.outputs.default-runner }}
     needs: setup
-    if: ${{ needs.setup.outputs.smoke-test-python == 'true' || needs.setup.outputs.smoke-test-cypress == 'true' }}
+    if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
     env:
       UV_CACHE_DIR: /tmp/.uv-cache/
       YARN_CACHE_FOLDER: /tmp/.yarn-cache/
@@ -193,24 +193,11 @@ jobs:
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Restore yarn cache
-        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
-
       - name: Run Python lint
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
           ./gradlew :smoke-test:pythonLint
-
-      - name: Run Cypress Lint
-        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
-        run: |
-          ./gradlew :smoke-test:cypressLint
 
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save uv cache
@@ -219,14 +206,6 @@ jobs:
           path: |
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save yarn cache
-        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock') }}"
 
   datahub-web-react-lint:
     name: datahub-web-react-lint
@@ -247,7 +226,6 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
-        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
@@ -276,7 +254,6 @@ jobs:
           delete: true
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Save yarn cache
-        if: ${{ needs.setup.outputs.smoke-test-cypress == 'true' }}
         with:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}

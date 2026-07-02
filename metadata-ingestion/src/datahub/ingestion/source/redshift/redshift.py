@@ -154,11 +154,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,

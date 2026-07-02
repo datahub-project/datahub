@@ -1,10 +1,54 @@
 import logging
-from typing import Optional
+import time
+from collections.abc import Callable
+from typing import Any, Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
+
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# plus async invalidate/rebuild under full-suite CI load.
+DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 30
+
+
+def is_graphql_auth_denied(res: dict[str, Any]) -> bool:
+    errors = res.get("errors", [])
+    if not errors:
+        return False
+    code = errors[0].get("extensions", {}).get("code")
+    return code in (401, 403)
+
+
+def wait_until_graphql_auth_denied(
+    request_fn: Callable[[], dict[str, Any]],
+    *,
+    timeout_seconds: float = DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    poll_interval_seconds: float = 1.0,
+    description: str = "authorization denial",
+) -> dict[str, Any]:
+    """Poll until request_fn returns a GraphQL authorization error.
+
+    GMS policy cache refresh is async; after deletePolicy, authorization may remain
+    permissive until the cache is rebuilt.
+    """
+    deadline = time.time() + timeout_seconds
+    last_res: dict[str, Any] = {}
+    while time.time() < deadline:
+        last_res = request_fn()
+        if is_graphql_auth_denied(last_res):
+            return last_res
+        logger.info(
+            "Waiting for policy cache to reflect %s (%.0fs remaining)",
+            description,
+            max(0.0, deadline - time.time()),
+        )
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        f"Timed out after {timeout_seconds}s waiting for {description}; "
+        f"last response: {last_res}"
+    )
 
 
 def get_current_user_info(session):

@@ -33,11 +33,12 @@ public sealed interface GraphReadResult {
    */
   @Nonnull
   default Set<String> verticesOrEmpty() {
-    return switch (this) {
-      case Hit hit -> hit.vertices();
-      case EmptyHit emptyHit -> emptyHit.vertices();
-      case Miss miss -> Collections.emptySet();
-    };
+    if (this instanceof Hit hit) {
+      return hit.vertices();
+    } else if (this instanceof EmptyHit emptyHit) {
+      return emptyHit.vertices();
+    }
+    return Collections.emptySet();
   }
 
   default boolean isHit() {
