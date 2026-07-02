@@ -7,7 +7,7 @@ import sqlglot
 
 from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_common import QueryType, get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     sqlglot_lineage,
@@ -26,6 +26,14 @@ from datahub.sql_parsing.sqlglot_utils import (
 
 def test_update_from_select():
     assert {"returning", "this"} == _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
+
+
+def test_glue_and_athena_use_trino_dialect():
+    # Glue catalog views are Athena/Presto views (Trino SQL). Without this mapping,
+    # Glue/Athena view-SQL parsing silently fails and no lineage is produced.
+    assert get_dialect_str("glue") == "trino"
+    assert get_dialect_str("athena") == "trino"
+    assert is_dialect_instance(get_dialect("glue"), "trino")
 
 
 def test_is_dialect_instance():

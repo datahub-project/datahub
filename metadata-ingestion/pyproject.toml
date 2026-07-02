@@ -568,6 +568,7 @@ glue = [
     "cachetools<6.0.0",
     "patchy==2.8.0",
     "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
     "urllib3>=1.26,<3.0",
 ]
 
