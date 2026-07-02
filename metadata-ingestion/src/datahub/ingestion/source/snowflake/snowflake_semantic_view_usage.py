@@ -22,6 +22,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeCon
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    CortexAnalystQuery,
     SemanticViewQuery,
     SemanticViewUsageRecord,
     UserQueryCount,
@@ -386,3 +387,138 @@ class SemanticViewUsageExtractor:
         if len(query_text) > max_length:
             return query_text[: max_length - 3] + "..."
         return query_text
+
+    def get_cortex_analyst_query_workunits(
+        self,
+        discovered_semantic_views: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract Cortex Analyst natural language queries from CORTEX_ANALYST_REQUESTS_V.
+
+        Emits Query entities with the original NL question in customProperties
+        and the generated SQL as the QueryStatement.
+
+        Args:
+            discovered_semantic_views: Set of discovered semantic view identifiers
+        """
+        if not self.config.semantic_views.include_cortex_analyst_queries:
+            return
+
+        if not discovered_semantic_views:
+            return
+
+        logger.info("Extracting Cortex Analyst queries for semantic views")
+
+        try:
+            start_time_millis = int(self.config.start_time.timestamp() * 1000)
+            end_time_millis = int(self.config.end_time.timestamp() * 1000)
+
+            results = self.connection.query(
+                SnowflakeQuery.semantic_view_cortex_analyst_requests(
+                    start_time_millis=start_time_millis,
+                    end_time_millis=end_time_millis,
+                    max_requests=self.config.semantic_views.max_queries_per_view
+                    * len(discovered_semantic_views),
+                )
+            )
+
+            queries_by_view: Dict[str, List[CortexAnalystQuery]] = {}
+            max_per_view = self.config.semantic_views.max_queries_per_view
+
+            for row in results:
+                semantic_model_name = row.get("SEMANTIC_MODEL_NAME")
+                if not semantic_model_name:
+                    continue
+
+                normalized_name = self._normalize_semantic_view_name(
+                    semantic_model_name
+                )
+                if normalized_name not in discovered_semantic_views:
+                    continue
+
+                if (
+                    normalized_name in queries_by_view
+                    and len(queries_by_view[normalized_name]) >= max_per_view
+                ):
+                    continue
+
+                question = row.get("QUESTION") or ""
+                generated_sql = row.get("GENERATED_SQL") or ""
+                if not question and not generated_sql:
+                    continue
+
+                query = CortexAnalystQuery(
+                    question=question,
+                    generated_sql=generated_sql,
+                    semantic_view_name=semantic_model_name,
+                    user_name=row.get("USER_NAME") or "",
+                    timestamp=row["REQUEST_TIMESTAMP"].astimezone(tz=timezone.utc),
+                )
+
+                if normalized_name not in queries_by_view:
+                    queries_by_view[normalized_name] = []
+                queries_by_view[normalized_name].append(query)
+
+            for view_name, queries in queries_by_view.items():
+                logger.debug(
+                    f"Emitting {len(queries)} Cortex Analyst query entities for {view_name}"
+                )
+                for query in queries:
+                    yield from self._build_cortex_analyst_query_workunits(
+                        query, view_name
+                    )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to extract Cortex Analyst queries: {e}", exc_info=True
+            )
+            self.report.warning(
+                "cortex-analyst-queries",
+                f"Failed to extract Cortex Analyst queries: {e}",
+            )
+
+    def _build_cortex_analyst_query_workunits(
+        self, query: CortexAnalystQuery, dataset_identifier: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Build Query entity workunits for a Cortex Analyst query."""
+        # Use question hash as stable query ID since CORTEX_ANALYST_REQUESTS_V has no query_id
+        query_id = f"cortex_analyst_{hash((query.question, query.generated_sql, str(query.timestamp)))}"
+        query_urn = QueryUrn(query_id).urn()
+        dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+        user_urn, _ = self._get_user_urn_and_email(query.user_name)
+        timestamp_millis = int(query.timestamp.timestamp() * 1000)
+
+        query_properties = QueryProperties(
+            statement=QueryStatement(
+                value=query.generated_sql,
+                language=QueryLanguage.SQL,
+            ),
+            source=QuerySource.SYSTEM,
+            name=self._generate_cortex_analyst_query_name(query.question),
+            description="Cortex Analyst natural language query",
+            created=AuditStampClass(time=timestamp_millis, actor=user_urn),
+            lastModified=AuditStampClass(time=timestamp_millis, actor=user_urn),
+            customProperties={
+                "natural_language_question": query.question,
+                "query_source": "CORTEX_ANALYST",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=query_properties,
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=QuerySubjects(subjects=[QuerySubject(entity=dataset_urn)]),
+        ).as_workunit()
+
+    def _generate_cortex_analyst_query_name(
+        self, question: str, max_length: int = 72
+    ) -> str:
+        """Generate a readable name from a natural language question."""
+        if not question:
+            return "Cortex Analyst query"
+        if len(question) <= max_length:
+            return question
+        return question[: max_length - 3] + "..."
