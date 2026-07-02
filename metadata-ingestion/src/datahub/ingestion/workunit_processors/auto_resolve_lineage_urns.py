@@ -358,8 +358,10 @@ class AutoResolveLineageUrnsProcessor(
                 return schema
         return None
 
-    def _resolve_dataset(self, urn: str) -> _Resolution:
-        """Resolve `urn` to its existing casing in DataHub, with its schema info.
+    def _resolve_dataset(
+        self, urn: str, *, include_schema: bool = False
+    ) -> _Resolution:
+        """Resolve `urn` to its existing casing in DataHub, optionally with its schema.
 
         Prefers an exact match (don't merge genuinely distinct case-sensitive entities,
         and record it as EXACT); falls back to a unique case-insensitive match (recorded
@@ -367,6 +369,9 @@ class AutoResolveLineageUrnsProcessor(
         match or an ambiguous collision. Membership is the resolver's schema-bearing
         entities, so a reference to an existing-but-schemaless entity is reported
         UNRESOLVED (reconciling those is a tracked follow-up).
+
+        `include_schema` fetches the resolved entity's schema (only needed for
+        column-casing correction); table-level callers leave it off to skip a cache read.
         """
         try:
             platform = DataPlatformUrn.from_string(
@@ -393,7 +398,7 @@ class AutoResolveLineageUrnsProcessor(
         if urn in bucket:
             return _Resolution(
                 urn,
-                self._schema_for(urn, resolvers),
+                self._schema_for(urn, resolvers) if include_schema else None,
                 LineageMatchTypeClass.EXACT,
             )
 
@@ -403,7 +408,7 @@ class AutoResolveLineageUrnsProcessor(
             resolved = candidates[0]
             return _Resolution(
                 resolved,
-                self._schema_for(resolved, resolvers),
+                self._schema_for(resolved, resolvers) if include_schema else None,
                 LineageMatchTypeClass.NORMALIZED,
             )
         # On a configured platform but no unique match (none, or an ambiguous casing
@@ -483,8 +488,8 @@ class AutoResolveLineageUrnsProcessor(
             self.report.num_refs_unchanged += 1
             return field_urn, None
 
-        res = self._resolve_dataset(parent)
-        # Correct the column casing against the warehouse schema, if known.
+        # Column-level: we need the parent's schema to correct the column casing.
+        res = self._resolve_dataset(parent, include_schema=True)
         new_field_path = field_path
         if res.schema:
             # Deferred import: keeps sqlglot off this module's load path.
