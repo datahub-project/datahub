@@ -326,8 +326,8 @@ class ViewErrorCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
-def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
-    """Classify a view-processing exception for report error-breakdown counters.
+def _categorize_teradata_error(exc: BaseException) -> ViewErrorCategory:
+    """Classify a Teradata exception for report error-breakdown counters.
 
     Returns one of the ``ViewErrorCategory`` enum members:
         ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
@@ -1078,13 +1078,18 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_db_retries: int = 0
 
     # Per-phase error breakdown for self-service diagnostics; categories align
-    # with _categorize_view_error() so support can pinpoint root cause quickly.
+    # with _categorize_teradata_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
     historical_lineage_check_failures: int = 0
     view_timeout_errors: int = 0
     view_parse_errors: int = 0
     view_permission_errors: int = 0
     view_unknown_errors: int = 0
+
+    # Permission denials hit while sizing tables for profiling (DBC.TableSizeV).
+    # Tracked separately so a missing grant on the sizing view is visible in the
+    # report rather than buried in the generic profiling-failure warning.
+    profiling_permission_errors: int = 0
 
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
@@ -1127,6 +1132,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_profiling_permission_error(self) -> None:
+        with self._lock:
+            self.profiling_permission_errors += 1
 
     def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
@@ -2382,7 +2391,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                 except Exception as e:
-                    _error_category = _categorize_view_error(e)
+                    _error_category = _categorize_teradata_error(e)
                     self.report.increment_view_error(_error_category)
                     logger.error(
                         f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -2453,7 +2462,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             # here, so skip increment_view_error.
                             pass
                         except Exception as e:
-                            _error_category = _categorize_view_error(e)
+                            _error_category = _categorize_teradata_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
                             # fut.result() can raise for infrastructure-level exceptions
                             # (e.g. concurrent.futures internals) that are NOT caught by
@@ -2626,7 +2635,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                     except Exception as e:
-                        _error_category = _categorize_view_error(e)
+                        _error_category = _categorize_teradata_error(e)
                         self.report.increment_view_error(_error_category)
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -3463,14 +3472,28 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
             # Teradata instances routinely withhold. Fall back to "no filtering"
             # (return None) so profiling proceeds for all tables rather than
-            # failing the entire run.
-            self.report.warning(
-                title="Could not size tables for profiling",
-                message=(
+            # failing the entire run. A missing grant (permission error) is
+            # surfaced under a distinct, actionable title and counted separately
+            # so it isn't lost in the generic sizing-failure bucket.
+            if _categorize_teradata_error(e) is ViewErrorCategory.PERMISSION:
+                self.report.increment_profiling_permission_error()
+                title = "Unauthorized to size tables for profiling"
+                message = (
+                    "Permission denied querying DBC.TableSizeV to apply "
+                    "profile_table_size_limit. Profiling will proceed without "
+                    "size-based filtering for this schema. Grant the ingestion "
+                    "user SELECT on DBC.TableSizeV to skip large tables."
+                )
+            else:
+                title = "Could not size tables for profiling"
+                message = (
                     "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
                     "Profiling will proceed without size-based filtering for this schema. "
                     "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
-                ),
+                )
+            self.report.warning(
+                title=title,
+                message=message,
                 context=f"schema={schema}",
                 exc=e,
             )
