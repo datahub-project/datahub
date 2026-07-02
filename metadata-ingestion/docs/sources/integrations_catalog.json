@@ -24,6 +24,13 @@
     "connection_type": "Pull",
     "description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications."
   },
+  "bigid": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "BigID",
+    "description": "Enrich DataHub datasets with BigID classification and governance metadata: GlossaryTerms, Tags, risk scores, IDSoR correlation results, and profiles.",
+    "img_path": "img/logos/platforms/bigid.png"
+  },
   "bigquery": {
     "platform_type": "Database",
     "connection_type": "Pull",
