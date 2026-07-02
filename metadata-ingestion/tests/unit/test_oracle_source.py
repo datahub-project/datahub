@@ -489,20 +489,32 @@ class TestOracleSource:
         mock_procedures = [mock_proc, mock_func]
         mock_connection.execute.return_value = mock_procedures
 
-        # Mock the helper methods
         with (
             patch.object(
                 source,
-                "_get_procedure_source_code",
-                return_value="CREATE PROCEDURE test_proc AS BEGIN NULL; END;",
-            ),
-            patch.object(
-                source, "_get_procedure_arguments", return_value="IN param1 VARCHAR2"
+                "_get_procedure_source_codes_for_schema",
+                return_value={
+                    (
+                        "TEST_PROC",
+                        "PROCEDURE",
+                    ): "CREATE PROCEDURE test_proc AS BEGIN NULL; END;",
+                    (
+                        "TEST_FUNC",
+                        "FUNCTION",
+                    ): "CREATE FUNCTION test_func RETURN NUMBER AS BEGIN RETURN 1; END;",
+                },
             ),
             patch.object(
                 source,
-                "_get_procedure_dependencies",
-                return_value=ProcedureDependencies(upstream=["TEST_TABLE"]),
+                "_get_procedure_arguments_for_schema",
+                return_value={"TEST_PROC": "IN param1 VARCHAR2"},
+            ),
+            patch.object(
+                source,
+                "_get_procedure_dependencies_for_schema",
+                return_value={
+                    "TEST_PROC": ProcedureDependencies(upstream=["TEST_TABLE"]),
+                },
             ),
         ):
             result = source.get_procedures_for_schema(
@@ -514,65 +526,153 @@ class TestOracleSource:
             assert result[0].name == "TEST_PROC"
             assert result[1].name == "TEST_FUNC"
             assert result[0].language == "SQL"
+            assert result[0].argument_signature == "IN param1 VARCHAR2"
+            assert result[1].argument_signature is None  # not present in schema map
             assert result[0].extra_properties is not None
             assert "upstream_dependencies" in result[0].extra_properties
 
-    def test_get_procedure_source_code(self):
-        """Test getting procedure source code."""
+    def test_get_procedures_for_schema_runs_constant_query_count(self):
+        """Regression: enrichment must be batched per schema, not per procedure.
+
+        Older implementations ran 3 enrichment queries per procedure, which
+        dominated ingestion time on schemas with hundreds of procedures. The
+        connection should be hit exactly 4 times regardless of procedure count:
+        once for the procedure list and once each for sources, arguments, and
+        the two combined dependency queries.
+        """
         source = OracleSource(self.config, self.ctx)
 
+        mock_inspector = Mock()
         mock_connection = Mock()
-        mock_source_data = [
-            Mock(text="CREATE PROCEDURE test_proc AS\n"),
-            Mock(text="BEGIN\n"),
-            Mock(text="  NULL;\n"),
-            Mock(text="END;"),
-        ]
-        mock_connection.execute.return_value = mock_source_data
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
 
-        result = source._get_procedure_source_code(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "PROCEDURE", "DBA"
+        procedures = []
+        for i in range(50):
+            proc = Mock()
+            proc.name = f"PROC_{i}"
+            proc.type = "PROCEDURE"
+            proc.created = datetime.now()
+            proc.last_ddl_time = datetime.now()
+            proc.status = "VALID"
+            procedures.append(proc)
+
+        source_rows = [
+            Mock(name=p.name, type="PROCEDURE", line=1, text=f"body for {p.name}")
+            for p in procedures
+        ]
+        for row, p in zip(source_rows, procedures, strict=False):
+            row.name = p.name
+
+        arg_rows = [
+            Mock(
+                object_name=p.name,
+                argument_name="P1",
+                data_type="VARCHAR2",
+                in_out="IN",
+                position=1,
+            )
+            for p in procedures
+        ]
+
+        mock_connection.execute.side_effect = [
+            procedures,  # PROCEDURES_QUERY
+            source_rows,  # source codes
+            arg_rows,  # arguments
+            [],  # upstream deps
+            [],  # downstream deps
+        ]
+
+        result = source.get_procedures_for_schema(
+            inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
         )
 
-        expected = "CREATE PROCEDURE test_proc AS\nBEGIN\n  NULL;\nEND;"
-        assert result == expected
+        assert len(result) == 50
+        # 1 procedure list + 1 sources + 1 arguments + 2 dependencies = 5 round-trips,
+        # not 1 + 50*3 = 151.
+        assert mock_connection.execute.call_count == 5
 
-        # Verify the query was called with correct parameters
-        mock_connection.execute.assert_called_once()
-        call_args = mock_connection.execute.call_args
-        assert "dba_source" in str(call_args[0][0]).lower()
-
-    def test_get_procedure_arguments(self):
-        """Test getting procedure arguments."""
+    def test_get_procedure_source_codes_for_schema(self):
+        """Source code is fetched in one round-trip and grouped per procedure."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
-        mock_args_data = [
-            Mock(argument_name="PARAM1", data_type="VARCHAR2", in_out="IN", position=1),
-            Mock(argument_name="PARAM2", data_type="NUMBER", in_out="OUT", position=2),
+        rows = [
+            Mock(type="PROCEDURE", line=1, text="CREATE PROCEDURE p1 AS\n"),
+            Mock(type="PROCEDURE", line=2, text="BEGIN NULL; END;"),
+            Mock(type="FUNCTION", line=1, text="CREATE FUNCTION f1 RETURN NUMBER AS\n"),
+            Mock(type="FUNCTION", line=2, text="BEGIN RETURN 1; END;"),
         ]
-        mock_connection.execute.return_value = mock_args_data
+        # Mock auto-creates a `name` kwarg as the mock name, so set it explicitly.
+        rows[0].name = "P1"
+        rows[1].name = "P1"
+        rows[2].name = "F1"
+        rows[3].name = "F1"
+        mock_connection.execute.return_value = rows
 
-        result = source._get_procedure_arguments(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
         )
 
-        expected = "IN PARAM1 VARCHAR2, OUT PARAM2 NUMBER"
-        assert result == expected
-
-        # Verify the query was called
+        assert result == {
+            ("P1", "PROCEDURE"): "CREATE PROCEDURE p1 AS\nBEGIN NULL; END;",
+            (
+                "F1",
+                "FUNCTION",
+            ): "CREATE FUNCTION f1 RETURN NUMBER AS\nBEGIN RETURN 1; END;",
+        }
         mock_connection.execute.assert_called_once()
-        call_args = mock_connection.execute.call_args
-        assert "dba_arguments" in str(call_args[0][0]).lower()
+        assert "dba_source" in str(mock_connection.execute.call_args[0][0]).lower()
 
-    def test_get_procedure_dependencies(self):
-        """Test getting procedure dependencies."""
+    def test_get_procedure_arguments_for_schema(self):
+        """Arguments are fetched in one round-trip and grouped per procedure."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = [
+            Mock(
+                object_name="P1",
+                argument_name="PARAM1",
+                data_type="VARCHAR2",
+                in_out="IN",
+                position=1,
+            ),
+            Mock(
+                object_name="P1",
+                argument_name="PARAM2",
+                data_type="NUMBER",
+                in_out="OUT",
+                position=2,
+            ),
+            Mock(
+                object_name="P2",
+                argument_name="ONLY",
+                data_type="DATE",
+                in_out="IN",
+                position=1,
+            ),
+        ]
+
+        result = source._get_procedure_arguments_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert result == {
+            "P1": "IN PARAM1 VARCHAR2, OUT PARAM2 NUMBER",
+            "P2": "IN ONLY DATE",
+        }
+        mock_connection.execute.assert_called_once()
+        assert "dba_arguments" in str(mock_connection.execute.call_args[0][0]).lower()
+
+    def test_get_procedure_dependencies_for_schema(self):
+        """Upstream/downstream deps are fetched in two round-trips per schema."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
 
-        # Mock upstream dependencies
-        mock_upstream_data = [
+        upstream_rows = [
             Mock(
                 referenced_owner="TEST_SCHEMA",
                 referenced_name="TEST_TABLE",
@@ -583,34 +683,48 @@ class TestOracleSource:
                 referenced_name="OTHER_PROC",
                 referenced_type="PROCEDURE",
             ),
+            Mock(
+                referenced_owner="TEST_SCHEMA",
+                referenced_name="P2_TABLE",
+                referenced_type="TABLE",
+            ),
         ]
-        # Set attributes explicitly to avoid Mock object issues
-        mock_upstream_data[0].referenced_name = "TEST_TABLE"
-        mock_upstream_data[1].referenced_name = "OTHER_PROC"
+        # Mock auto-creates a `name` kwarg; override explicitly so attribute access
+        # returns the intended string rather than a child Mock.
+        upstream_rows[0].name = "P1"
+        upstream_rows[1].name = "P1"
+        upstream_rows[2].name = "P2"
+        # `referenced_name` is also a kwarg but set explicitly above; ensure final values:
+        upstream_rows[0].referenced_name = "TEST_TABLE"
+        upstream_rows[1].referenced_name = "OTHER_PROC"
+        upstream_rows[2].referenced_name = "P2_TABLE"
 
-        # Mock downstream dependencies
-        mock_downstream_data = [
-            Mock(owner="TEST_SCHEMA", name="DEPENDENT_PROC", type="PROCEDURE"),
+        downstream_rows = [
+            Mock(owner="TEST_SCHEMA", type="PROCEDURE"),
         ]
-        # Set the name attribute explicitly to avoid Mock object issues
-        mock_downstream_data[0].name = "DEPENDENT_PROC"
+        downstream_rows[0].name = "DEPENDENT_PROC"
+        downstream_rows[0].referenced_name = "P1"
 
-        mock_connection.execute.side_effect = [mock_upstream_data, mock_downstream_data]
+        mock_connection.execute.side_effect = [upstream_rows, downstream_rows]
 
-        result = source._get_procedure_dependencies(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"
+        result = source._get_procedure_dependencies_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
         )
 
-        assert result is not None
-        assert result.upstream is not None
-        assert result.downstream is not None
-        assert len(result.upstream) == 2
-        assert len(result.downstream) == 1
-        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in result.upstream
-        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in result.upstream
-        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in result.downstream
+        assert set(result.keys()) == {"P1", "P2"}
 
-        # Verify both queries were called
+        p1_deps = result["P1"]
+        assert p1_deps.upstream is not None and len(p1_deps.upstream) == 2
+        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in p1_deps.upstream
+        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in p1_deps.upstream
+        assert p1_deps.downstream is not None
+        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in p1_deps.downstream
+
+        p2_deps = result["P2"]
+        assert p2_deps.upstream is not None
+        assert "TEST_SCHEMA.P2_TABLE (TABLE)" in p2_deps.upstream
+        assert p2_deps.downstream is None
+
         assert mock_connection.execute.call_count == 2
 
     def test_loop_materialized_views(self):
@@ -771,39 +885,32 @@ class TestOracleSource:
         assert result == []
 
     def test_error_handling_in_procedure_methods(self):
-        """Test error handling in procedure helper methods."""
+        """Batched helpers must return empty mappings on query failure rather
+        than propagate the exception, so the surrounding loop can still emit
+        procedure entities without enrichment."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
         mock_connection.execute.side_effect = Exception("Query error")
 
-        # Test source code method
-        source_result = source._get_procedure_source_code(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            object_type="PROCEDURE",
-            tables_prefix="DBA",
+        assert (
+            source._get_procedure_source_codes_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
         )
-        assert source_result is None
-
-        # Test arguments method
-        args_result = source._get_procedure_arguments(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            tables_prefix="DBA",
+        assert (
+            source._get_procedure_arguments_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
         )
-        assert args_result is None
-
-        # Test dependencies method
-        deps_result = source._get_procedure_dependencies(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            tables_prefix="DBA",
+        assert (
+            source._get_procedure_dependencies_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
         )
-        assert deps_result is None
 
 
 class TestOracleQueryExtraction:
@@ -1156,49 +1263,42 @@ class TestOracleProcedureLineage:
     def test_get_procedure_dependencies_returns_upstream_tables(
         self, config_with_procedures, ctx
     ):
-        """Test that _get_procedure_dependencies returns structured upstream_tables."""
+        """Schema-batched dependency fetch keeps structured upstream_tables per procedure."""
         source = OracleSource(config_with_procedures, ctx)
 
         mock_conn = Mock()
 
-        mock_upstream_result = Mock()
-        mock_upstream_result.__iter__ = Mock(
-            return_value=iter(
-                [
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="EMPLOYEES",
-                        referenced_type="TABLE",
-                    ),
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="DEPARTMENTS",
-                        referenced_type="VIEW",
-                    ),
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="OTHER_PROC",
-                        referenced_type="PROCEDURE",
-                    ),
-                ]
-            )
-        )
+        upstream_rows = [
+            Mock(
+                referenced_owner="HR_SCHEMA",
+                referenced_type="TABLE",
+            ),
+            Mock(
+                referenced_owner="HR_SCHEMA",
+                referenced_type="VIEW",
+            ),
+            Mock(
+                referenced_owner="HR_SCHEMA",
+                referenced_type="PROCEDURE",
+            ),
+        ]
+        # Mock auto-creates a `name` kwarg as the mock's name; override so attribute
+        # access returns the string value used by the helper.
+        for row in upstream_rows:
+            row.name = "PROCESS_EMPLOYEES"
+        upstream_rows[0].referenced_name = "EMPLOYEES"
+        upstream_rows[1].referenced_name = "DEPARTMENTS"
+        upstream_rows[2].referenced_name = "OTHER_PROC"
 
-        mock_downstream_result = Mock()
-        mock_downstream_result.__iter__ = Mock(return_value=iter([]))
+        mock_conn.execute = Mock(side_effect=[upstream_rows, []])
 
-        mock_conn.execute = Mock(
-            side_effect=[mock_upstream_result, mock_downstream_result]
-        )
-
-        dependencies = source._get_procedure_dependencies(
+        result = source._get_procedure_dependencies_for_schema(
             conn=mock_conn,
             schema="HR_SCHEMA",
-            procedure_name="PROCESS_EMPLOYEES",
             tables_prefix="ALL",
         )
 
-        assert dependencies is not None
+        dependencies = result["PROCESS_EMPLOYEES"]
         assert dependencies.upstream_tables is not None
         assert len(dependencies.upstream_tables) == 2
         assert dependencies.upstream_tables[0].schema_name == "HR_SCHEMA"
