@@ -230,23 +230,25 @@ public class NonBlockingConfigs {
   @Bean
   public NonBlockingSystemUpgrade restoreColumnLineageIndices(
       @Qualifier("entityService") final EntityService<?> entityService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.restoreColumnLineageIndices.enabled}") final boolean enabled) {
-    return new RestoreColumnLineageIndices(entityService, enabled);
+    return new RestoreColumnLineageIndices(entityService, aspectDao, enabled);
   }
 
   @Bean
   public NonBlockingSystemUpgrade restoreFormInfoIndices(
       @Qualifier("entityService") final EntityService<?> entityService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.restoreFormInfoIndices.enabled}") final boolean enabled) {
-    return new RestoreFormInfoIndices(entityService, enabled);
+    return new RestoreFormInfoIndices(entityService, aspectDao, enabled);
   }
 
   @Bean
   public NonBlockingSystemUpgrade restoreGlossaryIndices(
       @Qualifier("entityService") final EntityService<?> entityService,
-      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.restoreGlossaryIndices.enabled}") final boolean enabled) {
-    return new RestoreGlossaryIndices(entityService, entitySearchService, enabled);
+    return new RestoreGlossaryIndices(entityService, aspectDao, enabled);
   }
 
   @Bean
@@ -306,7 +308,8 @@ public class NonBlockingConfigs {
   @Bean
   public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
       @Qualifier("entityService") final EntityService<?> entityService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
-    return new RestoreDbtSiblingsIndices(entityService, enabled);
+    return new RestoreDbtSiblingsIndices(entityService, aspectDao, enabled);
   }
 }
