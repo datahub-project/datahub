@@ -3,7 +3,7 @@ run_id: starrocks-test
 source:
   type: starrocks
   config:
-    host_port: localhost:59030
+    host_port: localhost:0  # Overridden at test runtime with the mapped Docker port.
     username: root
     password: ""
     include_external_catalogs: false

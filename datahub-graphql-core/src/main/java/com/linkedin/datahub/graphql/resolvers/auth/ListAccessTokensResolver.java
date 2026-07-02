@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -10,6 +11,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
@@ -19,6 +21,7 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +34,7 @@ public class ListAccessTokensResolver
     implements DataFetcher<CompletableFuture<ListAccessTokenResult>> {
 
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
+  private static final String TOKEN_TYPE_FIELD_NAME = "tokenType";
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
@@ -51,8 +55,19 @@ public class ListAccessTokensResolver
               bindArgument(environment.getArgument("input"), ListAccessTokenInput.class);
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-          final List<FacetFilterInput> filters =
-              input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+          final boolean includeSessionTokens = Boolean.TRUE.equals(input.getIncludeSessionTokens());
+          final List<FacetFilterInput> filters = new ArrayList<>();
+          if (input.getFilters() != null) {
+            filters.addAll(input.getFilters());
+          }
+          if (!includeSessionTokens) {
+            filters.add(
+                new FacetFilterInput(
+                    TOKEN_TYPE_FIELD_NAME,
+                    ImmutableList.of(TokenType.SESSION.toString()),
+                    true,
+                    FilterOperator.EQUAL));
+          }
 
           log.info(
               "User {} listing access tokens with filters {}",

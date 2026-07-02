@@ -1,6 +1,9 @@
 package controllers;
 
+import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
+
 import auth.sso.SsoManager;
+import client.AuthServiceClient;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URLEncoder;
@@ -20,6 +23,7 @@ public class CentralLogoutController extends LogoutController {
   private static final String DEFAULT_BASE_URL_PATH = "/";
 
   @Inject private SsoManager ssoManager;
+  @Inject private AuthServiceClient authServiceClient;
   @Inject private Config config;
 
   private String loginUrl;
@@ -51,6 +55,8 @@ public class CentralLogoutController extends LogoutController {
     setDefaultUrl(loginUrl);
     setLogoutUrlPattern(logoutPattern);
 
+    revokeCurrentSessionToken(request);
+
     if (ssoManager.isSsoEnabled()) {
       try {
         return logout(request).toCompletableFuture().get().withNewSession();
@@ -72,5 +78,18 @@ public class CentralLogoutController extends LogoutController {
       }
     }
     return Results.redirect(loginUrl).withNewSession();
+  }
+
+  private void revokeCurrentSessionToken(Http.Request request) {
+    final String accessToken = request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
+    if (accessToken == null || accessToken.isBlank()) {
+      return;
+    }
+
+    try {
+      authServiceClient.revokeSessionToken(accessToken);
+    } catch (Exception e) {
+      log.error("Failed to revoke current session token during logout.", e);
+    }
   }
 }
