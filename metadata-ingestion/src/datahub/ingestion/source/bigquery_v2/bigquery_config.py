@@ -569,10 +569,20 @@ class BigQueryV2Config(
                     f"`{field}` is set both at the top level and under `usage`. "
                     f"The top-level `{field}` is the only valid setting - remove `usage.{field}` from your recipe."
                 )
-            logger.warning(
-                f"`usage.{field}` is deprecated and will be ignored in a future release. "
-                f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
-            )
+            if field == "max_query_duration":
+                # Unlike start_time/end_time/bucket_duration, the top-level max_query_duration
+                # is only read on the legacy (non-queries-v2) extraction path - it has no effect
+                # under the default use_queries_v2=True, so don't claim otherwise.
+                logger.warning(
+                    "`usage.max_query_duration` is deprecated and will be ignored in a future release. "
+                    "Please set `max_query_duration` at the top level instead - note it only takes "
+                    "effect with the legacy extraction path (`use_queries_v2: False`)."
+                )
+            else:
+                logger.warning(
+                    f"`usage.{field}` is deprecated and will be ignored in a future release. "
+                    f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
+                )
             values[field] = usage.pop(field)
         return values
 

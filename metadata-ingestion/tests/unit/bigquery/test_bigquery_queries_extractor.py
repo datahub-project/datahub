@@ -1326,3 +1326,35 @@ class TestQueriesExtractorUsageConfigWiring:
             self._build_extractor(BigQueryQueriesExtractorConfig())
             _, kwargs = mock_aggregator_cls.call_args
             assert kwargs["format_queries"] is False
+
+    def test_include_top_n_queries_false_forwarded_to_aggregator_usage_config(self):
+        from unittest.mock import patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractorConfig,
+        )
+
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(
+                BigQueryQueriesExtractorConfig(include_top_n_queries=False)
+            )
+            _, kwargs = mock_aggregator_cls.call_args
+            assert kwargs["usage_config"].include_top_n_queries is False
+
+    def test_queries_character_limit_forwarded_to_aggregator_usage_config(self):
+        from unittest.mock import patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractorConfig,
+        )
+
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(
+                BigQueryQueriesExtractorConfig(queries_character_limit=1000)
+            )
+            _, kwargs = mock_aggregator_cls.call_args
+            assert kwargs["usage_config"].queries_character_limit == 1000

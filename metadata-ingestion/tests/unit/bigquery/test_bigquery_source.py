@@ -1449,6 +1449,34 @@ def test_bigquery_config_usage_and_top_level_max_query_duration_conflict_raises(
         )
 
 
+def test_bigquery_config_usage_end_time_forwarded_to_top_level():
+    config = BigQueryV2Config.model_validate(
+        {"usage": {"end_time": "2023-01-01T00:00:00Z"}}
+    )
+    assert config.end_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
+
+
+def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # max_query_duration, unlike start_time/end_time/bucket_duration, is only ever
+    # read on the legacy (non-queries-v2) extraction path, so the warning must not
+    # claim it affects lineage/usage/operations generally under queries-v2.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
+    config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+    assert config.max_query_duration == timedelta(minutes=30)
+    assert config.usage.max_query_duration == timedelta(minutes=15)  # default
+
+
 def test_bigquery_config_apply_view_usage_to_tables_warns_under_queries_v2(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
