@@ -1,18 +1,25 @@
 import json
 import time
-from typing import Any, cast
+from typing import Any, Dict, List, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
+from datahub.emitter.mce_builder import datahub_guid, make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource
-from datahub.ingestion.source.bigid.bigid_utils import _is_idsor_attr
+from datahub.ingestion.source.bigid.bigid_utils import (
+    _is_idsor_attr,
+    _tag_display_name,
+)
 from datahub.ingestion.source.bigid.config import BigIDSourceConfig
-from datahub.ingestion.source.bigid.constants import BIGID_PLATFORM_NAME
+from datahub.ingestion.source.bigid.constants import (
+    BIGID_IDSOR_GLOSSARY_NODE_URN,
+    BIGID_PLATFORM_NAME,
+)
 from datahub.ingestion.source.bigid.models import (
     BigIDAttributeDetail,
     BigIDCatalogObject,
@@ -29,6 +36,11 @@ from datahub.metadata.schema_classes import (
 )
 
 FROZEN_TIME = "2026-01-15T00:00:00Z"
+
+
+def _term_urn(suffix: str) -> str:
+    """Expected GlossaryTerm URN for a `bigid.<suffix>` path (opaque GUID; derived like the source)."""
+    return make_term_urn(datahub_guid({"path": f"bigid.{suffix}"}))
 
 
 # ---------------------------------------------------------------------------
@@ -79,37 +91,37 @@ def _client(source: BigIDSource) -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
-def _columns(raw: list[dict[str, Any]]) -> list[BigIDColumn]:
+def _columns(raw: List[Dict[str, Any]]) -> List[BigIDColumn]:
     return [BigIDColumn.model_validate(item) for item in raw]
 
 
-def _attr(raw: dict[str, Any]) -> BigIDAttributeDetail:
+def _attr(raw: Dict[str, Any]) -> BigIDAttributeDetail:
     return BigIDAttributeDetail.model_validate(raw)
 
 
-def _catalog_object(raw: dict[str, Any]) -> BigIDCatalogObject:
+def _catalog_object(raw: Dict[str, Any]) -> BigIDCatalogObject:
     return BigIDCatalogObject.model_validate(raw)
 
 
-def _catalog_objects(raw: list[dict[str, Any]]) -> list[BigIDCatalogObject]:
+def _catalog_objects(raw: List[Dict[str, Any]]) -> List[BigIDCatalogObject]:
     return [BigIDCatalogObject.model_validate(item) for item in raw]
 
 
-def _connections(raw: list[dict[str, Any]]) -> list[BigIDConnection]:
+def _connections(raw: List[Dict[str, Any]]) -> List[BigIDConnection]:
     return [BigIDConnection.model_validate(item) for item in raw]
 
 
-def _glossary_item(raw: dict[str, Any]) -> BigIDGlossaryItem:
+def _glossary_item(raw: Dict[str, Any]) -> BigIDGlossaryItem:
     return BigIDGlossaryItem.model_validate(raw)
 
 
-def _glossary_items(raw: list[dict[str, Any]]) -> list[BigIDGlossaryItem]:
+def _glossary_items(raw: List[Dict[str, Any]]) -> List[BigIDGlossaryItem]:
     return [BigIDGlossaryItem.model_validate(item) for item in raw]
 
 
-def _patch_ops(workunits: list) -> list[dict[str, Any]]:
+def _patch_ops(workunits: list) -> List[Dict[str, Any]]:
     # Field enrichment is emitted as editableSchemaMetadata PATCH ops (JSON-Pointer list).
-    ops: list[dict[str, Any]] = []
+    ops: List[Dict[str, Any]] = []
     for wu in workunits:
         value = getattr(_aspect(wu), "value", None)
         if value is not None:
@@ -119,7 +131,7 @@ def _patch_ops(workunits: list) -> list[dict[str, Any]]:
 
 def _patched_field_terms(
     workunits: list, field_path: str
-) -> list[GlossaryTermAssociationClass]:
+) -> List[GlossaryTermAssociationClass]:
     prefix = f"/editableSchemaFieldInfo/{field_path}/glossaryTerms/terms/"
     return [
         GlossaryTermAssociationClass.from_obj(op["value"])
@@ -128,7 +140,7 @@ def _patched_field_terms(
     ]
 
 
-def _patched_field_tag_urns(workunits: list, field_path: str) -> list[str]:
+def _patched_field_tag_urns(workunits: list, field_path: str) -> List[str]:
     prefix = f"/editableSchemaFieldInfo/{field_path}/globalTags/tags/"
     return [
         op["value"]["tag"]
@@ -148,7 +160,7 @@ def freeze_time():
 # ---------------------------------------------------------------------------
 
 
-def _make_config(**overrides: Any) -> dict[str, Any]:
+def _make_config(**overrides: Any) -> Dict[str, Any]:
     base = {
         "bigid_url": "https://bigid.example.com",
         "access_token": "test-token",
@@ -298,10 +310,8 @@ def test_make_dataset_urn_encodes_parentheses_in_table_name():
 
 
 def test_make_dataset_urn_encodes_reserved_chars_like_native_connectors():
-    """The name component is encoded by the shared URN helper exactly as native
-    connectors encode it, so BigID enrichment lands on the same dataset URN. Commas
-    (tuple delimiters) are percent-encoded; a literal colon is a valid name char and
-    is left untouched — encoding it would break the match against the native URN."""
+    """Commas (tuple delimiters) are encoded but a literal colon is left untouched,
+    matching the native connector's URN so enrichment lands on the same entity."""
     source = _make_source()
     source._platform_map["my_db"] = "mysql"
 
@@ -401,13 +411,13 @@ def test_confidence_threshold_filtering(
 def test_glossary_term_urn_uses_glossary_id():
     source = _make_source()
     item = _glossary_item({"glossary_id": "bt_item_HK2A", "name": "First Name"})
-    assert source._glossary_term_urn(item) == "urn:li:glossaryTerm:bigid.bt_item_HK2A"
+    assert source._glossary_term_urn(item) == _term_urn("bt_item_HK2A")
 
 
 def test_glossary_term_urn_falls_back_to_name_slug():
     source = _make_source()
     item = _glossary_item({"glossary_id": "", "name": "My Custom Term"})
-    assert source._glossary_term_urn(item) == "urn:li:glossaryTerm:bigid.my_custom_term"
+    assert source._glossary_term_urn(item) == _term_urn("my_custom_term")
 
 
 def test_should_include_item_respects_type_filter():
@@ -556,7 +566,7 @@ def test_tag_urn_preserves_system_prefix():
     ],
 )
 def test_tag_display_name(tag_name, tag_value, expected):
-    assert BigIDSource._tag_display_name(tag_name, tag_value) == expected
+    assert _tag_display_name(tag_name, tag_value) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -1219,24 +1229,21 @@ def test_make_dataset_urn_fallback_when_fqn_does_not_start_with_source():
 
 
 # ---------------------------------------------------------------------------
-# _strip_classifier_prefix / _classifier_term_urn
+# _strip_classifier_prefix / _classifier_term_path
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     ("attr_name", "expected"),
     [
-        ("classifier.PHONE", "urn:li:glossaryTerm:bigid.classifier.phone"),
+        ("classifier.PHONE", "classifier.phone"),
         # MD:: metadata prefix is stripped before slugifying
-        (
-            "classifier.MD::Postal Code",
-            "urn:li:glossaryTerm:bigid.classifier.postal_code",
-        ),
+        ("classifier.MD::Postal Code", "classifier.postal_code"),
         ("classifier.", None),  # empty bare name → empty slug → None
     ],
 )
-def test_classifier_term_urn(attr_name, expected):
-    assert _make_source()._classifier_term_urn(attr_name) == expected
+def test_classifier_term_path(attr_name, expected):
+    assert _make_source()._classifier_term_path(attr_name) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -1413,13 +1420,13 @@ def test_idsor_path1_reuses_existing_term():
     ]
     assert len(editable_wus) == 1
     terms = _patched_field_terms(workunits, "col")
-    assert terms[0].urn == "urn:li:glossaryTerm:bigid.bt_email"
+    assert terms[0].urn == _term_urn("bt_email")
     # GlossaryTermInfo is now emitted for the linked term so the UI shows "Email", not "bt_email"
     term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.bt_email"
+    assert _entity_urn(term_info_wus[0]) == _term_urn("bt_email")
     assert _aspect(term_info_wus[0]).name == "Email"
-    assert _aspect(term_info_wus[0]).parentNode == "urn:li:glossaryNode:bigid.idsor"
+    assert _aspect(term_info_wus[0]).parentNode == BIGID_IDSOR_GLOSSARY_NODE_URN
     assert _aspect(term_info_wus[0]).customProperties["bigid_glossary_id"] == "bt_email"
     assert source.report.idsor_terms_emitted == 1
 
@@ -1458,10 +1465,10 @@ def test_idsor_path2_autogenerates_under_idsor_node():
     )
     term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.idsor.full_name"
+    assert _entity_urn(term_info_wus[0]) == _term_urn("idsor.full_name")
     aspect = _aspect(term_info_wus[0])
     assert aspect.name == "Full Name"
-    assert aspect.parentNode == "urn:li:glossaryNode:bigid.idsor"
+    assert aspect.parentNode == BIGID_IDSOR_GLOSSARY_NODE_URN
     assert aspect.customProperties["bigid_type"] == "idsor_attribute"
     assert source.report.idsor_terms_emitted == 1
 
@@ -1498,8 +1505,8 @@ def test_idsor_path3_autogenerates_from_raw_name():
     )
     term_info_wus = [wu for wu in workunits if _aspect_name(wu) == "glossaryTermInfo"]
     assert len(term_info_wus) == 1
-    assert _entity_urn(term_info_wus[0]) == "urn:li:glossaryTerm:bigid.idsor.country"
-    assert _aspect(term_info_wus[0]).parentNode == "urn:li:glossaryNode:bigid.idsor"
+    assert _entity_urn(term_info_wus[0]) == _term_urn("idsor.country")
+    assert _aspect(term_info_wus[0]).parentNode == BIGID_IDSOR_GLOSSARY_NODE_URN
     assert source.report.idsor_terms_emitted == 1
 
 

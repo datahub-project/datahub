@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Set, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -49,10 +49,10 @@ class BigIDAttributeDetail(BaseModel):
 
     name: str = ""
     count: Optional[int] = None
-    ranks: list[str] = Field(default_factory=list)
+    ranks: List[str] = Field(default_factory=list)
     # `type` is a plain string on column findings but an array on unstructured
     # attribute_details, so both shapes must be accepted.
-    attr_type: Union[str, list[str], None] = Field(default=None, alias="type")
+    attr_type: Union[str, List[str], None] = Field(default=None, alias="type")
 
 
 class BigIDFieldClassification(BaseModel):
@@ -101,10 +101,10 @@ class BigIDColumn(BaseModel):
     column_profile: Optional[BigIDColumnProfile] = Field(
         default=None, alias="columnProfile"
     )
-    attribute_details: list[BigIDAttributeDetail] = Field(
+    attribute_details: List[BigIDAttributeDetail] = Field(
         default_factory=list, alias="attributeDetails"
     )
-    field_classifications: list[BigIDFieldClassification] = Field(
+    field_classifications: List[BigIDFieldClassification] = Field(
         default_factory=list, alias="fieldClassifications"
     )
 
@@ -118,8 +118,8 @@ class BigIDCatalogObject(BaseModel):
     scanner_type_group: str = ""
     scan_date: Optional[str] = Field(default=None, alias="scanDate")
     last_scanned: Optional[str] = None
-    tags: list[BigIDTag] = Field(default_factory=list)
-    attribute_details: list[BigIDAttributeDetail] = Field(default_factory=list)
+    tags: List[BigIDTag] = Field(default_factory=list)
+    attribute_details: List[BigIDAttributeDetail] = Field(default_factory=list)
     total_pii_count: Optional[Union[int, str]] = None
     size_in_bytes: Optional[Union[int, str]] = Field(default=None, alias="sizeInBytes")
 
@@ -179,6 +179,9 @@ class PendingTerm(BaseModel):
 
     attr_name: str
     term_urn: str
+    # Suffix after "bigid." (e.g. "classifier.phone", "idsor.country", "bt_email").
+    # Drives node parenting and emission routing so we never introspect the opaque term URN.
+    path: str
 
 
 class ClassificationStats(BaseModel):
@@ -207,15 +210,15 @@ class FieldEnrichment(BaseModel):
     # introspect, so they are treated as opaque values.
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    terms: list[GlossaryTermAssociationClass] = Field(default_factory=list)
-    tag_urns: list[str] = Field(default_factory=list)
-    seen_urns: set[str] = Field(default_factory=set)
+    terms: List[GlossaryTermAssociationClass] = Field(default_factory=list)
+    tag_urns: List[str] = Field(default_factory=list)
+    seen_urns: Set[str] = Field(default_factory=set)
     # Parallel dedup for tag_urns: two findings of the same rank on one field both
     # yield e.g. urn:li:tag:bigid.confidence:HIGH, and GMS rejects a GlobalTagsClass
     # containing duplicate tag URNs.
-    seen_tag_urns: set[str] = Field(default_factory=set)
+    seen_tag_urns: Set[str] = Field(default_factory=set)
 
-    def add_tag_urns(self, tag_urns: list[str]) -> None:
+    def add_tag_urns(self, tag_urns: List[str]) -> None:
         for tag_urn in tag_urns:
             if tag_urn not in self.seen_tag_urns:
                 self.seen_tag_urns.add(tag_urn)
@@ -228,7 +231,7 @@ class AttrEnrichment(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     term_assoc: GlossaryTermAssociationClass
-    confidence_tag_urns: list[str] = Field(default_factory=list)
+    confidence_tag_urns: List[str] = Field(default_factory=list)
     pending_term: Optional[PendingTerm] = None
 
 
@@ -237,7 +240,7 @@ class DatasetTagExtract(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    tag_assocs: list[TagAssociationClass] = Field(default_factory=list)
+    tag_assocs: List[TagAssociationClass] = Field(default_factory=list)
     risk_score: Optional[float] = None
 
 

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -72,22 +72,27 @@ class BigIDSourceConfig(
 
     user_token: Optional[SecretStr] = Field(
         default=None,
-        description="Long-lived BigID user token, generated under Administration → Access "
-        "Management → System Users (Save the user after generating so the token activates). "
-        "Exchanged for a short-lived session token at startup. Provide the raw token — no "
-        "'Bearer' prefix.",
+        description="Recommended auth. Long-lived BigID user token, generated under "
+        "Administration → Access Management → System Users (Save the user after generating so "
+        "the token activates). Exchanged for a short-lived session token at startup and "
+        "auto-refreshed on expiry, so it is safe for scheduled ingestion. Provide the raw "
+        "token — no 'Bearer' prefix. Provide either this or access_token; if both are set, "
+        "user_token takes precedence because it can auto-refresh.",
     )
     access_token: Optional[SecretStr] = Field(
         default=None,
         description="Short-lived BigID session token, used directly without the startup "
-        "exchange; primarily for testing. Provide either this or user_token.",
+        "exchange and NOT auto-refreshed — a run that outlives it fails. Intended for one-off "
+        "runs or SSO-only tenants where a service-account user_token cannot be created; prefer "
+        "user_token for scheduled ingestion. Provide either this or user_token; if both are "
+        "set, user_token is used and this value is ignored.",
     )
     timeout: int = Field(default=60, description="HTTP request timeout in seconds.")
     max_retries: int = Field(
         default=3, description="Maximum number of retries for transient errors."
     )
 
-    datasource_platform_mapping: dict[str, ConnectionPlatformConfig] = Field(
+    datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description="Map BigID connection name → platform config. "
         "Auto-detected from ds-connections API if omitted; explicit entries override.",
@@ -108,12 +113,11 @@ class BigIDSourceConfig(
     )
     max_catalog_objects: Optional[int] = Field(
         default=None,
-        description="Optional cap on the number of catalog objects buffered in memory during "
-        "a single run. The connector buffers the full catalog so tag entities can be emitted "
-        "before the datasets that reference them; at 100k+ objects this buffer can reach "
-        "several hundred MB. When set, objects beyond this limit are skipped with a warning. "
-        "None (the default) means no cap — narrow connection_pattern/dataset_pattern instead "
-        "when possible.",
+        description="Optional cap on the number of catalog objects processed in a single run. "
+        "The connector streams the catalog (holding only O(distinct tags) in memory), so this "
+        "is a scope/runtime guard rather than a memory guard. When set, objects beyond this "
+        "limit are skipped with a warning. None (the default) means no cap — narrow "
+        "connection_pattern/dataset_pattern instead when possible.",
     )
 
     create_datasets: bool = Field(
@@ -137,7 +141,7 @@ class BigIDSourceConfig(
         "Lossy (can't tie level to a specific term when multiple exist), but visible in DataHub UI.",
     )
 
-    item_types: list[str] = Field(
+    item_types: List[str] = Field(
         default_factory=lambda: [
             "Business Term",
             "Personal Data Category",
@@ -156,7 +160,7 @@ class BigIDSourceConfig(
         "(one per BigID domain/sub-domain, keyed deterministically by name). "
         "'config_map': map BigID domain values to existing DataHub domain URNs.",
     )
-    domain_mapping: dict[str, str] = Field(
+    domain_mapping: Dict[str, str] = Field(
         default_factory=dict,
         description="Used when domain_mode='config_map'. "
         "Maps BigID domain string → DataHub domain URN.",
@@ -171,7 +175,7 @@ class BigIDSourceConfig(
     sync_tags: bool = Field(
         default=True, description="Emit BigID tags as DataHub Tag entities."
     )
-    tag_application_types: list[str] = Field(
+    tag_application_types: List[str] = Field(
         default_factory=lambda: ["sensitivityClassification", "risk", "userDefined"],
         description="BigID applicationType values to sync as tags.",
     )
@@ -184,7 +188,7 @@ class BigIDSourceConfig(
         description="Emit GlossaryTerms for classifier findings that have no Business Glossary "
         "linkage in BigID. Terms are auto-generated on demand (only when a column finding "
         "references the classifier) and placed under the same 'bigid' root GlossaryNode. "
-        "URN pattern: urn:li:glossaryTerm:bigid.classifier.{slug}.",
+        "Term URNs are deterministic GUIDs keyed on the classifier identity.",
     )
     sync_idsor: bool = Field(
         default=True,
@@ -193,7 +197,7 @@ class BigIDSourceConfig(
         "and only appear when a Correlation Set is configured and enabled in the scan profile. "
         "When the attribute links to an existing Business Glossary term (via glossaryId), that "
         "term is reused. Otherwise an auto-generated term is created under a dedicated "
-        "'bigid.idsor' GlossaryNode. URN pattern: urn:li:glossaryTerm:bigid.idsor.{slug}.",
+        "'bigid.idsor' GlossaryNode. Term URNs are deterministic GUIDs keyed on the attribute identity.",
     )
     sync_unstructured_enrichment: bool = Field(
         default=False,

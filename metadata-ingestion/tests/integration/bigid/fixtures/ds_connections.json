@@ -1,5 +1,13 @@
-[
-  {"name": "Snowflake-Prod", "type": "snowflake"},
-  {"name": "Postgres-Dev", "type": "rdb-postgresql"},
-  {"name": "SharePoint Online", "type": "sharepoint-online-v2"}
-]
+{
+  "status": "success",
+  "statusCode": 200,
+  "data": {
+    "ds_connections": [
+      {"name": "Snowflake-Prod", "type": "snowflake"},
+      {"name": "Postgres-Dev", "type": "rdb-postgresql"},
+      {"name": "SharePoint Online", "type": "sharepoint-online-v2"}
+    ],
+    "totalCount": 3
+  },
+  "message": ""
+}

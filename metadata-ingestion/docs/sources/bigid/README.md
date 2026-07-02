@@ -6,14 +6,15 @@ The DataHub integration for BigID is an **enrichment** connector: it syncs BigID
 
 ## Concept Mapping
 
-| Source Concept              | DataHub Concept                         | Notes                                                                   |
-| --------------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
-| Data source (connection)    | Data Platform                           | Mapped to a DataHub platform (e.g. `snowflake`, `mysql`) for URN build. |
-| Catalog object              | Dataset                                 | Enriched in place; created only when `create_datasets` is enabled.      |
-| Business glossary item      | GlossaryTerm                            | Grouped under a `BigID` root GlossaryNode.                              |
-| Classification finding      | GlossaryTerm on SchemaField             | Emitted with `MetadataAttribution` recording confidence and counts.     |
-| IDSoR correlation attribute | GlossaryTerm                            | Grouped under a `BigID > IDSoR` GlossaryNode when not linked to a term. |
-| Tag (OBJECT-scoped)         | Tag                                     | Applied to datasets; `hidden` and non-`OBJECT` tags are skipped.        |
-| Risk score                  | Structured Property (`bigid.riskScore`) | Numeric 0–100 value patched onto the dataset.                           |
-| Domain / sub-domain         | Domain                                  | Optional; controlled by `domain_mode`.                                  |
-| Column profile              | Dataset Profile                         | Column-level statistics from BigID `columnProfile` data.                |
+| Source Concept              | DataHub Concept                                                         | Notes                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Data source (connection)    | [Data Platform](../../metamodel/entities/dataPlatform.md)               | Mapped to a DataHub platform (e.g. `snowflake`, `mysql`) for URN build.                |
+| Catalog object              | [Dataset](../../metamodel/entities/dataset.md)                          | Enriched in place; created only when `create_datasets` is enabled.                     |
+| Business glossary item      | [GlossaryTerm](../../metamodel/entities/glossaryTerm.md)                | Grouped under a `BigID` root [GlossaryNode](../../metamodel/entities/glossaryNode.md). |
+| Classification finding      | [GlossaryTerm](../../metamodel/entities/glossaryTerm.md) on SchemaField | Emitted with `MetadataAttribution` recording confidence and counts.                    |
+| Unlinked classifier         | [GlossaryTerm](../../metamodel/entities/glossaryTerm.md)                | Grouped under a `BigID > Classifier` GlossaryNode when not linked to a term.           |
+| IDSoR correlation attribute | [GlossaryTerm](../../metamodel/entities/glossaryTerm.md)                | Grouped under a `BigID > IDSoR` GlossaryNode when not linked to a term.                |
+| Tag (OBJECT-scoped)         | [Tag](../../metamodel/entities/tag.md)                                  | Applied to datasets; `hidden` and non-`OBJECT` tags are skipped.                       |
+| Risk score                  | Structured Property (`bigid.riskScore`)                                 | Numeric 0–100 value patched onto the dataset.                                          |
+| Domain / sub-domain         | [Domain](../../metamodel/entities/domain.md)                            | Optional; controlled by `domain_mode`.                                                 |
+| Column profile              | Dataset Profile                                                         | Column-level statistics from BigID `columnProfile` data.                               |

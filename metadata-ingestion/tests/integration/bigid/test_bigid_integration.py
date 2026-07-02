@@ -1,34 +1,43 @@
-# Uses mocked BigID API responses (fixtures/) and compares output against golden files
-# (golden/). Regenerate goldens with: UPDATE_GOLDEN=1 pytest tests/integration/
-
+# The BigID API is mocked at the BigIDClient._request (HTTP) boundary: fixtures under
+# fixtures/ are the raw JSON envelopes each endpoint returns on a live instance, so the
+# client's real envelope-unwrapping, pagination, and column filtering run end-to-end.
+# Output is compared against golden files (golden/); regenerate with:
+#   UPDATE_GOLDEN=1 pytest tests/integration/bigid/
 import json
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Union
 from unittest.mock import patch
 
 import pytest
 import time_machine
 
+from datahub.emitter.mce_builder import datahub_guid, make_term_urn
 from datahub.emitter.mcp_builder import DomainKey
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.bigid.bigid_api import BigIDClient
+from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError, BigIDClient
 from datahub.ingestion.source.bigid.bigid_source import BigIDSource
-from datahub.ingestion.source.bigid.constants import BIGID_PLATFORM_NAME
-from datahub.ingestion.source.bigid.models import (
-    BigIDCatalogObject,
-    BigIDClassification,
-    BigIDColumn,
-    BigIDConnection,
-    BigIDGlossaryItem,
-    IDSoRAttributeInfo,
+from datahub.ingestion.source.bigid.constants import (
+    BIGID_CLASSIFIER_GLOSSARY_NODE_URN,
+    BIGID_IDSOR_GLOSSARY_NODE_URN,
+    BIGID_PLATFORM_NAME,
+    BIGID_ROOT_GLOSSARY_NODE_URN,
 )
 
 # Freeze to a known timestamp so AuditStamp / MetadataAttribution fields are deterministic.
 FROZEN_TIME = "2024-02-01T12:00:00Z"
 
 
-def _parse_aspect(mcp: dict[str, Any]) -> dict[str, Any]:
+def _term_urn(suffix: str) -> str:
+    """Expected GlossaryTerm URN for a `bigid.<suffix>` path.
+
+    BigID term URNs are opaque GUIDs derived from the stable path key, so tests derive the
+    expected URN the same way the source does rather than hardcoding a hash.
+    """
+    return make_term_urn(datahub_guid({"path": f"bigid.{suffix}"}))
+
+
+def _parse_aspect(mcp: Dict[str, Any]) -> Dict[str, Any]:
     """Extract the aspect dict from a to_obj() MCP; handles nested JSON string encoding."""
     raw = mcp.get("aspect", {})
     if isinstance(raw, dict) and "value" in raw:
@@ -44,8 +53,8 @@ _ESM_TERM_RE = re.compile(
 _ESM_TAG_RE = re.compile(r"^/editableSchemaFieldInfo/(?P<field>.+)/globalTags/tags/")
 
 
-def _field_term_map(mcp: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    terms: dict[str, list[dict[str, Any]]] = {}
+def _field_term_map(mcp: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    terms: Dict[str, List[Dict[str, Any]]] = {}
     for op in json.loads(mcp["aspect"]["value"]):
         match = _ESM_TERM_RE.match(op["path"])
         if match:
@@ -53,8 +62,8 @@ def _field_term_map(mcp: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return terms
 
 
-def _field_tag_map(mcp: dict[str, Any]) -> dict[str, list[str]]:
-    tags: dict[str, list[str]] = {}
+def _field_tag_map(mcp: Dict[str, Any]) -> Dict[str, List[str]]:
+    tags: Dict[str, List[str]] = {}
     for op in json.loads(mcp["aspect"]["value"]):
         match = _ESM_TAG_RE.match(op["path"])
         if match:
@@ -66,7 +75,7 @@ FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 GOLDEN_DIR = os.path.join(os.path.dirname(__file__), "golden")
 UPDATE_GOLDEN = os.environ.get("UPDATE_GOLDEN", "").lower() in ("1", "true", "yes")
 
-BASE_CONFIG: dict[str, Any] = {
+BASE_CONFIG: Dict[str, Any] = {
     "bigid_url": "https://bigid.test.example.com",
     "access_token": "test-token",
     "env": "PROD",
@@ -84,58 +93,62 @@ def _load(name: str) -> Any:
         return json.load(fh)
 
 
-# The BigIDClient validates raw JSON into typed models at its boundary, so the mocked
-# high-level methods must return the same models the real client would.
+# Maps each simple (param-less) BigID endpoint to the raw-envelope fixture it returns.
+# Paginated / filtered endpoints (data-catalog, columns) are handled explicitly below.
+_ENDPOINT_FIXTURE = {
+    "/api/v1/ds-connections": "ds_connections.json",
+    "/api/v1/all-classifications": "all_classifications.json",
+    "/api/v1/business_glossary_items": "business_glossary_items.json",
+    "/api/v1/data-catalog/results-tuning/attributes": "results_tuning_attributes.json",
+}
+
+# get_columns builds: objectName = "<obj>" AND source = "<src>"
+_COLUMNS_FILTER_RE = re.compile(
+    r'objectName = "(?P<obj>[^"]*)" AND source = "(?P<src>[^"]*)"'
+)
 
 
-def _load_connections() -> list[BigIDConnection]:
-    return [BigIDConnection.model_validate(c) for c in _load("ds_connections.json")]
+def _columns_fixture_name(object_name: str, source_name: str) -> str:
+    slug = source_name.lower().replace("-", "_").replace(" ", "_")
+    return f"columns_{slug}_{object_name.lower()}.json"
 
 
-def _load_classifications() -> list[BigIDClassification]:
-    return [
-        BigIDClassification.model_validate(c) for c in _load("all_classifications.json")
-    ]
+def _fake_request(
+    self: BigIDClient,
+    endpoint: str,
+    params: Optional[Dict[str, Union[str, int]]] = None,
+) -> Union[Dict[str, Any], List[Any]]:
+    """Stand-in for BigIDClient._request: returns the raw JSON envelope for an endpoint.
 
-
-def _load_glossary_items() -> list[BigIDGlossaryItem]:
-    return [
-        BigIDGlossaryItem.model_validate(i)
-        for i in _load("business_glossary_items.json")
-    ]
-
-
-def _load_catalog_objects() -> list[BigIDCatalogObject]:
-    return [BigIDCatalogObject.model_validate(o) for o in _load("data_catalog.json")]
-
-
-def _load_idsor_attrs() -> dict[str, IDSoRAttributeInfo]:
-    """Load idsor_attributes.json fixture and convert lists to IDSoRAttributeInfo."""
-    raw = _load("idsor_attributes.json")
-    return {
-        k: IDSoRAttributeInfo(friendly_name=v[0], glossary_id=v[1])
-        for k, v in raw.items()
-    }
-
-
-def _columns_side_effect(
-    object_name: str, source_name: str, fqn: str = ""
-) -> list[BigIDColumn]:
-    fname = (
-        f"columns_{source_name.lower().replace('-', '_').replace(' ', '_')}"
-        f"_{object_name.lower()}.json"
-    )
-    path = os.path.join(FIXTURES_DIR, fname)
-    if os.path.exists(path):
-        with open(path) as fh:
-            return [BigIDColumn.model_validate(c) for c in json.load(fh)]
-    return []
+    Mocking here (rather than the public get_* methods) exercises the client's real
+    envelope-unwrapping, pagination loop, and column fqn-filtering against the shapes a
+    live instance returns.
+    """
+    params = params or {}
+    if endpoint == "/api/v1/data-catalog/":
+        # Single fixture page; a non-zero skip means the pagination loop asked for more.
+        if int(params.get("skip", 0)) > 0:
+            return {"results": [], "totalRowsCounter": 0}
+        return _load("data_catalog.json")
+    if endpoint == "/api/v1/data-catalog/columns":
+        match = _COLUMNS_FILTER_RE.search(str(params.get("filter", "")))
+        if not match:
+            return {"results": []}
+        fname = _columns_fixture_name(match.group("obj"), match.group("src"))
+        if os.path.exists(os.path.join(FIXTURES_DIR, fname)):
+            return _load(fname)
+        return {"results": []}
+    fixture = _ENDPOINT_FIXTURE.get(endpoint)
+    if fixture is None:
+        raise AssertionError(f"Unexpected BigID endpoint in test: {endpoint}")
+    return _load(fixture)
 
 
 def _run_source(
-    config_overrides: Optional[dict[str, Any]] = None,
-) -> list[dict[str, Any]]:
-    """Run source with mocked BigID APIs; return sorted list of MCP dicts.
+    config_overrides: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Run source with the BigID API mocked at the _request (HTTP) boundary; return a
+    sorted list of MCP dicts.
 
     Time is frozen to FROZEN_TIME so AuditStamp and MetadataAttribution
     timestamps are deterministic across runs.
@@ -145,26 +158,7 @@ def _run_source(
 
     with (
         time_machine.travel(FROZEN_TIME, tick=False),
-        patch.object(BigIDClient, "get_connections", return_value=_load_connections()),
-        patch.object(
-            BigIDClient,
-            "get_all_classifications",
-            return_value=_load_classifications(),
-        ),
-        patch.object(
-            BigIDClient,
-            "get_glossary_items",
-            return_value=_load_glossary_items(),
-        ),
-        patch.object(
-            BigIDClient,
-            "get_catalog_objects",
-            side_effect=lambda: iter(_load_catalog_objects()),
-        ),
-        patch.object(BigIDClient, "get_columns", side_effect=_columns_side_effect),
-        patch.object(
-            BigIDClient, "get_idsor_attribute_map", return_value=_load_idsor_attrs()
-        ),
+        patch.object(BigIDClient, "_request", _fake_request),
         patch.object(BigIDClient, "close"),
     ):
         source = BigIDSource.create(config, ctx)
@@ -225,7 +219,7 @@ def test_glossary_node_emitted() -> None:
     node_urns = {
         m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryNodeInfo"
     }
-    assert "urn:li:glossaryNode:bigid" in node_urns
+    assert BIGID_ROOT_GLOSSARY_NODE_URN in node_urns
 
 
 def test_glossary_terms_emitted() -> None:
@@ -234,9 +228,9 @@ def test_glossary_terms_emitted() -> None:
     term_urns = {
         m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryTermInfo"
     }
-    assert "urn:li:glossaryTerm:bigid.bt_email" in term_urns
-    assert "urn:li:glossaryTerm:bigid.bt_full_name" in term_urns
-    assert "urn:li:glossaryTerm:bigid.bt_ssn" in term_urns
+    assert _term_urn("bt_email") in term_urns
+    assert _term_urn("bt_full_name") in term_urns
+    assert _term_urn("bt_ssn") in term_urns
 
 
 def test_tag_entities_emitted() -> None:
@@ -331,7 +325,7 @@ def test_confidence_threshold_filters_low_findings() -> None:
             term.get("attribution", {}).get("sourceDetail", {}).get("classifier_type")
             == "idsor_attribute"
             for term in all_terms
-            if term.get("urn") == "urn:li:glossaryTerm:bigid.bt_email"
+            if term.get("urn") == _term_urn("bt_email")
         ), "MEDIUM classifier finding for EMAIL must be filtered at threshold=0.75"
 
 
@@ -348,15 +342,20 @@ def test_global_tags_on_pii_dataset() -> None:
 
 
 def test_glossary_term_parent_node_is_bigid_root() -> None:
-    """Non-IDSoR GlossaryTerms must declare parentNode=urn:li:glossaryNode:bigid."""
+    """Business-glossary GlossaryTerms must declare parentNode=urn:li:glossaryNode:bigid.
+
+    IDSoR terms parent to the bigid.idsor node and classifier terms to the
+    bigid.classifier node — both tested separately.
+    """
     mcps = _run_source()
     for mcp in mcps:
         if mcp.get("aspectName") != "glossaryTermInfo":
             continue
         aspect = _parse_aspect(mcp)
-        if aspect.get("customProperties", {}).get("bigid_type") == "idsor_attribute":
-            continue  # IDSoR terms (paths 1-3) use bigid.idsor node — tested separately
-        assert aspect.get("parentNode") == "urn:li:glossaryNode:bigid", (
+        bigid_type = aspect.get("customProperties", {}).get("bigid_type")
+        if bigid_type in ("idsor_attribute", "classifier"):
+            continue
+        assert aspect.get("parentNode") == BIGID_ROOT_GLOSSARY_NODE_URN, (
             f"GlossaryTerm {mcp['entityUrn']} has wrong parentNode: {aspect.get('parentNode')}"
         )
 
@@ -367,7 +366,7 @@ def test_unlinked_classifier_term_emitted() -> None:
     term_urns = {
         m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryTermInfo"
     }
-    assert "urn:li:glossaryTerm:bigid.classifier.phone" in term_urns, (
+    assert _term_urn("classifier.phone") in term_urns, (
         "Expected auto-generated GlossaryTerm for unlinked classifier.PHONE"
     )
 
@@ -379,7 +378,7 @@ def test_sync_unlinked_classifiers_false_skips_unlinked() -> None:
     term_urns = {
         m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryTermInfo"
     }
-    assert "urn:li:glossaryTerm:bigid.classifier.phone" not in term_urns, (
+    assert _term_urn("classifier.phone") not in term_urns, (
         "Unlinked classifier GlossaryTerm should be suppressed when sync_unlinked_classifiers=False"
     )
     # Linked classifiers (EMAIL, FULL_NAME) must still enrich CUSTOMERS
@@ -398,7 +397,7 @@ def test_unlinked_classifier_term_content() -> None:
         (
             m
             for m in mcps
-            if m.get("entityUrn") == "urn:li:glossaryTerm:bigid.classifier.phone"
+            if m.get("entityUrn") == _term_urn("classifier.phone")
             and m.get("aspectName") == "glossaryTermInfo"
         ),
         None,
@@ -411,8 +410,8 @@ def test_unlinked_classifier_term_content() -> None:
     assert "classifier.PHONE" in aspect.get("definition", ""), (
         "Definition must reference the original classifier name"
     )
-    assert aspect.get("parentNode") == "urn:li:glossaryNode:bigid", (
-        f"parentNode must be the BigID root node, got {aspect.get('parentNode')!r}"
+    assert aspect.get("parentNode") == BIGID_CLASSIFIER_GLOSSARY_NODE_URN, (
+        f"parentNode must be the BigID Classifier node, got {aspect.get('parentNode')!r}"
     )
     custom = aspect.get("customProperties", {})
     assert custom.get("bigid_type") == "classifier"
@@ -457,14 +456,14 @@ def test_idsor_glossary_node_emitted() -> None:
     """bigid.idsor GlossaryNode must be emitted when sync_idsor=True (default)."""
     mcps = _run_source()
     nodes = {m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryNodeInfo"}
-    assert "urn:li:glossaryNode:bigid.idsor" in nodes
+    assert BIGID_IDSOR_GLOSSARY_NODE_URN in nodes
 
 
 def test_idsor_node_suppressed_when_disabled() -> None:
     """bigid.idsor GlossaryNode must not be emitted when sync_idsor=False."""
     mcps = _run_source({"sync_idsor": False})
     nodes = {m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryNodeInfo"}
-    assert "urn:li:glossaryNode:bigid.idsor" not in nodes
+    assert BIGID_IDSOR_GLOSSARY_NODE_URN not in nodes
 
 
 def test_idsor_path1_reuses_existing_glossary_term() -> None:
@@ -480,14 +479,13 @@ def test_idsor_path1_reuses_existing_glossary_term() -> None:
     assert orders_editable, "ORDERS dataset must have editableSchemaMetadata"
     term_map = _field_term_map(orders_editable[0])
     all_term_urns = {term["urn"] for terms in term_map.values() for term in terms}
-    assert "urn:li:glossaryTerm:bigid.bt_email" in all_term_urns, (
+    assert _term_urn("bt_email") in all_term_urns, (
         "IDSoR customer_email (path 1) must reuse the existing bt_email GlossaryTerm"
     )
     # No auto-gen idsor term should be created for customer_email
-    idsor_urns = {
-        u for u in all_term_urns if "bigid.idsor." in u and "customer_email" in u
-    }
-    assert not idsor_urns, "Path 1 must NOT create a new idsor term for customer_email"
+    assert _term_urn("idsor.customer_email") not in all_term_urns, (
+        "Path 1 must NOT create a new idsor term for customer_email"
+    )
 
 
 def test_idsor_path3_autogenerates_country_term() -> None:
@@ -496,18 +494,18 @@ def test_idsor_path3_autogenerates_country_term() -> None:
     term_urns = {
         m["entityUrn"] for m in mcps if m.get("aspectName") == "glossaryTermInfo"
     }
-    assert "urn:li:glossaryTerm:bigid.idsor.country" in term_urns, (
+    assert _term_urn("idsor.country") in term_urns, (
         "Path 3 IDSoR attribute 'country' must produce an auto-generated GlossaryTerm"
     )
     # Verify content
     country_mcp = next(
         m
         for m in mcps
-        if m.get("entityUrn") == "urn:li:glossaryTerm:bigid.idsor.country"
+        if m.get("entityUrn") == _term_urn("idsor.country")
         and m.get("aspectName") == "glossaryTermInfo"
     )
     aspect = _parse_aspect(country_mcp)
-    assert aspect.get("parentNode") == "urn:li:glossaryNode:bigid.idsor"
+    assert aspect.get("parentNode") == BIGID_IDSOR_GLOSSARY_NODE_URN
     assert aspect.get("customProperties", {}).get("bigid_type") == "idsor_attribute"
 
 
@@ -518,7 +516,7 @@ def test_idsor_disabled_produces_no_idsor_terms() -> None:
         m["entityUrn"]
         for m in mcps
         if m.get("aspectName") == "glossaryTermInfo"
-        and "bigid.idsor." in m.get("entityUrn", "")
+        and _parse_aspect(m).get("parentNode") == BIGID_IDSOR_GLOSSARY_NODE_URN
     ]
     assert not idsor_term_urns, (
         f"Expected no idsor terms when disabled; got {idsor_term_urns}"
@@ -595,13 +593,15 @@ def test_unstructured_enrichment_emits_dataset_level_glossary_terms() -> None:
     assert len(terms_mcps) == 1, (
         f"Expected exactly 1 glossaryTerms MCP on SharePoint dataset, got {len(terms_mcps)}"
     )
+    # Emitted as a PATCH (add ops) so BigID terms never overwrite steward-curated terms.
+    assert terms_mcps[0].get("changeType") == "PATCH"
 
-    aspect = _parse_aspect(terms_mcps[0])
-    term_urns = {t["urn"] for t in aspect.get("terms", [])}
-    assert "urn:li:glossaryTerm:bigid.bt_email" in term_urns, (
+    patch_ops = json.loads(terms_mcps[0]["aspect"]["value"])["patch"]
+    term_urns = {op["value"]["urn"] for op in patch_ops}
+    assert _term_urn("bt_email") in term_urns, (
         "classifier.EMAIL (linked to bt_email) must appear as a dataset-level GlossaryTerm"
     )
-    assert "urn:li:glossaryTerm:bigid.classifier.phone" in term_urns, (
+    assert _term_urn("classifier.phone") in term_urns, (
         "classifier.PHONE (unlinked) must produce an auto-generated dataset-level GlossaryTerm"
     )
 
@@ -670,10 +670,11 @@ def test_glossary_term_parent_node_for_idsor_is_idsor_node() -> None:
     for mcp in mcps:
         if mcp.get("aspectName") != "glossaryTermInfo":
             continue
-        if "bigid.idsor." not in mcp.get("entityUrn", ""):
-            continue
         aspect = _parse_aspect(mcp)
-        assert aspect.get("parentNode") == "urn:li:glossaryNode:bigid.idsor", (
+        # Auto-generated IDSoR terms are identified by bigid_type; their URNs are opaque GUIDs.
+        if aspect.get("customProperties", {}).get("bigid_type") != "idsor_attribute":
+            continue
+        assert aspect.get("parentNode") == BIGID_IDSOR_GLOSSARY_NODE_URN, (
             f"IDSoR term {mcp['entityUrn']} must have parentNode=bigid.idsor, "
             f"got {aspect.get('parentNode')!r}"
         )
@@ -754,25 +755,33 @@ def test_owner_type_none_emits_no_ownership() -> None:
 
 
 def test_registries_empty_reports_failure() -> None:
-    """When both glossary items and classification map fail, report must have registries-empty failure."""
-    from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
+    """When both classifications and glossary endpoints fail, the report must have a
+    registries-empty failure."""
+
+    def _failing_request(
+        self: BigIDClient,
+        endpoint: str,
+        params: Optional[Dict[str, Union[str, int]]] = None,
+    ) -> Union[Dict[str, Any], List[Any]]:
+        if endpoint in (
+            "/api/v1/all-classifications",
+            "/api/v1/business_glossary_items",
+        ):
+            raise BigIDAPIError(f"simulated failure for {endpoint}")
+        if endpoint == "/api/v1/ds-connections":
+            return {"data": {"ds_connections": []}}
+        if endpoint == "/api/v1/data-catalog/":
+            return {"results": [], "totalRowsCounter": 0}
+        if endpoint == "/api/v1/data-catalog/results-tuning/attributes":
+            return {"data": {"attributes": []}}
+        raise AssertionError(f"Unexpected BigID endpoint in test: {endpoint}")
 
     config = {**BASE_CONFIG}
     ctx = PipelineContext(run_id="registries-empty-test")
 
     with (
         time_machine.travel(FROZEN_TIME, tick=False),
-        patch.object(BigIDClient, "get_connections", return_value=[]),
-        patch.object(
-            BigIDClient,
-            "get_all_classifications",
-            side_effect=BigIDAPIError("clf fail"),
-        ),
-        patch.object(
-            BigIDClient, "get_glossary_items", side_effect=BigIDAPIError("gloss fail")
-        ),
-        patch.object(BigIDClient, "get_catalog_objects", side_effect=lambda: iter([])),
-        patch.object(BigIDClient, "get_idsor_attribute_map", return_value={}),
+        patch.object(BigIDClient, "_request", _failing_request),
         patch.object(BigIDClient, "close"),
     ):
         source = BigIDSource.create(config, ctx)

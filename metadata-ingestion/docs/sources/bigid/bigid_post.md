@@ -1,17 +1,19 @@
 ### Capabilities
 
 - **Business glossary sync** — BigID business glossary items become GlossaryTerms under a `BigID` root GlossaryNode, with domains and ownership optionally attached.
-- **Column classification** — classification findings are emitted as GlossaryTerms on schema fields, carrying `MetadataAttribution` that records the classifier, confidence level, and finding counts.
+- **Column classification** — classification findings are emitted as GlossaryTerms on schema fields, carrying `MetadataAttribution` that records the classifier, confidence level, and finding counts. Classifiers not linked to a business glossary item are auto-generated under a `BigID > Classifier` node (controlled by `sync_unlinked_classifiers`).
 - **IDSoR correlation** — Identity Source of Record findings are resolved via a three-path strategy: reuse a linked business glossary term, auto-generate a term under a `BigID > IDSoR` node, or synthesize one from the raw attribute name.
-- **Tags and risk score** — OBJECT-scoped BigID tags become DataHub Tags; risk scores are written to the `bigid.riskScore` structured property using patch semantics so the value is not overwritten by other aspects.
+- **Tags and risk score** — OBJECT-scoped BigID tags become DataHub Tags; risk scores are written to the `bigid.riskScore` structured property.
+- **Non-destructive enrichment** — tags, glossary terms, schema-field annotations, and the risk score are applied to existing datasets via PATCH (merge) semantics, so BigID metadata is added alongside — never overwriting — tags and terms that stewards curate in the DataHub UI.
+- **No placeholder datasets** — in pure-enrichment mode (`create_datasets: false`) dataset aspects are emitted as non-primary, so BigID never materializes (or later soft-deletes) a dataset that a native connector has not already created. Enable `create_datasets` to have BigID own and create datasets it scans.
 - **Profiling** — column-level statistics from BigID `columnProfile` data are emitted as Dataset Profiles.
 - **Stateful ingestion** — enables automatic removal of entities emitted by this source when they disappear from BigID.
 
 ### Limitations
 
-#### Enrichment aspects use UPSERT semantics
+#### Enrichment adds are not retracted
 
-GlobalTags, EditableSchemaMetadata, and GlossaryTerms are emitted with UPSERT change type, which replaces the full aspect on each run. Tags or terms added manually in the DataHub UI on these aspects will be overwritten on the next ingestion. Run this connector against datasets whose tags/terms are managed by BigID, and treat DataHub as the mirror rather than the system of record for those aspects. (Risk score is the exception — it is applied via a patch and preserves other structured properties.)
+Because enrichment is applied additively (PATCH), removing a classification, tag, or glossary link **in BigID** does not remove the previously-added term or tag from an existing DataHub dataset on the next run — the PATCH only adds. Stateful ingestion removes entities this connector _owns_ (e.g. glossary terms/nodes it created), but it does not retract annotations merged onto datasets owned by a native connector. Remove such annotations in the DataHub UI if needed.
 
 #### In-memory catalog buffer
 

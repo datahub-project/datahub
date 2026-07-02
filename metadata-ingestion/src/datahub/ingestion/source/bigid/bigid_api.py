@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterator
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -28,8 +28,10 @@ class BigIDAPIError(Exception):
 
 class BigIDClient:
     # Auth: supply either user_token (long-lived, exchanged for a short-lived access
-    # token at startup) or access_token (short-lived, used directly). BigID rejects the
-    # "Bearer " prefix, so tokens are sent raw in the Authorization header.
+    # token at startup) or access_token (short-lived, used directly). If both are
+    # supplied, user_token wins because it can auto-refresh; the standalone access_token
+    # is ignored. BigID rejects the "Bearer " prefix, so tokens are sent raw in the
+    # Authorization header.
 
     def __init__(
         self,
@@ -44,7 +46,9 @@ class BigIDClient:
 
         self.bigid_url = bigid_url.rstrip("/")
         self.user_token = user_token
-        self._access_token = access_token
+        # Prefer the refreshable user_token when both are given; the raw access_token is
+        # only used on its own.
+        self._access_token = None if user_token else access_token
         self.timeout = timeout
 
         self.session = requests.Session()
@@ -77,7 +81,7 @@ class BigIDClient:
             resp.raise_for_status()
         except requests.exceptions.RequestException as exc:
             raise BigIDAPIError(f"Token refresh failed: {exc}") from exc
-        data: dict[str, Any] = resp.json()
+        data: Dict[str, Any] = resp.json()
         if not isinstance(data, dict):
             raise BigIDAPIError(
                 f"Unexpected token response shape: expected dict, got {type(data).__name__}"
@@ -90,7 +94,7 @@ class BigIDClient:
         self._access_token = token
         return self._access_token
 
-    def _auth_headers(self) -> dict[str, str]:
+    def _auth_headers(self) -> Dict[str, str]:
         return {
             "Authorization": self._get_access_token(),
             "Content-Type": "application/json",
@@ -99,8 +103,8 @@ class BigIDClient:
     def _request(
         self,
         endpoint: str,
-        params: Optional[dict[str, Union[str, int]]] = None,
-    ) -> Union[dict[str, Any], list[Any]]:
+        params: Optional[Dict[str, Union[str, int]]] = None,
+    ) -> Union[Dict[str, Any], List[Any]]:
         url = f"{self.bigid_url}{endpoint}"
         try:
             resp = self.session.get(
@@ -135,8 +139,10 @@ class BigIDClient:
         except requests.exceptions.RequestException as exc:
             raise BigIDAPIError(f"Request error calling {url}: {exc}") from exc
 
-    def get_glossary_items(self) -> list[BigIDGlossaryItem]:
+    def get_glossary_items(self) -> List[BigIDGlossaryItem]:
         # GET /api/v1/business_glossary_items returns a plain JSON array (no wrapper).
+        # Verified against a live BigID instance (v4.x); a missing endpoint surfaces as a
+        # 404 BigIDAPIError, which _load_registries catches and downgrades to a warning.
         result = self._request("/api/v1/business_glossary_items")
         if not isinstance(result, list):
             raise BigIDAPIError(
@@ -157,7 +163,7 @@ class BigIDClient:
                 raise BigIDAPIError(
                     f"Unexpected response shape from /api/v1/data-catalog/: {type(data)}"
                 )
-            results: list[dict[str, Any]] = data.get("results", [])
+            results: List[Dict[str, Any]] = data.get("results", [])
             for obj in results:
                 yield BigIDCatalogObject.model_validate(obj)
 
@@ -167,7 +173,7 @@ class BigIDClient:
 
     def get_columns(
         self, object_name: str, source_name: str, fqn: str = ""
-    ) -> list[BigIDColumn]:
+    ) -> List[BigIDColumn]:
         # BigID's filter uses substring matching and objectName is not schema-qualified,
         # so two tables with the same name in different schemas return combined results.
         # We narrow client-side by fullyQualifiedName, falling back to exact objectName.
@@ -199,9 +205,18 @@ class BigIDClient:
         columns = [BigIDColumn.model_validate(column) for column in raw_columns]
         if fqn:
             return [column for column in columns if column.fully_qualified_name == fqn]
+        # No FQN to disambiguate on: objectName is not schema-qualified, so same-named
+        # tables in different schemas collide here. The connector always passes an FQN, so
+        # this path should be unreachable — warn if it ever isn't.
+        logger.warning(
+            "get_columns: no FQN for %s/%s — matching on objectName only, which may "
+            "return columns from same-named tables in other schemas",
+            source_name,
+            object_name,
+        )
         return [column for column in columns if column.object_name == object_name]
 
-    def get_connections(self) -> list[BigIDConnection]:
+    def get_connections(self) -> List[BigIDConnection]:
         # Envelope: {status, statusCode, data: {ds_connections: [...]}, message}
         data = self._request("/api/v1/ds-connections")
         if not isinstance(data, dict):
@@ -211,7 +226,7 @@ class BigIDClient:
         raw = data.get("data", {}).get("ds_connections", [])
         return [BigIDConnection.model_validate(conn) for conn in raw]
 
-    def get_all_classifications(self) -> list[BigIDClassification]:
+    def get_all_classifications(self) -> List[BigIDClassification]:
         # Envelope: {status, statusCode, data: {classifications: [...]}, message}.
         # original_name is the lookup key.
         data = self._request("/api/v1/all-classifications")
@@ -222,7 +237,7 @@ class BigIDClient:
         raw = data.get("data", {}).get("classifications", [])
         return [BigIDClassification.model_validate(item) for item in raw]
 
-    def get_idsor_attribute_map(self) -> dict[str, IDSoRAttributeInfo]:
+    def get_idsor_attribute_map(self) -> Dict[str, IDSoRAttributeInfo]:
         # Maps raw IDSoR attribute name → friendly name + glossary id. Each attributes[]
         # entry carries a nested friendlyName object (which can be {} when uncurated) whose
         # glossaryId links to an existing Business Glossary item (path 1) or is null when an
@@ -233,11 +248,11 @@ class BigIDClient:
             raise BigIDAPIError(
                 f"Unexpected response shape from results-tuning/attributes: {type(result)}"
             )
-        raw_attributes: list[dict[str, Any]] = result.get("data", {}).get(
+        raw_attributes: List[Dict[str, Any]] = result.get("data", {}).get(
             "attributes", []
         )
 
-        attr_map: dict[str, IDSoRAttributeInfo] = {}
+        attr_map: Dict[str, IDSoRAttributeInfo] = {}
         for raw in raw_attributes:
             entry = BigIDResultsTuningAttribute.model_validate(raw)
             if entry.attribute_type != IDSOR_ATTRIBUTE_TYPE:

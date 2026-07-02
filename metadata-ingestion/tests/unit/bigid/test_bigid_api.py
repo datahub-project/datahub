@@ -1,3 +1,4 @@
+from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -38,6 +39,19 @@ def _http_error(status: int) -> requests.exceptions.HTTPError:
 def test_constructor_requires_token():
     with pytest.raises(BigIDAPIError):
         BigIDClient(bigid_url="https://x.com")
+
+
+def test_user_token_takes_precedence_over_access_token():
+    # When both are supplied the refreshable user_token wins: the standalone access_token
+    # is dropped so startup exchanges the user_token instead of using it directly.
+    client = BigIDClient(
+        bigid_url="https://x.com", user_token="user-tok", access_token="raw-tok"
+    )
+    assert client._access_token is None
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"systemToken": "exchanged-tok"}
+    with patch.object(client.session, "get", return_value=mock_resp):
+        assert client._get_access_token() == "exchanged-tok"
 
 
 # ---------------------------------------------------------------------------
@@ -194,38 +208,20 @@ def test_request_401_no_user_token_raises_immediately():
 # ---------------------------------------------------------------------------
 
 
-def test_get_columns_list_response():
+@pytest.mark.parametrize(
+    ("response", "expected_column"),
+    [
+        # bare list, "results" envelope, and "data" envelope all unwrap identically
+        ([{"columnName": "a", "objectName": "my_table"}], "a"),
+        ({"results": [{"columnName": "b", "objectName": "my_table"}]}, "b"),
+        ({"data": [{"columnName": "c", "objectName": "my_table"}]}, "c"),
+    ],
+)
+def test_get_columns_unwraps_response_shape(response, expected_column):
     client = _client_with_access_token()
-    rows = [{"columnName": "a", "objectName": "my_table"}]
-    with patch.object(client, "_request", return_value=rows):
+    with patch.object(client, "_request", return_value=response):
         result = client.get_columns("my_table", "my_source")
-    assert [c.column_name for c in result] == ["a"]
-
-
-# ---------------------------------------------------------------------------
-# 12. get_columns — dict with "results" key unwrapped
-# ---------------------------------------------------------------------------
-
-
-def test_get_columns_results_key():
-    client = _client_with_access_token()
-    rows = [{"columnName": "b", "objectName": "my_table"}]
-    with patch.object(client, "_request", return_value={"results": rows}):
-        result = client.get_columns("my_table", "my_source")
-    assert [c.column_name for c in result] == ["b"]
-
-
-# ---------------------------------------------------------------------------
-# 13. get_columns — dict with "data" key unwrapped
-# ---------------------------------------------------------------------------
-
-
-def test_get_columns_data_key():
-    client = _client_with_access_token()
-    rows = [{"columnName": "c", "objectName": "my_table"}]
-    with patch.object(client, "_request", return_value={"data": rows}):
-        result = client.get_columns("my_table", "my_source")
-    assert [c.column_name for c in result] == ["c"]
+    assert [c.column_name for c in result] == [expected_column]
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +357,7 @@ def test_get_glossary_items_returns_models():
 
 def test_get_columns_filter_expression_format():
     client = _client_with_access_token()
-    captured: list[dict] = []
+    captured: List[Dict] = []
 
     def fake_request(endpoint, params=None):
         captured.append(params or {})
