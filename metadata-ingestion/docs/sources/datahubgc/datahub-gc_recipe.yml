@@ -13,4 +13,3 @@ source:
     query_cleanup:
       enabled: false
       retention_days: 30
-      hard_delete_entities: false

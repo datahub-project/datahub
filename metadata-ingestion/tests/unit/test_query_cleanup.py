@@ -79,25 +79,10 @@ class TestQueryCleanup:
             aspect = mcp.aspect
             assert isinstance(aspect, StatusClass)
             assert aspect.removed
-        # Soft delete never touches the imperative hard-delete path.
+        # Soft delete never touches the imperative delete path.
         self.mock_graph.delete_entity.assert_not_called()
         assert self.report.num_queries_found == 3
         assert self.report.num_queries_soft_deleted == 3
-        assert self.report.num_queries_hard_deleted == 0
-
-    def test_hard_delete_uses_graph_delete_entity(self) -> None:
-        self.config.hard_delete_entities = True
-        urns = ["urn:li:query:1", "urn:li:query:2"]
-        self.mock_graph.get_urns_by_filter.return_value = urns
-
-        wus = list(self.cleanup.get_workunits())
-
-        # Hard delete runs through the worker pool, so it yields no workunits.
-        assert wus == []
-        assert self.mock_graph.delete_entity.call_count == 2
-        self.mock_graph.delete_entity.assert_any_call(urn=urns[0], hard=True)
-        assert self.report.num_queries_hard_deleted == 2
-        assert self.report.num_queries_soft_deleted == 0
 
     def test_dry_run_previews_without_deleting(self) -> None:
         self.cleanup.dry_run = True
