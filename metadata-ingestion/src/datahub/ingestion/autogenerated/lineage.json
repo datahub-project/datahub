@@ -169,6 +169,42 @@
         ]
       }
     },
+    "metric": {
+      "upstreamLineage": {
+        "aspect": "upstreamLineage",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "upstreams.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "metricRelationships": {
+        "aspect": "metricRelationships",
+        "fields": [
+          {
+            "name": "derivedFrom",
+            "path": "derivedFrom",
+            "isLineage": true,
+            "relationship": {
+              "name": "DerivedFrom",
+              "entityTypes": [
+                "metric"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
     "chart": {
       "chartInfo": {
         "aspect": "chartInfo",
@@ -398,5 +434,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2025-08-05T19:29:49.306404+00:00"
+  "generated_at": "2026-07-02T00:13:22.853899+00:00"
 }
