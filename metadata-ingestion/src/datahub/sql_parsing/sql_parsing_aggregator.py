@@ -130,6 +130,22 @@ class ViewDefinition:
 
 
 @dataclasses.dataclass
+class QueryComposition:
+    """The raw component statements merged into a composite query during
+    temp-table resolution."""
+
+    # The base statement: the one that writes the real (non-temp) downstream.
+    # Its usage counts represent how often the pipeline ran.
+    base: QueryId
+    # The merged temp-loading statements that feed the base statement.
+    others: List[QueryId]
+
+    @property
+    def all_queries(self) -> List[QueryId]:
+        return [self.base, *self.others]
+
+
+@dataclasses.dataclass
 class QueryMetadata:
     query_id: QueryId
 
@@ -150,15 +166,20 @@ class QueryMetadata:
     used_temp_tables: bool = True
 
     # Set only on composite queries produced by temp-table resolution: the raw
-    # component fingerprints that were merged into this query. Element [0] is the
-    # base statement (the one that writes the real downstream) - its usage counts
-    # represent how often the pipeline ran. The remaining entries are the merged
-    # temp-loading statements, tracked so we can suppress them from being emitted
-    # as separate (orphan) Query entities.
-    composed_of: Optional[List[QueryId]] = None
+    # component statements that were merged into this query. Tracked so their
+    # usage can be attributed to the composite and so they can be suppressed from
+    # being emitted as separate (orphan) Query entities.
+    composed_of: Optional[QueryComposition] = None
 
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+
+    @property
+    def usage_query_id(self) -> QueryId:
+        """Usage counts are keyed by raw statement fingerprint. For a composite
+        query (temp-table resolution) the emitted query_id is the composite hash,
+        so usage must be looked up under the base component fingerprint instead."""
+        return self.composed_of.base if self.composed_of else self.query_id
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -1609,7 +1630,7 @@ class SqlParsingAggregator(Closeable):
             # components generated too, so _gen_remaining_queries doesn't re-emit
             # them as orphan Query entities carrying the same usage.
             if query.composed_of:
-                queries_generated.update(query.composed_of)
+                queries_generated.update(query.composed_of.all_queries)
             yield from self._gen_query(query, downstream_urn)
 
     @classmethod
@@ -1692,11 +1713,7 @@ class SqlParsingAggregator(Closeable):
             # of users / lastExecutedAt timestamps per bucket.
             user = query.actor
 
-            # Usage counts are keyed by raw statement fingerprint. For a composite
-            # query (temp-table resolution) the emitted query_id is the composite
-            # hash, so look up the base component fingerprint instead.
-            usage_key = query.composed_of[0] if query.composed_of else query_id
-            query_counter = self._query_usage_counts.get(usage_key)
+            query_counter = self._query_usage_counts.get(query.usage_query_id)
             if not query_counter:
                 return
 
@@ -1893,12 +1910,15 @@ class SqlParsingAggregator(Closeable):
             deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
-        # Preserve the raw component fingerprints so query usage can be attributed
-        # back to them. Element [0] is the base statement (the real downstream
-        # writer), whose usage counts reflect how often the pipeline executed.
-        composed_of = [base_query.query_id] + [
-            q.query_id for q in ordered_queries if q.query_id != base_query.query_id
-        ]
+        # Preserve the raw component statements so query usage can be attributed
+        # back to them. The base statement (the real downstream writer) carries the
+        # usage counts that reflect how often the pipeline executed.
+        composed_of = QueryComposition(
+            base=base_query.query_id,
+            others=[
+                q.query_id for q in ordered_queries if q.query_id != base_query.query_id
+            ],
+        )
 
         resolved_query = dataclasses.replace(
             base_query,
@@ -1955,7 +1975,7 @@ class SqlParsingAggregator(Closeable):
                     continue
                 queries_generated.add(gen_id)
                 if query.composed_of:
-                    queries_generated.update(query.composed_of)
+                    queries_generated.update(query.composed_of.all_queries)
                 yield from self._gen_query(query, downstream_urn)
 
     def _gen_operation_for_downstream(
