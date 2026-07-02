@@ -2,6 +2,7 @@ import airflowLogo from '@images/airflowlogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
+import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -77,6 +78,8 @@ export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
 const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+export const BIGID = 'bigid';
+export const BIGID_URN = `urn:li:dataPlatform:${BIGID}`;
 const BIGQUERY = 'bigquery';
 const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 const CLICKHOUSE = 'clickhouse';
@@ -232,6 +235,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
+    [BIGID_URN]: bigidLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,

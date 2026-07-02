@@ -329,6 +329,16 @@
     displayName: Matillion
     type: OTHERS
     logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:bigid
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigid
+    displayName: BigID
+    type: OTHERS
+    logoUrl: "assets/platforms/bigidlogo.png"
 - entityUrn: urn:li:dataPlatform:cube
   entityType: dataPlatform
   aspectName: dataPlatformInfo
