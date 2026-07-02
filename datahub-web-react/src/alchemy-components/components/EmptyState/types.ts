@@ -9,6 +9,7 @@ export interface EmptyStateAction {
     onClick: () => void;
     icon?: IconProps;
     variant?: 'filled' | 'secondary' | 'text';
+    dataTestId?: string;
 }
 
 export interface EmptyStateProps {

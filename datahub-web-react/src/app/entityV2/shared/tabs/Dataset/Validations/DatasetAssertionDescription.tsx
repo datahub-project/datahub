@@ -96,7 +96,7 @@ const boldComponents = { bold: <Typography.Text strong /> };
  * per (aggregation, operator) pair so translators control word order across the whole phrase rather
  * than across concatenated fragments.
  */
-const getAggregationDescriptor = (
+export const getAggregationDescriptor = (
     scope: DatasetAssertionScope | undefined | null,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -167,7 +167,7 @@ const getAggregationDescriptor = (
 };
 
 // Resolves the operator portion of the description key.
-const getOperatorKey = (op: AssertionStdOperator | undefined): OperatorKey => {
+export const getOperatorKey = (op: AssertionStdOperator | undefined): OperatorKey => {
     switch (op) {
         case AssertionStdOperator.Between:
             return 'between';

@@ -127,10 +127,14 @@ jobs:
 
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
+      - name: Generate cross-module coverage report
+        # --no-configure-on-demand is required so every module is configured and visible to
+        # the aggregation task (it reads other modules' outputs without a task dependency).
+        run: ./gradlew jacocoMergedReport --no-configure-on-demand
       - name: Gather coverage files
         run: |
           {
-            echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | tr ' ' ',')"
+            echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
           } >> "$GITHUB_ENV"
       - name: Report test results
         if: (!cancelled())
