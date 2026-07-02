@@ -1320,12 +1320,48 @@ public class OpenLineageToDataHub {
         orchestrator = "airflow";
       } else if (producer.startsWith("https://github.com/trinodb/trino/")) {
         orchestrator = "trino";
+      } else {
+        // Fallback for custom producers: extract the last non-empty path segment
+        // from the producer URI. Per the OpenLineage spec, the producer field is
+        // a URI that can be any value, so we should not reject unknown producers.
+        // See: https://github.com/datahub-project/datahub/issues/16961
+        orchestrator = extractOrchestratorFromProducerUri(producer);
       }
     }
     if (orchestrator == null) {
       throw new RuntimeException("Unable to determine orchestrator");
     }
     return orchestrator;
+  }
+
+  /**
+   * Extract an orchestrator name from a custom producer URI by using the last non-empty path
+   * segment. For example, "https://github.com/myorg/myproducer/blob/v1/client" returns "client".
+   *
+   * @param producer the producer URI string
+   * @return the last path segment, or null if no usable segment is found
+   */
+  private static String extractOrchestratorFromProducerUri(String producer) {
+    try {
+      URI uri = new URI(producer);
+      String path = uri.getPath();
+      if (path != null && !path.isEmpty()) {
+        // Remove trailing slashes and split
+        String trimmedPath = path.replaceAll("/+$", "");
+        if (!trimmedPath.isEmpty()) {
+          String[] segments = trimmedPath.split("/");
+          // Return the last non-empty segment
+          for (int i = segments.length - 1; i >= 0; i--) {
+            if (!segments[i].isEmpty()) {
+              return segments[i].toLowerCase();
+            }
+          }
+        }
+      }
+    } catch (URISyntaxException e) {
+      log.warn("Unable to parse producer URI '{}': {}", producer, e.getMessage());
+    }
+    return null;
   }
 
   public static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(
