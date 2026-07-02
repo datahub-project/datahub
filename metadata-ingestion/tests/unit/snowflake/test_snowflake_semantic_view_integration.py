@@ -18,7 +18,7 @@ for more comprehensive assertions instead of manual field checks. Golden files w
 
 import datetime
 from typing import Any, Dict, List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -704,6 +704,91 @@ class TestSemanticViewOrchestrationFlow:
         # Lineage generation called but emission should NOT be called (no upstream URNs)
         gen._generate_column_lineage_for_semantic_view.assert_called_once()
         gen._emit_semantic_view_lineage.assert_not_called()
+
+    def test_process_semantic_views_cross_db_urns_not_filtered_by_database_pattern(
+        self, mock_schema_gen
+    ):
+        """Cross-database upstream URNs must not be filtered by database_pattern.
+
+        Before the bugfix, is_dataset_pattern_allowed() was applied to upstream base
+        table URNs in _process_semantic_views, silently dropping any table whose
+        database was excluded from the recipe scope. Regular view lineage does not
+        apply the pattern to upstreams. This test ensures the regression cannot be
+        silently reintroduced.
+        """
+        gen = mock_schema_gen
+        # Simulate a recipe that excludes BASE_DB from its scope
+        gen.filters.is_dataset_pattern_allowed.return_value = False
+
+        cross_db_base_table = SnowflakeTableIdentifier(
+            database="BASE_DB", schema="BASE_SCHEMA", table="BASE_TABLE"
+        )
+        semantic_view = SnowflakeSemanticView(
+            name="CROSS_DB_VIEW",
+            created=datetime.datetime.now(),
+            comment="",
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime.datetime.now(),
+            base_tables=[cross_db_base_table],
+            columns=[],
+        )
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
+
+        list(
+            gen._process_semantic_views(
+                [semantic_view], schema, "SEMANTIC_DB", "PUBLIC"
+            )
+        )
+
+        # The cross-DB URN must be present even though is_dataset_pattern_allowed
+        # returns False for BASE_DB — upstream URNs are never filtered by pattern
+        assert len(semantic_view.resolved_upstream_urns) == 1
+        assert semantic_view.resolved_upstream_urns[0] == (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,BASE_DB.BASE_SCHEMA.BASE_TABLE,PROD)"
+        )
+
+    @pytest.mark.parametrize("column_lineage", [True, False])
+    def test_process_semantic_views_emits_structured_warning_when_no_upstream_urns(
+        self, mock_schema_gen, column_lineage
+    ):
+        """When a semantic view has no base tables, a structured_reporter.warning must fire.
+
+        Before the bugfix, the connector only emitted logger.debug("No upstream URNs
+        found"), making the lineage skip invisible in standard ingestion runs and the
+        ingestion report. The warning fires in the pre-computation loop before any
+        column_lineage branching, so it must fire regardless of that config flag.
+        """
+        gen = mock_schema_gen
+        gen.config.semantic_views.column_lineage = column_lineage
+
+        semantic_view = SnowflakeSemanticView(
+            name="NO_BASE_TABLES_VIEW",
+            created=datetime.datetime.now(),
+            comment="",
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime.datetime.now(),
+            base_tables=[],
+            columns=[],
+        )
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
+
+        with patch.object(gen.report, "warning") as mock_warning:
+            list(
+                gen._process_semantic_views(
+                    [semantic_view], schema, "TEST_DB", "PUBLIC"
+                )
+            )
+
+        mock_warning.assert_called_once()
+        call_kwargs = mock_warning.call_args.kwargs
+        assert call_kwargs["title"] == "Semantic view lineage skipped"
+        assert call_kwargs["context"] == "TEST_DB.PUBLIC.NO_BASE_TABLES_VIEW"
 
 
 class TestSemanticViewEdgeCases:

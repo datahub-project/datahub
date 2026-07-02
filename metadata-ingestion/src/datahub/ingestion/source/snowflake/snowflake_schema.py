@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -1326,6 +1327,71 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.warning(
                 f"Failed to fetch semantic tables for database {db_name}: {e}"
             )
+
+        # Fallback: for any semantic view that received no rows from
+        # INFORMATION_SCHEMA.SEMANTIC_TABLES (e.g. the ingestion role lacks REFERENCES
+        # on cross-database base tables), parse the TABLES clause from the DDL directly.
+        # The DDL is already fetched during ingestion and contains fully-qualified base
+        # table names, so no additional Snowflake privileges are required.
+        for schema_name, views in semantic_views.items():
+            for semantic_view in views:
+                if not semantic_view.base_tables and isinstance(
+                    semantic_view.view_definition, str
+                ):
+                    parsed = self._parse_base_tables_from_ddl(
+                        semantic_view.view_definition
+                    )
+                    for logical_alias_upper, (db, schema, table) in parsed.items():
+                        base_table_id = SnowflakeTableIdentifier(
+                            database=db, schema=schema, table=table
+                        )
+                        semantic_view.base_tables.append(base_table_id)
+                        semantic_view.logical_to_physical_table[
+                            logical_alias_upper
+                        ] = base_table_id.as_tuple()
+                    if parsed:
+                        logger.debug(
+                            f"Populated {len(parsed)} base tables for "
+                            f"{semantic_view.name} from DDL fallback "
+                            f"(INFORMATION_SCHEMA.SEMANTIC_TABLES returned no rows)"
+                        )
+
+    @staticmethod
+    def _parse_base_tables_from_ddl(
+        view_definition: str,
+    ) -> Dict[str, Tuple[str, str, str]]:
+        """
+        Parse the TABLES clause of a semantic view DDL to recover the
+        logical-alias to physical-table mapping.
+
+        Handles both plain and AS-aliased entries:
+            DB.SCHEMA.TABLE  PRIMARY KEY (col)
+            DB.SCHEMA.TABLE  AS alias  PRIMARY KEY (col)
+
+        Returns {LOGICAL_ALIAS_UPPER: (database, schema, table)}.
+        """
+        tables_block_match = re.search(
+            r"\bTABLES\s*\(", view_definition, re.IGNORECASE
+        )
+        if not tables_block_match:
+            return {}
+        after_tables = view_definition[tables_block_match.end() :]
+        pattern = re.compile(
+            r'((?:"[^"]+"|[\w$]+)\.(?:"[^"]+"|[\w$]+)\.(?:"[^"]+"|[\w$]+))'
+            r'(?:\s+AS\s+("?[\w$]+"?))?'
+            r"\s+primary\s+key",
+            re.IGNORECASE,
+        )
+        result: Dict[str, Tuple[str, str, str]] = {}
+        for m in pattern.finditer(after_tables):
+            parts = [p.strip('"') for p in m.group(1).split(".")]
+            if len(parts) != 3:
+                continue
+            db, schema, table = parts
+            alias = m.group(2)
+            logical_alias = (alias.strip('"') if alias else table).upper()
+            result[logical_alias] = (db, schema, table)
+        return result
 
     def _fetch_semantic_columns(
         self,

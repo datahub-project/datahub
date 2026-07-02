@@ -697,3 +697,136 @@ def test_ddl_fetch_failure(mock_connection):
     semantic_view = semantic_views["PUBLIC"][0]
     # view_definition should remain None
     assert semantic_view.view_definition is None
+
+
+# ---------------------------------------------------------------------------
+# Tests for _parse_base_tables_from_ddl (DDL fallback for cross-DB lineage)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_base_tables_from_ddl_simple():
+    """Plain 3-part identifiers with no AS alias."""
+    ddl = """
+    CREATE SEMANTIC VIEW my_view AS
+    TABLES (
+        DB1.SCH1.TABLE_A PRIMARY KEY (id),
+        DB2.SCH2.TABLE_B PRIMARY KEY (id)
+    )
+    """
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {
+        "TABLE_A": ("DB1", "SCH1", "TABLE_A"),
+        "TABLE_B": ("DB2", "SCH2", "TABLE_B"),
+    }
+
+
+def test_parse_base_tables_from_ddl_with_alias():
+    """AS alias should be preferred over the table name as the logical key."""
+    ddl = """
+    CREATE SEMANTIC VIEW my_view AS
+    TABLES (
+        DB1.SCH1.LONG_PHYSICAL_NAME AS orders PRIMARY KEY (id),
+        DB2.SCH2.ANOTHER_TABLE PRIMARY KEY (id)
+    )
+    """
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {
+        "ORDERS": ("DB1", "SCH1", "LONG_PHYSICAL_NAME"),
+        "ANOTHER_TABLE": ("DB2", "SCH2", "ANOTHER_TABLE"),
+    }
+
+
+def test_parse_base_tables_from_ddl_quoted_identifiers():
+    """Quoted identifiers with mixed case should be stripped of quotes."""
+    ddl = """
+    CREATE SEMANTIC VIEW my_view AS
+    TABLES (
+        "MyDB"."MySchema"."MyTable" PRIMARY KEY (id)
+    )
+    """
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {
+        "MYTABLE": ("MyDB", "MySchema", "MyTable"),
+    }
+
+
+def test_parse_base_tables_from_ddl_no_tables_clause():
+    """DDL without a TABLES clause should return empty dict."""
+    ddl = "CREATE SEMANTIC VIEW my_view AS SELECT 1"
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {}
+
+
+def test_parse_base_tables_from_ddl_empty_string():
+    """Empty DDL should return empty dict without raising."""
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl("")
+    assert result == {}
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
+    """When INFORMATION_SCHEMA.SEMANTIC_TABLES returns 0 rows, base tables
+    should be populated from the semantic view's DDL."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_CATALOG": "SEM_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "cross_db_view",
+            "CREATED": datetime.datetime.now(),
+            "COMMENT": "",
+        },
+    ]
+
+    # INFORMATION_SCHEMA.SEMANTIC_TABLES returns 0 rows (missing REFERENCES)
+    mock_semantic_tables_cursor = MagicMock()
+    mock_semantic_tables_cursor.__iter__.return_value = []
+
+    # SEMANTIC_DIMENSIONS/FACTS/METRICS — empty
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+
+    ddl = (
+        "CREATE SEMANTIC VIEW cross_db_view AS\n"
+        "TABLES (\n"
+        "  BASE_DB.BASE_SCHEMA.CUSTOMERS PRIMARY KEY (id),\n"
+        "  BASE_DB.BASE_SCHEMA.ORDERS AS orders PRIMARY KEY (id)\n"
+        ")"
+    )
+    mock_ddl_cursor = MagicMock()
+    mock_ddl_cursor.fetchone.return_value = {"DDL": ddl}
+
+    connection = mock_connection.return_value
+    connection.query.side_effect = [
+        mock_semantic_views_cursor,  # get_semantic_views_for_database
+        mock_ddl_cursor,             # GET_DDL
+        mock_semantic_tables_cursor, # get_semantic_tables_for_database (0 rows)
+        mock_empty_cursor,           # semantic_dimensions
+        mock_empty_cursor,           # semantic_facts
+        mock_empty_cursor,           # semantic_metrics
+    ]
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(connection=connection, report=report)
+
+    semantic_views = data_dict.get_semantic_views_for_database("SEM_DB")
+
+    semantic_view = semantic_views["PUBLIC"][0]
+
+    # DDL fallback should have populated base_tables
+    assert len(semantic_view.base_tables) == 2
+    base_table_strs = [str(bt) for bt in semantic_view.base_tables]
+    assert "BASE_DB.BASE_SCHEMA.CUSTOMERS" in base_table_strs
+    assert "BASE_DB.BASE_SCHEMA.ORDERS" in base_table_strs
+
+    # logical_to_physical_table should reflect the AS alias for ORDERS
+    assert semantic_view.logical_to_physical_table.get("ORDERS") == (
+        "BASE_DB",
+        "BASE_SCHEMA",
+        "ORDERS",
+    )
+    assert semantic_view.logical_to_physical_table.get("CUSTOMERS") == (
+        "BASE_DB",
+        "BASE_SCHEMA",
+        "CUSTOMERS",
+    )
