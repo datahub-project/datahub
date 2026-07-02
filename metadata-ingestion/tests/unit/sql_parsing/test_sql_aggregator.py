@@ -11,7 +11,8 @@ from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.metadata.schema_classes import QueryUsageStatisticsClass
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -994,6 +995,71 @@ def test_basic_usage() -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_query_usage_stats_attributed_to_temp_table_composite_query() -> None:
+    # Query usage counts are recorded per raw-statement fingerprint, but a query
+    # fed by temp tables is emitted as a Query entity under a *composite*
+    # fingerprint. The usage must land on that composite Query URN (the one the
+    # lineage edges reference), otherwise per-query popularity is silently dropped
+    # for every temp-table-fed target - the common ELT/dbt shape.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create temp table staging as select a, b from source_table",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="insert into prod_target select a, b from staging",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    # The temp-table session collapsed into exactly one composite query.
+    composite_ids = list(aggregator.report.queries_with_temp_upstreams.keys())
+    assert len(composite_ids) == 1
+    composite_query_urn = QueryUrn(composite_ids[0]).urn()
+
+    usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+
+    # Usage lands on the composite Query - and only there. The raw component
+    # statements must not surface as separate (orphan) Query entities carrying a
+    # duplicate of the same usage.
+    assert {mcp.entityUrn for mcp in usage_mcps} == {composite_query_urn}
+    # The pipeline ran once, so the count reflects the base statement (not the sum
+    # of the merged component statements, which would be > 1).
+    usage_aspect = usage_mcps[0].aspect
+    assert isinstance(usage_aspect, QueryUsageStatisticsClass)
+    assert usage_aspect.queryCount == 1
+    assert aggregator.report.num_query_usage_stats_generated == 1
 
 
 def test_table_swap_id() -> None:
