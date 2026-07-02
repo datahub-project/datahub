@@ -43,7 +43,6 @@
               retention_days: {{query_cleanup.retention_days}}{{^query_cleanup.retention_days}}30{{/query_cleanup.retention_days}}
               hard_delete_entities: {{query_cleanup.hard_delete_entities}}{{^query_cleanup.hard_delete_entities}}false{{/query_cleanup.hard_delete_entities}}
               batch_size: {{query_cleanup.batch_size}}{{^query_cleanup.batch_size}}500{{/query_cleanup.batch_size}}
-              max_workers: {{query_cleanup.max_workers}}{{^query_cleanup.max_workers}}10{{/query_cleanup.max_workers}}
               limit_entities_delete: {{query_cleanup.limit_entities_delete}}{{^query_cleanup.limit_entities_delete}}25000{{/query_cleanup.limit_entities_delete}}
               runtime_limit_seconds: {{query_cleanup.runtime_limit_seconds}}{{^query_cleanup.runtime_limit_seconds}}7200{{/query_cleanup.runtime_limit_seconds}}
             execution_request_cleanup:
