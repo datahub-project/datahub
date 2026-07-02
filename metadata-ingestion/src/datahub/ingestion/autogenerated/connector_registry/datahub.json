@@ -255,7 +255,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Stale entity removal via stateful ingestion",
+          "description": "Stale entity removal via stateful ingestion. Only meaningful with create_datasets=True: in pure enrichment mode the connector owns no Dataset entities, so there is nothing for stale removal to soft-delete (glossary terms, tags and domains are shared, not per-run).",
           "subtype_modifier": null,
           "supported": true
         },
