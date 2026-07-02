@@ -1,7 +1,9 @@
+from typing import List, Optional
 from unittest import mock
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
 from datahub.ingestion.source.sql.trino import TrinoConfig, TrinoSource
 from datahub.metadata.schema_classes import (
@@ -14,7 +16,10 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def get_test_trino_source(include_column_lineage: bool = True) -> TrinoSource:
+def get_test_trino_source(
+    include_column_lineage: bool = True,
+    graph: Optional[DataHubGraph] = None,
+) -> TrinoSource:
     config = TrinoConfig(
         host_port="localhost:8080",
         database="iceberg_catalog",
@@ -23,7 +28,28 @@ def get_test_trino_source(include_column_lineage: bool = True) -> TrinoSource:
         ingest_lineage_to_connectors=True,
     )
     return TrinoSource(
-        config=config, ctx=PipelineContext(run_id="test"), platform="trino"
+        config=config,
+        ctx=PipelineContext(run_id="test", graph=graph),
+        platform="trino",
+    )
+
+
+def make_source_schema(field_paths: List[str]) -> SchemaMetadataClass:
+    """Schema as the *connector source* (e.g. Iceberg) ingested it — real casing."""
+    return SchemaMetadataClass(
+        schemaName="contextad.accountcontact",
+        platform="urn:li:dataPlatform:iceberg",
+        version=0,
+        hash="",
+        platformSchema=SchemalessClass(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=path,
+                nativeDataType="varchar",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+            )
+            for path in field_paths
+        ],
     )
 
 
@@ -79,6 +105,105 @@ def test_trino_gen_lineage_workunit_includes_fine_grained_lineage_when_schema_pr
     assert make_schema_field_urn(dataset_urn, "accountid") in [
         fg.downstreams[0] for fg in fgl if fg.downstreams
     ]
+
+
+def test_trino_gen_lineage_workunit_resolves_upstream_column_case_from_source_schema():
+    """Upstream column URNs must use the source's real (mixed-case) column names,
+    looked up from the source dataset's schema in the graph, not Trino's lowercase
+    names. The downstream (Trino) side stays lowercase."""
+    source_schema = make_source_schema(
+        ["AccountId", "AccountManagerId", "BusinessDevId", "AccountServiceType"]
+    )
+    graph = mock.Mock(spec=DataHubGraph)
+    graph.get_aspect.return_value = source_schema
+    source = get_test_trino_source(include_column_lineage=True, graph=graph)
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg_catalog.contextad.accountcontact,PROD)"
+    source_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,contextad.accountcontact,PROD)"
+    )
+    # Trino reports columns lowercase.
+    trino_schema = get_test_trino_schema_metadata(
+        ["accountid", "accountmanagerid", "businessdevid", "accountservicetype"]
+    )
+
+    workunits = list(
+        source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema)
+    )
+    assert len(workunits) == 1
+    upstream_lineage = workunits[0].get_aspect_of_type(UpstreamLineageClass)
+    assert isinstance(upstream_lineage, UpstreamLineageClass)
+    fgl = upstream_lineage.fineGrainedLineages
+    assert fgl is not None
+    assert len(fgl) == 4
+
+    upstreams = [fg.upstreams[0] for fg in fgl if fg.upstreams]
+    downstreams = [fg.downstreams[0] for fg in fgl if fg.downstreams]
+
+    # Upstream uses the source's mixed-case column name.
+    assert make_schema_field_urn(source_dataset_urn, "AccountId") in upstreams
+    assert make_schema_field_urn(source_dataset_urn, "AccountServiceType") in upstreams
+    # The lowercase upstream URN must NOT be emitted.
+    assert make_schema_field_urn(source_dataset_urn, "accountid") not in upstreams
+    # Downstream (Trino) stays lowercase.
+    assert make_schema_field_urn(dataset_urn, "accountid") in downstreams
+
+
+def test_trino_gen_lineage_workunit_falls_back_to_trino_path_when_source_schema_missing():
+    """With a graph but no source schema (e.g. source not ingested yet), fall back to
+    Trino's own column path so behaviour is unchanged for already-matching sources."""
+    graph = mock.Mock(spec=DataHubGraph)
+    graph.get_aspect.return_value = None  # source schema not available
+    source = get_test_trino_source(include_column_lineage=True, graph=graph)
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg_catalog.contextad.accountcontact,PROD)"
+    source_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,contextad.accountcontact,PROD)"
+    )
+    trino_schema = get_test_trino_schema_metadata(["accountid", "accountservicetype"])
+
+    workunits = list(
+        source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema)
+    )
+    upstream_lineage = workunits[0].get_aspect_of_type(UpstreamLineageClass)
+    assert isinstance(upstream_lineage, UpstreamLineageClass)
+    fgl = upstream_lineage.fineGrainedLineages
+    assert fgl is not None
+    assert len(fgl) == 2
+    upstreams = [fg.upstreams[0] for fg in fgl if fg.upstreams]
+    # Falls back to the Trino (lowercase) path on the source urn.
+    assert make_schema_field_urn(source_dataset_urn, "accountid") in upstreams
+
+
+def test_trino_gen_lineage_workunit_skips_columns_without_source_match():
+    """When the source schema is known but a Trino column has no case-insensitive
+    match, that column's lineage is skipped (no invalid upstream URN emitted)."""
+    source_schema = make_source_schema(["AccountId"])  # source only has AccountId
+    graph = mock.Mock(spec=DataHubGraph)
+    graph.get_aspect.return_value = source_schema
+    source = get_test_trino_source(include_column_lineage=True, graph=graph)
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg_catalog.contextad.accountcontact,PROD)"
+    source_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,contextad.accountcontact,PROD)"
+    )
+    # "trinoonly" has no counterpart in the source schema.
+    trino_schema = get_test_trino_schema_metadata(["accountid", "trinoonly"])
+
+    workunits = list(
+        source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema)
+    )
+    upstream_lineage = workunits[0].get_aspect_of_type(UpstreamLineageClass)
+    assert isinstance(upstream_lineage, UpstreamLineageClass)
+    fgl = upstream_lineage.fineGrainedLineages
+    assert fgl is not None
+    assert len(fgl) == 1  # only the matched column
+    assert make_schema_field_urn(source_dataset_urn, "AccountId") in [
+        fg.upstreams[0] for fg in fgl if fg.upstreams
+    ]
+    # The dataset-level upstream is still present regardless.
+    assert len(upstream_lineage.upstreams) == 1
+    assert upstream_lineage.upstreams[0].dataset == source_dataset_urn
 
 
 def test_trino_gen_lineage_workunit_no_fine_grained_lineage_when_disabled():
