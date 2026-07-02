@@ -1404,28 +1404,24 @@ def test_bigquery_config_deprecated_schema_pattern():
     )  # dataset_pattern
 
 
-def test_bigquery_config_usage_start_time_forwarded_to_top_level():
-    config = BigQueryV2Config.model_validate(
-        {"usage": {"start_time": "2023-01-01T00:00:00Z"}}
-    )
-    assert config.start_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
-
-
-def test_bigquery_config_usage_bucket_duration_forwarded_to_top_level():
-    config = BigQueryV2Config.model_validate({"usage": {"bucket_duration": "HOUR"}})
-    assert config.bucket_duration == BucketDuration.HOUR
-
-
-def test_bigquery_config_programmatic_usage_object_bypasses_forwarding():
-    # Documents an intentional gap: forwarding only handles the YAML/dict recipe
-    # path. Passing an already-built BigQueryUsageConfig object programmatically
-    # skips both forwarding and conflict detection. Recipes always come from YAML,
-    # so this is accepted as low risk rather than fixed.
-    config = BigQueryV2Config(
-        usage=BigQueryUsageConfig(start_time="2023-01-01T00:00:00Z")
-    )
-    assert config.usage.start_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
-    assert config.start_time != datetime(2023, 1, 1, tzinfo=timezone.utc)
+@pytest.mark.parametrize(
+    "field,usage_value,expected",
+    [
+        (
+            "start_time",
+            "2023-01-01T00:00:00Z",
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+        ("end_time", "2023-01-01T00:00:00Z", datetime(2023, 1, 1, tzinfo=timezone.utc)),
+        ("bucket_duration", "HOUR", BucketDuration.HOUR),
+        ("max_query_duration", "PT30M", timedelta(minutes=30)),
+    ],
+)
+def test_bigquery_config_usage_field_forwarded_to_top_level(
+    field: str, usage_value: str, expected: object
+) -> None:
+    config = BigQueryV2Config.model_validate({"usage": {field: usage_value}})
+    assert getattr(config, field) == expected
 
 
 @pytest.mark.parametrize(
@@ -1455,18 +1451,6 @@ def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
         assert any("deprecated" in record.msg for record in caplog.records)
 
 
-def test_bigquery_config_usage_max_query_duration_forwarded_to_top_level():
-    config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
-    assert config.max_query_duration == timedelta(minutes=30)
-
-
-def test_bigquery_config_usage_end_time_forwarded_to_top_level():
-    config = BigQueryV2Config.model_validate(
-        {"usage": {"end_time": "2023-01-01T00:00:00Z"}}
-    )
-    assert config.end_time == datetime(2023, 1, 1, tzinfo=timezone.utc)
-
-
 def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -1484,7 +1468,6 @@ def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
 
 def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
     config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
-    assert config.max_query_duration == timedelta(minutes=30)
     assert config.usage.max_query_duration == timedelta(minutes=15)  # default
 
 
@@ -1555,30 +1538,16 @@ def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_
     )
 
 
-def test_bigquery_config_apply_view_usage_to_tables_warns_under_queries_v2(
-    caplog: pytest.LogCaptureFixture,
+@pytest.mark.parametrize(
+    "field", ["apply_view_usage_to_tables", "include_read_operational_stats"]
+)
+def test_bigquery_config_legacy_only_usage_field_warns_under_queries_v2(
+    field: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         BigQueryV2Config.model_validate(
-            {"use_queries_v2": True, "usage": {"apply_view_usage_to_tables": True}}
-        )
-        assert any(
-            "use_queries_v2" in record.msg or "legacy" in record.msg
-            for record in caplog.records
-        )
-
-
-def test_bigquery_config_include_read_operational_stats_warns_under_queries_v2(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    caplog.clear()
-    with caplog.at_level(logging.WARNING):
-        BigQueryV2Config.model_validate(
-            {
-                "use_queries_v2": True,
-                "usage": {"include_read_operational_stats": True},
-            }
+            {"use_queries_v2": True, "usage": {field: True}}
         )
         assert any(
             "use_queries_v2" in record.msg or "legacy" in record.msg

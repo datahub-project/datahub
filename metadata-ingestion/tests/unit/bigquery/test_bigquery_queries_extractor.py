@@ -1279,41 +1279,28 @@ class TestQueriesExtractorUsageConfigWiring:
             BigQueryQueriesExtractorConfig(top_n_queries=2, queries_character_limit=20)
         assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
 
-    def test_format_sql_queries_true_forwarded_to_aggregator(self):
+    @pytest.mark.parametrize("value", [True, False])
+    def test_format_sql_queries_forwarded_to_aggregator(self, value):
+        # format_sql_queries is dual-target: it drives both the aggregator's own
+        # format_queries kwarg and usage_config.format_sql_queries.
         with patch(
             "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
         ) as mock_aggregator_cls:
             self._build_extractor(
-                BigQueryQueriesExtractorConfig(format_sql_queries=True)
+                BigQueryQueriesExtractorConfig(format_sql_queries=value)
             )
             _, kwargs = mock_aggregator_cls.call_args
-            assert kwargs["format_queries"] is True
-            assert kwargs["usage_config"].format_sql_queries is True
+            assert kwargs["format_queries"] is value
+            assert kwargs["usage_config"].format_sql_queries is value
 
-    def test_format_sql_queries_default_not_forwarded_as_true(self):
+    @pytest.mark.parametrize(
+        "field,value",
+        [("include_top_n_queries", False), ("queries_character_limit", 1000)],
+    )
+    def test_usage_config_field_forwarded_to_aggregator(self, field, value):
         with patch(
             "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
         ) as mock_aggregator_cls:
-            self._build_extractor(BigQueryQueriesExtractorConfig())
+            self._build_extractor(BigQueryQueriesExtractorConfig(**{field: value}))
             _, kwargs = mock_aggregator_cls.call_args
-            assert kwargs["format_queries"] is False
-
-    def test_include_top_n_queries_false_forwarded_to_aggregator_usage_config(self):
-        with patch(
-            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
-        ) as mock_aggregator_cls:
-            self._build_extractor(
-                BigQueryQueriesExtractorConfig(include_top_n_queries=False)
-            )
-            _, kwargs = mock_aggregator_cls.call_args
-            assert kwargs["usage_config"].include_top_n_queries is False
-
-    def test_queries_character_limit_forwarded_to_aggregator_usage_config(self):
-        with patch(
-            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
-        ) as mock_aggregator_cls:
-            self._build_extractor(
-                BigQueryQueriesExtractorConfig(queries_character_limit=1000)
-            )
-            _, kwargs = mock_aggregator_cls.call_args
-            assert kwargs["usage_config"].queries_character_limit == 1000
+            assert getattr(kwargs["usage_config"], field) == value

@@ -50,7 +50,7 @@ DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 
 # Fields inherited from BaseTimeWindowConfig/BaseUsageConfig that are duplicated
 # on the nested `usage` config but only ever read from the top level of
-# BigQueryV2Config. See forward_usage_time_window_fields below.
+# BigQueryV2Config. See forward_deprecated_usage_fields below.
 _DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
     "start_time",
     "end_time",
@@ -125,7 +125,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     # also use) solely to surface the BigQuery-specific deprecation in generated docs.
     # Descriptions are composed from the base class's text plus a deprecation suffix,
     # rather than duplicated verbatim, so they can't silently drift out of sync.
-    # See forward_usage_time_window_fields on BigQueryV2Config for the runtime behavior.
+    # See forward_deprecated_usage_fields on BigQueryV2Config for the runtime behavior.
     start_time: datetime = Field(
         default=None,  # type: ignore
         description=f"{BaseTimeWindowConfig.model_fields['start_time'].description} "
@@ -580,19 +580,17 @@ class BigQueryV2Config(
 
     @model_validator(mode="before")
     @classmethod
-    def forward_usage_time_window_fields(cls, values: Any) -> Any:
+    def forward_deprecated_usage_fields(cls, values: Any) -> Any:
         # `usage.start_time`/`end_time`/`bucket_duration`/`max_query_duration` are
         # inherited from BaseTimeWindowConfig/BaseUsageConfig via BigQueryUsageConfig
         # but were never read by either the queries-v2 or legacy code paths, which
         # both use the top-level copies. These are connector-wide settings governing
         # lineage, usage, and operations together, so they belong at the top level only.
         if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
-            # Intentional: this only handles the YAML/dict recipe path. Programmatic
-            # construction with an already-built BigQueryUsageConfig object (rather than
-            # a dict) bypasses forwarding and conflict detection - recipes always come
-            # from YAML, so this is low risk in practice.
+            # usage.pop() below requires a dict; skip if usage is already a
+            # BigQueryUsageConfig object. Accepted since recipes always come from YAML.
             return values
-        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        # Copy first: usage.pop() below must not mutate the caller's dict.
         values = deepcopy(values)
         usage = values["usage"]
         for field in _DEPRECATED_USAGE_TOP_LEVEL_FIELDS:
