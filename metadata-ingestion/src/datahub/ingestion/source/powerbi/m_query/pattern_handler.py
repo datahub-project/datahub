@@ -1593,7 +1593,7 @@ class OdbcLineage(AbstractLineage):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
-                data_access_func_detail, data_platform, platform_pair, server_name
+                data_access_func_detail, data_platform, platform_pair, server_name, dsn
             )
 
     def query_lineage(
@@ -1638,18 +1638,28 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        # Athena-specific processing: catalog stripping and federated table platform override
+        return self._apply_athena_post_processing(result, platform_pair, dsn)
+
+    def _apply_athena_post_processing(
+        self, lineage: Lineage, platform_pair: DataPlatformPair, dsn: str
+    ) -> Lineage:
+        """Normalize Athena ODBC lineage; no-op for other platforms.
+
+        Shared by both ODBC paths (SQL ``query_lineage`` and navigation
+        ``expression_lineage``) so their Athena handling can't drift:
+        - strip the catalog prefix so URNs match the standalone Athena connector
+          (``database.table``, e.g. ``awsdatacatalog.db.t`` -> ``db.t``)
+        - remap federated tables to their real platform (e.g. athena -> mysql)
+        """
         if (
             platform_pair.datahub_data_platform_name
-            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+            != SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
         ):
-            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
-            # This ensures URN consistency with the standalone Athena connector
-            result = self._strip_athena_catalog_from_lineage(result)
-            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
-            result = self._apply_table_platform_override(result, dsn)
+            return lineage
 
-        return result
+        lineage = self._strip_athena_catalog_from_lineage(lineage)
+        lineage = self._apply_table_platform_override(lineage, dsn)
+        return lineage
 
     @staticmethod
     def _transform_lineage_urns(
@@ -1805,6 +1815,7 @@ class OdbcLineage(AbstractLineage):
         data_platform: str,
         platform_pair: DataPlatformPair,
         server_name: str,
+        dsn: str,
     ) -> Lineage:
         database_name = None
         schema_name = None
@@ -1840,6 +1851,11 @@ class OdbcLineage(AbstractLineage):
         ):
             qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
         elif database_name is not None and table_name is not None:
+            # 2-level navigation (Database + Table, no Schema). For Athena this is ambiguous —
+            # the single level could be the catalog or the glue database — so the catalog is left
+            # in place (the 2-part stripper can't tell them apart, and the native Athena connector
+            # likewise requires a full catalog.schema.table hierarchy). Athena navigation is
+            # normally 3-level, so this branch is the non-Athena / degenerate case.
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
@@ -1868,7 +1884,7 @@ class OdbcLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
+        result = Lineage(
             upstreams=[
                 DataPlatformTable(
                     data_platform_pair=platform_pair,
@@ -1877,6 +1893,13 @@ class OdbcLineage(AbstractLineage):
             ],
             column_lineage=column_lineage,
         )
+
+        # Odbc.DataSource hierarchical navigation against Athena surfaces the catalog (e.g.
+        # "AwsDataCatalog") as the Database level, so the typical qualified name is 3-part
+        # (catalog.database.table). The standalone Athena connector omits the catalog, so without
+        # the shared post-processing below the navigation-based URNs never match Athena entities.
+        # (A degenerate 2-level navigation keeps the catalog — see the qualified-name branch above.)
+        return self._apply_athena_post_processing(result, platform_pair, dsn)
 
     @staticmethod
     def create_platform_pair(

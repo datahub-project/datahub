@@ -1197,6 +1197,132 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
     )
 
 
+def test_odbc_expression_lineage_strips_athena_catalog(odbc_lineage):
+    """
+    Verify catalog stripping through the Odbc.DataSource navigation path
+    (expression_lineage), not just the SQL query path.
+
+    Reports built with Odbc.DataSource("dsn=...", [HierarchicalNavigation=true]) surface the
+    Athena catalog as the Database navigation level, yielding 3-part catalog.database.table names.
+    The catalog must be stripped so the upstream URN matches the standalone Athena connector.
+    """
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "country", "Kind": "Table"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="schema",
+        items={"Name": "dimensions", "Kind": "Schema"},
+        next=table_accessor,
+    )
+    catalog_accessor = IdentifierAccessor(
+        identifier="database",
+        items={"Name": "AwsDataCatalog", "Kind": "Database"},
+        next=schema_accessor,
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=catalog_accessor,
+        node_map={},
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    lineage = odbc_lineage.expression_lineage(
+        data_access_func_detail=data_access_func_detail,
+        data_platform="athena",
+        platform_pair=platform_pair,
+        server_name="dwh-prod-athena",
+        dsn="dwh-prod-athena",
+    )
+
+    assert len(lineage.upstreams) == 1
+    # 3-part catalog.database.table is collapsed to database.table, matching Athena entities
+    assert (
+        lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,dimensions.country,PROD)"
+    )
+    assert "awsdatacatalog" not in lineage.upstreams[0].urn
+
+
+def test_odbc_expression_lineage_integration_catalog_stripping_and_platform_override():
+    """
+    Integration test for the navigation path: catalog stripping AND federated platform override
+    run together through expression_lineage() (symmetric to the query_lineage integration test).
+    """
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        dsn_to_platform_name={"dwh-prod-athena": "athena"},
+        athena_table_platform_override=[
+            # Override uses the 2-part name produced AFTER catalog stripping
+            AthenaPlatformOverride(
+                database="federated", table="orders", platform="mysql"
+            ),
+        ],
+    )
+
+    odbc = OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="orders", full_name="awsdatacatalog.federated.orders"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "orders", "Kind": "Table"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="schema",
+        items={"Name": "federated", "Kind": "Schema"},
+        next=table_accessor,
+    )
+    catalog_accessor = IdentifierAccessor(
+        identifier="database",
+        items={"Name": "AwsDataCatalog", "Kind": "Database"},
+        next=schema_accessor,
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=catalog_accessor,
+        node_map={},
+    )
+
+    lineage = odbc.expression_lineage(
+        data_access_func_detail=data_access_func_detail,
+        data_platform="athena",
+        platform_pair=DataPlatformPair(
+            datahub_data_platform_name="athena",
+            powerbi_data_platform_name="Amazon Athena",
+        ),
+        server_name="dwh-prod-athena",
+        dsn="dwh-prod-athena",
+    )
+
+    assert len(lineage.upstreams) == 1
+    # Catalog stripped (awsdatacatalog.federated.orders -> federated.orders) AND platform
+    # overridden athena -> mysql for the federated table.
+    assert (
+        lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,federated.orders,PROD)"
+    )
+
+
 # Tests for athena_table_platform_override config validation
 def test_athena_table_platform_override_unknown_platform_raises():
     """Test that unknown platform names raise validation error."""
