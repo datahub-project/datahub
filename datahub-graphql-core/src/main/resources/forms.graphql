@@ -367,6 +367,14 @@ type FormActorAssignment {
   owners: Boolean!
 
   """
+  Optional: Specific ownership types to filter which owners are assigned.
+  When specified, only owners with these ownership types will be assigned the form.
+  If not specified and owners=true, all owners will be assigned regardless of type.
+  Supports both built-in types and custom ownership types.
+  """
+  ownershipTypes: [OwnershipTypeEntity!]
+
+  """
   Urns of the users that the form is assigned to. If null, then no users are specifically targeted.
   """
   users: [CorpUser!]
@@ -493,6 +501,13 @@ input FormActorAssignmentInput {
   owners: Boolean
 
   """
+  Optional: Specific ownership type URNs to filter which owners are assigned.
+  When specified, only owners with these ownership types will be assigned the form.
+  Supports both built-in (`urn:li:ownershipType:__system__...`) and custom ownership types.
+  """
+  ownershipTypes: [String!]
+
+  """
   The optional list of user urns to assign this form to
   """
   users: [String!]
@@ -561,6 +576,19 @@ input FormActorAssignmentUpdateInput {
   Whether this form will be applied to owners of associated entities or not. Default is true.
   """
   owners: Boolean
+
+  """
+  The optional list of ownership type urns to add to this form's owner-type filter.
+  When non-empty, only owners with one of these ownership types will be assigned the form.
+  Leave the assigned ownership-type list empty (the default) to assign owners regardless of type.
+  Supports both built-in (`urn:li:ownershipType:__system__...`) and custom ownership types.
+  """
+  ownershipTypesToAdd: [String!]
+
+  """
+  The ownership type urns being removed from this form's owner-type filter.
+  """
+  ownershipTypesToRemove: [String!]
 
   """
   The optional list of user urns to assign this form to

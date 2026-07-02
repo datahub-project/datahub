@@ -915,7 +915,8 @@ public class FormService extends BaseService {
   /**
    * A form is assigned to a user if either the user or a group the user is in is explicitly set on
    * the actors field on a form. Otherwise, if the actors field says that owners are assigned,
-   * ensure this actor, or a group they're in, is an owner of this entity.
+   * ensure this actor, or a group they're in, is an owner of this entity. If specific ownership
+   * types are specified, only owners with those types will be considered assigned.
    */
   public boolean isFormAssignedToUser(
       @Nonnull OperationContext opContext,
@@ -932,7 +933,10 @@ public class FormService extends BaseService {
 
     if (formActorAssignment.isOwners()) {
       Ownership entityOwnership = getEntityOwnership(opContext, entityUrn);
-      return OwnershipUtils.isOwnerOfEntity(entityOwnership, actorUrn, groupsForUser);
+      List<Urn> ownershipTypes =
+          formActorAssignment.hasOwnershipTypes() ? formActorAssignment.getOwnershipTypes() : null;
+      return OwnershipUtils.isOwnerOfEntityWithType(
+          entityOwnership, actorUrn, groupsForUser, ownershipTypes);
     }
 
     return false;

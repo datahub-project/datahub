@@ -117,7 +117,7 @@ With the Questions and assigned Assets defined, the next step is to select the A
 
 In the **Add Recipients** section, decide who is responsible for completing the Form:
 
-- **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
+- **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users. You can optionally restrict the assignment to specific ownership types (Technical Owner, Data Steward, Business Owner, or any custom ownership type) — when no types are selected, all owners are assigned regardless of type.
 - **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
 
 Additionally, you can configure notification preferences:

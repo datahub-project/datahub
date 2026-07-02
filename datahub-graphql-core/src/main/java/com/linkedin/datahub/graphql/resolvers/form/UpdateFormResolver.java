@@ -70,6 +70,18 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
               if (input.getActors().getOwners() != null) {
                 patchBuilder.setOwnershipForm(input.getActors().getOwners());
               }
+              if (input.getActors().getOwnershipTypesToAdd() != null) {
+                input
+                    .getActors()
+                    .getOwnershipTypesToAdd()
+                    .forEach(patchBuilder::addAssignedOwnershipType);
+              }
+              if (input.getActors().getOwnershipTypesToRemove() != null) {
+                input
+                    .getActors()
+                    .getOwnershipTypesToRemove()
+                    .forEach(patchBuilder::removeAssignedOwnershipType);
+              }
               if (input.getActors().getUsersToAdd() != null) {
                 input.getActors().getUsersToAdd().forEach(patchBuilder::addAssignedUser);
               }
