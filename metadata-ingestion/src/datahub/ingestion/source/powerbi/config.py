@@ -218,6 +218,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="mysql",
     )
 
+    HIVE = DataPlatformPair(
+        powerbi_data_platform_name="Hive",
+        datahub_data_platform_name="hive",
+    )
+
     ODBC = DataPlatformPair(
         powerbi_data_platform_name="Odbc",
         datahub_data_platform_name="odbc",
