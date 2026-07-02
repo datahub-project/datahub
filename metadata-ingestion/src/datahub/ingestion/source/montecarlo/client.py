@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 
@@ -122,6 +122,20 @@ class MonteCarloAlert(BaseModel):
     created_time: Optional[datetime] = None
     monitor_uuid: Optional[str] = None
     asset_mcons: List[str] = Field(default_factory=list)
+
+    @field_validator("created_time", mode="before")
+    @classmethod
+    def _coerce_created_time(cls, value: Any) -> Optional[datetime]:
+        # Monte Carlo returns createdTime as an ISO string; tolerate missing,
+        # non-ISO or otherwise malformed values by nulling rather than letting a
+        # ValidationError abort the whole alert page (build_run_event already
+        # guards against a missing timestamp).
+        if value is None or isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
 
 
 class ResolvedTable(BaseModel):

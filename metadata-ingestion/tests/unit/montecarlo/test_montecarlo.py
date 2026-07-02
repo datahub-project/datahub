@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 
 import pytest
 
@@ -21,6 +21,7 @@ from datahub.ingestion.source.montecarlo.mcon_resolver import (
     parse_mcon,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
+from datahub.ingestion.source.montecarlo.source import MonteCarloSource
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
@@ -557,3 +558,53 @@ def test_resolver_non_obvious_connection_types() -> None:
         ).dataset_urn_for_mcon(mcon)
         assert urn is not None
         assert "mssql" in urn, f"{connection_type} should resolve to mssql"
+
+
+def _bare_source() -> MonteCarloSource:
+    # Bypass __init__ (which constructs a pycarlo-backed client) to unit-test the
+    # per-phase emit logic in isolation.
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    source.report = MonteCarloSourceReport()
+    return source
+
+
+def test_emit_reports_fetch_failure_as_failure_not_crash() -> None:
+    source = _bare_source()
+
+    def fetch():
+        raise RuntimeError("api down")
+
+    wus = list(
+        source._emit(
+            "monitor", fetch, source.report.report_monitor_scanned, lambda item: iter(())
+        )
+    )
+    assert wus == []
+    assert len(source.report.failures) == 1
+
+
+def test_emit_skips_failing_item_and_continues() -> None:
+    source = _bare_source()
+    items = [MonteCarloAssertionDef(uuid="a"), MonteCarloAssertionDef(uuid="b")]
+
+    def build(item: MonteCarloAssertionDef) -> Iterator[MetadataWorkUnit]:
+        if item.uuid == "a":
+            raise ValueError("bad monitor")
+        yield cast(MetadataWorkUnit, "wu-b")  # sentinel; _emit only passes it through
+
+    wus = list(
+        source._emit(
+            "monitor", lambda: items, source.report.report_monitor_scanned, build
+        )
+    )
+    assert wus == ["wu-b"]  # 'b' still emitted after 'a' failed
+    assert source.report.monitors_scanned == 2
+    assert len(source.report.warnings) == 1
+
+
+def test_alert_tolerates_malformed_created_time() -> None:
+    # A non-ISO/garbage timestamp is nulled rather than raising, so one bad alert
+    # doesn't abort the whole alert page.
+    assert MonteCarloAlert(uuid="x", created_time="not-a-timestamp").created_time is None
+    parsed = MonteCarloAlert(uuid="y", created_time="2026-05-20T08:00:00Z").created_time
+    assert parsed is not None and parsed.year == 2026

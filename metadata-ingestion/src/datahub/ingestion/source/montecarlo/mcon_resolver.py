@@ -113,8 +113,11 @@ class MconResolver:
     def dataset_urn_for_mcon(self, mcon: str) -> Optional[str]:
         if mcon in self._cache:
             return self._cache[mcon]
+        urn = self._resolve(mcon)
+        self._cache[mcon] = urn
+        return urn
 
-        urn: Optional[str] = None
+    def _resolve(self, mcon: str) -> Optional[str]:
         try:
             resolved = self.client.get_table(mcon)
             parsed = parse_mcon(mcon)
@@ -125,36 +128,36 @@ class MconResolver:
                     message="Could not resolve MCON to a warehouse table; skipping.",
                     context=mcon,
                 )
-            else:
-                detail = self._platform_detail(
-                    parsed.resource_id, resolved.connection_type
+                return None
+
+            detail = self._platform_detail(parsed.resource_id, resolved.connection_type)
+            if detail is None:
+                self.report.mcons_unmapped_platform.append(mcon)
+                self.report.warning(
+                    title="Unmapped Monte Carlo warehouse",
+                    message="No platform mapping for this warehouse connection type. "
+                    "Add it to connection_to_platform_map or set default_platform.",
+                    context=f"{mcon} (connection_type={resolved.connection_type})",
                 )
-                if detail is None:
-                    self.report.mcons_unmapped_platform.append(mcon)
-                    self.report.warning(
-                        title="Unmapped Monte Carlo warehouse",
-                        message="No platform mapping for this warehouse connection type. "
-                        "Add it to connection_to_platform_map or set default_platform.",
-                        context=f"{mcon} (connection_type={resolved.connection_type})",
-                    )
-                else:
-                    # Match the casing the warehouse source emits so the assertion
-                    # attaches to the same dataset entity: Snowflake/Redshift
-                    # lowercase URNs, BigQuery and other platforms preserve case.
-                    # convert_urns_to_lowercase forces lowercase everywhere.
-                    table_id = resolved.full_table_id
-                    if (
-                        self.config.convert_urns_to_lowercase
-                        or detail.platform in LOWERCASE_URN_PLATFORMS
-                    ):
-                        table_id = table_id.lower()
-                    urn = make_dataset_urn_with_platform_instance(
-                        platform=detail.platform,
-                        name=table_id,
-                        platform_instance=detail.platform_instance,
-                        env=detail.env,
-                    )
-                    self.report.report_mcon_resolved()
+                return None
+
+            # Match the casing the warehouse source emits so the assertion attaches
+            # to the same dataset entity: Snowflake/Redshift lowercase URNs, BigQuery
+            # and other platforms preserve case. convert_urns_to_lowercase forces
+            # lowercase everywhere.
+            table_id = resolved.full_table_id
+            if (
+                self.config.convert_urns_to_lowercase
+                or detail.platform in LOWERCASE_URN_PLATFORMS
+            ):
+                table_id = table_id.lower()
+            self.report.report_mcon_resolved()
+            return make_dataset_urn_with_platform_instance(
+                platform=detail.platform,
+                name=table_id,
+                platform_instance=detail.platform_instance,
+                env=detail.env,
+            )
         except Exception as e:
             self.report.report_mcon_resolution_failed()
             self.report.warning(
@@ -163,6 +166,4 @@ class MconResolver:
                 context=mcon,
                 exc=e,
             )
-
-        self._cache[mcon] = urn
-        return urn
+            return None
