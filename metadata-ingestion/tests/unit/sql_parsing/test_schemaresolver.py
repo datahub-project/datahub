@@ -720,3 +720,74 @@ class TestConcurrentReadonlyResolvers:
         finally:
             ro1.close()
             ro2.close()
+
+
+class TestReadOnlyResolverNoWriteOnClose:
+    """Regression test: read-only resolver must not write to SQLite at close/GC time.
+
+    H1 fix verification: FileBackedDict.close() must skip flush() for read-only
+    connections, and _save_to_cache must be a no-op for read-only resolvers so
+    cache-miss paths never dirty the in-memory cache.
+    """
+
+    def test_readonly_resolver_close_after_cache_miss_does_not_raise(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Build a writable resolver, snapshot it, open read-only, trigger a miss,
+        then close — no sqlite3.OperationalError should be raised."""
+        snapshot_path = tmp_path / "schema_cache.db"
+
+        # Build a writable resolver and populate it.
+        writable = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+        writable.add_raw_schema_info(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.known_table,PROD)",
+            {"col_a": "STRING"},
+        )
+        writable.snapshot_to(snapshot_path)
+        writable.close()
+
+        # Open read-only.
+        ro = SchemaResolver.load_readonly(
+            snapshot_path, platform="snowflake", env="PROD"
+        )
+
+        # Trigger a miss on resolve_table (unknown table) — this path calls
+        # _save_to_cache(urn, None) on the writable resolver but must be a no-op here.
+        _, info_table = ro.resolve_table(
+            _TableName(database="db", db_schema="schema", table="unknown_table")
+        )
+        assert info_table is None
+
+        # Trigger a miss on resolve_urn (also calls _resolve_schema_info).
+        _, info_urn = ro.resolve_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.also_missing,PROD)"
+        )
+        assert info_urn is None
+
+        # close() must NOT raise even though misses may have dirtied the in-memory cache
+        # on the old code path.
+        ro.close()  # This was the crash site before the fix.
+
+    def test_readonly_resolver_del_does_not_raise(self, tmp_path: pathlib.Path) -> None:
+        """Simulates GC path: explicitly calling close() after __del__ chain."""
+        snapshot_path = tmp_path / "schema_cache2.db"
+
+        writable = SchemaResolver(platform="redshift", env="PROD", graph=None)
+        writable.add_raw_schema_info(
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,mydb.public.events,PROD)",
+            {"id": "INT"},
+        )
+        writable.snapshot_to(snapshot_path)
+        writable.close()
+
+        ro = SchemaResolver.load_readonly(
+            snapshot_path, platform="redshift", env="PROD"
+        )
+
+        # Miss path — used to dirty the cache, causing flush() → write → error at close.
+        ro.resolve_table(_TableName(database="mydb", db_schema="public", table="ghost"))
+
+        # Simulate what __del__ → close() does at GC time.
+        ro.close()
+        # Calling close() twice must also be safe (idempotent).
+        ro.close()

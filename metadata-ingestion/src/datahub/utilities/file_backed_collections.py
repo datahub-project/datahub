@@ -377,6 +377,11 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                         (*item[1:], item[0]),
                     )
 
+    @property
+    def filename(self) -> pathlib.Path:
+        """Return the path of the backing SQLite file."""
+        return self._conn.filename
+
     def flush(self) -> None:
         self._prune_cache(len(self._active_object_cache))
 
@@ -528,7 +533,10 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def close(self) -> None:
         if self._conn:
             if self.shared_connection:  # Connection not owned by this object
-                self.flush()  # Ensure everything is written out
+                # Skip flush for read-only connections — writes are forbidden
+                # and there is nothing to persist anyway.
+                if not self._conn.read_only:
+                    self.flush()  # Ensure everything is written out
             else:
                 self._conn.close()
 

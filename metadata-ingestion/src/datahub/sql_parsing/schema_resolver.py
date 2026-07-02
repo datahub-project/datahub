@@ -334,6 +334,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
+        # Read-only resolvers have no graph and no persistent store to update;
+        # writing to the in-memory cache would only dirty it and trigger a write
+        # attempt (→ sqlite3.OperationalError) when the cache is flushed at close.
+        if self._schema_cache._conn.read_only:
+            return
         self._schema_cache[urn] = schema_info
 
     def _fetch_schema_info(
@@ -364,9 +369,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         The resulting file is a self-contained SQLite database that worker processes
         can open read-only with ``immutable=1``, avoiding all locking overhead.
+
+        The source connection must be quiescent (no concurrent writers) when this is
+        called: we flush with ``synchronous=OFF`` so the OS page cache may not have
+        been synced to disk; copying mid-write could produce a corrupt snapshot.
         """
         self._schema_cache.flush()
-        shutil.copyfile(self._schema_cache._conn.filename, path)
+        shutil.copyfile(self._schema_cache.filename, path)
 
     @classmethod
     def load_readonly(
