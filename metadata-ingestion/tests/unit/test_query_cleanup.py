@@ -1,11 +1,10 @@
-import logging
 import time
-from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
@@ -14,6 +13,7 @@ from datahub.ingestion.source.gc.query_cleanup import (
     QueryCleanupConfig,
     QueryCleanupReport,
 )
+from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns._urn_base import Urn
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -65,125 +65,101 @@ class TestQueryCleanup:
             ],
         )
 
-    def test_delete_query_soft_delete(self) -> None:
-        self.cleanup.delete_query(self.sample_urn)
-
-        self.mock_graph.delete_entity.assert_called_once_with(
-            urn=self.sample_urn.urn(), hard=False
-        )
-        assert self.report.num_queries_soft_deleted == 1
-        assert self.report.num_queries_hard_deleted == 0
-
-    def test_delete_query_hard_delete(self) -> None:
-        self.config.hard_delete_entities = True
-
-        self.cleanup.delete_query(self.sample_urn)
-
-        self.mock_graph.delete_entity.assert_called_once_with(
-            urn=self.sample_urn.urn(), hard=True
-        )
-        assert self.report.num_queries_hard_deleted == 1
-        assert self.report.num_queries_soft_deleted == 0
-
-    def test_delete_query_dry_run(self) -> None:
-        self.cleanup.dry_run = True
-
-        self.cleanup.delete_query(self.sample_urn)
-
-        self.mock_graph.delete_entity.assert_not_called()
-        assert self.report.num_queries_soft_deleted == 0
-
-    def test_delete_query_respects_deletion_limit(self) -> None:
-        self.config.limit_entities_delete = 5
-        self.report.num_queries_soft_deleted = 6
-
-        self.cleanup.delete_query(self.sample_urn)
-
-        self.mock_graph.delete_entity.assert_not_called()
-        assert self.report.qc_deletion_limit_reached
-
-    def test_delete_query_respects_time_limit(self) -> None:
-        self.cleanup.start_time = time.time() - self.config.runtime_limit_seconds - 1
-
-        self.cleanup.delete_query(self.sample_urn)
-
-        self.mock_graph.delete_entity.assert_not_called()
-        assert self.report.qc_runtime_limit_reached
-
-    def test_cleanup_disabled(self) -> None:
-        self.config.enabled = False
-
-        self.cleanup.cleanup_queries()
-
-        self.mock_graph.get_urns_by_filter.assert_not_called()
-        self.mock_graph.delete_entity.assert_not_called()
-
-    def test_cleanup_deletes_all_candidates(self) -> None:
+    def test_soft_delete_yields_status_workunits(self) -> None:
         urns = ["urn:li:query:1", "urn:li:query:2", "urn:li:query:3"]
         self.mock_graph.get_urns_by_filter.return_value = urns
 
-        self.cleanup.cleanup_queries()
+        wus = list(self.cleanup.get_workunits())
 
+        assert len(wus) == 3
+        for wu, expected_urn in zip(wus, urns, strict=True):
+            mcp = wu.metadata
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
+            assert mcp.entityUrn == expected_urn
+            aspect = mcp.aspect
+            assert isinstance(aspect, StatusClass)
+            assert aspect.removed
+        # Soft delete never touches the imperative hard-delete path.
+        self.mock_graph.delete_entity.assert_not_called()
         assert self.report.num_queries_found == 3
         assert self.report.num_queries_soft_deleted == 3
-        assert self.mock_graph.delete_entity.call_count == 3
+        assert self.report.num_queries_hard_deleted == 0
 
-    def test_cleanup_dry_run_counts_found_but_not_deleted(self) -> None:
+    def test_hard_delete_uses_graph_delete_entity(self) -> None:
+        self.config.hard_delete_entities = True
+        urns = ["urn:li:query:1", "urn:li:query:2"]
+        self.mock_graph.get_urns_by_filter.return_value = urns
+
+        wus = list(self.cleanup.get_workunits())
+
+        # Hard delete is imperative, so it yields no workunits.
+        assert wus == []
+        assert self.mock_graph.delete_entity.call_count == 2
+        self.mock_graph.delete_entity.assert_any_call(urn=urns[0], hard=True)
+        assert self.report.num_queries_hard_deleted == 2
+        assert self.report.num_queries_soft_deleted == 0
+
+    def test_dry_run_previews_without_deleting(self) -> None:
         self.cleanup.dry_run = True
-        self.mock_graph.get_urns_by_filter.return_value = [
-            "urn:li:query:1",
-            "urn:li:query:2",
-        ]
+        urns = ["urn:li:query:1", "urn:li:query:2"]
+        self.mock_graph.get_urns_by_filter.return_value = urns
 
-        self.cleanup.cleanup_queries()
+        wus = list(self.cleanup.get_workunits())
 
+        assert wus == []
+        self.mock_graph.delete_entity.assert_not_called()
         assert self.report.num_queries_found == 2
         assert self.report.num_queries_soft_deleted == 0
-        self.mock_graph.delete_entity.assert_not_called()
+        # Dry run still previews the candidate urns.
+        assert len(self.report.sample_deleted_queries) == 2
 
-    def test_cleanup_stops_submitting_when_limit_reached(self) -> None:
-        # Pre-seed the counter so the limit is already reached before the loop
-        # starts; this deterministically exercises the main-loop break, avoiding
-        # the worker-thread overshoot race a mid-stream limit would introduce.
+    def test_disabled(self) -> None:
+        self.config.enabled = False
+
+        wus = list(self.cleanup.get_workunits())
+
+        assert wus == []
+        self.mock_graph.get_urns_by_filter.assert_not_called()
+
+    def test_respects_deletion_limit(self) -> None:
         self.config.limit_entities_delete = 2
-        self.report.num_queries_soft_deleted = 2
+        self.mock_graph.get_urns_by_filter.return_value = [
+            f"urn:li:query:{i}" for i in range(5)
+        ]
+
+        wus = list(self.cleanup.get_workunits())
+
+        assert len(wus) == 2
+        assert self.report.num_queries_soft_deleted == 2
+        assert self.report.qc_deletion_limit_reached
+
+    def test_times_up_sets_runtime_flag(self) -> None:
+        self.cleanup.start_time = time.time() - self.config.runtime_limit_seconds - 1
+
+        assert self.cleanup._times_up()
+        assert self.report.qc_runtime_limit_reached
+
+    def test_stops_when_runtime_limit_reached(self) -> None:
         self.mock_graph.get_urns_by_filter.return_value = [
             "urn:li:query:1",
             "urn:li:query:2",
         ]
 
-        self.cleanup.cleanup_queries()
+        with patch.object(self.cleanup, "_times_up", return_value=True):
+            wus = list(self.cleanup.get_workunits())
 
-        self.mock_graph.delete_entity.assert_not_called()
-        assert self.report.qc_deletion_limit_reached
+        assert wus == []
+        assert self.report.num_queries_soft_deleted == 0
 
-    def test_cleanup_skips_invalid_urn(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_skips_invalid_urn(self) -> None:
         self.mock_graph.get_urns_by_filter.return_value = [
             "urn:li:query:1",
             "invalid:urn",
         ]
 
-        with caplog.at_level(logging.ERROR):
-            self.cleanup.cleanup_queries()
+        wus = list(self.cleanup.get_workunits())
 
-        assert any("Failed to parse urn" in r.message for r in caplog.records)
+        assert len(wus) == 1
+        assert self.report.num_queries_found == 1
         assert self.report.num_queries_soft_deleted == 1
-        assert self.report.num_queries_invalid_urn == 1
-
-    def test_process_futures_reports_failure(self) -> None:
-        good = MagicMock(spec=Future)
-        good.exception.return_value = None
-        bad = MagicMock(spec=Future)
-        bad.exception.return_value = Exception("boom")
-
-        self.config.delay = None
-        with patch(
-            "datahub.ingestion.source.gc.query_cleanup.wait",
-            return_value=({good, bad}, set()),
-        ):
-            remaining = self.cleanup._process_futures(
-                {good: self.sample_urn, bad: self.sample_urn}
-            )
-
-        assert remaining == {}
-        assert len(self.report.failures) == 1
+        assert len(self.report.warnings) == 1
