@@ -4,6 +4,7 @@ import enum
 import functools
 import json
 import logging
+import os
 import pathlib
 import tempfile
 import uuid
@@ -94,6 +95,13 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+
+# A composite query concatenates every statement in a temp-table chain with no
+# size bound; a session that writes to a temp table many times can grow the
+# merged text to hundreds of MB and overflow the GMS payload limit. Cap it here.
+MAX_COMPOSITE_QUERY_STATEMENT_CHARS = int(
+    os.environ.get("DATAHUB_MAX_COMPOSITE_QUERY_STATEMENT_CHARS", str(5 * 1024 * 1024))
+)
 
 
 @dataclasses.dataclass
@@ -358,6 +366,7 @@ class SqlAggregatorReport(Report):
     num_lineage_skipped_due_to_filters: int = 0
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
+    num_composite_queries_truncated_due_to_large_size: int = 0
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0
@@ -1875,6 +1884,20 @@ class SqlParsingAggregator(Closeable):
         merged_query_text = ";\n\n".join(
             deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
+
+        if len(merged_query_text) > MAX_COMPOSITE_QUERY_STATEMENT_CHARS:
+            original_length = len(merged_query_text)
+            logger.warning(
+                f"Composite query {composite_query_id} merged from "
+                f"{len(ordered_queries)} statements is too large "
+                f"({original_length} chars); truncating to "
+                f"{MAX_COMPOSITE_QUERY_STATEMENT_CHARS} chars."
+            )
+            merged_query_text = (
+                merged_query_text[:MAX_COMPOSITE_QUERY_STATEMENT_CHARS]
+                + f"\n\n... [composite query truncated from {original_length} chars]"
+            )
+            self.report.num_composite_queries_truncated_due_to_large_size += 1
 
         resolved_query = dataclasses.replace(
             base_query,

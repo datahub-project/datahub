@@ -14,6 +14,7 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
     EnsureAspectSizeProcessor,
     EnsureAspectSizeProcessorReport,
 )
@@ -1112,6 +1113,67 @@ def test_ensure_size_of_too_big_query_properties(processor):
 
     # Should have logged a warning
     assert len(processor.ctx.source_report.warnings) == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
+    # Regression for the unit-mismatch bug: a statement made of characters that
+    # inflate under JSON encoding (newlines, each 1 raw char -> 2 JSON bytes)
+    # used to defeat the guard, because it compared a raw character count against
+    # a JSON-byte reduction target. The guard would give up and emit an oversized
+    # aspect, which GMS then rejected with a 400.
+    statement = "\n" * (6 * 1024 * 1024)
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(value=statement, language=QueryLanguageClass.SQL),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+    )
+    # The aspect really is oversized before the guard runs.
+    assert (
+        len(json.dumps(query_properties.to_obj()))
+        > QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+    processor.ensure_query_properties_size(
+        "urn:li:query:heavy_escape", query_properties
+    )
+
+    final_size = len(json.dumps(query_properties.to_obj()))
+    assert final_size < QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped statements so the aspect fits under the limit"
+    )
+    assert "... [original value was" in query_properties.statement.value
+    assert len(processor.ctx.source_report.warnings) == 1
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+
+def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
+    processor_ctx,
+):
+    # When non-statement fields (name/description) alone push the aspect over the
+    # limit, trimming the statement can't make it fit, so those fields are shed
+    # as a last resort rather than emitting an oversized aspect.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    # Force a tiny budget so a modest description overflows it.
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="d" * 5000,
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:overhead", query_properties)
+
+    assert query_properties.description is None
+    assert len(json.dumps(query_properties.to_obj())) < processor.payload_constraint
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
