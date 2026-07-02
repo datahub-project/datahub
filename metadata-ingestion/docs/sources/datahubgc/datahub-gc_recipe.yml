@@ -12,4 +12,4 @@ source:
       keep_last_n: 5
     query_cleanup:
       enabled: false
-      retention_days: 30
+      retention_days: 90

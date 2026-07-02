@@ -29,7 +29,7 @@ class QueryCleanupConfig(ConfigModel):
     )
 
     retention_days: int = Field(
-        30,
+        90,
         ge=1,
         description=(
             "Soft-delete SYSTEM queries whose lastModifiedAt is older than this many days. "

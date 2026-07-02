@@ -134,7 +134,7 @@ source:
   config:
     query_cleanup:
       enabled: false # Opt-in; destructive
-      retention_days: 30 # Age cutoff on lastModifiedAt
+      retention_days: 90 # Age cutoff on lastModifiedAt
       batch_size: 500
       limit_entities_delete: 25000
       runtime_limit_seconds: 7200
