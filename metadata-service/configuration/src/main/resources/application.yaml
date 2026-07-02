@@ -183,7 +183,7 @@ datahub:
     # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
     # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
-      enabled: ${RATE_LIMITS_ENABLED:true} # master kill switch
+      enabled: ${RATE_LIMITS_ENABLED:false} # master kill switch
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
@@ -217,7 +217,7 @@ datahub:
       # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
       # heavyResolvers is a per-resolver map, populated via the mounted override.
       scoped:
-        enabled: ${RATE_LIMITS_SCOPED_ENABLED:true}
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
         refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
         # refillTokens defaults to the bucket's capacity (nested placeholder) but can be set
         # independently; refillPeriodSeconds defaults to 60.
@@ -337,7 +337,7 @@ searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
-  cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:hazelcast}
+  cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
   semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
