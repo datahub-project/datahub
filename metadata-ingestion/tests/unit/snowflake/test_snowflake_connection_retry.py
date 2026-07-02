@@ -9,6 +9,8 @@ from typing import Callable, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     _CONNECTION_RETRY_MAX_ATTEMPTS,
@@ -287,6 +289,14 @@ class TestConnectionEstablishmentRetry:
                 False,
                 id="non_transient_error_not_retryable",
             ),
+            pytest.param(
+                None,
+                None,
+                "Upstream error mentioned 250001 in its details but this is a"
+                " different failure.",
+                False,
+                id="message_mentions_250001_without_failed_to_connect_not_retryable",
+            ),
         ],
     )
     def test_is_retryable_connection_error(self, errno, sqlstate, message, expected):
@@ -347,6 +357,47 @@ class TestConnectionEstablishmentRetry:
                 config.get_native_connection()
 
         assert mock_connect.call_count == _CONNECTION_RETRY_MAX_ATTEMPTS
+
+    def test_connect_retries_transient_failure_under_key_pair_auth(self):
+        """The motivating scenario (JWT rejection) goes through the key-pair auth branch."""
+        private_key_pem = (
+            rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            .private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            .decode()
+        )
+        config = SnowflakeConnectionConfig(
+            account_id="test_account",
+            username="user",
+            private_key=private_key_pem,
+            authentication_type="KEY_PAIR_AUTHENTICATOR",
+        )
+
+        mock_native_conn = MagicMock()
+        call_count = 0
+
+        def connect_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise MockConnectionError(
+                    "250001 (08001): Failed to connect to DB: test_account.snowflakecomputing.com:443. JWT token is invalid.",
+                    errno=250001,
+                    sqlstate="08001",
+                )
+            return mock_native_conn
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect",
+            side_effect=connect_side_effect,
+        ) as mock_connect:
+            result = config.get_native_connection()
+
+        assert result is mock_native_conn
+        assert mock_connect.call_count == 2
 
     def test_connect_does_not_retry_non_transient_error(self):
         config = SnowflakeConnectionConfig(

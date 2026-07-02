@@ -389,6 +389,15 @@ class SnowflakeConnectionConfig(ConfigModel):
         failures (250001 / SQLSTATE 08001). This covers both the main ingestion
         path and the profiler, which calls this method directly as its SQLAlchemy
         pool `creator` whenever the pool needs a new connection.
+
+        The retry wraps the full authenticator dispatch, so it applies uniformly
+        regardless of `authentication_type` -- this is intentional, since a 250001
+        can occur under any authenticator. Two side effects of that choice are
+        accepted as a bounded cost (at most 3 attempts):
+        - EXTERNAL_BROWSER_AUTHENTICATOR: a retry re-opens the SSO browser prompt.
+        - OAUTH_AUTHENTICATOR: a retry re-runs the token exchange against the IdP.
+          IdP-side failures raise their own exception types (not a 250001), so
+          those are not retried.
         """
         retryer = Retrying(
             retry=retry_if_exception(_is_retryable_connection_error),
@@ -585,10 +594,14 @@ def _is_retryable_connection_error(e: BaseException) -> bool:
     handshake. This can be a genuine network blip, or -- under key-pair authentication --
     a rejected JWT caused by clock skew between the client and Snowflake at the moment the
     JWT was generated. Since the connector generates a fresh, short-lived JWT on every
-    connect attempt, retrying can succeed even though the first attempt failed. This check
-    is authenticator-agnostic: it matches on the error code/state, not on why the handshake
-    failed, so it does not retry genuinely bad credentials (which fail with a different
-    errno/sqlstate).
+    connect attempt, retrying can succeed even though the first attempt failed.
+
+    This is a broad error code/state match, not a precise transient/persistent
+    classifier: a wrong password fails with a different errno/sqlstate (e.g. 390100 /
+    08004) and is correctly excluded, but a misconfigured account_id, a permanently
+    invalid key pair, or a TLS/proxy issue can also surface as 250001/08001 and will be
+    retried too. That's an accepted trade-off -- with only 3 attempts, the wasted retries
+    on a persistent misconfiguration cost a few seconds before the real error surfaces.
     """
     errno = getattr(e, "errno", None)
     sqlstate = getattr(e, "sqlstate", None)

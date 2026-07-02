@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
 
 PUBLIC_SCHEMA = "PUBLIC"
 
-# Matches the value used by the Fabric connector's SQLAlchemy engine.
+# Recycle pooled connections well within Snowflake's default idle session
+# timeout (4 hours) so a connection is never handed out after the server
+# has already dropped it.
 _POOL_RECYCLE_SECONDS = 3600
 
 
