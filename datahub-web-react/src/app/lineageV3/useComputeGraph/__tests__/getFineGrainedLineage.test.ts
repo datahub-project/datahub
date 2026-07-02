@@ -159,4 +159,68 @@ describe('schemaFieldExists', () => {
         expect(schemaFieldExists('urn:li:dataset:1', 'userid', nodes)).toBe(false);
         expect(schemaFieldExists('urn:li:dataset:1', 'USERID', nodes)).toBe(false);
     });
+
+    // Entities that surface their columns via the `inputFields` aspect rather
+    // than `schemaMetadata` (Chart, Dashboard, DataJob) used to fail this
+    // existence check — which caused V3 to silently drop every column-level
+    // edge that touched a chart endpoint. These tests pin the fallback.
+    const createMockChartNode = (urn: string, inputFields?: { fieldPath: string }[]): LineageEntity => ({
+        id: urn,
+        urn,
+        type: EntityType.Chart,
+        entity: inputFields
+            ? ({
+                  urn,
+                  type: EntityType.Chart,
+                  name: 'chart',
+                  inputFields: {
+                      fields: inputFields.map((f) => ({ schemaField: f })),
+                  },
+              } as any)
+            : undefined,
+        isExpanded: {} as any,
+        fetchStatus: {} as any,
+        filters: {} as any,
+    });
+
+    it('returns true for a chart-side field surfaced via inputFields', () => {
+        const nodes = new Map([
+            [
+                'urn:li:chart:1',
+                createMockChartNode('urn:li:chart:1', [
+                    { fieldPath: 'orders_order_region' },
+                    { fieldPath: 'orders_order_count' },
+                ]),
+            ],
+        ]);
+
+        expect(schemaFieldExists('urn:li:chart:1', 'orders_order_region', nodes)).toBe(true);
+        expect(schemaFieldExists('urn:li:chart:1', 'orders_order_count', nodes)).toBe(true);
+    });
+
+    it('returns false for a chart-side field not present in inputFields', () => {
+        const nodes = new Map([
+            ['urn:li:chart:1', createMockChartNode('urn:li:chart:1', [{ fieldPath: 'orders_order_region' }])],
+        ]);
+
+        expect(schemaFieldExists('urn:li:chart:1', 'orders_order_count', nodes)).toBe(false);
+    });
+
+    it('returns false when chart has an inputFields aspect but no fields', () => {
+        const nodes = new Map([['urn:li:chart:1', createMockChartNode('urn:li:chart:1', [])]]);
+
+        expect(schemaFieldExists('urn:li:chart:1', 'whatever', nodes)).toBe(false);
+    });
+
+    it('normalizes V2 field paths for inputFields-based entities too', () => {
+        const nodes = new Map([
+            [
+                'urn:li:chart:1',
+                createMockChartNode('urn:li:chart:1', [{ fieldPath: '[version=2.0].[type=string].order_region' }]),
+            ],
+        ]);
+
+        // V1 query path should match the V2 inputFields path after normalisation
+        expect(schemaFieldExists('urn:li:chart:1', 'order_region', nodes)).toBe(true);
+    });
 });
