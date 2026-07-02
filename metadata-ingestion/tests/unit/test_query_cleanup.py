@@ -53,6 +53,8 @@ class TestQueryCleanup:
             entity_types=["query"],
             status=RemovedStatusFilter.NOT_SOFT_DELETED,
             batch_size=self.config.batch_size,
+            sort_by="lastModifiedAt",
+            sort_order="ASCENDING",
             extraFilters=[
                 SearchFilterRule(
                     field="source", condition="EQUAL", values=["SYSTEM"]

@@ -113,6 +113,11 @@ class QueryCleanup:
             entity_types=["query"],
             status=RemovedStatusFilter.NOT_SOFT_DELETED,
             batch_size=self.config.batch_size,
+            # Oldest-first so a capped run (limit_entities_delete / runtime_limit_seconds)
+            # deletes the most-stale queries rather than an arbitrary scroll slice, and the
+            # dry-run preview reflects what a real run would delete.
+            sort_by="lastModifiedAt",
+            sort_order="ASCENDING",
             extraFilters=[
                 SearchFilterRule(
                     field="source",
