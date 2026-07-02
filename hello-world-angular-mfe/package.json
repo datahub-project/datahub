@@ -1,0 +1,43 @@
+{
+    "name": "hello-world-angular-mfe",
+    "version": "1.0.0",
+    "description": "Hello World Angular Micro-Frontend for DataHub",
+    "scripts": {
+        "ng": "ng",
+        "start": "webpack serve --config webpack.config.js --mode development",
+        "start:ng": "ng serve --port 3004",
+        "build": "webpack --config webpack.config.js --mode production",
+        "build:ng": "ng build --configuration production"
+    },
+    "private": true,
+    "dependencies": {
+        "@angular/animations": "^17.3.0",
+        "@angular/common": "^17.3.0",
+        "@angular/compiler": "^17.3.0",
+        "@angular/core": "^17.3.0",
+        "@angular/forms": "^17.3.0",
+        "@angular/platform-browser": "^17.3.0",
+        "@angular/platform-browser-dynamic": "^17.3.0",
+        "@angular/router": "^17.3.0",
+        "rxjs": "~7.8.0",
+        "tslib": "^2.3.0",
+        "zone.js": "~0.14.0"
+    },
+    "devDependencies": {
+        "@angular-devkit/build-angular": "^17.3.0",
+        "@angular/cli": "^17.3.0",
+        "@angular/compiler-cli": "^17.3.0",
+        "@ngtools/webpack": "^17.3.0",
+        "@types/node": "^18.18.0",
+        "css-loader": "^6.10.0",
+        "html-webpack-plugin": "^5.6.0",
+        "mini-css-extract-plugin": "^2.8.0",
+        "ngx-build-plus": "^17.0.0",
+        "style-loader": "^3.3.4",
+        "ts-loader": "^9.5.0",
+        "typescript": "~5.4.0",
+        "webpack": "^5.90.0",
+        "webpack-cli": "^5.1.0",
+        "webpack-dev-server": "^5.0.0"
+    }
+}
