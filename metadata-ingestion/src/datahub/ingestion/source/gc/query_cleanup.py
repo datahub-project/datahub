@@ -30,6 +30,7 @@ class QueryCleanupConfig(ConfigModel):
 
     retention_days: int = Field(
         30,
+        ge=1,
         description=(
             "Soft-delete SYSTEM queries whose lastModifiedAt is older than this many days. "
             "Set this to at least the largest connector ingestion window: a live query's "
@@ -42,16 +43,19 @@ class QueryCleanupConfig(ConfigModel):
 
     batch_size: int = Field(
         500,
+        ge=1,
         description="The number of entities to fetch in a batch from search.",
     )
 
     limit_entities_delete: Optional[int] = Field(
         25000,
+        ge=1,
         description="Approximate max number of queries to soft-delete in a single run.",
     )
 
     runtime_limit_seconds: int = Field(
         7200,  # 2 hours by default
+        ge=1,
         description="Runtime limit in seconds for a single run.",
     )
 
