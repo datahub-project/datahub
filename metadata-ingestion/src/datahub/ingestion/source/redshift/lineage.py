@@ -164,6 +164,8 @@ class RedshiftSqlLineage(Closeable):
             graph=self.context.graph,
             is_temp_table=self._is_temp_table,
             is_allowed_table=self._is_allowed_table,
+            use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+            sql_parsing_workers=self.config.sql_parsing_workers,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -702,7 +704,10 @@ class RedshiftSqlLineage(Closeable):
                                 )
                             )
                         rows = cursor.fetchmany()
-                with self.report.usage_parsing_timer:
+                with (
+                    self.report.usage_parsing_timer,
+                    self.aggregator.parallel_sql_parsing_scope(),
+                ):
                     for observed_query in observed:
                         self.aggregator.add_observed_query(observed_query)
         except Exception as e:

@@ -23,8 +23,11 @@ from typing import (
     cast,
 )
 
+from pydantic import Field
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_sql_agg_query_log,
@@ -113,6 +116,31 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+
+
+class SqlParsingParallelismConfig(ConfigModel):
+    """Mixin that adds parallel SQL-parsing fields to any connector config.
+
+    Inherit from (or embed in) a connector's config class to expose these two
+    fields to users.  Pass them straight through to ``SqlParsingAggregator``.
+    """
+
+    use_parallel_sql_parsing: bool = Field(
+        default=False,
+        description=(
+            "Parse SQL queries across multiple processes to speed up lineage/usage "
+            "extraction. Off by default. Worker count is auto-detected "
+            "(cgroup/CPU-aware) and clamped to available cores."
+        ),
+    )
+    sql_parsing_workers: Optional[int] = Field(
+        default=None,
+        description=(
+            "Explicit number of worker processes for parallel SQL parsing. "
+            "Defaults to an auto-detected safe value; values above detected "
+            "capacity are clamped down with a warning."
+        ),
+    )
 
 
 @dataclasses.dataclass

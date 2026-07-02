@@ -41,6 +41,7 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingParallelismConfig
 from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ class UnityCatalogSQLAlchemyProfilerConfig(
 
 
 class UnityCatalogSourceConfig(
+    SqlParsingParallelismConfig,
     UnityCatalogConnectionConfig,
     SQLCommonConfig,
     StatefulIngestionConfigBase,
