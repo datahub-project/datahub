@@ -1,5 +1,4 @@
 import { hasLazyIcon } from '@app/mfeframework/lazyIconNames';
-import { resolveIconName } from '@app/sharedV2/icons/muiToPhosphor';
 
 import { DisplayProperties, IconLibrary } from '@types';
 
@@ -17,10 +16,12 @@ export type DomainDisplayPropertiesInput = {
 
 // `IconLibrary.Material` + `style: 'Outlined'` is a historical constant: the enum was
 // coined for the pre-Phosphor MUI icon library and is still what the GMS resolver
-// expects. We continue to write it for every icon (Phosphor picks included) rather
-// than migrating the enum, because doing so would break stored aspects on every
-// existing domain. `DomainColoredIcon` + `resolveIconName` handle the read-side
-// translation.
+// expects. We continue to write it for every icon (Phosphor picks included) because
+// the enum currently has only one value and migrating it would be a breaking model
+// change. Only the `icon.name` field carries meaningful state — post-migration writes
+// always store a Phosphor name. Any lingering MUI names on legacy domains can be
+// rewritten with the operator script at
+// `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`.
 const LEGACY_ICON_LIBRARY = IconLibrary.Material;
 const LEGACY_ICON_STYLE = 'Outlined';
 
@@ -84,27 +85,27 @@ export function resolveDomainEntityColor(entity: DomainColorInput, generateColor
 }
 
 export type DomainIconDisplay = {
-    /** The resolved Phosphor icon name to render, or empty string when we fall back to the letter avatar. */
+    /** The Phosphor icon name to render, or empty string when we fall back to the letter avatar. */
     iconName: string;
     /** Convenience flag — `true` when the caller should render an icon, `false` for the letter fallback. */
     showIcon: boolean;
 };
 
 /**
- * Backward-compat contract for domains that predate the Phosphor migration.
+ * Resolves a stored icon name for display, guarding against rendering an `AppWindow`
+ * fallback for names that aren't in the loadable Phosphor set — in that case we return
+ * `showIcon: false` so the caller can render the letter avatar and the domain's initial
+ * stays visible.
  *
- *   1. Translate any stored MUI name to its Phosphor equivalent via `resolveIconName`.
- *      Untranslated names pass through — they may already be Phosphor names (post-migration
- *      picks) or unknown values.
- *   2. Guard against rendering an `AppWindow` fallback for a name that is neither
- *      MUI-mapped nor Phosphor-native (`hasLazyIcon` check). In that case we return
- *      `showIcon: false` so the caller can render the letter avatar instead — the domain's
- *      distinguishing initial stays visible.
- *   3. The stored aspect on the server is never touched by rendering. Writes only happen
- *      when the user actively picks a different icon (see `getDomainEditFieldChanges`).
+ * New writes always store a Phosphor name, so this is a straight pass-through +
+ * loadability check. Legacy MUI names (from installations that have not yet run the
+ * operator migration script at
+ * `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`) will
+ * fail the `hasLazyIcon` check and cleanly fall back to the letter avatar — the same
+ * behavior we surface for a domain that never had an icon.
  */
 export function resolveDomainIconDisplay(storedIconName: string | null | undefined): DomainIconDisplay {
-    const iconName = resolveIconName(storedIconName);
+    const iconName = storedIconName || '';
     const showIcon = !!iconName && hasLazyIcon(iconName);
     return { iconName, showIcon };
 }

@@ -68,14 +68,12 @@ export default function EditDomainModal({ onClose }: Props) {
 
     const initialName = entityData?.properties?.name || '';
     const initialColor = entityData?.displayProperties?.colorHex || '';
-    // Backward-compat pipeline for domains that predate the Phosphor migration:
-    //   1. Read: `resolveDomainIconDisplay` translates any stored MUI name to its Phosphor
-    //      equivalent so the picker highlights the matching cell.
-    //   2. Save: `getDomainEditFieldChanges` compares the staged pick against the DISPLAYED
-    //      (post-map) name — silently opening/closing never rewrites a legacy MUI aspect.
-    //   3. Picker pinning: if the displayed icon isn't in our curated set (e.g. it maps to a
-    //      niche Phosphor icon), we pin it as an extra cell via `pinnedIcons` so the user
-    //      still sees and can keep their selection.
+    // `resolveDomainIconDisplay` returns the stored icon name plus a loadability flag. We
+    // only need the name here — passing it into `pinnedIcons` guarantees the user's current
+    // pick shows up as a picker cell even if it isn't in our curated set, so they can keep
+    // their selection without an accidental clear. Legacy MUI-named aspects that haven't
+    // been rewritten by the operator migration script will pin an unrenderable name —
+    // harmless; the user just picks something new.
     const { iconName: displayedIconName } = resolveDomainIconDisplay(entityData?.displayProperties?.icon?.name);
 
     const [stagedName, setStagedName] = useState<string>(initialName);
@@ -96,9 +94,13 @@ export default function EditDomainModal({ onClose }: Props) {
 
         toast.loading(tcf('saving'), { key: 'edit-domain' });
         try {
-            const mutations: Promise<unknown>[] = [];
+            // Sequence name → display properties (rather than Promise.all) so a partial
+            // failure produces a coherent user-visible state: if `updateName` fails we
+            // haven't touched display properties, and if `updateDisplayProperties` fails
+            // the error toast accurately reflects what broke. Both mutations are
+            // idempotent by URN, so retrying is safe.
             if (nameChanged) {
-                mutations.push(updateName({ variables: { input: { name: trimmedName, urn } } }));
+                await updateName({ variables: { input: { name: trimmedName, urn } } });
             }
             // Send only the fields the user actually changed — the resolver leaves omitted
             // fields untouched. This preserves an existing icon when only the color was
@@ -108,9 +110,8 @@ export default function EditDomainModal({ onClose }: Props) {
                 iconName: iconChanged ? stagedIconName : undefined,
             });
             if (displayInput) {
-                mutations.push(updateDisplayProperties({ variables: { urn, input: displayInput } }));
+                await updateDisplayProperties({ variables: { urn, input: displayInput } });
             }
-            await Promise.all(mutations);
             toast.destroy('edit-domain');
             toast.success(t('edit.success'));
 

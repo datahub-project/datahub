@@ -181,11 +181,14 @@ import { Wine } from '@phosphor-icons/react/dist/csr/Wine';
 // Ordered by category to give a scannable layout in the flat picker grid. Search is
 // case-insensitive substring match against the icon name.
 //
-// A domain that stored a name not in this list (e.g. a legacy MUI icon translated via
-// muiToPhosphor, or a Phosphor name previously in this library) still renders
-// correctly on the read side via `hasLazyIcon` + `getLazyIcon` in DomainColoredIcon.
-// The picker also "pins" the currently-stored icon at the top so it's always visible
-// while editing, even if it's no longer part of the curated set.
+// A domain that stored a name not in this list (e.g. a Phosphor name previously in this
+// library) still renders correctly on the read side via `hasLazyIcon` + `getLazyIcon` in
+// DomainColoredIcon. The picker also "pins" the currently-stored icon at the top so it's
+// always visible while editing, even if it's no longer part of the curated set.
+//
+// Legacy MUI icon names on existing domains can be rewritten to their Phosphor equivalents
+// with the operator script at
+// `metadata-ingestion/examples/library/domain_migrate_mui_icons_to_phosphor.py`.
 
 export const DOMAIN_ICON_LIBRARY: readonly string[] = [
     // Business & finance

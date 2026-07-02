@@ -87,25 +87,21 @@ describe('resolveDomainIconDisplay', () => {
         expect(resolveDomainIconDisplay('')).toEqual({ iconName: '', showIcon: false });
     });
 
-    // The pre-Phosphor default — nearly every legacy domain in an existing installation
-    // stores this exact string, so a regression here silently regresses every domain
-    // avatar to the letter fallback.
-    it('maps the legacy AccountCircle name to UserCircle and shows it', () => {
-        expect(resolveDomainIconDisplay('AccountCircle')).toEqual({
-            iconName: 'UserCircle',
-            showIcon: true,
-        });
-    });
-
-    it('passes through post-migration Phosphor names unchanged', () => {
+    it('passes Phosphor names through unchanged and marks them loadable', () => {
         expect(resolveDomainIconDisplay('Rocket')).toEqual({ iconName: 'Rocket', showIcon: true });
     });
 
-    // Guards against rendering an AppWindow fallback — the letter avatar is a better
-    // visual identity than a generic square for an unknown stored name.
-    it('returns showIcon: false for names that resolve to nothing loadable', () => {
+    // Guards against rendering an AppWindow fallback for a name we can't lazy-load —
+    // e.g. a legacy MUI name lingering on a DB restore that predates the
+    // `BackfillDomainDisplayPropertiesIcons` upgrade job. The letter avatar is a better
+    // visual identity than a generic square, so we fall back cleanly.
+    it('returns showIcon: false for names that are not in the loadable Phosphor set', () => {
         expect(resolveDomainIconDisplay('SomeNonExistentIcon')).toEqual({
             iconName: 'SomeNonExistentIcon',
+            showIcon: false,
+        });
+        expect(resolveDomainIconDisplay('AccountCircle')).toEqual({
+            iconName: 'AccountCircle',
             showIcon: false,
         });
     });
@@ -144,11 +140,9 @@ describe('getDomainEditFieldChanges', () => {
         ).toEqual({ nameChanged: false, colorChanged: true, iconChanged: false });
     });
 
-    // The critical MUI→Phosphor migration guard: if the stored icon was `AccountCircle`,
-    // the displayed name is `UserCircle`, the picker's selected icon is `UserCircle`
-    // (unchanged from what the user saw), then `iconChanged` MUST be false so we don't
-    // silently rewrite the aspect on save.
-    it('reports iconChanged: false when the staged pick matches the resolved-for-display name', () => {
+    // Opening and closing the modal without touching the icon should never register as a
+    // change — otherwise we'd churn the aspect on every no-op save.
+    it('reports iconChanged: false when the staged pick matches the displayed name', () => {
         expect(
             getDomainEditFieldChanges(
                 { name: 'Sales', colorHex: '', displayedIconName: 'UserCircle' },
