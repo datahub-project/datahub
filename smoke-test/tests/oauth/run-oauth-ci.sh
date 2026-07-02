@@ -61,11 +61,17 @@ TESTER="$(docker ps -qf name=tester)"
 [ -n "$TESTER" ] || { echo "tester container not found"; exit 1; }
 
 echo "Running OAuth SDK smoke test in the tester container..."
-# The tests skip themselves if the tester env vars are missing, and pytest exits 0
-# on all-skipped — so assert both tests actually PASSED, not just "no failures".
+# The tester needs the SDK auth layer (DatahubClientConfig.auth, first shipped in
+# 1.6.0.9) — NOT the repo's default cliVersion, which can lag behind it. On an
+# older SDK pydantic silently drops the test's `auth` config and the positive
+# test fails with an unauthenticated 401 while the negative test passes
+# vacuously. CLI_VERSION (above) is only used for `datahub docker quickstart`.
+#
+# The tests also skip themselves if the tester env vars are missing, and pytest
+# exits 0 on all-skipped — so assert both tests actually PASSED.
 docker exec "$TESTER" bash -c "
   set -euo pipefail
-  pip install --quiet 'acryl-datahub==${CLI_VERSION}' pytest requests
+  pip install --quiet 'acryl-datahub>=1.6.0.9' pytest requests
   pytest /smoke/test_oauth_cli_gms.py -v 2>&1 | tee /tmp/pytest-oauth.out
   grep -q '2 passed' /tmp/pytest-oauth.out
 "

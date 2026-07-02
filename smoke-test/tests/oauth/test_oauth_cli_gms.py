@@ -36,19 +36,25 @@ _ME_QUERY = "{ me { corpUser { urn } } }"
 
 
 def _graph(client_id: str, client_secret: str) -> DataHubGraph:
-    return DataHubGraph(
-        DatahubClientConfig(
-            server=GMS,
-            auth={
-                "type": "oidc_client_credentials",
-                "config": {
-                    "token_endpoint": TOKEN_ENDPOINT,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
+    config = DatahubClientConfig(
+        server=GMS,
+        auth={
+            "type": "oidc_client_credentials",
+            "config": {
+                "token_endpoint": TOKEN_ENDPOINT,
+                "client_id": client_id,
+                "client_secret": client_secret,
             },
-        )
+        },
     )
+    # On an SDK without the auth layer (< 1.6.0.9) pydantic silently drops the
+    # extra `auth` field, the graph sends no credentials, and the positive test
+    # 401s while the negative test passes vacuously. Fail loudly instead.
+    assert getattr(config, "auth", None) is not None, (
+        "DatahubClientConfig dropped the 'auth' config — the installed "
+        "acryl-datahub is too old for this test (needs >= 1.6.0.9)."
+    )
+    return DataHubGraph(config)
 
 
 def test_oauth_authenticated_call_succeeds():
