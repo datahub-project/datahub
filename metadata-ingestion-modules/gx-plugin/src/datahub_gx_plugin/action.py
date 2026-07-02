@@ -111,6 +111,9 @@ class DataHubValidationAction(ValidationAction):
         platform_alias: Optional[str] = None,
         platform_instance_map: Optional[Dict[str, str]] = None,
         graceful_exceptions: bool = True,
+        # TODO(oauth): only a static token is supported here; accept a declarative
+        # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+        # OAuth token providers work on this path too.
         token: Optional[str] = None,
         timeout_sec: Optional[float] = None,
         retry_status_codes: Optional[List[int]] = None,
