@@ -119,3 +119,25 @@ def test_load_client_config_static_token_without_auth_type(monkeypatch):
     config = load_client_config()
     assert config.token == "static-pat"
     assert config.auth is None
+
+
+def test_rest_sink_emitter_carries_auth(monkeypatch):
+    # Regression: DatahubRestSink._make_emitter must forward config.auth to the
+    # emitter, or the default ingestion sink silently emits unauthenticated in
+    # OAuth mode even though load_client_config resolved auth correctly.
+    from datahub.emitter.token_provider import TokenProviderAuth
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    sink_config = DatahubRestSinkConfig(
+        server="http://gms:8080", auth=build_auth_config_from_env()
+    )
+    emitter = DatahubRestSink._make_emitter(sink_config)
+    assert isinstance(emitter._session.auth, TokenProviderAuth)
