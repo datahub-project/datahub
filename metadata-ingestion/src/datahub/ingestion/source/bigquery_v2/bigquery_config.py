@@ -1,7 +1,7 @@
 import logging
 import re
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
@@ -43,6 +44,16 @@ DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
 DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
+
+# Fields inherited from BaseTimeWindowConfig/BaseUsageConfig that are duplicated
+# on the nested `usage` config but only ever read from the top level of
+# BigQueryV2Config. See forward_usage_time_window_fields below.
+_DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
+    "start_time",
+    "end_time",
+    "bucket_duration",
+    "max_query_duration",
+)
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -106,18 +117,50 @@ class BigQueryUsageConfig(BaseUsageConfig):
         "query_log_delay", month="April", year=2023
     )
 
+    # start_time/end_time/bucket_duration are inherited from BaseTimeWindowConfig but
+    # redeclared here (rather than editing the shared base class, which other connectors
+    # also use) solely to surface the BigQuery-specific deprecation in generated docs.
+    # See forward_usage_time_window_fields on BigQueryV2Config for the runtime behavior.
+    start_time: datetime = Field(
+        default=None,  # type: ignore
+        description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, "
+        "depending on `bucket_duration`). You can also specify relative time with respect to end_time "
+        "such as '-7 days' Or '-7d'. **Deprecated**: set the top-level `start_time` instead - it governs "
+        "lineage, usage, and operations together.",
+    )
+    end_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc),
+        description="Latest date of lineage/usage to consider. Default: Current time in UTC. "
+        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, usage, and "
+        "operations together.",
+    )
+    bucket_duration: BucketDuration = Field(
+        default=BucketDuration.DAY,
+        description="Size of the time window to aggregate usage stats. "
+        "**Deprecated**: set the top-level `bucket_duration` instead - it governs lineage, usage, and "
+        "operations together.",
+    )
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens "
         "within our time range but the query completion event is delayed and happens after the configured"
-        " end time.",
+        " end time. **Deprecated**: set the top-level `max_query_duration` instead. Note it only takes "
+        "effect with the legacy extraction path (`use_queries_v2: False`).",
     )
 
     apply_view_usage_to_tables: bool = Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies "
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
-        "only.",
+        "only. Only applied with the legacy extraction path (`use_queries_v2: False`); ignored under "
+        "queries-v2.",
+    )
+
+    include_read_operational_stats: bool = Field(
+        default=False,
+        description="Whether to report read operational stats. Experimental. Only applied with the "
+        "legacy extraction path (`use_queries_v2: False`); ignored under queries-v2.",
     )
 
 
@@ -533,6 +576,44 @@ class BigQueryV2Config(
 
     @model_validator(mode="before")
     @classmethod
+    def forward_usage_time_window_fields(cls, values: Any) -> Any:
+        # `usage.start_time`/`end_time`/`bucket_duration`/`max_query_duration` are
+        # inherited from BaseTimeWindowConfig/BaseUsageConfig via BigQueryUsageConfig
+        # but were never read by either the queries-v2 or legacy code paths, which
+        # both use the top-level copies. These are connector-wide settings governing
+        # lineage, usage, and operations together, so they belong at the top level only.
+        if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
+            return values
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+        usage = values["usage"]
+        for field in _DEPRECATED_USAGE_TOP_LEVEL_FIELDS:
+            if field not in usage:
+                continue
+            if field in values and values[field] is not None:
+                raise ValueError(
+                    f"`{field}` is set both at the top level and under `usage`. "
+                    f"The top-level `{field}` is the only valid setting - remove `usage.{field}` from your recipe."
+                )
+            if field == "max_query_duration":
+                # Unlike start_time/end_time/bucket_duration, the top-level max_query_duration
+                # is only read on the legacy (non-queries-v2) extraction path - it has no effect
+                # under the default use_queries_v2=True, so don't claim otherwise.
+                logger.warning(
+                    "`usage.max_query_duration` is deprecated and will be ignored in a future release. "
+                    "Please set `max_query_duration` at the top level instead - note it only takes "
+                    "effect with the legacy extraction path (`use_queries_v2: False`)."
+                )
+            else:
+                logger.warning(
+                    f"`usage.{field}` is deprecated and will be ignored in a future release. "
+                    f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
+                )
+            values[field] = usage.pop(field)
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
@@ -598,6 +679,26 @@ class BigQueryV2Config(
                     "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
+        # `include_read_operational_stats` and `apply_view_usage_to_tables` are only
+        # implemented in the legacy (non-queries-v2) usage extraction path; qv2 attributes
+        # usage purely via SQL parsing and has no equivalent mechanism. We can't tell
+        # whether the user "explicitly" set a field post-validation, so we pragmatically
+        # warn whenever it differs from its (both False) default.
+        if self.use_queries_v2:
+            if self.usage.include_read_operational_stats:
+                logger.warning(
+                    "`usage.include_read_operational_stats` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.usage.apply_view_usage_to_tables:
+                logger.warning(
+                    "`usage.apply_view_usage_to_tables` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
                 )
         return self
 
