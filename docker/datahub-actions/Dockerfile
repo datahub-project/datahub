@@ -26,7 +26,21 @@ ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    apk add --no-cache --update-cache \
+    retry_apk_add() { \
+      max_retries=3; \
+      retry_num=0; \
+      while ! apk add --no-cache --update-cache "$@"; do \
+        retry_num=$((retry_num + 1)); \
+        if [ "$retry_num" -gt "$max_retries" ]; then \
+          echo "apk add failed after $((max_retries + 1)) attempts" >&2; \
+          return 1; \
+        fi; \
+        sleep_seconds=$((retry_num * 5)); \
+        echo "apk add failed with a transient error; retry ${retry_num}/${max_retries} in ${sleep_seconds}s" >&2; \
+        sleep "$sleep_seconds"; \
+      done; \
+    }; \
+    retry_apk_add \
     ca-certificates \
     python-${PYTHON_VERSION} \
     python-${PYTHON_VERSION}-dev \
@@ -76,7 +90,21 @@ USER 0
 # cyrus-sasl-mit-* avoids Heimdal SASL (cyrus-sasl-libs resolves via provides:).
 # glibc-iconv: gconv modules required for msodbcsql18 iconv (without it, ODBC init fails with IM004).
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    apk add --no-cache --update-cache \
+    retry_apk_add() { \
+      max_retries=3; \
+      retry_num=0; \
+      while ! apk add --no-cache --update-cache "$@"; do \
+        retry_num=$((retry_num + 1)); \
+        if [ "$retry_num" -gt "$max_retries" ]; then \
+          echo "apk add failed after $((max_retries + 1)) attempts" >&2; \
+          return 1; \
+        fi; \
+        sleep_seconds=$((retry_num * 5)); \
+        echo "apk add failed with a transient error; retry ${retry_num}/${max_retries} in ${sleep_seconds}s" >&2; \
+        sleep "$sleep_seconds"; \
+      done; \
+    }; \
+    retry_apk_add \
     openldap-2.6-dev \
     cyrus-sasl-mit-dev \
     cyrus-sasl-mit-libs \
@@ -99,9 +127,23 @@ COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime_major.sh
 # JRE on PATH for layertools/builds; JAVA_MAJOR is read from setup_java_runtime.sh (same source as service images).
 # build-base pulls gcc (includes g++ driver), make, binutils, glibc-dev on Wolfi; there is no separate g++ apk.
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    retry_apk_add() { \
+      max_retries=3; \
+      retry_num=0; \
+      while ! apk add --no-cache --update-cache "$@"; do \
+        retry_num=$((retry_num + 1)); \
+        if [ "$retry_num" -gt "$max_retries" ]; then \
+          echo "apk add failed after $((max_retries + 1)) attempts" >&2; \
+          return 1; \
+        fi; \
+        sleep_seconds=$((retry_num * 5)); \
+        echo "apk add failed with a transient error; retry ${retry_num}/${max_retries} in ${sleep_seconds}s" >&2; \
+        sleep "$sleep_seconds"; \
+      done; \
+    }; \
     JAVA_MAJOR=$(grep -E '^JAVA_MAJOR=[0-9]+$' /tmp/setup_java_runtime_major.sh | head -1 | cut -d= -f2) \
     && test -n "${JAVA_MAJOR}" \
-    && apk add --no-cache --update-cache \
+    && retry_apk_add \
     "openjdk-${JAVA_MAJOR}-jre" \
     build-base \
     && ln -sf "/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk/bin/java" /usr/bin/java \

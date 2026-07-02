@@ -65,11 +65,16 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @BeforeMethod
-  public void stubSessionEligibility() {
-    reset(mockUserSessionEligibilityChecker);
+  public void stubSessionEligibility() throws Exception {
+    reset(mockUserSessionEligibilityChecker, mockNativeUserService);
     when(mockUserSessionEligibilityChecker.checkEligibility(
             any(OperationContext.class), anyString(), anyBoolean()))
         .thenReturn(Optional.empty());
+    when(mockNativeUserService.checkNativeLoginEligibility(
+            any(OperationContext.class), anyString()))
+        .thenReturn(Optional.empty());
+    when(mockNativeUserService.recordFailedLoginAttempt(any(OperationContext.class), anyString()))
+        .thenReturn(LoginDenialReason.INVALID_CREDENTIALS);
   }
 
   @Autowired private AuthServiceController authServiceController;
@@ -571,6 +576,61 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertTrue(responseJson.has("loginDenialReason"));
     assertEquals(
         LoginDenialReason.INVALID_CREDENTIALS.name(),
+        responseJson.get("loginDenialReason").asText());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsLockedBeforePasswordCheck() throws Exception {
+    String userUrn = "urn:li:corpuser:testUser";
+    String password = "irrelevantPassword";
+
+    when(mockNativeUserService.checkNativeLoginEligibility(eq(systemOperationContext), eq(userUrn)))
+        .thenReturn(Optional.of(LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS));
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("password", password);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertFalse(responseJson.get("doesPasswordMatch").asBoolean());
+    assertEquals(
+        LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS.name(),
+        responseJson.get("loginDenialReason").asText());
+    verify(mockNativeUserService, never())
+        .doesPasswordMatch(any(OperationContext.class), anyString(), anyString());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsLocksAfterThresholdReached() throws Exception {
+    String userUrn = "urn:li:corpuser:testUser";
+    String password = "incorrectPassword";
+
+    when(mockNativeUserService.doesPasswordMatch(
+            eq(systemOperationContext), eq(userUrn), eq(password)))
+        .thenReturn(false);
+    when(mockNativeUserService.recordFailedLoginAttempt(eq(systemOperationContext), eq(userUrn)))
+        .thenReturn(LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS);
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("password", password);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertFalse(responseJson.get("doesPasswordMatch").asBoolean());
+    assertEquals(
+        LoginDenialReason.TOO_MANY_FAILED_ATTEMPTS.name(),
         responseJson.get("loginDenialReason").asText());
   }
 
