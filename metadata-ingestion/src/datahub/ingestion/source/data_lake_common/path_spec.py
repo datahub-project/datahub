@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
@@ -22,12 +22,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
 
-# These come from the smart_open library.
+# gz and bz2 come from the smart_open library (streamed, transparent decompression).
+# zip is handled separately using zipfile + seekable S3 range requests.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",
     # We have a monkeypatch on smart_open that aliases .gzip to .gz.
     "gzip",
+    "zip",
 ]
 
 java_to_python_mapping = {
@@ -102,6 +104,13 @@ class PathSpec(ConfigModel):
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
+    extension_map: Dict[str, str] = Field(
+        default={},
+        description="Map non-standard file extensions to a supported type for schema inference. "
+        "Keys are the custom extensions (without leading dot, e.g. 'js'), values must be one of "
+        f'{SUPPORTED_FILE_TYPES} (e.g. \'json\'). Example: {{"js": "json"}} treats .js files as JSON.',
+    )
+
     table_name: Optional[str] = Field(
         None,
         description="Display name of the dataset.Combination of named variables from include path and strings",
@@ -115,7 +124,9 @@ class PathSpec(ConfigModel):
 
     enable_compression: bool = Field(
         True,
-        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
+        "For .zip archives, only the first file with a supported extension is read; archives containing "
+        "multiple files will emit a warning and process only the first matching entry.",
     )
 
     sample_files: bool = Field(
@@ -324,6 +335,7 @@ class PathSpec(ConfigModel):
             and include_ext not in ["*", ""]
             and not self.default_extension
             and include_ext not in SUPPORTED_COMPRESSIONS
+            and include_ext not in self.extension_map
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
@@ -353,6 +365,26 @@ class PathSpec(ConfigModel):
                 f"default extension {v} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
             )
         return v
+
+    @field_validator("extension_map", mode="after")
+    @classmethod
+    def validate_extension_map(cls, v: Dict[str, str]) -> Dict[str, str]:
+        for ext, target in v.items():
+            if target not in SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    f"extension_map value '{target}' for key '{ext}' is not a supported file type. "
+                    f"Please specify one from {SUPPORTED_FILE_TYPES}"
+                )
+        return v
+
+    def resolve_extension(self, ext: str) -> str:
+        """Resolve a raw file extension through extension_map.
+
+        Input and output both use the leading-dot form (e.g. '.js' -> '.json').
+        Returns the original extension unchanged if no mapping exists.
+        """
+        mapped = self.extension_map.get(ext.lstrip("."))
+        return f".{mapped}" if mapped else ext
 
     @field_validator("exclude", mode="after")
     @classmethod
