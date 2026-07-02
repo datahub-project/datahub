@@ -111,15 +111,6 @@ class BigIDSourceConfig(
         "scoping for large deployments where a single connection exposes many objects. "
         "Objects whose fully-qualified name is denied are skipped.",
     )
-    max_catalog_objects: Optional[int] = Field(
-        default=None,
-        description="Optional cap on the number of catalog objects processed in a single run. "
-        "The connector streams the catalog (holding only O(distinct tags) in memory), so this "
-        "is a scope/runtime guard rather than a memory guard. When set, objects beyond this "
-        "limit are skipped with a warning. None (the default) means no cap — narrow "
-        "connection_pattern/dataset_pattern instead when possible.",
-    )
-
     create_datasets: bool = Field(
         default=False,
         description="If True, emit DatasetProperties + SchemaMetadata for datasets not yet in DataHub. "

@@ -15,10 +15,6 @@
 
 Because enrichment is applied additively (PATCH), removing a classification, tag, or glossary link **in BigID** does not remove the previously-added term or tag from an existing DataHub dataset on the next run — the PATCH only adds. Stateful ingestion removes entities this connector _owns_ (e.g. glossary terms/nodes it created), but it does not retract annotations merged onto datasets owned by a native connector. Remove such annotations in the DataHub UI if needed.
 
-#### In-memory catalog buffer
-
-The connector buffers the full BigID catalog in memory to collect unique tag pairs and process each object once. Objects are roughly 2 KB each, so a typical deployment (~2,800 objects ≈ 5.6 MB) is trivial. Very large enterprise deployments are the ceiling: 100k–500k catalog objects buffer roughly 200 MB–1 GB at peak. Use `connection_pattern` to scope ingestion if memory is a concern.
-
 #### dataPlatformInstance is only emitted when configured
 
 To avoid overwriting the platform instance already set by a native connector (e.g. Snowflake, BigQuery), the `dataPlatformInstance` aspect is emitted only when a `platform_instance` is explicitly configured for the connection.

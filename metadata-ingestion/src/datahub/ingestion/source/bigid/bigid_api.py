@@ -21,6 +21,16 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 500  # catalog API page size; verified against live instance
 
+# BigID REST API endpoints. Kept as constants so the path used in a request and the
+# path echoed in its error message cannot drift apart.
+REFRESH_TOKEN_ENDPOINT = "/api/v1/refresh-access-token"
+GLOSSARY_ITEMS_ENDPOINT = "/api/v1/business_glossary_items"
+CATALOG_ENDPOINT = "/api/v1/data-catalog/"
+COLUMNS_ENDPOINT = "/api/v1/data-catalog/columns"
+CONNECTIONS_ENDPOINT = "/api/v1/ds-connections"
+CLASSIFICATIONS_ENDPOINT = "/api/v1/all-classifications"
+IDSOR_ATTRIBUTES_ENDPOINT = "/api/v1/data-catalog/results-tuning/attributes"
+
 
 class BigIDAPIError(Exception):
     """Raised when a BigID API call fails in a non-retryable way."""
@@ -71,7 +81,7 @@ class BigIDClient:
         # Bearer prefix behaviour for this step is unverified; send raw token.
         try:
             resp = self.session.get(
-                f"{self.bigid_url}/api/v1/refresh-access-token",
+                f"{self.bigid_url}{REFRESH_TOKEN_ENDPOINT}",
                 headers={
                     "Authorization": self.user_token,
                     "Content-Type": "application/json",
@@ -143,7 +153,7 @@ class BigIDClient:
         # GET /api/v1/business_glossary_items returns a plain JSON array (no wrapper).
         # Verified against a live BigID instance (v4.x); a missing endpoint surfaces as a
         # 404 BigIDAPIError, which _load_registries catches and downgrades to a warning.
-        result = self._request("/api/v1/business_glossary_items")
+        result = self._request(GLOSSARY_ITEMS_ENDPOINT)
         if not isinstance(result, list):
             raise BigIDAPIError(
                 f"Unexpected response shape for business_glossary_items: {type(result)}"
@@ -156,12 +166,12 @@ class BigIDClient:
         skip = 0
         while True:
             data = self._request(
-                "/api/v1/data-catalog/",
+                CATALOG_ENDPOINT,
                 params={"limit": PAGE_SIZE, "skip": skip},
             )
             if not isinstance(data, dict):
                 raise BigIDAPIError(
-                    f"Unexpected response shape from /api/v1/data-catalog/: {type(data)}"
+                    f"Unexpected response shape from {CATALOG_ENDPOINT}: {type(data)}"
                 )
             results: List[Dict[str, Any]] = data.get("results", [])
             for obj in results:
@@ -182,7 +192,7 @@ class BigIDClient:
         # raises BigIDAPIError, which _process_catalog_object catches and warns on.
         filter_expr = f'objectName = "{object_name}" AND source = "{source_name}"'
         result = self._request(
-            "/api/v1/data-catalog/columns",
+            COLUMNS_ENDPOINT,
             params={"filter": filter_expr},
         )
         if isinstance(result, list):
@@ -218,10 +228,10 @@ class BigIDClient:
 
     def get_connections(self) -> List[BigIDConnection]:
         # Envelope: {status, statusCode, data: {ds_connections: [...]}, message}
-        data = self._request("/api/v1/ds-connections")
+        data = self._request(CONNECTIONS_ENDPOINT)
         if not isinstance(data, dict):
             raise BigIDAPIError(
-                f"Unexpected response shape from /api/v1/ds-connections: {type(data)}"
+                f"Unexpected response shape from {CONNECTIONS_ENDPOINT}: {type(data)}"
             )
         raw = data.get("data", {}).get("ds_connections", [])
         return [BigIDConnection.model_validate(conn) for conn in raw]
@@ -229,10 +239,10 @@ class BigIDClient:
     def get_all_classifications(self) -> List[BigIDClassification]:
         # Envelope: {status, statusCode, data: {classifications: [...]}, message}.
         # original_name is the lookup key.
-        data = self._request("/api/v1/all-classifications")
+        data = self._request(CLASSIFICATIONS_ENDPOINT)
         if not isinstance(data, dict):
             raise BigIDAPIError(
-                f"Unexpected response shape from /api/v1/all-classifications: {type(data)}"
+                f"Unexpected response shape from {CLASSIFICATIONS_ENDPOINT}: {type(data)}"
             )
         raw = data.get("data", {}).get("classifications", [])
         return [BigIDClassification.model_validate(item) for item in raw]
@@ -243,10 +253,10 @@ class BigIDClient:
         # glossaryId links to an existing Business Glossary item (path 1) or is null when an
         # auto-generated term is needed (paths 2 and 3). Only "IDSoR Attribute" entries are
         # kept; the endpoint also returns Classification / ClassificationMd types.
-        result = self._request("/api/v1/data-catalog/results-tuning/attributes")
+        result = self._request(IDSOR_ATTRIBUTES_ENDPOINT)
         if not isinstance(result, dict):
             raise BigIDAPIError(
-                f"Unexpected response shape from results-tuning/attributes: {type(result)}"
+                f"Unexpected response shape from {IDSOR_ATTRIBUTES_ENDPOINT}: {type(result)}"
             )
         raw_attributes: List[Dict[str, Any]] = result.get("data", {}).get(
             "attributes", []
@@ -280,7 +290,7 @@ class BigIDClient:
 
     def test_connection(self) -> None:
         # Raises BigIDAPIError on failure so callers can use str(exc) as failure_reason.
-        self._request("/api/v1/ds-connections")
+        self._request(CONNECTIONS_ENDPOINT)
 
     def close(self) -> None:
         self.session.close()

@@ -1,4 +1,3 @@
-import logging
 import time
 from collections.abc import Iterable, Iterator
 from typing import Any, Dict, List, Optional, Set
@@ -114,8 +113,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.tag import Tag
 from datahub.specific.dataset import DatasetPatchBuilder
-
-logger = logging.getLogger(__name__)
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 @platform_name("BigID")
@@ -176,9 +174,12 @@ class BigIDSource(StatefulIngestionSourceBase):
         self._classifier_friendly_names: Dict[str, str] = {}  # original name → friendly
         self._idsor_attr_map: Dict[str, IDSoRAttributeInfo] = {}  # raw name → info
         # Within-run dedup sets so entities emitted on demand are not re-emitted and
-        # create_datasets does not double-emit structural aspects for one URN.
+        # create_datasets does not double-emit structural aspects for one URN. Domain and
+        # term sets are bounded by the classification vocabulary, but the seen-dataset set
+        # grows with the catalog (create_datasets mode only), so it is SQLite-backed to keep
+        # memory flat for arbitrarily large catalogs. Closed in get_workunits_internal.
         self._emitted_domain_urns: Set[str] = set()
-        self._seen_dataset_urns: Set[str] = set()
+        self._seen_dataset_urns: FileBackedDict[int] = FileBackedDict()
         # In pure-enrichment mode we do not own the datasets we touch — they belong to a
         # native platform connector. Emit their aspects as non-primary so
         # AutoStatusAspectProcessor does not stamp Status(removed=False) on them (which would
@@ -239,12 +240,11 @@ class BigIDSource(StatefulIngestionSourceBase):
             yield from self._load_and_emit()
         except BigIDAPIError as exc:
             self.report.failure("BigID API error", exc=exc)
-            logger.exception("BigID API error in connector: %s", exc)
         except Exception as exc:
             self.report.failure("unexpected error", exc=exc)
-            logger.exception("Unexpected error in BigID connector: %s", exc)
         finally:
             self.client.close()
+            self._seen_dataset_urns.close()
 
     def _load_and_emit(self) -> Iterator[MetadataWorkUnit]:
         if not self._load_registries():
@@ -598,7 +598,6 @@ class BigIDSource(StatefulIngestionSourceBase):
         seen_tag_pairs: Set[TagPair] = set()
         risk_score_definition_emitted = False
         processed = 0
-        max_objects = self.config.max_catalog_objects
 
         try:
             for obj in self.client.get_catalog_objects():
@@ -608,14 +607,6 @@ class BigIDSource(StatefulIngestionSourceBase):
                 if not self.config.dataset_pattern.allowed(obj.fully_qualified_name):
                     self.report.report_dataset_filtered(obj.fully_qualified_name)
                     continue
-                if max_objects is not None and processed >= max_objects:
-                    self.report.warning(
-                        "catalog-truncated",
-                        context=f"Reached max_catalog_objects={max_objects}; remaining "
-                        "objects were skipped. Increase the limit or narrow "
-                        "connection_pattern/dataset_pattern to cover the full catalog.",
-                    )
-                    break
                 processed += 1
 
                 if self.config.sync_tags:
@@ -982,7 +973,7 @@ class BigIDSource(StatefulIngestionSourceBase):
                 continue
             yield mcp.as_workunit()
 
-        self._seen_dataset_urns.add(dataset_urn)
+        self._seen_dataset_urns[dataset_urn] = 1
         self.report.datasets_created += 1
 
     def _emit_schema_field_enrichment(
@@ -1059,8 +1050,9 @@ class BigIDSource(StatefulIngestionSourceBase):
             # Path 2: in map but no glossaryId — auto-generate under bigid.idsor.
             slug = _slugify(info.friendly_name) or _slugify(attr_name)
             if not slug:
-                logger.debug(
-                    "IDSoR path 2: empty slug for attr %r — skipping", attr_name
+                self.report.warning(
+                    "idsor-attribute-unusable-name",
+                    context=f"attr_name={attr_name!r}",
                 )
                 return None
             path = f"idsor.{slug}"
@@ -1072,7 +1064,10 @@ class BigIDSource(StatefulIngestionSourceBase):
         # Path 3: not in map — auto-generate from the raw attribute name.
         slug = _slugify(attr_name)
         if not slug:
-            logger.debug("IDSoR path 3: empty slug for attr %r — skipping", attr_name)
+            self.report.warning(
+                "idsor-attribute-unusable-name",
+                context=f"attr_name={attr_name!r}",
+            )
             return None
         path = f"idsor.{slug}"
         return IDSoRResolution(
