@@ -1043,6 +1043,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         skip_cache: bool = False,
         include_hidden_lifecycle_stages: bool = False,
         include_draft: bool = False,
+        sort_by: Optional[str] = None,
+        sort_order: Literal["ASCENDING", "DESCENDING"] = "ASCENDING",
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -1064,6 +1066,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param skip_cache: Whether to bypass caching. Defaults to False.
         :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
         :param include_draft: Whether to include entities in DRAFT lifecycle state.
+        :param sort_by: Optional searchable field to sort on (e.g. "lastModifiedAt"). If None, uses the backend's default scroll order.
+        :param sort_order: Sort direction when sort_by is set. Defaults to ASCENDING.
 
         :return: An iterable of urns that match the filters.
         """
@@ -1114,6 +1118,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+                $sortInput: SearchSortInput,
             """
             + optional_variable_defs
             + """
@@ -1125,6 +1130,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
+                    sortInput: $sortInput,
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
@@ -1156,6 +1162,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "sortInput": (
+                {"sortCriteria": [{"field": sort_by, "sortOrder": sort_order}]}
+                if sort_by
+                else None
+            ),
             "includeSoftDeleted": (
                 None
                 if status is None
