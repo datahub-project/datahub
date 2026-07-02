@@ -167,12 +167,10 @@ class DocumentEventConsumer:
         params = {k: v for k, v in params.items() if v is not None and v != ""}
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            # Poll through the graph's session so authentication applies per
+            # request — copied session headers only carry a static token, and
+            # an OAuth token provider in session.auth would be bypassed.
+            response = self.graph._session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -225,12 +223,10 @@ class DocumentEventConsumer:
         }
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            # Poll through the graph's session so authentication applies per
+            # request — copied session headers only carry a static token, and
+            # an OAuth token provider in session.auth would be bypassed.
+            response = self.graph._session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()

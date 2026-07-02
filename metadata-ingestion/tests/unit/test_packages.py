@@ -5,6 +5,9 @@ from datahub.testing.check_imports import (
     ban_direct_datahub_imports,
     ensure_no_indirect_model_imports,
 )
+from datahub.testing.check_session_auth_bypass import (
+    ensure_no_session_header_copies,
+)
 from datahub.testing.check_str_enum import ensure_no_enum_mixin
 
 
@@ -26,3 +29,11 @@ def test_check_str_enum_usage(pytestconfig: pytest.Config) -> None:
     root = pytestconfig.rootpath
 
     ensure_no_enum_mixin([root / "src", root / "tests"])
+
+
+def test_check_no_session_header_copies(pytestconfig: pytest.Config) -> None:
+    # Copying session.headers into another request only carries a static token;
+    # OAuth token providers live in session.auth and get silently bypassed.
+    root = pytestconfig.rootpath
+
+    ensure_no_session_header_copies([root / "src", root / "tests"])
