@@ -1,0 +1,72 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Urn
+
+/**
+ * Core information about a Metric entity.
+ */
+@Aspect = {
+  "name": "metricInfo"
+}
+record MetricInfo {
+
+  /**
+   * Display name of the metric.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: string
+
+  /**
+   * Human-readable description of the metric.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
+  }
+  description: optional string
+
+  /**
+   * The semantic model that defines this metric.
+   */
+  @Relationship = {
+    "name": "ModeledBy",
+    "entityTypes": [ "semanticModel" ]
+  }
+  @Searchable = {
+    "fieldName": "semanticModel",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasSemanticModel"
+  }
+  semanticModel: optional Urn
+
+  /**
+   * The SQL expression used to compute this metric, in one or more dialects.
+   */
+  expression: optional MetricExpression
+
+  /**
+   * AI-specific context for improved disambiguation and retrieval.
+   */
+  aiContext: optional AiContext
+
+  /**
+   * Whether this metric's values can be reconstructed from its upstream sources.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  recoverability: optional Recoverability
+
+  /**
+   * Vendor-namespaced extension blobs for platform-specific metadata.
+   */
+  customExtensions: optional array[CustomExtension]
+}

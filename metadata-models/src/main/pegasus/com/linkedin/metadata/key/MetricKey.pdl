@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Metric
+ */
+@Aspect = {
+  "name": "metricKey"
+}
+record MetricKey {
+  /**
+   * The platform or semantic layer that owns this metric (e.g. "dbt",
+   * "snowflake"). Used to group metrics by platform in search facets.
+   *
+   * REQUIRED. This field is part of the metric URN and therefore
+   * immutable once written. Callers must always populate it; if the
+   * source platform is unknown at ingest time the ingestion layer is
+   * responsible for assigning a stable fallback value (e.g. "datahub"
+   * for native / SDK-authored metrics)
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  platform: string
+
+  /**
+  * Unique identifier for the metric within its platform.
+  */
+  id: string
+}

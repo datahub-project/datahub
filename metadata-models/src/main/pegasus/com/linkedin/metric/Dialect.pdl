@@ -1,0 +1,13 @@
+namespace com.linkedin.metric
+
+/**
+ * The SQL dialect or semantic layer platform that produced a metric expression.
+ */
+enum Dialect {
+  SNOWFLAKE
+  DATABRICKS
+  DBT
+  ANSI_SQL
+  DATAHUB
+  UNKNOWN
+}
