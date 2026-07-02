@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
+from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,12 @@ class MonteCarloClient:
     environment, per the credential-handling rule in AGENTS.md.
     """
 
-    def __init__(self, config: MonteCarloSourceConfig, page_size: int = 100) -> None:
+    def __init__(
+        self,
+        config: MonteCarloSourceConfig,
+        page_size: int = 100,
+        report: Optional[MonteCarloSourceReport] = None,
+    ) -> None:
         # Imported lazily so the dependency is only required when the source runs.
         from pycarlo.core import Client, Session
 
@@ -166,6 +172,18 @@ class MonteCarloClient:
         self._client = Client(session=Session(**session_kwargs))
         self.config = config
         self.page_size = page_size
+        self.report = report
+
+    def _report_missing_id(self, kind: str, raw: Dict[str, Any]) -> None:
+        """Record a Monte Carlo record dropped for lacking an id/uuid, so the drop
+        is visible in the ingestion report rather than only in server logs."""
+        message = f"Monte Carlo returned a {kind} without an id/uuid; skipping it."
+        if self.report is not None:
+            self.report.warning(
+                title=f"Skipped {kind} with missing id", message=message, context=repr(raw)
+            )
+        else:
+            logger.warning("%s %r", message, raw)
 
     def _call(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -224,7 +242,7 @@ class MonteCarloClient:
         for raw in self._paginate_offset(_MONITORS_QUERY, "getMonitors", variables):
             uuid = raw.get("uuid")
             if not uuid:
-                logger.warning("Skipping monitor with missing uuid: %r", raw)
+                self._report_missing_id("monitor", raw)
                 continue
             yield MonteCarloAssertionDef(
                 uuid=uuid,
@@ -242,7 +260,7 @@ class MonteCarloClient:
         for raw in self._paginate(_CUSTOM_RULES_QUERY, "getCustomRules", {}):
             uuid = raw.get("uuid")
             if not uuid:
-                logger.warning("Skipping custom rule with missing uuid: %r", raw)
+                self._report_missing_id("custom rule", raw)
                 continue
             yield MonteCarloAssertionDef(
                 uuid=uuid,
@@ -262,7 +280,7 @@ class MonteCarloClient:
         for raw in self._paginate(_ALERTS_QUERY, "getAlerts", variables):
             alert_id = raw.get("id")
             if not alert_id:
-                logger.warning("Skipping alert with missing id: %r", raw)
+                self._report_missing_id("alert", raw)
                 continue
             yield MonteCarloAlert(
                 uuid=alert_id,

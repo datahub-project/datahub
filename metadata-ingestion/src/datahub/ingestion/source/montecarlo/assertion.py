@@ -1,4 +1,6 @@
+import functools
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type
 
 from datahub.emitter.mce_builder import (
@@ -41,10 +43,16 @@ logger = logging.getLogger(__name__)
 PLATFORM = "montecarlo"
 
 
-_CLOUD_ASSERTION_CLASS: "Optional[Type[Assertion]]" = None
-_CLOUD_ASSERTION_CLASS_LOADED: bool = False
+@dataclass(frozen=True)
+class _IngestedAssertion:
+    """An assertion emitted for a monitor, plus the dataset it targets, so a later
+    alert can build a run event against both."""
+
+    assertion_urn: str
+    dataset_urn: str
 
 
+@functools.lru_cache(maxsize=1)
 def _load_cloud_assertion_class() -> "Optional[Type[Assertion]]":
     """Return the DataHub Cloud ``Assertion`` entity class if available, cached.
 
@@ -53,23 +61,19 @@ def _load_cloud_assertion_class() -> "Optional[Type[Assertion]]":
     not installed we fall back to emitting equivalent OSS aspects directly, mirroring
     the optional-import pattern in ``datahub.sdk.main_client``.
     """
-    global _CLOUD_ASSERTION_CLASS, _CLOUD_ASSERTION_CLASS_LOADED
-    if _CLOUD_ASSERTION_CLASS_LOADED:
-        return _CLOUD_ASSERTION_CLASS
-    _CLOUD_ASSERTION_CLASS_LOADED = True
     try:
         from acryl_datahub_cloud.sdk.entities.assertion import (  # type: ignore[import-not-found]
             Assertion,
         )
 
-        _CLOUD_ASSERTION_CLASS = Assertion
+        return Assertion
     except ImportError:
-        pass
+        return None
     except Exception:
         logger.warning(
             "Failed to load cloud Assertion class; using OSS fallback.", exc_info=True
         )
-    return _CLOUD_ASSERTION_CLASS
+        return None
 
 
 class MonteCarloAssertionKey(DatahubKey):
@@ -92,10 +96,9 @@ class MonteCarloAssertionBuilder:
         self.config = config
         self.report = report
         self.resolver = resolver
-        # Maps a monitor/rule uuid to its assertion urn so alerts can attach run
-        # events, and tracks the dataset each assertion targets.
-        self._assertion_urn_by_monitor: Dict[str, str] = {}
-        self._dataset_by_monitor: Dict[str, str] = {}
+        # Maps a monitor/rule uuid to the assertion (and its target dataset) we
+        # emitted for it, so alerts can attach run events to the same entities.
+        self._ingested_by_monitor: Dict[str, _IngestedAssertion] = {}
 
     def _assertion_urn(self, monitor_uuid: str) -> str:
         key = MonteCarloAssertionKey(
@@ -130,8 +133,9 @@ class MonteCarloAssertionBuilder:
             return
 
         assertion_urn = self._assertion_urn(definition.uuid)
-        self._assertion_urn_by_monitor[definition.uuid] = assertion_urn
-        self._dataset_by_monitor[definition.uuid] = dataset_urn
+        self._ingested_by_monitor[definition.uuid] = _IngestedAssertion(
+            assertion_urn=assertion_urn, dataset_urn=dataset_urn
+        )
 
         custom_properties: Dict[str, str] = {
             "mc_monitor_uuid": definition.uuid,
@@ -224,11 +228,12 @@ class MonteCarloAssertionBuilder:
     def build_run_event(self, alert: MonteCarloAlert) -> Iterable[MetadataWorkUnit]:
         if alert.monitor_uuid is None:
             return
-        assertion_urn = self._assertion_urn_by_monitor.get(alert.monitor_uuid)
-        dataset_urn = self._dataset_by_monitor.get(alert.monitor_uuid)
-        if assertion_urn is None or dataset_urn is None:
+        ingested = self._ingested_by_monitor.get(alert.monitor_uuid)
+        if ingested is None:
             # Alert for a monitor we didn't ingest (filtered out, unresolved asset).
             return
+        assertion_urn = ingested.assertion_urn
+        dataset_urn = ingested.dataset_urn
         if alert.created_time is None:
             self.report.warning(
                 title="Alert skipped: missing timestamp",

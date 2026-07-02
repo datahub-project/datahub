@@ -338,6 +338,7 @@ def test_get_monitors_paginates_with_offset() -> None:
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.config = make_config()
     client.page_size = 2
+    client.report = None
     pages: Dict[int, List[Dict[str, Any]]] = {
         0: [{"uuid": "m1"}, {"uuid": "m2"}],
         2: [{"uuid": "m3"}],
@@ -354,6 +355,22 @@ def test_get_monitors_paginates_with_offset() -> None:
     assert uuids == ["m1", "m2", "m3"]
     # Stops after the short second page rather than requesting a third.
     assert seen_offsets == [0, 2]
+
+
+def test_get_monitors_reports_records_missing_uuid() -> None:
+    # A record without a uuid is skipped and surfaced in the report, not silently
+    # dropped to logs only.
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "getMonitors": [{"uuid": "m1"}, {"name": "no-uuid"}]
+    }
+    uuids = [m.uuid for m in client.get_monitors()]
+    assert uuids == ["m1"]
+    assert len(report.warnings) == 1
 
 
 def test_build_assertion_warns_on_empty_entity_mcons() -> None:
@@ -440,6 +457,7 @@ def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.config = make_config()
     client.page_size = 100
+    client.report = None
     calls = {"i": 0}
 
     def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
@@ -487,6 +505,7 @@ def test_client_get_monitors_passes_filter_variables() -> None:
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.config = cfg
     client.page_size = 100
+    client.report = None
     client._call = fake_call  # type: ignore[method-assign]
 
     list(client.get_monitors())

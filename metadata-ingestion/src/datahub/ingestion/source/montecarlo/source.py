@@ -66,7 +66,7 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.report = MonteCarloSourceReport()
-        self.client = MonteCarloClient(config)
+        self.client = MonteCarloClient(config, report=self.report)
         self.resolver = MconResolver(config, self.client, self.report)
         self.builder = MonteCarloAssertionBuilder(config, self.report, self.resolver)
 
