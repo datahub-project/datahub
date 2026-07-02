@@ -4869,9 +4869,17 @@ class TestFilterDropDebugLogging:
     the base ``loop_tables`` path that Teradata tables use.
     """
 
-    def test_single_threaded_view_drop_reports_and_skips_processing(self):
+    def test_single_threaded_view_drop_reports_and_skips_processing(
+        self, caplog: pytest.LogCaptureFixture
+    ):
         """A view denied by view_pattern is recorded in report.filtered and never
-        handed to _process_view (single-threaded path)."""
+        handed to _process_view (single-threaded path).
+
+        This is also the one site where we pin the PR's debug logging: assert the
+        drop is emitted at DEBUG level. The other drop-site tests only assert the
+        drop *behavior* (report.filtered + skipped processing) to avoid brittle,
+        duplicated log-string assertions across every path.
+        """
         source = _create_source_patched(
             {"max_workers": 1, "view_pattern": {"deny": [".*"]}}
         )
@@ -4890,6 +4898,9 @@ class TestFilterDropDebugLogging:
                 return_value=_make_mock_inspector("testdb"),
             ),
             patch.object(source, "_process_view", process_view),
+            caplog.at_level(
+                logging.DEBUG, logger="datahub.ingestion.source.sql.teradata"
+            ),
         ):
             wus = list(
                 source._process_views_single_threaded(
@@ -4900,6 +4911,7 @@ class TestFilterDropDebugLogging:
         assert wus == []
         process_view.assert_not_called()
         assert "testdb.denied_view" in list(source.report.filtered)
+        assert "Dropped view by view_pattern: testdb.denied_view" in caplog.text
 
     def test_multi_threaded_view_drop_reports_and_skips_processing(self):
         """A view denied by view_pattern is recorded in report.filtered and never
@@ -4935,11 +4947,16 @@ class TestFilterDropDebugLogging:
         process_view.assert_not_called()
         assert "testdb.denied_view" in list(source.report.filtered)
 
-    def test_allowed_view_is_processed_and_not_dropped(self):
-        """A view that passes view_pattern is handed to _process_view and is not
-        recorded in report.filtered."""
+    def test_mixed_allow_deny_drops_denied_and_processes_allowed(self):
+        """With a denied and an allowed view in the same call, the denied one is
+        dropped and the allowed one is still processed.
+
+        Passing both in a single call guards against an early-return regression:
+        the drop must ``continue`` to the next view, not abort the whole loop. This
+        also serves as the positive control (an allowed view reaches _process_view
+        and is not recorded in report.filtered)."""
         source = _create_source_patched(
-            {"max_workers": 1, "view_pattern": {"allow": ["testdb.allowed_view"]}}
+            {"max_workers": 1, "view_pattern": {"deny": ["testdb.denied_view"]}}
         )
         process_view = MagicMock(return_value=iter([]))
 
@@ -4959,11 +4976,14 @@ class TestFilterDropDebugLogging:
         ):
             list(
                 source._process_views_single_threaded(
-                    ["allowed_view"], "testdb", source.config
+                    ["denied_view", "allowed_view"], "testdb", source.config
                 )
             )
 
+        # Denied view is dropped; the loop continues and processes the allowed view.
         process_view.assert_called_once()
+        assert process_view.call_args.kwargs["view"] == "allowed_view"
+        assert "testdb.denied_view" in list(source.report.filtered)
         assert "testdb.allowed_view" not in list(source.report.filtered)
 
     def test_table_drop_reports_and_skips_processing(self):
