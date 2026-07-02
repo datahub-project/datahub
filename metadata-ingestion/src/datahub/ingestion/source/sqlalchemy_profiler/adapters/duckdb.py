@@ -1,0 +1,353 @@
+"""DuckDB-specific profiling adapter."""
+
+import logging
+import math
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
+
+import sqlalchemy as sa
+from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import ColumnElement
+
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    PlatformAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# A SUMMARIZE min/max after _convert_bound: numeric for numeric columns,
+# otherwise the original VARCHAR (DATE/TIMESTAMP/BOOLEAN/strings), or None.
+_Bound = Optional[Union[int, float, str]]
+
+
+@dataclass(frozen=True)
+class _ColumnSummary:
+    min: _Bound
+    max: _Bound
+    avg: Optional[float]
+    std: Optional[float]
+    q50: Optional[float]
+    approx_unique: int
+    non_null: int
+
+
+_INTEGER_TYPE_PREFIXES = (
+    "TINYINT",
+    "SMALLINT",
+    "INTEGER",
+    "BIGINT",
+    "HUGEINT",
+    "UTINYINT",
+    "USMALLINT",
+    "UINTEGER",
+    "UBIGINT",
+    "UHUGEINT",
+)
+_FLOAT_TYPE_PREFIXES = ("DECIMAL", "NUMERIC", "DOUBLE", "FLOAT", "REAL")
+
+
+def _convert_bound(value: Any, column_type: Optional[str]) -> _Bound:
+    """Convert a SUMMARIZE min/max (always VARCHAR) to a numeric Python type for
+    numeric columns, so downstream arithmetic (e.g. histogram bucketing) works.
+    Non-numeric columns (VARCHAR, DATE, TIMESTAMP, BOOLEAN) are left as-is.
+    ``value`` is Any because it is a raw value off the DB cursor.
+
+    If a numeric column's bound can't be parsed as a number, return None rather
+    than the raw string: the ``_Bound`` contract is "numeric for numeric
+    columns", so leaking a str here would feed a string into arithmetic that
+    expects a number."""
+    if value is None:
+        return None
+    t = (column_type or "").upper()
+    try:
+        if t.startswith(_INTEGER_TYPE_PREFIXES):
+            return int(value)
+        if t.startswith(_FLOAT_TYPE_PREFIXES):
+            return float(value)
+    except (TypeError, ValueError):
+        return None
+    return value
+
+
+def _round_sig(value: float, sig: int = 12) -> float:
+    """Round a float to `sig` significant figures.
+
+    DuckDB's quantile_cont interpolation can differ by ~1 ULP across DuckDB
+    versions and thread counts; rounding to 12 significant figures suppresses
+    that noise so profiling output (and golden files) stay stable across
+    environments while keeping far more precision than is meaningful for a stat.
+    """
+    if value == 0 or not math.isfinite(value):
+        return value
+    return float(f"{value:.{sig}g}")
+
+
+def _round_if_float(value: Any) -> Any:
+    """Round floats to 12 significant figures, leaving non-floats (int/Decimal/
+    str/None) untouched. Applied to aggregate stats (mean/stdev/median/quantiles)
+    whose last bits can differ across DuckDB versions / thread counts."""
+    return _round_sig(value) if isinstance(value, float) else value
+
+
+class DuckDBAdapter(PlatformAdapter):
+    """
+    DuckDB profiling adapter.
+
+    DuckDB optimizations:
+    1. approx_count_distinct for fast unique counts (HyperLogLog).
+    2. quantile_cont for median and quantiles in a single call.
+    3. SUMMARIZE fast-path: computes min/max/avg/std/approx_unique/null_pct for
+       all columns in one table scan, cached per-table for subsequent metric reads.
+    """
+
+    def __init__(
+        self, config: ProfilingConfig, report: SQLSourceReport, base_engine: Engine
+    ) -> None:
+        super().__init__(config, report, base_engine)
+        # Per-table cache: column_name -> parsed SUMMARIZE stats. A fresh adapter is
+        # created per table in _generate_single_profile, so instance state is safe.
+        self._summary: Dict[str, _ColumnSummary] = {}
+        self._row_count: Optional[int] = None
+
+    def setup_profiling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Run SUMMARIZE once and cache per-column stats before per-metric queries.
+
+        Falls back gracefully (empty cache) if SUMMARIZE is unavailable for the
+        relation (e.g., views, external tables in some DuckDB versions).
+        """
+        # Reset the per-table cache up front so a reused adapter instance can
+        # never serve another table's stats — the cache is only valid for the
+        # table this profiling pass targets.
+        self._summary = {}
+        self._row_count = None
+        context = super().setup_profiling(context, conn)
+        try:
+            self._run_summarize(context, conn)
+        except (SQLAlchemyError, KeyError, ValueError, TypeError) as e:
+            # Fall back to per-column SQL (still correct, just slower). Surface a
+            # warning — deduped by title — so a systematic SUMMARIZE failure is
+            # visible in the run summary instead of silently degrading on every
+            # table. report.warning already logs with the exception attached, so
+            # no separate logger call is needed here.
+            #
+            # Scoped to the failures SUMMARIZE can actually raise rather than a
+            # bare `except`: the DB error when SUMMARIZE is unsupported for the
+            # relation (SQLAlchemyError), a DuckDB version returning a different
+            # SUMMARIZE column set (KeyError on row._mapping), and stat parsing
+            # (ValueError/TypeError). A genuine programming error (e.g.
+            # AttributeError) is left to propagate instead of being masked as a
+            # routine fast-path miss.
+            self.report.warning(
+                message="Falling back to per-column profiling queries.",
+                title="DuckDB SUMMARIZE fast-path unavailable",
+                context=context.pretty_name,
+                exc=e,
+            )
+            self._summary = {}
+            self._row_count = None
+        return context
+
+    def _run_summarize(self, context: ProfilingContext, conn: Connection) -> None:
+        """Execute SUMMARIZE and populate the per-column stats cache."""
+        identifier = self.quote_identifier(context.get_table_identifier())
+        rows = conn.execute(sa.text(f"SUMMARIZE {identifier}")).fetchall()
+        summary: Dict[str, _ColumnSummary] = {}
+        row_counts: List[int] = []
+        for row in rows:
+            m = row._mapping
+            name = m["column_name"]
+            null_pct = (
+                float(m["null_percentage"]) if m["null_percentage"] is not None else 0.0
+            )
+            count = int(m["count"]) if m["count"] is not None else 0
+            col_type = m["column_type"]
+            summary[name] = _ColumnSummary(
+                min=_convert_bound(m["min"], col_type),
+                max=_convert_bound(m["max"], col_type),
+                avg=self._to_float(m["avg"]),
+                std=self._to_float(m["std"]),
+                q50=self._to_float(m["q50"]),
+                approx_unique=(
+                    int(m["approx_unique"]) if m["approx_unique"] is not None else 0
+                ),
+                non_null=round(count * (1.0 - null_pct / 100.0)),
+            )
+            row_counts.append(count)
+        self._summary = summary
+        # SUMMARIZE reports `count` per column; for a materialized table these are
+        # all the table row count. Take the max as the authoritative value rather
+        # than whichever column was parsed last.
+        self._row_count = max(row_counts) if row_counts else None
+
+    @staticmethod
+    def _to_float(value: Any) -> Optional[float]:
+        """Convert a SUMMARIZE VARCHAR stat to float, returning None on failure."""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    # =========================================================================
+    # SQL Expression Builders
+    # =========================================================================
+
+    def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
+        return sa.func.approx_count_distinct(sa.column(column))
+
+    def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
+        return sa.func.quantile_cont(sa.column(column), 0.5)
+
+    def get_column_quantiles(
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        quantiles: Optional[List[float]] = None,
+    ) -> List[Optional[float]]:
+        """
+        Get quantile values for a column using DuckDB's quantile_cont.
+
+        DuckDB's quantile_cont accepts a list of quantile fractions and returns
+        all results in a single query — one table scan regardless of how many
+        quantiles are requested. This is more efficient than the base-class
+        PERCENTILE_CONT fallback which issues one query per quantile.
+
+        Args:
+            table: SQLAlchemy table object
+            column: Column name
+            conn: Active database connection
+            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
+
+        Returns:
+            List of quantile values (None for unavailable quantiles)
+        """
+        if quantiles is None:
+            quantiles = DEFAULT_QUANTILES
+        # Validate the range up front, matching the base adapter — an
+        # out-of-range fraction makes quantile_cont return garbage rather than
+        # raise, so guard here instead of silently producing a bad stat.
+        for q in quantiles:
+            if not (0 <= q <= 1):
+                raise ValueError(
+                    f"Quantiles must be in [0, 1], got {q}. "
+                    f"Quantiles represent percentiles as decimals (e.g., 0.5 for median)."
+                )
+        # DuckDB returns all quantiles in one call: quantile_cont(col, [..]) -> list.
+        expr = sa.func.quantile_cont(sa.column(column), sa.literal(quantiles))
+        query = sa.select([expr]).select_from(table)
+        try:
+            result = conn.execute(query).scalar()
+        except SQLAlchemyError as e:
+            logger.warning(
+                f"Failed to compute quantiles for {column}: {type(e).__name__}: {e}"
+            )
+            return [None] * len(quantiles)
+        # quantile_cont(col, [..]) yields a list; guard against an unexpected
+        # non-iterable scalar so we degrade gracefully instead of raising.
+        if not isinstance(result, (list, tuple)):
+            logger.warning(
+                f"quantile_cont returned unexpected type {type(result).__name__} "
+                f"for column {column!r}; returning null quantiles."
+            )
+            return [None] * len(quantiles)
+        # Round to 12 significant figures: quantile_cont interpolation can differ
+        # by ~1 ULP across DuckDB versions / thread counts, which would otherwise
+        # make golden-file comparisons flaky (e.g. 0.162 vs 0.16199999999999998).
+        return [_round_sig(float(v)) if v is not None else None for v in result]
+
+    def get_sample_clause(self, sample_size: int) -> Optional[str]:
+        # DuckDB reservoir sampling by absolute row count.
+        return f"USING SAMPLE {int(sample_size)} ROWS"
+
+    # =========================================================================
+    # Cache-backed execution overrides (SUMMARIZE fast-path)
+    # =========================================================================
+
+    def get_row_count(
+        self,
+        table: sa.Table,
+        conn: Connection,
+        sample_clause: Optional[str] = None,
+        use_estimation: bool = False,
+    ) -> int:
+        """Return cached SUMMARIZE row count when no sampling is requested."""
+        if sample_clause is None and self._row_count is not None:
+            return self._row_count
+        return super().get_row_count(table, conn, sample_clause, use_estimation)
+
+    def get_column_non_null_count(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> int:
+        """Return cached non-null count derived from SUMMARIZE null_percentage."""
+        s = self._summary.get(column)
+        if s is not None:
+            return int(s.non_null)
+        return super().get_column_non_null_count(table, column, conn)
+
+    def get_column_unique_count(
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        use_approx: bool = True,
+    ) -> int:
+        """Return cached approx_unique from SUMMARIZE (HyperLogLog)."""
+        s = self._summary.get(column)
+        if use_approx and s is not None:
+            return int(s.approx_unique)
+        return super().get_column_unique_count(table, column, conn, use_approx)
+
+    def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE min (VARCHAR); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        return s.min if s is not None else super().get_column_min(table, column, conn)
+
+    def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE max (VARCHAR); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        return s.max if s is not None else super().get_column_max(table, column, conn)
+
+    def get_column_mean(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> Optional[Any]:
+        """Return cached SUMMARIZE avg (float); falls back to SQL on cache miss."""
+        s = self._summary.get(column)
+        val = s.avg if s is not None else super().get_column_mean(table, column, conn)
+        return _round_if_float(val)
+
+    def get_column_stdev(
+        self, table: sa.Table, column: str, conn: Connection
+    ) -> Optional[Any]:
+        """Return cached SUMMARIZE std (float); falls back to SQL on cache miss or when std is None."""
+        s = self._summary.get(column)
+        if s is not None and s.std is not None:
+            return _round_if_float(s.std)
+        return _round_if_float(super().get_column_stdev(table, column, conn))
+
+    def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
+        """Return cached SUMMARIZE q50 (p50 median); falls back to quantile_cont on cache miss or when q50 is None.
+
+        Note: SUMMARIZE's q50 is an *approximate* quantile (DuckDB computes it via
+        a T-Digest sketch), so on the fast path the median can differ slightly
+        from the exact ``quantile_cont(col, 0.5)`` used on the fallback path. This
+        is within the same approximation tolerance the connector already accepts
+        for distinct counts (HyperLogLog) and is deliberate — the per-column
+        exact median would cost an extra scan per column.
+        """
+        s = self._summary.get(column)
+        if s is not None and s.q50 is not None:
+            return _round_if_float(s.q50)
+        return _round_if_float(super().get_column_median(table, column, conn))

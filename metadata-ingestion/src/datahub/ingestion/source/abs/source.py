@@ -123,7 +123,6 @@ class TableData:
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.OPERATION_CAPTURE,
     "Enabled by default as UPDATE operations from blob timestamps",
@@ -140,14 +139,12 @@ class TableData:
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
-    profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
         self.report = DataLakeSourceReport()
-        self.profiling_times_taken = []
         config_report = {
             config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report

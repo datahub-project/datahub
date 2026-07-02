@@ -7,11 +7,14 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.abs.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.datalake_profiler_config import (
+    DataLakeProfilerConfig,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -70,13 +73,11 @@ class DataLakeSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
-    spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
+    _spark_driver_memory_removed = pydantic_removed_field(
+        "spark_driver_memory", month="June", year=2026
     )
-
-    spark_config: Dict[str, Any] = Field(
-        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
-        default={},
+    _spark_config_removed = pydantic_removed_field(
+        "spark_config", month="June", year=2026
     )
 
     max_rows: int = Field(
@@ -140,6 +141,15 @@ class DataLakeSourceConfig(
             raise ValueError("Each path_spec must specify a non-empty include path.")
 
         return "abs" if is_abs_uri(include) else "file"
+
+    @model_validator(mode="after")
+    def reject_unsupported_profiling(self) -> "DataLakeSourceConfig":
+        if self.profiling.enabled:
+            raise ValueError(
+                "Profiling is not supported for the ABS (Azure Blob Storage) "
+                "source. Remove `profiling.enabled` or set it to false."
+            )
+        return self
 
     @model_validator(mode="after")
     def ensure_profiling_pattern_is_passed_to_profiling(self) -> "DataLakeSourceConfig":

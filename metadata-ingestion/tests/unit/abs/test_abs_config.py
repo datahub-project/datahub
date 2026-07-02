@@ -140,3 +140,51 @@ def test_abs_config_rejects_empty_path_specs():
         match="path_specs must not be empty",
     ):
         DataLakeSourceConfig.model_validate(config_dict)
+
+
+def test_abs_config_rejects_enabled_profiling():
+    """ABS has no profiler wired (and no Azure credential path for the DuckDB
+    engine the S3/GCS sources use), so enabling profiling must fail loudly rather
+    than silently emit nothing."""
+    config_dict = {
+        "path_specs": [
+            {
+                "include": "https://acct.blob.core.windows.net/container/{table}/*.csv",
+                "file_types": ["csv"],
+            }
+        ],
+        "azure_config": {
+            "account_name": "acct",
+            "container_name": "container",
+            "account_key": "dummy",
+        },
+        "profiling": {"enabled": True},
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="Profiling is not supported for the ABS",
+    ):
+        DataLakeSourceConfig.model_validate(config_dict)
+
+
+def test_abs_config_allows_disabled_profiling():
+    """Recipes that explicitly disable profiling (common in copied configs) must
+    still load."""
+    config_dict = {
+        "path_specs": [
+            {
+                "include": "https://acct.blob.core.windows.net/container/{table}/*.csv",
+                "file_types": ["csv"],
+            }
+        ],
+        "azure_config": {
+            "account_name": "acct",
+            "container_name": "container",
+            "account_key": "dummy",
+        },
+        "profiling": {"enabled": False},
+    }
+
+    config = DataLakeSourceConfig.model_validate(config_dict)
+    assert config.profiling.enabled is False
