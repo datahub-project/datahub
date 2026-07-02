@@ -8,6 +8,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801100,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -29,6 +34,11 @@
             "description": "Omni connection entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801100,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -42,6 +52,11 @@
                 "Connection"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801101,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -53,6 +68,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -74,6 +94,11 @@
             "description": "Omni connection entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -87,6 +112,11 @@
                 "Connection"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801113,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -98,6 +128,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -118,6 +153,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -142,6 +182,11 @@
             "description": "Omni model entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -155,6 +200,11 @@
                 "Model"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801114,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -166,6 +216,11 @@
         "json": {
             "upstreams": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -177,6 +232,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -198,6 +258,11 @@
             "description": "Omni topic entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -211,51 +276,11 @@
                 "Topic"
             ]
         }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "CUSTOMERS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.CUSTOMERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -267,6 +292,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801115,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -342,6 +372,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801116,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -362,6 +397,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801116,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -382,6 +422,11 @@
             "description": "Omni semantic view from topic customers.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -395,6 +440,11 @@
                 "View"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -415,6 +465,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -426,6 +481,11 @@
         "json": {
             "upstreams": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -437,6 +497,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801117,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -458,6 +523,11 @@
             "description": "Omni topic entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -471,51 +541,11 @@
                 "Topic"
             ]
         }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "ORDERS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -527,6 +557,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -602,6 +637,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801118,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -622,6 +662,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -642,6 +687,11 @@
             "description": "Omni semantic view from topic orders.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -655,51 +705,11 @@
                 "View"
             ]
         }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:snowflake",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,snowflake)"
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "snowflake",
-                "database": "ANALYTICS_PROD",
-                "schema": "PUBLIC",
-                "table": "ORDER_ITEMS",
-                "connectionId": "conn-snow-prod",
-                "platformInstance": "snowflake"
-            },
-            "description": "Physical source table referenced by Omni model.",
-            "tags": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.ANALYTICS_PROD.PUBLIC.ORDER_ITEMS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801119,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -711,6 +721,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -774,6 +789,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -794,6 +814,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801120,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -814,6 +839,11 @@
             "description": "Omni semantic view from topic orders.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -827,6 +857,11 @@
                 "View"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -855,6 +890,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801121,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -866,6 +906,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801122,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -894,6 +939,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -918,6 +968,11 @@
             "description": "Omni model entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -931,6 +986,11 @@
                 "Model"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801123,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -942,6 +1002,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801126,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -965,6 +1030,11 @@
             "description": "Omni folder entity.",
             "tags": []
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801127,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -978,6 +1048,11 @@
                 "Folder"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801127,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -991,6 +1066,11 @@
                 "Dashboard"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801128,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1014,11 +1094,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
@@ -1050,17 +1130,22 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),created_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD),customer_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),orders.created_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD),customers.customer_id)"
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801128,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1072,6 +1157,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1107,6 +1197,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1128,6 +1223,11 @@
                 "actor": "urn:li:corpuser:unknown"
             }
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801129,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1139,6 +1239,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1174,6 +1279,11 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1195,6 +1305,11 @@
                 "actor": "urn:li:corpuser:unknown"
             }
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1206,6 +1321,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801130,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1254,22 +1374,11 @@
             },
             "dashboardUrl": "https://acme.omniapp.co/dashboards/doc-dashboard-1"
         }
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
-                    "urn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)"
-                }
-            ]
-        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1291,6 +1400,32 @@
                 "actor": "urn:li:corpuser:unknown"
             }
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1304,6 +1439,11 @@
                 "Dashboard"
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801131,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1318,18 +1458,6 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),order_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.order_id)"
-                    ],
-                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),total_revenue)"
                     ],
                     "downstreamType": "FIELD",
@@ -1338,9 +1466,26 @@
                     ],
                     "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
                     "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD),orders.order_id)"
+                    ],
+                    "transformOperation": "OMNI_QUERY_FIELD_MAPPING",
+                    "confidenceScore": 1.0
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1352,6 +1497,11 @@
         "json": {
             "platform": "urn:li:dataPlatform:omni"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1393,6 +1543,11 @@
             },
             "dashboardUrl": "https://acme.omniapp.co/workbooks/doc-workbook-1"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801132,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1414,6 +1569,267 @@
                 "actor": "urn:li:corpuser:unknown"
             }
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(omni,tile-customers)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(omni,tile-revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(omni,doc-dashboard-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801133,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(omni,doc-workbook-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801134,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,folder.folder-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.shared-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,model.workbook-model-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801135,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,shared-model-1.topic.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719784801136,
+        "runId": "omni-2024_07_01-00_00_00-evoddg",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

@@ -806,6 +806,7 @@ okta = [
 omni = [
     "PyYAML>=5.4",
     "requests<3.0.0",
+    "tenacity>=8.0.1,<9.0.0",
 ]
 
 oracle = [
