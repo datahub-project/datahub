@@ -1,0 +1,53 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project-123456.test_dataset.partitioned_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 50000000,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "event_date",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": ["2023-12-25", "2023-12-24", "2023-12-23"]
+                },
+                {
+                    "fieldPath": "user_id", 
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": ["user_123", "user_456", "user_789"]
+                },
+                {
+                    "fieldPath": "revenue",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": 75.25,
+                    "max": 149.50,
+                    "mean": 108.25,
+                    "sampleValues": ["99.99", "149.50", "75.25"]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-profiling-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
