@@ -1,0 +1,34 @@
+namespace com.linkedin.datacontract
+
+/**
+ * A single item within a contract section. Either a structured property
+ * (qualitative term) or a validation dimension (quantitative check that
+ * contributes to the contract's health).
+ */
+record DataContractItem {
+  /**
+   * Stable identifier for this item, unique within the section.
+   */
+  id: string
+
+  /**
+   * Discriminator selecting which `*Params` field is populated.
+   */
+  type: DataContractItemType
+
+  /**
+   * Whether this item must be filled before the contract can be activated.
+   * Used by templates and sign-off readiness checks.
+   */
+  required: boolean = false
+
+  /**
+   * Populated when type = STRUCTURED_PROPERTY.
+   */
+  structuredPropertyParams: optional DataContractStructuredPropertyItem
+
+  /**
+   * Populated when type = VALIDATION.
+   */
+  validationParams: optional DataContractValidationDimension
+}

@@ -1,0 +1,21 @@
+# Instructions to add additional entry
+# 1. Add new entry to this list
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityUrn: urn:li:ownershipType:__system__contract_producer
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: Contract Producer
+    description: Responsible for delivering on the contract's assertions and SLAs.
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
+- entityUrn: urn:li:ownershipType:__system__contract_consumer
+  entityType: ownershipType
+  aspectName: ownershipTypeInfo
+  changeType: UPSERT
+  aspect:
+    name: Contract Consumer
+    description: Consuming data under the contract's terms and obligations.
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

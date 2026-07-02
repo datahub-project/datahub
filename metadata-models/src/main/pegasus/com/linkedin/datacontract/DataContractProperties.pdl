@@ -56,4 +56,23 @@ record DataContractProperties {
    * YAML-formatted contract definition
    */
   rawContract: optional string
+
+  /**
+   * User-defined sections containing structured property fields (qualitative terms)
+   * and validation dimensions (quantitative checks). Ordered.
+   * Sections complement the legacy schema/freshness/dataQuality arrays -
+   * existing ingestion paths continue to populate the legacy arrays;
+   * UI and new clients prefer sections when populated.
+   */
+   @Relationship = {
+     "/*/items/*/structuredPropertyParams/propertyUrn": {
+        "name": "IncludesStructuredProperty",
+        "entityTypes": [ "structuredProperty" ]
+     },
+     "/*/items/*/validationParams/assertions/*/assertion": {
+        "name": "IncludesValidationAssertion",
+        "entityTypes": [ "assertion" ]
+     }
+   }
+  sections: array[DataContractSection] = []
 }

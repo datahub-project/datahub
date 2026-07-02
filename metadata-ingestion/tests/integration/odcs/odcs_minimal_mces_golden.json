@@ -1,0 +1,75 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000001",
+                "odcs.version": "1.0.0",
+                "odcs.apiVersion": "v3.1.0",
+                "odcs.status": "active",
+                "odcs.tableName": "my_table"
+            },
+            "name": "my_table",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705338000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:946d76a2bfda4d04d6ed393ffe6482fb",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
+            "rawContract": "apiVersion: v3.1.0\nkind: DataContract\nid: 00000000-0000-0000-0000-000000000001\nversion: 1.0.0\nstatus: active\nservers:\n  - server: prod-snowflake\n    type: snowflake\n    account: acme-prod\n    database: ANALYTICS\n    schema: PUBLIC\nschema:\n  - name: my_table\n    physicalName: my_table\n    properties:\n      - name: id\n        physicalName: id\n        logicalType: number\n        primaryKey: true\n"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705338000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:946d76a2bfda4d04d6ed393ffe6482fb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705338000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705338000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

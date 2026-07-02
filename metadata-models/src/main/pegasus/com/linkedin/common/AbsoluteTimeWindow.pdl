@@ -1,0 +1,28 @@
+namespace com.linkedin.common
+
+/**
+ * An absolute time window expressed as a [start, end] interval in epoch millis UTC.
+ * Sentinel values: startTimeMillis = 0 means "effective immediately";
+ * endTimeMillis = Long.MAX_VALUE means "evergreen, no end date".
+ */
+record AbsoluteTimeWindow {
+  /**
+   * Start time as epoch millis at UTC. A value of 0 indicates
+   * "effective immediately" (no lower bound).
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "fieldName": "startTimeMillis"
+  }
+  startTimeMillis: long
+
+  /**
+   * End time as epoch millis at UTC. A value of Long.MAX_VALUE
+   * indicates "evergreen" (no upper bound / no expiration).
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "fieldName": "endTimeMillis"
+  }
+  endTimeMillis: long
+}

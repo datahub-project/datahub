@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Data Contract Consumer entity.
+ *
+ * A data contract consumer represents a single party's agreement to consume
+ * data under the terms of a published `dataContract`. Multiple
+ * dataContractConsumer instances can reference the same dataContract - one
+ * per consuming party (user or group), each with independent validity,
+ * lifecycle, and (Phase 2) sign-off.
+ */
+@Aspect = {
+  "name": "dataContractConsumerKey"
+}
+record DataContractConsumerKey {
+  /**
+   * Unique id (UUID) for this consumer agreement.
+   */
+  id: string
+}
