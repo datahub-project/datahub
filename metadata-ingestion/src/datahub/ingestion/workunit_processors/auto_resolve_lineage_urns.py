@@ -163,11 +163,11 @@ class AutoResolveLineageUrnsProcessor(
         # gains casing-aware resolution (tracked follow-up), at which point it is deleted.
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         self._casing_index_by_platform: Dict[str, Dict[str, List[str]]] = {}
+        # Platforms whose catalog load has been attempted. Doubles as the set of
+        # platforms actually referenced this run (every reference routes through
+        # _ensure_platform_loaded), so _warn_unmatched_platforms uses it to flag
+        # configured platforms that no reference matched.
         self._loaded_platforms: Set[str] = set()
-        # Platform names actually seen on references, to warn at end-of-run about
-        # configured platforms that matched nothing (a common cause is a case/spelling
-        # typo in the config, since platform names are compared case-sensitively).
-        self._seen_reference_platforms: Set[str] = set()
         # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
         # These are the aspects a BI / orchestration source emits that carry *upstream
         # dataset* references — the only refs affected by cross-source casing mismatch:
@@ -244,9 +244,7 @@ class AutoResolveLineageUrnsProcessor(
         The usual cause is a case/spelling mismatch in the config (platform names are
         compared case-sensitively), which would otherwise silently heal nothing.
         """
-        unmatched = {
-            entry.platform for entry in self._config
-        } - self._seen_reference_platforms
+        unmatched = {entry.platform for entry in self._config} - self._loaded_platforms
         if unmatched:
             logger.warning(
                 f"auto_resolve_lineage_urns: configured upstream platform(s) "
@@ -283,17 +281,16 @@ class AutoResolveLineageUrnsProcessor(
         granularity. A reference for a platform instance / env that isn't configured
         simply won't appear in the index and resolves to UNRESOLVED.
         """
-        # Record every reference platform (even before the load cache) so the
-        # end-of-run check can flag configured platforms that matched nothing.
-        self._seen_reference_platforms.add(platform)
+        # Load a platform's catalog at most once. Recording the platform here (before
+        # the entries check) also means _loaded_platforms captures every referenced
+        # platform, which _warn_unmatched_platforms relies on.
+        if platform in self._loaded_platforms:
+            return
+        self._loaded_platforms.add(platform)
 
         # Deferred import: schema_resolver_provider pulls in sqlglot, which must not
         # be a module-load-time dependency (see the note at the top of this file).
         from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
-
-        if platform in self._loaded_platforms:
-            return
-        self._loaded_platforms.add(platform)
 
         # `platform` here is the normalized platform name parsed from the dataset URN;
         # entry.platform is normalized to the same bare-name form by the config
