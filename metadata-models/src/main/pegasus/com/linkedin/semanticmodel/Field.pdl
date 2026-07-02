@@ -1,0 +1,41 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.metric.AiContext
+import com.linkedin.metric.CustomExtension
+import com.linkedin.metric.MetricExpression
+
+/**
+ * A named field (measure or dimension) defined inside a SemanticModel dataset.
+ */
+record Field {
+
+  /**
+   * The name of this field as exposed by the semantic layer.
+   */
+  name: string
+
+  /**
+   * The SQL expression that computes this field, in one or more dialects.
+   */
+  expression: MetricExpression
+
+  /**
+   * Dimension classification metadata; absent if this field is a measure.
+   */
+  dimension: optional Dimension
+
+  /**
+   * Human-readable description of this field.
+   */
+  description: optional string
+
+  /**
+   * AI-specific context for improved disambiguation and retrieval.
+   */
+  aiContext: optional AiContext
+
+  /**
+   * Vendor-namespaced extension blobs for platform-specific field metadata.
+   */
+  customExtensions: optional array[CustomExtension]
+}

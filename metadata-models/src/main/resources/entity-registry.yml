@@ -686,6 +686,61 @@ entities:
       - forms
       - testResults
       - subTypes
+  - name: semanticModel
+    category: core
+    keyAspect: semanticModelKey
+    searchGroup: primary
+    aspects:
+      - semanticModelInfo
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - forms
+      - testResults
+      - documentation
+      - browsePaths
+      - browsePathsV2
+      - applications
+      - container
+      - displayProperties
+      - assetSettings
+  - name: metric
+    category: core
+    keyAspect: metricKey
+    searchGroup: primary
+    aspects:
+      - metricInfo
+      - metricRelationships
+      - upstreamLineage
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - forms
+      - testResults
+      - documentation
+      - browsePaths
+      - browsePathsV2
+      - applications
+      - container
+      - incidentsSummary
+      - displayProperties
+      - assetSettings
+      - versionProperties
+      - access
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

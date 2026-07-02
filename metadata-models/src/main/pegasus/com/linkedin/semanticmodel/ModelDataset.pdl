@@ -1,0 +1,45 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.common.Urn
+import com.linkedin.metric.CustomExtension
+
+/**
+ * A logical dataset referenced by a SemanticModel, together with its schema
+ * and primary/unique key definitions.
+ */
+record ModelDataset {
+
+  /**
+   * Logical alias used to reference this dataset within the semantic model.
+   */
+  name: string
+
+  /**
+   * URN of the DataHub Dataset entity that backs this logical dataset.
+   */
+  @Relationship = {
+    "name": "SourcedBy",
+    "entityTypes": [ "dataset" ]
+  }
+  source: Urn
+
+  /**
+   * Column names that form the primary key of this dataset.
+   */
+  primaryKey: optional array[string]
+
+  /**
+   * Sets of column names that form unique keys of this dataset.
+   */
+  uniqueKeys: optional array[array[string]]
+
+  /**
+   * Fields (measures and dimensions) defined over this dataset.
+   */
+  fields: optional array[Field]
+
+  /**
+   * Vendor-namespaced extension blobs for platform-specific dataset metadata.
+   */
+  customExtensions: optional array[CustomExtension]
+}

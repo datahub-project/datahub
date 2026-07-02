@@ -1,0 +1,13 @@
+namespace com.linkedin.metric
+
+/**
+ * A metric's logical expression represented across one or more SQL dialects
+ * (OSI expression.dialects shape from Proposal B).
+ */
+record MetricExpression {
+
+  /**
+   * The expression in one or more dialects.
+   */
+  dialects: array[DialectExpression]
+}
