@@ -133,17 +133,15 @@ class QueryCleanup:
         )
 
     def _times_up(self) -> bool:
-        if (
-            self.config.runtime_limit_seconds
-            and time.time() - self.start_time > self.config.runtime_limit_seconds
-        ):
+        if time.time() - self.start_time > self.config.runtime_limit_seconds:
             self.report.qc_runtime_limit_reached = True
             return True
         return False
 
     def _deletion_limit_reached(self) -> bool:
+        # limit_entities_delete is None when the cap is disabled (see field description).
         if (
-            self.config.limit_entities_delete
+            self.config.limit_entities_delete is not None
             and self.report.num_queries_soft_deleted
             >= self.config.limit_entities_delete
         ):
