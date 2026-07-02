@@ -151,6 +151,10 @@ class RedshiftSqlLineage(Closeable):
         # required for per-query usage stats (and for column-level dataset usage).
         self.run_unified_queries = self.generate_usage or self.generate_query_usage
         lineage_enabled = self.config.lineage_enabled
+        # Schema resolution is lazy via the DataHub graph (no pre-populated resolver).
+        # Under parallel mode, worker processes each hydrate schemas independently
+        # from the graph on demand. Without a configured graph, schema resolution
+        # is skipped entirely — identical behaviour to serial mode.
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,

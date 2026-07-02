@@ -135,6 +135,7 @@ class SqlParsingParallelismConfig(ConfigModel):
     )
     sql_parsing_workers: Optional[int] = Field(
         default=None,
+        ge=1,
         description=(
             "Explicit number of worker processes for parallel SQL parsing. "
             "Defaults to an auto-detected safe value; values above detected "
