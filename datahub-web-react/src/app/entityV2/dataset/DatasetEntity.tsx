@@ -399,7 +399,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <Preview
                 urn={data.urn}
                 data={genericProperties}
-                name={data.properties?.name || data.name}
+                name={this.displayName(data)}
                 origin={data.origin}
                 subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -434,7 +434,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <Preview
                 urn={data.urn}
                 data={genericProperties}
-                name={data.properties?.name || data.name}
+                name={this.displayName(data)}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -485,8 +485,8 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity?.properties?.name || entity.name,
-            expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
+            name: this.displayName(entity),
+            expandedName: entity?.properties?.qualifiedName || this.displayName(entity),
             type: EntityType.Dataset,
             subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
