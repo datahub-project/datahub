@@ -32,9 +32,6 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
-from datahub.ingestion.source.dataplex.dataplex_ids import (
-    build_lineage_parent,
-)
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     dataset_urn_from_fqn_only,
     is_lineage_supported,
@@ -57,6 +54,11 @@ logger = logging.getLogger(__name__)
 # Prevents O(N) memory growth when there are thousands of entries.
 # TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
 WORKERS_BATCH_SIZE = 200
+
+
+def build_lineage_parent(project_id: str, location: str) -> str:
+    """Build the Data Lineage API parent for an explicit project/location pair."""
+    return f"projects/{project_id}/locations/{location}"
 
 
 @dataclass(order=True, eq=True, frozen=True)

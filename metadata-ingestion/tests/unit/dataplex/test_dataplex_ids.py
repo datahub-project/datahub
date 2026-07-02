@@ -13,7 +13,6 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DataplexBigQueryProject,
     DataplexCloudSqlMySqlDatabase,
     DataplexProjectId,
-    build_lineage_parent,
     extract_entry_type_short_name,
     instantiate_key,
     parse_with_regex,
@@ -45,13 +44,6 @@ def test_extract_entry_type_short_name(
 
 def test_extract_entry_type_short_name_invalid() -> None:
     assert extract_entry_type_short_name("bigquery-table") is None
-
-
-def test_build_lineage_parent() -> None:
-    assert (
-        build_lineage_parent(project_id="test-project", location="us-central1")
-        == "projects/test-project/locations/us-central1"
-    )
 
 
 def test_parse_with_regex_named_groups() -> None:

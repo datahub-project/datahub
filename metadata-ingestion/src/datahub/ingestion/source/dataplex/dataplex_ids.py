@@ -239,8 +239,3 @@ def instantiate_key(
         if field_name in valid_fields
     }
     return key_class(**constructor_args)
-
-
-def build_lineage_parent(project_id: str, location: str) -> str:
-    """Build Data Lineage API parent for an explicit project/location pair."""
-    return f"projects/{project_id}/locations/{location}"
