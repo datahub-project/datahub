@@ -153,6 +153,14 @@ interface DocumentTreeProps {
      * their parents remain visible (and vice versa).
      */
     filterSelection?: DocumentTreeFilterSelection;
+    /**
+     * Enables multi-select mode: each row renders a leading checkbox driven by
+     * `checkedUrns`, and clicking a row fires `onSelectDocument` for the parent
+     * to toggle the URN in its own set. Per-row actions (menu, create-child) are
+     * hidden. When omitted, the tree behaves normally (single navigation mode).
+     */
+    multiSelect?: boolean;
+    checkedUrns?: Set<string>;
 }
 
 export const DocumentTree: React.FC<DocumentTreeProps> = ({
@@ -163,6 +171,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     hideActionsMenu = false,
     hideCreate = false,
     filterSelection = NO_FILTER_SELECTION,
+    multiSelect = false,
+    checkedUrns,
 }) => {
     const { t } = useTranslation('misc');
     const history = useHistory();
@@ -286,7 +296,9 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             const isExpanded = expandedUrns.has(urn);
             const isLoading = loadingUrns.has(urn);
             const currentUrn = selectedUrn || getCurrentDocumentUrn();
-            const isSelected = currentUrn === urn;
+            // In multi-select mode, "selected" means "checked in the parent's URN set".
+            // Otherwise, keep the single-selection navigation semantics.
+            const isSelected = multiSelect ? !!checkedUrns?.has(urn) : currentUrn === urn;
 
             // Filter loaded children at render time. Done here (rather than mutating tree state)
             // so toggling filters never refetches or mutates the underlying tree.
@@ -312,6 +324,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         hideActionsMenu={hideActionsMenu}
                         hideCreate={hideCreate}
                         parentUrn={node.parentUrn}
+                        multiSelect={multiSelect}
                     />
                     {isExpanded && visibleChildren.length > 0 && (
                         <>
@@ -345,6 +358,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             loadingChildrenUrns,
             handleLoadMoreChildren,
             filterSelection,
+            multiSelect,
+            checkedUrns,
         ],
     );
 
