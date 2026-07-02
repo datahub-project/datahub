@@ -4,6 +4,7 @@ import {
     FileOutlined,
     PartitionOutlined,
     TableOutlined,
+    UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
@@ -37,6 +38,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
@@ -54,6 +56,7 @@ import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '@types';
@@ -100,6 +103,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     useEntityQuery = useGetDashboardQuery;
 
+    appconfig = useAppConfig;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -141,6 +146,15 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
+                },
+                {
+                    name: i18next.t('entity.types:shared.accessTab'),
+                    component: AccessManagement,
+                    icon: UnlockOutlined,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, _2) => true,
+                    },
                 },
                 {
                     name: i18next.t('common.actions:preview'),

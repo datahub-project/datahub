@@ -4,7 +4,6 @@ import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
 import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
@@ -26,6 +25,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';

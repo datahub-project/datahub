@@ -76,7 +76,7 @@ export function Pill({
                 : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             <PillText style={customStyle}>{label}</PillText>
             {rightIcon && (
-                <Button style={{ padding: 0 }} variant="text" onClick={onClickRightIcon}>
+                <Button style={{ padding: 0 }} variant="text" color={color} onClick={onClickRightIcon}>
                     <Icon icon={rightIcon} size={size} />
                 </Button>
             )}
