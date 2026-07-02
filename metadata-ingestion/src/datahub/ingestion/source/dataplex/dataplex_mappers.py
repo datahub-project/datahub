@@ -176,6 +176,12 @@ class EntryMapper(ABC):
 
 
 def _extract_display_name(entry: dataplex_v1.Entry) -> str:
+    """Return the entry's display name, falling back to the last name segment.
+
+    Dataplex only populates ``entry_source.display_name`` for some systems, so
+    when it is missing (or not a real string) we use the trailing segment of the
+    entry resource name as a stable human-readable label.
+    """
     if entry.entry_source:
         display_name = getattr(entry.entry_source, "display_name", None)
         if isinstance(display_name, str) and display_name.strip():
@@ -184,12 +190,19 @@ def _extract_display_name(entry: dataplex_v1.Entry) -> str:
 
 
 def _extract_description(entry: dataplex_v1.Entry) -> str:
+    """Return the entry's description, or an empty string when absent."""
     if entry.entry_source and entry.entry_source.description:
         return entry.entry_source.description
     return ""
 
 
 def _extract_datetime(entry: dataplex_v1.Entry, field_name: str) -> Optional[datetime]:
+    """Read a timestamp field off ``entry_source`` as a UTC ``datetime``.
+
+    ``field_name`` is a proto timestamp attribute such as ``create_time`` or
+    ``update_time``. Returns ``None`` when there is no ``entry_source`` or the
+    field is unset.
+    """
     if not entry.entry_source:
         return None
     value = getattr(entry.entry_source, field_name, None)
@@ -199,6 +212,15 @@ def _extract_datetime(entry: dataplex_v1.Entry, field_name: str) -> Optional[dat
 
 
 def _extract_entry_group_id(entry_name: str) -> str:
+    """Extract the entry group id from a Dataplex entry resource name.
+
+    The id is the path segment immediately after ``entryGroups``. Returns
+    ``"unknown"`` when the name does not follow the expected shape.
+
+    Example:
+        ``projects/my-project/locations/us/entryGroups/@bigquery/entries/foo``
+        -> ``"@bigquery"``
+    """
     parts = entry_name.split("/")
     try:
         entry_groups_index = parts.index("entryGroups")
