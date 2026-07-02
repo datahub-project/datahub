@@ -5,15 +5,18 @@ Tests the retry behavior for ACCOUNT_USAGE intermittent unavailability.
 """
 
 import threading
-from typing import Callable
+from typing import Callable, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.ingestion.source.snowflake.snowflake_connection import (
+    _CONNECTION_RETRY_MAX_ATTEMPTS,
     SnowflakeConnection,
+    SnowflakeConnectionConfig,
     SnowflakePermissionError,
     _is_retryable_account_usage_error,
+    _is_retryable_connection_error,
 )
 
 
@@ -28,6 +31,20 @@ class MockSnowflakeError(Exception):
     """Mock Snowflake error for testing."""
 
     pass
+
+
+class MockConnectionError(Exception):
+    """Mock Snowflake connection error exposing errno/sqlstate for testing."""
+
+    def __init__(
+        self,
+        message: str,
+        errno: Optional[int] = None,
+        sqlstate: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.errno = errno
+        self.sqlstate = sqlstate
 
 
 @pytest.fixture
@@ -246,3 +263,111 @@ class TestConnectionRetry:
             assert len(errors) == 0, f"Expected no errors, got {len(errors)}: {errors}"
             assert call_counts["thread_1"] == 2
             assert call_counts["thread_2"] == 2
+
+
+class TestConnectionEstablishmentRetry:
+    """Unit tests for connect-time retry on transient 250001/08001 errors."""
+
+    @pytest.mark.parametrize(
+        "errno,sqlstate,message,expected",
+        [
+            pytest.param(250001, "08001", "", True, id="errno_and_sqlstate_match"),
+            pytest.param(None, "08001", "", True, id="sqlstate_only_match"),
+            pytest.param(
+                None,
+                None,
+                "250001 (08001): Failed to connect to DB: test_account.snowflakecomputing.com:443. JWT token is invalid.",
+                True,
+                id="message_fallback_match",
+            ),
+            pytest.param(
+                390100,
+                "08004",
+                "Incorrect username or password was specified.",
+                False,
+                id="non_transient_error_not_retryable",
+            ),
+        ],
+    )
+    def test_is_retryable_connection_error(self, errno, sqlstate, message, expected):
+        error = MockConnectionError(message, errno=errno, sqlstate=sqlstate)
+        assert _is_retryable_connection_error(error) is expected
+
+    def test_connect_retries_transient_failure_then_succeeds(self):
+        config = SnowflakeConnectionConfig(
+            account_id="test_account",
+            username="user",
+            password="pass",
+            authentication_type="DEFAULT_AUTHENTICATOR",
+        )
+
+        mock_native_conn = MagicMock()
+        call_count = 0
+
+        def connect_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise MockConnectionError(
+                    "250001 (08001): Failed to connect to DB: test_account.snowflakecomputing.com:443. JWT token is invalid.",
+                    errno=250001,
+                    sqlstate="08001",
+                )
+            return mock_native_conn
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect",
+            side_effect=connect_side_effect,
+        ) as mock_connect:
+            result = config.get_native_connection()
+
+        assert result is mock_native_conn
+        assert mock_connect.call_count == 2
+
+    def test_connect_gives_up_after_max_attempts(self):
+        config = SnowflakeConnectionConfig(
+            account_id="test_account",
+            username="user",
+            password="pass",
+            authentication_type="DEFAULT_AUTHENTICATOR",
+        )
+
+        def connect_side_effect(*args, **kwargs):
+            raise MockConnectionError(
+                "250001 (08001): Failed to connect to DB: test_account.snowflakecomputing.com:443. JWT token is invalid.",
+                errno=250001,
+                sqlstate="08001",
+            )
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect",
+            side_effect=connect_side_effect,
+        ) as mock_connect:
+            with pytest.raises(MockConnectionError):
+                config.get_native_connection()
+
+        assert mock_connect.call_count == _CONNECTION_RETRY_MAX_ATTEMPTS
+
+    def test_connect_does_not_retry_non_transient_error(self):
+        config = SnowflakeConnectionConfig(
+            account_id="test_account",
+            username="user",
+            password="pass",
+            authentication_type="DEFAULT_AUTHENTICATOR",
+        )
+
+        def connect_side_effect(*args, **kwargs):
+            raise MockConnectionError(
+                "Incorrect username or password was specified.",
+                errno=390100,
+                sqlstate="08004",
+            )
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect",
+            side_effect=connect_side_effect,
+        ) as mock_connect:
+            with pytest.raises(MockConnectionError):
+                config.get_native_connection()
+
+        assert mock_connect.call_count == 1

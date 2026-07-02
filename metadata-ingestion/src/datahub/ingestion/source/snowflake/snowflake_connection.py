@@ -54,6 +54,14 @@ logger = logging.getLogger(__name__)
 
 _APPLICATION_NAME: str = "acryl_datahub"
 
+# Retry connection establishment on transient handshake failures (e.g. network
+# blips or a rejected JWT under key-pair auth caused by clock skew) -- a fresh
+# connect attempt regenerates the JWT, so retrying can succeed where the first
+# attempt failed. Distinct from the ACCOUNT_USAGE query retry below.
+_CONNECTION_RETRY_MAX_ATTEMPTS = 3
+_CONNECTION_RETRY_MIN_WAIT_SEC = 1
+_CONNECTION_RETRY_MAX_WAIT_SEC = 10
+
 _VALID_AUTH_TYPES: Dict[str, str] = {
     "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
@@ -376,6 +384,29 @@ class SnowflakeConnectionConfig(ConfigModel):
         )
 
     def get_native_connection(self) -> NativeSnowflakeConnection:
+        """
+        Establish a native Snowflake connection, retrying on transient connect
+        failures (250001 / SQLSTATE 08001). This covers both the main ingestion
+        path and the profiler, which calls this method directly as its SQLAlchemy
+        pool `creator` whenever the pool needs a new connection.
+        """
+        retryer = Retrying(
+            retry=retry_if_exception(_is_retryable_connection_error),
+            stop=stop_after_attempt(_CONNECTION_RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                multiplier=1,
+                min=_CONNECTION_RETRY_MIN_WAIT_SEC,
+                max=_CONNECTION_RETRY_MAX_WAIT_SEC,
+            ),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        for attempt in retryer:
+            with attempt:
+                return self._create_native_connection()
+        raise AssertionError("unreachable")  # satisfies mypy return-type checking
+
+    def _create_native_connection(self) -> NativeSnowflakeConnection:
         connect_args = self.get_options()["connect_args"]
         if self.authentication_type == "DEFAULT_AUTHENTICATOR":
             return snowflake.connector.connect(
@@ -543,3 +574,25 @@ def _is_retryable_account_usage_error(e: BaseException, query: str) -> bool:
     ) and "002003" in msg
 
     return is_account_usage_query and is_permission_error
+
+
+def _is_retryable_connection_error(e: BaseException) -> bool:
+    """
+    Check if a Snowflake connect-time error is a transient connection-establishment
+    failure that is worth retrying.
+
+    250001 / SQLSTATE 08001 indicates the connector failed to complete the connection
+    handshake. This can be a genuine network blip, or -- under key-pair authentication --
+    a rejected JWT caused by clock skew between the client and Snowflake at the moment the
+    JWT was generated. Since the connector generates a fresh, short-lived JWT on every
+    connect attempt, retrying can succeed even though the first attempt failed. This check
+    is authenticator-agnostic: it matches on the error code/state, not on why the handshake
+    failed, so it does not retry genuinely bad credentials (which fail with a different
+    errno/sqlstate).
+    """
+    errno = getattr(e, "errno", None)
+    sqlstate = getattr(e, "sqlstate", None)
+    if errno == 250001 or sqlstate == "08001":
+        return True
+    msg = str(e)
+    return "250001" in msg and "Failed to connect" in msg
