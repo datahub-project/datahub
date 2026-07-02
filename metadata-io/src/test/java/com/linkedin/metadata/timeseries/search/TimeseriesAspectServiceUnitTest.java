@@ -32,7 +32,10 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
+import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -1256,5 +1259,94 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertEquals(result.size(), 5);
     // 3 sub-batches: [1,2] [3,4] [5] → 3 ES calls.
     verify(searchClient, times(3)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsWithMetricOrdering() throws IOException {
+    // Exercises: findOrderBySpec returning non-null, BucketOrder.aggregation(metric, asc),
+    // ascending=false path, hasSize()→getSize(), and the innerRoot!=null branch.
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    GroupingBucket userBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+            .setKey("userCounts.user")
+            .setSize(5)
+            .setOrderByMetric(true)
+            .setAscending(false);
+    AggregationSpec cardSpec =
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("userCounts.user");
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:a1"),
+            UrnUtils.getUrn("urn:li:dataset:a2"),
+            UrnUtils.getUrn("urn:li:dataset:a3"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[] {cardSpec},
+            urns,
+            null,
+            new GroupingBucket[] {userBucket},
+            "urn");
+
+    Assert.assertEquals(result.size(), 3);
+    verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsWithDefaultBucketOrderingAndSharedFilter()
+      throws IOException {
+    // Exercises: BucketOrder.aggregation("_key", asc) path, !hasSize()→MAX_TERM_BUCKETS,
+    // default ascending (asc=true), and the sharedFilter!=null path.
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    // No size, no orderByMetric, no ascending — exercises all default-ordering branches.
+    GroupingBucket plainBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+            .setKey("userCounts.user");
+    Filter sharedFilter = QueryUtils.newFilter("urn", "urn:li:dataset:b1");
+
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:b1"), UrnUtils.getUrn("urn:li:dataset:b2"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            sharedFilter,
+            new GroupingBucket[] {plainBucket},
+            "urn");
+
+    Assert.assertEquals(result.size(), 2);
+    verify(searchClient, times(1)).search(any(), any(), any());
   }
 }
