@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Iterable, List, Optional, Protocol, Set
 
 import duckdb
 import sqlalchemy as sa
+from sqlalchemy.pool import StaticPool
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.data_lake_common.datalake_profiler_config import (
@@ -32,6 +33,11 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
+from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -40,22 +46,15 @@ logger = logging.getLogger(__name__)
 class DuckDBExtensionError(RuntimeError):
     """A required DuckDB extension could not be installed/loaded.
 
-    Subclasses ``RuntimeError`` so it routes to ``report_failure`` in
-    ``get_table_profile``: an extension that can't load (e.g. httpfs/aws/avro in
-    an air-gapped environment without a staged binary) is a structural,
-    platform-wide failure that recurs for every table — not a per-table data
-    issue like an unsupported format or an unresolvable path (which stay
-    warnings).
+    Raised when an extension (e.g. httpfs/aws/avro) is unavailable — for
+    instance in an air-gapped environment without a staged binary.
     """
 
 
 class UnsupportedDuckDBFormatError(ValueError):
     """The file's format is not one DuckDB profiling can read.
 
-    A per-table data issue (this object's format is unsupported), not a
-    structural failure — so ``get_table_profile`` reports it as a deduped
-    warning rather than failing the run. Subclasses ``ValueError`` and is raised
-    by ``_open_relation`` for an unknown/empty extension.
+    Raised by ``_open_relation`` for an unknown or empty file extension.
     """
 
 
@@ -153,7 +152,15 @@ class DuckDBProfiler:
 
     def _engine_lazy(self) -> sa.engine.Engine:
         if self._engine is None:
-            self._engine = sa.create_engine(f"duckdb:///{self._db_path}")
+            # Pin to a single DBAPI connection. DuckDB's non-PERSISTENT secrets
+            # and loaded extensions are session-scoped, and the instance-level
+            # `_secrets_done` / `_loaded_extensions` guards assume the same
+            # connection is reused. StaticPool guarantees that, so a connection
+            # coming back from the pool can never be missing the S3 secret or
+            # httpfs/aws/avro extensions we already issued.
+            self._engine = sa.create_engine(
+                f"duckdb:///{self._db_path}", poolclass=StaticPool
+            )
         return self._engine
 
     def _is_remote(self, path: str) -> bool:
@@ -500,6 +507,20 @@ class DuckDBProfiler:
                 title=entry.title,
             )
 
+    @staticmethod
+    def _mark_profile_sampled(profile: DatasetProfileClass) -> None:
+        """Record in the profile's ``partitionSpec`` that it covers a random
+        sample, matching how the SQL profilers annotate sampled profiles."""
+        if (
+            profile.partitionSpec
+            and profile.partitionSpec.type == PartitionTypeClass.PARTITION
+        ):
+            profile.partitionSpec.partition += " SAMPLE"
+        else:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY, partition="SAMPLE"
+            )
+
     def get_table_profile(
         self,
         table_data: "TableData",
@@ -563,7 +584,12 @@ class DuckDBProfiler:
             for _req, profile in profiles:
                 if profile is not None:
                     if row_estimate is not None:
+                        # Sampling is applied upstream (USING SAMPLE in the
+                        # materialize step), so the delegated profiler sees a full
+                        # table and won't mark the profile. Restore the true row
+                        # count and record that this profile covers a sample.
                         profile.rowCount = row_estimate
+                        self._mark_profile_sampled(profile)
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=profile
                     ).as_workunit()

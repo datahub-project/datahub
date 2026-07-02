@@ -203,12 +203,16 @@ RUN rm -rf $HOME/.config/uv
 # the correct per-platform binary is baked in. DuckDB stores them under
 # <dir>/v<duckdb-version>/<platform>/. duckdb is pinned via build-constraints and
 # this layer depends on the install above, so a duckdb bump rebuilds it and
-# re-populates the matching version dir. If a deployment somehow runs a different
-# duckdb than was baked, the profiler self-heals at runtime — it falls back to
-# INSTALL (a download) and only fails, with actionable guidance, when the network
-# is unavailable. At runtime the profiler reads DATAHUB_DUCKDB_EXTENSION_DIRECTORY,
-# loads from this directory, and never downloads — so profiling works in
-# air-gapped deployments of this image with no extra configuration.
+# re-populates the matching version dir.
+#
+# At runtime the profiler sets extension_directory to this path and runs
+# INSTALL+LOAD. When the baked binary matches the running duckdb version/platform,
+# INSTALL is a no-op that touches no network — so this image profiles data lakes
+# out of the box, including in air-gapped deployments. Only if the running duckdb
+# differs from what was baked (a mismatched deployment) does INSTALL attempt a
+# download; if that download also fails, the affected table is skipped with
+# actionable guidance rather than crashing. Keep DATAHUB_DUCKDB_BAKE_EXTENSIONS in
+# sync with the extensions the profiler loads (see duckdb_profiler.py).
 ENV DATAHUB_DUCKDB_EXTENSION_DIRECTORY=$HOME/.duckdb-extensions
 ENV DATAHUB_DUCKDB_BAKE_EXTENSIONS="httpfs avro aws"
 RUN python -c "import os, duckdb; d = os.environ['DATAHUB_DUCKDB_EXTENSION_DIRECTORY']; exts = os.environ['DATAHUB_DUCKDB_BAKE_EXTENSIONS'].split(); os.makedirs(d, exist_ok=True); conn = duckdb.connect(); conn.execute(\"SET extension_directory='\" + d + \"'\"); [conn.execute('INSTALL ' + ext) for ext in exts]; conn.close()" \

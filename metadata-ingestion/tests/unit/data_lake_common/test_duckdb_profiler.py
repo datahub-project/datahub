@@ -17,7 +17,7 @@ from datahub.ingestion.source.data_lake_common.duckdb_secrets import build_s3_se
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import Folder, TableData
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.metadata.schema_classes import DatasetProfileClass, PartitionTypeClass
 
 
 def _make_parquet(tmp: str) -> str:
@@ -269,6 +269,10 @@ def test_large_table_is_sampled_but_reports_true_rowcount(tmp_path):
     assert profile.rowCount == 3
     # The sampling branch must have emitted a warning mentioning sampling.
     assert any("sampl" in t.lower() for t in _warning_texts(report))
+    # A sampled profile must record that it does not cover the full table.
+    assert profile.partitionSpec is not None
+    assert profile.partitionSpec.type == PartitionTypeClass.QUERY
+    assert "SAMPLE" in profile.partitionSpec.partition
 
 
 def test_small_table_not_sampled(tmp_path):
@@ -287,6 +291,8 @@ def test_small_table_not_sampled(tmp_path):
     assert profile.rowCount == 3  # full scan, all 3 rows
     # 3 rows < row limit 1000 so no sampling warning should be emitted.
     assert not any("sampl" in t.lower() for t in _warning_texts(report))
+    # A full scan must not be marked as a sample.
+    assert not (profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition)
 
 
 def test_sampling_is_random_not_first_n(tmp_path):

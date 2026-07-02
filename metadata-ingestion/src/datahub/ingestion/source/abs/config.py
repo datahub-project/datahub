@@ -9,10 +9,12 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.abs.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.datalake_profiler_config import (
+    DataLakeProfilerConfig,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -142,10 +144,6 @@ class DataLakeSourceConfig(
 
     @model_validator(mode="after")
     def reject_unsupported_profiling(self) -> "DataLakeSourceConfig":
-        # Profiling is not implemented for the ABS source: no profiler is wired
-        # in ABSSource, and there is no Azure credential path for the DuckDB
-        # engine that backs the S3/GCS data-lake sources. Fail loudly instead of
-        # silently accepting `profiling.enabled: true` and emitting nothing.
         if self.profiling.enabled:
             raise ValueError(
                 "Profiling is not supported for the ABS (Azure Blob Storage) "
