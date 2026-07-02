@@ -288,7 +288,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -310,6 +310,13 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 default_emit_mode=emitter._default_emit_mode,
             ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:

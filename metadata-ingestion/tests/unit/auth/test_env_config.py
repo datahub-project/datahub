@@ -163,3 +163,17 @@ def test_datapack_sink_config_carries_auth(monkeypatch):
     sink_config = _build_datapack_sink_config(client_config)
     assert sink_config["auth"] is client_config.auth
     assert "token" not in sink_config
+
+
+def test_from_emitter_carries_session_auth():
+    # Regression: DataHubGraph.from_emitter rebuilds the client config with only
+    # the static token; the resolved requests auth object must be carried onto
+    # the new graph's session or an OAuth emitter's graph loses credentials.
+    from datahub.emitter.rest_emitter import DataHubRestEmitter
+    from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
+    from datahub.ingestion.graph.client import DataHubGraph
+
+    auth = TokenProviderAuth(StaticTokenProvider("tok"))
+    emitter = DataHubRestEmitter("http://gms:8080", auth=auth)
+    graph = DataHubGraph.from_emitter(emitter)
+    assert graph._session.auth is auth
