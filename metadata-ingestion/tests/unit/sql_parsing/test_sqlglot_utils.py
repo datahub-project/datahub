@@ -215,6 +215,51 @@ def test_redshift_query_fingerprint():
     )
 
 
+def test_redshift_copy_credentials_generalization():
+    # Regression: `COPY ... CREDENTIALS '<secret>'` used to crash generalization
+    # with `TypeError: 'Placeholder' object is not iterable`. The credentials
+    # literal was replaced with a Placeholder, which flips sqlglot's
+    # credentials_sql dispatch onto the Snowflake key=value path that iterates
+    # the node.
+    copy_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=EXAMPLE;aws_secret_access_key=EXAMPLESECRET' "
+        "FORMAT AS PARQUET"
+    )
+
+    generalized = generalize_query(copy_sql, dialect="redshift")
+
+    # The secret must never leak into the generalized (stored) query text.
+    assert "EXAMPLESECRET" not in generalized
+    assert "CREDENTIALS" in generalized
+
+    # Fingerprinting must succeed and be independent of the actual secret, so
+    # two COPYs differing only in credentials share a fingerprint.
+    other_creds_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=OTHER;aws_secret_access_key=OTHERSECRET' "
+        "FORMAT AS PARQUET"
+    )
+    assert get_query_fingerprint(copy_sql, "redshift") == get_query_fingerprint(
+        other_creds_sql, "redshift"
+    )
+
+
+def test_get_query_fingerprint_survives_generalization_error(monkeypatch):
+    # Defense in depth: if generalization raises an unexpected error (e.g. a
+    # sqlglot generator bug on an exotic statement), fingerprinting must fall
+    # back to the raw text rather than propagating and killing the pipeline.
+    import datahub.sql_parsing.sqlglot_utils as sqlglot_utils
+
+    def _boom(*args: object, **kwargs: object) -> str:
+        raise TypeError("simulated sqlglot generator failure")
+
+    monkeypatch.setattr(sqlglot_utils, "generalize_query", _boom)
+
+    fingerprint = get_query_fingerprint("SELECT * FROM my_table", "redshift")
+    assert fingerprint
+
+
 def test_query_fingerprint_with_secondary_id():
     query = "SELECT * FROM users WHERE id = 123"
 
