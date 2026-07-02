@@ -34,6 +34,9 @@ import org.springframework.core.env.Environment;
 public class RateLimitEngineFactory {
 
   static final String CONFIG_FILE_ENV = "RATE_LIMITS_CONFIG_FILE";
+  // Removed with the legacy Jackson config loader (replaced by the Spring @PropertySource overlay).
+  static final String CONFIG_FILE_ENABLED_ENV = "RATE_LIMITS_CONFIG_FILE_ENABLED";
+  static final String CONFIG_JSON_ENV = "RATE_LIMITS_CONFIG_JSON";
 
   @Bean
   @Nonnull
@@ -48,6 +51,7 @@ public class RateLimitEngineFactory {
     // ${ENV} placeholders resolved and any mounted RATE_LIMITS_CONFIG_FILE overlaid). Validate the
     // bound bean up front so a bad config fails startup instead of silently mis-limiting traffic.
     warnIfConfigFileLikelyUnresolved(environment);
+    warnIfRemovedEnvVarsSet(environment);
     RateLimitProperties config =
         gmsConfiguration.getRateLimits() != null
             ? gmsConfiguration.getRateLimits()
@@ -89,6 +93,36 @@ public class RateLimitEngineFactory {
           CONFIG_FILE_ENV,
           configFile,
           configFile);
+    }
+  }
+
+  /**
+   * {@code RATE_LIMITS_CONFIG_FILE_ENABLED} and {@code RATE_LIMITS_CONFIG_JSON} were features of
+   * the legacy Jackson config loader, which the Spring {@code @PropertySource} overlay replaced.
+   * Neither is honored anymore: the mounted override is enabled simply by pointing {@code
+   * RATE_LIMITS_CONFIG_FILE} at a file, and there is no inline-JSON overlay. Warn loudly so an
+   * operator relying on either isn't silently mis-configured (a silent breaking change otherwise).
+   */
+  private static void warnIfRemovedEnvVarsSet(Environment environment) {
+    warnRemoved(
+        environment,
+        CONFIG_FILE_ENABLED_ENV,
+        "the mounted override now loads whenever "
+            + CONFIG_FILE_ENV
+            + " points at a file (presence = enabled); remove this variable");
+    warnRemoved(
+        environment,
+        CONFIG_JSON_ENV,
+        "inline-JSON overlays were removed with the legacy loader; move the settings into the "
+            + "mounted "
+            + CONFIG_FILE_ENV
+            + " YAML file");
+  }
+
+  private static void warnRemoved(Environment environment, String envVar, String guidance) {
+    String value = environment.getProperty(envVar);
+    if (value != null && !value.isBlank()) {
+      log.warn("{} is set but is no longer supported and will be ignored: {}.", envVar, guidance);
     }
   }
 }

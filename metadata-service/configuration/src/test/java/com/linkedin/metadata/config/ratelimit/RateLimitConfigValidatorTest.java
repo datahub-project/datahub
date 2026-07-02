@@ -103,9 +103,11 @@ public class RateLimitConfigValidatorTest {
   @Test
   public void testScopedEnabledBucketWithZeroCapacityFails() {
     RateLimitProperties config = validConfig();
-    // Enabling the chain with the default (capacity-0, not-disabled) actor bucket must fail.
+    // Enabling the chain with the default (capacity-0, not-disabled) actor bucket must fail. Scoped
+    // sizing is owned by validateScoped() (the engine-ctor entry point), not validate().
     config.getScoped().setEnabled(true);
-    assertThrows(IllegalStateException.class, () -> RateLimitConfigValidator.validate(config));
+    assertThrows(
+        IllegalStateException.class, () -> RateLimitConfigValidator.validateScoped(config));
   }
 
   @Test

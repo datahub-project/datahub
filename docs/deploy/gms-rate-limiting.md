@@ -350,6 +350,14 @@ Bundled defaults ship in `application.yaml` (Tier 1). To override them per deplo
 
 **Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (`application.yaml` ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map and rule lists, which a scalar env var can't express (and which are empty in the bundled defaults, so a mounted file simply provides them).
 
+**How it loads (and what changed):** both the bundled defaults and the mounted override are loaded as ordinary Spring `@PropertySource`s and bound to `RateLimitProperties` via relaxed `@ConfigurationProperties` binding — the same path `application.yaml` already uses. There is no bespoke config loader. This is intentionally simpler than an earlier design that used a custom Jackson loader, and it means:
+
+- The mounted override is enabled just by pointing `RATE_LIMITS_CONFIG_FILE` at a file (presence = enabled). There is **no** separate `RATE_LIMITS_CONFIG_FILE_ENABLED` flag.
+- There is **no** inline-JSON overlay env var (`RATE_LIMITS_CONFIG_JSON`). Put overrides in the mounted YAML file instead.
+- `${ENV:default}` placeholders resolve uniformly, and OS environment variables outrank both files — so `RATE_LIMITS_*` env vars always win, which is the recommended way to tune scalars per deployment.
+
+`RATE_LIMITS_CONFIG_FILE_ENABLED` and `RATE_LIMITS_CONFIG_JSON` are no longer honored; GMS logs a startup WARN if either is set so the change isn't silent. Benefits of the `@PropertySource` approach: one well-understood binding/precedence model (identical to the rest of GMS config), no custom merge code to maintain, and env-var overrides that reliably take precedence.
+
 ```yaml
 datahub:
   gms:

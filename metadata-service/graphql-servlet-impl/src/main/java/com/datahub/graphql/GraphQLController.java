@@ -33,6 +33,7 @@ import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -96,12 +97,13 @@ public class GraphQLController {
 
   /**
    * Part B heavy-resolver gate. When the front gate admitted the request, consumes each configured
-   * heavy top-level resolver's bucket (in query order); on the first denial it unwinds the front
-   * gate — releasing the held capacity slot and refunding the scoped-chain tokens ({@code
-   * actorUrn}/{@code clientClass}) the request already consumed — so a request rejected here
-   * neither leaks a capacity slot nor permanently burns the actor's scoped quota, and returns that
-   * denial. Otherwise returns the original decision unchanged. Package-private + static so the
-   * wiring is unit-testable without the full request pipeline.
+   * heavy top-level resolver's bucket (in query order). On the first denial — or if a resolver
+   * evaluation throws with fail-open disabled — it unwinds everything the request already acquired:
+   * the held front-gate capacity slot, the scoped-chain tokens ({@code actorUrn}/{@code
+   * clientClass}), and any heavy-resolver buckets already charged earlier in this same request. So
+   * a request rejected (or erroring) here neither leaks a capacity slot nor permanently burns the
+   * actor's scoped or per-resolver quota. Otherwise returns the original decision unchanged.
+   * Package-private + static so the wiring is unit-testable without the full request pipeline.
    */
   static RateLimitDecision applyHeavyResolverGate(
       @Nonnull RateLimitEngine rateLimitEngine,
@@ -113,16 +115,55 @@ public class GraphQLController {
     if (!frontGateDecision.isAllowed()) {
       return frontGateDecision;
     }
+    // Resolvers we've passed so far this request; their buckets are refunded if a later one denies.
+    // refundHeavyResolver is guarded + capacity-capped, so listing non-charged fields is harmless.
+    List<String> chargedResolvers = new ArrayList<>(topLevelFields.size());
     for (String topLevelField : topLevelFields) {
-      RateLimitDecision heavyDecision =
-          rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
+      RateLimitDecision heavyDecision;
+      try {
+        heavyDecision = rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
+      } catch (RuntimeException e) {
+        // Fail-open disabled and evaluation threw: release the front gate we're still holding
+        // (otherwise the capacity slot leaks) and refund what we consumed, then propagate.
+        unwindHeavyGate(
+            rateLimitEngine,
+            frontGateDecision,
+            actorUrn,
+            clientClass,
+            chargedResolvers,
+            systemActor);
+        throw e;
+      }
       if (heavyDecision != null && !heavyDecision.isAllowed()) {
-        rateLimitEngine.releaseCapacity(frontGateDecision, false);
-        rateLimitEngine.refundScopedChain(actorUrn, clientClass);
+        unwindHeavyGate(
+            rateLimitEngine,
+            frontGateDecision,
+            actorUrn,
+            clientClass,
+            chargedResolvers,
+            systemActor);
         return heavyDecision;
       }
+      chargedResolvers.add(topLevelField);
     }
     return frontGateDecision;
+  }
+
+  /**
+   * Rolls back the front-gate capacity, the scoped chain, and any charged heavy-resolver buckets.
+   */
+  private static void unwindHeavyGate(
+      RateLimitEngine rateLimitEngine,
+      RateLimitDecision frontGateDecision,
+      @Nullable String actorUrn,
+      @Nullable ClientClass clientClass,
+      List<String> chargedResolvers,
+      boolean systemActor) {
+    rateLimitEngine.releaseCapacity(frontGateDecision, false);
+    rateLimitEngine.refundScopedChain(actorUrn, clientClass);
+    for (String resolver : chargedResolvers) {
+      rateLimitEngine.refundHeavyResolver(resolver, systemActor);
+    }
   }
 
   /** 429 response for a rate-limit denial, carrying the decision's throttle headers. */

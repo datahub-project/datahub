@@ -665,6 +665,30 @@ public class RateLimitEngine {
     }
   }
 
+  /**
+   * Refunds a single heavy-resolver bucket the request consumed at the gate. Called when a LATER
+   * resolver in the same request denies, so an already-charged resolver doesn't permanently burn
+   * its token (mirrors the scoped chain's refund-on-deny). Guarded with the same applicability
+   * check as {@link #consumeHeavyResolver} — a no-op for non-heavy/disabled/system-exempt
+   * resolvers, or when the chain is inactive or refunds are disabled — and {@code refundScoped}
+   * caps at capacity, so a refund can never overflow the bucket.
+   */
+  public void refundHeavyResolver(@Nonnull String resolverName, boolean systemActor) {
+    RateLimitProperties.ScopedLimits scoped = config.getScoped();
+    if (endpointStore == null
+        || scoped == null
+        || !scoped.isEnabled()
+        || scoped.isRefundDisabled()) {
+      return;
+    }
+    RateLimitProperties.BucketLimits limits = scoped.getHeavyResolvers().get(resolverName);
+    if (limits == null || limits.isDisabled() || (systemActor && limits.isExemptSystemActor())) {
+      return;
+    }
+    endpointStore.refundScoped(
+        tenantKey(config.getTenantId(), "op:" + resolverName), limits, 1, false);
+  }
+
   /** One ordered step in the scoped chain: its bucket key, sizing, target map, and deny label. */
   private record ScopedStep(
       String key, RateLimitProperties.BucketLimits limits, boolean global, String label) {}

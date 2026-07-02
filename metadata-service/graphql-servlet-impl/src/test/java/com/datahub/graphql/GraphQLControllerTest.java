@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
@@ -74,19 +75,47 @@ public class GraphQLControllerTest {
   }
 
   @Test
-  public void testStopsAtFirstDenyingTopLevelField() {
+  public void testStopsAtFirstDenyingTopLevelFieldAndRefundsChargedResolvers() {
     RateLimitEngine engine = mock(RateLimitEngine.class);
-    when(engine.consumeHeavyResolver("a", false)).thenReturn(null);
+    RateLimitDecision frontGate = allowed();
+    when(engine.consumeHeavyResolver("a", false)).thenReturn(null); // charged, allowed
     RateLimitDecision bDenied = denied("scoped:op:b");
     when(engine.consumeHeavyResolver("b", false)).thenReturn(bDenied);
 
     RateLimitDecision result =
         GraphQLController.applyHeavyResolverGate(
-            engine, allowed(), List.of("a", "b"), false, ACTOR, null);
+            engine, frontGate, List.of("a", "b"), false, ACTOR, null);
 
     assertSame(result, bDenied);
     verify(engine).consumeHeavyResolver("a", false);
     verify(engine).consumeHeavyResolver("b", false);
+    // Unwind on the "b" denial: release the front-gate capacity, refund the scoped chain, and
+    // refund
+    // the already-charged resolver "a" — but NOT "b" (it denied, it never took a token).
+    verify(engine).releaseCapacity(frontGate, false);
+    verify(engine).refundScopedChain(ACTOR, null);
+    verify(engine).refundHeavyResolver("a", false);
+    verify(engine, never()).refundHeavyResolver("b", false);
+  }
+
+  @Test
+  public void testHeavyResolverThrowUnwindsFrontGateAndRethrows() {
+    // Fail-open disabled: consumeHeavyResolver rethrows. The gate must release the held front-gate
+    // capacity slot (else it leaks) and refund the scoped chain, then propagate the exception.
+    RateLimitEngine engine = mock(RateLimitEngine.class);
+    RateLimitDecision frontGate = allowed();
+    RuntimeException boom = new RuntimeException("store down, fail-closed");
+    when(engine.consumeHeavyResolver("a", false)).thenThrow(boom);
+
+    RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                GraphQLController.applyHeavyResolverGate(
+                    engine, frontGate, List.of("a"), false, ACTOR, null));
+
+    assertSame(thrown, boom);
+    verify(engine).releaseCapacity(frontGate, false);
     verify(engine).refundScopedChain(ACTOR, null);
   }
 
