@@ -133,6 +133,54 @@ class EntryMapper(ABC):
     properties so a mapper that forgets one cannot be instantiated (it fails when
     ``ENTRY_MAPPERS`` is built at import). Concrete classes satisfy them with
     plain class attributes.
+
+    Example Dataplex entry payload (anonymized) and how its fields drive mapping:
+
+    .. code-block:: text
+
+       name: "projects/example-project-123456/locations/us-west2/entryGroups/@cloudsql/entries/cloudsql.googleapis.com/projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db/tables/example_table"
+       entry_type: "projects/655216118709/locations/global/entryTypes/cloudsql-mysql-table"
+       create_time { seconds: 1774092556 nanos: 511835000 }
+       update_time { seconds: 1774092556 nanos: 511835000 }
+       parent_entry: "projects/example-project-123456/locations/us-west2/entryGroups/@cloudsql/entries/cloudsql.googleapis.com/projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db"
+       fully_qualified_name: "cloudsql_mysql:example-project-123456.us-west2.example-instance.example-db.example_table"
+       entry_source {
+         resource: "projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db/tables/example_table"
+         system: "CLOUD_SQL"
+         platform: "GCP"
+         display_name: "example_table"
+         ancestors {
+           name: "projects/example-project-123456/locations/us-west2/instances/example-instance/databases/example-db"
+           type_: "dataplex-types.global.cloudsql-mysql-database"
+         }
+         ancestors {
+           name: "projects/example-project-123456/locations/us-west2/instances/example-instance"
+           type_: "dataplex-types.global.cloudsql-mysql-instance"
+         }
+         location: "us-west2"
+       }
+
+    Field -> mapping:
+
+    - ``entry_type``: its short name (``cloudsql-mysql-table``, extracted by
+      ``extract_entry_type_short_name``) selects which mapper handles the entry
+      via ``ENTRY_MAPPERS``. Matches ``dataplex_entry_type_short_name``.
+    - ``fully_qualified_name``: parsed by ``dataplex_fqn_regex`` into identity
+      fields (project/location/instance/database/table). Those fields build the
+      dataset name (dataset entries), the container key (container entries), and
+      always the owning project container key.
+    - ``parent_entry``: parsed by the type's parent-entry regex to build the
+      parent container key (dataset -> its containing dataset/database; container
+      -> its parent container). When absent, parent linkage falls back to the
+      project key.
+    - ``entry_source.display_name`` / ``description`` / ``create_time`` /
+      ``update_time``: become the DataHub display name, description, and
+      created/last-modified timestamps (see the ``_extract_*`` helpers).
+    - ``name``: its ``entryGroups/<id>`` segment and trailing segment provide the
+      entry group id (custom property) and the display-name fallback.
+
+    Authoritative FQN formats:
+    https://docs.cloud.google.com/dataplex/docs/fully-qualified-names
     """
 
     @property
