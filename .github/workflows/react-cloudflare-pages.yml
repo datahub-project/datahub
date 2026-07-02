@@ -47,6 +47,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      pull-requests: write
     timeout-minutes: 30
     needs: setup
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
@@ -63,6 +64,31 @@ jobs:
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
+      - name: Report initial JS bundle size
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SIZE_OUTPUT=$(cd datahub-web-react && yarn --silent size 2>&1)
+          SIZE_KB=$(echo "$SIZE_OUTPUT" | grep -oP '[\d.]+ [MK]B' | head -1)
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --body "## Initial JS bundle size
+          | Chunk | Gzipped |
+          |-------|---------|
+          | Eager entry (\`index-*.js\`) | **${SIZE_KB}** |
+
+          > Measures only the JS downloaded on first page load (eager chunks). Codecov reports total bundle including lazy chunks — these differ intentionally." \
+            --edit-last || \
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --body "## Initial JS bundle size
+          | Chunk | Gzipped |
+          |-------|---------|
+          | Eager entry (\`index-*.js\`) | **${SIZE_KB}** |
+
+          > Measures only the JS downloaded on first page load (eager chunks). Codecov reports total bundle including lazy chunks — these differ intentionally."
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
         uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
