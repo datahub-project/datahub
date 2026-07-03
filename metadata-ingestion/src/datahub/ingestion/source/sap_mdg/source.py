@@ -477,15 +477,16 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY)
         )
         if self.config.drf.emit_column_lineage:
-            for field_name in self._matched_downstream_fields(
-                downstream_urn, field_names
-            ):
+            matched = self._matched_downstream_fields(downstream_urn, field_names)
+            for source_field, downstream_field in matched.items():
                 patch.add_fine_grained_lineage(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        upstreams=[make_schema_field_urn(source_urn, field_name)],
-                        downstreams=[make_schema_field_urn(downstream_urn, field_name)],
+                        upstreams=[make_schema_field_urn(source_urn, source_field)],
+                        downstreams=[
+                            make_schema_field_urn(downstream_urn, downstream_field)
+                        ],
                     )
                 )
                 self.report.column_lineage_edges_emitted += 1
@@ -494,18 +495,30 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
 
     def _matched_downstream_fields(
         self, downstream_urn: str, source_field_names: List[str]
-    ) -> List[str]:
+    ) -> Dict[str, str]:
         # Column-level lineage is only emitted where a field of the same name exists on
         # the downstream dataset, read from DataHub. This keeps CLL correct by
         # construction even though MDG cannot see the target's physical schema.
+        # Matching is case-insensitive because the downstream platform often cases
+        # fields differently from MDG; the returned mapping keeps the MDG field name
+        # and the downstream's real field path so each schemaField urn is correct.
+        # ponytail: downstream fields differing only in case collapse to one entry
+        # (last wins); acceptable for this best-effort name match.
         graph = self.ctx.graph
         if graph is None:
-            return []
+            return {}
         schema = graph.get_schema_metadata(downstream_urn)
         if schema is None:
-            return []
-        downstream_fields = {field.fieldPath for field in schema.fields}
-        return [name for name in source_field_names if name in downstream_fields]
+            return {}
+        downstream_by_fold = {
+            field.fieldPath.casefold(): field.fieldPath for field in schema.fields
+        }
+        matched: Dict[str, str] = {}
+        for name in source_field_names:
+            downstream_field = downstream_by_fold.get(name.casefold())
+            if downstream_field is not None:
+                matched[name] = downstream_field
+        return matched
 
     def _patch_workunits(
         self, dataset_urn: str, patch: DatasetPatchBuilder

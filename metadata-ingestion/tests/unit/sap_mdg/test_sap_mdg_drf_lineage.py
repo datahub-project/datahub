@@ -187,6 +187,19 @@ def test_column_lineage_matches_downstream_fields_by_name() -> None:
     assert source.report.column_lineage_edges_emitted == 2
 
 
+def test_column_lineage_matches_across_casing() -> None:
+    source = _source(logical_system_to_platform={"SYS_A": {"platform": "hana"}})
+    source.config.drf.service_to_data_model = {"ZMDG_DEMO_SRV": "BP"}
+    source.config.drf.emit_column_lineage = True
+    source._drf_distribution = DrfDistribution(targets_by_data_model={"BP": ["SYS_A"]})
+    # Downstream cases the field differently from MDG (PartnerId); it should match.
+    source.ctx.graph = _FakeGraph(["partnerid"])  # type: ignore[assignment]
+
+    _workunits(source)
+
+    assert source.report.column_lineage_edges_emitted == 2
+
+
 def test_column_lineage_skipped_without_graph() -> None:
     source = _source(logical_system_to_platform={"SYS_A": {"platform": "hana"}})
     source.config.drf.service_to_data_model = {"ZMDG_DEMO_SRV": "BP"}
