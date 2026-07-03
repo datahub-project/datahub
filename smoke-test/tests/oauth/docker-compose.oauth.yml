@@ -42,10 +42,13 @@ services:
       METADATA_SERVICE_AUTH_ENABLED: "true"
       # This canary tests AUTHENTICATION (token acceptance/rejection), not
       # authorization. An OAuth machine principal materializes as a fresh
-      # synthetic corpuser with no roles, so with policies enforced every write
-      # is a 403 — in a real deployment the operator grants it a role/policy.
-      # Anonymous requests still 401: authN stays fully enforced.
+      # synthetic corpuser with no roles, so with authorization enforced every
+      # write is a 403 (`... is unauthorized to modify entity`) — in a real
+      # deployment the operator grants it a role/policy. Both the policy
+      # authorizer and Rest.li API authorization are disabled so writes succeed
+      # for any AUTHENTICATED principal; anonymous requests still 401.
       AUTH_POLICIES_ENABLED: "false"
+      REST_API_AUTHORIZATION_ENABLED: "false"
       EXTERNAL_OAUTH_ENABLED: "true"
       EXTERNAL_OAUTH_TRUSTED_ISSUERS: "http://keycloak:8080/realms/datahub"
       EXTERNAL_OAUTH_ALLOWED_AUDIENCES: "datahub-gms"
