@@ -174,7 +174,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
 
     return (
         <>
-            <Table columns={columns} data={tableData} isLoading={isLoading} isScrollable rowKey="key" />
+            <Table columns={columns} data={tableData} isLoading={isLoading} isScrollable rowKey="key" data-testid="applications-table" />
             <ConfirmationModal
                 isOpen={showDeleteModal}
                 handleClose={handleDeleteClose}
