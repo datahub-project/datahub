@@ -23,8 +23,29 @@ export const MICROSTRATEGY_BASE_URL: RecipeField = {
     rules: null,
 };
 
+// Form values are keyed by the literal field name, so a dotted name like
+// 'auth.type' must be accessed with a bracket lookup rather than a lodash path.
+const authTypeFieldName = 'auth.type';
+const authTypePassword = 'password';
+const authTypeGuest = 'guest';
+
+/**
+ * Creates a validator that makes a field required only when password
+ * authentication is selected. Mirrors the snowflake.ts conditional validator pattern.
+ */
+function createPasswordAuthValidator(fieldLabel: string) {
+    return ({ getFieldValue }) => ({
+        validator(_, value) {
+            if (getFieldValue(authTypeFieldName) === authTypePassword && !value) {
+                return Promise.reject(new Error(`${fieldLabel} is required when Authentication Mode is password`));
+            }
+            return Promise.resolve();
+        },
+    });
+}
+
 export const MICROSTRATEGY_AUTH_TYPE: RecipeField = {
-    name: 'auth.type',
+    name: authTypeFieldName,
     label: 'Authentication Mode',
     tooltip:
         'Authentication mode. Use password with username/password for authenticated tenants, or guest for public demo-style access.',
@@ -33,8 +54,8 @@ export const MICROSTRATEGY_AUTH_TYPE: RecipeField = {
     required: true,
     rules: null,
     options: [
-        { label: 'Password', value: 'password' },
-        { label: 'Guest', value: 'guest' },
+        { label: 'Password', value: authTypePassword },
+        { label: 'Guest', value: authTypeGuest },
     ],
 };
 
@@ -45,7 +66,8 @@ export const MICROSTRATEGY_USERNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.auth.username',
     placeholder: 'username',
-    rules: null,
+    rules: [createPasswordAuthValidator('Username')],
+    shouldShow: (formValues) => formValues?.[authTypeFieldName] !== authTypeGuest,
 };
 
 export const MICROSTRATEGY_PASSWORD: RecipeField = {
@@ -55,7 +77,8 @@ export const MICROSTRATEGY_PASSWORD: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.auth.password',
     placeholder: 'password',
-    rules: null,
+    rules: [createPasswordAuthValidator('Password')],
+    shouldShow: (formValues) => formValues?.[authTypeFieldName] !== authTypeGuest,
 };
 
 export const MICROSTRATEGY_PLATFORM_INSTANCE: RecipeField = {

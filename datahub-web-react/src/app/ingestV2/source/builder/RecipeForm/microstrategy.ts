@@ -2,6 +2,7 @@ import { get } from 'lodash';
 
 import {
     FieldType,
+    FieldsValues,
     FilterRecipeField,
     FilterRule,
     RecipeField,
@@ -30,8 +31,14 @@ export const MICROSTRATEGY_BASE_URL: RecipeField = {
     rules: null,
 };
 
+// Form values are keyed by the literal field name, so a dotted name like
+// 'auth.type' must be accessed with a bracket lookup rather than a lodash path.
+const authTypeFieldName = 'auth.type';
+const authTypePassword = 'password';
+const authTypeGuest = 'guest';
+
 export const MICROSTRATEGY_AUTH_TYPE: RecipeField = {
-    name: 'auth.type',
+    name: authTypeFieldName,
     label: 'Authentication Mode',
     helper: 'Use password for authenticated tenants, guest for public demo-style access',
     tooltip:
@@ -41,8 +48,8 @@ export const MICROSTRATEGY_AUTH_TYPE: RecipeField = {
     required: true,
     rules: null,
     options: [
-        { label: 'Password', value: 'password' },
-        { label: 'Guest', value: 'guest' },
+        { label: 'Password', value: authTypePassword },
+        { label: 'Guest', value: authTypeGuest },
     ],
 };
 
@@ -54,6 +61,8 @@ export const MICROSTRATEGY_USERNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.auth.username',
     placeholder: 'username',
+    dynamicRequired: (values: FieldsValues) => values?.[authTypeFieldName] === authTypePassword,
+    dynamicHidden: (values: FieldsValues) => values?.[authTypeFieldName] === authTypeGuest,
     rules: null,
 };
 
@@ -65,6 +74,8 @@ export const MICROSTRATEGY_PASSWORD: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.auth.password',
     placeholder: 'password',
+    dynamicRequired: (values: FieldsValues) => values?.[authTypeFieldName] === authTypePassword,
+    dynamicHidden: (values: FieldsValues) => values?.[authTypeFieldName] === authTypeGuest,
     rules: null,
 };
 
@@ -236,6 +247,7 @@ const extractDashboardsFieldPath = 'source.config.extract_dashboards';
 export const MICROSTRATEGY_EXTRACT_DASHBOARDS: RecipeField = {
     name: 'extract_dashboards',
     label: 'Extract Dashboards',
+    helper: 'Extract dossiers/documents as Dashboards',
     tooltip: 'Whether to extract dossiers/documents as DataHub dashboards.',
     type: FieldType.BOOLEAN,
     fieldPath: extractDashboardsFieldPath,
@@ -247,6 +259,7 @@ const extractChartsFieldPath = 'source.config.extract_charts';
 export const MICROSTRATEGY_EXTRACT_CHARTS: RecipeField = {
     name: 'extract_charts',
     label: 'Extract Charts',
+    helper: 'Extract visualizations as Charts',
     tooltip: 'Whether to extract visualizations as DataHub charts.',
     type: FieldType.BOOLEAN,
     fieldPath: extractChartsFieldPath,
@@ -258,6 +271,7 @@ const extractCubesFieldPath = 'source.config.extract_cubes';
 export const MICROSTRATEGY_EXTRACT_CUBES: RecipeField = {
     name: 'extract_cubes',
     label: 'Extract Cubes',
+    helper: 'Extract dashboard datasets as Datasets',
     tooltip: 'Whether to extract embedded dashboard datasets as DataHub datasets.',
     type: FieldType.BOOLEAN,
     fieldPath: extractCubesFieldPath,
@@ -268,6 +282,7 @@ export const MICROSTRATEGY_EXTRACT_CUBES: RecipeField = {
 export const MICROSTRATEGY_EXTRACT_REPORTS: RecipeField = {
     name: 'extract_reports',
     label: 'Extract Reports',
+    helper: 'Extract MicroStrategy Reports as Charts',
     tooltip:
         'Whether to extract MicroStrategy reports as DataHub charts. Disabled by default because reports can be numerous and are independent from dossier visualization extraction.',
     type: FieldType.BOOLEAN,
@@ -279,6 +294,7 @@ const extractLineageFieldPath = 'source.config.extract_lineage';
 export const MICROSTRATEGY_EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage',
     label: 'Extract Lineage',
+    helper: 'Extract dataset-to-chart lineage',
     tooltip: 'Whether to emit dataset-to-chart lineage when resolved from definitions.',
     type: FieldType.BOOLEAN,
     fieldPath: extractLineageFieldPath,
@@ -290,6 +306,7 @@ const extractVisualizationDetailsFieldPath = 'source.config.extract_visualizatio
 export const MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS: RecipeField = {
     name: 'extract_visualization_details',
     label: 'Extract Visualization Details',
+    helper: 'Resolve per-visualization lineage at runtime',
     tooltip:
         'Whether to execute dashboards and fetch per-visualization runtime definitions to resolve dataset-to-visualization lineage when the static dashboard definition does not include dataset IDs.',
     type: FieldType.BOOLEAN,
@@ -302,6 +319,7 @@ const extractSourceWarehousesFieldPath = 'source.config.extract_source_warehouse
 export const MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES: RecipeField = {
     name: 'extract_source_warehouses',
     label: 'Extract Source Warehouses',
+    helper: 'Discover source warehouse metadata',
     tooltip:
         'Whether to call the MicroStrategy datasource management APIs to discover project source warehouse names, source types, database versions, DBMS names, and connection metadata.',
     type: FieldType.BOOLEAN,
@@ -314,6 +332,7 @@ const extractDashboardDependenciesFieldPath = 'source.config.extract_dashboard_d
 export const MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES: RecipeField = {
     name: 'extract_dashboard_dependencies',
     label: 'Extract Dashboard Dependencies',
+    helper: 'Extract dashboard component lineage',
     tooltip:
         'Whether to call metadata search lineage APIs for direct dashboard components such as metrics, attributes, filters, and functions.',
     type: FieldType.BOOLEAN,
@@ -326,6 +345,7 @@ const extractMetricExpressionsFieldPath = 'source.config.extract_metric_expressi
 export const MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS: RecipeField = {
     name: 'extract_metric_expressions',
     label: 'Extract Metric Expressions',
+    helper: 'Attach metric expression metadata',
     tooltip:
         'Whether to fetch metric model definitions with expression tokens and attach expression metadata to metric schema fields when the MicroStrategy principal has access.',
     type: FieldType.BOOLEAN,
@@ -338,6 +358,7 @@ const extractModelLineageFieldPath = 'source.config.extract_model_lineage';
 export const MICROSTRATEGY_EXTRACT_MODEL_LINEAGE: RecipeField = {
     name: 'extract_model_lineage',
     label: 'Extract Model Lineage',
+    helper: 'Extract logical table and warehouse lineage',
     tooltip:
         'Whether to attempt modeling/table API access needed for logical table and source warehouse lineage. If privileges are missing, the connector reports the failure and continues.',
     type: FieldType.BOOLEAN,
@@ -349,6 +370,7 @@ export const MICROSTRATEGY_EXTRACT_MODEL_LINEAGE: RecipeField = {
 export const MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE: RecipeField = {
     name: 'extract_warehouse_lineage',
     label: 'Extract Warehouse Lineage',
+    helper: 'Extract table-level lineage from dashboard SQL',
     tooltip:
         'Whether to execute dashboard/dossier SQL-view APIs and emit upstream coarse table-level lineage from MicroStrategy datasets to source warehouse datasets parsed from SQL. Disabled by default because this is not field-level metric, attribute, or fact lineage.',
     type: FieldType.BOOLEAN,
@@ -359,6 +381,7 @@ export const MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE: RecipeField = {
 export const MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE: RecipeField = {
     name: 'extract_report_sql_lineage',
     label: 'Extract Report SQL Lineage',
+    helper: 'Extract table-level lineage from report SQL',
     tooltip:
         'Whether to execute report SQL-view APIs and emit coarse table-level lineage from report source datasets to source warehouse datasets. Field-level model lineage for report source datasets also requires this flag.',
     type: FieldType.BOOLEAN,
@@ -369,6 +392,7 @@ export const MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE: RecipeField = {
 export const MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES: RecipeField = {
     name: 'emit_dashboard_dataset_edges',
     label: 'Emit Dashboard Dataset Edges',
+    helper: 'Emit dashboard dataset edges as a fallback',
     tooltip:
         'Emit DashboardInfo.datasetEdges as a fallback. Disabled by default because BI dashboards with many datasets make lineage views noisy.',
     type: FieldType.BOOLEAN,
@@ -380,6 +404,7 @@ const tagMeasuresAndDimensionsFieldPath = 'source.config.tag_measures_and_dimens
 export const MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS: RecipeField = {
     name: 'tag_measures_and_dimensions',
     label: 'Tag Measures and Dimensions',
+    helper: 'Tag fields as Measure, Dimension, or Temporal',
     tooltip: 'Tag metric fields as Measure, attribute fields as Dimension, and date/time attribute forms as Temporal.',
     type: FieldType.BOOLEAN,
     fieldPath: tagMeasuresAndDimensionsFieldPath,
@@ -391,6 +416,7 @@ const ingestOwnerFieldPath = 'source.config.ingest_owner';
 export const MICROSTRATEGY_INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
     label: 'Extract Owners',
+    helper: 'Extract owner metadata',
     tooltip: 'Whether to map API owner fields to DataHub ownership aspects.',
     type: FieldType.BOOLEAN,
     fieldPath: ingestOwnerFieldPath,
@@ -401,6 +427,7 @@ export const MICROSTRATEGY_INGEST_OWNER: RecipeField = {
 export const MICROSTRATEGY_INCLUDE_HIDDEN: RecipeField = {
     name: 'include_hidden',
     label: 'Include Hidden Objects',
+    helper: 'Include hidden MicroStrategy objects',
     tooltip: 'Whether to include hidden MicroStrategy objects when APIs support it.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_hidden',
@@ -411,6 +438,7 @@ const verifySslFieldPath = 'source.config.verify_ssl';
 export const MICROSTRATEGY_VERIFY_SSL: RecipeField = {
     name: 'verify_ssl',
     label: 'Verify SSL',
+    helper: 'Verify SSL certificates for API calls',
     tooltip: 'Whether to verify SSL certificates for MicroStrategy API calls.',
     type: FieldType.BOOLEAN,
     fieldPath: verifySslFieldPath,
