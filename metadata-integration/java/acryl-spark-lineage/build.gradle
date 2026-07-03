@@ -9,6 +9,11 @@ apply plugin: 'maven-publish'
 apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
+// Pin Java 17 bytecode: this agent shadow jar (and the modules it bundles) must run on managed
+// Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17). The rest of the
+// repo targets Java 21; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
+ext.javaClassVersionOverride = 17
+
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 // Define supported Scala versions - always build for both
@@ -61,6 +66,7 @@ dependencies {
   implementation externalDependency.json
   implementation project(':metadata-integration:java:openlineage-converter')
   implementation project(path: ':metadata-integration:java:datahub-client')
+
   implementation project(path: ':metadata-integration:java:openlineage-converter')
   compileOnly("io.delta:delta-core_2.12:1.0.0")
 
@@ -150,7 +156,6 @@ scalaVersions.each { sv ->
 
     // Create a completely separate configuration for each Scala version
     def scalaConfig = project.configurations.detachedConfiguration()
-
     // Manually add all base dependencies except OpenLineage
     scalaConfig.dependencies.add(project.dependencies.create('org.slf4j:slf4j-log4j12:2.0.7'))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.httpClient))
@@ -165,8 +170,18 @@ scalaVersions.each { sv ->
     // Add the Scala-specific OpenLineage dependency - THIS IS THE KEY PART
     scalaConfig.dependencies.add(project.dependencies.create("io.openlineage:openlineage-spark_${sv}:${openLineageVersion}"))
 
+    // Align shadow resolution to the same Jackson BOM as the rest of the repo.
+    scalaConfig.dependencies.add(project.dependencies.enforcedPlatform(externalDependency.jacksonBom))
+    scalaConfig.dependencies.add(project.dependencies.create(externalDependency.jacksonDataBind))
+    scalaConfig.dependencies.add(project.dependencies.create(externalDependency.jacksonDataFormatYaml))
     scalaConfig.canBeResolved = true
-    configurations = [scalaConfig]
+    inputs.files(scalaConfig)
+    // Manually add resolved dependencies from scalaConfig during task execution
+    doFirst {
+      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        from zipTree(artifact.file)
+      }
+    }
 
     def exclude_modules = project
         .configurations
@@ -191,6 +206,7 @@ scalaVersions.each { sv ->
     exclude '**/libzstd-jni.*'
     exclude '**/com_github_luben_zstd_*'
 
+
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
     relocate 'org.json', 'io.acryl.shaded.org.json'
@@ -212,6 +228,10 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
+      // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
+      exclude 'io.openlineage.spark.extension.**'
+    }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
@@ -279,7 +299,7 @@ assemble {
   dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart']) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark']) {
   environment "RUN_QUICKSTART", "false"
   commandLine "spark-smoke-test/smoke.sh"
 }

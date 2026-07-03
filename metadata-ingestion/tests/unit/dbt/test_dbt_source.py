@@ -13,6 +13,7 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBTColumn,
     DBTEntitiesEnabled,
     DBTExposure,
     DBTNode,
@@ -39,12 +40,15 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
+    DBTTestResult,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
+    make_assertion_result_from_test,
     parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionTypeClass,
@@ -54,9 +58,12 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
+from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
@@ -448,7 +455,7 @@ def test_default_convert_column_urns_to_lowercase():
 
 
 def test_default_convert_urns_to_lowercase():
-    """convert_urns_to_lowercase is opt-in only, never auto-enabled."""
+    """convert_urns_to_lowercase defaults to True to match historical dbt behavior."""
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
@@ -457,23 +464,23 @@ def test_default_convert_urns_to_lowercase():
     }
 
     config = DBTCoreConfig.model_validate({**config_dict})
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Snowflake should NOT auto-enable convert_urns_to_lowercase.
+    # Snowflake also defaults to True.
     config = DBTCoreConfig.model_validate(
         {**config_dict, "target_platform": "snowflake"}
     )
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Explicit opt-in should work.
+    # Explicit opt-out should work (e.g. for BigQuery with mixed-case identifiers).
     config = DBTCoreConfig.model_validate(
         {
             **config_dict,
-            "convert_urns_to_lowercase": True,
-            "target_platform": "snowflake",
+            "convert_urns_to_lowercase": False,
+            "target_platform": "bigquery",
         }
     )
-    assert config.convert_urns_to_lowercase is True
+    assert config.convert_urns_to_lowercase is False
 
 
 def test_convert_urns_to_lowercase_affects_dbt_urns():
@@ -521,14 +528,146 @@ def test_convert_urns_to_lowercase_affects_dbt_urns():
     )
     assert "my_db.app_sales.dim_industry" in dbt_urn_with_flag
 
-    # Target platform URNs are always lowercased regardless of the flag.
+    # Target platform URNs preserve casing when flag is off.
     node.convert_urns_to_lowercase = False
     target_urn = node.get_urn(
         target_platform="snowflake",
         env="PROD",
         data_platform_instance=None,
     )
+    assert "MY_DB.APP_SALES.dim_industry" in target_urn
+
+    # Target platform URNs are lowercased when flag is on.
+    node.convert_urns_to_lowercase = True
+    target_urn = node.get_urn(
+        target_platform="snowflake",
+        env="PROD",
+        data_platform_instance=None,
+    )
     assert "my_db.app_sales.dim_industry" in target_urn
+
+
+def test_bigquery_mixed_case_urn_preserved():
+    """Regression test for Zendesk #7397 / PR #16358.
+
+    BigQuery is case-sensitive for quoted identifiers. dbt must not unconditionally
+    lowercase BigQuery URNs, or lineage to the real BigQuery entity will break.
+    Uses the exact customer entity from the ticket (AM100 in table name).
+    """
+    node = DBTNode(
+        dbt_name="model.sales_index.int_sales_index__retailer_groups_with_AM100_position",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="at-dp-salesindex-prod",
+        schema="sales_index",
+        name="int_sales_index__retailer_groups_with_AM100_position",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/int_sales_index__retailer_groups_with_AM100_position.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Default: convert_urns_to_lowercase is False — casing must be preserved.
+    assert node.convert_urns_to_lowercase is False
+
+    bq_urn = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in bq_urn
+    assert "am100" not in bq_urn
+
+    dbt_urn = node.get_urn(
+        target_platform="dbt",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in dbt_urn
+
+    # Opt-in: when enabled, lowercasing should apply.
+    node.convert_urns_to_lowercase = True
+    bq_urn_lower = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "am100" in bq_urn_lower
+    assert "AM100" not in bq_urn_lower
+
+
+def test_convert_urns_to_lowercase_truth_table():
+    """Verify the full truth table from Zendesk #7397 — lowercasing must be opt-in only.
+
+    | target_platform | convert_urns_to_lowercase | URN lowercased? |
+    |-----------------|--------------------------|-----------------|
+    | "dbt"           | False                    | No              |
+    | "dbt"           | True                     | Yes             |
+    | "bigquery"      | False                    | No              |
+    | "bigquery"      | True                     | Yes             |
+    """
+    node = DBTNode(
+        dbt_name="model.project.MixedCaseTable",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="MyProject",
+        schema="MyDataset",
+        name="MixedCaseTable",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/MixedCaseTable.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Row 1: dbt + flag=False → NOT lowercased
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 2: dbt + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "myproject.mydataset.mixedcasetable" in urn
+
+    # Row 3: bigquery + flag=False → NOT lowercased (this was the bug)
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 4: bigquery + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "myproject.mydataset.mixedcasetable" in urn
 
 
 def test_dbt_entity_emission_configuration_helpers():
@@ -1913,16 +2052,30 @@ def test_make_assertion_from_freshness() -> None:
 
 
 @pytest.mark.parametrize(
-    ("status", "warnings_are_errors", "expected_success"),
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
-        ("pass", False, True),
-        ("warn", False, True),
-        ("warn", True, False),
-        ("error", False, False),
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "error",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
     ],
 )
 def test_make_assertion_result_from_freshness(
-    status: str, warnings_are_errors: bool, expected_success: bool
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
 ) -> None:
     node = DBTNode(
         database="raw_db",
@@ -1958,15 +2111,81 @@ def test_make_assertion_result_from_freshness(
         node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
     )
 
-    expected = (
-        AssertionResultTypeClass.SUCCESS
-        if expected_success
-        else AssertionResultTypeClass.FAILURE
-    )
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
-    assert mcp.aspect.result.type == expected
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
+    [
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("success", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "fail",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("error", False, AssertionResultTypeClass.ERROR, None),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
+    ],
+)
+def test_make_assertion_result_from_test(
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
+) -> None:
+    node = DBTNode(
+        database="analytics",
+        schema="dbt",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.some_test",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    test_result = DBTTestResult(
+        invocation_id="test-123",
+        status=status,
+        execution_time=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    mcp = make_assertion_result_from_test(
+        node,
+        test_result,
+        "urn:li:assertion:test",
+        "urn:li:dataset:test",
+        warnings_are_errors,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
 
 
 def test_parse_freshness_criteria_with_null_fields() -> None:
@@ -2384,8 +2603,8 @@ def test_expand_s3_glob():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": s3_objects}]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://my-bucket/results/*/run_results.json", mock_aws, "s3"
     )
 
     assert result == [
@@ -2409,8 +2628,8 @@ def test_expand_s3_glob_no_matches():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": []}]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws, "s3"
     )
 
     assert result == []
@@ -2425,7 +2644,9 @@ def test_expand_s3_glob_prefix_calculation():
     mock_s3_client.get_paginator.return_value = mock_paginator
     mock_paginator.paginate.return_value = [{"Contents": []}]
 
-    DBTCoreSource._expand_s3_glob("s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws)
+    DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws, "s3"
+    )
     mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="a/b/c/")
 
 
@@ -2563,8 +2784,8 @@ def test_expand_s3_glob_multiple_pages():
         {"Contents": [{"Key": "results/model_c/run_results.json"}]},
     ]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
     )
     assert result == [
         "s3://bucket/results/model_a/run_results.json",
@@ -2590,7 +2811,9 @@ def test_expand_s3_glob_wildcard_at_root():
         }
     ]
 
-    result = DBTCoreSource._expand_s3_glob("s3://bucket/run_results_*.json", mock_aws)
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/run_results_*.json", mock_aws, "s3"
+    )
     mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
     assert result == [
         "s3://bucket/run_results_a.json",
@@ -2613,8 +2836,8 @@ def test_expand_s3_glob_client_error():
     )
 
     with pytest.raises(ClientError, match="Access Denied"):
-        DBTCoreSource._expand_s3_glob(
-            "s3://bucket/results/*/run_results.json", mock_aws
+        DBTCoreSource._expand_object_store_glob(
+            "s3://bucket/results/*/run_results.json", mock_aws, "s3"
         )
 
 
@@ -2635,8 +2858,8 @@ def test_expand_s3_glob_no_cross_slash_matching():
         }
     ]
 
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
+    result = DBTCoreSource._expand_object_store_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws, "s3"
     )
     assert result == ["s3://bucket/results/a/run_results.json"]
 
@@ -2700,6 +2923,59 @@ def _make_dbt_node(dbt_name, node_type="model", **overrides):
     )
     defaults.update(overrides)
     return DBTNode(**defaults)
+
+
+def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
+    source = create_mocked_dbt_source()
+    test_node = _make_dbt_node(
+        "test.project.unique_my_model",
+        node_type="test",
+        owner="assertion_owner@example.com",
+        upstream_nodes=["model.project.my_model"],
+    )
+    test_node.test_info = DBTTest(
+        qualified_test_name="not_null", column_name="id", kw_args={}
+    )
+    model_node = _make_dbt_node("model.project.my_model")
+
+    mcps = list(
+        source.create_test_entity_mcps(
+            [test_node], {}, {"model.project.my_model": model_node}
+        )
+    )
+
+    ownership_mcps = [mcp for mcp in mcps if isinstance(mcp.aspect, OwnershipClass)]
+    assert len(ownership_mcps) == 1
+    ownership_mcp = ownership_mcps[0]
+    assert ownership_mcp.entityUrn is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    assert ownership_mcp.entityUrn.startswith("urn:li:assertion:")
+    assert ownership_mcp.aspect.owners[0].owner == (
+        "urn:li:corpuser:assertion_owner@example.com"
+    )
+    assert ownership_mcp.aspect.owners[0].type == OwnershipTypeClass.DATAOWNER
+
+
+def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
+    source = create_mocked_dbt_source()
+    source_node = _make_dbt_node(
+        "source.project.raw.users",
+        node_type="source",
+        owner="source_owner",
+    )
+    source_node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="pass",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=None,
+    )
+
+    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+
+    assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
 
 
 def test_load_run_results_skips_generate():
@@ -2847,6 +3123,208 @@ def test_load_file_as_json_s3():
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
     )
+
+
+def test_dbt_gcs_config():
+    config_dict: dict = {
+        "manifest_path": "gs://my-bucket/manifest.json",
+        "catalog_path": "gs://my-bucket/catalog.json",
+        "target_platform": "bigquery",
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+    config_dict_valid = {
+        **config_dict,
+        "gcs_connection": {
+            "credential": {
+                "hmac_access_id": "test_id",
+                "hmac_access_secret": "test_secret",
+            },
+        },
+    }
+    config = DBTCoreConfig.model_validate(config_dict_valid)
+    assert config.gcs_connection is not None
+
+
+def test_run_results_gcs_glob_requires_gcs_connection():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "bigquery",
+        "run_results_paths": ["gs://bucket/results/*/run_results.json"],
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+
+def test_load_file_as_json_gcs():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(hmac_access_id="test_id", hmac_access_secret="test_secret")
+    )
+
+    mock_s3_client = mock.MagicMock()
+    mock_s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(
+            read=mock.MagicMock(return_value=b'{"gcs_key": "gcs_value"}')
+        )
+    }
+
+    with mock.patch.object(
+        type(gcs_conn.s3_compatible_connection),
+        "get_s3_client",
+        return_value=mock_s3_client,
+    ):
+        result = DBTCoreSource.load_file_as_json(
+            "gs://my-gcs-bucket/path/to/manifest.json",
+            None,
+            gcs_conn,
+        )
+    assert result == {"gcs_key": "gcs_value"}
+    mock_s3_client.get_object.assert_called_once_with(
+        Bucket="my-gcs-bucket", Key="path/to/manifest.json"
+    )
+
+
+def test_expand_object_store_glob_gcs():
+    gcs_objects = [
+        {"Key": "dbt/model_a/run_results.json"},
+        {"Key": "dbt/model_b/run_results.json"},
+        {"Key": "dbt/model_b/manifest.json"},
+    ]
+
+    mock_conn = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_conn.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [{"Contents": gcs_objects}]
+
+    result = DBTCoreSource._expand_object_store_glob(
+        "gs://my-gcs-bucket/dbt/*/run_results.json", mock_conn, "gs"
+    )
+
+    assert result == [
+        "gs://my-gcs-bucket/dbt/model_a/run_results.json",
+        "gs://my-gcs-bucket/dbt/model_b/run_results.json",
+    ]
+    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
+    mock_paginator.paginate.assert_called_once_with(
+        Bucket="my-gcs-bucket", Prefix="dbt/"
+    )
+
+
+def test_expand_run_results_paths_gcs_glob():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "results/model_a/run_results.json"},
+                {"Key": "results/model_b/run_results.json"},
+            ]
+        }
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == [
+        "gs://bucket/results/model_a/run_results.json",
+        "gs://bucket/results/model_b/run_results.json",
+    ]
+
+
+def test_expand_run_results_paths_gcs_error_reports_failure():
+    from botocore.exceptions import ClientError
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "ListObjectsV2",
+    )
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("GCS glob expansion failed" in str(f) for f in source.report.failures)
+
+
+def test_expand_run_results_paths_missing_gcs_connection():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = None
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("Missing GCS connection" in str(f) for f in source.report.failures)
+
+
+def test_gcs_connection_config_builds_s3_compatible():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        )
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == GCS_ENDPOINT_URL
+    assert s3_compat.aws_access_key_id == "my_access_id"
+    assert s3_compat.aws_secret_access_key is not None
+    assert s3_compat.aws_secret_access_key.get_secret_value() == "my_secret"
+    assert s3_compat.aws_region == "auto"
+    assert gcs_conn.s3_compatible_connection is s3_compat
+
+
+def test_gcs_connection_config_endpoint_url_override():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        ),
+        endpoint_url="http://localhost:9100",
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == "http://localhost:9100"
+    assert s3_compat.aws_region == "auto"
 
 
 # =============================================================================
@@ -3559,3 +4037,593 @@ def test_dbt_common_semantic_model_subtype_assignment():
         aspect = wu.metadata.aspect
         assert isinstance(aspect, SubTypesClass)
         assert expected_subtype in aspect.typeNames, f"Failed for node_type={node_type}"
+
+
+def _make_dbt_node_with_meta(
+    meta: Dict[str, Any],
+    columns: Optional[List[DBTColumn]] = None,
+) -> DBTNode:
+    """Build a minimal DBTNode for testing meta-mapping wiring."""
+    return DBTNode(
+        dbt_name="model.my_project.orders",
+        dbt_adapter="snowflake",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=columns or [],
+        meta=meta,
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="my_db",
+        schema="public",
+        name="orders",
+        alias=None,
+        raw_code=None,
+        compiled_code=None,
+        dbt_file_path="/models/orders.sql",
+        dbt_package_name="my_project",
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+
+def test_dbt_meta_mapping_add_structured_property_model_level():
+    """meta_mapping with add_structured_property emits a StructuredProperties aspect on the dataset."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["meta_mapping"] = {
+        "data_load_frequency": {
+            "match": ".*",
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": (
+                    "urn:li:structuredProperty:io.acme.data_load_frequency"
+                ),
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta({"data_load_frequency": "hourly"})
+
+    meta_aspects = OperationProcessor(
+        source.config.meta_mapping,
+        source.config.tag_prefix,
+        "SOURCE_CONTROL",
+        source.config.strip_user_ids_from_email,
+        match_nested_props=True,
+    ).process(node.meta)
+
+    aspects = source._generate_base_dbt_aspects(
+        node,
+        additional_custom_props_filtered={},
+        mce_platform="dbt",
+        meta_aspects=meta_aspects,
+    )
+
+    sp_aspects = [a for a in aspects if isinstance(a, StructuredPropertiesClass)]
+    assert len(sp_aspects) == 1
+    assignment = sp_aspects[0].properties[0]
+    assert (
+        assignment.propertyUrn
+        == "urn:li:structuredProperty:io.acme.data_load_frequency"
+    )
+    assert list(assignment.values) == ["hourly"]
+
+
+def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off():
+    """With enable_meta_mapping=False, a populated SP aspect in meta_aspects must
+    still be dropped. Feeding a non-empty aspect (not {}) ensures the test
+    exercises the flag guard rather than short-circuiting on a None lookup."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = False  # disabled
+    config_dict["meta_mapping"] = {
+        "data_load_frequency": {
+            "match": ".*",
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": (
+                    "urn:li:structuredProperty:io.acme.data_load_frequency"
+                ),
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta({"data_load_frequency": "hourly"})
+
+    pre_computed_sp_aspect = StructuredPropertiesClass(
+        properties=[
+            StructuredPropertyValueAssignmentClass(
+                propertyUrn="urn:li:structuredProperty:io.acme.data_load_frequency",
+                values=["hourly"],
+            )
+        ]
+    )
+    aspects = source._generate_base_dbt_aspects(
+        node,
+        additional_custom_props_filtered={},
+        mce_platform="dbt",
+        meta_aspects={
+            Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
+        },
+    )
+
+    # Guard must drop the aspect because enable_meta_mapping is False.
+    assert not any(isinstance(a, StructuredPropertiesClass) for a in aspects)
+
+
+def test_dbt_column_meta_mapping_add_structured_property_emits_schema_field_mcp():
+    """column_meta_mapping with add_structured_property emits an MCP per matching column,
+    keyed on the schemaField URN."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="email",
+                comment="",
+                description="",
+                index=0,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            ),
+            DBTColumn(
+                name="created_at",
+                comment="",
+                description="",
+                index=1,
+                data_type="TIMESTAMP",
+                meta={"pii": False},
+            ),
+        ],
+    )
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)"
+
+    mcps = list(source._create_column_structured_property_mcps(node, dataset_urn))
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn == f"urn:li:schemaField:({dataset_urn},email)"
+    assert isinstance(mcps[0].aspect, StructuredPropertiesClass)
+    assignment = mcps[0].aspect.properties[0]
+    assert assignment.propertyUrn == "urn:li:structuredProperty:io.acme.pii"
+    assert list(assignment.values) == ["true"]
+
+
+def test_dbt_column_meta_mapping_no_mapping_yields_nothing():
+    """If column_meta_mapping is empty, no MCPs are emitted."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="email",
+                comment="",
+                description="",
+                index=0,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            )
+        ],
+    )
+
+    mcps = list(
+        source._create_column_structured_property_mcps(
+            node,
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)",
+        )
+    )
+    assert mcps == []
+
+
+def test_dbt_column_meta_mapping_add_structured_property_skips_columns_without_meta():
+    """Columns with no `meta` are silently skipped — most columns won't have
+    meta, so this is the common path and must not log warnings."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="BIGINT",
+                meta={},  # no meta
+            ),
+            DBTColumn(
+                name="email",
+                comment="",
+                description="",
+                index=1,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            ),
+        ],
+    )
+
+    mcps = list(
+        source._create_column_structured_property_mcps(
+            node,
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)",
+        )
+    )
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn is not None and "email" in mcps[0].entityUrn
+
+
+def test_dbt_column_meta_mapping_add_structured_property_lowercases_field_name():
+    """When `convert_column_urns_to_lowercase=True`, the emitted schemaField
+    URN uses the lowercased column name. This must stay in sync with how
+    SchemaMetadata fields are emitted so they refer to the same entity."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["convert_column_urns_to_lowercase"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="CustomerEmail",
+                comment="",
+                description="",
+                index=0,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            ),
+        ],
+    )
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)"
+
+    mcps = list(source._create_column_structured_property_mcps(node, dataset_urn))
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn == f"urn:li:schemaField:({dataset_urn},customeremail)"
+
+
+def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
+    """When a pre-computed column_meta_aspects dict is threaded in, neither
+    get_schema_metadata nor _create_column_structured_property_mcps may re-run
+    the processor on column.meta. Regression guard for the DRY/perf fix."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name=f"col_{i}",
+                comment="",
+                description="",
+                index=i,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            )
+            for i in range(5)
+        ],
+    )
+
+    column_meta_aspects = source._extract_column_meta_aspects(node)
+    assert set(column_meta_aspects.keys()) == {f"col_{i}" for i in range(5)}
+
+    # Patch the cached processor's `process` to fail if called again after
+    # the pre-computation above.
+    with mock.patch.object(
+        source._column_meta_action_processor,
+        "process",
+        side_effect=AssertionError("process() must not be called again"),
+    ):
+        source._generate_base_dbt_aspects(
+            node,
+            additional_custom_props_filtered={},
+            mce_platform="dbt",
+            meta_aspects={},
+            column_meta_aspects=column_meta_aspects,
+        )
+        mcps = list(
+            source._create_column_structured_property_mcps(
+                node,
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)",
+                column_meta_aspects=column_meta_aspects,
+            )
+        )
+        assert len(mcps) == 5
+
+
+def _make_dbt_model_node(dbt_name: str, upstream_nodes: List[str]) -> DBTNode:
+    return DBTNode(
+        database="db",
+        schema="schema",
+        name=dbt_name,
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name="my_project",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        upstream_nodes=upstream_nodes,
+    )
+
+
+def test_skip_missing_upstreams_in_lineage_config():
+    # Works without skip_sources_in_lineage — logs a warning but does not raise
+    config = DBTCoreConfig.model_validate(
+        {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "postgres",
+            "skip_missing_upstreams_in_lineage": True,
+        }
+    )
+    assert config.skip_missing_upstreams_in_lineage is True
+
+    # Recommended combination — no warning logged
+    config = DBTCoreConfig.model_validate(
+        {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "postgres",
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    assert config.skip_missing_upstreams_in_lineage is True
+    assert config.skip_sources_in_lineage is True
+
+
+def test_skip_missing_upstreams_in_lineage_filters_missing():
+    """Upstream URNs that do not exist in DataHub are excluded from lineage."""
+    graph = mock.MagicMock()
+    existing_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.existing,PROD)"
+    )
+    missing_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.missing,PROD)"
+    graph.exists.side_effect = lambda urn: urn == existing_urn
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    existing_node = _make_dbt_model_node("existing", [])
+    missing_node = _make_dbt_model_node("missing", [])
+    downstream_node = _make_dbt_model_node("downstream", ["existing", "missing"])
+    all_nodes_map = {
+        "existing": existing_node,
+        "missing": missing_node,
+        "downstream": downstream_node,
+    }
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is not None
+    upstream_datasets = {u.dataset for u in lineage.upstreams}
+    assert existing_urn in upstream_datasets
+    assert missing_urn not in upstream_datasets
+    assert source.report.lineage_upstreams_skipped_missing == 1
+
+
+def test_skip_missing_upstreams_in_lineage_all_missing_returns_none():
+    """When all upstreams are missing, lineage aspect is None (no empty stub emitted)."""
+    graph = mock.MagicMock()
+    graph.exists.return_value = False
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    upstream_node = _make_dbt_model_node("upstream", [])
+    downstream_node = _make_dbt_model_node("downstream", ["upstream"])
+    all_nodes_map = {"upstream": upstream_node, "downstream": downstream_node}
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is None
+    assert source.report.lineage_upstreams_skipped_missing == 1
+
+
+def test_skip_missing_upstreams_existence_is_cached():
+    """graph.exists() is called only once per unique upstream URN."""
+    graph = mock.MagicMock()
+    graph.exists.return_value = True
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    shared_upstream = _make_dbt_model_node("shared", [])
+    node_a = _make_dbt_model_node("node_a", ["shared"])
+    node_b = _make_dbt_model_node("node_b", ["shared"])
+    all_nodes_map = {"shared": shared_upstream, "node_a": node_a, "node_b": node_b}
+
+    source._create_lineage_aspect_for_dbt_node(node_a, all_nodes_map)
+    source._create_lineage_aspect_for_dbt_node(node_b, all_nodes_map)
+
+    # graph.exists should have been called exactly once for the shared upstream URN
+    shared_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.shared,PROD)"
+    calls = [c for c in graph.exists.call_args_list if c.args[0] == shared_urn]
+    assert len(calls) == 1
+
+
+def test_skip_missing_upstreams_fails_open_on_graph_error():
+    """When graph.exists() raises, the edge is kept and a warning is reported."""
+    graph = mock.MagicMock()
+    graph.exists.side_effect = Exception("GMS timeout")
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    upstream = _make_dbt_model_node("upstream", [])
+    downstream = _make_dbt_model_node("downstream", ["upstream"])
+    all_nodes_map = {"upstream": upstream, "downstream": downstream}
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream, all_nodes_map)
+
+    # Edge should be retained (fail open)
+    assert lineage is not None
+    assert len(lineage.upstreams) == 1
+    # Counter should NOT increment (we didn't skip anything)
+    assert source.report.lineage_upstreams_skipped_missing == 0
+    # A warning should have been recorded
+    assert len(source.report.warnings) > 0
+
+
+def test_skip_missing_upstreams_filters_cll():
+    """Column-level lineage referencing a missing upstream is also filtered out."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumnLineageInfo
+
+    existing_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.existing,PROD)"
+    )
+    missing_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.missing,PROD)"
+
+    graph = mock.MagicMock()
+    graph.exists.side_effect = lambda urn: urn == existing_urn
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+            "skip_sources_in_lineage": True,
+            "entities_enabled": {"sources": "NO"},
+            "include_column_lineage": True,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    existing_node = _make_dbt_model_node("existing", [])
+    missing_node = _make_dbt_model_node("missing", [])
+    downstream_node = _make_dbt_model_node("downstream", ["existing", "missing"])
+    # Give the downstream node CLL entries pointing at both upstreams
+    downstream_node.upstream_cll = [
+        DBTColumnLineageInfo(
+            downstream_col="col_a",
+            upstream_dbt_name="existing",
+            upstream_col="col_a",
+        ),
+        DBTColumnLineageInfo(
+            downstream_col="col_b",
+            upstream_dbt_name="missing",
+            upstream_col="col_b",
+        ),
+    ]
+    all_nodes_map = {
+        "existing": existing_node,
+        "missing": missing_node,
+        "downstream": downstream_node,
+    }
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is not None
+    upstream_datasets = {u.dataset for u in lineage.upstreams}
+    assert existing_urn in upstream_datasets
+    assert missing_urn not in upstream_datasets
+
+    # CLL for the missing upstream should also be absent
+    cll_upstream_urns = {
+        sf_urn.split(",")[0].removeprefix("urn:li:schemaField:(")
+        for entry in (lineage.fineGrainedLineages or [])
+        for sf_urn in (entry.upstreams or [])
+    }
+    assert not any(missing_urn in u for u in cll_upstream_urns), (
+        "CLL still references the missing upstream — ghost node would still be created"
+    )

@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -13,7 +14,7 @@ import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { LineageDirection } from '@types';
 
-const LINEAGE_SWITCH_WIDTH = 90;
+const LINEAGE_SWITCH_MIN_WIDTH = 90;
 
 const LineageTabWrapper = styled.div`
     display: flex;
@@ -26,7 +27,7 @@ const LineageSwitchWrapper = styled.div`
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;
-    width: ${LINEAGE_SWITCH_WIDTH * 2}px;
+    width: fit-content;
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
@@ -35,11 +36,14 @@ const LineageViewSwitch = styled.div<{ selected: boolean }>`
     color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textBrand)};
     cursor: pointer;
     display: flex;
+    flex: 1;
     font-size: 10px;
     justify-content: center;
     line-height: 24px;
     height: 24px;
-    width: ${LINEAGE_SWITCH_WIDTH}px;
+    min-width: ${LINEAGE_SWITCH_MIN_WIDTH}px;
+    padding: 0 12px;
+    white-space: nowrap;
 `;
 
 const VisualizationWrapper = styled.div`
@@ -67,6 +71,7 @@ export function LineageTab({ properties, renderType }: Props) {
 }
 
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
+    const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
@@ -78,10 +83,10 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                 <LineageTabHeader>
                     <LineageSwitchWrapper>
                         <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
-                            Explorer
+                            {t('viewSwitch.explorer')}
                         </LineageViewSwitch>
                         <LineageViewSwitch selected={!isVisualizeView} onClick={() => setVisualizeView(false)}>
-                            Impact Analysis
+                            {t('viewSwitch.impactAnalysis')}
                         </LineageViewSwitch>
                     </LineageSwitchWrapper>
                 </LineageTabHeader>

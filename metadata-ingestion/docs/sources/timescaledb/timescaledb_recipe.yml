@@ -1,0 +1,36 @@
+source:
+  type: timescaledb
+  config:
+    # Coordinates
+    host_port: localhost:5432
+    database: timescaledb
+
+    # Credentials
+    username: datahub_user
+    password: "${TIMESCALEDB_PASSWORD}"
+
+    # (Optional) SSL configuration (required for Tiger Cloud)
+    # options:
+    #   connect_args:
+    #     sslmode: require
+
+    # (Optional) Enable TimescaleDB background jobs extraction (disabled by default)
+    # include_background_jobs: true
+
+    # (Optional) Filter ingested schemas and tables
+    # schema_pattern:
+    #   allow:
+    #     - "^public$"
+    #     - "^analytics$"
+    #   deny:
+    #     - "^_timescaledb_.*"
+    #     - "^information_schema$"
+
+    # (Optional) Profiling configuration
+    # profiling:
+    #   enabled: true
+    #   profile_table_level_only: true
+    #   turn_off_expensive_profiling_metrics: true
+
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

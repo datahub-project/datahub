@@ -1,0 +1,421 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b8430f8330e8295917b8e507b441363e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208876,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sigma",
+                "dataModelId": "aa000000-0000-0000-0000-000000000001",
+                "dataModelUrlId": "customsql-dm-urlid",
+                "path": "Test Workspace"
+            },
+            "name": "CustomSQL DM",
+            "created": {
+                "time": 1704067200000
+            },
+            "lastModified": {
+                "time": 1704153600000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208876,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208877,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sigma"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208877,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208877,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+                    "urn": "urn:li:container:b8430f8330e8295917b8e507b441363e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208878,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208886,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataModelId": "aa000000-0000-0000-0000-000000000001",
+                "dataModelUrlId": "customsql-dm-urlid",
+                "elementId": "csql-el-01",
+                "type": "table"
+            },
+            "name": "Custom SQL",
+            "qualifiedName": "CustomSQL DM/Custom SQL",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208887,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Data Model Element"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208887,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Custom SQL",
+            "platform": "urn:li:dataPlatform:sigma",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Amount",
+                    "nullable": false,
+                    "description": "Amount",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Order Id",
+                    "nullable": false,
+                    "description": "Order Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "unknown",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042447981,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208888,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+                    "urn": "urn:li:container:b8430f8330e8295917b8e507b441363e"
+                },
+                {
+                    "id": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3",
+                    "urn": "urn:li:container:5e4833d094f9dbaf1d8d535faaf800b3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208889,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sigma",
+                "workspaceId": "bb000000-0000-0000-0000-000000000001"
+            },
+            "name": "Test Workspace",
+            "created": {
+                "time": 1704067200000
+            },
+            "lastModified": {
+                "time": 1704067200000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208919,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208920,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sigma"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208920,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208920,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b8430f8330e8295917b8e507b441363e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042208920,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1778042447985,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD),Order Id)"
+                    ],
+                    "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD),Amount)"
+                    ],
+                    "confidenceScore": 0.2
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1778042447988,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

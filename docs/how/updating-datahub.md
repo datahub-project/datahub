@@ -1,3 +1,7 @@
+---
+description: "Release notes and breaking change history for upgrading DataHub between versions, including required migration steps."
+---
+
 # Updating DataHub
 
 <!--
@@ -31,21 +35,85 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 
+Draft release notes for the upcoming version. Add entries here as breaking changes, deprecations, and notable fixes land on `master`; promote this section to a versioned heading (for example `## v1.6.1` or `## v1.7.0`) at release cut.
+
+Requirements:
+
+- CLI / Python SDK: (TBD)
+- Helm Chart: (TBD)
+
 ### Breaking Changes
 
-- #16473: Vertex AI Source - **ML Model version set URNs now scoped per project**: Previously, all Vertex AI model versions shared a version set based solely on the numeric model ID, which caused conflicts when multiple GCP projects contained models with the same numeric ID (GCP model IDs are project-local, not globally unique). Version sets are now scoped per project, preventing `422 ValidationException` errors during ingestion. After upgrading, existing model version entities will be orphaned in their old version sets; new ingestion runs will create correctly scoped version sets. Old orphaned entities can be cleaned up by enabling stateful ingestion with stale entity removal.
-- **(Actions / Kafka)** The default Kafka offset commit strategy for Actions has changed from **synchronous** (`async_commit_enabled: false`) to **asynchronous** (`async_commit_enabled: true`). With asynchronous commits, offsets are stored locally after each event and committed periodically by a background thread (default interval: 10 seconds via `async_commit_interval`). This provides up to **25x throughput improvement** for high-volume action pipelines. The tradeoff: on consumer crash, up to `async_commit_interval` milliseconds of events may be redelivered. All built-in actions are idempotent or tolerate redelivery, so no behavior change is expected for standard deployments. To restore the previous synchronous default for any action, add `async_commit_enabled: false` to the `source.config` section of your action YAML.
-- **Docker / Prometheus (Micrometer):** When using the stock DataHub Docker `start.sh` entrypoints, GMS, MAE consumer, MCE consumer, and the frontend expose Micrometer Actuator (including `GET /actuator/prometheus` and `/actuator/health`) on container port **4319** by default (`MANAGEMENT_SERVER_PORT`), separate from the main API/UI port. Profile compose ([docker/profiles/docker-compose.gms.yml](../../docker/profiles/docker-compose.gms.yml)) **`expose`s 4319** for on-network scraping and maps **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host for GMS (same pattern as **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`** for HTTP). Override `DATAHUB_GMS_MANAGEMENT_URL` in smoke tests if needed, or change the host port via `DATAHUB_MAPPED_GMS_MANAGEMENT_PORT`. Scrape from another container on the same compose network (e.g. `http://datahub-gms:4319/actuator/prometheus` as in [docker/monitoring/prometheus.yaml](../../docker/monitoring/prometheus.yaml)). MAE and MCE image **HEALTHCHECK** probes the management port first, then falls back to the main consumer port for older layouts. The JMX Prometheus Java agent remains on **4318**. If you previously scraped Micrometer from the GMS HTTP port (e.g. `8080`), update scrapes to the management listener. To keep Actuator on the main port, unset `MANAGEMENT_SERVER_PORT` in the container or set it equal to the main server port.
-- (Operations / monitoring) Docker images that bundle the **JMX Prometheus Java agent** (`datahub-gms`, `datahub-frontend-react`, `datahub-mae-consumer`, `datahub-mce-consumer`, `datahub-upgrade`) now ship **`jmx_prometheus_javaagent` 1.0.1** (previously 0.20.0). The agent uses **Prometheus client_java 1.x**; upgrade scrapers and dashboards accordingly.
-  - **HTTP scrape path:** Metrics are exposed at **`/metrics`**, not at **`/`**. If you scrape the JMX port directly (often **4318** when Prometheus export is enabled), set your Prometheus `metrics_path` (or Kubernetes `ServiceMonitor` / `PodMonitor` `path`) to **`/metrics`**. Anything still requesting **`/`** will receive the default HTML page, not the metrics exposition.
-  - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
-  - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
-- #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
-- #16912: Java 21 Compilation Required - DataHub now compiles with Java 21 JDK and produces Java 8 bytecode for broad runtime compatibility. All Docker images ship with Java 21 runtime. Self-hosted users must ensure their build environments use Java 21+; runtime environments require Java 8 or later.
-  - Spark integration upgraded from 3.3.4 to 3.5.0 (enables Spark 4.x forward compatibility and improves lineage handling for complex query plans)
-  - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.5+)
-  - **For self-hosted deployments:** Build/compile requires Java 21 JDK. Runtime environments can use Java 8+ (DataHub produces Java 8 bytecode for compatibility). Spark lineage users must upgrade to Spark 3.5.0+ if using DataHub's Spark integration.
-  - **Java 21 runtime configuration**: When running DataHub services with Java 21, add `--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED` to `JAVA_OPTS` or your JVM startup command to allow Spark lineage listener reflection-based operations. DataHub Docker images include this automatically.
+- **(Ingestion)** The built-in **`datahub` column-level classifier** (`DataHubClassifier`) has been removed from `acryl-datahub`, along with its `acryl-datahub-classify` dependency, which pinned `numpy<2` and an outdated spaCy stack and blocked dependency upgrades. The classification **framework** (the `Classifier` interface, the classifier registry, and the per-source orchestration) is retained, but no classifier is registered by default. Recipes that set `classification.enabled: true` (on Snowflake, BigQuery, Redshift, dynamodb, or any SQL source) without registering a replacement classifier now fail fast at startup with a message pointing here. Recipes that leave classification disabled (the default) are unaffected. **Action:** Remove the `classification` block from your recipe, or [register a custom classifier](../../metadata-ingestion/docs/dev_guides/classification.md#bring-your-own-classifier). If you still need the built-in classifier, pin the last release that ships it: `pip install 'acryl-datahub==1.6.0.5'`.
+
+- #18014 **(Airflow / Dagster / Prefect / Great Expectations plugins)** The default emit mode changed from synchronous to **ASYNC** to reduce GMS load at high volume. With async, `emit()` no longer raises on a rejected write and there's no read-after-write guarantee. The Python SDK, CLI, and DataHub Actions defaults are unchanged. **Action:** to restore the previous behavior (`SYNC_PRIMARY`), set `[datahub] emit_mode = SYNC_PRIMARY` in `airflow.cfg` (Airflow), `emit_mode: SYNC_PRIMARY` on the Dagster source config, `emit_mode=EmitMode.SYNC_PRIMARY` on the Prefect `DatahubEmitter` block, or `emit_mode: SYNC_PRIMARY` on the Great Expectations `DataHubValidationAction` config.
+- **(GMS / Logical Models)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** (whose `logicalParent` aspect is written) and the **proposed parent** dataset. Clearing a logical parent requires **Edit Entity** on the child only. The [logical models feature guide](../features/feature-guides/logical-models/overview.md) previously stated only the child was checked; enforcement now matches [metadata policies](../authorization/policies.md#logical-parent-logicalparent-aspect). **Action:** Grant **Edit Entity** on logical parent datasets to principals who create or change logical-parent links, or update policies so those operations succeed.
+
+- #17852: **(Ingestion framework)** Workunit processor helper functions have been removed and replaced with `WorkunitProcessor` classes. If you were directly calling these functions in custom code, you must update to use the processor class API. **Migration:** Import the processor class, create a `WorkunitProcessorContext`, instantiate the processor via `Processor.create(ctx)`, and call `.process(stream)`. Additionally, some processors have been renamed to follow a consistent naming convention:
+
+  **Renamed processors (old → new):**
+
+  - `AutoFixDuplicateSchemaFieldPathsProcessor` → `ValidateDuplicateSchemaFieldPathsProcessor`
+  - `AutoFixEmptyFieldPathsProcessor` → `ValidateEmptySchemaFieldPathsProcessor`
+  - `StaleEntityRemovalProcessor` → `AutoStaleEntityRemovalProcessor`
+
+  **Removed standalone functions (use processor classes instead):**
+
+  - `auto_status_aspect()` → Use `AutoStatusAspectProcessor` from `datahub.ingestion.workunit_processors.auto_status_aspect`
+  - `auto_workunit_reporter()` → Use `AutoWorkunitsReporterProcessor` from `datahub.ingestion.workunit_processors.auto_workunits_reporter`
+  - `auto_lowercase_urns()` → Use `AutoLowercaseUrnsProcessor` from `datahub.ingestion.workunit_processors.auto_lowercase_urns`
+  - `auto_materialize_referenced_tags_terms()` → Use `AutoMaterializeReferencedTagsTermsProcessor` from `datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms`
+  - `auto_fix_duplicate_schema_field_paths()` → Use `ValidateDuplicateSchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths`
+  - `auto_fix_empty_field_paths()` → Use `ValidateEmptySchemaFieldPathsProcessor` from `datahub.ingestion.workunit_processors.validate_empty_schema_field_paths`
+  - `auto_browse_path_v2()` → Use `AutoBrowsePathV2Processor` from `datahub.ingestion.workunit_processors.auto_browse_path_v2`
+  - `auto_incremental_lineage()` → Use `AutoIncrementalLineageProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_lineage`
+  - `auto_incremental_ownership()` → Use `AutoIncrementalOwnershipProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_ownership`
+  - `auto_incremental_properties()` → Use `AutoIncrementalPropertiesProcessor` from `datahub.ingestion.workunit_processors.auto_incremental_properties`
+  - `auto_patch_last_modified()` → Use `AutoPatchLastModifiedProcessor` from `datahub.ingestion.workunit_processors.auto_patch_last_modified`
+
+  **Example migration:**
+
+  ```python
+  # OLD (removed):
+  from datahub.ingestion.workunit_processors.auto_status_aspect import auto_status_aspect
+  result = list(auto_status_aspect(stream))
+
+  # NEW (required):
+  from unittest.mock import MagicMock
+  from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+  from datahub.ingestion.workunit_processors.auto_status_aspect import AutoStatusAspectProcessor
+
+  ctx = WorkunitProcessorContext(
+      source_report=report,
+      pipeline_context=MagicMock(),
+      source_config=config,
+      platform="myplatform"
+  )
+  processor = AutoStatusAspectProcessor.create(ctx)
+  result = list(processor.process(stream))
+  ```
+
+  **Naming convention:** Processors follow a consistent pattern: `Auto*Processor` (enrichment), `Validate*Processor` (validation/cleanup), `Ensure*Processor` (constraint enforcement). See `WorkunitProcessor` base class documentation for details.
+
+- **(GMS rate limiting)** Renamed `rateLimits.defaultRetryAfterSeconds` / `RATE_LIMITS_DEFAULT_RETRY_AFTER` to `minRetryAfterSeconds` / `RATE_LIMITS_MIN_RETRY_AFTER`. The value is now the **minimum** `Retry-After` floor; endpoint (token-bucket) denials may return a longer wait derived from Bucket4j refill timing. Added `retryAfterJitterPercent` / `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT` (default `10`) to spread endpoint retry timing. **Action:** update env vars and external rate-limit YAML if you set the old names; capacity denials still use the flat minimum.
+
+- **(Ingestion / Airflow plugin) Dropped support for Airflow 2.x.** `acryl-datahub-airflow-plugin` now requires Airflow 3.0+. The package's `apache-airflow` floor is bumped to `>=3.0.0`. The legacy standalone `openlineage-airflow` package is no longer used at all — the plugin always uses `apache-airflow-providers-openlineage`, which is now an unconditional dependency (`>=2.1.0` — the version that added Airflow 3 listener support). Drop `openlineage-airflow` from your constraints if it was pinned. The `[airflow2]` install extra is gone; `[airflow3]` is retained as a backward-compatible no-op (it installs the same as the bare package), so existing `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands keep working. The `taskinstance` value for `datajob_url_link` (an Airflow 2-only URL format) is no longer accepted; use `tasks` (default) or `grid`. The `patch_snowflake_schema` config option has been removed — it patched a Snowflake schema bug in the deprecated `openlineage-airflow` `SnowflakeExtractor` and has no effect under the OpenLineage provider, which handles Snowflake schema resolution natively; remove the setting from `airflow.cfg` if present (it is silently ignored). If you are still on Airflow 2.7–2.10, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support) — see the [compatibility section in the Airflow integration docs](../lineage/airflow.md#compatibility) for the full version ladder.
+
+- #17536: **(prefect-plugin)** The `datahub-prefect` package now requires **Prefect 3.x** (`>=3.0.0,<4.0.0`); Prefect 2.x is no longer supported. The Prefect entry point group also changed from `prefect.block` to `prefect.collections` to match Prefect 3's plugin discovery. **Action:** Upgrade Prefect to 3.x and re-register the DataHub block (`DatahubEmitter`) before upgrading the plugin.
+
+- **(Ingestion / PowerBI Report Server)** The `chart_pattern` config field has been removed from the `powerbi-report-server` source. If your recipe sets `chart_pattern`, ingestion will log a deprecation warning. **Migration:** remove `chart_pattern` from your recipe — chart-level filtering is not yet implemented for this connector.
+
+- **(Docker / local development)** Removed legacy root-level Docker Compose files (`docker/docker-compose*.yml`), shell scripts (`docker/quickstart.sh`, `docker/dev*.sh`, `docker/nuke.sh`), and old generated quickstart bundles under `docker/quickstart/` (except `docker-compose.quickstart-profile.yml`). **Migration:** use `datahub docker quickstart` for CLI installs; use `./gradlew quickstartDebug` or `scripts/dev/datahub-dev.sh start` for contributors; use `datahub docker nuke`, `./gradlew quickstartDebugNuke`, or `scripts/dev/datahub-dev.sh nuke` for teardown; customize installs from `docker/quickstart/docker-compose.quickstart-profile.yml` or profiles in `docker/profiles/`.
+
+- **Docker image tags (`:head` removed, `:quickstart` and `:sha-*` added):** The floating `:head` tag is no longer published to Docker Hub because images were tagged per-service at different times, so `:head` often referred to a mixed set of commits. **Action for Docker Compose / local quickstart:** use `DATAHUB_VERSION=quickstart` (or `datahub docker quickstart --version head`, which resolves to the `quickstart` tag via the version manifest). Immutable `sha-<short_sha>` tags are published during the coordinated depot bake on `master`; the `:quickstart` tag is updated only after the full image matrix passes smoke tests, so all services move together. **Action for Kubernetes / Helm / production:** pin an immutable tag — a release (`v*`) or a commit tag `sha-<7-char short SHA>` (e.g. `sha-38960ae`). Do not use `quickstart` in cluster deployments; it can change on the next green `master` build. Bare short SHA tags (`:abc1234`) are now prefixed: use `:sha-abc1234`. Old CLIs using `--version head` continue to work when they load an updated [`quickstart_version_mapping.yaml`](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/quickstart_version_mapping.yaml) with `docker_tag: quickstart` under the `head` key.
+
+- #17376: **(Ingestion / Hex)** Hex Components are now ingested as **Chart** entities instead of **Dashboard** entities. A Hex Component defines its own visualisation that importing projects cannot override, so it maps to a Chart (analogous to a Looker `Look` or a PowerBI `Tile`), with the project remaining a Dashboard that links to its Components via `DashboardInfo.charts`. **Migration:** if you ran the old version with stateful ingestion enabled, stale-entity removal soft-deletes the pre-existing legacy `Dashboard`-typed Components on the next run in most cases. Because every Component changes URN type, a component-heavy workspace can exceed the stale-removal fail-safe (`stateful_ingestion.fail_safe_threshold`, default 75%), in which case raise the threshold or perform a one-time bulk cleanup via the DataHub UI or CLI. Either way, Component URNs change entity type, so any saved views, glossary/tag/ownership assignments, and policies that targeted the old Dashboard-typed Component URNs **will be lost and must be manually reapplied** to the new Chart URNs.
+
+- #17443 **(Ingestion / MongoDB)** AWS DocumentDB can now be ingested as its own data platform. The MongoDB source has a new opt-in config field `platform` (default `mongodb`). Set `platform: documentdb` together with `hostingEnvironment: AWS_DOCUMENTDB` to emit entities under the new `documentdb` data platform URN instead of `mongodb`; setting `platform: documentdb` with any other hosting environment is rejected at config validation time. The default is unchanged, so existing recipes continue to emit `mongodb` URNs even when pointed at AWS DocumentDB. If enabled on an existing recipe, both the dataset URNs and the database-level container URNs will change, and the stale `mongodb` entities will need to be cleaned up via stateful ingestion (if enabled) or manual soft-delete.
+
+- **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` now defaults to **`ENFORCE`** (was effectively unrestricted for human callers). Browser sessions and user Personal Access Tokens **can no longer** call `getSecretValues` or otherwise decrypt UI secrets through GraphQL. **Rollout (v2.0.0):** new deployments get `ENFORCE` by default; existing deployments should migrate before upgrading or set `AUDIT` during transition. **Action:** If you relied on admins or automation using a user PAT to read plaintext secret values via `getSecretValues`, migrate to [**datahub-actions**](../actions/actions/executor.md) with system client credentials (`DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET`) or set `SECRET_SERVICE_CALLER_GUARD_MODE=AUDIT` temporarily during rollout. Scheduled UI ingestion via **datahub-actions** is unaffected. See [Environment Variables](../deploy/environment-vars.md) and [Ingestion executor security](../docker/ingestion-executor-security.md).
+
+- **(Java / Plugin API)** `SecretService.encrypt` and `SecretService.decrypt` no-context overloads are removed; use `encrypt(OperationContext, String)` and `decrypt(OperationContext, String)`. Custom GMS plugins or extensions that call `SecretService` directly must pass `OperationContext` from the request, or `null` for background jobs (allowed by the guard). With `ENFORCE`, `decrypt` throws `SecurityException` for human browser/mobile callers and callers other than trusted ingestion workers (**datahub-actions** in OSS).
 
 ### Known Issues
 
@@ -53,16 +121,247 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
-- **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
-- **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
+- #17376: **(Ingestion / Hex)** Three recipe fields are removed and now emit a deprecation warning when set: `lineage_start_time`, `lineage_end_time`, and `datahub_page_size`. These belonged to the old lineage path that searched DataHub for Hex-tagged Query entities. Lineage now comes directly from the Hex REST API (the `queriedTables` API on Hex Enterprise workspaces, or SQL parsing of project/component cells on all workspaces), so these fields no longer have any effect. **Migration:** remove them from your recipe.
 
 ### Other Notable Changes
 
+- #18001 **(Ingestion / Redshift)** `table_pattern` is now applied to SQL-parsing-derived lineage and usage, not just to the catalog walk. Previously, lineage/usage/query entities produced by the SQL parsing aggregator were emitted for all tables regardless of `table_pattern`; they are now filtered consistently with the other SQL connectors (Snowflake, BigQuery, Databricks). The default `table_pattern` allows everything, so most setups are unaffected. **If you set `table_pattern`** and relied on lineage/usage edges to excluded tables, widen the pattern to keep them.
+
+- #18001 **(Ingestion / Redshift)** The per-user `userEmail` field in Redshift dataset usage statistics (`DatasetUserUsageCounts`) is no longer populated. Redshift's catalog only stores usernames, so this email was previously synthesized as `<username>@<email_domain>` and carried no information beyond the user's CorpUser URN. That URN is unchanged, so user attribution and ownership links are unaffected. **No action required;** if you relied on the synthetic email, derive it from the user URN plus your `email_domain` setting. (This is a side effect of Redshift usage now flowing through the standard SQL-parsing usage aggregator. A new opt-in `include_column_usage_stats` config additionally enables column-level usage statistics.)
+
+- #18065 **(Ingestion / Redshift)** The Redshift connector now emits per-query popularity statistics (`queryUsageStatistics`) on Query entities, matching Snowflake, BigQuery, and Databricks. This is controlled by a new `include_query_usage_statistics` flag, which defaults to `true` but, like `include_column_usage_stats`, only takes effect when `include_usage_statistics` is enabled (off by default) and requires `lineage_generate_queries` (default `true`). **If you already run Redshift usage ingestion** (`include_usage_statistics: true`), query popularity stats will start being emitted after upgrade with no config change; set `include_query_usage_statistics: false` to opt out. Enabling query usage causes read queries to be parsed by the SQL lineage aggregator, which is heavier than the default `stl_scan` table-usage path.
+
+- **(GMS / search indexing)** Inline Elasticsearch indexing and entity-graph cache invalidation on ingest now require explicit `systemMetadata.properties.appSource = ui` (or the sync-index header), not merely a GraphQL request context. `GroupService` and `RoleService` stamp UI source via `AspectUtils.buildSynchronousMetadataChangeProposal`; other GraphQL resolvers that bypass `MutationUtils` revert to async MAE indexing. See [GMS Entity Graph Cache — Invalidation (sync writes)](../deploy/gms-entity-graph-cache.md#invalidation-sync-writes).
+
+- #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
+
+- **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
+
+- #17646 **(Ingestion / Dremio)** Query lineage and view-parent lineage emission now respect `schema_pattern` and `dataset_pattern` (and skip the `_accelerator_` reflection schema), matching the behavior of Snowflake and Redshift. Previously these filters only applied to the catalog walk: URNs discovered through `sys.jobs_recent` or view-parent references were emitted unconditionally, so DataHub materialized ghost dataset entities for filtered schemas with no parent container or browse path. A new report counter `lineage_dropped_filtered` records how many lineage references were skipped. **If you relied on lineage edges to filtered upstreams** (e.g. to keep references to system schemas that you excluded from the main catalog), widen `schema_pattern` / `dataset_pattern` to admit them — or run with the defaults, which allow everything.
+- #17648 **(Ingestion / Dremio)** Added DataHub platform mappings for several Dremio source types that previously fell through to a lowercased default: `BIGQUERY → bigquery`, `RESTCATALOG → iceberg` (Apache Polaris OSS, Nessie with Iceberg REST, AWS Glue Iceberg REST, S3 Tables, Confluent Tableflow, Microsoft OneLake), `SAPHANA → hana`, `SNOWFLAKEOPENCATALOG → iceberg` (Snowflake's hosted Polaris), and `UNITY → databricks` (Databricks Unity Catalog). Existing Dremio recipes that previously produced lineage URNs like `urn:li:dataPlatform:restcatalog` will now produce `urn:li:dataPlatform:iceberg` (etc.); update any URN-based lineage / dashboards that depend on the old values.
+
+- #17649 **(Ingestion / Dremio)** The `domain` recipe field now actually emits a `Domains` aspect for every Dremio container and dataset. Previously, the config field was documented and plumbed through to the aspect builder, but the aspect was never yielded, so the setting silently did nothing. Recipes that already set `domain` will now start attaching the configured domain to ingested entities — verify the domain URN/name is what you intend before upgrading. Bare names (e.g. `domain: marketing`) are now resolved against the live DataHub graph via `DomainRegistry` (same pattern as Snowflake/BigQuery), so the recipe must have a `datahub_api`/sink with a graph configured; otherwise pass a full `urn:li:domain:<id>`.
+- #17651 **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
+- #17812 **(Ingestion / Glue)** When `extract_lakeformation_tags` is enabled, the Glue connector now also extracts **column-level** Lake Formation tags by default (new `extract_lakeformation_column_tags`, default `true`) and can propagate a database's Lake Formation tags down to its tables and columns (new `propagate_lakeformation_tags`, default `false`). Existing recipes with `extract_lakeformation_tags: true` will start emitting directly-assigned column tags after upgrade with no config change; set `extract_lakeformation_column_tags: false` to retain the previous (table/database-only) behavior. Inherited (propagated) tags are marked with propagation attribution and a `propagated` context so they can be distinguished from directly-assigned tags. No additional AWS API calls are made — all tag levels come from the existing per-table `GetResourceLFTags` response.
+
+- #17860 **(CLI / Python SDK)** Mutual TLS (mTLS) client authentication is now supported for every outbound HTTPS path in the CLI / SDK and any caller that builds a session via `RequestsSessionConfig`. Set `DATAHUB_CLIENT_CERT_PATH` (and optionally `DATAHUB_CLIENT_KEY_PATH` for the kubernetes `tls`-secret layout where cert and key live in separate files) in the process environment and the SDK presents the client certificate during the TLS handshake. No client certificate is sent when neither is configured — fully backwards compatible.
+
+- #17927 **(Ingestion / Matillion)** Several improvements to the `matillion-dpc` connector:
+  - **Folder hierarchy in containers:** pipelines and components are now organized into a browsable container tree that mirrors their path in Matillion (`Project › Environment › <folder> … › Pipeline › Component`), instead of all pipelines sitting flat under the environment. Folder levels are derived from the pipeline path, so the browse tree lines up with the paths used in `pipeline_patterns`. Components (DataJobs) now also carry a `container` aspect and browse directly under their pipeline. Browse paths no longer include the entity itself as a trailing node.
+  - **Environment-scoped lineage:** lineage jobs whose environment cannot be resolved (not published and not seen in execution history) are now skipped rather than emitted as flows floating under the bare project. Enabling `extract_run_history` (or `include_unpublished_pipelines`) helps resolve environments for unpublished child orchestrations. A `lineage_jobs_skipped_no_environment` report counter records skips.
+  - **Run history at both levels:** per-execution `DataProcessInstance` entities are now emitted for the pipeline (DataFlow) as well as each component (DataJob), populating the "Runs" tab at both levels.
+  - **New `extract_run_history` flag** (default `false`): emit run history for published pipelines without also discovering unpublished ones (implied when `include_unpublished_pipelines` is enabled).
+  - **Fixed external links:** pipeline and run links now point at the Data Productivity Cloud (Maia) console (`app.matillion.com`) with a valid query, instead of an invalid `timeFrame` filter. Pipeline links search the pipeline file name only (the console search does not match the full folder path). Streaming pipelines, which have no dedicated console deep-link, no longer emit a link built from the API host that did not resolve.
+  - **New `include_dependent_pipelines` flag** (default `true`, preserves prior behavior): when disabled, child pipelines that appear only in lineage events (and were not discovered as project pipelines) are no longer created as their own DataFlows/DataJobs; lineage for discovered pipelines is unaffected.
+  - **`include_external_urls` now defaults to `false`:** Matillion console links (project, run, and pipeline) are no longer emitted unless you opt in with `include_external_urls: true`. On re-ingest, console links emitted by earlier versions are removed. The default was flipped because the pipeline link searches the observability dashboard by file name and only resolves for pipelines that ran recently and whose editor name matches their file name.
+  - **Environment and folder containers are always emitted:** `extract_projects_to_containers` now only controls whether the environment and folder containers nest under a top-level project container. Setting it to `false` no longer suppresses those containers — they hang at the root instead.
+  - **Multi-environment lineage:** a pipeline path that is published or executed under more than one environment now has its lineage flow and component nested under each of those environments, rather than being attributed to whichever environment was discovered last.
+  - **Note on toggling `include_unpublished_pipelines`:** published-only ingestion keys DataFlows on the full pipeline path, while unpublished discovery keys on the base pipeline name, so flipping this flag can change a pipeline's DataFlow/DataProcessInstance URNs and orphan entities emitted under the previous setting. Pick a value per source and keep it stable.
+- #17891 **(Ingestion / Teradata)** Teradata profiling now respects `profile_table_size_limit` (default **5 GB**); tables larger than the limit are skipped by default, bringing Teradata in line with Snowflake, BigQuery, Databricks, and Oracle. Table size is derived from DBC space accounting (`SUM(CurrentPerm)` in `DBC.TableSizeV`). Tables whose size cannot be determined (e.g. the ingestion user lacks `SELECT` on `DBC.TableSizeV`) are still profiled (fail-open). **Action:** to restore the previous behavior of profiling all tables regardless of size, set `profile_table_size_limit: null` under `profiling`.
+- **(Ingestion / Databricks Unity Catalog)** When `usage_data_source` is set to `SYSTEM_TABLES` (or `AUTO` with a SQL warehouse configured), the connector now reads query history from `system.query.history` and derives usage statistics, operational stats, and query entities by parsing those statements through the shared SQL parsing aggregator (the same component used by the Snowflake, BigQuery, and Redshift connectors), which deduplicates identical statements by fingerprint so each distinct query is parsed only once. Table and column lineage continue to be sourced natively from `system.access.table_lineage` and `system.access.column_lineage` and are unaffected. Query entities are now emitted for warehouse statements on this path (`include_queries`, default `true`; `include_query_usage_statistics`, default `true`). The usage and lineage history window on the system-tables path may extend up to 365 days (the previous cap was 30 days, which applied only to the REST API path). Existing Databricks Unity Catalog ingestions that set a `warehouse_id` or use `usage_data_source: SYSTEM_TABLES` are affected; no recipe changes are required unless you want to opt out (`usage_data_source: API`). **Known limitation:** Databricks query history does not record the catalog or schema that was active when each query ran. As a result, queries that reference tables by a short (one-part) name only — typical of ad-hoc notebook queries — cannot be attributed to a specific table, and usage or operation counts for those queries may be lower than in previous releases.
+
+- #17971 **(Ingestion / Databricks Unity Catalog)** On the system-tables usage path, a time window that returns **no** queries (an idle workspace) now emits zero-value `datasetUsageStatistics` for the ingested tables, where it previously emitted none. This aligns Unity with the Snowflake, BigQuery, and Redshift connectors, which stamp a zero datapoint whenever the usage read succeeds. Because `datasetUsageStatistics` is a timeseries aspect written via UPSERT, this records a current-bucket zero datapoint and does **not** delete prior usage history. A genuine fetch or permission failure still emits nothing (it is surfaced as a run failure instead), so existing usage history is never overwritten with zeros on error.
+
+- **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
+
+## v1.6.0
+
+Requirements:
+
+- CLI / Python SDK: 1.6.0
+- Helm Chart: 1.0.0
+
+**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version (with Helm chart **1.0.0** or later) and let system-update complete before turning on `global.datahub.systemUpdate.zdu` for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and Helm values required for staged index upgrades.
+
+### Breaking Changes
+
+- #16816 / #17351: **(GMS / Java services)** Spring Boot upgraded from 3.5.6 to **4.0.5** (later patch to **4.0.6** for CVE fixes), including **Spring Framework 7.0** and **Spring Kafka 4.0**. Official Docker images and Helm deployments are updated together. **Action:** If you ship custom GMS plugins, Spring `@Configuration` extensions, or Kafka listener customizations against DataHub's classpath, recompile and retest against Spring Boot 4 before upgrading production.
+
+- #16625 / #16680: **(Frontend)** The V1 UI has been **fully removed** from the codebase (not merely deprecated). `THEME_V2_ENABLED`, `THEME_V2_DEFAULT`, and related env vars are required; there is no fallback to V1. Helm users should set `datahub-gms.theme_v2.enabled` and `datahub-gms.theme_v2.default` to `true` and `datahub-gms.theme_v2.toggleable` to `false`.
+
+- #17214: **(Frontend / Play 3 + Apache Pekko)** `datahub-frontend` is upgraded from Play 2 / Akka to **Play 3** and **Apache Pekko**. Session and flash cookies use Play 3's JWT-based signing; error responses from the frontend proxy use a custom JSON `HttpErrorHandler` instead of Play's default HTML pages. See the `DATAHUB_SECRET` requirement below.
+
+- #16982: **(Auth)** The deprecated `corpUserInfo.active` field is **no longer considered** for session eligibility. Users gated on `active` for login must migrate to supported CorpUser status mechanisms.
+
+- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. Requires Helm chart **1.0.0** or later. See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
+
+- #16930: **(Operations / Upgrades)** Background **aspect schema version migration sweep** runs during upgrades on large deployments. The sweep migrates stale aspect schema versions and avoids overwriting aspects that were updated concurrently during the sweep window.
+
+- #17493: **(Operations / Retention)** Retention policies from `boot/retention.yaml` are **re-applied during system-update** when retention is configured, so policy changes shipped with an upgrade take effect without a separate manual ingest step.
+
+- **Structured properties write validation (GMS):** Upserts, patches, and MCP writes to the `structuredProperties` aspect are now handled in GMS by `StructuredPropertiesValidator` (at `validateProposed`) and `StructuredPropertiesAssignmentMutator` (before commit), for all APIs (GraphQL, OpenAPI, ingestion). With the default `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING=true`, assignments whose property definition entity is missing or has no `propertyDefinition` aspect are **removed from the proposal** (server WARN per dropped URN) instead of failing the entire write at definition lookup. If the proposal had assignments but **none** remain valid after filtering, the write is **rejected**. Clearing structured properties (empty aspect) is unchanged. **Action:** Pipelines that must fail when any orphaned assignment is present should set `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING=false` on GMS and restart; otherwise expect stale property URNs to be stripped on the next write. See [Structured Properties — orphaned assignments](https://datahubproject.io/docs/api/tutorials/structured-properties#orphaned-assignments-and-write-behavior) and [`STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING`](https://datahubproject.io/docs/deploy/environment-vars/).
+
+- #17465 The default ingestion profiler for SQL connectors is now `sqlalchemy` instead of `ge` (Great Expectations). The SQLAlchemy profiler provides equivalent functionality without requiring the Great Expectations library. To keep using the Great Expectations profiler, install the new optional extra and set the method explicitly in your recipe:
+
+  ```bash
+  pip install 'acryl-datahub[profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
+
+  Note: `acryl-datahub[snowflake]` (and other SQL connector extras) no longer install `acryl-great-expectations` by default. Recipes that previously relied on the GE default profiler will now use the SQLAlchemy profiler automatically (no action needed in most cases). Recipes that explicitly set `profiling.method: ge` without installing `[profiling-ge]` will fail with a `ConfigurationError` pointing at the fix.
+
+  **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
+
+- #17563 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+
+  ```bash
+  pip install 'acryl-datahub[unity-catalog,profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
+
+- **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
+
+- #16842: **(Ingestion / Athena) Upstream lineage URNs changed for Glue-backed catalogs.** Athena tables backed by the AWS Glue Data Catalog (i.e. using `awsdatacatalog` or any catalog whose type resolves to `GLUE`) now emit upstream lineage to Glue dataset URNs (`urn:li:dataPlatform:glue`) instead of S3 URNs (`urn:li:dataPlatform:s3`). Iceberg tables in non-Glue catalogs (e.g. Hive Metastore, Lambda, Federated) now emit upstream lineage to Iceberg dataset URNs (`urn:li:dataPlatform:iceberg`). If your upstream Glue or Iceberg connector is configured with a non-default `platform_instance`, set the new `glue_platform_instance` / `iceberg_platform_instance` options on the Athena source so the upstream URNs match. If you have downstream dashboards, saved searches, or lineage queries that reference the old S3 upstream URNs for Athena tables, update them after re-running ingestion.
+- **(Docker / Gradle)** Java service images (`datahub-gms`, `datahub-mce-consumer`, `datahub-mae-consumer`, `datahub-upgrade`, `datahub-frontend-react`) use a **default base image** and apk-style packages at build time. Override the base with Docker **`BASE_IMAGE`** / Gradle **`-PdockerBaseImage=...`**, and the apk repository line with **`APK_REPOSITORY_URL`** / **`-PapkRepositoryUrl=...`**. If you previously passed a legacy Gradle property for a custom package mirror, migrate to **`apkRepositoryUrl`** (and ensure the mirror layout matches your chosen base image). **`datahub-actions`** uses the same **`BASE_IMAGE`** build arg.
+- #17407: BigQuery **`extract_policy_tags_from_catalog`:** The policy tag extraction feature has been rewritten to use `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` combined with batch Data Catalog API calls instead of per-column `get_table()` and `get_policy_tag()` calls. This eliminates millions of redundant API calls (e.g. 434k → ~10 for a 29k-table warehouse), reducing extraction time from hours to seconds. The old code path has been removed with no fallback. Action required if you use `extract_policy_tags_from_catalog: true`: (1) Verify BigQuery API v2 is available in your environment (available since ~2020). (2) If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will be stored instead of display names — this is graceful degradation, not a failure. (3) Review ingestion logs for any new warnings about missing `policy_tags` column in INFORMATION_SCHEMA results.
+- **Bootstrap Steps Moved to System-Update Job.** The following metadata ingestion steps now run during system-update instead of GMS startup:
+
+  - Entity Types ingestion
+
+  On the first deploy after this change, these entities will be re-ingested across the cluster. Per-entity existence checks prevent duplicate data writes.
+
+- #16473: Vertex AI Source - **ML Model version set URNs now scoped per project**: Previously, all Vertex AI model versions shared a version set based solely on the numeric model ID, which caused conflicts when multiple GCP projects contained models with the same numeric ID (GCP model IDs are project-local, not globally unique). Version sets are now scoped per project, preventing `422 ValidationException` errors during ingestion. After upgrading, existing model version entities will be orphaned in their old version sets; new ingestion runs will create correctly scoped version sets. Old orphaned entities can be cleaned up by enabling stateful ingestion with stale entity removal.
+- #17196: **(Ingestion / Sigma) Chart `InputFields` now emit resolved upstream fields only.** Previously, Sigma charts emitted self-referential `InputFields` entries for every chart column, which the DataHub UI ignored as dead edges. Sigma now derives chart field lineage from column formulas and emits only fields that resolve to an upstream workbook element or warehouse table. Downstream consumers that read raw `InputFields` aspects may see self-referential entries disappear, especially when `extract_lineage` is disabled, formulas are unavailable, or chart columns are formula-less direct passthroughs; those charts can now emit `fields: []` instead of one self-reference per chart column.
+- #17296: **(Ingestion / Sigma) New `connection_to_platform_map` config for per-connection warehouse overrides.** Sigma recipes now support a `connection_to_platform_map` field keyed by Sigma connectionId (UUID from `/v2/connections`). Use it to set `env`, `platform_instance`, `convert_urns_to_lowercase`, `default_database`, and `default_schema` per connection so emitted lineage URNs match your warehouse connector. This is required for Redshift (and other warehouses where Sigma's `/v2/connections` API returns null for `database`/`schema`): without `default_database`/`default_schema` overrides, the SQL parser produces under-qualified URNs that will not match your warehouse connector's datasets. These overrides apply to all lineage paths that have a connectionId on hand — DM element → warehouse table, DM customSQL, and workbook customSQL. No action required if you use Snowflake or BigQuery with default env/platform_instance settings.
+- #17347: **(Ingestion / Sigma) Workbook customSQL chart lineage is now emitted automatically.** When `extract_lineage: true` (default), charts whose data source is a customSQL definition will emit warehouse `UpstreamLineage` and column-level `FineGrainedLineage` on the next ingestion run. No configuration change is required for Snowflake and BigQuery. For Redshift, set `default_database`/`default_schema` in `connection_to_platform_map` (see #17296 above).
+- #17370: **(Ingestion / Sigma) Two bug fixes with operator-visible side effects for warehouse-backed chart column lineage and DM element schema.** When `extract_lineage: true` (default): (1) Charts whose column IDs carry warehouse-native names were incorrectly emitting Sigma display names as `InputFields.fields[].schemaField.fieldPath` (e.g. `Customer Id` instead of `customer_id`). This is now fixed. Downstream consumers that matched on the display-name spelling will need to update those references after the next ingestion run. (2) A bug in DM element schema extraction was silently suppressing valid columns when sibling DM elements shared the same `columnId`. This is now fixed. Affected DM element Datasets may gain previously suppressed schema columns on the next ingestion run; column-count alerts and soft-delete policies scoped to those Datasets may fire. No configuration change is required.
+- #17369: **(Ingestion / Sigma) Workbook charts that pull directly from warehouse tables now emit entity-level `ChartInfo.inputs` upstreams.** When `extract_lineage: true` (default), Sigma's BFS node type=table upstreams (direct warehouse tables, not Sigma Datasets) are now resolved to warehouse Dataset URNs and added to `chartInfo.inputs`. This is a visible behavior change: on the next ingestion run, charts that previously had empty `inputs` will now show warehouse table lineage edges in the DataHub UI if the workbook contains direct table references. For Snowflake and BigQuery, no configuration change is required. For Redshift, set `default_database` and `default_schema` in `connection_to_platform_map` (see #17296) to ensure URNs match your warehouse connector. Additionally, the 2-segment `/files` path (e.g. Redshift `Connection Root/<SCHEMA>`) is now accepted in the workbook warehouse table index; previously only 3-segment paths (e.g. Snowflake `Connection Root/<DB>/<SCHEMA>`) were accepted. The counter `chart_warehouse_unknown_connection` has been renamed to `chart_warehouse_table_name_unmatched` to reflect its actual semantics (workbook table short name not found in the index, not a connection error).
+- #17276: **(Ingestion / Sigma) Sigma Data Model ingestion is now on by default.** `ingest_data_models` defaults to `true`. On the next ingestion run, new Data Model Containers and element Datasets will appear in DataHub for any Sigma tenant that has Data Models. Workbook charts that reference a DM element will also gain new `ChartInfo.inputs` entries. **Action required to opt out:** set `ingest_data_models: false` in your Sigma recipe. If you keep it enabled, update any soft-delete policy to account for the new Container and Dataset entities, and silence or raise fan-in cardinality alerts before the first run.
+- **(Ingestion / Sigma — Action required) Null `DatasetUpstream.name` now tolerated.** Previously raised a Pydantic `ValidationError` warning; now counted under `chart_dataset_upstream_name_missing` with a `SourceReport.warning` titled `Sigma workbook dataset upstream dropped (name missing)`. Lineage semantics unchanged. **Action:** migrate any alert keyed on the old Pydantic warning text to the new counter or warning title.
+- **(Actions / Kafka)** The default Kafka offset commit strategy for Actions has changed from **synchronous** (`async_commit_enabled: false`) to **asynchronous** (`async_commit_enabled: true`). With asynchronous commits, offsets are stored locally after each event and committed periodically by a background thread (default interval: 10 seconds via `async_commit_interval`). This provides up to **25x throughput improvement** for high-volume action pipelines. The tradeoff: on consumer crash, up to `async_commit_interval` milliseconds of events may be redelivered. All built-in actions are idempotent or tolerate redelivery, so no behavior change is expected for standard deployments. To restore the previous synchronous default for any action, add `async_commit_enabled: false` to the `source.config` section of your action YAML.
+- **Docker / Prometheus (Micrometer):** When using the stock DataHub Docker `start.sh` entrypoints, GMS, MAE consumer, MCE consumer, and the frontend expose Micrometer Actuator (including `GET /actuator/prometheus` and `/actuator/health`) on container port **4319** by default (`MANAGEMENT_SERVER_PORT`), separate from the main API/UI port. Profile compose ([docker/profiles/docker-compose.gms.yml](../../docker/profiles/docker-compose.gms.yml)) **`expose`s 4319** for on-network scraping and maps **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host for GMS (same pattern as **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`** for HTTP). Override `DATAHUB_GMS_MANAGEMENT_URL` in smoke tests if needed, or change the host port via `DATAHUB_MAPPED_GMS_MANAGEMENT_PORT`. Scrape from another container on the same compose network (e.g. `http://datahub-gms:4319/actuator/prometheus` as in [docker/monitoring/prometheus.yaml](../../docker/monitoring/prometheus.yaml)). MAE and MCE image **HEALTHCHECK** probes the management port first, then falls back to the main consumer port for older layouts. The JMX Prometheus Java agent remains on **4318**. If you previously scraped Micrometer from the GMS HTTP port (e.g. `8080`), update scrapes to the management listener. To keep Actuator on the main port, unset `MANAGEMENT_SERVER_PORT` in the container or set it equal to the main server port.
+- (Operations / monitoring) Docker images that bundle the **JMX Prometheus Java agent** (`datahub-gms`, `datahub-frontend-react`, `datahub-mae-consumer`, `datahub-mce-consumer`, `datahub-upgrade`) now ship **`jmx_prometheus_javaagent` 1.0.1** (previously 0.20.0). The agent uses **Prometheus client_java 1.x**; upgrade scrapers and dashboards accordingly.
+  - **HTTP scrape path:** Metrics are exposed at **`/metrics`**, not at **`/`**. If you scrape the JMX port directly (often **4318** when Prometheus export is enabled), set your Prometheus `metrics_path` (or Kubernetes `ServiceMonitor` / `PodMonitor` `path`) to **`/metrics`**. Anything still requesting **`/`** will receive the default HTML page, not the metrics exposition.
+  - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
+  - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
+- #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
+- #16889 (Ingestion) SQL parsing: Fixed a bug where table references with 5 or more path components (e.g. `catalog.namespace.subspace.schema.table`) silently dropped middle components when resolved through the sqlglot-based parser. The previous (buggy) behavior produced truncated dataset URNs like `urn:li:dataset:(urn:li:dataPlatform:dremio,catalog.namespace.schema.table,PROD)`; after this fix, the correct URN `urn:li:dataset:(urn:li:dataPlatform:dremio,catalog.namespace.subspace.schema.table,PROD)` is produced. This primarily affects connectors that ingest deep folder hierarchies (most commonly Dremio, but also any source resolving SQL through the shared parser). After upgrading, re-ingestion will create new entities under the corrected URNs, and the previously-ingested truncated entities will be orphaned along with any tags, owners, glossary terms, or lineage attached to them. To migrate, either (a) enable stateful ingestion with stale entity removal so the next run cleans up the old URNs, or (b) manually delete the old URNs (e.g. via `datahub delete --urn ...`) before or after re-ingestion.
+- (Ingestion / dbt) Assertion result mapping for dbt tests is more faithful to dbt's status semantics:
+  - dbt test results with status `error` or `runtime error` (the test itself could not run due to a compilation, SQL, or infrastructure problem) are now emitted with `AssertionResult.type = ERROR` instead of `FAILURE`. Previously these were conflated with real data-quality failures.
+  - dbt source freshness results with status `runtime error` are similarly emitted with `AssertionResult.type = ERROR`. Freshness status `error` (meaning the `error_after` threshold was exceeded) continues to map to `FAILURE` since it represents a legitimate verdict.
+  - A new optional `AssertionResult.severity` field is populated on failure results: `LOW` for dbt `warn` (only emitted as FAILURE when `test_warnings_are_errors: true`), `HIGH` for `fail` / freshness `error`.
+  - Downstream consumers (alerting, dashboards, saved searches) that filter assertion runs by `result.type == FAILURE` will no longer see infrastructure-level test failures in that set; include `type == ERROR` if you want to continue capturing them.
+- #16912: **(Build / Java 21)** DataHub now compiles with **Java 21 JDK** and produces **Java 8 bytecode** for broad runtime compatibility. Self-hosted builds require Java 21+; JVM runtimes consuming the published artifacts remain Java 8+ compatible.
+  - Spark integration upgraded from 3.3.4 to 3.5.0 (enables Spark 4.x forward compatibility and improves lineage handling for complex query plans)
+  - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.5+)
+  - **For self-hosted deployments:** Build/compile requires Java 21 JDK. Runtime environments can use Java 8+ (DataHub produces Java 8 bytecode for compatibility). Spark lineage users must upgrade to Spark 3.5.0+ if using DataHub's Spark integration.
+  - **Java 21 runtime configuration**: When running DataHub services with Java 21, add `--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED` to `JAVA_OPTS` or your JVM startup command to allow Spark lineage listener reflection-based operations. DataHub Docker images include this automatically.
+- #17340: **(Docker Runtime / Java 25 LTS)** Docker images (`datahub-gms`, `datahub-mce-consumer`, `datahub-mae-consumer`, `datahub-upgrade`, `datahub-frontend-react`, `datahub-actions`, and ingestion images) now use **Java 25 LTS runtime** while maintaining **Java 21 bytecode compilation** for maximum compatibility. This enables JEP 491 (virtual thread pinning fix in synchronized blocks) and other Java 25 runtime benefits without breaking build toolchain compatibility. Self-hosted users: no action required if using official Docker images. Build system remains on Java 21 (Gradle 8.14.3 compatibility); custom deployments compiling from source should follow AGENTS.md for Java version strategy.
+- **(Frontend / Play 3 — `DATAHUB_SECRET`)** With the Play 3 upgrade (#17214), `DATAHUB_SECRET` is wired to `play.http.secret.key`. Play 3 rejects application secrets that are unset, left as the default `changeme`, or **shorter than the minimum required for session/flash JWT signing** (default algorithm HS256 needs at least **32 bytes** of key material; see [Play Application secret](https://www.playframework.com/documentation/3.0.x/ApplicationSecret)). If `DATAHUB_SECRET` is too short, **`datahub-frontend` will fail on startup**. Before upgrading, set `DATAHUB_SECRET` to a random value of at least 32 characters (for example `openssl rand -base64 32` or `head -c 32 /dev/urandom | base64`). Helm and other production layouts typically already generate a long secret; this mainly affects ad hoc Docker Compose, copied env files, or hand-crafted short values.
+- **(Ingestion / Fivetran — Lineage URN shift for multi-destination accounts).** Per-destination URN routing now reflects each destination's actual platform instead of defaulting every destination to `fivetran_log_config.destination_platform`. Previous behavior: in hybrid mode (when both `fivetran_log_config` and `api_config` are configured), every connector's destination URN was emitted with the log warehouse's platform — e.g. if the Fivetran log lives in BigQuery, all destinations were `urn:li:dataset:(bigquery, ...)` regardless of where the data actually went. New behavior: the connector calls `GET /v1/destinations/{id}` per destination and emits a URN matching the actual `service`. **Action required if you are running Fivetran in hybrid mode (`fivetran_log_config` + `api_config`) AND your account has connectors writing to multiple destination types** (e.g. some to Snowflake, some to BigQuery, some to a Managed Data Lake): existing lineage URNs will shift to the correct platform/database on the next ingest, which may break dashboards, queries, or saved searches keyed on the old (incorrectly-conflated) URNs. Audit affected URNs against your Fivetran destinations console before upgrading. To opt out and preserve the old behavior, pin each non-default destination explicitly via `destination_to_platform_instance.<destination_id>.platform` (and `database` for relational platforms) — declarative overrides always win over discovery. Single-destination accounts and recipes that already pin every destination explicitly are unaffected.
+- #17466: **(Ingestion / two-tier SQL sources — stored procedure ingestion overhaul.)** Two changes to two-tier SQL connectors (MySQL, MariaDB, Hive, Clickhouse, Teradata, and any other source that extends `TwoTierSQLAlchemySource`):
+
+  1. **URN shape changed (breaking).** Stored-procedure `DataFlow` and `DataJob` URNs no longer duplicate the database name. The flow name now resolves to `{database}.stored_procedures` instead of `{database}.{database}.stored_procedures`. For example, a MariaDB procedure in `test_db` previously emitted `urn:li:dataFlow:(mariadb,test_db.test_db.stored_procedures,PROD)` and now emits `urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)`; the corresponding `dataJob` URNs shift accordingly.
+  2. **Stored-procedure lineage now actually runs for MySQL/MariaDB (additive).** Native SQL procedures in MySQL/MariaDB store `NULL` in `information_schema.ROUTINES.EXTERNAL_LANGUAGE`, which silently skipped lineage extraction. With this release, `language` defaults to `SQL` when unset and the parser runs over the procedure body. Existing MySQL/MariaDB procedures will start emitting `dataJobInputOutput` aspects with `inputDatasets`, `outputDatasets`, and `fineGrainedLineages` on the next ingestion run. No config change required.
+
+  **What you need to do:** after upgrading, re-run ingestion. Existing `DataFlow` / `DataJob` entities under the old (duplicated) URNs will be orphaned; if you have stateful ingestion with stale-entity removal enabled, the next run will soft-delete them. Otherwise, clean them up with the GraphQL `removeEntities` mutation or the CLI. Any dashboards, saved searches, alerts, or downstream tooling that reference the old `*.{database}.{database}.stored_procedures.*` URNs need to be updated to the new format. Three-tier sources (Postgres, Oracle, MSSQL, DB2, Snowflake, …) are unaffected by the URN change; they already gated procedure language correctly so the lineage change is also a no-op for them.
+
+- #16873 (Ingestion) Unity Catalog (Databricks) connector now emits ownership and datasetProperties as UPSERT (full replace) by default, instead of incremental PATCH. This means each ingestion run will re-state the complete ownership and properties for each dataset. If you rely on the previous additive/merge behavior (e.g., manually added owners surviving ingestion runs), set `incremental_ownership: true` and/or `incremental_properties: true` in your recipe config.
+
+### Known Issues
+
+- **(Operations / Elasticsearch 8) Spurious mappings reindex on every Helm upgrade.** Deployments backed by **Elasticsearch 8.x** may trigger a full index mappings reindex on **every** system-update run (including each Helm upgrade), even when no authored mapping change was shipped. ES8 persists mappings differently than DataHub's authored definitions (for example injecting `type: object` on nested object fields), so the index builder detects spurious drift and schedules reindex work repeatedly. This is most likely when **`ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true`** (including Docker quickstart, which enables it for initial index builds). **Workaround:** Let the **first** system-update after install or upgrade finish so indices are created, then set **`ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=false`** on **`datahub-gms`** and **`datahub-upgrade`** before later Helm upgrades until a fixed release is available.
+
+### Potential Downtime
+
+- **System-update / Elasticsearch:** Upgrades that trigger reindexing, incremental index migration, or optional Elasticsearch ZDU (#16887) can run for an extended period depending on catalog size. Reindex duration was improved (#16949). Elasticsearch 8 deployments with mappings reindex enabled may repeat unnecessary reindex work on every Helm upgrade — see **Known Issues** above. Helm upgrades without `--atomic` may report failure while background reindex jobs continue — allow system-update to finish before retrying. See **Helm Notes** under the [0.10.0](#0100) section below for timeout guidance patterns.
+- **First deploy after bootstrap moves:** Entity Types ingestion moved to system-update (see Breaking Changes). Expect additional system-update work on the first upgrade after this release.
+- **Aspect schema version sweep (#16930):** Large deployments may observe background migration activity during upgrade; plan maintenance windows accordingly.
+
+### Deprecations
+
+- **(Build / Gradle)** Legacy Gradle properties for overriding artifact download URLs are deprecated in favour of the `datahub.dependencies.*` namespace. Old properties are still honoured but will be removed in a future release. See [Custom Repositories](../developers.md#custom-repositories).
+
+  | Legacy property                                         | Replacement                                     |
+  | ------------------------------------------------------- | ----------------------------------------------- |
+  | `apacheMavenRepositoryUrl`, `mavenCentralRepositoryUrl` | `datahub.dependencies.maven.central`            |
+  | `confluentMavenRepositoryUrl`                           | `datahub.dependencies.maven.confluent`          |
+  | `linkedinOpenSourceRepositoryUrl`                       | `datahub.dependencies.maven.linkedinOpenSource` |
+  | `nodeDistBaseUrl`                                       | `datahub.dependencies.node.distBaseUrl`         |
+  | `githubMirrorUrl`                                       | `datahub.dependencies.github.baseURL`           |
+  | `pipMirrorUrl`                                          | `datahub.dependencies.python.pipMirrorUrl`      |
+  | `pipExtraIndexUrls`                                     | `datahub.dependencies.python.pipExtraIndexUrl`  |
+
+- **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
+- **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
+- (Ingestion / dbt) The `test_warnings_are_errors` default will change from `false` to `true` in a future release. Once assertion result consumers can filter by severity, `warn` test statuses will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. To adopt the forthcoming behavior today, set `test_warnings_are_errors: true` in your dbt recipe.
+- (Automations / Glossary Term AI) The Glossary Term AI automation has been deprecated. This capability will be replaced in an upcoming release.
+
+### Other Notable Changes
+
+- **(Ingestion / Snowflake) Internal Marketplace support:** The Snowflake connector now ingests Snowflake Internal Marketplace (private data exchange) listings as DataHub Data Products. Enable with `marketplace.enabled: true`; choose direction via `marketplace.marketplace_mode: consumer | provider | both` (default `consumer`). Each listing becomes a Data Product entity with assets, ownership, structured properties, and optional usage statistics from `SNOWFLAKE.DATA_SHARING_USAGE.LISTING_TELEMETRY_DAILY`. Requires the `SHOW AVAILABLE LISTINGS` privilege (and `IMPORTED PRIVILEGES ON DATABASE snowflake` granted to the user for `provider`/`both`).
+- #17450 (Ingestion / Snowflake) Opt-in `structured_properties_write_mode: patch` on the Snowflake source preserves UI- and pipeline-added structured properties across ingestion runs. Default remains `upsert` (recipe-as-source-of-truth, current behaviour). When set to `patch`, properties removed from the recipe no longer propagate to DataHub — clean those up via the UI or API. The helper `add_structured_properties_to_entity_wu` gains an opt-in `write_mode` parameter; all existing callers (third-party connectors included) keep their current UPSERT behaviour. Requires the server-side TemplateUtil fix in #17449 to be deployed for `patch` mode to work end-to-end.
+- #17449 (GMS) Fix server-side handling of `PATCH` ops whose JSON Pointer path ends in `/` (e.g. `/tags/<urn>/`). Parsson previously threw `JsonException` on these paths when the targeted aspect did not yet exist, breaking unattributed `addTag`/`addTerm`/`addOwner`/`setNumberProperty` on fresh entities. No wire-format change and no client-side action required.
+- **(Security / CWE-200)** Error responses from GMS (GraphQL, OpenAPI) and the Play frontend proxy no longer leak internal Java class names, Jackson source locations, or stack traces. Previously, a malformed JSON request to `/api/v2/graphql` could return detailed internal information such as `com.fasterxml.jackson.core.JsonParseException` and `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` in the HTTP response body. All error responses now return sanitized messages (e.g. `"Invalid JSON format"`, `"Malformed request body"`, `"Bad Request"`). The frontend now uses a custom `HttpErrorHandler` that returns JSON instead of Play's default HTML error pages. **Configuration:** The frontend error handler is enabled automatically via `play.http.errorHandler` in `application.conf`. GMS error sanitization is applied in `GlobalControllerExceptionHandler` and the global `ObjectMapper` explicitly disables `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` for defense in depth. No operator action is required; internal exception details remain in server-side logs for debugging.
+- #17086 (Ingestion / Sigma) Intra-workbook element-to-element lineage is now emitted via `ChartInfo.inputEdges`. On the next ingestion run, new chart→chart edges will appear in the lineage graph for any Sigma workbook where one element feeds another. This is additive — no existing dataset or warehouse lineage edges are removed.
+- #16358 (Ingestion / dbt) **dbt URN lowercasing is now configurable via `convert_urns_to_lowercase`.** Previously, dbt unconditionally lowercased all target-platform URNs with no way to disable it. This caused lineage breaks with case-sensitive platforms like BigQuery when table names contained uppercase characters (e.g. `AM100` lowercased to `am100`). The default is `true` (preserving existing behavior). Users on case-sensitive platforms like BigQuery should set `convert_urns_to_lowercase: false` in their dbt recipe to preserve original identifier casing.
 - (Frontend) The OIDC post-login redirect cookie (`REDIRECT_URL`) format has changed. It now stores a plain Base64-encoded URL string instead of the previous serialized format. Any in-flight `REDIRECT_URL` cookies set before the upgrade will fail to decode; affected users will be redirected to the DataHub home page (`/`) after their next SSO login instead of the page they originally requested. No action is required — users simply log in again and the new cookie format takes effect automatically.
 - **(Operations / Helm)** Added `global.datahub.monitoring.metricsMode` with three modes: `legacy` (default), `jmx_and_actuator`, and `actuator_only`, so JMX vs Spring Boot Actuator scraping can be chosen cluster-wide. See the [Micrometer transition plan](../advanced/monitoring.md#micrometer-transition-plan).
 - #16619 **(Operations / Helm)** Added a `Cleanup` upgrade that tears down all DataHub-owned infrastructure resources (Elasticsearch indices, Kafka topics, SQL database and users). It is designed to run as a Helm **pre-delete hook** so that `helm uninstall` leaves no DataHub-specific state on shared infrastructure. Each component (ES, Kafka, SQL) can be disabled independently via environment variables (`CLEANUP_ELASTICSEARCH_ENABLED`, `CLEANUP_KAFKA_ENABLED`, `CLEANUP_SQL_ENABLED`; all default to `true`). Elasticsearch cleanup uses scoped `IndexConvention` patterns to enumerate only DataHub-owned indices — it does **not** issue a wildcard `DELETE /*` that would be dangerous on shared clusters without an index prefix configured.
 - #16879 (Ingestion) PowerBI: When `convert_lineage_urns_to_lowercase` is enabled, column-level lineage and upstream dataset URNs are now consistently lowercased. Previously, only parts of the URN were lowercased, which could cause lineage mismatches. After upgrading, re-running ingestion will emit corrected URNs.
 - #17033 (Ingestion / MongoDB) `system.*` collections (e.g. `system.profile`, `system.views`) are now excluded from ingestion by default via the new `excludeSystemCollections` option (default: `true`). If you were relying on ingesting system collections, set `excludeSystemCollections: false` in your recipe. The `read` role is now sufficient for all standard ingestion use cases; `dbAdmin` is only required if `excludeSystemCollections` is disabled and MongoDB profiling is enabled.
+- #16871 (Ingestion) Postgres stored procedures: The `dataTransformLogic.queryStatement.value` for Postgres stored procedures now contains only the SQL body (from `pg_proc.prosrc`) instead of the full `CREATE OR REPLACE PROCEDURE ... AS $$ ... $$` wrapper previously returned by `pg_get_functiondef()`. This change enables lineage extraction (the parser previously skipped the `CREATE` wrapper), but may affect custom tooling that parsed the full DDL from this field. Additionally, the `language` field is now normalized to uppercase (e.g. `"SQL"` instead of `"sql"`).
+- **(Security / GMS)** Profile image URLs (`pictureLink`) on user and group profiles are now validated server-side. Only HTTPS URLs pointing to public (non-internal) hosts are accepted. Existing stored URLs are unaffected, but any new profile image update via the UI, GraphQL, or REST API that uses `http://`, `javascript:`, `data:`, `file:`, or points to a private/internal network address (localhost, 127.0.0.1, 169.254.169.254, RFC 1918 ranges) will be rejected. If you rely on HTTP image URLs for profile pictures (e.g. from an internal image server), those URLs must be migrated to HTTPS before upgrading. The default avatar relative path (`assets/…`) continues to work.
+- #17271 **(Ingestion / ClickHouse) New opt-in column profiling backend (`profiling.method: sqlalchemy`).** The default Great Expectations profiler issues `CREATE TEMPORARY TABLE ... AS SELECT` (when `custom_sql`, `limit`, or `offset` is set), but ClickHouse temporary tables are session-scoped, so the follow-up read on a different pooled connection raises `UNKNOWN_TABLE`. Set `profiling: { method: sqlalchemy }` in your ClickHouse recipe to route through a SQLAlchemy-based profiler that never creates temp tables and uses ClickHouse-native aggregates (`uniq()`, `quantile()`, `stddevSamp()`). The default is unchanged (`ge`); existing recipes are not affected. Note: `custom_sql`, `limit`, and `offset` are not supported on the SQLAlchemy path — a warning is emitted and full-table profiling is used instead.
+- #17191 (Ingestion / Airflow plugin) OpenLineage Dataset names that contain a literal `"None"` segment — typically produced by Apache Airflow providers that build dataset names with f-strings like `f"{database}.{self.schema}.{self.table}"` without a `None` guard (notably `S3ToRedshiftOperator` when `schema` is unset) — are now sanitized before the DataHub URN is constructed. Lineage edges from these operators will therefore stitch to the same URN that DataHub's native ingestion sources (e.g. the Redshift source) emit for the same physical table, instead of producing orphan `urn:li:dataset:(...,db.None.schema.tbl,PROD)` entities. A `WARNING` is logged at most once per worker process from `datahub_airflow_plugin._datahub_ol_adapter` so the offending operator can be tracked down upstream without log spam. Orphan URNs created before upgrading are not removed automatically — see the new [Orphan dataset URNs containing `.None.`](../lineage/airflow.md#orphan-dataset-urns-containing-none) section in the Airflow lineage docs for cleanup guidance.
+- (Ingestion / Fabric OneLake) The `queryinsights` schema is now excluded from table and view discovery alongside `INFORMATION_SCHEMA` and `sys`. Fabric Warehouse's Microsoft-managed Query Insights views (`exec_requests_history`, `long_running_queries`, etc.) are no longer ingested as user datasets. This is additive cleanup for most deployments.
+- #17380 (Ingestion / Databricks Unity Catalog) New opt-in flag `include_metric_views` (default `false`) for Unity Catalog Metric Views. When enabled, metric views are emitted with subtype `Metric View` (instead of `Table`), their YAML body is preserved as a `ViewProperties` aspect with `viewLanguage: YAML`, and upstream lineage is derived from the YAML `source` and `joins[].source` fields. Lineage resolution supports 3-part (`catalog.schema.table`) and 2-part (`schema.table`, resolved against the metric view's own catalog) identifiers as well as backtick-quoted parts; 1-part names and SQL subqueries fall back to the existing table-lineage REST API. Column-level lineage is emitted from each `dimensions[].expr` / `measures[].expr` using the Databricks SQL dialect (controlled by the existing `include_column_lineage` flag, which is on by default). Schema fields are tagged `Dimension` or `Measure` when their names match the YAML; per-column descriptions are taken from `dimensions[].description` / `measures[].description` when present and otherwise fall back to the Unity Catalog column comment; the top-level `filter` field surfaces as a `metric_view_filter` custom property; and `materialization: materialized` drives `ViewProperties.materialized = true`. On the opt-in path, the noisy Spark engine config snapshot Unity Catalog injects as `view.sqlConfig.spark.*` custom properties (~150 entries per view) is filtered out — other `view.*` properties and Databricks' own `metric_view.*` properties pass through unchanged. The flag remains `false` by default so the upgrade is byte-for-byte identical to the previous release. Requires a `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW` (older SDKs short-circuit silently and the flag has no effect; a startup warning is emitted in that case).
+
+**New ingestion sources**
+
+- #11838 Aerospike
+- #13217 Airbyte
+- #15913 StarRocks
+- #15966 Matillion
+- #16218 Apache Flink (metadata and lineage)
+- #16426 dlt (data load tool)
+- #16472 Pinecone Vector DB
+- #16564 Omni BI platform (INCUBATING)
+- #16646 Microsoft Fabric Data Factory
+- #17467 pg_queue metadata-ingestion sink and Actions event source
+
+**Connector and platform enhancements**
+
+- #16505 (Ingestion / Glue) JDBC upstream lineage for Glue jobs
+- #16562 (Ingestion / Glue) Iceberg lineage
+- #16636 (Ingestion / Glue) `Job` subtype on Glue jobs
+- #16515 (Ingestion / Kafka Connect) Column-level lineage for sink connectors and field-level transform support
+- #16348 (Ingestion / BigQuery) External table metadata enrichment (format, URIs, compression, max bad records)
+- #16621 (Ingestion / Power BI) `browsePathsV2` hierarchy for tables, tiles, and pages under parent dashboards
+- #16616 (Ingestion / Power BI) `Sql.Databases` M-Query data access function support
+- #16486 (SDK) Configurable connection pool settings on REST emitter
+- #16798 (Ingestion) Multi-entity domain and ownership transformers
+- #16044 (Ingestion / dbt) Extract and emit stats from `catalog.json`
+- #17284 (Ingestion / Fabric OneLake) Query usage extraction from `queryinsights`
+- #17475 (Ingestion / Confluence) Page body HTML converted to Markdown via markdownify
+
+**Frontend and security**
+
+- #17277 (Frontend) Content-Security-Policy via Play `CSPFilter`
+- #17468 (Frontend) Collapsible nav redesign and home hero toggler
+- (Frontend) Semantic color tokens migration across entity, lineage, home, and settings surfaces (use `theme.colors.*` tokens per theming guidelines)
+- #17487 (Security) Home page templates/module scope validation
+- #17489 (Security) URL validation before rendering external links in the app
+
+**Operations**
+
+- #17393 (Kubernetes) KEDA-aware scaling support in `KubernetesController`
+- #17431 (Search) Timeseries write throttle for Elasticsearch index updates
+- #17456 (Docker) Published DataHub Postgres extensions image
 
 ## v1.5.0
 
@@ -112,6 +411,7 @@ Requirements:
 
 ### Other Notable Changes
 
+- #16317 (Ingestion) Looker/LookML: The `tag_measures_and_dimensions` config is now correctly honored. Previously, setting it to `false` had no effect — Dimension/Measure/Temporal tags were always added to schema fields. After this fix, setting `tag_measures_and_dimensions: false` will remove those tags and prepend the field type to the description instead (e.g., `"Dimension. My field"`). If you had this config set to `false` but were relying on the tags being present, be aware they will now be removed as intended.
 - #15270 (Ingestion) Browse paths: When `platform_instance` is configured, DataFlow and DataJob entities now receive a `browsePathsV2` aspect with the platform instance as the root path. Previously, these entities had no browse path from ingestion and the backend would place them in a generic "Default" folder, causing entities from multiple platform instances to be mixed together. This affects sources like Fivetran, Glue, and Kafka-Connect that emit DataFlow/DataJob entities with `platform_instance`. Sources without `platform_instance` configured are unaffected.
 - #16339 (Ingestion) Migrating Python dependency declarations from `setup.py` to `pyproject.toml` (PEP 621). `setup.py` remains the source of truth for editing dependencies for now; `pyproject.toml` is auto-generated from it via `./gradlew :metadata-ingestion:updateLockFile`. Sync verification (`./gradlew :metadata-ingestion:verifyPyprojectSync`) runs automatically during `check` and `buildWheel`. `setup.py` will be deprecated in a future release in favor of `pyproject.toml` as the sole dependency source.
 - #16358 (Ingestion) dbt: Added `convert_urns_to_lowercase` config option for dbt ingestion (both dbt-core and dbt-cloud). When enabled, dbt platform URNs are lowercased, preventing duplicate entities caused by schema name casing differences (e.g., `app_sales` vs `APP_SALES`). This is an opt-in flag (default: `false` for all platforms). Recommended for case-insensitive platforms like Snowflake or BigQuery where dbt manifests may contain mixed-case identifiers.
@@ -164,7 +464,7 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
 - #16829 / #16828: Spring bumped to 6.2.17 and Netty to 4.1.132.Final.
 - #16950: Patched Rhino, Logback, and Commons Lang3 for CVEs.
-- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.26.1; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
+- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.27.0; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
 - #16822 / #16868 / #16955: Python ingestion dependency fixes (CVE-2024-27459), raised `pyOpenSSL` floor with expanded security constraints, and LiteLLM 1.83.0 for CVE-2026-35030.
 
 ### Bug Fixes
@@ -188,6 +488,77 @@ Patch release focused on dependency and security updates (Java stack, Python ing
   3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
 
   Skipping step 1 and going directly to `false` means the checkpoint still has users marked as primary from the old code, and stateful ingestion will soft-delete them.
+
+## v1.5.0.7
+
+Patch release focused on dependency and security updates.
+
+- OpenTelemetry bumped to 1.62.0 (CVE-2026-45292).
+- Jackson `jackson-core` 2.21.3; Parquet stack aligned to 1.17.1.
+- #17504: Exclude `grpc-netty-shaded`; align `reactor-netty`.
+- #17386: Vert.x 4.5.27 (CVE-2026-6860).
+- #17452: Sanitize GMS/frontend API error responses (CWE-200).
+- #17489: Validate URLs before rendering links in the app.
+- #17487: Fix home page templates/module scope hijacking.
+- #17453: Python ingestion `ujson` >= 5.12.1 (CVE-2026-44660).
+- #17277: Content-Security-Policy via Play `CSPFilter` on the frontend.
+
+## v1.5.0.6
+
+Patch release focused on image maintenance.
+
+- Remove bundled `kubectl` from the `datahub-upgrade` Docker image.
+
+## v1.5.0.5
+
+Patch release focused on Java dependency CVE fixes.
+
+- #17352: Netty 4.2.13.Final (CVE-2026-41417 and related).
+- #17330: Hadoop third-party, Netty, and gRPC CVE hygiene.
+- Spring Boot 3.5.14 (CVE-2026-40973).
+- Spring Framework 6.2.18 (CVE-2026-22740).
+
+## v1.5.0.4
+
+Patch release focused on HTTP client CVE remediation.
+
+- #17323: Apache `httpclient5` 5.6.1 (CVE-2026-40542).
+
+## v1.5.0.3
+
+Patch release focused on security and dependency updates (Play frontend and Java stack, Python ingestion), OIDC and native sign-up fixes, and Docker/CI maintenance.
+
+- #17030: Jetty upgrade with refreshed Gradle lockfiles.
+- #17114: Reactor Netty 1.2.17.
+- #17112: Apache Shiro 2.1.0 (CVE-2026-23903).
+- #17110: pac4j 6.4.1 (CVE-2026-40458).
+- #17113: Hibernate Validator upgrade (CVE-2025-35036).
+- #17132: jakarta.mail 1.6.8 (CVE-2025-7962).
+- #17140: OpenTelemetry Java agent 2.27.0.
+- #17152: `maven-artifact` 3.9.15.
+- #17092: Python `cryptography` raised to >= 46.0.7.
+- #17116: Ingestion lockfile updates for aiohttp, pytest, and tighter declared bounds.
+- #17131: Ingestion constraints for Authlib (>= 1.6.11) and pypdf (>= 6.10.2) addressing GHSA-jj8c-mmj3-mmgv and GHSA-4pxv-j86v-mhcw.
+- Docker-bundled Python virtualenvs: `lxml` version floor for CVE-2026-41066.
+- #17045: `constraints.txt` included in lock file materialization for more reproducible ingestion installs.
+- #17182: `locked` datahub-actions removes pip/uv
+
+### Notable Changes
+
+- datahub-actions default **base image** updated (override with **`BASE_IMAGE`**)
+
+### Bug Fixes
+
+- #17032: OIDC post-login redirect cookie handling.
+- Play Framework: add `play-java-forms` at runtime for native sign-up email validation; smoke tests use valid email addresses for those flows.
+- Shiro/pac4j: `AuthModule` refactored so the runtime no longer depends on `master`-only build artifacts for authentication wiring.
+
+### Build, Docker, and Tooling
+
+- #17156: Slimmer `datahub-actions` image build; test-only dependency moves; documentation updates for redacting certain Excel-sourced content.
+- #17133: `datahub-upgrade` image bundles kubectl v1.35.4.
+- macOS: pin JPype1 below 1.7.0 so dependency resolution keeps compatible wheels on Apple Silicon (reflected in ingestion `constraints.txt`).
+- CI: pin remaining GitHub Actions to full commit SHAs for supply-chain hardening.
 
 ## v1.4.0
 
@@ -258,7 +629,6 @@ Patch release focused on dependency and security updates (Java stack, Python ing
   - **Configuration Changes**: Airflow 3.x moved some configuration keys (e.g., `WEBSERVER__BASE_URL` → `API__BASE_URL`). The plugin automatically detects and uses the correct configuration for each version.
   - **SubDAG Removal**: SubDAG support has been removed in Airflow 3.x. Users should migrate to TaskGroups for visual grouping of tasks.
   - **New SQLParser Integration**: Airflow 3.x uses a unified SQLParser patch architecture for lineage extraction, replacing operator-specific extractors. This provides better consistency and column-level lineage across all SQL operators.
-  - For detailed migration instructions and compatibility information, see `metadata-ingestion-modules/airflow-plugin/AIRFLOW_3_MIGRATION.md` in the DataHub repository.
 - #15118: (Ingestion) The Oracle source now includes stored procedures, functions, packages, and materialized views with automatic lineage generation. Use `procedure_pattern` to filter procedures if needed. See the Oracle source documentation for permissions and configuration details.
 - #14717: The Tableau ingestion source now enables `extract_lineage_from_unsupported_custom_sql_queries` by default. This improves the quality of lineage extracted by using DataHub's SQL parser in cases where the Tableau Catalog API fails to return lineage for Custom SQL queries.
 - #14824: DataHub now supports CDC (Change Data Capture) mode for generating MetadataChangeLogs with guaranteed ordering based on database transaction commits. CDC mode is optional and disabled by default. When enabled via `CDC_MCL_PROCESSING_ENABLED=true`, MCLs are generated from Debezium-captured database changes rather than directly from GMS. This provides stronger ordering guarantees and decoupled processing. Requires MySQL 5.7+ or PostgreSQL 10+ with replication enabled. See [CDC Configuration Guide](configure-cdc.md) for setup instructions.

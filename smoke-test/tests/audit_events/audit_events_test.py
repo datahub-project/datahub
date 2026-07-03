@@ -5,7 +5,7 @@ from typing import List
 
 import pytest
 
-from tests.tokens.token_utils import listUsers, removeUser
+from tests.tokens.token_utils import removeUser, wait_for_user_in_list
 from tests.utils import (
     get_admin_credentials,
     get_frontend_url,
@@ -46,8 +46,10 @@ def custom_user_setup():
         res_data = removeUser(admin_session, AUDIT_SUITE_USER_URN)
         assert res_data
         assert "error" not in res_data
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=False)
 
-        # Test getting the invite token
+        # Regenerate invite token (createInviteToken) so sign-up gets a fresh token.
         get_invite_token_json = {
             "query": """mutation createInviteToken($input: CreateInviteTokenInput!) {
                 createInviteToken(input: $input){
@@ -69,7 +71,6 @@ def custom_user_setup():
             "inviteToken"
         ]
         assert invite_token is not None
-        assert "error" not in invite_token
 
         # Pass the invite token when creating the user
         sign_up_json = {
@@ -84,24 +85,12 @@ def custom_user_setup():
             f"{get_frontend_url()}/signUp", json=sign_up_json
         )
         sign_up_response.raise_for_status()
-        assert sign_up_response
-        assert "error" not in sign_up_response
-        # Sleep for eventual consistency
-        wait_for_writes_to_sync(
-            consumer_group="datahub-usage-event-consumer-job-client"
-        )
-
         # signUp will override the session cookie to the new user to be signed up.
         admin_session.cookies.clear()
         admin_session = login_as(admin_user, admin_pass)
 
-        # Make user created user is there.
-        res_data = listUsers(admin_session)
-        assert res_data["data"]
-        assert res_data["data"]["listUsers"]
-        assert {"username": AUDIT_SUITE_USER_EMAIL} in res_data["data"]["listUsers"][
-            "users"
-        ]
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=True)
         admin_session.cookies.clear()
 
         yield
@@ -113,18 +102,8 @@ def custom_user_setup():
         assert res_data
         assert res_data["data"]
         assert res_data["data"]["removeUser"] is True
-        # Sleep for eventual consistency
-        wait_for_writes_to_sync(
-            consumer_group="datahub-usage-event-consumer-job-client"
-        )
-
-        # Make user created user is not there.
-        res_data = listUsers(admin_session)
-        assert res_data["data"]
-        assert res_data["data"]["listUsers"]
-        assert {"username": AUDIT_SUITE_USER_EMAIL} not in res_data["data"][
-            "listUsers"
-        ]["users"]
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=False)
 
 
 @pytest.fixture(autouse=True)

@@ -11,6 +11,10 @@ apply from: "../../../gradle/coverage/java-coverage.gradle"
 apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
+// Pin Java 17 bytecode: bundled into the acryl-spark-lineage agent shadow jar, which must run on
+// managed Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17).
+ext.javaClassVersionOverride = 17
+
 
 jar {
   if (project.hasProperty('archiveAppendix')) {
@@ -57,6 +61,9 @@ dependencies {
 }
 
 task copyAvroSchemas {
+  onlyIf {
+    !gradle.startParameter.taskNames.any { it.contains('resolveAndLockAll') }
+  }
   dependsOn(':metadata-events:mxe-schemas:renameNamespace')
   copy {
     from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
@@ -170,6 +177,7 @@ shadowJar {
   relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
+  relocate 'org.jspecify', 'datahub.shaded.org.jspecify'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   // Below jars added for kafka emitter only
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'

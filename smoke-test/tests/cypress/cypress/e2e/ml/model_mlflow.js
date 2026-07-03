@@ -1,4 +1,5 @@
-describe("models", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("models", () => {
   // Add global error handling
   beforeEach(() => {
     // This prevents test failures due to unhandled exceptions in the application

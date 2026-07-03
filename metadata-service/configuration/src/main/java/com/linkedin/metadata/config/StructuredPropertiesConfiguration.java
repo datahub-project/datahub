@@ -19,4 +19,10 @@ public class StructuredPropertiesConfiguration {
 
   /** Whether structured property mappings are applied in system update job */
   private boolean systemUpdateEnabled;
+
+  /**
+   * When true, structured property writes drop assignments whose definition entity does not exist,
+   * logging a warning per dropped value. The write fails if no valid assignments remain.
+   */
+  private boolean dropMissingPropertyValuesWithWarning;
 }

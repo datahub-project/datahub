@@ -118,12 +118,15 @@ query appConfig {
             showHomepageUserRole
             assetSummaryPageV1
             datasetSummaryPageV1
+            metricsEnabled
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
+            showTestsInHealthIcon
+            i18nEnabled
         }
         chromeExtensionConfig {
             enabled

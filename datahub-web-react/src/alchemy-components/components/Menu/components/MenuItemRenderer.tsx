@@ -81,7 +81,7 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
     }, [item.danger, item.disabled]);
 
     const content = (
-        <Wrapper data-testid={`menu-item-${item.key}`}>
+        <Wrapper data-testid={item.dataTestId || `menu-item-${item.key}`}>
             {item.icon && (
                 <IconWrapper>
                     <Icon

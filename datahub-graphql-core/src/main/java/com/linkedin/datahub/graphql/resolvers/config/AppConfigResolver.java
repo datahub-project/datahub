@@ -281,12 +281,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
+            .setMetricsEnabled(_featureFlags.isMetricsEnabled())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
             .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
+            .setI18nEnabled(_featureFlags.isI18nEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -323,6 +326,28 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
           final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
           awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
           embeddingConfig.setAwsProviderConfig(awsProviderConfig);
+        } else if ("vertex_ai".equalsIgnoreCase(providerConfig.getType())
+            && providerConfig.getVertexai() != null) {
+          final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration.VertexAiConfig
+              vertexConfig = providerConfig.getVertexai();
+          final boolean projectIdSet =
+              vertexConfig.getProjectId() != null && !vertexConfig.getProjectId().isBlank();
+          final boolean locationSet =
+              vertexConfig.getLocation() != null && !vertexConfig.getLocation().isBlank();
+          if (projectIdSet && locationSet) {
+            final VertexProviderConfig vertexProviderConfig = new VertexProviderConfig();
+            vertexProviderConfig.setProjectId(vertexConfig.getProjectId());
+            vertexProviderConfig.setLocation(vertexConfig.getLocation());
+            embeddingConfig.setVertexProviderConfig(vertexProviderConfig);
+          } else {
+            log.warn(
+                "Vertex AI semantic search config has missing or blank projectId or location "
+                    + "(projectIdSet={}, locationSet={}). vertexProviderConfig will be omitted "
+                    + "from GraphQL response. Set VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION env vars "
+                    + "(or embeddingProvider.vertexai.{projectId,location} in application.yaml).",
+                projectIdSet,
+                locationSet);
+          }
         }
 
         semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
@@ -367,6 +392,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     // AWS Bedrock Titan models
     if (modelId.contains("titan-embed-text-v1")) return "amazon_titan_v1";
     if (modelId.contains("titan-embed-text-v2")) return "amazon_titan_v2";
+    // Vertex AI Gemini models
+    if (modelId.contains("gemini-embedding-001")) return "gemini_embedding_001";
+    if (modelId.contains("text-embedding-005")) return "text_embedding_005";
     // Fallback: replace special chars with underscores
     // This handles OpenAI models like text-embedding-3-small → text_embedding_3_small
     return modelId.replace("-", "_").replace(".", "_").replace(":", "_");

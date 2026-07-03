@@ -1,17 +1,9 @@
 # Using Docker Images During Development
 
-We've created a special `docker-compose.dev.yml` override file that should configure docker images to be easier to use
-during development.
+Local development uses [Docker Compose profiles](../../docker/profiles/docker-compose.yml) under `docker/profiles/`. The `debug`
+profile mounts locally built artifacts into containers tagged `debug`, so you avoid rebuilding images on every change.
 
-Normally, you'd rebuild your images from scratch with a combination of gradle and docker compose commands. However,
-this takes way too long for development and requires reasoning about several layers of docker compose configuration
-yaml files which can depend on your hardware (Apple M1).
-
-The `docker-compose.dev.yml` file bypasses the need to rebuild docker images by mounting binaries, startup scripts,
-and other data. These dev images, tagged with `debug` will use your _locally built code_ with gradle.
-Building locally and bypassing the need to rebuild the Docker images should be much faster.
-
-We highly recommend you just invoke `./gradlew quickstartDebug` task.
+We highly recommend `./gradlew quickstartDebug` (or [`scripts/dev/datahub-dev.sh`](../../scripts/dev/datahub-dev.sh) for agent workflows).
 
 ```shell
 ./gradlew quickstartDebug
@@ -24,8 +16,7 @@ This task is defined in `docker/build.gradle` and executes the following steps:
 
 1. Locally builds Docker images with the expected `debug` tag required by the docker compose files.
 
-1. Runs the special `docker-compose.dev.yml` and supporting docker-compose files to mount local files directly in the
-   containers with remote debugging ports enabled.
+1. Starts the `debug` profile compose stack to mount local files directly in the containers with remote debugging ports enabled.
 
 Once the `debug` docker images are constructed you'll see images similar to the following:
 
@@ -72,7 +63,7 @@ The `reload` process continues to work, but the restarted containers will use th
 If you need to reload the containers with a different env file or changes made to the env file, a task `reloadEnv` builds the artifacts that have code changes
 and recreates all the containers that refer to these the env file via the DATAHUB_LOCAL_COMMON_ENV environment variable.
 
-The `reload` and `reloadEnv` tasks can only be run after running one of the debug variants of a auickstart task like `quickstartDebug`
+The `reload` and `reloadEnv` tasks can only be run after running one of the debug variants of a quickstart task like `quickstartDebug`
 
 ## Start/Stop
 
@@ -81,13 +72,13 @@ The following commands can pause the debugging environment to release resources 
 Pause containers and free resources.
 
 ```shell
-docker compose -p datahub stop
+docker compose --project-directory docker/profiles -p datahub stop
 ```
 
 Resume containers for further debugging.
 
 ```shell
-docker compose -p datahub start
+docker compose --project-directory docker/profiles -p datahub start
 ```
 
 ## Cleanup
@@ -145,17 +136,17 @@ until this job finishes.
 
 ### Running a specific service
 
-`docker-compose up` will launch all services in the configuration, including dependencies, unless they're already
-running. If you, for some reason, wish to change this behavior, check out these example commands.
+`docker compose up` launches all services in the profile, including dependencies, unless they are already running.
+To start only GMS (and its dependencies) under the debug profile:
 
-```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up datahub-gms
-```
-
-Will only start `datahub-gms` and its dependencies.
-
-```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up --no-deps datahub-gms
+```shell
+docker compose --project-directory docker/profiles --profile debug -p datahub up datahub-gms
 ```
 
-Will only start `datahub-gms`, without dependencies.
+To start only GMS without dependencies:
+
+```shell
+docker compose --project-directory docker/profiles --profile debug -p datahub up --no-deps datahub-gms
+```
+
+See `docker/profiles/README.md` in the repository for available profiles.

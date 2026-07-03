@@ -177,6 +177,47 @@ source:
     batch_size: 1000 # Process and emit 1000 entries at a time to optimize memory usage
 ```
 
+#### Business Glossary
+
+When `include_glossaries` is enabled (default), the connector ingests all [Dataplex Business Glossaries](https://cloud.google.com/dataplex/docs/glossaries-overview) from the configured `glossary_locations` (default: `global`) and emits the full Glossary → Category → Term hierarchy as DataHub Glossary entities.
+
+Each term is emitted as a `GlossaryTerm` with:
+
+- `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
+- `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
+
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
+
+**Configuration:**
+
+| Field                                | Default    | Description                                                                                                                                                                                                                |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                                                                                                                       |
+| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires a role granting `resourcemanager.projects.get` such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) (opt-in) |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                                                                                                                     |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                                                                                                                       |
+
+**Example:**
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    entries_locations:
+      - "us"
+
+    # Business Glossary ingestion (enabled by default)
+    include_glossaries: true
+    glossary_locations:
+      - "global"
+
+    # Term-to-asset associations (opt-in; requires roles/browser or another
+    # role granting resourcemanager.projects.get on each configured project)
+    # include_glossary_term_associations: true
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

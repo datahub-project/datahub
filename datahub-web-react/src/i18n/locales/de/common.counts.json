@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} Spalte",
+    "columnCount_other": "{{count}} Spalten",
+    "matchCount_one": "{{count}} Treffer",
+    "matchCount_other": "{{count}} Treffer",
+    "ownerCount_one": "{{count}} Owner",
+    "ownerCount_other": "{{count}} Owner",
+    "queryCount_one": "{{count}} Abfrage",
+    "queryCount_other": "{{count}} Abfragen",
+    "rowCount_one": "{{count}} Zeile",
+    "rowCount_other": "{{count}} Zeilen",
+    "tagCount_one": "{{count}} Tag",
+    "tagCount_other": "{{count}} Tags",
+    "termCount_one": "{{count}} Begriff",
+    "termCount_other": "{{count}} Begriffe"
+}

@@ -67,6 +67,7 @@ public class RecentlySearchedSource implements RecommendationSource {
     try {
       analyticsEnabled =
           _searchClient.indexExists(
+              opContext,
               new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
               RequestOptions.DEFAULT);
     } catch (IOException e) {
@@ -88,7 +89,7 @@ public class RecentlySearchedSource implements RecommendationSource {
         () -> {
           try {
             final SearchResponse searchResponse =
-                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             return parsedTerms.getBuckets().stream()
