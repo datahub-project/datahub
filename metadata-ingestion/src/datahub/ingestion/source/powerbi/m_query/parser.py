@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
@@ -109,7 +110,14 @@ def get_upstream_tables(
         # Lark parser happened to parse these and then logged INFO "Non-Data
         # Platform Expression". Preserve that behaviour: only warn when the
         # expression looks like it was intended to be M-Query.
-        if "let" not in expression.lower():
+        #
+        # Match `let` only on word boundaries (keeping the original
+        # case-insensitive `.lower()` so nothing else about the check changes):
+        # a plain substring check false-positives on DAX expressions that merely
+        # contain the letters "let" inside another token (e.g. a column named
+        # `ORDER_NBR_TABLET`), wrongly emitting a parse warning for what is
+        # really a DAX table.
+        if not re.search(r"\blet\b", expression.lower()):
             reporter.m_query_non_mquery_expressions += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "

@@ -1629,6 +1629,62 @@ def test_mysql_odbc_query_without_dsn_mapping():
 
 
 @pytest.mark.integration
+def test_snowflake_odbc_query_with_dialect_specific_sql():
+    """An Odbc.Query whose SQL uses Snowflake-only syntax must still be detected
+    as SQL and yield query lineage.
+
+    `//` line comments, `IFF(...)` and `::` casts are valid Snowflake SQL but are
+    rejected by sqlglot's default dialect. If `is_sql_query` parses without the
+    platform dialect, the query is misclassified as a navigation expression and
+    its lineage is silently dropped ("Can not determine qualified table name").
+    """
+    odbc_snowflake_dialect_sql = (
+        'let\n    Source = Odbc.Query("dsn=SNOWFLAKE_DSN", "'
+        "SELECT#(lf)"
+        "    o.ORDER_ID,#(lf)"
+        "    o.AMOUNT::DECIMAL(10,2) AS AMOUNT,#(lf)"
+        "    IFF(o.STATUS = 'PAID', 1, 0) AS IS_PAID#(lf)"
+        "//    o.LEGACY_COLUMN  -- excluded#(lf)"
+        'FROM SALES.PUBLIC.ORDERS o")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_snowflake_dialect_sql,
+        name="Orders",
+        full_name="Orders.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"SNOWFLAKE_DSN": "snowflake"}}
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales.public.orders,PROD)"
+    )
+    # The Snowflake SQL must be recognised as a query, not a navigation
+    # expression, so no "qualified table name" warning is raised.
+    assert "Can not determine qualified table name" not in [
+        w.title for w in reporter.warnings
+    ]
+
+
+@pytest.mark.integration
 def test_athena_regular_case():
     """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
     q: str = M_QUERIES[37]
@@ -1728,3 +1784,164 @@ def test_native_query_mssql_and_postgres_supported():
     assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
     assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
     assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
+
+
+@pytest.mark.integration
+def test_snowflake_parameterized_name_skips_gracefully():
+    """A three-step source whose database ``Name`` is a parameter/identifier
+    reference (e.g. ``Name=DataSource``) rather than a quoted literal must skip
+    lineage gracefully with a clear warning, not raise ``KeyError: 'Name'``
+    (which previously surfaced as a confusing "Unknown M-Query Pattern")."""
+    q = (
+        "let\n"
+        '    Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]),\n'
+        '    DB_Source = Source{[Name=DataSource,Kind="Database"]}[Data],\n'
+        '    Schema_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data],\n'
+        '    Table_Source = Schema_Source{[Name="TABLE_NAME",Kind="View"]}[Data],\n'
+        '    #"Filtered Rows" = Table.SelectRows(Table_Source, each ([COLUMN_NAME] = "value"))\n'
+        "in\n"
+        '    #"Filtered Rows"'
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="TABLE_NAME",
+        full_name="MyDataset.TABLE_NAME",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineages == []
+    assert reporter.m_query_resolver_errors == 0, (
+        "Parameterized Name must not be counted as a resolver error / "
+        "Unknown M-Query Pattern"
+    )
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert any("Unresolved data source name" in (t or "") for t in warning_titles), (
+        f"Expected an 'Unresolved data source name' warning; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_snowflake_parameterized_name_resolves_with_parameters():
+    """When the dataset's M parameters are available, the parameterized database
+    ``Name`` is substituted and full lineage is produced."""
+    q = (
+        "let\n"
+        '    Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]),\n'
+        '    DB_Source = Source{[Name=DataSource,Kind="Database"]}[Data],\n'
+        '    Schema_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data],\n'
+        '    Table_Source = Schema_Source{[Name="TABLE_NAME",Kind="View"]}[Data],\n'
+        '    #"Filtered Rows" = Table.SelectRows(Table_Source, each ([COLUMN_NAME] = "value"))\n'
+        "in\n"
+        '    #"Filtered Rows"'
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="TABLE_NAME",
+        full_name="MyDataset.TABLE_NAME",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"DataSource": "DATABASE_NAME"},
+    )
+
+    assert len(lineages) == 1
+    assert [u.urn for u in lineages[0].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_name.schema_name.table_name,PROD)"
+    ]
+
+
+@pytest.mark.integration
+def test_dax_expression_with_let_substring_is_not_warned():
+    """A DAX computed table that merely contains the letters ``let`` inside a
+    token (e.g. a column ``ORDER_NBR_TABLET``) must be classified as non-M-Query
+    (INFO-level skip), not raise an ``Unable to parse M-Query expression`` warning.
+    Regression for the substring ``"let" in expr`` false positive."""
+    # Pure DAX (no `let` keyword); the only "let" is inside ORDER_NBR_TABLET.
+    q = (
+        "{\n"
+        '    ("Order Number", NAMEOF(data[ORDER_NBR_TABLET]), 8),\n'
+        '    ("Market", NAMEOF(data[MARKET]), 9)\n'
+        "}"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="DaxComputedTable",
+        full_name="MyDataset.DaxComputedTable",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineages == []
+    assert reporter.m_query_non_mquery_expressions == 1
+    assert reporter.m_query_parse_unknown_errors == 0
+    assert [w.title for w in reporter.warnings] == [], (
+        f"DAX expression should not warn; got: {[w.title for w in reporter.warnings]}"
+    )
+
+
+@pytest.mark.integration
+def test_genuine_mquery_parse_failure_still_warns():
+    """A real ``let`` M-Query that fails to lex (here an unquoted ``[3. Value]``
+    generalized identifier, which Power Query M requires to be written
+    ``[#"3. Value"]``) must still emit the parse warning - the word-boundary
+    `let` check must not suppress genuine M-Query failures."""
+    q = 'let\n    Source = Table.AddColumn(t, "c", each [3. Value])\nin\n    Source'
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="MyTable",
+        full_name="MyDataset.MyTable",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert reporter.m_query_non_mquery_expressions == 0
+    assert any(
+        "Unable to parse M-Query expression" in (w.title or "")
+        for w in reporter.warnings
+    ), (
+        f"Genuine M-Query failure should warn; got: {[w.title for w in reporter.warnings]}"
+    )
