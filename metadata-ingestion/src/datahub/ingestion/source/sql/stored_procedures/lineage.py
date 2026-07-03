@@ -270,8 +270,7 @@ def _classify_statements(
             procedure_calls.append(call)
             continue
 
-        # Skip TSQL control flow keywords that don't produce lineage
-        # Only apply for MSSQL/TSQL dialect
+        # Skip TSQL control flow keywords that don't produce lineage.
         if is_dialect_instance(dialect, "tsql") and _is_tsql_control_flow_statement(
             stmt_upper
         ):
@@ -333,7 +332,6 @@ def parse_procedure_code(
     platform = schema_resolver.platform
     dialect = get_dialect(platform)
 
-    # Split statements using split_statements()
     statements = list(split_statements(code, dialect=get_dialect_str(platform)))
 
     # Classify each statement: DML statements feed the lineage aggregator,
