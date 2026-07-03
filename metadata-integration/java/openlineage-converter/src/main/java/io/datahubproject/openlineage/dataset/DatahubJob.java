@@ -83,6 +83,7 @@ public class DatahubJob {
   GlobalTags flowGlobalTags;
   Domains flowDomains;
   DataPlatformInstance flowPlatformInstance;
+  DataPlatformInstance jobPlatformInstance;
   DataProcessInstanceRunEvent dataProcessInstanceRunEvent;
   DataProcessInstanceProperties dataProcessInstanceProperties;
   DataProcessInstanceRelationships dataProcessInstanceRelationships;
@@ -119,6 +120,12 @@ public class DatahubJob {
     // Generate and add PlatformInstance Aspect
     if (flowPlatformInstance != null) {
       addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, flowPlatformInstance, mcps);
+    }
+    // The DataJob needs its own DataPlatformInstance aspect: it inherits the instance via the
+    // parent
+    // DataFlow URN, but the aspect drives the platform-instance facet/search on the job entity.
+    if (jobPlatformInstance != null) {
+      addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobPlatformInstance, mcps);
     }
 
     // Generate and add Properties Aspect
