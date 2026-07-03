@@ -66,6 +66,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    normalize_ts_table_type,
 )
 from datahub.ingestion.source.thoughtspot.config import (
     ExternalConnectionConfig,
@@ -2159,16 +2160,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Fallback: connection not in lookup. Read data_source_type
-        # off the table directly. Strip the ``RDBMS_`` / ``NOSQL_``
-        # prefix TS applies on the LogicalTableResponse so the map
-        # (keyed by bare warehouse names) resolves.
-        ts_type = (table.data_source_type or "").upper()
+        # off the table directly, normalizing the TS category prefix
+        # (``RDBMS_`` / ``NOSQL_`` / ``FILE_``) so the map (keyed by
+        # bare warehouse names) resolves.
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if not ts_type:
             return None
-        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
-            if ts_type.startswith(prefix):
-                ts_type = ts_type[len(prefix) :]
-                break
         platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
         if not platform:
             return None
@@ -2207,14 +2204,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # entry isn't a real failure to warn about. Without this guard,
         # every TS-internal table on a tenant triggers a false-positive
         # "External Lineage Resolution Failed" warning.
-        ts_type = (table.data_source_type or "").upper()
-        if not ts_type:
-            return None
-        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
-            if ts_type.startswith(prefix):
-                ts_type = ts_type[len(prefix) :]
-                break
-
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if ts_type not in _TS_TO_DATAHUB_PLATFORM:
             return None
         conn = self._get_connection_lookup().get(table.data_source_id)

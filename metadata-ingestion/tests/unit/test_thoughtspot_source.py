@@ -15,6 +15,26 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import yaml
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChartInfoClass,
+    ChartUsageStatisticsClass,
+    ContainerClass,
+    DashboardInfoClass,
+    DashboardUsageStatisticsClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    GlobalTagsClass,
+    InputFieldsClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TimeTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
+)
 from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -78,26 +98,6 @@ from datahub.ingestion.source.thoughtspot.source import (
 )
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
-)
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    ChartInfoClass,
-    ChartUsageStatisticsClass,
-    ContainerClass,
-    DashboardInfoClass,
-    DashboardUsageStatisticsClass,
-    DatasetPropertiesClass,
-    FineGrainedLineageClass,
-    GlobalTagsClass,
-    InputFieldsClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    TimeTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 
@@ -4014,6 +4014,40 @@ class TestThoughtSpotClientMetadataDetailParsing:
                 assert len(results) == 1
                 assert results[0]["columns"] == []
 
+    def test_metadata_search_handles_string_error_detail(self):
+        """In rare cases TS returns a string error message in
+        ``metadata_detail`` instead of a dict. The object must still ingest
+        (with empty columns) and the failure must surface in the report
+        rather than crashing the run."""
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://test.thoughtspot.cloud",
+            auth=TrustedAuth(username="testuser", secret_key="test_token"),
+        )
+
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.ThoughtSpotClient._authenticate"
+        ):
+            client = ThoughtSpotClient(config)
+
+            with patch.object(client, "ts_client") as mock_ts_client:
+                mock_ts_client.metadata_search.return_value = [
+                    {
+                        "metadata_id": "table-789",
+                        "metadata_header": {"id": "table-789", "name": "broken_table"},
+                        "metadata_detail": "Error fetching details for table-789",
+                    }
+                ]
+
+                results = client.get_metadata_details(
+                    metadata_type="LOGICAL_TABLE",
+                    metadata_ids=["table-789"],
+                )
+
+                assert len(results) == 1
+                assert results[0]["columns"] == []
+                titles = [w.title for w in client.report.warnings]
+                assert "Metadata Detail Unavailable" in titles
+
     def test_metadata_search_batches_multiple_ids(self):
         """Multiple ids produce one metadata entry per id (API rejects list-valued identifier)."""
         config = ThoughtSpotConnectionConfig(
@@ -6066,6 +6100,8 @@ class TestExternalPlatformMapping:
             "DATABRICKS": "databricks",
             "SNOWFLAKE": "snowflake",
             "BIGQUERY": "bigquery",
+            "GOOGLE_BIGQUERY": "bigquery",
+            "GCP_BIGQUERY": "bigquery",
             "REDSHIFT": "redshift",
             "SYNAPSE": "mssql",
             "ORACLE": "oracle",
@@ -6355,6 +6391,72 @@ class TestResolveExternalUpstream:
         assert (
             ref.urn
             == "urn:li:dataset:(urn:li:dataPlatform:databricks,prod-dbx.warehouse.raw.events,PROD)"
+        )
+
+    def test_bigquery_vendor_aliases_resolve(self):
+        """TS labels BigQuery tables ``GCP_BIGQUERY`` but their connections
+        ``GOOGLE_BIGQUERY``. Both aliases must map to the ``bigquery``
+        platform so the physical upstream URN is emitted."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1",
+                name="Prod BQ",
+                data_source_type="GOOGLE_BIGQUERY",
+                default_database="my-project",
+                default_schema="analytics",
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="events",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="GCP_BIGQUERY",
+        )
+        table.physical_database_name = "my-project"
+        table.physical_schema_name = "raw"
+        table.physical_table_name = "events"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.platform == "bigquery"
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.raw.events,PROD)"
+        )
+
+    def test_rdbms_prefixed_table_type_resolves(self):
+        """TS prefixes a table's ``data_source_type`` with ``RDBMS_`` while
+        the connection reports the bare name. The prefix must be stripped so
+        the early platform filter passes and the upstream resolves."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1",
+                name="Prod SF",
+                data_source_type="SNOWFLAKE",
+                default_database="db",
+                default_schema="public",
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="events",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="RDBMS_SNOWFLAKE",
+        )
+        table.physical_database_name = "db"
+        table.physical_schema_name = "public"
+        table.physical_table_name = "events"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.platform == "snowflake"
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.events,PROD)"
         )
 
     def test_in_memory_table_returns_none(self):
