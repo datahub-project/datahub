@@ -196,6 +196,30 @@ def test_auth_does_not_retry_401_across_hosts():
     assert result is response  # returned untouched, no cross-host retry
 
 
+def test_auth_does_not_retry_401_after_scheme_or_port_change():
+    # requests strips Authorization not only across hosts but also on same-host
+    # scheme downgrades and port changes (should_strip_auth); the retry hook
+    # must not re-attach the token in those cases either — e.g. an https->http
+    # redirect would otherwise get the fresh bearer token over plaintext.
+    provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
+    auth = TokenProviderAuth(provider)
+
+    original = requests.PreparedRequest()
+    original.prepare(method="GET", url="https://gms:8080/config")
+    auth(original)
+
+    for redirected_url in ["http://gms:8080/config", "https://gms:9999/config"]:
+        redirected = requests.PreparedRequest()
+        redirected.prepare(method="GET", url=redirected_url, headers={})
+        response = requests.Response()
+        response.status_code = 401
+        response.request = redirected
+        response._content = b""
+
+        result = auth._handle_401(response)
+        assert result is response  # returned untouched, no retry
+
+
 def test_auth_retries_401_on_same_host_via_hook():
     provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
     auth = TokenProviderAuth(provider)

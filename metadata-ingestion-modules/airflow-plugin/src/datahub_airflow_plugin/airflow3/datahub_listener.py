@@ -593,6 +593,9 @@ class DataHubListener:
                     )
                 )
 
+                # TODO(oauth): only a static token is supported here; accept a declarative
+                # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+                # OAuth token providers work on this path too.
                 # Get token - check airflow.cfg first, then connection password
                 token = conf.get("datahub", "token", fallback=None)
                 if token is None:

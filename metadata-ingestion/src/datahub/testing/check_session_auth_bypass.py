@@ -1,7 +1,8 @@
 """Lint check: ban copying a requests session's headers to authenticate a request.
 
 Copying ``session.headers`` into another request (``dict(graph._session.headers)``,
-``{**session.headers}``, ``session.headers.copy()``) only carries credentials that
+``{**session.headers}``, ``session.headers.copy()``, or passing them directly via
+``headers=session.headers``) only carries credentials that
 are baked into the headers — i.e. a static token. An OAuth token provider is
 installed as ``session.auth`` and applies the Authorization header per request,
 so any request built from copied headers goes out unauthenticated (401) the
@@ -67,6 +68,14 @@ def find_session_header_copies(
                         and _is_headers_attr_of_session(func.value)
                     ):
                         bad = True
+                    # requests.get(url, headers=session.headers) — passing the
+                    # session's headers to another request bypasses session.auth
+                    # exactly like copying them first.
+                    for kw in node.keywords:
+                        if kw.arg == "headers" and _is_headers_attr_of_session(
+                            kw.value
+                        ):
+                            bad = True
                 else:
                     # {**session.headers, ...}
                     for key, value in zip(node.keys, node.values, strict=True):

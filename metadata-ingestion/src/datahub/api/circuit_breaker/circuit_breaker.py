@@ -22,6 +22,9 @@ class CircuitBreakerConfig(ConfigModel):
     )
 
 
+# TODO(oauth): only a static token is supported here; accept a declarative
+# AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+# OAuth token providers work on this path too (same gap as api/graphql/base.py).
 class AbstractCircuitBreaker:
     client: Client
 

@@ -113,6 +113,13 @@ class CachingTokenProvider(TokenProvider):
         return time.time() >= (cached.expires_at - buffer)
 
 
+def _origin(url: Optional[str]) -> Optional[Tuple[str, Optional[str], Optional[int]]]:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    return (parsed.scheme, parsed.hostname, parsed.port)
+
+
 class TokenProviderAuth(requests.auth.AuthBase):
     """Installs a fresh bearer token on each request from a TokenProvider.
 
@@ -127,9 +134,7 @@ class TokenProviderAuth(requests.auth.AuthBase):
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         self._thread_local.retried = False
-        self._thread_local.original_host = (
-            urlparse(request.url).hostname if request.url else None
-        )
+        self._thread_local.original_origin = _origin(request.url)
         request.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         if self._retry_on_401:
             request.register_hook("response", self._handle_401)
@@ -140,13 +145,17 @@ class TokenProviderAuth(requests.auth.AuthBase):
     ) -> requests.Response:
         if response.status_code != 401 or getattr(self._thread_local, "retried", False):
             return response
-        # Never re-attach the token after a cross-host redirect: requests strips
-        # Authorization when redirected to another host (should_strip_auth), and
-        # retrying here would hand the GMS credential to that other host.
-        response_host = (
-            urlparse(response.request.url).hostname if response.request.url else None
-        )
-        if response_host != getattr(self._thread_local, "original_host", None):
+        # Never re-attach the token after a redirect off the original origin:
+        # requests strips Authorization not just on cross-host redirects but also
+        # on same-host scheme downgrades and port changes (should_strip_auth), and
+        # retrying here would hand the GMS credential to that other endpoint —
+        # e.g. over plaintext HTTP after an https->http redirect. Strict
+        # (scheme, host, port) equality is slightly stricter than requests' rule
+        # (it also refuses the benign http->https upgrade); the cost is only a
+        # surfaced 401, never a leaked token.
+        if _origin(response.request.url) != getattr(
+            self._thread_local, "original_origin", None
+        ):
             return response
         invalidate = getattr(self._provider, "invalidate", None)
         if invalidate is None:

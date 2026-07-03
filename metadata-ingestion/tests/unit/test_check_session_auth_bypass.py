@@ -11,6 +11,9 @@ _BAD_SNIPPETS = [
     "headers = dict(self.graph._session.headers)",
     "headers = {**session.headers, 'X-Extra': 'v'}",
     "headers = self._session.headers.copy()",
+    # Passing the session's headers directly (no copy) bypasses session.auth
+    # identically.
+    "requests.get(url, headers=self.graph._session.headers)",
 ]
 
 _OK_SNIPPETS = [

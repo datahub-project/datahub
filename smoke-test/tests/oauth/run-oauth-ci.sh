@@ -26,7 +26,13 @@ teardown() {
   docker logs "$(docker ps -aqf name=datahub-gms)" 2>&1 | tail -100 || true
   docker logs "$(docker ps -aqf name=keycloak)" 2>&1 | tail -50 || true
   echo "::endgroup::"
-  datahub docker nuke || docker compose -p "$COMPOSE_PROJECT_NAME" down -v || true
+  if [ "${CI:-}" = "true" ]; then
+    datahub docker nuke || docker compose -p "$COMPOSE_PROJECT_NAME" down -v || true
+  else
+    # Never nuke outside CI: COMPOSE_PROJECT_NAME=datahub is the same compose
+    # project as a local quickstart, and nuke irreversibly deletes its volumes.
+    echo "Not running in CI — leaving the stack up. Tear down with: datahub docker nuke"
+  fi
 }
 trap teardown EXIT
 

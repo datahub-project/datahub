@@ -146,7 +146,12 @@ class DataHubEventsConsumer:
         # Copying session.headers into a bare requests.get only worked for
         # static tokens baked into the headers; an OAuth token provider lives in
         # session.auth and would be silently bypassed (unauthenticated 401s).
-        response = self.graph._session.get(endpoint, params=params)
+        # The read timeout must outlast the server-side long poll, and a timeout
+        # is required at all — sessions have no default, so a half-open
+        # connection would otherwise hang this consumer forever.
+        response = self.graph._session.get(
+            endpoint, params=params, timeout=(poll_timeout_seconds or 30) + 30
+        )
         response.raise_for_status()
 
         external_events_response = ExternalEventsResponse.model_validate(
