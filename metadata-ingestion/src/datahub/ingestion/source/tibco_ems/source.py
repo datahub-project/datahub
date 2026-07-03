@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set
 
 from requests.exceptions import RequestException
 
@@ -38,6 +38,7 @@ from datahub.ingestion.source.tibco_ems.constants import (
     PROPERTY_SECURE,
     SYSTEM_DESTINATION_PATTERN,
     TIBCO_EMS_PLATFORM,
+    WILDCARD_DESTINATION_PATTERN,
 )
 from datahub.ingestion.source.tibco_ems.models import (
     DestinationType,
@@ -52,8 +53,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sdk.dataset import Dataset
-
-DestinationKey = Tuple[DestinationType, str]
 
 _SUBTYPE_BY_DESTINATION_TYPE: Dict[DestinationType, str] = {
     DestinationType.QUEUE: DatasetSubTypes.QUEUE,
@@ -107,17 +106,14 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        emitted: Set[DestinationKey] = set()
-
         for destination in self._fetch_destinations():
             if not self._allowed(destination):
                 self.report.report_destination_filtered(destination.name)
                 continue
             yield from self._emit_destination(destination)
-            emitted.add((destination.destination_type, destination.name))
 
         if self.config.include_bridges:
-            yield from self._emit_bridge_lineage(emitted)
+            yield from self._emit_bridge_lineage()
 
     def close(self) -> None:
         self.client.close()
@@ -158,15 +154,13 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         yield from dataset.as_workunits()
         self.report.datasets_emitted += 1
 
-    def _emit_bridge_lineage(
-        self, emitted: Set[DestinationKey]
-    ) -> Iterable[MetadataWorkUnit]:
+    def _emit_bridge_lineage(self) -> Iterable[MetadataWorkUnit]:
         bridges = self.client.fetch_bridges()
         self.report.bridges_scanned = len(bridges)
 
         upstreams_by_target: Dict[str, Set[str]] = {}
         for bridge in bridges:
-            self._collect_bridge_upstreams(bridge, emitted, upstreams_by_target)
+            self._collect_bridge_upstreams(bridge, upstreams_by_target)
 
         for target_urn, source_urns in upstreams_by_target.items():
             yield MetadataChangeProposalWrapper(
@@ -186,18 +180,15 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
     def _collect_bridge_upstreams(
         self,
         bridge: TibcoBridge,
-        emitted: Set[DestinationKey],
         upstreams_by_target: Dict[str, Set[str]],
     ) -> None:
         source_urn = self._resolve_destination_urn(
-            bridge.source_type, bridge.source_name, emitted
+            bridge.source_type, bridge.source_name
         )
         for target in bridge.targets:
             target_urn = self._resolve_destination_urn(
-                target.destination_type, target.name, emitted
+                target.destination_type, target.name
             )
-            # Wildcard targets and destinations filtered out of ingestion cannot be
-            # mapped to a concrete dataset, so we record them rather than guess.
             if source_urn is None or target_urn is None:
                 self.report.lineage_edges_unresolved += 1
                 continue
@@ -207,9 +198,13 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         self,
         destination_type: Optional[DestinationType],
         name: str,
-        emitted: Set[DestinationKey],
     ) -> Optional[str]:
-        if destination_type is None or (destination_type, name) not in emitted:
+        # A bridge endpoint on the same EMS server shares this source's platform,
+        # platform_instance and env, so its urn is deterministic even when the
+        # destination was excluded from ingestion by a filter. Only wildcard
+        # subscriptions and endpoints of unknown type cannot be mapped.
+        if destination_type is None or WILDCARD_DESTINATION_PATTERN.search(name):
+            self.report.report_bridge_endpoint_unresolved(name)
             return None
         return self._dataset_urn(self._dataset_name(destination_type, name))
 

@@ -136,7 +136,9 @@ def test_bridge_lineage_emitted_between_ingested_destinations() -> None:
     assert source.report.lineage_edges_emitted == 1
 
 
-def test_bridge_to_filtered_destination_is_unresolved() -> None:
+def test_bridge_to_filtered_destination_still_emits_lineage() -> None:
+    # A concrete endpoint excluded from dataset ingestion still has a
+    # deterministic urn (same platform/instance/env), so lineage is emitted.
     source = _source(topic_pattern={"deny": [".*"]})
     _mock_client(
         source,
@@ -145,9 +147,38 @@ def test_bridge_to_filtered_destination_is_unresolved() -> None:
         bridges=[_orders_to_audit_bridge()],
     )
 
+    lineage = _lineage_workunits(source)
+    assert len(lineage) == 1
+    aspect = lineage[0].metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert "queue.orders.new" in aspect.upstreams[0].dataset
+    assert source.report.lineage_edges_emitted == 1
+    assert source.report.lineage_edges_unresolved == 0
+
+
+def test_bridge_wildcard_endpoint_is_unresolved() -> None:
+    source = _source()
+    _mock_client(
+        source,
+        queues=[_queue("orders.new")],
+        topics=[],
+        bridges=[
+            TibcoBridge(
+                source_name="orders.new",
+                source_type=DestinationType.QUEUE,
+                targets=[
+                    BridgeTarget(
+                        name="events.>", destination_type=DestinationType.TOPIC
+                    )
+                ],
+            )
+        ],
+    )
+
     list(source.get_workunits_internal())
     assert source.report.lineage_edges_emitted == 0
     assert source.report.lineage_edges_unresolved == 1
+    assert "events.>" in source.report.unresolved_bridge_endpoints
 
 
 def test_bridges_skipped_when_disabled() -> None:

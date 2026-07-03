@@ -45,3 +45,9 @@ PROPERTY_CONSUMER_COUNT = "consumer_count"
 # destinations) whose names start with "$sys." or "$TMP$". They are excluded by
 # default because they are not business data flows.
 SYSTEM_DESTINATION_PATTERN = re.compile(r"^\$(sys\.|TMP\$)")
+
+# A bridge endpoint can be a wildcard subscription rather than a single
+# destination: "*" matches one name element and ">" matches the remainder.
+# Neither maps to a concrete dataset urn, so lineage for such endpoints is
+# skipped. Both tokens are reserved, so a concrete name never contains them.
+WILDCARD_DESTINATION_PATTERN = re.compile(r"[*>]")

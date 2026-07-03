@@ -4,7 +4,7 @@ EMS queue and topic namespaces are independent — a queue and a topic can share
 
 ### Lineage
 
-Lineage edges are derived from EMS bridges: each bridge target's upstream is the bridge source. Only bridges whose source and target both resolve to ingested destinations produce an edge. Bridge endpoints that are wildcards, or destinations excluded by the allow/deny patterns, cannot be mapped to a concrete dataset and are reported as unresolved rather than guessed.
+Lineage edges are derived from EMS bridges: each bridge target's upstream is the bridge source. Because a bridge endpoint lives on the same EMS server, its dataset URN is deterministic from the source's `platform_instance` and `env`, so an edge is produced even when the endpoint was excluded from dataset ingestion by an allow/deny pattern (the referenced dataset may have been ingested by an earlier, unfiltered run). Only wildcard subscription endpoints (`*` / `>`), which do not correspond to a single destination, cannot be mapped to a concrete dataset and are reported as unresolved rather than guessed.
 
 ### Limitations
 
