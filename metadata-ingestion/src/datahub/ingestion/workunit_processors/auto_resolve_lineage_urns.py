@@ -549,6 +549,12 @@ class AutoResolveLineageUrnsProcessor(
                 upstream.matchType = res.match_type
                 changed = True
             if self._tally_table_ref(res):
+                # We overwrite the reference in place; the original (pre-normalization)
+                # casing is not retained. If provenance/auditing of the original URN is
+                # ever needed, stash it in the Upstream.properties map (already on this
+                # record) rather than a dedicated URN field, to avoid the per-edge
+                # overhead. Deferred per review — the NORMALIZED matchType already
+                # signals that a rewrite happened.
                 upstream.dataset = res.urn
 
         for fine_grained in aspect.fineGrainedLineages or []:
