@@ -496,6 +496,7 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
 - _Changes_:
   - **OpenLineage upgrade to 1.50.0**: the vendored/shaded OpenLineage classes were refreshed onto the 1.50 upstream base. Iceberg-on-Glue symlink resolution is now provided natively by OpenLineage (since 1.46), so the temporary DataHub Glue-ARN workaround was removed.
   - **Apache Spark 4.x support**: the agent is verified to attach and emit lineage on Apache Spark 4.0.0 (Scala 2.13) via a dedicated compatibility smoke test. Spark 4 requires the Scala 2.13 build of the agent.
+  - **OpenLineage dataset-name trimmers auto-disabled when DataHub path trimming is configured**: OpenLineage 1.39+ enables built-in partition trimmers by default, which run before — and thus collide with — DataHub's own path handling. The plugin now disables them automatically when a `path_spec_list` or `file_partition_regexp` is set (otherwise they stay on, matching upstream). Override with `spark.datahub.metadata.dataset.openLineageTrimmersEnabled` (`true`/`false`).
   - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
 - _Fixes_:
   - **Listener Null-Safety Fix**: the underlying OpenLineage listener is created lazily and can remain uninitialized (listener disabled, no active `SparkContext`/`SparkEnv` yet, or config parse failure). The event handlers now no-op in those cases instead of throwing a `NullPointerException` back into Spark's listener bus.

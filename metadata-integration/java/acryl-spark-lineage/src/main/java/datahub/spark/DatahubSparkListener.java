@@ -34,6 +34,7 @@ import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -401,6 +402,71 @@ public class DatahubSparkListener extends SparkListener {
     return false;
   }
 
+  static final String OL_DISABLED_TRIMMERS_KEY = "spark.openlineage.dataset.disabledTrimmers";
+
+  /**
+   * DataHub tri-state override for OpenLineage's built-in dataset-name trimmers. {@code true}
+   * forces them on, {@code false} forces them off; when unset the default depends on whether
+   * PathSpec is configured (see {@link #configureDatasetTrimmers}).
+   */
+  static final String DATAHUB_ENABLE_TRIMMERS_KEY =
+      "spark.datahub.metadata.dataset.openLineageTrimmersEnabled";
+
+  static final String OL_PATH_SPEC_KEY_SUFFIX = "." + SparkConfigParser.PATH_SPEC_LIST_KEY;
+
+  static final String DATAHUB_FILE_PARTITION_REGEXP_KEY =
+      "spark.datahub." + SparkConfigParser.FILE_PARTITION_REGEXP_PATTERN;
+
+  /** Fully-qualified class names of OpenLineage's built-in dataset-name trimmers. */
+  static final String OL_DEFAULT_DISABLED_TRIMMERS =
+      "io.openlineage.client.dataset.partition.trimmer.DateTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.KeyValueTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.MultiDirDateTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.YearMonthTrimmer";
+
+  /**
+   * Decide whether OpenLineage's built-in dataset-name trimmers (on by default since OL 1.39) run.
+   * They collide with DataHub's PathSpec ({@code RemovePathPatternUtils}), which runs afterward:
+   * the trimmer strips partition segments before PathSpec matches, causing double-transformation
+   * and breaking {@code path_spec} patterns that reference those segments. Resolution order:
+   *
+   * <ul>
+   *   <li>if the user pinned OpenLineage's native {@code disabledTrimmers} key directly, respect
+   *       it;
+   *   <li>else if {@code spark.datahub.metadata.dataset.openLineageTrimmersEnabled} is set, honor
+   *       it;
+   *   <li>else (default) disable the trimmers only when DataHub already does its own path trimming
+   *       — i.e. a {@code path_spec_list} or {@code file_partition_regexp} is configured — and
+   *       leave upstream trimming on otherwise.
+   * </ul>
+   *
+   * Deeper integration of the two mechanisms is tracked in ING-2959.
+   */
+  static void configureDatasetTrimmers(SparkConf sparkConf) {
+    // A directly-pinned OpenLineage key always wins.
+    if (sparkConf.contains(OL_DISABLED_TRIMMERS_KEY)) {
+      return;
+    }
+    boolean disableTrimmers;
+    if (sparkConf.contains(DATAHUB_ENABLE_TRIMMERS_KEY)) {
+      disableTrimmers = !sparkConf.getBoolean(DATAHUB_ENABLE_TRIMMERS_KEY, true);
+    } else {
+      disableTrimmers = isDatahubPathTrimmingConfigured(sparkConf);
+    }
+    if (disableTrimmers) {
+      sparkConf.set(OL_DISABLED_TRIMMERS_KEY, OL_DEFAULT_DISABLED_TRIMMERS);
+    }
+  }
+
+  private static boolean isDatahubPathTrimmingConfigured(SparkConf sparkConf) {
+    if (sparkConf.contains(DATAHUB_FILE_PARTITION_REGEXP_KEY)) {
+      return true;
+    }
+    return Arrays.stream(sparkConf.getAll())
+        .anyMatch(
+            t -> t._1().startsWith("spark.datahub.") && t._1().endsWith(OL_PATH_SPEC_KEY_SUFFIX));
+  }
+
   private void initializeContextFactoryIfNotInitialized() {
     if (contextFactory != null || isDisabled) {
       return;
@@ -429,6 +495,7 @@ public class DatahubSparkListener extends SparkListener {
     }
     try {
       SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
+      configureDatasetTrimmers(sparkConf);
       SparkOpenLineageConfig config = ArgumentParser.parse(sparkConf);
       // Needs to be done before initializing OpenLineageClient
       initializeMetrics(config);
