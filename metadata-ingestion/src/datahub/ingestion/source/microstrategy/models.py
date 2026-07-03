@@ -721,15 +721,17 @@ def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
     # Quick-search results requested with getAncestors carry the folder path
     # as a top-down list of ancestor objects.
     ancestors = raw_object.get("ancestors")
-    if isinstance(ancestors, list):
+    if isinstance(ancestors, list) and ancestors:
         parts = [
-            name
+            _first_str(ancestor, ["name", "title"])
             for ancestor in ancestors
             if isinstance(ancestor, dict)
-            and (name := _first_str(ancestor, ["name", "title"]))
         ]
-        if parts:
-            return parts
+        # Only trust the ancestor path when every entry resolved to a name;
+        # a nameless entry mid-list would silently collapse the hierarchy
+        # (A/B/C -> A/C), so fall back to folder/location instead.
+        if parts and len(parts) == len(ancestors) and all(parts):
+            return [part for part in parts if part]
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
         path = _first_str(folder, ["path", "name"])

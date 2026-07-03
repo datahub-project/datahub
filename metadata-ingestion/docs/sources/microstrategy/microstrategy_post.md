@@ -70,6 +70,7 @@ These tags are written to source-managed `SchemaMetadata` field metadata, not ed
 - Direct dashboard-to-dataset edges are disabled by default; enable `emit_dashboard_dataset_edges` only if you want dashboard-level fallback lineage, which can make lineage views noisy for large dashboards.
 - Modeling APIs (logical tables, metric expressions) may return 403 when the principal lacks modeling privileges. The connector degrades gracefully — missing privileges are reported as warnings and counters, and ingestion continues with dashboard, dataset, metric, and source warehouse metadata.
 - Multi-source projects only receive dataset-to-warehouse edges when MicroStrategy exposes dataset-level source warehouse metadata; the connector does not guess a datasource when the project-level warehouse context is ambiguous.
+- Dataset `upstreamLineage` is replaced wholesale while any upstream tables remain, but a dataset whose warehouse lineage disappears entirely keeps the previous run's aspect (stale-entity removal deletes entities, not aspects). Remove leftovers with `datahub delete --urn <urn> --aspect upstreamLineage` or a rollback of the earlier run. Avoid pipeline-level incremental-lineage transformers with this source: their patch-add semantics prevent edge reductions from propagating.
 
 ### Troubleshooting
 

@@ -1,6 +1,8 @@
 from typing import Any, Dict, Iterator, List
 from unittest import mock
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -510,6 +512,122 @@ def test_resolve_visualization_bindings_survives_modeling_api_failure() -> None:
 
     assert dashboard.visualizations[0].datasets == []
     assert source.report.visualizations_bound_by_derived_objects == 0
+
+
+def test_resolve_visualization_bindings_ignores_owners_outside_dashboard() -> None:
+    source = _source()
+    derived_id = "A" * 32
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Dash",
+            "datasets": [
+                {"id": "ds-1", "name": "A"},
+                {"id": "ds-2", "name": "B"},
+            ],
+            "visualizations": [
+                {
+                    "key": "viz-1",
+                    "name": "Viz",
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                }
+            ],
+        }
+    )
+
+    class FakeClient:
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            # The derived object's owner is NOT one of the dashboard datasets.
+            return {
+                "datasets": [
+                    {
+                        "information": {"objectId": "ds-elsewhere"},
+                        "derivedMetrics": [{"information": {"objectId": derived_id}}],
+                    }
+                ]
+            }
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    source._resolve_visualization_bindings("project-1", dashboard)
+
+    assert dashboard.visualizations[0].datasets == []
+    assert source.report.visualizations_bound_by_derived_objects == 0
+
+
+def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
+    source = _source()
+
+    def _dashboard_with_two_datasets(dash_id: str) -> DashboardDefinition:
+        return DashboardDefinition.model_validate(
+            {
+                "id": dash_id,
+                "name": dash_id,
+                "datasets": [
+                    {"id": "ds-1", "name": "A"},
+                    {"id": "ds-2", "name": "B"},
+                ],
+                "visualizations": [
+                    {
+                        "key": "viz-1",
+                        "name": "Viz",
+                        "metrics": [{"id": "B" * 32, "type": "metric"}],
+                    }
+                ],
+            }
+        )
+
+    class FakeClient:
+        calls = 0
+
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            self.calls += 1
+            raise MicroStrategyAPIError("403 modeling access denied")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    source._resolve_visualization_bindings(
+        "project-1", _dashboard_with_two_datasets("dash-1")
+    )
+    source._resolve_visualization_bindings(
+        "project-1", _dashboard_with_two_datasets("dash-2")
+    )
+
+    # The project-scoped failure is remembered; no per-dashboard re-attempts.
+    assert fake_client.calls == 1
+    assert len(source.report.infos) == 1
+
+
+def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
+    source = _source({"extract_model_lineage": True})
+
+    class FakeClient:
+        model_table_calls = 0
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+            self.model_table_calls += 1
+            raise ValueError("unexpected model tables failure")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    datasource = Datasource.model_validate(
+        {"id": "source-1", "name": "Warehouse", "database": {"type": "snowflake"}}
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
+
+    with pytest.raises(ValueError):
+        lineage_context.model_lineage_index  # noqa: B018
+
+    # The failed resolution is cached: subsequent accesses return None
+    # without re-calling the API.
+    assert lineage_context.model_lineage_index is None
+    assert fake_client.model_table_calls == 1
 
 
 def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:

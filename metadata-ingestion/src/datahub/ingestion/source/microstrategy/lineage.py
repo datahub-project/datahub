@@ -189,15 +189,21 @@ class MicroStrategyLineageExtractor:
         # MicroStrategy SQL views contain multi-pass SQL: several statements
         # (typically CREATE VOLATILE/TEMP TABLE ... AS select) concatenated
         # without semicolons. Parse per statement and subtract the tables
-        # created within the script so volatile intermediates never appear
-        # as warehouse upstreams.
+        # CREATED within the script so volatile intermediates never appear as
+        # warehouse upstreams. Only CREATE targets are subtracted: a table
+        # that is read and written by the same DML statement (self-referencing
+        # INSERT/MERGE) is a genuine upstream.
         in_urns: Set[str] = set()
-        out_urns: Set[str] = set()
+        created_urns: Set[str] = set()
         had_parse_failure = False
         for statement in split_statements(sql, dialect=dialect):
             if not statement.strip():
                 continue
             if _is_lineage_irrelevant_statement(statement):
+                logger.debug(
+                    "Skipping non-lineage SQL-view statement: %s",
+                    statement.strip()[:120],
+                )
                 continue
             try:
                 parsed = create_lineage_sql_parsed_result(
@@ -222,9 +228,10 @@ class MicroStrategyLineageExtractor:
                 )
                 continue
             in_urns.update(parsed.in_tables)
-            out_urns.update(parsed.out_tables)
+            if _CREATE_STATEMENT.match(statement):
+                created_urns.update(parsed.out_tables)
 
-        upstream_urns = in_urns - out_urns
+        upstream_urns = in_urns - created_urns
         if not upstream_urns and had_parse_failure:
             self.report.warning(
                 title="Failed to parse MicroStrategy SQL view",
@@ -368,12 +375,14 @@ class MicroStrategyLineageExtractor:
         # one cube per time period) make every dataset "match" every
         # visualization. An inference that cannot exclude anything carries no
         # signal, so treat it as unresolved rather than emit an all-to-all
-        # lineage fan-out. Dashboard-level fallback lineage remains available
-        # via `emit_dashboard_dataset_edges`.
-        if len(dashboard.datasets) > 1 and len(unique_inputs) == len(
+        # lineage fan-out. Two-dataset dashboards are exempt: a visualization
+        # combining both datasets is common and plausible there. Dashboard-level
+        # fallback lineage remains available via `emit_dashboard_dataset_edges`.
+        if len(dashboard.datasets) > 2 and len(unique_inputs) == len(
             dashboard.datasets
         ):
             self.report.report_unresolved_visualization()
+            self.report.report_visualization_suppressed_ambiguous()
             logger.debug(
                 "Visualization %s matched all %d datasets of dashboard %s; "
                 "treating the binding as unresolved",
@@ -565,11 +574,15 @@ _LINEAGE_STOP_WORDS = {
 # MicroStrategy SQL views append non-SQL commentary after the final pass
 # ("[Analytical engine calculation steps: ...]", "with parameters: 1") and
 # include DROP statements for its volatile tables. None of these carry
-# lineage, so they are skipped instead of counted as parse failures.
+# lineage, so they are skipped instead of counted as parse failures. The
+# "with parameters" match requires the trailing colon so a legitimate CTE
+# named "parameters" is never skipped.
 _LINEAGE_IRRELEVANT_STATEMENT = re.compile(
-    r"^\s*(drop\s|\[|with\s+parameters\b)",
+    r"^\s*(drop\s|\[|with\s+parameters\s*:)",
     re.IGNORECASE,
 )
+
+_CREATE_STATEMENT = re.compile(r"^\s*create\b", re.IGNORECASE)
 
 
 def _is_lineage_irrelevant_statement(statement: str) -> bool:
@@ -683,9 +696,12 @@ def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str,
     """Map derived-object ids to the id of the single dataset that defines them.
 
     The modeling document API lists each dataset's derived metrics/attributes;
-    those embedded objects are scoped to one dataset, so a visualization grid
-    referencing them must be reading that dataset. Ids defined in more than one
-    dataset carry no signal and are dropped.
+    those objects (and their embedded helper objects) are scoped to one
+    dataset, so a visualization grid referencing them must be reading that
+    dataset. Only each derived entry's own id and its ``embeddedObjects`` ids
+    are collected — ids merely *referenced* from expression trees may point at
+    shared-catalog objects and would mis-attribute ownership. Ids defined in
+    more than one dataset carry no signal and are dropped.
 
     Keys are normalized (upper-cased) object ids; values are dataset ids as
     reported by the API.
@@ -698,8 +714,16 @@ def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str,
         if not dataset_id:
             continue
         derived_ids: Set[str] = set()
-        _collect_hex_object_ids(dataset.get("derivedMetrics"), derived_ids)
-        _collect_hex_object_ids(dataset.get("derivedAttributes"), derived_ids)
+        for derived_entry in _coerce_dicts(
+            dataset.get("derivedMetrics")
+        ) + _coerce_dicts(dataset.get("derivedAttributes")):
+            entry_information = derived_entry.get("information")
+            if isinstance(entry_information, dict):
+                _add_hex_object_id(entry_information.get("objectId"), derived_ids)
+                _add_hex_object_id(entry_information.get("id"), derived_ids)
+            for embedded in _coerce_dicts(derived_entry.get("embeddedObjects")):
+                _add_hex_object_id(embedded.get("id"), derived_ids)
+                _add_hex_object_id(embedded.get("objectId"), derived_ids)
         derived_ids.discard(_normalize_object_id(dataset_id))
         for derived_id in derived_ids:
             if derived_id in owners and owners[derived_id] != dataset_id:
@@ -711,17 +735,45 @@ def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str,
     return owners
 
 
-def _collect_hex_object_ids(node: object, out: Set[str]) -> None:
-    if isinstance(node, dict):
-        for key in ("objectId", "id"):
-            value = node.get(key)
-            if isinstance(value, str) and len(value) == 32:
-                out.add(_normalize_object_id(value))
-        for value in node.values():
-            _collect_hex_object_ids(value, out)
-    elif isinstance(node, list):
-        for value in node:
-            _collect_hex_object_ids(value, out)
+def bind_visualizations_by_derived_objects(
+    dashboard: DashboardDefinition,
+    owner_by_derived_id: Dict[str, str],
+) -> int:
+    """Set ``visualization.datasets`` from dataset-scoped derived-object ids.
+
+    Ids that also exist in any dashboard dataset's shared object catalog are
+    ignored: a shared object cannot discriminate between datasets even when
+    only one dataset's derived expressions happen to reference it. Returns the
+    number of visualizations bound.
+    """
+    dataset_ids = {dataset.id for dataset in dashboard.datasets}
+    shared_catalog_ids = {
+        _normalize_object_id(object_id)
+        for dataset in dashboard.datasets
+        for object_id in dataset.object_ids
+    }
+    bound = 0
+    for visualization in dashboard.visualizations:
+        if visualization.datasets or not visualization.object_ids:
+            continue
+        owners = {
+            owner_by_derived_id[normalized]
+            for object_id in visualization.object_ids
+            if (normalized := _normalize_object_id(object_id)) in owner_by_derived_id
+            and normalized not in shared_catalog_ids
+        } & dataset_ids
+        if owners:
+            visualization.datasets = sorted(owners)
+            bound += 1
+    return bound
+
+
+_HEX_OBJECT_ID = re.compile(r"[0-9A-Fa-f]{32}")
+
+
+def _add_hex_object_id(value: object, out: Set[str]) -> None:
+    if isinstance(value, str) and _HEX_OBJECT_ID.fullmatch(value):
+        out.add(_normalize_object_id(value))
 
 
 def _object_id(value: object) -> Optional[str]:

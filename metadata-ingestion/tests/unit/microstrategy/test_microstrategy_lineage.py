@@ -5,6 +5,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
+    bind_visualizations_by_derived_objects,
     datahub_platform_for_source_type,
     extract_field_names_from_expression,
     metric_fact_ids_from_model,
@@ -241,6 +242,115 @@ def test_warehouse_upstream_urns_skips_non_lineage_trailers() -> None:
     assert not extractor.report.warnings
 
 
+def test_warehouse_upstream_urns_drops_only_script_stays_silent() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+
+    sql = "drop table T1SP000\n\ndrop table T2SP001\n\n[Analytical engine steps]"
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+
+    assert upstreams == []
+    assert len(extractor.report.sql_parse_failures) == 0
+    assert not extractor.report.warnings
+
+
+def test_warehouse_upstream_urns_keeps_cte_named_parameters() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+
+    # A legitimate CTE named "parameters" must not match the trailer skip
+    # (the real MicroStrategy trailer is "with parameters:").
+    sql = "with parameters as (select * from fact_sales) select * from parameters"
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+
+    assert upstreams == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+
+
+def test_warehouse_upstream_urns_keeps_self_referencing_write_reads() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+
+    # Only CREATE targets are subtracted: a persistent table written by an
+    # INSERT in one pass and read by a later pass remains a genuine upstream
+    # (unlike volatile CTAS intermediates).
+    sql = (
+        "insert into fact_rollup select * from fact_sales\n"
+        "\n"
+        "select * from fact_rollup join dim_org on 1=1"
+    )
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+
+    assert upstreams == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.dim_org,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_rollup,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)",
+    ]
+
+
+def test_bind_visualizations_ignores_shared_catalog_ids() -> None:
+    shared_id = "C" * 32
+    derived_id = "A" * 32
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Dash",
+            "datasets": [
+                {
+                    "id": "ds-a",
+                    "name": "A",
+                    "availableObjects": {"metrics": [{"id": shared_id}]},
+                },
+                {
+                    "id": "ds-b",
+                    "name": "B",
+                    "availableObjects": {"metrics": [{"id": shared_id}]},
+                },
+            ],
+            "visualizations": [
+                # References only the shared-catalog object: must stay unbound
+                # even though ds-a's derived expressions also reference it.
+                {
+                    "key": "viz-shared",
+                    "name": "Shared Only",
+                    "metrics": [{"id": shared_id, "type": "metric"}],
+                },
+                {
+                    "key": "viz-derived",
+                    "name": "Derived",
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                },
+            ],
+        }
+    )
+    owner_by_derived_id = {shared_id: "ds-a", derived_id: "ds-a"}
+
+    bound = bind_visualizations_by_derived_objects(dashboard, owner_by_derived_id)
+
+    assert bound == 1
+    assert dashboard.visualizations[0].datasets == []
+    assert dashboard.visualizations[1].datasets == ["ds-a"]
+
+
 def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(
@@ -296,17 +406,37 @@ def _grid_visualization(name: str) -> "Visualization":
 def test_inference_matching_all_datasets_is_treated_as_unresolved() -> None:
     extractor = _extractor()
     dashboard = _inference_dashboard(
+        [
+            "Retail Sales Yesterday",
+            "Service Sales Yesterday",
+            "Total Sales Yesterday",
+        ]
+    )
+    visualization = _grid_visualization("Salon Sales Yesterday")
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    # All three datasets share objects and name tokens with the visualization,
+    # so the inference has no discriminating signal — no edges, counted as
+    # unresolved and attributed to the ambiguity guard.
+    assert inputs == []
+    assert extractor.report.unresolved_visualizations == 1
+    assert extractor.report.visualizations_suppressed_ambiguous == 1
+
+
+def test_inference_matching_both_datasets_of_a_pair_is_kept() -> None:
+    extractor = _extractor()
+    dashboard = _inference_dashboard(
         ["Retail Sales Yesterday", "Service Sales Yesterday"]
     )
     visualization = _grid_visualization("Salon Sales Yesterday")
 
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 
-    # Both datasets share objects and name tokens with the visualization, so
-    # the inference has no discriminating signal — no edges, counted as
-    # unresolved.
-    assert inputs == []
-    assert extractor.report.unresolved_visualizations == 1
+    # Two-dataset dashboards are exempt from the ambiguity guard: a
+    # visualization combining both datasets is plausible.
+    assert len(inputs) == 2
+    assert extractor.report.unresolved_visualizations == 0
 
 
 def test_inference_matching_a_strict_subset_is_kept() -> None:
@@ -343,7 +473,22 @@ def test_unique_derived_object_owners_maps_ids_and_drops_shared() -> None:
                 "information": {"objectId": "DS-B", "name": "Service WTD"},
                 "derivedAttributes": [
                     {"information": {"objectId": "D" * 32}},
-                    {"information": {"objectId": "E" * 32}},
+                    {
+                        "information": {"objectId": "E" * 32},
+                        # Expression-referenced shared-catalog object: must NOT
+                        # be attributed to DS-B.
+                        "forms": [
+                            {
+                                "expressions": [
+                                    {
+                                        "expression": {
+                                            "tree": {"target": {"objectId": "F" * 32}}
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                    },
                 ],
             },
         ]
@@ -357,6 +502,7 @@ def test_unique_derived_object_owners_maps_ids_and_drops_shared() -> None:
         "C" * 32: "DS-A",
         "E" * 32: "DS-B",
     }
+    assert "F" * 32 not in owners
 
 
 def test_extract_field_names_from_model_expression() -> None:

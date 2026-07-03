@@ -33,6 +33,7 @@ from datahub.ingestion.source.microstrategy.constants import (
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
+    bind_visualizations_by_derived_objects,
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
@@ -97,6 +98,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
         self._metric_model_cache: Dict[str, Dict[str, Any]] = {}
+        self._model_document_unavailable_projects: Set[str] = set()
 
     @classmethod
     def create(
@@ -473,31 +475,31 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ]
         if len(dashboard.datasets) < 2 or not unbound:
             return
+        if project_id in self._model_document_unavailable_projects:
+            return
         try:
             model_document = self.client.get_model_document(project_id, dashboard.id)
         except MicroStrategyAPIError as error:
-            # Modeling access is optional; name/object inference still applies.
-            logger.debug(
-                "Model document unavailable for dashboard %s: %s",
-                dashboard.id,
-                error,
+            # Modeling access is optional; name/object inference still
+            # applies. Privileges are project-scoped, so remember the failure
+            # instead of re-attempting for every dashboard.
+            self._model_document_unavailable_projects.add(project_id)
+            self.report.info(
+                title="Modeling document API unavailable",
+                message=(
+                    "Visualization-to-dataset binding via dataset-scoped "
+                    "derived objects is disabled for this project; falling "
+                    "back to object/name inference."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
             )
             return
 
         owner_by_derived_id = unique_derived_object_owners(model_document)
         if not owner_by_derived_id:
             return
-        dataset_ids = {dataset.id for dataset in dashboard.datasets}
-        bound = 0
-        for visualization in unbound:
-            owners = {
-                owner_by_derived_id[object_id.strip().upper()]
-                for object_id in visualization.object_ids
-                if object_id.strip().upper() in owner_by_derived_id
-            } & dataset_ids
-            if owners:
-                visualization.datasets = sorted(owners)
-                bound += 1
+        bound = bind_visualizations_by_derived_objects(dashboard, owner_by_derived_id)
         if bound:
             self.report.report_visualizations_bound_by_derived_objects(bound)
 
@@ -1113,22 +1115,30 @@ class _LazyProjectLineage:
 
     @property
     def warehouse_context(self) -> Optional[WarehouseLineageContext]:
+        # Resolution is cached even when it raises: an unexpected error must
+        # surface once (and be handled by the caller's boundary), not be
+        # re-attempted for every dashboard in the project. This is also why
+        # functools.cached_property is not used here — it retries on failure.
         if not self._context_resolved:
-            self._context = self._source._get_project_warehouse_context(
-                self._project_id,
-                self._source_warehouses,
-            )
-            self._context_resolved = True
+            try:
+                self._context = self._source._get_project_warehouse_context(
+                    self._project_id,
+                    self._source_warehouses,
+                )
+            finally:
+                self._context_resolved = True
         return self._context
 
     @property
     def model_lineage_index(self) -> Optional[ModelLineageIndex]:
         if not self._index_resolved:
-            self._index = self._source._get_project_model_lineage_index(
-                self._project_id,
-                self.warehouse_context,
-            )
-            self._index_resolved = True
+            try:
+                self._index = self._source._get_project_model_lineage_index(
+                    self._project_id,
+                    self.warehouse_context,
+                )
+            finally:
+                self._index_resolved = True
         return self._index
 
 

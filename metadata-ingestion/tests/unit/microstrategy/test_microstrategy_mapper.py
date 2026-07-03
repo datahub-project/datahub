@@ -662,6 +662,34 @@ def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> 
     )
 
 
+def test_chart_with_unresolved_inputs_emits_empty_input_fields() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    visualization = dashboard.visualizations[0]
+    # No binding, no object references: inputs and input fields unresolved.
+    visualization.datasets = []
+    visualization.object_ids = []
+    dashboard.datasets.append(
+        DatasetObject.model_validate({"id": "ds-2", "name": "Second Cube"})
+    )
+
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            visualization,
+            mapper.project_key("project-1"),
+        )
+    )
+
+    chart_info = _aspect(workunits, ChartInfoClass)
+    input_fields = _aspect(workunits, InputFieldsClass)
+
+    # Empty aspects are emitted so a previous run's lineage cannot linger.
+    assert chart_info.inputs == []
+    assert input_fields.fields == []
+
+
 def test_dataset_upstreams_restricted_to_field_lineage_tables_when_available() -> None:
     mapper = _mapper(extract_warehouse_lineage=True)
     dashboard = _definition()
@@ -693,6 +721,9 @@ def test_dataset_upstreams_restricted_to_field_lineage_tables_when_available() -
     upstream_lineage = _aspect(workunits, UpstreamLineageClass)
     assert [upstream.dataset for upstream in upstream_lineage.upstreams] == [fact_table]
     assert upstream_lineage.fineGrainedLineages
+    # The two filter-only tables were pruned and accounted for.
+    assert mapper.report.warehouse_upstreams_pruned_by_field_evidence == 2
+    assert mapper.report.warehouse_lineage_edges == 1
 
 
 def test_report_source_dataset_warehouse_lineage_is_opt_in() -> None:

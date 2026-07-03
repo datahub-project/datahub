@@ -294,9 +294,12 @@ class MicroStrategyMapper:
             # emitted as upstreams — they would fan every dataset out to the
             # whole schema.
             upstream_urns = sorted(fine_grained_table_urns)
+            pruned = set(coarse_upstream_urns) - fine_grained_table_urns
+            if pruned:
+                self.report.report_warehouse_upstreams_pruned(len(pruned))
         else:
             upstream_urns = coarse_upstream_urns
-        if coarse_upstream_urns and upstream_urns:
+        if upstream_urns:
             self.report.report_warehouse_lineage_edges(len(upstream_urns))
         if upstream_urns:
             yield MetadataChangeProposalWrapper(
@@ -380,17 +383,19 @@ class MicroStrategyMapper:
                 or None,
             ),
         ).as_workunit()
+        input_fields: Optional[InputFieldsClass] = None
         if input_urn and source_dataset:
             input_fields = self._dataset_input_fields(
                 input_urn,
                 source_dataset,
                 report_definition.object_ids if report_definition else None,
             )
-            if input_fields:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=report_urn,
-                    aspect=input_fields,
-                ).as_workunit()
+        # Always emit (empty when unresolved) so a previous run's inputFields
+        # cannot linger — aspects are replaced wholesale, never auto-deleted.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=report_urn,
+            aspect=input_fields or InputFieldsClass(fields=[]),
+        ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=report_urn,
             aspect=SubTypesClass(typeNames=[BIAssetSubTypes.REPORT]),
@@ -442,11 +447,12 @@ class MicroStrategyMapper:
             visualization,
             inputs,
         )
-        if input_fields:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=input_fields,
-            ).as_workunit()
+        # Always emit (empty when unresolved) so a previous run's inputFields
+        # cannot linger — aspects are replaced wholesale, never auto-deleted.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=input_fields or InputFieldsClass(fields=[]),
+        ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=SubTypesClass(
@@ -811,6 +817,9 @@ class MicroStrategyMapper:
             "microstrategyDatasetId": dataset.id,
         }
         properties.update(_dataset_semantic_count_properties(dataset))
+        # Deliberately the FULL SQL-derived table set (audit trail), even when
+        # the emitted upstreamLineage aspect is restricted to field-evidenced
+        # tables.
         if self.config.extract_warehouse_lineage and dataset.warehouse_upstream_urns:
             properties.update(
                 _warehouse_upstream_properties(dataset.warehouse_upstream_urns)
