@@ -254,7 +254,9 @@ The Spark agent captures fine-grained lineage information, including column-leve
 
 ### Spark versions supported
 
-Supports Spark 3.x series.
+Supports the Spark 3.x series (Scala 2.12 and 2.13). Apache Spark 4.x is supported via the
+Scala 2.13 build of the agent (`io.acryl:acryl-spark-lineage_2.13`) and is covered by a
+compatibility smoke test.
 
 ### Environments tested with
 
@@ -492,8 +494,11 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
 ### Next
 
 - _Changes_:
+  - **OpenLineage upgrade to 1.50.0**: the vendored/shaded OpenLineage classes were refreshed onto the 1.50 upstream base. Iceberg-on-Glue symlink resolution is now provided natively by OpenLineage (since 1.46), so the temporary DataHub Glue-ARN workaround was removed.
+  - **Apache Spark 4.x support**: the agent is verified to attach and emit lineage on Apache Spark 4.0.0 (Scala 2.13) via a dedicated compatibility smoke test. Spark 4 requires the Scala 2.13 build of the agent.
   - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
 - _Fixes_:
+  - **Listener Null-Safety Fix**: the underlying OpenLineage listener is created lazily and can remain uninitialized (listener disabled, no active `SparkContext`/`SparkEnv` yet, or config parse failure). The event handlers now no-op in those cases instead of throwing a `NullPointerException` back into Spark's listener bus.
   - **Dependency Relocation Fix** ([#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
   - **Missing Output Lineage Fix**: Fixed an issue where `outputDatasetEdges` in the `dataJobInputOutput` aspect could be empty when using coalesced emission with the REST emitter. Early coalesced emissions (e.g., on START events) sent an UPSERT with empty edge arrays, which clobbered later PATCH emissions that contained actual output edges. The fix skips emitting `dataJobInputOutput` when all edges are empty.
   - **SparkEnv NPE Fix**: Added null-check for `SparkEnv.get()` in `PlanUtils.getDirectoryPath()` to prevent `NullPointerException` during Spark shutdown or in test contexts.
