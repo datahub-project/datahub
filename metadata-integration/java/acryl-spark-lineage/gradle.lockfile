@@ -425,4 +425,4 @@ software.amazon.awssdk:third-party-jackson-core:2.30.33=runtimeClasspath,testRun
 software.amazon.awssdk:utils:2.30.33=runtimeClasspath,testRuntimeClasspath
 software.amazon.eventstream:eventstream:1.0.1=runtimeClasspath,testRuntimeClasspath
 stax:stax-api:1.0.1=compileClasspath,provided,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-empty=shadow,signatures
+empty=shadow,signatures,sparkSmoke4AnnotationProcessor

@@ -59,6 +59,7 @@ jobs:
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
                     :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest \
+                    :metadata-integration:java:acryl-spark-lineage:sparkSmoke4Test \
                     :metadata-integration:java:acryl-spark-lineage:jacocoTestReport
       - name: Upload spark-lineage coverage to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
