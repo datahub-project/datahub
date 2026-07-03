@@ -1020,11 +1020,11 @@
     "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
   },
-  "github-documents": {
+  "github": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",
-    "description": "Import files from a GitHub repository as DataHub Documents on a schedule.",
-    "img_path": "img/logos/platforms/github.svg"
+    "description": "Import files and documentation from GitHub repositories into DataHub as Documents, keeping them discoverable and governed alongside the rest of your metadata. Ingested on a schedule through UI or CLI ingestion.",
+    "img_path": "img/logos/platforms/github.png"
   },
   "excel": {
     "platform_type": "Metadata Systems",

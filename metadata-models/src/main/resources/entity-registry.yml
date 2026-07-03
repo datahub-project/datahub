@@ -359,6 +359,7 @@ entities:
       - semanticContent
       - institutionalMemory
       - documentation
+      - documentUsageStatistics
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
