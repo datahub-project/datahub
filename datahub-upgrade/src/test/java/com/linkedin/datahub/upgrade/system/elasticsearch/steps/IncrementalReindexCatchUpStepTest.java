@@ -369,6 +369,51 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
+  public void testSuccessPersistsCatchUpStateWithResultMap() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+
+    setupPhase1Result(phase1State);
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<DataHubUpgradeState> stateCaptor =
+        ArgumentCaptor.forClass(DataHubUpgradeState.class);
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> resultCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(upgrade, atLeastOnce())
+        .setUpgradeResult(
+            eq(opContext), any(), eq(entityService), stateCaptor.capture(), resultCaptor.capture());
+
+    assertEquals(
+        stateCaptor.getAllValues().get(stateCaptor.getAllValues().size() - 1),
+        DataHubUpgradeState.SUCCEEDED);
+    Map<String, String> finalResult =
+        resultCaptor.getAllValues().get(resultCaptor.getAllValues().size() - 1);
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(finalResult, INDEX_NAME),
+        Optional.of(IncrementalReindexState.CatchUpStatus.COMPLETED));
+    assertTrue(
+        resultCaptor.getAllValues().stream().noneMatch(map -> map == null),
+        "Catch-up upgrade result map must not be cleared on success");
+  }
+
+  @Test
   public void testEarlyExitWhenCatchUpAlreadyComplete() {
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(

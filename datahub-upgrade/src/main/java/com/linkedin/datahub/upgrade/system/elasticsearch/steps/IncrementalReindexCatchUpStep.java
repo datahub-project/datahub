@@ -222,7 +222,6 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         }
 
         persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.SUCCEEDED);
-        BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
         log.error("IncrementalReindexCatchUpStep failed", e);

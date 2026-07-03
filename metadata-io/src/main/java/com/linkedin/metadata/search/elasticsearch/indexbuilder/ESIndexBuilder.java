@@ -2538,14 +2538,6 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       @Nonnull OperationContext opContext,
       ElasticSearchConfiguration esConfig,
-      ReindexConfig indexState) {
-    return getOrphanedIndices(searchClient, opContext, esConfig, indexState, Set.of());
-  }
-
-  private static List<String> getOrphanedIndices(
-      SearchClientShim<?> searchClient,
-      @Nonnull OperationContext opContext,
-      ElasticSearchConfiguration esConfig,
       ReindexConfig indexState,
       @Nonnull Set<String> excludePhysicalIndices) {
     List<String> orphanedIndices = new ArrayList<>();

@@ -198,6 +198,100 @@ public class IncrementalReindexStateTest {
     assertTrue(IncrementalReindexState.isCatchUpCompleteForAllIndices(phase1State, catchUpState));
   }
 
+  @Test
+  public void testIsCatchUpCompleteForAllIndicesWhenPhase1Empty() {
+    assertTrue(IncrementalReindexState.isCatchUpCompleteForAllIndices(null, null));
+  }
+
+  @Test
+  public void testProtectsInProgressPhase1Status() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            TIMESERIES_INDEX,
+            NEXT_INDEX,
+            OLD_BACKING,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.IN_PROGRESS);
+    phase1State =
+        IncrementalReindexState.setDualWriteStartTime(phase1State, TIMESERIES_INDEX, 2000L);
+
+    Set<String> protectedIndices = protectedIndices(phase1State, null);
+
+    assertEquals(protectedIndices, Set.of(OLD_BACKING));
+  }
+
+  @Test
+  public void testDoesNotProtectFailedPhase1Status() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            TIMESERIES_INDEX,
+            NEXT_INDEX,
+            OLD_BACKING,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.FAILED);
+    phase1State =
+        IncrementalReindexState.setDualWriteStartTime(phase1State, TIMESERIES_INDEX, 2000L);
+
+    Set<String> protectedIndices = protectedIndices(phase1State, null);
+
+    assertTrue(protectedIndices.isEmpty());
+  }
+
+  @Test
+  public void testProtectsWhenCatchUpFailed() {
+    Map<String, String> phase1State = timeseriesPhase1State(1000L, 2000L, OLD_BACKING);
+    Map<String, String> catchUpState =
+        IncrementalReindexState.setCatchUpStatus(
+            null, TIMESERIES_INDEX, IncrementalReindexState.CatchUpStatus.FAILED);
+
+    Set<String> protectedIndices = protectedIndices(phase1State, catchUpState);
+
+    assertEquals(protectedIndices, Set.of(OLD_BACKING));
+  }
+
+  @Test
+  public void testSkipsMissingOldBackingIndexName() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            TIMESERIES_INDEX,
+            NEXT_INDEX,
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State =
+        IncrementalReindexState.setDualWriteStartTime(phase1State, TIMESERIES_INDEX, 2000L);
+
+    Set<String> protectedIndices = protectedIndices(phase1State, null);
+
+    assertTrue(protectedIndices.isEmpty());
+  }
+
+  @Test
+  public void testEntityReleasedWhenRollbackEnabledButIndexConventionNull() {
+    Map<String, String> phase1State = entityPhase1State(1000L, 2000L, OLD_BACKING);
+    Map<String, String> catchUpState =
+        IncrementalReindexState.setCatchUpStatus(
+            null, ENTITY_INDEX, IncrementalReindexState.CatchUpStatus.COMPLETED);
+
+    Set<String> protectedIndices =
+        IncrementalReindexState.getProtectedPhysicalIndicesForCleanup(
+            phase1State, catchUpState, null, true);
+
+    assertTrue(protectedIndices.isEmpty());
+  }
+
   private static Set<String> protectedIndices(
       Map<String, String> phase1State, Map<String, String> catchUpState) {
     return IncrementalReindexState.getProtectedPhysicalIndicesForCleanup(
