@@ -48,7 +48,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import Urn
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 if TYPE_CHECKING:
@@ -129,16 +130,17 @@ def _field_path(field_urn: str) -> Optional[str]:
 def _is_dataset_urn(urn: Optional[str]) -> TypeGuard[str]:
     """True iff `urn` is a well-formed dataset URN.
 
-    Non-raising: ``guess_entity_type`` asserts on a malformed / empty / non-URN
-    string, so calling it unguarded inside a per-reference loop would let one bad
-    reference abort resolution for every valid sibling in the aspect. A stray
-    reference is skipped instead.
+    Uses the typed ``DatasetUrn`` primitive (full structural validation) rather than the
+    naive ``guess_entity_type`` splitter. Non-raising: ``from_string`` raises
+    ``InvalidUrnError`` on a malformed / empty / non-dataset URN, so a stray reference
+    is skipped rather than aborting resolution for its valid siblings in the aspect.
     """
     if not urn:
         return False
     try:
-        return guess_entity_type(urn) == "dataset"
-    except Exception:
+        DatasetUrn.from_string(urn)
+        return True
+    except InvalidUrnError:
         return False
 
 
