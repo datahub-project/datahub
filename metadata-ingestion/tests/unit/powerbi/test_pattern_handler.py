@@ -800,30 +800,8 @@ def test_remap_column_lineage_multi_table_shared_column_name():
 
 # ---------------------------------------------------------------------------
 # OdbcLineage — view leaves and dialect-aware SQL detection
+# (reuses the _build_odbc_lineage / _nav_accessor helpers defined above)
 # ---------------------------------------------------------------------------
-
-
-def _build_odbc_lineage() -> OdbcLineage:
-    table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
-    resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
-    resolver.get_platform_instance.return_value = PlatformDetail()
-    return OdbcLineage(
-        ctx=MagicMock(spec=PipelineContext),
-        table=table,
-        config=_build_config(),
-        reporter=PowerBiDashboardSourceReport(),
-        platform_instance_resolver=resolver,
-    )
-
-
-def _nav_accessor(*levels: tuple) -> IdentifierAccessor:
-    head: Optional[IdentifierAccessor] = None
-    for kind, name in reversed(levels):
-        head = IdentifierAccessor(
-            identifier=name, items={"Kind": kind, "Name": name}, next=head
-        )
-    assert head is not None
-    return head
 
 
 def test_odbc_view_leaf_resolves_like_table():
