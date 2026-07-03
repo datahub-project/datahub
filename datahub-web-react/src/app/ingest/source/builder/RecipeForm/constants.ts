@@ -14,6 +14,23 @@ import {
     USER_DENY,
 } from '@app/ingest/source/builder/RecipeForm/azure';
 import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/bigid';
+import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -66,6 +83,23 @@ import {
     CSV_FILE_URL,
     CSV_WRITE_SEMANTICS,
 } from '@app/ingest/source/builder/RecipeForm/csv';
+import {
+    CUBE_ALLOW,
+    CUBE_API_TOKEN,
+    CUBE_API_URL,
+    CUBE_CLOUD_API_KEY,
+    CUBE_DENY,
+    CUBE_DEPLOYMENT_ID,
+    CUBE_DEPLOYMENT_TYPE,
+    CUBE_ENVIRONMENT_ID,
+    CUBE_INCLUDE_COLUMN_LINEAGE,
+    CUBE_INCLUDE_CUBES,
+    CUBE_INCLUDE_REPORTS,
+    CUBE_INCLUDE_WORKBOOKS,
+    CUBE_PARSE_SQL_FOR_LINEAGE,
+    CUBE_WAREHOUSE_DATABASE,
+    CUBE_WAREHOUSE_PLATFORM,
+} from '@app/ingest/source/builder/RecipeForm/cube';
 import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
@@ -309,9 +343,11 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    BIGID,
     BIGQUERY_BETA,
     CONFLUENCE,
     CSV,
+    CUBE,
     DATABRICKS,
     DBT_CLOUD,
     MATILLION_DPC,
@@ -601,6 +637,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
+    },
     [MATILLION_DPC]: {
         fields: [
             MATILLION_CLIENT_ID,
@@ -801,6 +852,31 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
     },
+    [CUBE]: {
+        fields: [
+            CUBE_API_URL,
+            CUBE_DEPLOYMENT_TYPE,
+            CUBE_API_TOKEN,
+            CUBE_CLOUD_API_KEY,
+            CUBE_DEPLOYMENT_ID,
+            CUBE_ENVIRONMENT_ID,
+        ],
+        filterFields: [CUBE_ALLOW, CUBE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            CUBE_WAREHOUSE_PLATFORM,
+            CUBE_WAREHOUSE_DATABASE,
+            CUBE_INCLUDE_CUBES,
+            INCLUDE_VIEWS,
+            CUBE_INCLUDE_REPORTS,
+            CUBE_INCLUDE_WORKBOOKS,
+            CUBE_PARSE_SQL_FOR_LINEAGE,
+            CUBE_INCLUDE_COLUMN_LINEAGE,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        connectionSectionTooltip:
+            'For Cube Cloud, providing a Cloud API Key with the Deployment and Environment IDs unlocks warehouse lineage, reports, and workbooks.',
+        filterSectionTooltip: 'Include or exclude specific Cubes and Views from ingestion.',
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
@@ -812,5 +888,6 @@ export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
     BIGQUERY,
     DATABRICKS,
     MATILLION_DPC,
+    BIGID,
     SAC,
 ]);

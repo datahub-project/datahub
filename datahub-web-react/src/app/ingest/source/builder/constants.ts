@@ -3,12 +3,14 @@ import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
+import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
 import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
+import cubeLogo from '@images/cubelogo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
@@ -74,6 +76,8 @@ export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
 const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+export const BIGID = 'bigid';
+export const BIGID_URN = `urn:li:dataPlatform:${BIGID}`;
 const BIGQUERY = 'bigquery';
 const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
@@ -85,6 +89,8 @@ const COCKROACHDB = 'cockroachdb';
 const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
+export const CUBE = 'cube';
+const CUBE_URN = `urn:li:dataPlatform:${CUBE}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 const DREMIO = 'dremio';
@@ -223,11 +229,13 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [CONFLUENCE_URN]: confluenceLogo,
+    [CUBE_URN]: cubeLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
+    [BIGID_URN]: bigidLogo,
     [FEAST_URN]: feastLogo,
     [FLINK_URN]: flinkLogo,
     [GLUE_URN]: glueLogo,

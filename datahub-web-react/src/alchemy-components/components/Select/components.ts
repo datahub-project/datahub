@@ -181,11 +181,12 @@ export const OptionLabel = styled.label<{
     ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme),
 }));
 
-export const SelectLabel = styled.label({
+export const SelectLabel = styled.label(({ theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
+}));
 
 export const StyledIcon = styled(Icon)(({ theme }) => ({
     flexShrink: 0,

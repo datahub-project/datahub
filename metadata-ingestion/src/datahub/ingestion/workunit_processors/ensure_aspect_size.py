@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
@@ -13,10 +14,20 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
+    BinaryJsonSchemaClass,
     DatasetProfileClass,
+    EspressoSchemaClass,
+    KafkaSchemaClass,
+    KeyValueSchemaClass,
+    MySqlDDLClass,
+    OracleDDLClass,
+    OrcSchemaClass,
+    OtherSchemaClass,
+    PrestoDDLClass,
     QueryPropertiesClass,
     QuerySubjectsClass,
     SchemaFieldClass,
+    SchemalessClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -46,6 +57,9 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     """Tracks how many workunits had each aspect type truncated."""
 
     num_truncations_by_aspect: Dict[str, int] = field(default_factory=dict)
+    # Number of schemaMetadata aspects whose platformSchema blob was dropped
+    # wholesale (a coarser, more drastic truncation than dropping fields).
+    num_platform_schema_drops: int = 0
 
 
 class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorReport]):
@@ -100,23 +114,146 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         if truncated:
             self._record_truncation("datasetProfile")
 
+    def _schema_size_without_fields(self, schema: SchemaMetadataClass) -> int:
+        """Serialized size of the aspect excluding the ``fields`` list.
+
+        The ``fields`` list is the part we trim, but the rest of the aspect is
+        emitted too and must count against the budget — chiefly the
+        ``platformSchema`` blob, which for deeply-nested schemas can be several
+        MB on its own, plus top-level scalars (``hash``, ``schemaName``, …).
+
+        We measure by temporarily clearing ``fields`` and serializing the whole
+        aspect, rather than sizing ``platformSchema`` alone, so the budget
+        reflects *all* non-field content the server will parse (nothing is missed
+        if new top-level fields are added later). The mutation is local and
+        restored in the ``finally``.
+        """
+        original_fields = schema.fields
+        try:
+            schema.fields = []
+            return len(json.dumps(pre_json_transform(schema.to_obj())))
+        finally:
+            schema.fields = original_fields
+
+    def _drop_platform_schema(self, schema: SchemaMetadataClass) -> bool:
+        """Blank the raw platform-schema string(s) on the aspect's platformSchema.
+
+        ``platformSchema`` holds an opaque, source-format dump of the schema and
+        is the least valuable part of the aspect (``fields`` carry the structured,
+        queryable metadata), so we shed it before trimming fields. Each union
+        variant is handled explicitly so the type checker verifies the field
+        names — a model change surfaces as a mypy error rather than a silent
+        no-op. Small markers such as ``KafkaSchema.documentSchemaType`` are left
+        intact. An unrecognized variant is warned about and left untouched.
+        Returns ``True`` if any content was cleared.
+        """
+        ps = schema.platformSchema
+        if ps is None or isinstance(ps, SchemalessClass):
+            return False
+        # Direct attribute access (not getattr/setattr) so mypy verifies each
+        # field name against the model.
+        if isinstance(ps, (OtherSchemaClass, PrestoDDLClass)):
+            if ps.rawSchema:
+                ps.rawSchema = ""
+                return True
+            return False
+        if isinstance(ps, (MySqlDDLClass, OracleDDLClass)):
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                return True
+            return False
+        if isinstance(ps, (OrcSchemaClass, BinaryJsonSchemaClass)):
+            if ps.schema:
+                ps.schema = ""
+                return True
+            return False
+        if isinstance(ps, KafkaSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
+                cleared = True
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, EspressoSchemaClass):
+            cleared = False
+            if ps.documentSchema:
+                ps.documentSchema = ""
+                cleared = True
+            if ps.tableSchema:
+                ps.tableSchema = ""
+                cleared = True
+            return cleared
+        if isinstance(ps, KeyValueSchemaClass):
+            cleared = False
+            if ps.keySchema:
+                ps.keySchema = ""
+                cleared = True
+            if ps.valueSchema:
+                ps.valueSchema = ""
+                cleared = True
+            return cleared
+        self.ctx.source_report.warning(
+            title="Unrecognized platformSchema variant",
+            message="Don't know how to trim the raw schema for this platformSchema "
+            "variant, so it was left untouched and the aspect may still exceed the "
+            "size limit. The variant likely needs a branch in _drop_platform_schema.",
+            context=type(ps).__name__,
+        )
+        return False
+
+    def _extract_field_path_depth(self, field: SchemaFieldClass) -> int:
+        return len(
+            [t for t in re.sub(r"\[[^]]*]", "", field.fieldPath).split(".") if t]
+        )
+
     def ensure_schema_metadata_size(
         self, dataset_urn: str, schema: SchemaMetadataClass
     ) -> None:
-        total_fields_size = 0
+        # Fast path: if the whole aspect already fits, there's nothing to trim.
+        if (
+            len(json.dumps(pre_json_transform(schema.to_obj())))
+            < self.schema_size_constraint
+        ):
+            return
+
+        # Over budget. Shed the least-valuable content first — the platformSchema
+        # blob (an opaque source-format dump) — so we keep as many fields (the
+        # structured, queryable metadata) as possible. Only after that do we trim
+        # fields, and only if they still don't fit. This keeps "fields > raw
+        # platform schema" even when neither part is individually over the limit
+        # (e.g. a ~half-schema / ~half-fields aspect).
+        truncated = False
+        if self._drop_platform_schema(schema):
+            self.ctx.source_report.warning(
+                title="Schema truncated due to size constraint",
+                message="Dataset schema contained too much data and would have caused ingestion to fail",
+                context=f"Raw platform schema was removed from schema for {dataset_urn} due to aspect size constraints",
+            )
+            self.report.num_platform_schema_drops += 1
+            truncated = True
+
+        total_fields_size = self._schema_size_without_fields(schema)
         accepted_fields: List[SchemaFieldClass] = []
-        for schema_field in schema.fields:
+        sorted_fields = sorted(schema.fields, key=self._extract_field_path_depth)
+        for schema_field in sorted_fields:
             field_size = len(json.dumps(pre_json_transform(schema_field.to_obj())))
-            if total_fields_size + field_size < self.schema_size_constraint:
-                accepted_fields.append(schema_field)
-                total_fields_size += field_size
-            else:
-                self.ctx.source_report.warning(
-                    title="Schema truncated due to size constraint",
-                    message="Dataset schema contained too much data and would have caused ingestion to fail",
-                    context=f"Field {schema_field.fieldPath} was removed from schema for {dataset_urn} due to aspect size constraints",
-                )
-        if len(accepted_fields) < len(schema.fields):
+            if total_fields_size + field_size >= self.schema_size_constraint:
+                break
+            accepted_fields.append(schema_field)
+            total_fields_size += field_size
+
+        dropped_field_count = len(schema.fields) - len(accepted_fields)
+        if dropped_field_count:
+            # Report a single warning per entity with the dropped count, rather
+            # than one warning per dropped field.
+            self.ctx.source_report.warning(
+                title="Schema truncated due to size constraint",
+                message="Dataset schema contained too much data and would have caused ingestion to fail; some fields were dropped",
+                context=f"Dropped {dropped_field_count} of {len(schema.fields)} fields from schema for {dataset_urn} due to aspect size constraints",
+            )
+        if truncated or dropped_field_count:
             self._record_truncation("schemaMetadata")
         schema.fields = accepted_fields
 

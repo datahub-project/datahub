@@ -141,8 +141,14 @@ public class BatchIngestionRunResource
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
+          Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          "list", List.of()), authorizer, auth, true);
+
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
+                  opContext,
                   pageOffset != null ? pageOffset : DEFAULT_OFFSET,
                   pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                   includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
@@ -180,7 +186,7 @@ public class BatchIngestionRunResource
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  runId, includeSoft != null && includeSoft, start, count);
+                  opContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(

@@ -14,7 +14,7 @@ import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
-import { Deprecation, Health, Maybe } from '@types';
+import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -123,7 +123,10 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
+            <StructuredPropertyBadge
+                structuredProperties={previewData?.structuredProperties}
+                platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
+            />
             <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );

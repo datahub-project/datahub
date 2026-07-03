@@ -74,7 +74,7 @@ public class LoadIndicesStep implements UpgradeStep {
             .addLine(
                 "Loading indices directly from local DB ordered by URN/aspect for optimal document batching");
 
-        indexManager.optimizeForBulkOperations();
+        indexManager.optimizeForBulkOperations(context.opContext());
         context.report().addLine("Optimized settings for bulk operations on DataHub indices");
 
         log.info("Starting loadIndices");
@@ -106,7 +106,7 @@ public class LoadIndicesStep implements UpgradeStep {
       } finally {
         if (indexManager.isSettingsOptimized()) {
           try {
-            indexManager.restoreFromConfiguration();
+            indexManager.restoreFromConfiguration(context.opContext());
             context
                 .report()
                 .addLine("Restored settings to configured values for all DataHub indices");

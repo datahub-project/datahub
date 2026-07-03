@@ -399,12 +399,26 @@ log4j.logger.datahub.spark=DEBUG
 log4j.logger.datahub.client.rest=DEBUG
 ```
 
+## Runtime requirements
+
+The agent shadow jar is compiled to **Java 17 bytecode**, so it requires a Spark cluster running
+**Java 17 or newer**. This matches the current defaults of the major managed Spark platforms:
+
+- Amazon EMR 7.x (Java 17)
+- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18+ is Java 21)
+- Dataproc Serverless 2.x / 3.0 and Dataproc on GCE image 3.0
+- Microsoft Fabric runtime 2.0
+
+Java 8 and Java 11 runtimes are **not supported** (e.g. EMR 6.x, Databricks ≤ 15.4 LTS, AWS Glue
+≤ 4.0, Dataproc on GCE images 2.1–2.3, Microsoft Fabric 1.3). Run the agent on a Java 17+ runtime.
+
 ## How to build
 
-Use Java 8 to build the project. The project uses Gradle as the build tool. To build the project, run the following command:
+The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and produces the Java
+17-bytecode shadow jar:
 
 ```shell
-./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:acryl-spark-lineage:shadowJar
+./gradlew :metadata-integration:java:acryl-spark-lineage:shadowJar
 ```
 
 ## Known limitations

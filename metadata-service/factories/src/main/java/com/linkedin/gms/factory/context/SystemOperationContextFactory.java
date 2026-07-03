@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.context;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.group.GroupService;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SystemGraphRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -31,6 +33,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 @Configuration
 public class SystemOperationContextFactory {
@@ -57,7 +60,10 @@ public class SystemOperationContextFactory {
       @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
-      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
+      @Autowired(required = false) @Qualifier("groupService") @Nullable
+          final GroupService groupService,
+      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -87,13 +93,17 @@ public class SystemOperationContextFactory {
             operationContextConfig,
             systemAuthentication,
             entityServiceAspectRetriever.getEntityRegistry(),
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            ServicesRegistryContext.builder()
+                .restrictedService(restrictedService)
+                .actorGroupMembershipService(groupService)
+                .build(),
             searchContext,
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
                 .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .entityGraphCache(entityGraphCache)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
@@ -133,7 +143,10 @@ public class SystemOperationContextFactory {
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
-      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
+      @Autowired(required = false) @Qualifier("groupService") @Nullable
+          final GroupService groupService,
+      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -157,12 +170,16 @@ public class SystemOperationContextFactory {
             operationContextConfig,
             systemAuthentication,
             entityRegistry,
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            ServicesRegistryContext.builder()
+                .restrictedService(restrictedService)
+                .actorGroupMembershipService(groupService)
+                .build(),
             searchContext,
             RetrieverContext.builder()
                 .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .entityGraphCache(entityGraphCache)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
