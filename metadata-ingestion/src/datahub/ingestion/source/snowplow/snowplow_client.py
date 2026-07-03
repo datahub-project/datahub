@@ -10,7 +10,7 @@ API Documentation: https://console.snowplowanalytics.com/api/msc/v1/docs/
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 import requests
 from pydantic import ValidationError
@@ -1024,15 +1024,33 @@ class SnowplowBDPClient:
 
         # Parse enrichments individually so one bad item doesn't lose all
         enrichments: List[Enrichment] = []
+        # The enrichment name is now the DataJob URN key (the payload no longer
+        # carries a UUID), so two enrichments sharing a name would collapse into a
+        # single DataJob (last-write-wins). Names are unique-per-pipeline in
+        # practice, but surface a collision rather than dropping one silently.
+        seen_names: Set[str] = set()
         for enrichment_data in response_data:
             try:
-                enrichments.append(Enrichment.from_resource(enrichment_data))
+                enrichment = Enrichment.from_resource(enrichment_data)
             except (ValidationError, KeyError, TypeError) as e:
                 error_msg = f"Failed to parse enrichment in pipeline {pipeline_id}: {e}"
                 logger.warning(error_msg)
                 if self.report:
                     self.report.report_warning("enrichment_parsing", error_msg)
                 continue
+
+            if enrichment.id in seen_names:
+                error_msg = (
+                    f"Duplicate enrichment name '{enrichment.id}' in pipeline "
+                    f"{pipeline_id}; only the first is kept (DataJob URNs are keyed "
+                    "by enrichment name)."
+                )
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("enrichment_duplicate_name", error_msg)
+                continue
+            seen_names.add(enrichment.id)
+            enrichments.append(enrichment)
 
         logger.info(f"Found {len(enrichments)} enrichments")
         return enrichments

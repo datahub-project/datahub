@@ -629,6 +629,55 @@ class TestSnowplowBDPClientAPIMethods:
         assert enrichment.content.data.vendor == "com.snowplowanalytics.snowplow"
         assert enrichment.content.data.name == "anon-ip"
 
+    @patch.object(SnowplowBDPClient, "_request")
+    def test_get_enrichments_non_string_schema_key_isolated(
+        self, mock_request, bdp_client
+    ):
+        """A non-string schemaKey must not abort the whole loop.
+
+        ``_vendor_from_schema_key`` runs before pydantic validation, so a
+        non-string schemaKey would raise AttributeError (not in the per-item
+        caught tuple) and drop every enrichment. The bad item is skipped while
+        the good one still parses.
+        """
+        mock_request.return_value = [
+            {"name": "bad", "enabled": True, "schemaKey": 123, "userData": {}},
+            {
+                "name": "good",
+                "enabled": True,
+                "schemaKey": "iglu:com.example/x/jsonschema/1-0-0",
+                "userData": {},
+            },
+        ]
+
+        result = bdp_client.get_enrichments("pipeline1")
+
+        assert [e.id for e in result] == ["good"]
+
+    @patch.object(SnowplowBDPClient, "_request")
+    def test_get_enrichments_duplicate_name_deduped(self, mock_request, bdp_client):
+        """Enrichments sharing a name collapse to one DataJob URN; keep the first
+        and surface the collision rather than silently dropping one."""
+        mock_request.return_value = [
+            {
+                "name": "dup",
+                "enabled": True,
+                "schemaKey": "iglu:com.example/x/jsonschema/1-0-0",
+                "userData": {"first": True},
+            },
+            {
+                "name": "dup",
+                "enabled": True,
+                "schemaKey": "iglu:com.example/x/jsonschema/1-0-0",
+                "userData": {"second": True},
+            },
+        ]
+
+        result = bdp_client.get_enrichments("pipeline1")
+
+        assert len(result) == 1
+        assert result[0].parameters == {"first": True}
+
     # Event Specifications API tests
     @patch.object(SnowplowBDPClient, "_request")
     def test_get_event_specifications_success(self, mock_request, bdp_client):

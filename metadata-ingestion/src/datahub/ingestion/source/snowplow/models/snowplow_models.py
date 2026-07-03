@@ -922,6 +922,11 @@ class Enrichment(BaseModel):
         pipelines/v1 enrichments payload no longer returns a vendor field, so we
         recover it from the schema key.
         """
+        # Guard against a non-string schemaKey (e.g. null/number/list from the API):
+        # ``.startswith`` would raise AttributeError, which is not caught by the
+        # per-item handler in get_enrichments and would abort the whole loop.
+        if not isinstance(schema_key, str):
+            return ""
         key = (
             schema_key[len("iglu:") :] if schema_key.startswith("iglu:") else schema_key
         )
