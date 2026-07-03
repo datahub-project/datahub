@@ -126,7 +126,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Search for documents
+    // Search for documents. Pickers bypass the active View so users can find and link
+    // any document they have access to, regardless of the current View scoping.
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
@@ -134,6 +135,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         fetchPolicy: 'network-only',
         includeParentDocuments: true,
         sourceTypes,
+        applyView: false,
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
