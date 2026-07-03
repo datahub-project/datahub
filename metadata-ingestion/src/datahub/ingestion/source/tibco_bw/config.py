@@ -103,6 +103,15 @@ class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         "The TIBCO runtime APIs do not expose which datasets an application reads or "
         "writes, so lineage is supplied here rather than discovered.",
     )
+    emit_column_lineage: bool = Field(
+        default=False,
+        description="Also emit column-level lineage between an application's declared "
+        "upstream and downstream datasets. Fields are matched by name (case-insensitive) "
+        "using schemas read from DataHub. Best-effort: emitted only where both a "
+        "declared upstream and downstream have a schema and share field names, and it "
+        "assumes the application passes fields through unchanged. Requires a DataHub "
+        "graph to be available.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion config for stale entity removal.",

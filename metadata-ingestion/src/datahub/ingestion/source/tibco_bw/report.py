@@ -14,6 +14,7 @@ class TibcoBwSourceReport(StaleEntityRemovalSourceReport):
     jobs_emitted: int = 0
     jobs_with_lineage: int = 0
     lineage_iolets_emitted: int = 0
+    column_lineage_edges_emitted: int = 0
     filtered_scopes: LossyList[str] = field(default_factory=LossyList)
     filtered_applications: LossyList[str] = field(default_factory=LossyList)
 

@@ -1,8 +1,9 @@
-from typing import Iterable
+from typing import Dict, Iterable, List
 
 from requests.exceptions import RequestException
 
 from datahub.api.entities.datajob import DataFlow, DataJob
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -39,7 +40,12 @@ from datahub.ingestion.source.tibco_bw.models import (
     TibcoScope,
 )
 from datahub.ingestion.source.tibco_bw.report import TibcoBwSourceReport
-from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    SubTypesClass,
+)
 from datahub.metadata.urns import DatasetUrn
 
 _FLOW_SUBTYPE_BY_DEPLOYMENT = {
@@ -59,6 +65,12 @@ _FLOW_SUBTYPE_BY_DEPLOYMENT = {
     "Emitted from the operator-supplied `application_lineage` map, since the TIBCO "
     "runtime APIs do not expose an application's datasets",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Best-effort between declared upstream/downstream datasets when both have a "
+    "schema in DataHub, matched by name; enable with `emit_column_lineage`",
+    supported=True,
+)
 class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
     """Ingests TIBCO integration applications from ActiveMatrix BusinessWorks
     (on-prem, via bwagent) or TIBCO Cloud Integration (cloud). Each deployment
@@ -72,6 +84,9 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: TibcoBwSourceReport = TibcoBwSourceReport()
         self.client: TibcoClient = create_client(config)
+        # Case-folded field path -> real field path per dataset urn, read from
+        # DataHub once and reused across applications.
+        self._schema_field_cache: Dict[str, Dict[str, str]] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TibcoBwSource":
@@ -160,6 +175,10 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         if lineage is not None:
             job.inlets = [DatasetUrn.from_string(urn) for urn in lineage.upstreams]
             job.outlets = [DatasetUrn.from_string(urn) for urn in lineage.downstreams]
+            if self.config.emit_column_lineage:
+                job.fine_grained_lineages = self._build_column_lineage(
+                    lineage.upstreams, lineage.downstreams
+                )
 
         has_lineage = bool(job.inlets or job.outlets)
         # materialize_iolets stays False: the iolets are datasets owned by other
@@ -173,6 +192,61 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         if has_lineage:
             self.report.jobs_with_lineage += 1
             self.report.lineage_iolets_emitted += len(job.inlets) + len(job.outlets)
+
+    def _build_column_lineage(
+        self, upstreams: List[str], downstreams: List[str]
+    ) -> List[FineGrainedLineageClass]:
+        # Best-effort field-level lineage for a passthrough application: a field
+        # present on both a declared upstream and downstream is treated as the same
+        # field. Only fields described in DataHub can be matched, so absent schemas
+        # simply yield no column lineage. Matching is case-insensitive because the
+        # two platforms often case fields differently, but the schemaField urns use
+        # each side's real field path.
+        fine_grained: List[FineGrainedLineageClass] = []
+        for downstream_urn in downstreams:
+            downstream_fields = self._schema_field_names(downstream_urn)
+            if not downstream_fields:
+                continue
+            for upstream_urn in upstreams:
+                upstream_fields = self._schema_field_names(upstream_urn)
+                for key in sorted(upstream_fields.keys() & downstream_fields.keys()):
+                    fine_grained.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    upstream_urn, upstream_fields[key]
+                                )
+                            ],
+                            downstreams=[
+                                make_schema_field_urn(
+                                    downstream_urn, downstream_fields[key]
+                                )
+                            ],
+                        )
+                    )
+                    self.report.column_lineage_edges_emitted += 1
+        return fine_grained
+
+    def _schema_field_names(self, urn: str) -> Dict[str, str]:
+        # Maps a case-folded field path to the real field path so callers can match
+        # fields case-insensitively while still emitting correctly-cased urns.
+        # ponytail: a schema with two fields differing only in case collapses to one
+        # entry (last wins); acceptable for this best-effort name match.
+        if urn in self._schema_field_cache:
+            return self._schema_field_cache[urn]
+        fields: Dict[str, str] = {}
+        graph = self.ctx.graph
+        if graph is not None:
+            schema = graph.get_schema_metadata(urn)
+            if schema is not None:
+                fields = {
+                    field.fieldPath.casefold(): field.fieldPath
+                    for field in schema.fields
+                }
+        self._schema_field_cache[urn] = fields
+        return fields
 
     @staticmethod
     def _subtype_workunit(urn: str, subtype: str) -> MetadataWorkUnit:

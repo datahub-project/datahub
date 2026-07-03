@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.api.common import PipelineContext
@@ -12,8 +12,41 @@ from datahub.ingestion.source.tibco_bw.source import TibcoBwSource
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
+    DataJobInputOutputClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
 )
+
+
+class _FakeGraph:
+    # Returns a schema only for urns present in the map, mimicking the graph having
+    # schemas for some datasets (populated by their own connector) and not others.
+    def __init__(self, fields_by_urn: Dict[str, List[str]]) -> None:
+        self._fields_by_urn = fields_by_urn
+
+    def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
+        fields = self._fields_by_urn.get(entity_urn)
+        if fields is None:
+            return None
+        return SchemaMetadataClass(
+            schemaName="t",
+            platform="urn:li:dataPlatform:tibco-bw",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath=name,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                )
+                for name in fields
+            ],
+        )
 
 
 def _source(**overrides: object) -> TibcoBwSource:
@@ -164,3 +197,72 @@ def test_invalid_lineage_urn_is_rejected() -> None:
 
     with pytest.raises(ValueError):
         _source(application_lineage={"orders": {"upstreams": ["not-a-urn"]}})
+
+
+def _lineage_source(**overrides: object) -> TibcoBwSource:
+    return _source(
+        emit_column_lineage=True,
+        application_lineage={
+            "orders": {
+                "upstreams": [_UPSTREAM_URN],
+                "downstreams": [_DOWNSTREAM_URN],
+            }
+        },
+        **overrides,
+    )
+
+
+def _io_aspect(workunits: list) -> DataJobInputOutputClass:
+    return next(
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    )
+
+
+def test_application_column_lineage_matches_shared_fields() -> None:
+    source = _lineage_source()
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {
+            _UPSTREAM_URN: ["id", "amount", "only_upstream"],
+            _DOWNSTREAM_URN: ["id", "amount", "only_downstream"],
+        }
+    )
+    io = _io_aspect(_run(source, [_scope("AS1", ["orders"])]))
+
+    assert io.fineGrainedLineages is not None
+    downstreams = {fine.downstreams[0] for fine in io.fineGrainedLineages}
+    assert downstreams == {
+        f"urn:li:schemaField:({_DOWNSTREAM_URN},id)",
+        f"urn:li:schemaField:({_DOWNSTREAM_URN},amount)",
+    }
+    assert source.report.column_lineage_edges_emitted == 2
+
+
+def test_application_column_lineage_matches_across_casing() -> None:
+    source = _lineage_source()
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {_UPSTREAM_URN: ["OrderId"], _DOWNSTREAM_URN: ["orderid"]}
+    )
+    io = _io_aspect(_run(source, [_scope("AS1", ["orders"])]))
+
+    assert io.fineGrainedLineages is not None
+    fine = io.fineGrainedLineages[0]
+    assert fine.upstreams == [f"urn:li:schemaField:({_UPSTREAM_URN},OrderId)"]
+    assert fine.downstreams == [f"urn:li:schemaField:({_DOWNSTREAM_URN},orderid)"]
+    assert source.report.column_lineage_edges_emitted == 1
+
+
+def test_application_column_lineage_disabled_by_default() -> None:
+    source = _source(
+        application_lineage={
+            "orders": {"upstreams": [_UPSTREAM_URN], "downstreams": [_DOWNSTREAM_URN]}
+        }
+    )
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {_UPSTREAM_URN: ["id"], _DOWNSTREAM_URN: ["id"]}
+    )
+    io = _io_aspect(_run(source, [_scope("AS1", ["orders"])]))
+
+    assert not io.fineGrainedLineages
+    assert source.report.column_lineage_edges_emitted == 0
