@@ -575,6 +575,22 @@ def test_malformed_fine_grained_field_left_unchanged():
     assert _fine_grained(out).upstreams == ["not-a-valid-urn"]
 
 
+def test_field_helpers_reject_non_schemafield_urns():
+    # A dataset URN is not a schemaField URN -> both helpers return None. Previously
+    # _field_path returned the dataset *name* as a bogus field path (positional
+    # entity_ids[1]); SchemaFieldUrn parsing rejects it.
+    from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
+        _field_path,
+        _parent_dataset_urn,
+    )
+
+    assert _parent_dataset_urn(UPPER) is None
+    assert _field_path(UPPER) is None
+    sf = make_schema_field_urn(UPPER, "OrgID")
+    assert _parent_dataset_urn(sf) == UPPER
+    assert _field_path(sf) == "OrgID"
+
+
 def test_non_dataset_upstream_ref_is_skipped():
     # A non-dataset upstream URN (e.g. a dataJob) is ignored, not resolved.
     datajob = "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,prod),task)"

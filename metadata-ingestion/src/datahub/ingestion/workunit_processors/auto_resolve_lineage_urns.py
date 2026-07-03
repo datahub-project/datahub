@@ -46,10 +46,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect,
 )
-from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
-from datahub.utilities.urns.urn import Urn
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 if TYPE_CHECKING:
@@ -112,18 +111,29 @@ class _Resolution:
 
 
 def _parent_dataset_urn(field_urn: str) -> Optional[str]:
-    """Return the parent dataset URN of a schemaField URN, or None if not parseable."""
+    """Return the parent dataset URN of a schemaField URN, or None if it isn't one.
+
+    Uses the typed ``SchemaFieldUrn`` (full validation) rather than positional
+    ``entity_ids[0]``; ``from_string`` raises ``InvalidUrnError`` on any non-schemaField
+    URN, so a stray reference correctly yields None instead of a bogus value.
+    """
     try:
-        return Urn.from_string(field_urn).entity_ids[0]
-    except Exception:
+        return SchemaFieldUrn.from_string(field_urn).parent
+    except InvalidUrnError:
         return None
 
 
 def _field_path(field_urn: str) -> Optional[str]:
-    """Return the field path (column) of a schemaField URN, or None if not parseable."""
+    """Return the field path (column) of a schemaField URN, or None if it isn't one.
+
+    Uses ``SchemaFieldUrn.field_path`` rather than positional ``entity_ids[1]``. This
+    also closes a latent bug: with the positional access, a stray *dataset* URN returned
+    its name (e.g. ``DB.SCHEMA.TABLE``) as a bogus field path; ``from_string`` raises
+    ``InvalidUrnError`` on a non-schemaField URN, so we correctly return None.
+    """
     try:
-        return Urn.from_string(field_urn).entity_ids[1]
-    except Exception:
+        return SchemaFieldUrn.from_string(field_urn).field_path
+    except InvalidUrnError:
         return None
 
 
