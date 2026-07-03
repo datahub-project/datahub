@@ -64,7 +64,7 @@ import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
 import thoughtspotLogo from '@images/thoughtspotlogo.svg';
-import tibcoEmsLogo from '@images/tibcoemslogo.svg';
+import tibcoEmsLogo from '@images/tibcoemslogo.png';
 import tidbLogo from '@images/tidblogo.svg';
 import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';

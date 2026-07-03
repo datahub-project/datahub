@@ -496,7 +496,7 @@
     "connection_type": "Pull",
     "title": "TIBCO EMS",
     "description": "Import queues, topics, and bridge lineage from TIBCO Enterprise Message Service via the EMS REST Proxy admin API.",
-    "img_path": "img/logos/platforms/tibco-ems.svg",
+    "img_path": "img/logos/platforms/tibco-ems.png",
     "extra_features": [
       "Status Aspect"
     ]

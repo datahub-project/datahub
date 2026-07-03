@@ -468,7 +468,7 @@
     name: tibco-ems
     displayName: TIBCO EMS
     type: MESSAGE_BROKER
-    logoUrl: "assets/platforms/tibcoemslogo.svg"
+    logoUrl: "assets/platforms/tibcoemslogo.png"
 - entityUrn: urn:li:dataPlatform:voldemort
   entityType: dataPlatform
   aspectName: dataPlatformInfo
