@@ -38,7 +38,6 @@ on:
       - "Release Validation"
       - "spark smoke test"
       - "Verify Quickstart Compose"
-      - "ZDU E2E (daily)"
     types:
       - completed
 
