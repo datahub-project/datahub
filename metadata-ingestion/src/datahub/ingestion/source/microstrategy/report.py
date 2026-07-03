@@ -33,6 +33,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     chart_lineage_edges: int = 0
     dashboard_dataset_edges: int = 0
     unresolved_visualizations: int = 0
+    visualizations_bound_by_derived_objects: int = 0
     api_errors: int = 0
     malformed_objects_skipped: LossyList[str] = field(default_factory=LossyList)
     filtered_projects: LossyList[str] = field(default_factory=LossyList)
@@ -117,6 +118,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_unresolved_visualization(self) -> None:
         self.unresolved_visualizations += 1
+
+    def report_visualizations_bound_by_derived_objects(self, count: int) -> None:
+        self.visualizations_bound_by_derived_objects += count
 
     def report_api_error(self) -> None:
         self.api_errors += 1

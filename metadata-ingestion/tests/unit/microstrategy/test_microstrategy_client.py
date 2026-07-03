@@ -137,6 +137,9 @@ def test_metadata_search_uses_quick_search_results_endpoint(
     ) -> Dict[str, Any]:
         nonlocal captured_path
         captured_path = path
+        assert params is not None
+        # Ancestors carry the folder path used for folder containers.
+        assert params["getAncestors"] is True
         return {"result": [{"id": "dash-1", "name": "Dashboard 1"}]}
 
     monkeypatch.setattr(client, "_get_json", fake_get_json)

@@ -718,6 +718,18 @@ def _extract_object_ids(value: Any) -> List[str]:
 
 
 def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
+    # Quick-search results requested with getAncestors carry the folder path
+    # as a top-down list of ancestor objects.
+    ancestors = raw_object.get("ancestors")
+    if isinstance(ancestors, list):
+        parts = [
+            name
+            for ancestor in ancestors
+            if isinstance(ancestor, dict)
+            and (name := _first_str(ancestor, ["name", "title"]))
+        ]
+        if parts:
+            return parts
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
         path = _first_str(folder, ["path", "name"])

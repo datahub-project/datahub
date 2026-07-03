@@ -39,6 +39,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     sql_statement_from_sql_view_entry,
     sql_view_dataset_key,
     sql_view_dataset_name,
+    unique_derived_object_owners,
     warehouse_context_from_datasource,
     warehouse_context_from_datasources,
     warehouse_context_with_connection,
@@ -150,14 +151,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         source_warehouses = self._get_project_source_warehouses(project.id)
-        warehouse_context = self._get_project_warehouse_context(
-            project.id,
-            source_warehouses,
-        )
-        model_lineage_index = self._get_project_model_lineage_index(
-            project.id,
-            warehouse_context,
-        )
+        # Warehouse-connection and model-table lookups are deferred until the
+        # first allowed dashboard/report needs them, so projects whose content
+        # is entirely pattern-filtered don't pay for those API calls.
+        lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
         yield from self.mapper.gen_project_container(
             project,
             source_warehouses=source_warehouses,
@@ -165,14 +162,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_dashboards:
             yield from self._process_project_dashboards(
                 project.id,
-                warehouse_context,
-                model_lineage_index,
+                lineage_context,
             )
         if self.config.extract_reports:
             yield from self._process_project_reports(
                 project.id,
-                warehouse_context,
-                model_lineage_index,
+                lineage_context,
             )
 
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:
@@ -266,8 +261,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_project_dashboards(
         self,
         project_id: str,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_lineage_index: Optional[ModelLineageIndex],
+        lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         for dashboard_object in self.client.search_dashboards(project_id):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
@@ -277,8 +271,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._process_dashboard_object(
                     project_id,
                     dashboard_object,
-                    warehouse_context,
-                    model_lineage_index,
+                    lineage_context,
                 )
             except Exception as error:
                 self.report.warning(
@@ -299,8 +292,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         dashboard_object: MSTRObject,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_lineage_index: Optional[ModelLineageIndex],
+        lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.mapper.gen_folder_containers(project_id, dashboard_object)
         parent_key = self.mapper.folder_container_for_dashboard(
@@ -309,10 +301,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard = self._get_dashboard_definition(project_id, dashboard_object)
         if dashboard is None:
             return
+        model_lineage_index = lineage_context.model_lineage_index
         needs_sql_view_context = (
             self.config.extract_warehouse_lineage or model_lineage_index is not None
         )
-        has_warehouse_context = warehouse_context or any(
+        has_warehouse_context = lineage_context.warehouse_context or any(
             dataset.source_warehouse for dataset in dashboard.datasets
         )
         if needs_sql_view_context and has_warehouse_context:
@@ -320,7 +313,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 project_id=project_id,
                 dashboard_object=dashboard_object,
                 dashboard=dashboard,
-                context=warehouse_context,
+                context=lineage_context.warehouse_context,
             )
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
@@ -336,8 +329,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_project_reports(
         self,
         project_id: str,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_lineage_index: Optional[ModelLineageIndex],
+        lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         for report_object in self.client.search_reports(project_id):
             if not self.config.report_pattern.allowed(report_object.name):
@@ -347,8 +339,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._process_report_object(
                     project_id,
                     report_object,
-                    warehouse_context,
-                    model_lineage_index,
+                    lineage_context,
                 )
             except Exception as error:
                 self.report.warning(
@@ -368,8 +359,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         report_object: MSTRObject,
-        warehouse_context: Optional[WarehouseLineageContext],
-        model_lineage_index: Optional[ModelLineageIndex],
+        lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.mapper.gen_folder_containers(project_id, report_object)
         parent_key = self.mapper.folder_container_for_dashboard(
@@ -387,13 +377,16 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     source_dataset,
                 )
-            if self.config.extract_report_sql_lineage and warehouse_context:
+            if self.config.extract_report_sql_lineage and (
+                warehouse_context := lineage_context.warehouse_context
+            ):
                 self._enrich_report_sql_lineage(
                     project_id=project_id,
                     report_object=report_object,
                     dataset=source_dataset,
                     context=warehouse_context,
                 )
+            model_lineage_index = lineage_context.model_lineage_index
             if model_lineage_index:
                 self.mapper.attach_dataset_model_lineage(
                     source_dataset,
@@ -449,6 +442,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if self.config.extract_lineage and self.config.extract_visualization_details:
             self._enrich_visualization_details(project_id, dashboard_object, dashboard)
+        if self.config.extract_lineage:
+            self._resolve_visualization_bindings(project_id, dashboard)
         if self.config.extract_dashboard_dependencies:
             self._enrich_dashboard_dependencies(
                 project_id=project_id,
@@ -458,6 +453,53 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_metric_expressions:
             self._enrich_metric_expressions(project_id, dashboard)
         return dashboard
+
+    def _resolve_visualization_bindings(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        """Bind visualizations to datasets via dataset-scoped derived objects.
+
+        The definition APIs do not serialize which dataset a visualization
+        reads, but the modeling document API lists each dataset's derived
+        metrics/attributes. A visualization grid referencing an object that is
+        defined in exactly one dataset must be reading that dataset.
+        """
+        unbound = [
+            visualization
+            for visualization in dashboard.visualizations
+            if not visualization.datasets and visualization.object_ids
+        ]
+        if len(dashboard.datasets) < 2 or not unbound:
+            return
+        try:
+            model_document = self.client.get_model_document(project_id, dashboard.id)
+        except MicroStrategyAPIError as error:
+            # Modeling access is optional; name/object inference still applies.
+            logger.debug(
+                "Model document unavailable for dashboard %s: %s",
+                dashboard.id,
+                error,
+            )
+            return
+
+        owner_by_derived_id = unique_derived_object_owners(model_document)
+        if not owner_by_derived_id:
+            return
+        dataset_ids = {dataset.id for dataset in dashboard.datasets}
+        bound = 0
+        for visualization in unbound:
+            owners = {
+                owner_by_derived_id[object_id.strip().upper()]
+                for object_id in visualization.object_ids
+                if object_id.strip().upper() in owner_by_derived_id
+            } & dataset_ids
+            if owners:
+                visualization.datasets = sorted(owners)
+                bound += 1
+        if bound:
+            self.report.report_visualizations_bound_by_derived_objects(bound)
 
     def _get_report_definition(
         self,
@@ -1044,6 +1086,50 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+
+class _LazyProjectLineage:
+    """Per-project lineage context resolved on first use.
+
+    The datasource-connection lookup and model-tables pagination are only
+    worth their API cost once at least one dashboard or report in the project
+    survives pattern filtering, so both are deferred until first accessed and
+    then cached for the rest of the project.
+    """
+
+    def __init__(
+        self,
+        source: MicroStrategySource,
+        project_id: str,
+        source_warehouses: List[Datasource],
+    ):
+        self._source = source
+        self._project_id = project_id
+        self._source_warehouses = source_warehouses
+        self._context: Optional[WarehouseLineageContext] = None
+        self._context_resolved = False
+        self._index: Optional[ModelLineageIndex] = None
+        self._index_resolved = False
+
+    @property
+    def warehouse_context(self) -> Optional[WarehouseLineageContext]:
+        if not self._context_resolved:
+            self._context = self._source._get_project_warehouse_context(
+                self._project_id,
+                self._source_warehouses,
+            )
+            self._context_resolved = True
+        return self._context
+
+    @property
+    def model_lineage_index(self) -> Optional[ModelLineageIndex]:
+        if not self._index_resolved:
+            self._index = self._source._get_project_model_lineage_index(
+                self._project_id,
+                self.warehouse_context,
+            )
+            self._index_resolved = True
+        return self._index
 
 
 def _metric_items(available_objects: Dict[str, Any]) -> Iterable[Dict[str, Any]]:

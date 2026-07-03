@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest import mock
 
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -10,12 +10,15 @@ from datahub.ingestion.source.microstrategy.lineage import (
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
     qualify_table_name,
+    unique_derived_object_owners,
     warehouse_context_from_datasource,
     warehouse_context_from_datasources,
 )
 from datahub.ingestion.source.microstrategy.models import (
+    DashboardDefinition,
     Datasource,
     DatasourceReference,
+    Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -166,6 +169,194 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
 
     assert upstreams == []
     assert len(extractor.report.sql_parse_failures) == 1
+    assert len(extractor.report.warnings) == 1
+    # Warning context must stay small — never the full SQL script.
+    warning_contexts = "".join(
+        "".join(warning.context or []) for warning in extractor.report.warnings
+    )
+    assert len(warning_contexts) < 500
+
+
+def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="RETAIL_DB",
+        schema="RETAIL",
+    )
+
+    # MicroStrategy multi-pass SQL: statements concatenated with blank lines,
+    # no semicolons; later passes read the volatile tables created earlier.
+    multipass_sql = (
+        "CREATE VOLATILE  TABLE T08Q9Z6Q3SP000 AS \n"
+        'select a11.REGION_NUMBER from "XRBIA_DM"."W_RTL_SLS_IT_LC_DY_A" a11\n'
+        "group by a11.REGION_NUMBER\n"
+        "\n"
+        "CREATE VOLATILE  TABLE TAWFLXJ4PSP001 AS \n"
+        "select * from T08Q9Z6Q3SP000\n"
+        "\n"
+        "select b.REGION_NUMBER from TAWFLXJ4PSP001 b\n"
+        '  join "XRBIA_DM"."DIM_ITEM_CV" c on b.k = c.k'
+    )
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(multipass_sql, context)
+
+    assert upstreams == [
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:snowflake,retail_db.xrbia_dm.dim_item_cv,PROD)",
+        "urn:li:dataset:"
+        "(urn:li:dataPlatform:snowflake,retail_db.xrbia_dm.w_rtl_sls_it_lc_dy_a,PROD)",
+    ]
+    assert not extractor.report.warnings
+
+
+def test_warehouse_upstream_urns_skips_non_lineage_trailers() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+
+    # Real MicroStrategy SQL views end with DROPs and non-SQL commentary.
+    sql = (
+        "select * from fact_sales\n"
+        "\n"
+        "drop table TN2619RILMD004\n"
+        "\n"
+        "[Analytical engine calculation steps:\n"
+        "\t1.  Calculate WJXBFS1]\n"
+        "\n"
+        "with parameters:\n\t1"
+    )
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+
+    assert upstreams == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+    assert len(extractor.report.sql_parse_failures) == 0
+    assert not extractor.report.warnings
+
+
+def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+
+    sql = "SET ANSI_NULLS ON\n\nselect * from fact_sales"
+
+    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+
+    assert upstreams == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+    # The unsupported SET statement is counted but must not raise the loud
+    # warning because lineage was still extracted.
+    assert len(extractor.report.sql_parse_failures) == 1
+    assert not extractor.report.warnings
+
+
+def _inference_dashboard(dataset_names: List[str]) -> "DashboardDefinition":
+    # All datasets share one object catalog (metric-1), mirroring dashboards
+    # built from one cube per time period.
+    return DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Salon Sales To Plan",
+            "datasets": [
+                {
+                    "id": f"ds-{index}",
+                    "name": name,
+                    "availableObjects": {"metrics": [{"id": "metric-1"}]},
+                }
+                for index, name in enumerate(dataset_names)
+            ],
+        }
+    )
+
+
+def _grid_visualization(name: str) -> "Visualization":
+    return Visualization.model_validate(
+        {
+            "key": "viz-1",
+            "name": name,
+            "visualizationType": "grid",
+            "metrics": [{"id": "metric-1", "type": "metric"}],
+        }
+    )
+
+
+def test_inference_matching_all_datasets_is_treated_as_unresolved() -> None:
+    extractor = _extractor()
+    dashboard = _inference_dashboard(
+        ["Retail Sales Yesterday", "Service Sales Yesterday"]
+    )
+    visualization = _grid_visualization("Salon Sales Yesterday")
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    # Both datasets share objects and name tokens with the visualization, so
+    # the inference has no discriminating signal — no edges, counted as
+    # unresolved.
+    assert inputs == []
+    assert extractor.report.unresolved_visualizations == 1
+
+
+def test_inference_matching_a_strict_subset_is_kept() -> None:
+    extractor = _extractor()
+    dashboard = _inference_dashboard(["Retail Sales Yesterday", "Inventory Snapshot"])
+    visualization = _grid_visualization("Retail Sales Yesterday Trend")
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert inputs == [
+        extractor.dataset_urn("project-1", "dash-1", dashboard.datasets[0])
+    ]
+    assert extractor.report.unresolved_visualizations == 0
+
+
+def test_unique_derived_object_owners_maps_ids_and_drops_shared() -> None:
+    model_document: Dict[str, Any] = {
+        "datasets": [
+            {
+                "information": {"objectId": "DS-A", "name": "Retail WTD"},
+                "derivedMetrics": [
+                    {
+                        "information": {"objectId": "A" * 32},
+                        "embeddedObjects": [{"id": "B" * 32}],
+                    }
+                ],
+                "derivedAttributes": [
+                    {"information": {"objectId": "C" * 32}},
+                    # Defined in both datasets -> no signal.
+                    {"information": {"objectId": "D" * 32}},
+                ],
+            },
+            {
+                "information": {"objectId": "DS-B", "name": "Service WTD"},
+                "derivedAttributes": [
+                    {"information": {"objectId": "D" * 32}},
+                    {"information": {"objectId": "E" * 32}},
+                ],
+            },
+        ]
+    }
+
+    owners = unique_derived_object_owners(model_document)
+
+    assert owners == {
+        "A" * 32: "DS-A",
+        "B" * 32: "DS-A",
+        "C" * 32: "DS-A",
+        "E" * 32: "DS-B",
+    }
 
 
 def test_extract_field_names_from_model_expression() -> None:

@@ -239,6 +239,15 @@ class MicroStrategyClient:
             params={"showExpressionAs": "tokens"},
         )
 
+    def get_model_document(self, project_id: str, document_id: str) -> Dict[str, Any]:
+        """Raw modeling JSON for a document/dossier; exposes per-dataset derived
+        metrics/attributes whose embedded object ids identify which dataset a
+        visualization reads. Parsed by the lineage helpers."""
+        return self._get_json(
+            f"/api/model/documents/{document_id}",
+            project_id=project_id,
+        )
+
     def list_model_tables(
         self,
         project_id: str,
@@ -430,6 +439,8 @@ class MicroStrategyClient:
                 "limit": self.config.page_size,
                 "offset": offset,
                 "showHidden": self.config.include_hidden,
+                # Ancestors carry the folder path used for folder containers.
+                "getAncestors": True,
             }
             if type_filter:
                 payload["type"] = type_filter

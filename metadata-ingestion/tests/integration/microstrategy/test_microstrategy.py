@@ -99,7 +99,12 @@ def _dashboards(
                 "subtype": "14081",
                 "description": "Sales performance dashboard",
                 "owner": {"username": "sales_owner"},
-                "location": "/Shared Reports/Finance",
+                # Real quick-search responses (getAncestors=true) carry the
+                # folder path as a top-down ancestors array.
+                "ancestors": [
+                    {"id": "folder-1", "name": "Shared Reports"},
+                    {"id": "folder-2", "name": "Finance"},
+                ],
             }
         )
     ]

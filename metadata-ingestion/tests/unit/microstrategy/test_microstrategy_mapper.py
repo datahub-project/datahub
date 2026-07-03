@@ -930,12 +930,25 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
 
 
 def test_extract_folder_parts_from_search_result_payloads() -> None:
+    # getAncestors=true responses carry the folder path as an ancestors array.
+    assert extract_folder_parts(
+        {
+            "ancestors": [
+                {"id": "f-1", "name": "Shared Reports"},
+                {"id": "f-2", "name": "Finance"},
+            ]
+        }
+    ) == ["Shared Reports", "Finance"]
     assert extract_folder_parts({"location": "/Shared Reports/Finance"}) == [
         "Shared Reports",
         "Finance",
     ]
     assert extract_folder_parts({"folder": {"path": "/A/B"}}) == ["A", "B"]
     assert extract_folder_parts({"name": "no folder info"}) == []
+    # Malformed ancestors fall back to location.
+    assert extract_folder_parts(
+        {"ancestors": ["not-a-dict"], "location": "/Fallback"}
+    ) == ["Fallback"]
 
 
 def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:

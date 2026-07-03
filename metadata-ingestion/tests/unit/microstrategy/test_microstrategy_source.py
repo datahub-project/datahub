@@ -12,7 +12,10 @@ from datahub.ingestion.source.microstrategy.models import (
     MSTRObject,
     ReportDefinition,
 )
-from datahub.ingestion.source.microstrategy.source import MicroStrategySource
+from datahub.ingestion.source.microstrategy.source import (
+    MicroStrategySource,
+    _LazyProjectLineage,
+)
 
 
 def _source(extra_config: dict | None = None) -> MicroStrategySource:
@@ -387,6 +390,7 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
             "extract_visualization_details": False,
             "extract_dashboard_dependencies": False,
             "extract_metric_expressions": False,
+            "extract_model_lineage": False,
         }
     )
     dashboards = [
@@ -410,8 +414,7 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     workunits = list(
         source._process_project_dashboards(
             "project-1",
-            warehouse_context=None,
-            model_lineage_index=None,
+            _LazyProjectLineage(source, "project-1", []),
         )
     )
     urns = {workunit.get_urn() for workunit in workunits}
@@ -419,3 +422,140 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     assert source.mapper.dashboard_urn("project-1", "dash-2") in urns
     assert source.mapper.dashboard_urn("project-1", "dash-1") not in urns
     assert len(source.report.warnings) == 1
+
+
+def test_resolve_visualization_bindings_uses_dataset_scoped_derived_objects() -> None:
+    source = _source()
+    derived_id = "A" * 32
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Salon Sales To Plan",
+            "datasets": [
+                {"id": "ds-retail", "name": "Retail WTD"},
+                {"id": "ds-service", "name": "Service WTD"},
+            ],
+            "visualizations": [
+                {
+                    "key": "viz-1",
+                    "name": "Salon Sales WTD",
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                },
+                # Already explicitly bound: must not be touched.
+                {
+                    "key": "viz-2",
+                    "name": "Bound Viz",
+                    "datasets": ["ds-service"],
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                },
+            ],
+        }
+    )
+
+    class FakeClient:
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            return {
+                "datasets": [
+                    {
+                        "information": {"objectId": derived_id[:-1] + "0"},
+                        "derivedMetrics": [],
+                    },
+                    {
+                        "information": {"objectId": "ds-retail"},
+                        "derivedMetrics": [{"information": {"objectId": derived_id}}],
+                    },
+                ]
+            }
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    source._resolve_visualization_bindings("project-1", dashboard)
+
+    assert dashboard.visualizations[0].datasets == ["ds-retail"]
+    assert dashboard.visualizations[1].datasets == ["ds-service"]
+    assert source.report.visualizations_bound_by_derived_objects == 1
+
+
+def test_resolve_visualization_bindings_survives_modeling_api_failure() -> None:
+    source = _source()
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Dash",
+            "datasets": [
+                {"id": "ds-1", "name": "A"},
+                {"id": "ds-2", "name": "B"},
+            ],
+            "visualizations": [
+                {
+                    "key": "viz-1",
+                    "name": "Viz",
+                    "metrics": [{"id": "B" * 32, "type": "metric"}],
+                }
+            ],
+        }
+    )
+
+    class FakeClient:
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("403 modeling access denied")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    source._resolve_visualization_bindings("project-1", dashboard)
+
+    assert dashboard.visualizations[0].datasets == []
+    assert source.report.visualizations_bound_by_derived_objects == 0
+
+
+def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
+    source = _source(
+        {
+            "dashboard_pattern": {"allow": ["^Allowed Only$"]},
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+        }
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.model_table_calls = 0
+            self.connection_calls = 0
+
+        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+            return iter(
+                [MSTRObject.model_validate({"id": "dash-1", "name": "Filtered Out"})]
+            )
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+            self.model_table_calls += 1
+            return {"tables": [], "total": 0}
+
+        def get_datasource_connection(self, *args: Any, **kwargs: Any) -> Any:
+            self.connection_calls += 1
+            raise AssertionError("should not be called for filtered projects")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    # A resolvable warehouse context ensures model-table pagination WOULD
+    # run if the lazy context were resolved.
+    datasource = Datasource.model_validate(
+        {"id": "source-1", "name": "Warehouse", "database": {"type": "snowflake"}}
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
+    workunits = list(source._process_project_dashboards("project-1", lineage_context))
+
+    assert workunits == []
+    assert list(source.report.filtered_dashboards) == ["Filtered Out"]
+    # Model-table and connection APIs must not be touched when every
+    # dashboard was pattern-filtered.
+    assert not lineage_context._index_resolved
+    assert not lineage_context._context_resolved
+    assert fake_client.model_table_calls == 0
+    assert fake_client.connection_calls == 0

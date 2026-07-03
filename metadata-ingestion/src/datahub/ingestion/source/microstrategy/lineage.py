@@ -180,48 +180,79 @@ class MicroStrategyLineageExtractor:
 
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
+        from datahub.sql_parsing.split_statements import split_statements
         from datahub.sql_parsing.sqlglot_lineage import (
             create_lineage_sql_parsed_result,
         )
 
-        try:
-            parsed = create_lineage_sql_parsed_result(
-                query=sql,
-                default_db=context.database,
-                default_schema=context.schema,
-                platform=context.platform,
-                platform_instance=context.platform_instance,
-                env=context.env,
-                graph=graph,
-                override_dialect=_sqlglot_dialect(context.platform),
-                generate_column_lineage=False,
-            )
-        except Exception as error:
-            self._report_sql_parse_failure(sql, context, error)
-            return []
-        if parsed.debug_info.table_error is not None:
-            self._report_sql_parse_failure(sql, context, parsed.debug_info.table_error)
-            return []
-        return sorted(set(parsed.in_tables))
+        dialect = _sqlglot_dialect(context.platform)
+        # MicroStrategy SQL views contain multi-pass SQL: several statements
+        # (typically CREATE VOLATILE/TEMP TABLE ... AS select) concatenated
+        # without semicolons. Parse per statement and subtract the tables
+        # created within the script so volatile intermediates never appear
+        # as warehouse upstreams.
+        in_urns: Set[str] = set()
+        out_urns: Set[str] = set()
+        had_parse_failure = False
+        for statement in split_statements(sql, dialect=dialect):
+            if not statement.strip():
+                continue
+            if _is_lineage_irrelevant_statement(statement):
+                continue
+            try:
+                parsed = create_lineage_sql_parsed_result(
+                    query=statement,
+                    default_db=context.database,
+                    default_schema=context.schema,
+                    platform=context.platform,
+                    platform_instance=context.platform_instance,
+                    env=context.env,
+                    graph=graph,
+                    override_dialect=dialect,
+                    generate_column_lineage=False,
+                )
+            except Exception as error:
+                had_parse_failure = self._record_statement_parse_failure(
+                    statement, context, error
+                )
+                continue
+            if parsed.debug_info.table_error is not None:
+                had_parse_failure = self._record_statement_parse_failure(
+                    statement, context, parsed.debug_info.table_error
+                )
+                continue
+            in_urns.update(parsed.in_tables)
+            out_urns.update(parsed.out_tables)
 
-    def _report_sql_parse_failure(
+        upstream_urns = in_urns - out_urns
+        if not upstream_urns and had_parse_failure:
+            self.report.warning(
+                title="Failed to parse MicroStrategy SQL view",
+                message=(
+                    "No statement in a MicroStrategy SQL view could be parsed; "
+                    "warehouse lineage for this dataset was skipped."
+                ),
+                context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
+            )
+        return sorted(upstream_urns)
+
+    def _record_statement_parse_failure(
         self,
-        sql: str,
+        statement: str,
         context: WarehouseLineageContext,
         error: Exception,
-    ) -> None:
+    ) -> bool:
         self.report.report_sql_parse_failure(
-            f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}"
+            f"platform={context.platform}, "
+            f"error={type(error).__name__}: {str(error)[:160]}, "
+            f"sql_prefix={statement.strip()[:80]!r}"
         )
-        self.report.warning(
-            title="Failed to parse MicroStrategy SQL view",
-            message=(
-                "The SQL returned by a MicroStrategy SQL-view API could not be "
-                "parsed; warehouse lineage for this dataset was skipped."
-            ),
-            context=f"platform={context.platform}",
-            exc=error,
+        logger.debug(
+            "Failed to parse MicroStrategy SQL-view statement (%s): %s",
+            error,
+            statement.strip()[:200],
         )
+        return True
 
     def model_lineage_index_from_tables(
         self,
@@ -331,7 +362,27 @@ class MicroStrategyLineageExtractor:
             dataset_tokens = _lineage_name_tokens(dataset.name)
             if visualization_tokens.intersection(dataset_tokens):
                 inputs.append(self.dataset_urn(project_id, dashboard.id, dataset))
-        return sorted(set(inputs))
+
+        unique_inputs = sorted(set(inputs))
+        # Dashboards built from many cubes that share one object catalog (e.g.
+        # one cube per time period) make every dataset "match" every
+        # visualization. An inference that cannot exclude anything carries no
+        # signal, so treat it as unresolved rather than emit an all-to-all
+        # lineage fan-out. Dashboard-level fallback lineage remains available
+        # via `emit_dashboard_dataset_edges`.
+        if len(dashboard.datasets) > 1 and len(unique_inputs) == len(
+            dashboard.datasets
+        ):
+            self.report.report_unresolved_visualization()
+            logger.debug(
+                "Visualization %s matched all %d datasets of dashboard %s; "
+                "treating the binding as unresolved",
+                visualization.key,
+                len(dashboard.datasets),
+                dashboard.id,
+            )
+            return []
+        return unique_inputs
 
 
 def datahub_platform_for_datasource(
@@ -511,6 +562,20 @@ _LINEAGE_STOP_WORDS = {
 }
 
 
+# MicroStrategy SQL views append non-SQL commentary after the final pass
+# ("[Analytical engine calculation steps: ...]", "with parameters: 1") and
+# include DROP statements for its volatile tables. None of these carry
+# lineage, so they are skipped instead of counted as parse failures.
+_LINEAGE_IRRELEVANT_STATEMENT = re.compile(
+    r"^\s*(drop\s|\[|with\s+parameters\b)",
+    re.IGNORECASE,
+)
+
+
+def _is_lineage_irrelevant_statement(statement: str) -> bool:
+    return bool(_LINEAGE_IRRELEVANT_STATEMENT.match(statement))
+
+
 def _lineage_name_tokens(name: str) -> Set[str]:
     return {
         token
@@ -612,6 +677,51 @@ def _form_name(form: Dict[str, object]) -> Optional[str]:
         if value:
             return _normalize_lineage_key(str(value))
     return None
+
+
+def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str, str]:
+    """Map derived-object ids to the id of the single dataset that defines them.
+
+    The modeling document API lists each dataset's derived metrics/attributes;
+    those embedded objects are scoped to one dataset, so a visualization grid
+    referencing them must be reading that dataset. Ids defined in more than one
+    dataset carry no signal and are dropped.
+
+    Keys are normalized (upper-cased) object ids; values are dataset ids as
+    reported by the API.
+    """
+    owners: Dict[str, str] = {}
+    shared: Set[str] = set()
+    for dataset in _coerce_dicts(model_document.get("datasets")):
+        information = dataset.get("information")
+        dataset_id = _object_id(information) if isinstance(information, dict) else None
+        if not dataset_id:
+            continue
+        derived_ids: Set[str] = set()
+        _collect_hex_object_ids(dataset.get("derivedMetrics"), derived_ids)
+        _collect_hex_object_ids(dataset.get("derivedAttributes"), derived_ids)
+        derived_ids.discard(_normalize_object_id(dataset_id))
+        for derived_id in derived_ids:
+            if derived_id in owners and owners[derived_id] != dataset_id:
+                shared.add(derived_id)
+            else:
+                owners[derived_id] = dataset_id
+    for derived_id in shared:
+        owners.pop(derived_id, None)
+    return owners
+
+
+def _collect_hex_object_ids(node: object, out: Set[str]) -> None:
+    if isinstance(node, dict):
+        for key in ("objectId", "id"):
+            value = node.get(key)
+            if isinstance(value, str) and len(value) == 32:
+                out.add(_normalize_object_id(value))
+        for value in node.values():
+            _collect_hex_object_ids(value, out)
+    elif isinstance(node, list):
+        for value in node:
+            _collect_hex_object_ids(value, out)
 
 
 def _object_id(value: object) -> Optional[str]:
