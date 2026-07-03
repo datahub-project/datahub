@@ -2208,6 +2208,13 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # every TS-internal table on a tenant triggers a false-positive
         # "External Lineage Resolution Failed" warning.
         ts_type = (table.data_source_type or "").upper()
+        if not ts_type:
+            return None
+        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
+            if ts_type.startswith(prefix):
+                ts_type = ts_type[len(prefix) :]
+                break
+
         if ts_type not in _TS_TO_DATAHUB_PLATFORM:
             return None
         conn = self._get_connection_lookup().get(table.data_source_id)
