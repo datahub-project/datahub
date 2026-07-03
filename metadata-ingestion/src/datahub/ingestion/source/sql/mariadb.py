@@ -17,7 +17,9 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+    "Optionally enabled via `include_usage_statistics`. Reads query history from "
+    "`performance_schema` digests (default) or `mysql.general_log` "
+    "(`usage_source: general_log`), which also yields query-based table lineage.",
 )
 class MariaDBSource(MySQLSource):
     def get_platform(self):
