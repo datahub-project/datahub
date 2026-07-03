@@ -48,6 +48,11 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGTABLE_INSTANCE_FQN_REGEX,
     BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
     BIGTABLE_TABLE_FQN_REGEX,
+    DATAPROC_METASTORE_DATABASE_FQN_REGEX,
+    DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX,
+    DATAPROC_METASTORE_SERVICE_FQN_REGEX,
+    DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX,
+    DATAPROC_METASTORE_TABLE_FQN_REGEX,
     MYSQL_DATABASE_FQN_REGEX,
     MYSQL_DATABASE_PARENT_ENTRY_REGEX,
     MYSQL_INSTANCE_FQN_REGEX,
@@ -68,6 +73,8 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DataplexCloudSpannerInstance,
     DataplexCloudSqlMySqlDatabase,
     DataplexCloudSqlMySqlInstance,
+    DataplexDataprocMetastoreDatabase,
+    DataplexDataprocMetastoreService,
     DataplexProjectId,
     extract_entry_type_short_name,
     instantiate_key,
@@ -798,7 +805,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.INSTANCE,
+            subtype=DatasetContainerSubTypes.SERVICE,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1044,6 +1051,78 @@ class VertexAiDatasetMapper(EntryMapper):
         )
 
 
+class DataprocMetastoreServiceMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-service"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_SERVICE_FQN_REGEX
+    datahub_identity = ContainerIdentity(DataplexDataprocMetastoreService)
+    # No parent_entry - services are top-level under project
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_container(
+            entry,
+            ctx,
+            platform=self.datahub_platform,
+            subtype=DatasetContainerSubTypes.SERVICE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class DataprocMetastoreDatabaseMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-database"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_DATABASE_FQN_REGEX
+    datahub_identity = ContainerIdentity(DataplexDataprocMetastoreDatabase)
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexDataprocMetastoreService,
+    )
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_container(
+            entry,
+            ctx,
+            platform=self.datahub_platform,
+            subtype=DatasetContainerSubTypes.DATABASE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class DataprocMetastoreTableMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-table"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_TABLE_FQN_REGEX
+    datahub_identity = DatasetIdentity(
+        "{project_id}.{location}.{service_id}.{database_id}.{table_id}"
+    )
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexDataprocMetastoreDatabase,
+    )
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_dataset(
+            entry,
+            ctx,
+            short_name=self.dataplex_entry_type_short_name,
+            platform=self.datahub_platform,
+            subtype=DatasetSubTypes.TABLE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
 # ----------------------------------------------------------------------------
 # Registry (the factory)
 # ----------------------------------------------------------------------------
@@ -1063,6 +1142,9 @@ _ALL_MAPPERS: list[EntryMapper] = [
     CloudBigtableTableMapper(),
     PubSubTopicMapper(),
     VertexAiDatasetMapper(),
+    DataprocMetastoreServiceMapper(),
+    DataprocMetastoreDatabaseMapper(),
+    DataprocMetastoreTableMapper(),
 ]
 
 ENTRY_MAPPERS: dict[str, EntryMapper] = {

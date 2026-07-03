@@ -68,6 +68,7 @@ class GenericContainerSubTypes(StrEnum):
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     INSTANCE = "Instance"
+    SERVICE = "Service"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes

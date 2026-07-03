@@ -148,6 +148,29 @@ CASES = [
         "Dataset",
         "my-project.us-west2.123456",
     ),
+    (
+        "dataproc-metastore-service",
+        "dataproc_metastore:my-project.us-west1.my-service",
+        "",
+        "Container",
+        None,
+    ),
+    (
+        "dataproc-metastore-database",
+        "dataproc_metastore:my-project.us-west1.my-service.my-db",
+        "projects/my-project/locations/us-west1/entryGroups/@dataprocmetastore/entries/"
+        "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service",
+        "Container",
+        None,
+    ),
+    (
+        "dataproc-metastore-table",
+        "dataproc_metastore:my-project.us-west1.my-service.my-db.my_table",
+        "projects/my-project/locations/us-west1/entryGroups/@dataprocmetastore/entries/"
+        "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service/databases/my-db",
+        "Dataset",
+        "my-project.us-west1.my-service.my-db.my_table",
+    ),
 ]
 
 
