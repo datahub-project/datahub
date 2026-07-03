@@ -105,6 +105,9 @@ public class DatahubSparkListener extends SparkListener {
     log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
     initializeContextFactoryIfNotInitialized(applicationStart.appName());
+    if (listenerNotReady(applicationStart)) {
+      return;
+    }
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
@@ -292,6 +295,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Application end called");
+    if (listenerNotReady(applicationEnd)) {
+      return;
+    }
     listener.onApplicationEnd(applicationEnd);
     if (datahubConf.hasPath(STREAMING_JOB) && (datahubConf.getBoolean(STREAMING_JOB))) {
       return;
@@ -311,6 +317,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Task end called");
+    if (listenerNotReady(taskEnd)) {
+      return;
+    }
     listener.onTaskEnd(taskEnd);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onTaskEnd completed successfully in {} ms", elapsedTime);
@@ -321,6 +330,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Job end called");
+    if (listenerNotReady(jobEnd)) {
+      return;
+    }
     listener.onJobEnd(jobEnd);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobEnd completed successfully in {} ms", elapsedTime);
@@ -331,6 +343,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Job start called");
+    if (listenerNotReady(jobStart)) {
+      return;
+    }
     listener.onJobStart(jobStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobStart completed successfully in {} ms", elapsedTime);
@@ -341,6 +356,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Other event called {}", event.getClass().getName());
+    if (listenerNotReady(event)) {
+      return;
+    }
     listener.onOtherEvent(event);
   }
 
@@ -366,6 +384,21 @@ public class DatahubSparkListener extends SparkListener {
                             Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
                             Tag.of("openlineage.spark.version", sparkVersion),
                             Tag.of("openlineage.spark.disabled.facets", disabledFacets))));
+  }
+
+  /**
+   * Lazy initialization can leave {@link #listener} null — when the listener is disabled, when
+   * there is no active {@code SparkContext}/{@code SparkEnv} yet, or when config parsing fails.
+   * Every event handler must guard on this so a failed or disabled init is a clean no-op instead of
+   * an NPE thrown back into Spark's listener bus.
+   */
+  private boolean listenerNotReady(SparkListenerEvent event) {
+    if (listener == null) {
+      log.debug(
+          "OpenLineage listener is not initialized; skipping {}", event.getClass().getSimpleName());
+      return true;
+    }
+    return false;
   }
 
   private void initializeContextFactoryIfNotInitialized() {
