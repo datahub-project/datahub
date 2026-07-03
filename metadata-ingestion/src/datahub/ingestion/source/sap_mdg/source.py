@@ -8,7 +8,6 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -51,6 +50,7 @@ from datahub.ingestion.source.sap_mdg.models import (
     ODataEntityType,
     ODataMetadata,
     ODataNavigationProperty,
+    SapMdgServiceKey,
 )
 from datahub.ingestion.source.sap_mdg.odata_client import SapMdgODataClient
 from datahub.ingestion.source.sap_mdg.report import SapMdgSourceReport
@@ -74,10 +74,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.specific.dataset import DatasetPatchBuilder
-
-
-class SapMdgServiceKey(ContainerKey):
-    service: str
 
 
 @platform_name("SAP MDG", id=SAP_MDG_PLATFORM)

@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.sap_mdg.constants import (
     DRF_ABAP_TRUE,
     DRF_FIELD_ACTIVE,
@@ -150,3 +151,9 @@ class DrfDistribution(BaseModel):
 
     def targets_for(self, data_model: str) -> List[str]:
         return self.targets_by_data_model.get(data_model, [])
+
+
+class SapMdgServiceKey(ContainerKey):
+    # Identity of the container DataHub creates per OData service; the service id is
+    # what makes each service's container urn unique within the platform/instance/env.
+    service: str
