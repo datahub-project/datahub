@@ -491,6 +491,16 @@
       "Status Aspect"
     ]
   },
+  "tibco-ems": {
+    "platform_type": "Messaging",
+    "connection_type": "Pull",
+    "title": "TIBCO EMS",
+    "description": "Import queues, topics, and bridge lineage from TIBCO Enterprise Message Service via the EMS REST Proxy admin API.",
+    "img_path": "img/logos/platforms/tibco-ems.svg",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
   "tidb": {
     "platform_type": "Database",
     "connection_type": "Pull",

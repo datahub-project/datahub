@@ -805,6 +805,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # aws_common is needed for the inherited PostgresSource RDS IAM auth.
     "timescaledb": sql_common | postgres_common | aws_common,
+    "tibco-ems": {"requests<3.0.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
@@ -1205,6 +1206,7 @@ entry_points = {
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
+        "tibco-ems = datahub.ingestion.source.tibco_ems.source:TibcoEmsSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",

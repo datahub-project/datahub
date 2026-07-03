@@ -691,5 +691,16 @@
         "category": "Data Collector",
         "isPopular": false,
         "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:tibco-ems",
+        "name": "tibco-ems",
+        "displayName": "TIBCO EMS",
+        "description": "Import queues, topics, and bridge lineage from TIBCO Enterprise Message Service.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/tibco-ems",
+        "recipe": "source:\n    type: tibco-ems\n    config:\n        base_url: \"https://ems-host.example.com:8080\"\n        username: \"${TIBCO_EMS_USERNAME}\"\n        password: \"${TIBCO_EMS_PASSWORD}\"\n        include_bridges: true\n        stateful_ingestion:\n            enabled: false",
+        "category": "ETL / ELT",
+        "isPopular": false,
+        "isNew": true
     }
 ]

@@ -459,6 +459,16 @@
     displayName: Teradata
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/teradatalogo.png"
+- entityUrn: urn:li:dataPlatform:tibco-ems
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: tibco-ems
+    displayName: TIBCO EMS
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/tibcoemslogo.svg"
 - entityUrn: urn:li:dataPlatform:voldemort
   entityType: dataPlatform
   aspectName: dataPlatformInfo
