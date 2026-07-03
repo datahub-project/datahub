@@ -468,7 +468,7 @@
     name: tibco-bw
     displayName: TIBCO BusinessWorks
     type: OTHERS
-    logoUrl: "assets/platforms/tibcobwlogo.svg"
+    logoUrl: "assets/platforms/tibcobwlogo.png"
 - entityUrn: urn:li:dataPlatform:voldemort
   entityType: dataPlatform
   aspectName: dataPlatformInfo

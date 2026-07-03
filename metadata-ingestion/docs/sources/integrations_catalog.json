@@ -495,7 +495,7 @@
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
     "description": "TIBCO ActiveMatrix BusinessWorks and TIBCO Cloud Integration are enterprise integration platforms. Ingest deployed integration applications and their run state as data flows and jobs.",
-    "img_path": "img/logos/platforms/tibco-bw.svg"
+    "img_path": "img/logos/platforms/tibco-bw.png"
   },
   "tidb": {
     "platform_type": "Database",
