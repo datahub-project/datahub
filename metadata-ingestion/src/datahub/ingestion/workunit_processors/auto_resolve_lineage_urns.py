@@ -184,16 +184,22 @@ class AutoResolveLineageUrnsProcessor(
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
-        if not cfg.enabled:
+        # This processor is in the shared chain for *every* source, and some tests build
+        # a source with a bare Mock() ctx where cfg.enabled / cfg.upstream_platforms are
+        # truthy Mocks. Fail closed on a degenerate/mock config: require enabled to be
+        # exactly True and upstream_platforms to be a real, non-empty list — otherwise
+        # the processor would initialize with a Mock self._config and crash mid-run.
+        if cfg.enabled is not True:
             return False
-        if not cfg.upstream_platforms:
-            # Enabled but unconfigured: every reference would no-op. Skip the
-            # per-platform bulk catalog load entirely and tell the operator why.
-            logger.warning(
-                "auto_resolve_lineage_urns is enabled but no upstream_platforms "
-                "are configured; the processor will not run. Configure the warehouse "
-                "platform(s) this source references to enable casing reconciliation."
-            )
+        if not isinstance(cfg.upstream_platforms, list) or not cfg.upstream_platforms:
+            if isinstance(cfg.upstream_platforms, list):
+                # Genuinely enabled but unconfigured (empty list): every reference would
+                # no-op — skip the bulk catalog load entirely and tell the operator why.
+                logger.warning(
+                    "auto_resolve_lineage_urns is enabled but no upstream_platforms "
+                    "are configured; the processor will not run. Configure the warehouse "
+                    "platform(s) this source references to enable casing reconciliation."
+                )
             return False
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
@@ -244,6 +250,10 @@ class AutoResolveLineageUrnsProcessor(
         The usual cause is a case/spelling mismatch in the config (platform names are
         compared case-sensitively), which would otherwise silently heal nothing.
         """
+        # Defense in depth: this runs outside the per-workunit try/except, so guard
+        # against a non-list config (should_enable already fails closed on a mock ctx).
+        if not isinstance(self._config, list):
+            return
         unmatched = {entry.platform for entry in self._config} - self._loaded_platforms
         if unmatched:
             logger.warning(

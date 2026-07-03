@@ -875,3 +875,12 @@ def test_enabled_when_flag_on_with_graph():
         AutoResolveLineageUrnsProcessor.should_enable(_ctx(True, mock.MagicMock()))
         is True
     )
+
+
+def test_disabled_under_bare_mock_ctx():
+    # Regression: the processor is in the shared chain for every source, and some
+    # integration tests build a source with a bare Mock() ctx (e.g. salesforce). There
+    # cfg.enabled / cfg.upstream_platforms are truthy Mocks and graph is non-None, so a
+    # naive check would enable the processor with a Mock config and crash mid-run. It
+    # must fail closed.
+    assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
