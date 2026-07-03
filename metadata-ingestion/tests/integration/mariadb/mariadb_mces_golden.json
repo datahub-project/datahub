@@ -1253,6 +1253,7 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
                 "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)"
             ]
         }

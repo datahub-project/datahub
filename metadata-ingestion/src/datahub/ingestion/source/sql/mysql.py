@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, util
+from sqlalchemy import create_engine, event, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.pool import NullPool
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection, Engine
@@ -58,9 +59,8 @@ _SYSTEM_SCHEMAS = frozenset(
 )
 
 # One row per normalized statement: DIGEST_TEXT has literals stripped to `?`,
-# COUNT_STAR is the execution count since the table was last reset, LAST_SEEN is
-# the most recent execution. This is the only query history enabled by default on
-# MariaDB 10.11 without the general query log.
+# COUNT_STAR counts executions since the last reset, LAST_SEEN is the most recent.
+# Low-overhead query history when performance_schema is on (vs. the general log).
 _PERFORMANCE_SCHEMA_DIGEST_QUERY = """
 SELECT
     SCHEMA_NAME,
@@ -70,8 +70,8 @@ SELECT
 FROM performance_schema.events_statements_summary_by_digest
 WHERE DIGEST_TEXT IS NOT NULL
   AND SCHEMA_NAME IS NOT NULL
-  AND LAST_SEEN >= %(start_time)s
-  AND LAST_SEEN <= %(end_time)s
+  AND LAST_SEEN >= :start_time
+  AND LAST_SEEN <= :end_time
 ORDER BY LAST_SEEN
 """
 
@@ -88,8 +88,8 @@ SELECT
     CONVERT(argument USING utf8mb4) AS argument
 FROM mysql.general_log
 WHERE command_type IN ('Query', 'Init DB')
-  AND event_time >= %(start_time)s
-  AND event_time <= %(end_time)s
+  AND event_time >= :start_time
+  AND event_time <= :end_time
 ORDER BY event_time, thread_id
 """
 
@@ -365,6 +365,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
+            # Query history yields table lineage; always on with usage, independent
+            # of include_view_lineage (which only governs view-definition lineage).
             generate_lineage=True,
             generate_queries=True,
             generate_query_usage_statistics=True,
@@ -412,19 +414,26 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
     @contextmanager
     def _usage_connection(self) -> Iterator["Connection"]:
-        """Yield a connection with the session time zone pinned to UTC."""
-        engine = create_engine(self.config.get_sql_alchemy_url(), **self.config.options)
+        """Yield a UTC-pinned connection from a single-use, disposed-on-exit engine."""
+        # NullPool + dispose() so this fetch never leaves connections open; a
+        # caller-supplied poolclass in options still wins.
+        engine = create_engine(
+            self.config.get_sql_alchemy_url(),
+            **{"poolclass": NullPool, **self.config.options},
+        )
         self._setup_rds_iam_event_listener(engine)
-        with engine.connect() as conn:
-            # LAST_SEEN / event_time are TIMESTAMPs rendered in the session tz; pin
-            # UTC (offset form needs no tz tables) so naive reads are truly UTC.
-            conn.execute("SET time_zone = '+00:00'")
-            yield conn
+        try:
+            with engine.connect() as conn:
+                # Timestamps render in the session tz; pin UTC so naive reads are UTC.
+                conn.execute(text("SET time_zone = '+00:00'"))
+                yield conn
+        finally:
+            engine.dispose()
 
     def _fetch_performance_schema_queries(self) -> Iterable[ObservedQuery]:
         with self._usage_connection() as conn:
             rows = conn.execute(
-                _PERFORMANCE_SCHEMA_DIGEST_QUERY,
+                text(_PERFORMANCE_SCHEMA_DIGEST_QUERY),
                 {
                     "start_time": self.config.usage.start_time,
                     "end_time": self.config.usage.end_time,
@@ -458,7 +467,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def _fetch_general_log_queries(self) -> Iterable[ObservedQuery]:
         with self._usage_connection() as conn:
             rows = conn.execute(
-                _GENERAL_LOG_QUERY,
+                text(_GENERAL_LOG_QUERY),
                 {
                     "start_time": self.config.usage.start_time,
                     "end_time": self.config.usage.end_time,

@@ -63,7 +63,6 @@ def test_mariadb_ingest_no_db(
     pytestconfig,
     test_resources_dir,
     tmp_path,
-    mock_time,
     config_file,
     golden_file,
 ):

@@ -12,7 +12,9 @@ Grant the following privileges to the ingestion user:
 #### Usage Statistics
 
 Set `include_usage_statistics: true` to derive usage statistics and query-based lineage from query
-history. The `usage_source` config selects the history source:
+history. The `usage_source` config selects the history source. This query-based table-level lineage
+is emitted whenever usage is enabled and is independent of `include_view_lineage` (which only
+controls view-definition lineage):
 
 - **`performance_schema`** (default): reads normalized digests from
   `events_statements_summary_by_digest`. Requires the `statements_digest` consumer (the

@@ -12,15 +12,20 @@ Use the MariaDB source to ingest relational metadata from MariaDB databases, inc
 #### Usage Statistics Prerequisites
 
 Set `include_usage_statistics: true` to derive usage statistics and query-based lineage from query
-history. The `usage_source` config selects where that history is read from:
+history. The `usage_source` config selects where that history is read from. This query-based
+table-level lineage is emitted whenever usage is enabled and is independent of `include_view_lineage`
+(which only controls view-definition lineage):
 
 **`performance_schema` (default)** — reads normalized digests from
 `events_statements_summary_by_digest`. No extra setup and no overhead, but query text is normalized
 (literals replaced with `?`) and there is no per-user attribution.
 
-- The `statements_digest` consumer must be enabled. It is on by default in MariaDB 10.11
-  (`performance_schema = ON`). Verify with:
+- `performance_schema` must be enabled on the server. It is **off by default** in MariaDB, so start
+  the server with `performance_schema = ON` (for example `--performance-schema=ON` on the command
+  line, or `performance_schema = ON` in `my.cnf`). Once it is enabled the `statements_digest`
+  consumer is on by default. Verify with:
   ```sql
+  SELECT @@performance_schema;
   SELECT * FROM performance_schema.setup_consumers WHERE NAME = 'statements_digest';
   ```
 - Grant the ingestion user read access: `GRANT SELECT ON performance_schema.* TO 'USERNAME'@'%'`.

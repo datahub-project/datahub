@@ -267,3 +267,56 @@ def test_call_inside_view_or_function_does_not_match():
 
     assert result is not None
     assert not result.inputDatajobs
+
+
+def test_begin_end_wrapped_body_recovers_first_call():
+    """Real MySQL/MariaDB bodies are wrapped in ``BEGIN ... END``. The opening
+    ``BEGIN`` glued onto the first ``CALL`` used to drop it — both must appear."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """BEGIN
+        CALL process_customer_data();
+        CALL generate_order_summaries(100.00);
+    END"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    ]
+
+
+def test_begin_end_wrapped_body_recovers_first_dml_and_call():
+    """The glued-on BEGIN must not drop first-statement DML either: an opening
+    INSERT...SELECT plus a CALL should emit both dataset and dataJob lineage."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """BEGIN
+        INSERT INTO target_table (id) SELECT id FROM source_table;
+        CALL downstream_step();
+    END"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),downstream_step)"
+    ]
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.source_table,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
+    ]
