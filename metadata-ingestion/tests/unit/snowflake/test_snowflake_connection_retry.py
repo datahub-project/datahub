@@ -297,6 +297,13 @@ class TestConnectionEstablishmentRetry:
                 False,
                 id="message_mentions_250001_without_failed_to_connect_not_retryable",
             ),
+            pytest.param(
+                250001,
+                "08004",
+                "Failed to get authentication by OKTA: 401: Unauthorized",
+                False,
+                id="okta_unauthorized_reuses_errno_250001_with_different_sqlstate_not_retryable",
+            ),
         ],
     )
     def test_is_retryable_connection_error(self, errno, sqlstate, message, expected):

@@ -590,22 +590,31 @@ def _is_retryable_connection_error(e: BaseException) -> bool:
     Check if a Snowflake connect-time error is a transient connection-establishment
     failure that is worth retrying.
 
-    250001 / SQLSTATE 08001 indicates the connector failed to complete the connection
-    handshake. This can be a genuine network blip, or -- under key-pair authentication --
-    a rejected JWT caused by clock skew between the client and Snowflake at the moment the
-    JWT was generated. Since the connector generates a fresh, short-lived JWT on every
-    connect attempt, retrying can succeed even though the first attempt failed.
+    SQLSTATE 08001 (connection was not established) indicates the connector failed to
+    complete the connection handshake. This can be a genuine network blip, or -- under
+    key-pair authentication -- a rejected JWT caused by clock skew between the client and
+    Snowflake at the moment the JWT was generated. Since the connector generates a fresh,
+    short-lived JWT on every connect attempt, retrying can succeed even though the first
+    attempt failed.
 
-    This is a broad error code/state match, not a precise transient/persistent
-    classifier: a wrong password fails with a different errno/sqlstate (e.g. 390100 /
-    08004) and is correctly excluded, but a misconfigured account_id, a permanently
-    invalid key pair, or a TLS/proxy issue can also surface as 250001/08001 and will be
-    retried too. That's an accepted trade-off -- with only 3 attempts, the wasted retries
-    on a persistent misconfiguration cost a few seconds before the real error surfaces.
+    sqlstate, not errno, is the primary signal: errno 250001 (ER_FAILED_TO_CONNECT_TO_DB)
+    is a generic "failed to connect" code that the connector also raises for deterministic,
+    non-transient auth rejections under a *different* sqlstate -- e.g. an Okta-unauthorized
+    response carries errno=250001 but sqlstate="08004" (connection rejected). Matching on
+    errno alone would retry those needlessly. errno is only consulted as a fallback when
+    sqlstate isn't available at all.
+
+    This is still a broad match within the 08001 class, not a precise transient/persistent
+    classifier: a misconfigured account_id, a permanently invalid key pair, or a TLS/proxy
+    issue can also surface as 08001 and will be retried too. That's an accepted trade-off --
+    with only 3 attempts, the wasted retries on a persistent misconfiguration cost a few
+    seconds before the real error surfaces.
     """
     errno = getattr(e, "errno", None)
     sqlstate = getattr(e, "sqlstate", None)
-    if errno == 250001 or sqlstate == "08001":
+    if sqlstate is not None:
+        return sqlstate == "08001"
+    if errno == 250001:
         return True
     msg = str(e)
     return "250001" in msg and "Failed to connect" in msg
