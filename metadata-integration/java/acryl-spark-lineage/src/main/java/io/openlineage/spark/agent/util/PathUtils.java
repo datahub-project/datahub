@@ -58,7 +58,16 @@ public class PathUtils {
   @SneakyThrows
   public static DatasetIdentifier fromCatalogTable(
       CatalogTable catalogTable, SparkSession sparkSession, URI location) {
-    return fromTableIdentifier(catalogTable.identifier(), sparkSession.sparkContext(), location);
+    SparkContext sparkContext = sparkSession.sparkContext();
+    if (CatalogDatasetFacetUtils.isHiveCatalog(sparkSession, catalogTable.identifier())
+        && GoogleCloudPlatformUtils.isBigLakeHiveCatalog(sparkContext.getConf())) {
+      return fromURI(location)
+          .withSymlink(
+              nameFromTableIdentifier(catalogTable.identifier()),
+              "gcp_lakehouse",
+              DatasetIdentifier.SymlinkType.TABLE);
+    }
+    return fromTableIdentifier(catalogTable.identifier(), sparkContext, location);
   }
 
   @SneakyThrows
@@ -75,7 +84,6 @@ public class PathUtils {
 
     Optional<URI> metastoreUri = getMetastoreUri(sparkContext);
     Optional<String> glueArn = AwsUtils.getGlueArn(sparkConf, hadoopConf);
-
     if (glueArn.isPresent()) {
       // Even if glue catalog is used, it will have a hive metastore URI
       // Use ARN format 'arn:aws:glue:{region}:{account_id}:table/{database}/{table}'
@@ -116,12 +124,12 @@ public class PathUtils {
       }
     }
 
-    if (symlinkDataset.isPresent()) {
-      locationDataset.withSymlink(
-          symlinkDataset.get().getName(),
-          symlinkDataset.get().getNamespace(),
-          DatasetIdentifier.SymlinkType.TABLE);
-    }
+    symlinkDataset.ifPresent(
+        datasetIdentifier ->
+            locationDataset.withSymlink(
+                datasetIdentifier.getName(),
+                datasetIdentifier.getNamespace(),
+                DatasetIdentifier.SymlinkType.TABLE));
 
     return locationDataset;
   }
@@ -146,7 +154,7 @@ public class PathUtils {
     }
 
     // /warehouse/mydb.db/mytable
-    return new Path(warehouse, database + ".db", name);
+    return new Path(new Path(warehouse, database + ".db"), name);
   }
 
   public static Optional<URI> getMetastoreUri(SparkContext context) {

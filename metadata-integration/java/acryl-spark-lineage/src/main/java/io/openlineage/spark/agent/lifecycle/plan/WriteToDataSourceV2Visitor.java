@@ -118,7 +118,8 @@ public final class WriteToDataSourceV2Visitor
       }
 
       // Use the inherited outputDataset() method to create the dataset
-      OutputDataset dataset = outputDataset().getDataset(name, namespace, schema);
+      OutputDataset dataset =
+          outputDataset().sparkDatasetBuilder().dataset(name, namespace).schema(schema).build();
       return Collections.singletonList(dataset);
 
     } catch (Exception e) {
@@ -223,7 +224,8 @@ public final class WriteToDataSourceV2Visitor
     if (topicOpt.isPresent() && bootstrapServersOpt.isPresent()) {
       String topic = topicOpt.get();
 
-      OutputDataset dataset = outputDataset().getDataset(topic, namespace, schemaOpt);
+      OutputDataset dataset =
+          outputDataset().sparkDatasetBuilder().dataset(topic, namespace).schema(schemaOpt).build();
       return Collections.singletonList(dataset);
     } else {
       String topicPresent =

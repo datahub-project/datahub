@@ -178,7 +178,11 @@ public class RddDatasetInfoExtractor {
                       .get()
                       .getParent();
                 } else {
-                  return parentOf(f.filePath());
+                  // Spark < 3.4: filePath() returns a String. Access reflectively so this branch
+                  // still compiles against Spark 3.4+ where filePath() returns SparkPath.
+                  return tryExecuteMethod(f, "filePath")
+                      .map(o -> parentOf(o.toString()))
+                      .orElse(null);
                 }
               })
           .filter(Objects::nonNull)
@@ -290,10 +294,15 @@ public class RddDatasetInfoExtractor {
                 .map(ip -> (InputPartition) ip)
                 .collect(Collectors.toList());
       } else {
+        // Older Spark: DataSourceRDDPartition exposes a single inputPartition(). Access
+        // reflectively so this branch compiles against Spark 3.3+ where it became
+        // inputPartitions().
         inputPartitions =
             Arrays.stream(rdd.getPartitions())
                 .filter(p -> p instanceof DataSourceRDDPartition)
-                .map(p -> ((DataSourceRDDPartition) p).inputPartition())
+                .map(p -> tryExecuteMethod(p, "inputPartition").orElse(null))
+                .filter(Objects::nonNull)
+                .map(ip -> (InputPartition) ip)
                 .collect(Collectors.toList());
       }
       return inputPartitions;

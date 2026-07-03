@@ -51,10 +51,10 @@ public class JdbcSparkUtils {
                         jdbcUrl, dbtm.qualifiedName(), jdbcProperties);
 
                 if (numberOfTables > 1) {
-                  return datasetFactory.getDataset(di.getName(), di.getNamespace());
+                  return datasetFactory.sparkDatasetBuilder().dataset(di).build();
                 }
 
-                return datasetFactory.getDataset(di.getName(), di.getNamespace(), schema);
+                return datasetFactory.sparkDatasetBuilder().dataset(di).schema(schema).build();
               })
           .collect(Collectors.toList());
     }
@@ -64,8 +64,11 @@ public class JdbcSparkUtils {
               DatasetIdentifier di =
                   JdbcDatasetUtils.getDatasetIdentifier(
                       jdbcUrl, dbtm.qualifiedName(), jdbcProperties);
-              return datasetFactory.getDataset(
-                  di.getName(), di.getNamespace(), generateSchemaFromSqlMeta(dbtm, schema, meta));
+              return datasetFactory
+                  .sparkDatasetBuilder()
+                  .dataset(di)
+                  .schema(generateSchemaFromSqlMeta(dbtm, schema, meta))
+                  .build();
             })
         .collect(Collectors.toList());
   }

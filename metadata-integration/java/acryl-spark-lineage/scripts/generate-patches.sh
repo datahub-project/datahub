@@ -19,7 +19,6 @@ FILES=(
   "spark/api/Vendors.java"
   "spark/api/VendorsContext.java"
   "spark/api/VendorsImpl.java"
-  "spark/agent/util/AwsUtils.java"
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
   "spark/agent/util/RddDatasetInfoExtractor.java"

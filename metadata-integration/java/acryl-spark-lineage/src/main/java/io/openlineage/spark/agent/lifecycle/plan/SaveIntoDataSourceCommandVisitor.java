@@ -17,7 +17,6 @@ import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.client.utils.jdbc.JdbcDatasetUtils;
 import io.openlineage.spark.agent.util.DatasetFacetsUtils;
 import io.openlineage.spark.agent.util.LogicalRelationFactory;
-import io.openlineage.spark.agent.util.PathUtils;
 import io.openlineage.spark.agent.util.PlanUtils;
 import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.AbstractQueryPlanDatasetBuilder;
@@ -109,7 +108,11 @@ public class SaveIntoDataSourceCommandVisitor
 
       return datasetIdentifier != null
           ? Collections.singletonList(
-              outputDataset().getDataset(datasetIdentifier, getSchema(command)))
+              outputDataset()
+                  .sparkDatasetBuilder()
+                  .dataset(datasetIdentifier)
+                  .schema(getSchema(command))
+                  .build())
           : Collections.emptyList();
     }
 
@@ -144,9 +147,13 @@ public class SaveIntoDataSourceCommandVisitor
 
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")) {
       if (command.options().contains("path")) {
-        URI uri = URI.create(command.options().get("path").get());
         return Collections.singletonList(
-            outputDataset().getDataset(PathUtils.fromURI(uri), schema, lifecycleStateChange));
+            outputDataset()
+                .sparkDatasetBuilder()
+                .dataset(URI.create(command.options().get("path").get()))
+                .schema(schema)
+                .lifecycleStateChange(lifecycleStateChange)
+                .build());
       }
     }
 
@@ -162,10 +169,13 @@ public class SaveIntoDataSourceCommandVisitor
       }
       String tableName = command.options().get("dbtable").get();
       String url = command.options().get("url").get();
-      DatasetIdentifier identifier =
-          JdbcDatasetUtils.getDatasetIdentifier(url, tableName, new Properties());
       return Collections.singletonList(
-          outputDataset().getDataset(identifier, schema, lifecycleStateChange));
+          outputDataset()
+              .sparkDatasetBuilder()
+              .dataset(JdbcDatasetUtils.getDatasetIdentifier(url, tableName, new Properties()))
+              .schema(schema)
+              .lifecycleStateChange(lifecycleStateChange)
+              .build());
     }
 
     SQLContext sqlContext = context.getSparkSession().get().sqlContext();
