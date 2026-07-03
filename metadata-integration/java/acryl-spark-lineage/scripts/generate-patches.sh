@@ -21,7 +21,6 @@ FILES=(
   "spark/api/VendorsImpl.java"
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
-  "spark/agent/util/RddDatasetInfoExtractor.java"
   "spark/agent/util/RemovePathPatternUtils.java"
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"

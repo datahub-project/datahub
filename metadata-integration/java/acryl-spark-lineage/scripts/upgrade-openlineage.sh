@@ -31,6 +31,12 @@ echo "========================================="
 echo "OpenLineage Upgrade: $OLD_VERSION → $NEW_VERSION"
 echo "========================================="
 echo ""
+echo "NOTE: This is a best-effort first pass. It copies the new upstream over the vendored"
+echo "      files and tries to re-apply the v$OLD_VERSION patches with 'patch -p0', which FAILS"
+echo "      whenever upstream changed a patched file. For those, finish with the 3-way merge"
+echo "      documented in CLAUDE.md ('Upgrade Process'). Always run the test suite afterward"
+echo "      (test, checkShadowJar, sparkRealSmokeTest, sparkSmoke4Test)."
+echo ""
 
 # Files to upgrade - array of "path|file" pairs
 # Format: "upstream_path|relative_file_path"
@@ -40,7 +46,6 @@ FILES=(
   "integration/spark/shared/src/main/java/io/openlineage|spark/api/VendorsImpl.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PathUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PlanUtils.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/RddPathUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/RemovePathPatternUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
@@ -169,7 +174,8 @@ else
   PATCH_CONFLICTS=()
 
   for file in "${CHANGED_FILES[@]}"; do
-    PATCH_FILE="$PATCHES_DIR/$(basename "$file" .java).patch"
+    # Patches live under the versioned dir for the CURRENT (old) version, not the flat root.
+    PATCH_FILE="$PATCHES_DIR/v$OLD_VERSION/$(basename "$file" .java).patch"
     DATAHUB_FILE="$DATAHUB_SRC/$file"
 
     if [ -f "$PATCH_FILE" ] && [ -f "$DATAHUB_FILE" ]; then

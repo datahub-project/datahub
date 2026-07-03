@@ -114,81 +114,101 @@ apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL cons
 free and the two hardest patches (`PlanUtils`, `RemovePathPatternUtils`) can eventually be dropped.
 See ING-2959 for the phased plan.
 
-### Automated Upgrade Process
+### Upgrade Process (3-way merge — the reliable path)
 
-Use the automated upgrade script:
+The 1.33→1.38→1.45→1.50 upgrades showed that the only robust way to move a **patch-tracked**
+vendored file forward is a **3-way merge**: replay upstream's `old→new` delta on top of our
+customized copy. Blind `cp new-upstream + patch -p0` (what `upgrade-openlineage.sh` attempts) breaks
+whenever upstream changed a patched file — e.g. OL 1.48's `DatasetFactory` builder refactor rewrote
+call sites in several patched files. Prefer the steps below; treat `upgrade-openlineage.sh` as an
+optional first pass only.
 
-```bash
-# Quick upgrade (recommended)
-./scripts/upgrade-openlineage.sh 1.45.0 1.50.0
-
-# This will:
-# 1. Fetch new upstream files from GitHub
-# 2. Compare old vs new upstream versions
-# 3. Update shadowed files with new upstream code
-# 4. Apply DataHub customizations via patches
-# 5. Update build.gradle version
-# 6. Report any conflicts requiring manual merge
-```
-
-### Manual Upgrade Steps
-
-If you prefer manual control or need to resolve conflicts:
-
-1. **Fetch upstream files**:
+1. **Fetch both the old and new upstream** (the old version is the merge base):
 
    ```bash
-   ./scripts/fetch-upstream.sh 1.50.0
+   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.45.0
+   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.50.0
    ```
 
-2. **Compare upstream changes** (optional):
+2. **3-way merge each patch-tracked file** (see "Known Customizations" for the list). `git merge-file`
+   applies the upstream `old→new` delta onto our current customized file, marking only real overlaps:
 
    ```bash
-   # See what changed between versions
-   diff -r patches/upstream-1.45.0 patches/upstream-1.50.0
+   f=spark/agent/util/PathUtils.java   # repeat per patched file
+   git merge-file -p \
+     src/main/java/io/openlineage/$f \
+     patches/upstream-<old-version>/$f \
+     patches/upstream-<new-version>/$f > /tmp/merged && mv /tmp/merged src/main/java/io/openlineage/$f
    ```
 
-3. **Update source files**:
+   Files upstream didn't touch merge cleanly (empty delta). Resolve any conflict markers by hand.
 
-   ```bash
-   # Copy new upstream files
-   cp -r patches/upstream-1.50.0/* src/main/java/io/openlineage/
-   ```
+3. **Port the DataHub-specific files by hand** — `RddDatasetInfoExtractor`, `JdbcSparkUtils`,
+   `FileStreamMicroBatchStreamStrategy`, and the redshift vendor have **no upstream** to merge
+   against, so adapt them directly to any changed OL/Spark APIs (see step 6).
 
-4. **Apply DataHub customizations**:
-
-   ```bash
-   # Apply all patches for the target version
-   for patch in patches/datahub-customizations/v1.50.0/*.patch; do
-     echo "Applying $(basename $patch)..."
-     patch -p0 < "$patch" || echo "Conflict in $patch - manual merge required"
-   done
-   ```
-
-5. **Handle conflicts**:
-
-   - If patches fail, manually merge changes from:
-     - Backup: `patches/backup-<timestamp>/`
-     - New upstream: `patches/upstream-<new-version>/`
-     - Patches show what to customize: `patches/datahub-customizations/v<version>/`
-
-6. **Regenerate patches** (if you manually merged):
-
-   ```bash
-   ./scripts/generate-patches.sh 1.50.0
-   ```
-
-7. **Update build.gradle**:
+4. **Bump the version** in the root `build.gradle`:
 
    ```gradle
-   ext.openLineageVersion = '1.50.0'
+   ext.openLineageVersion = '<new-version>'
    ```
 
-8. **Test thoroughly**:
+5. **Regenerate lockfiles**, then **verify Spotless entries survived**:
+
    ```bash
-   ./gradlew :metadata-integration:java:acryl-spark-lineage:build
-   ./gradlew :metadata-integration:java:acryl-spark-lineage:test
+   ./gradlew resolveAndLockAll --write-locks
    ```
+
+   ⚠️ Some environments run `resolveAndLockAll` without realizing Spotless's dynamically-named
+   config, silently dropping its locked deps (`google-java-format`, `guava`, `error_prone`, …). After
+   regenerating, `git diff` the lockfiles: the only changes should be the genuine OL dependency
+   updates. If the `spotless<hash>` entries disappeared, restore them from the pre-change lockfiles.
+
+6. **Compile-driven fix of breaking API changes** — compile, fix what breaks, repeat:
+
+   ```bash
+   ./gradlew :metadata-integration:java:openlineage-converter:compileJava \
+             :metadata-integration:java:acryl-spark-lineage:compileTestJava
+   ```
+
+7. **Drop backports upstream now ships natively.** Check the OL changelog for the intervening
+   versions and remove any DataHub workaround that became redundant (e.g. the `AwsUtils` Glue-ARN
+   backport was removed once OL 1.46 shipped `isIcebergUsingGlue`).
+
+8. **Regenerate the customization patches**:
+
+   ```bash
+   ./scripts/generate-patches.sh <new-version>
+   ```
+
+9. **Run the tests** (see below) — including the real-Spark and Spark 4 smoke suites.
+
+### Testing an upgrade
+
+```bash
+# Unit tests + shaded-jar leak check (fast, no Docker)
+./gradlew :metadata-integration:java:acryl-spark-lineage:test \
+          :metadata-integration:java:acryl-spark-lineage:checkShadowJar
+./gradlew :metadata-integration:java:openlineage-converter:test
+
+# Real-Spark 3.5 (Scala 2.12) smoke suite — requires Docker (testcontainers/moto)
+./gradlew :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest
+
+# Apache Spark 4.x (Scala 2.13) compatibility — requires Docker + JDK 17+; runs against the
+# shaded 2.13 agent jar (see the Spark 4 note below)
+./gradlew :metadata-integration:java:acryl-spark-lineage:sparkSmoke4Test
+```
+
+The `sparkRealSmokeTest` and `sparkSmoke4Test` tasks are also run by the `spark-smoke-test` CI
+workflow, so an upgrade that passes them locally is what CI will verify.
+
+### Spark 4.x compatibility (`sparkSmoke4Test`)
+
+Spark 4 is **Scala 2.13 + Java 17 only**, so its smoke test lives in its own `src/sparkSmoke4`
+source set and runs against the real shaded `shadowJar_2_13` jar (where our bundled deps are
+relocated under `io.acryl.shaded`, avoiding clashes with Spark 4's own antlr/jackson). It forces
+`antlr4-runtime` to 4.13.x for Spark 4's `SqlBaseLexer` (the repo otherwise pins 4.9.3) and is
+excluded from dependency locking (its Spark 4 deps are test-only, not part of the shipped artifact).
 
 ### Understanding Patch Files
 
