@@ -3,6 +3,14 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datahub.ingestion.source.sap_mdg.constants import (
+    DRF_ABAP_TRUE,
+    DRF_FIELD_ACTIVE,
+    DRF_FIELD_BUSINESS_SYSTEM,
+    DRF_FIELD_DATA_MODEL,
+    DRF_FIELD_MODEL,
+)
+
 
 class ODataVersion(str, Enum):
     V2 = "2"
@@ -115,3 +123,30 @@ class ODataMetadata(_ODataBaseModel):
         for entity_set in self.entity_sets:
             mapping.setdefault(entity_set.entity_type_fqn, entity_set)
         return mapping
+
+
+class DrfReplicationModelRow(_ODataBaseModel):
+    # A row of DRFC_APPL: a replication model (`model`) and the MDG data model it
+    # governs, plus the active flag ('X' when the model replicates).
+    model: str = Field(alias=DRF_FIELD_MODEL)
+    data_model: Optional[str] = Field(default=None, alias=DRF_FIELD_DATA_MODEL)
+    active_flag: Optional[str] = Field(default=None, alias=DRF_FIELD_ACTIVE)
+
+    @property
+    def is_active(self) -> bool:
+        return (self.active_flag or "").strip().upper() == DRF_ABAP_TRUE
+
+
+class DrfSystemRow(_ODataBaseModel):
+    # A row of DRFC_APPL_SYS: a replication model assigned to a target business system.
+    model: str = Field(alias=DRF_FIELD_MODEL)
+    business_system: str = Field(alias=DRF_FIELD_BUSINESS_SYSTEM)
+
+
+class DrfDistribution(BaseModel):
+    # Normalized DRF outcome: for each MDG data model (`USMD_MODEL`), the ordered,
+    # de-duplicated list of target business systems it is replicated to.
+    targets_by_data_model: Dict[str, List[str]] = Field(default_factory=dict)
+
+    def targets_for(self, data_model: str) -> List[str]:
+        return self.targets_by_data_model.get(data_model, [])

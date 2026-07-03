@@ -43,6 +43,7 @@ from datahub.ingestion.source.sap_mdg.constants import (
 )
 from datahub.ingestion.source.sap_mdg.edmx_parser import parse_metadata
 from datahub.ingestion.source.sap_mdg.models import (
+    DrfDistribution,
     NavigationTarget,
     ODataAssociation,
     ODataEntitySet,
@@ -56,14 +57,20 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     ForeignKeyConstraintClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    UpstreamClass,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 class SapMdgServiceKey(ContainerKey):
@@ -81,7 +88,14 @@ class SapMdgServiceKey(ContainerKey):
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Emitted as foreign keys derived from OData navigation properties",
+    "Foreign keys from OData navigation properties, plus cross-platform lineage to "
+    "systems MDG replicates to (via the DRF replication model) when `drf.enabled`",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Emitted for downstream fields matching the MDG entity by name when "
+    "`drf.emit_column_lineage` is set",
+    supported=True,
 )
 class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = SAP_MDG_PLATFORM
@@ -91,6 +105,20 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: SapMdgSourceReport = SapMdgSourceReport()
         self.client = SapMdgODataClient(config, self.report)
+        self._drf_distribution: Optional[DrfDistribution] = None
+        if config.drf.enabled:
+            self._drf_distribution = self._load_drf_distribution()
+
+    def _load_drf_distribution(self) -> Optional[DrfDistribution]:
+        try:
+            return self.client.fetch_drf_distribution()
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read DRF replication model",
+                message="Cross-platform lineage is disabled for this run.",
+                exc=e,
+            )
+            return None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapMdgSource":
@@ -179,6 +207,7 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
                     associations_by_fqn=associations_by_fqn,
                     sets_by_type_fqn=sets_by_type_fqn,
                 )
+                yield from self._emit_drf_lineage(service, entity_set, entity_type)
             except Exception as e:
                 self.report.warning(
                     title="Failed to emit entity set",
@@ -407,6 +436,88 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=detail.platform_instance,
             env=detail.env or self.config.env,
         )
+
+    def _emit_drf_lineage(
+        self,
+        service: str,
+        entity_set: ODataEntitySet,
+        entity_type: ODataEntityType,
+    ) -> Iterable[MetadataWorkUnit]:
+        if self._drf_distribution is None:
+            return
+        data_model = self.config.drf.service_to_data_model.get(
+            self._service_id(service)
+        )
+        if data_model is None:
+            return
+
+        source_name = self._entity_set_dataset_name(entity_set)
+        source_urn = self._dataset_urn(source_name)
+        field_names = [prop.name for prop in entity_type.properties]
+        for business_system in self._drf_distribution.targets_for(data_model):
+            # The replicated object keeps its name on the target, so its urn is
+            # deterministic from the mapped platform/instance/env. Systems without a
+            # platform mapping cannot be resolved and are reported rather than guessed.
+            downstream_urn = self._target_dataset_urn(business_system, source_name)
+            if downstream_urn is None:
+                self.report.report_target_system_unresolved(business_system)
+                continue
+            yield from self._emit_downstream_lineage(
+                source_urn, downstream_urn, field_names
+            )
+
+    def _emit_downstream_lineage(
+        self, source_urn: str, downstream_urn: str, field_names: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        # MDG governs the master data and replicates it out, so it is the upstream of
+        # the downstream system's dataset. Emitted as a PATCH so the edge is added
+        # alongside — never overwriting — lineage the downstream's own connector sets.
+        patch = DatasetPatchBuilder(downstream_urn)
+        patch.add_upstream_lineage(
+            UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY)
+        )
+        if self.config.drf.emit_column_lineage:
+            for field_name in self._matched_downstream_fields(
+                downstream_urn, field_names
+            ):
+                patch.add_fine_grained_lineage(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        upstreams=[make_schema_field_urn(source_urn, field_name)],
+                        downstreams=[make_schema_field_urn(downstream_urn, field_name)],
+                    )
+                )
+                self.report.column_lineage_edges_emitted += 1
+        yield from self._patch_workunits(downstream_urn, patch)
+        self.report.lineage_edges_emitted += 1
+
+    def _matched_downstream_fields(
+        self, downstream_urn: str, source_field_names: List[str]
+    ) -> List[str]:
+        # Column-level lineage is only emitted where a field of the same name exists on
+        # the downstream dataset, read from DataHub. This keeps CLL correct by
+        # construction even though MDG cannot see the target's physical schema.
+        graph = self.ctx.graph
+        if graph is None:
+            return []
+        schema = graph.get_schema_metadata(downstream_urn)
+        if schema is None:
+            return []
+        downstream_fields = {field.fieldPath for field in schema.fields}
+        return [name for name in source_field_names if name in downstream_fields]
+
+    def _patch_workunits(
+        self, dataset_urn: str, patch: DatasetPatchBuilder
+    ) -> Iterable[MetadataWorkUnit]:
+        # One MCP per patched aspect. is_primary_source is False because these
+        # datasets belong to downstream systems, not to the MDG source.
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=f"{dataset_urn}-patch-{mcp.aspectName}",
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
 
     def _service_id(self, service: str) -> str:
         stripped = SERVICE_PATH_STRIP_PATTERN.sub("", service)

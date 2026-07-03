@@ -36,6 +36,48 @@ class MdgTargetPlatform(ConfigModel):
     )
 
 
+class DrfConfig(ConfigModel):
+    # Cross-platform lineage derived from the SAP Data Replication Framework. The
+    # replication model (tables DRFC_APPL / DRFC_APPL_SYS) links a governed data
+    # model to the target business systems it is replicated to. These tables have
+    # no standard OData service, so they are read through a customer-exposed
+    # generic table-reader service (e.g. an RFC_READ_TABLE-backed SEGW service)
+    # that returns each table as an OData entity set of JSON rows keyed by column.
+    enabled: bool = Field(
+        default=False,
+        description="Read the DRF replication model to emit lineage from MDG entity "
+        "sets to the datasets they are replicated to in downstream systems.",
+    )
+    table_read_service: Optional[str] = Field(
+        default=None,
+        description="Path (relative to `base_url`) of a generic table-reader OData "
+        "service that exposes the DRF customizing tables as entity sets.",
+    )
+    model_entity_set: str = Field(
+        default="DRFC_APPL",
+        description="Entity set name of the DRFC_APPL (replication model) table in the "
+        "table-reader service.",
+    )
+    system_entity_set: str = Field(
+        default="DRFC_APPL_SYS",
+        description="Entity set name of the DRFC_APPL_SYS (model \u2192 business system) "
+        "table in the table-reader service.",
+    )
+    service_to_data_model: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps an ingested OData service id (the last path segment, e.g. "
+        "`ZMDG_BP_SRV`) to the MDG data model (`USMD_MODEL`, e.g. `BP`) whose "
+        "replication model determines that service's lineage targets.",
+    )
+    emit_column_lineage: bool = Field(
+        default=False,
+        description="Also emit column-level lineage. The downstream schema is read "
+        "from DataHub and lineage is emitted only for field names present in both the "
+        "MDG entity and the downstream dataset (safe by construction). Requires a "
+        "DataHub sink/graph to be available.",
+    )
+
+
 class SapMdgSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     base_url: str = Field(
         description="Base URL of the SAP Gateway host serving the MDG OData services, "
@@ -99,6 +141,11 @@ class SapMdgSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         "cross-platform lineage targets (platform, instance, env, casing). A code "
         "not listed here falls back to a small set of well-known SAP platforms.",
     )
+    drf: DrfConfig = Field(
+        default_factory=DrfConfig,
+        description="Data Replication Framework lineage settings (cross-platform "
+        "lineage from MDG to the systems it replicates master data to).",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion config for stale entity removal.",
@@ -115,6 +162,14 @@ class SapMdgSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         if not value:
             raise ValueError("At least one OData service path must be configured.")
         return value
+
+    @model_validator(mode="after")
+    def _require_drf_service_when_enabled(self) -> "SapMdgSourceConfig":
+        if self.drf.enabled and self.drf.table_read_service is None:
+            raise ValueError(
+                "drf.table_read_service is required when drf.enabled is true."
+            )
+        return self
 
     @model_validator(mode="after")
     def _require_credentials(self) -> "SapMdgSourceConfig":

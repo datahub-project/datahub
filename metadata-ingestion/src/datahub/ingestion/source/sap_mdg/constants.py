@@ -74,6 +74,28 @@ SAP_ANNOTATION_QUICKINFO = "quickinfo"
 PROPERTY_ODATA_ENTITY_TYPE = "odata_entity_type"
 PROPERTY_ODATA_VERSION = "odata_version"
 
+# DRF (Data Replication Framework) customizing tables that define, per replication
+# model, the governed data model and the target business systems. There is no
+# standard OData service for these, so they are read through a customer-exposed
+# generic table-reader service (see `drf` config). Column names below match the
+# ABAP DDIC fields of the tables.
+DRF_MODEL_TABLE = "DRFC_APPL"
+DRF_SYSTEM_TABLE = "DRFC_APPL_SYS"
+DRF_FIELD_MODEL = "APPL"
+DRF_FIELD_DATA_MODEL = "USMD_MODEL"
+DRF_FIELD_ACTIVE = "ACTIVE"
+DRF_FIELD_BUSINESS_SYSTEM = "BUSINESS_SYSTEM"
+# ABAP boolean flag: 'X' = true, ' ' = false.
+DRF_ABAP_TRUE = "X"
+
+# Response envelopes: OData V2 wraps rows in {"d": {"results": [...]}} (or {"d": [...]}),
+# OData V4 in {"value": [...]}.
+ODATA_V2_ENVELOPE = "d"
+ODATA_V2_RESULTS = "results"
+ODATA_V4_ENVELOPE = "value"
+ODATA_JSON_FORMAT_PARAM = "$format"
+ODATA_JSON_FORMAT = "json"
+
 # OData collection wrapper, e.g. "Collection(Edm.String)" or "Collection(NS.Type)".
 COLLECTION_TYPE_PATTERN = re.compile(r"^Collection\((?P<inner>.+)\)$")
 # Namespace URIs that identify the OData CSDL version.

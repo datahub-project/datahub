@@ -15,8 +15,13 @@ class SapMdgSourceReport(StaleEntityRemovalSourceReport):
     datasets_emitted: int = 0
     foreign_keys_emitted: int = 0
     foreign_keys_unresolved: int = 0
+    lineage_edges_emitted: int = 0
+    column_lineage_edges_emitted: int = 0
     filtered_entity_sets: LossyList[str] = field(default_factory=LossyList)
     failed_services: LossyList[str] = field(default_factory=LossyList)
+    # Target business systems that have no configured/known platform mapping, so
+    # their downstream dataset urn cannot be resolved.
+    unresolved_target_systems: LossyList[str] = field(default_factory=LossyList)
 
     def report_entity_set_filtered(self, name: str) -> None:
         self.filtered_entity_sets.append(name)
@@ -24,3 +29,6 @@ class SapMdgSourceReport(StaleEntityRemovalSourceReport):
     def report_service_failed(self, service: str) -> None:
         self.services_failed += 1
         self.failed_services.append(service)
+
+    def report_target_system_unresolved(self, business_system: str) -> None:
+        self.unresolved_target_systems.append(business_system)

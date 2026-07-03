@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -15,8 +15,18 @@ from datahub.ingestion.source.sap_mdg.constants import (
     HTTP_SCHEME_HTTP,
     HTTP_SCHEME_HTTPS,
     METADATA_DOCUMENT_PATH,
+    ODATA_JSON_FORMAT,
+    ODATA_JSON_FORMAT_PARAM,
+    ODATA_V2_ENVELOPE,
+    ODATA_V2_RESULTS,
+    ODATA_V4_ENVELOPE,
     SAP_CLIENT_PARAM,
     SERVICE_PATH_STRIP_PATTERN,
+)
+from datahub.ingestion.source.sap_mdg.models import (
+    DrfDistribution,
+    DrfReplicationModelRow,
+    DrfSystemRow,
 )
 from datahub.ingestion.source.sap_mdg.report import SapMdgSourceReport
 
@@ -87,6 +97,60 @@ class SapMdgODataClient:
     def test_connection(self) -> None:
         # Fetch the first configured service's metadata to prove connectivity + auth.
         self.fetch_metadata(self.config.services[0])
+
+    def fetch_drf_distribution(self) -> DrfDistribution:
+        # Reads DRFC_APPL (model -> data model, active) and DRFC_APPL_SYS
+        # (model -> business system) and pivots them into data model -> targets.
+        drf = self.config.drf
+        model_rows = [
+            DrfReplicationModelRow.model_validate(row)
+            for row in self._fetch_rows(drf.model_entity_set)
+        ]
+        system_rows = [
+            DrfSystemRow.model_validate(row)
+            for row in self._fetch_rows(drf.system_entity_set)
+        ]
+
+        data_model_by_model = {
+            row.model: row.data_model
+            for row in model_rows
+            if row.is_active and row.data_model
+        }
+        distribution = DrfDistribution()
+        for system_row in system_rows:
+            data_model = data_model_by_model.get(system_row.model)
+            if data_model is None:
+                continue
+            targets = distribution.targets_by_data_model.setdefault(data_model, [])
+            if system_row.business_system not in targets:
+                targets.append(system_row.business_system)
+        return distribution
+
+    def _fetch_rows(self, entity_set: str) -> List[Dict[str, object]]:
+        assert self.config.drf.table_read_service is not None
+        service_path = SERVICE_PATH_STRIP_PATTERN.sub(
+            "", self.config.drf.table_read_service
+        )
+        url = f"{self.config.base_url}/{service_path}/{entity_set}"
+        params = dict(self._query_params())
+        params[ODATA_JSON_FORMAT_PARAM] = ODATA_JSON_FORMAT
+        response = self.session.get(url, params=params, timeout=self.config.timeout)
+        response.raise_for_status()
+        return self._extract_rows(response.json())
+
+    @staticmethod
+    def _extract_rows(payload: object) -> List[Dict[str, object]]:
+        # OData V4 returns {"value": [...]}, V2 {"d": {"results": [...]}} or {"d": [...]}.
+        if not isinstance(payload, dict):
+            return []
+        if ODATA_V4_ENVELOPE in payload:
+            rows = payload[ODATA_V4_ENVELOPE]
+        elif ODATA_V2_ENVELOPE in payload:
+            inner = payload[ODATA_V2_ENVELOPE]
+            rows = inner.get(ODATA_V2_RESULTS, []) if isinstance(inner, dict) else inner
+        else:
+            return []
+        return [row for row in rows if isinstance(row, dict)]
 
     def close(self) -> None:
         self.session.close()
