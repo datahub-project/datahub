@@ -108,9 +108,12 @@ jobs:
           test-results-paths: |
             **/build/reports/tests/test/**
             **/build/reports/tests/sparkRealSmokeTest/**
+            **/build/reports/tests/sparkSmoke4Test/**
             **/build/test-results/test/**
             **/build/test-results/sparkRealSmokeTest/**
+            **/build/test-results/sparkSmoke4Test/**
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
             **/build/test-results/sparkRealSmokeTest/**/*.xml
+            **/build/test-results/sparkSmoke4Test/**/*.xml

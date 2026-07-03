@@ -451,11 +451,14 @@ tasks.register('sparkSmoke4Test', Test) {
 // Most of the listener lifecycle is exercised by the real-Spark integration suite, not the unit
 // tests, so fold its coverage into jacocoTestReport — otherwise the reported number reflects only
 // unit tests and badly understates reality. The report picks up whatever .exec files are present
-// (test.exec always; sparkRealSmokeTest.exec when the integration suite ran); mustRunAfter keeps
-// the ordering correct when both are scheduled (e.g. the spark smoke-test CI workflow).
+// (test.exec always; sparkRealSmokeTest.exec / sparkSmoke4Test.exec when those suites ran).
+// mustRunAfter keeps the ordering correct — and, since the report consumes their .exec outputs,
+// avoids Gradle's implicit-dependency validation failure — when they're scheduled together (e.g.
+// the spark smoke-test CI workflow).
 jacocoTestReport {
   executionData.from(fileTree(dir: "${buildDir}/jacoco", includes: ['*.exec']))
   mustRunAfter('sparkRealSmokeTest')
+  mustRunAfter('sparkSmoke4Test')
 }
 
 assemble {
