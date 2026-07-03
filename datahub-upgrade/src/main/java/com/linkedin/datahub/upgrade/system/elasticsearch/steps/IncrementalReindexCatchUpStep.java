@@ -299,7 +299,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   private void persistCatchUpCheckpoint(
       UpgradeContext context, Map<String, String> catchUpState, DataHubUpgradeState state) {
-    context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, catchUpState);
+    Map<String, String> merged = loadCurrentCheckpointState(context);
+    merged.putAll(catchUpState);
+    context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, merged);
   }
 
   /**
