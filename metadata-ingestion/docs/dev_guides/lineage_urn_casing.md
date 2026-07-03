@@ -197,6 +197,16 @@ actually exact or broken.
   warehouse table that **exists but has no schema** (more common on schemaless platforms like Kafka or
   DynamoDB than on Snowflake/BigQuery) is therefore left unchanged and reported `UNRESOLVED`. Covering
   schemaless entities needs a richer `SchemaResolver` and is a tracked follow-up.
+- **Heals only references that were emitted; it cannot recover lineage dropped upstream.** This processor
+  reconciles the casing of references a source _emits_. For **sqlglot-derived** sources (those that parse
+  SQL via `SqlParsingAggregator` — e.g. Looker derived tables, Mode/Superset query SQL), column-level
+  (fine-grained) lineage is only produced when the table's schema resolves at parse time, and
+  `SchemaResolver.resolve_table` tries just three casing variants (as-parsed, fully-lowercased, and
+  lower-table + non-lowercased-instance). If the warehouse's stored casing falls outside those (e.g.
+  arbitrary PascalCase), the schema lookup misses and **no column-level edge is emitted** — so there is
+  nothing here to heal. Table-level lineage is unaffected: `resolve_table` always returns a best-effort
+  URN, so the table edge is emitted in the parsed casing and then reconciled by this processor. Closing
+  the parse-time column-level gap needs the same casing-aware `SchemaResolver` follow-up referenced above.
 - **Loads the upstream platform's catalog on first use.** For each configured upstream platform the
   resolver bulk-fetches its schema-bearing entities, and the processor builds an in-memory
   case-insensitive index over them — so resolution is then fully local (no per-reference round trips). On
