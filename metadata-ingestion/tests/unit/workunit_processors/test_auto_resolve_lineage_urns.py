@@ -85,9 +85,11 @@ def _make_processor(
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
+    # The processor imports provide_schema_resolver once in __init__ (a single sqlglot
+    # chokepoint) and caches it, so the patch must be active *before* construction.
     patcher = mock.patch(_PATCH_TARGET, provide_mock)
     patcher.start()
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
     return processor, provide_mock, patcher
 
 
@@ -303,7 +305,6 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     wu = MetadataChangeProposalWrapper(
         entityUrn=pbi_dataset,
@@ -321,6 +322,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     ).as_workunit()
 
     with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([wu])))
 
     fg = _fine_grained(out)
@@ -371,7 +373,6 @@ def test_multi_platform_upstreams_both_healed():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     # BI emits both upstreams with the wrong casing (snowflake lower, redshift upper).
     wu = MetadataChangeProposalWrapper(
@@ -391,6 +392,7 @@ def test_multi_platform_upstreams_both_healed():
     ).as_workunit()
 
     with mock.patch(_PATCH_TARGET, side_effect=fake_provide):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([wu])))
 
     healed = {u.dataset for u in _upstream_aspect(out).upstreams}
@@ -415,9 +417,9 @@ def test_platform_urn_form_in_config_is_normalized():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     assert _stored_upstream(out) == LOWER
 
@@ -450,9 +452,9 @@ def test_platform_instance_is_threaded_through_and_heals():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(referenced)])))
 
     assert _stored_upstream(out) == stored
@@ -657,10 +659,10 @@ def test_configured_platform_matching_nothing_warns(caplog):
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     provide_mock = mock.MagicMock(return_value=_resolver({UPPER: {"amount": "int"}}))
     with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         with caplog.at_level(logging.WARNING):
             [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
 
@@ -692,9 +694,9 @@ def test_exception_is_recorded_and_workunit_passed_through():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
 
     with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
     assert _stored_upstream(out) == UPPER  # unchanged
@@ -942,3 +944,29 @@ def test_disabled_under_bare_mock_ctx():
     # naive check would enable the processor with a Mock config and crash mid-run. It
     # must fail closed.
     assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
+
+
+def test_fails_loudly_when_sqlglot_missing(monkeypatch):
+    # sqlglot is not in framework_common — a pure-API source that sets this flag but
+    # whose extra doesn't bundle sqlglot must report ONE actionable failure and pass
+    # work units through unchanged, not crash or (since process() swallows per-workunit
+    # errors) fail silently on every one. Simulate the missing dependency by nulling the
+    # provider module so the deferred import in __init__ raises ImportError.
+    monkeypatch.setitem(
+        sys.modules, "datahub.sql_parsing.schema_resolver_provider", None
+    )
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+
+    processor = AutoResolveLineageUrnsProcessor.create(ctx)
+    [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
+
+    assert _stored_upstream(out) == LOWER  # emitted unchanged
+    cast(mock.MagicMock, ctx.source_report).failure.assert_called_once()
