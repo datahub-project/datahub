@@ -5,6 +5,8 @@ from enum import Enum
 import pytest
 import sqlglot
 
+from datahub.sql_parsing import sqlglot_utils
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -249,15 +251,16 @@ def test_get_query_fingerprint_survives_generalization_error(monkeypatch):
     # Defense in depth: if generalization raises an unexpected error (e.g. a
     # sqlglot generator bug on an exotic statement), fingerprinting must fall
     # back to the raw text rather than propagating and killing the pipeline.
-    import datahub.sql_parsing.sqlglot_utils as sqlglot_utils
-
     def _boom(*args: object, **kwargs: object) -> str:
         raise TypeError("simulated sqlglot generator failure")
 
     monkeypatch.setattr(sqlglot_utils, "generalize_query", _boom)
 
-    fingerprint = get_query_fingerprint("SELECT * FROM my_table", "redshift")
-    assert fingerprint
+    raw_query = "SELECT * FROM my_table"
+    fingerprint = get_query_fingerprint(raw_query, "redshift")
+    # Pin the fallback path: the fingerprint must be the hash of the raw text,
+    # proving generalization was bypassed rather than merely "didn't raise".
+    assert fingerprint == generate_hash(raw_query)
 
 
 def test_query_fingerprint_with_secondary_id():
