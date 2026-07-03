@@ -260,7 +260,9 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_query_result(
-        conn: redshift_connector.Connection, query: str
+        conn: redshift_connector.Connection,
+        query: str,
+        parameters: Optional[Tuple[str, ...]] = None,
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
 
@@ -268,7 +270,13 @@ class RedshiftDataDictionary:
         with PerfTimer() as timer:
             query_hash_id = hash(tagged_query)
             logger.info(f"Executing query [{query_hash_id}]\n{tagged_query}")
-            cursor.execute(tagged_query)
+            # Pass values as bind parameters (paramstyle="format", %s) rather than
+            # interpolating them into the SQL string, so config/catalog-derived
+            # values are never concatenated into the query text.
+            if parameters is not None:
+                cursor.execute(tagged_query, parameters)
+            else:
+                cursor.execute(tagged_query)
             logger.info(
                 f"Time taken query [{query_hash_id}: {timer.elapsed_seconds():.3f} seconds"
             )

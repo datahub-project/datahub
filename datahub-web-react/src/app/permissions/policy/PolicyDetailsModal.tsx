@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -153,7 +154,9 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>{t('column.description')}</Typography.Title>
                     <ThinDivider />
-                    <Typography.Text type="secondary">{policy?.description}</Typography.Text>
+                    <Text type="span" color="textSecondary">
+                        {policy?.description}
+                    </Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
