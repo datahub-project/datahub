@@ -1189,6 +1189,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         try:
             # Create graph connection to query server (if datahub config provided)
+            # TODO(oauth): only a static token is supported here; accept a declarative
+            # AuthConfig (DatahubClientConfig.auth) so short-lived OAuth token
+            # providers work on this path too.
             graph = None
             if config.datahub and config.datahub.server:
                 graph_config = DatahubClientConfig(
