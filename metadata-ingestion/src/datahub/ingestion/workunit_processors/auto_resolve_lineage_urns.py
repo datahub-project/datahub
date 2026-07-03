@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
@@ -168,6 +169,9 @@ class AutoResolveLineageUrnsProcessor(
         # _ensure_platform_loaded), so _warn_unmatched_platforms uses it to flag
         # configured platforms that no reference matched.
         self._loaded_platforms: Set[str] = set()
+        # A bounded sample of URNs left UNRESOLVED, for the aggregated end-of-run
+        # warning (the counter num_refs_unresolved gives the full total).
+        self._unresolved_sample: LossyList[str] = LossyList()
         # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
         # These are the aspects a BI / orchestration source emits that carry *upstream
         # dataset* references — the only refs affected by cross-source casing mismatch:
@@ -212,12 +216,19 @@ class AutoResolveLineageUrnsProcessor(
                 self._resolve_workunit(wu)
             except Exception as e:
                 self.report.num_exceptions += 1
-                logger.warning(
-                    f"Failed to resolve lineage URN casing for {wu.id}: {e}",
-                    exc_info=True,
+                # Surface in the pipeline report (not just this processor's sub-report),
+                # so a run that fails to reconcile part of a source's lineage doesn't
+                # look clean. Keeps the processor counter above; logs via the report.
+                self.ctx.source_report.warning(
+                    title="Lineage URN casing not reconciled",
+                    message="Failed to reconcile lineage URN casing for a work unit; "
+                    "its lineage is emitted unchanged.",
+                    context=wu.id,
+                    exc=e,
                 )
             yield wu
         self._warn_unmatched_platforms()
+        self._warn_unresolved_refs()
 
     def _resolve_workunit(self, wu: MetadataWorkUnit) -> None:
         """Reconcile casing on each lineage aspect the workunit carries, in place.
@@ -262,6 +273,24 @@ class AutoResolveLineageUrnsProcessor(
                 f"unexpected, check the platform name — it must match the dataset URN's "
                 f"platform exactly (case-sensitive), e.g. 'snowflake', not 'Snowflake'."
             )
+
+    def _warn_unresolved_refs(self) -> None:
+        """Surface UNRESOLVED references in the pipeline report, once, aggregated.
+
+        UNRESOLVED is the "this lineage is likely broken" signal; a per-reference
+        warning would be too noisy, so emit one end-of-run warning with the total count
+        and a bounded sample of the URNs left unchanged.
+        """
+        if self.report.num_refs_unresolved == 0:
+            return
+        self.ctx.source_report.warning(
+            title="Lineage references not resolved to an existing entity",
+            message="Some upstream lineage references could not be reconciled to a "
+            "single existing entity (no case-insensitive match, or an ambiguous casing "
+            "collision) and were left unchanged; that lineage may be broken.",
+            context=f"{self.report.num_refs_unresolved} reference(s); "
+            f"sample: {list(self._unresolved_sample)}",
+        )
 
     @staticmethod
     def _write_back_if_mcp(wu: MetadataWorkUnit, aspect: _Aspect) -> None:
@@ -421,6 +450,8 @@ class AutoResolveLineageUrnsProcessor(
         # On a configured platform but no unique match (none, or an ambiguous casing
         # collision): leave the URN unchanged but flag it UNRESOLVED so potentially
         # broken lineage is visible rather than indistinguishable from a clean edge.
+        # Sampled here (the single UNRESOLVED site) for the aggregated end-of-run warning.
+        self._unresolved_sample.append(urn)
         return _Resolution(urn, None, LineageMatchTypeClass.UNRESOLVED)
 
     # --- aspect rewriters -------------------------------------------------------

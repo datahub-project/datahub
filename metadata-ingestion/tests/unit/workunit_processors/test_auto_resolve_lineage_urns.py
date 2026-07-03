@@ -1,7 +1,7 @@
 import logging
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -681,7 +681,40 @@ def test_exception_is_recorded_and_workunit_passed_through():
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
     assert _stored_upstream(out) == UPPER  # unchanged
-    assert processor.report.num_exceptions == 1
+    assert processor.report.num_exceptions == 1  # counter kept
+    # ...and surfaced to the pipeline report, not just the sub-report/logger.
+    ctx.source_report.warning.assert_called_once()
+
+
+def test_unresolved_refs_surface_one_aggregated_warning():
+    # Configured platform, no matching entity -> UNRESOLVED -> ONE aggregated end-of-run
+    # warning in the pipeline report (not per reference), with the count + a sample.
+    processor, _provide, patcher = _make_processor(
+        {}
+    )  # empty catalog -> all UNRESOLVED
+    try:
+        list(processor.process(iter([_upstream_wu(UPPER), _upstream_wu(LOWER)])))
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_refs_unresolved == 2
+    report = cast(mock.MagicMock, processor.ctx.source_report)
+    report.warning.assert_called_once()
+    kwargs = report.warning.call_args.kwargs
+    assert "not resolved" in kwargs["title"].lower()
+    assert "2 reference" in kwargs["context"]
+
+
+def test_no_warning_when_all_refs_resolve():
+    # A clean run (everything heals) emits no pipeline warning.
+    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    try:
+        list(processor.process(iter([_upstream_wu(LOWER)])))  # heals to UPPER
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_refs_unresolved == 0
+    cast(mock.MagicMock, processor.ctx.source_report).warning.assert_not_called()
 
 
 def test_entity_urn_is_never_rewritten():
