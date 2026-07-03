@@ -1522,6 +1522,13 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
+# Two-tier platforms whose connector URNs are schema.table. Their ODBC
+# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
+# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
+# the enum so a platform-name rename can't silently disable the catalog drop.
+ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+
+
 class OdbcLineage(AbstractLineage):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -1833,7 +1840,20 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        if (
+        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+            if schema_name is not None:
+                # Drop the pseudo-catalog database_name for two-tier platforms.
+                qualified_table_name = f"{schema_name}.{table_name}"
+            else:
+                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
+                # schema; emitting it would produce a dangling URN. Surface instead.
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                )
+                return Lineage.empty()
+        elif (
             database_name is not None
             and schema_name is not None
             and table_name is not None

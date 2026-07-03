@@ -34,9 +34,9 @@ public sealed interface MembershipNeighborResult {
 
   @Nonnull
   default List<Neighbor> neighborsOrEmpty() {
-    return switch (this) {
-      case Hit hit -> hit.neighbors();
-      case Miss miss -> Collections.emptyList();
-    };
+    if (this instanceof Hit hit) {
+      return hit.neighbors();
+    }
+    return Collections.emptyList();
   }
 }
