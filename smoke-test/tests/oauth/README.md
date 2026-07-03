@@ -13,8 +13,17 @@ provider → `TokenProviderAuth` → GMS external-OAuth validation).
 - `docker-compose.oauth.yml` — overlay that adds Keycloak, configures GMS's
   `EXTERNAL_OAUTH_*` to trust the realm, and provides a `tester` runner. Public
   images only (no registry creds), so it runs in generic CI.
-- `test_oauth_cli_gms.py` — positive (valid audience → `me` query succeeds) and
-  negative (wrong audience → rejected) tests.
+- `test_oauth_cli_gms.py` — the suite (8 tests):
+  - valid audience → authenticated `me` query succeeds; wrong audience → rejected;
+    anonymous request → 401 (guards against `METADATA_SERVICE_AUTH_ENABLED`
+    regressing to vacuous passes)
+  - env-based auth: `DATAHUB_AUTH_TYPE` (no `DATAHUB_GMS_TOKEN`) resolves through
+    `load_client_config()` into an authenticated graph client
+  - ingest matrix: recipe with no sink block (default sink from env); explicit
+    credential-less `sink: datahub-rest` (inherits env OAuth); explicit static
+    token beats env auth (fails with 401 by design)
+  - connector-client path: recipe-declared `datahub_api.auth` + sink auth, then a
+    connector-style authenticated read through `pipeline.ctx.graph`
 - `run-oauth-ci.sh` — CI entrypoint: brings up quickstart + the OAuth overlay,
   waits for readiness, runs `test_oauth_cli_gms.py`, always tears down. Wired into
   `.github/workflows/oauth-smoke.yml` (path-gated + on-demand + nightly).
@@ -49,7 +58,8 @@ issuer, and the JWKS URL all on internal hostnames and consistent.
      exec tester sh -c "pip install -e /repo/metadata-ingestion && pytest /smoke/test_oauth_cli_gms.py -v"
    ```
 
-   Expected: 2 passed.
+   Expected: 8 passed, 0 skipped (the env-auth tests skip themselves on an SDK
+   without `datahub.ingestion.auth.env`; installing from `/repo` guarantees it).
 
 ## Deterministic variant (no IdP), for fast CI
 

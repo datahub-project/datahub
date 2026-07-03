@@ -1,14 +1,15 @@
 name: OAuth Smoke Test
 
-# Regression canary for the GMS external-OAuth path (EXTERNAL_OAUTH_*): a
-# Keycloak-issued client-credentials JWT is accepted when the audience matches and
-# rejected when it doesn't.
+# Regression canary for the DataHub OAuth chain: GMS external-OAuth validation
+# (EXTERNAL_OAUTH_*, audience accept/reject, anonymous 401) AND the Python SDK's
+# client-side auth — env-based DATAHUB_AUTH_TYPE resolution, declarative
+# recipe auth (datahub_api/sink), the credential-less-sink env-merge, and
+# static-vs-env precedence.
 #
-# Scope: this job runs the *released* stack — `datahub docker quickstart` pulls the
-# pinned release GMS images and the tester installs the released acryl-datahub — so
-# it validates the shipped OAuth surface plus this harness, NOT GMS or SDK changes
-# on the triggering ref. It therefore only path-triggers on the harness itself;
-# gating GMS auth changes would require building PR images in this job first.
+# Scope: GMS runs the *released* quickstart images (its OAuth validation is
+# shipped); the SDK under test is installed FROM THE TRIGGERING REF inside the
+# tester container, so this job gates client-side auth changes. Gating GMS auth
+# changes would still require building PR images in this job first.
 on:
   workflow_dispatch:
   schedule:
@@ -19,10 +20,20 @@ on:
     paths:
       - "smoke-test/tests/oauth/**"
       - ".github/workflows/oauth-smoke.yml"
+      - "metadata-ingestion/src/datahub/ingestion/auth/**"
+      - "metadata-ingestion/src/datahub/emitter/token_provider.py"
+      - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
+      - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
   pull_request:
     paths:
       - "smoke-test/tests/oauth/**"
       - ".github/workflows/oauth-smoke.yml"
+      - "metadata-ingestion/src/datahub/ingestion/auth/**"
+      - "metadata-ingestion/src/datahub/emitter/token_provider.py"
+      - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
+      - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
 
 permissions:
   contents: read
