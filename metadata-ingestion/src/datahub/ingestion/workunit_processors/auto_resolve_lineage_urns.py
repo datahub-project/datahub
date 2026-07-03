@@ -90,16 +90,11 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
     num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
-    # Workunit-level counts for the deser/reser cost ratio: a raw MCP is deserialized
-    # once per lineage-bearing workunit and re-serialized only when mutated. The ratio
-    # num_workunits_modified / num_workunits_with_lineage tells whether skipping the
-    # deserialization when nothing needs fixing would be worthwhile.
-    num_workunits_with_lineage: int = (
-        0  # Carried a lineage aspect (deserialization paid)
-    )
-    num_workunits_modified: int = (
-        0  # A lineage aspect was actually mutated (re-serialized)
-    )
+    # Workunit-level observability: how many workunits carried a lineage aspect vs. how
+    # many actually had a reference rewritten. The gap is the no-op share (references
+    # already correct / out of scope).
+    num_workunits_with_lineage: int = 0  # Carried a lineage aspect
+    num_workunits_modified: int = 0  # A lineage aspect was actually mutated
 
 
 @dataclass
