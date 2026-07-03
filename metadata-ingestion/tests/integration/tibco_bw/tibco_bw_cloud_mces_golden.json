@@ -1,0 +1,286 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "deployment_type": "cloud",
+                "subscription": "sub-1",
+                "organization": "Acme"
+            },
+            "name": "Prod",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:tibco-bw"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Subscription"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "version": "3",
+                "state": "STARTED",
+                "app_type": "flogo"
+            },
+            "name": "sync",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:tibco-bw"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Application"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "state": "STOPPED",
+                "app_type": "bwce"
+            },
+            "name": "report",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:tibco-bw"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Application"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

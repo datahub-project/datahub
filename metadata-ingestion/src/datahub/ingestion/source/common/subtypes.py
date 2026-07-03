@@ -206,6 +206,10 @@ class DataFlowSubTypes(StrEnum):
     DLT_PIPELINE = "dlt Pipeline"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # TIBCO ActiveMatrix BusinessWorks — an appspace groups deployed applications.
+    TIBCO_BW_APPSPACE = "Appspace"
+    # TIBCO Cloud Integration — a subscription groups deployed applications.
+    TIBCO_TCI_SUBSCRIPTION = "Subscription"
 
 
 class DataJobSubTypes(StrEnum):
@@ -271,6 +275,9 @@ class DataJobSubTypes(StrEnum):
 
     # dlt
     DLT_RESOURCE = "dlt Resource"
+
+    # TIBCO ActiveMatrix BusinessWorks / Cloud Integration — a deployed application.
+    TIBCO_APPLICATION = "Application"
 
 
 def create_source_capability_modifier_enum():

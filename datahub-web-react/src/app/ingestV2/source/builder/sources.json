@@ -611,6 +611,17 @@
         "isNew": true
     },
     {
+        "urn": "urn:li:dataPlatform:tibco-bw",
+        "name": "tibco-bw",
+        "displayName": "TIBCO BusinessWorks",
+        "description": "Import integration applications from TIBCO ActiveMatrix BusinessWorks (on-prem) or TIBCO Cloud Integration.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/tibco-bw/",
+        "recipe": "source:\n  type: tibco-bw\n  config:\n    deployment: on_prem\n    base_url: null\n    username: null\n    password: null\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",

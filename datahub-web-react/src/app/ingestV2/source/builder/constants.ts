@@ -64,6 +64,7 @@ import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
 import thoughtspotLogo from '@images/thoughtspotlogo.svg';
+import tibcoBwLogo from '@images/tibcobwlogo.svg';
 import tidbLogo from '@images/tidblogo.svg';
 import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -173,6 +174,8 @@ const TABLEAU = 'tableau';
 const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
 export const THOUGHTSPOT = 'thoughtspot';
 export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
+export const TIBCO_BW = 'tibco-bw';
+export const TIBCO_BW_URN = `urn:li:dataPlatform:${TIBCO_BW}`;
 const TIDB = 'tidb';
 const TIDB_URN = `urn:li:dataPlatform:${TIDB}`;
 const TIMESCALEDB = 'timescaledb';
@@ -282,6 +285,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SPARK_URN]: sparkLogo,
     [TABLEAU_URN]: tableauLogo,
     [THOUGHTSPOT_URN]: thoughtspotLogo,
+    [TIBCO_BW_URN]: tibcoBwLogo,
     [TIDB_URN]: tidbLogo,
     [TIMESCALEDB_URN]: timescaledbLogo,
     [TRINO_URN]: trinoLogo,

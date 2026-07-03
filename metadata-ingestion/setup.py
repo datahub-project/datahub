@@ -803,6 +803,7 @@ plugins: Dict[str, Set[str]] = {
         # in our CI, so we're pinning the version for now.
         "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     },
+    "tibco-bw": {"requests<3.0.0"},
     # aws_common is needed for the inherited PostgresSource RDS IAM auth.
     "timescaledb": sql_common | postgres_common | aws_common,
     "trino": sql_common | trino,
@@ -1015,6 +1016,7 @@ base_dev_requirements = {
             "tableau",
             "timescaledb",
             "teradata",
+            "tibco-bw",
             "thoughtspot",
             "trino",
             "hive",
@@ -1191,6 +1193,7 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
+        "tibco-bw = datahub.ingestion.source.tibco_bw.source:TibcoBwSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "thoughtspot = datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
