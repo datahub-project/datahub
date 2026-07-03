@@ -177,6 +177,12 @@ actually exact or broken.
 
 - **Requires a DataHub backend connection.** Resolution queries DataHub for the existing entities, so the
   feature is a no-op for offline / file-only ingestion.
+- **Requires the SQL-parser dependency (`sqlglot`).** Resolution reuses the ingestion `SchemaResolver`,
+  which depends on `sqlglot`. Every intended BI / dashboard connector extra (Looker, Power BI, Tableau,
+  Mode, Superset/Preset, Redash, Metabase, Sigma, Qlik, Hex, Grafana, Fivetran, …) already bundles it, so
+  the target use case needs no extra install. But `sqlglot` is **not** part of the ingestion core, so if
+  you enable this flag on a pure-API source whose extra doesn't pull it in, the processor reports a clear
+  failure (`install acryl-datahub[sql-parser]`) and emits lineage unchanged rather than reconciling it.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it — the normal order for scheduled pipelines. If a
   reference's target does not yet exist in DataHub, it is left unchanged and self-heals once the

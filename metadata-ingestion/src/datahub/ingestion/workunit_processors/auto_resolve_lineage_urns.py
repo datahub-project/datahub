@@ -1,9 +1,11 @@
 # NOTE: `from __future__ import annotations` keeps the schema_resolver type hints
 # (imported only under TYPE_CHECKING) as strings, so importing this module does not
-# pull in sqlglot. The sqlglot-heavy schema_resolver imports are deferred into the
-# methods that use them — importing this module (e.g. via the workunit_processors
-# package) must stay lightweight so it never adds a transitive sqlglot requirement
-# to connectors that don't declare it.
+# pull in sqlglot. This module is imported eagerly on every source's
+# get_workunit_processors() path, so module load must stay sqlglot-free (guarded by
+# test_module_import_does_not_pull_sqlglot). The sqlglot-heavy schema_resolver imports
+# are therefore deferred to a single chokepoint in __init__, which runs only after
+# should_enable() confirms the feature is on and a graph exists — off the module-load
+# path, but honest about the dependency (see __init__).
 from __future__ import annotations
 
 import logging
@@ -183,6 +185,40 @@ class AutoResolveLineageUrnsProcessor(
         self._config: List[UpstreamPlatformCasing] = (
             ctx.pipeline_context.flags.auto_resolve_lineage_urns.upstream_platforms
         )
+        # Resolve the sqlglot-backed schema_resolver callables once, here — a single
+        # honest chokepoint rather than imports buried in two leaf methods. __init__
+        # runs only after should_enable() confirmed the feature is on and a graph
+        # exists, so this stays off the module-load path (test_module_import_does_not_
+        # pull_sqlglot still passes) while making "this processor needs sqlglot once
+        # constructed" explicit and cached.
+        #
+        # sqlglot ships with the intended BI / dashboard connector extras but is NOT in
+        # framework_common, and this processor is gated only by a pipeline-level flag any
+        # recipe can set. A pure-API source that enables the flag would otherwise hit
+        # ModuleNotFoundError deep in a leaf method and — because process() swallows
+        # per-workunit exceptions — fail silently on every work unit. Instead we surface
+        # one actionable failure and disable the processor (lineage emitted unchanged).
+        self._enabled = True
+        self._provide_schema_resolver: Callable[..., SchemaResolver]
+        self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]]
+        try:
+            from datahub.sql_parsing.schema_resolver import match_columns_to_schema
+            from datahub.sql_parsing.schema_resolver_provider import (
+                provide_schema_resolver,
+            )
+        except ImportError as e:
+            self._enabled = False
+            self.ctx.source_report.failure(
+                title="auto_resolve_lineage_urns could not run",
+                message="Reconciling lineage URN casing requires the sqlglot-based SQL "
+                "parser, which this source's install does not include. Install the SQL "
+                "parsing extra (`pip install acryl-datahub[sql-parser]`) or a connector "
+                "extra that bundles it; lineage is emitted unchanged until then.",
+                exc=e,
+            )
+        else:
+            self._provide_schema_resolver = provide_schema_resolver
+            self._match_columns_to_schema = match_columns_to_schema
         # Per-platform state, lazily bulk-initialized on first reference. The
         # SchemaResolvers are the source of truth for schema + membership; the casing
         # index is a derived lowercase(urn) -> real URNs map used to reconcile arbitrary
@@ -241,6 +277,11 @@ class AutoResolveLineageUrnsProcessor(
         return getattr(ctx.pipeline_context, "graph", None) is not None
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
+        if not self._enabled:
+            # sqlglot unavailable (failure already reported in __init__): pass every
+            # work unit through untouched so lineage is emitted, just unreconciled.
+            yield from stream
+            return
         for wu in stream:
             try:
                 self._resolve_workunit(wu)
@@ -357,10 +398,6 @@ class AutoResolveLineageUrnsProcessor(
             return
         self._loaded_platforms.add(platform)
 
-        # Deferred import: schema_resolver_provider pulls in sqlglot, which must not
-        # be a module-load-time dependency (see the note at the top of this file).
-        from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
-
         # `platform` here is the normalized platform name parsed from the dataset URN;
         # entry.platform is normalized to the same bare-name form by the config
         # validator, so compare like-for-like.
@@ -377,7 +414,7 @@ class AutoResolveLineageUrnsProcessor(
         index: Dict[str, List[str]] = {}
         resolvers: List[SchemaResolver] = []
         for entry in entries:
-            resolver = provide_schema_resolver(
+            resolver = self._provide_schema_resolver(
                 graph=self._graph,
                 platform=entry.platform,
                 platform_instance=entry.platform_instance,
@@ -568,10 +605,7 @@ class AutoResolveLineageUrnsProcessor(
         res = self._resolve_dataset(parent, include_schema=True)
         new_field_path = field_path
         if res.schema:
-            # Deferred import: keeps sqlglot off this module's load path.
-            from datahub.sql_parsing.schema_resolver import match_columns_to_schema
-
-            new_field_path = match_columns_to_schema(res.schema, [field_path])[0]
+            new_field_path = self._match_columns_to_schema(res.schema, [field_path])[0]
 
         if res.urn == parent and new_field_path == field_path:
             if res.match_type == _UNRESOLVED:
