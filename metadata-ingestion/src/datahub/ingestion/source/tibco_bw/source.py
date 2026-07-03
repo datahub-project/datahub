@@ -40,6 +40,7 @@ from datahub.ingestion.source.tibco_bw.models import (
 )
 from datahub.ingestion.source.tibco_bw.report import TibcoBwSourceReport
 from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.urns import DatasetUrn
 
 _FLOW_SUBTYPE_BY_DEPLOYMENT = {
     TibcoDeployment.ON_PREM: DataFlowSubTypes.TIBCO_BW_APPSPACE,
@@ -53,6 +54,11 @@ _FLOW_SUBTYPE_BY_DEPLOYMENT = {
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Emitted from the operator-supplied `application_lineage` map, since the TIBCO "
+    "runtime APIs do not expose an application's datasets",
+)
 class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
     """Ingests TIBCO integration applications from ActiveMatrix BusinessWorks
     (on-prem, via bwagent) or TIBCO Cloud Integration (cloud). Each deployment
@@ -147,12 +153,26 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
             properties=application.properties,
             platform_instance=self.config.platform_instance,
         )
-        # The upstream APIs expose deployment topology but not the data flows
-        # between connected systems, so we emit no dataset-level lineage.
-        for mcp in job.generate_mcp(generate_lineage=False, materialize_iolets=False):
+        # The runtime APIs expose deployment topology but not the datasets an
+        # application reads or writes, so lineage is taken from the operator-supplied
+        # application_lineage map rather than discovered.
+        lineage = self.config.application_lineage.get(application.name)
+        if lineage is not None:
+            job.inlets = [DatasetUrn.from_string(urn) for urn in lineage.upstreams]
+            job.outlets = [DatasetUrn.from_string(urn) for urn in lineage.downstreams]
+
+        has_lineage = bool(job.inlets or job.outlets)
+        # materialize_iolets stays False: the iolets are datasets owned by other
+        # connectors, so we link to them without emitting empty stub entities.
+        for mcp in job.generate_mcp(
+            generate_lineage=has_lineage, materialize_iolets=False
+        ):
             yield mcp.as_workunit()
         yield self._subtype_workunit(str(job.urn), DataJobSubTypes.TIBCO_APPLICATION)
         self.report.jobs_emitted += 1
+        if has_lineage:
+            self.report.jobs_with_lineage += 1
+            self.report.lineage_iolets_emitted += len(job.inlets) + len(job.outlets)
 
     @staticmethod
     def _subtype_workunit(urn: str, subtype: str) -> MetadataWorkUnit:

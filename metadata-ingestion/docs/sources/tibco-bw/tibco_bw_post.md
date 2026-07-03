@@ -10,13 +10,33 @@ under its scope's Data Flow. Application version, run state, and application
 type are attached as custom properties, and (on-prem) appnode names and states
 are attached to the appspace.
 
+### Lineage
+
+The bwagent and TIBCO Cloud APIs expose deployment topology (domains, appspaces,
+subscriptions, applications and their run state) but **not** the datasets each
+application reads or writes. Lineage therefore cannot be discovered automatically
+and is instead declared by the operator via `application_lineage`, which maps an
+application name to the dataset urns it consumes (`upstreams`) and produces
+(`downstreams`):
+
+```yaml
+application_lineage:
+  order-sync:
+    upstreams:
+      - "urn:li:dataset:(urn:li:dataPlatform:kafka,orders_in,PROD)"
+    downstreams:
+      - "urn:li:dataset:(urn:li:dataPlatform:hana,sales.orders,PROD)"
+```
+
+The referenced datasets are linked as the application's inputs/outputs without
+being materialized, so lineage is added to datasets that other connectors own.
+Malformed urns are rejected at config validation time.
+
 ### Known Limitations
 
-- **No dataset-level lineage.** The bwagent and TIBCO Cloud APIs expose the
-  deployment topology (domains, appspaces, subscriptions, applications and their
-  run state) but not the internal process definitions or the source/target
-  systems each application connects to. As a result, the connector emits no
-  lineage between the applications and the datasets they read or write.
+- **Lineage is manual.** Because the runtime APIs do not expose an application's
+  data flows, dataset-level lineage must be supplied through `application_lineage`
+  rather than discovered. Column-level lineage is not derivable from these APIs.
 - **No process-level detail.** Individual BusinessWorks processes within an
   application are not enumerated by these APIs, so applications are the finest
   granularity captured.

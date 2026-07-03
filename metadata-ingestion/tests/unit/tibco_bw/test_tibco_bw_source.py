@@ -111,9 +111,56 @@ def test_cloud_scope_uses_subscription_subtype() -> None:
     )
 
 
-def test_no_dataset_lineage_emitted() -> None:
+def test_no_dataset_lineage_emitted_without_config() -> None:
     from datahub.metadata.schema_classes import DataJobInputOutputClass
 
     source = _source()
     workunits = _run(source, [_scope("AS1", ["orders"])])
     assert _urns_with_aspect(workunits, DataJobInputOutputClass) == []
+
+
+_UPSTREAM_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,orders_in,PROD)"
+_DOWNSTREAM_URN = "urn:li:dataset:(urn:li:dataPlatform:hana,sales.orders,PROD)"
+
+
+def test_application_lineage_emits_iolets() -> None:
+    from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+    source = _source(
+        application_lineage={
+            "orders": {
+                "upstreams": [_UPSTREAM_URN],
+                "downstreams": [_DOWNSTREAM_URN],
+            }
+        }
+    )
+    workunits = _run(source, [_scope("AS1", ["orders", "unmapped"])])
+
+    io_aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    ]
+    # Only the mapped application ("orders") gets an input/output aspect.
+    assert len(io_aspects) == 1
+    assert io_aspects[0].inputDatasets == [_UPSTREAM_URN]
+    assert io_aspects[0].outputDatasets == [_DOWNSTREAM_URN]
+    assert source.report.jobs_with_lineage == 1
+    assert source.report.lineage_iolets_emitted == 2
+
+
+def test_application_lineage_does_not_materialize_iolet_datasets() -> None:
+    from datahub.metadata.schema_classes import DatasetKeyClass
+
+    source = _source(application_lineage={"orders": {"upstreams": [_UPSTREAM_URN]}})
+    workunits = _run(source, [_scope("AS1", ["orders"])])
+    # The upstream dataset belongs to another connector; we link to it without
+    # emitting a stub dataset entity for it.
+    assert _urns_with_aspect(workunits, DatasetKeyClass) == []
+
+
+def test_invalid_lineage_urn_is_rejected() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        _source(application_lineage={"orders": {"upstreams": ["not-a-urn"]}})

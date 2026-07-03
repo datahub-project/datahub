@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -12,6 +12,33 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.tibco_bw.constants import DEFAULT_CLOUD_BASE_URL
 from datahub.ingestion.source.tibco_bw.models import TibcoDeployment
+from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
+
+
+class TibcoAppLineage(ConfigModel):
+    # Manually declared lineage for a BusinessWorks/TCI application. The runtime
+    # APIs expose deployment topology but not the datasets an application reads or
+    # writes, so upstream/downstream dataset urns are supplied here by the operator.
+    upstreams: List[str] = Field(
+        default_factory=list,
+        description="Dataset urns the application consumes (its inputs).",
+    )
+    downstreams: List[str] = Field(
+        default_factory=list,
+        description="Dataset urns the application produces (its outputs).",
+    )
+
+    @field_validator("upstreams", "downstreams")
+    @classmethod
+    def _validate_dataset_urns(cls, value: List[str]) -> List[str]:
+        for urn in value:
+            # Fail fast on typos rather than emitting lineage to a malformed urn.
+            try:
+                DatasetUrn.from_string(urn)
+            except InvalidUrnError as e:
+                raise ValueError(str(e)) from e
+        return value
 
 
 class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -68,6 +95,13 @@ class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=True,
         description="Attach appnode names and run states to the appspace as "
         "custom properties (on_prem only).",
+    )
+    application_lineage: Dict[str, TibcoAppLineage] = Field(
+        default_factory=dict,
+        description="Manually declared lineage per application, keyed by application "
+        "name. Maps each application to the dataset urns it consumes and produces. "
+        "The TIBCO runtime APIs do not expose which datasets an application reads or "
+        "writes, so lineage is supplied here rather than discovered.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
