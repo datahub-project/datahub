@@ -146,13 +146,20 @@ def _write_events(tmp_path, urn: str) -> str:
 
 
 def _run_file_pipeline(tmp_path, sink_config, urn: str) -> None:
-    """Run a file-source ingest of one status aspect for `urn`; raise on failure."""
+    """Run a file-source ingest of one status aspect for `urn`; raise on failure.
+
+    report_to=None disables the default run-summary reporting: it writes
+    dataHubIngestionSourceInfo, which a dedicated GMS aspect validator
+    authorizes regardless of REST_API_AUTHORIZATION_ENABLED — and granting
+    the machine principal privileges is a deployment concern, not this
+    authentication canary's subject.
+    """
     recipe: dict = {
         "source": {"type": "file", "config": {"path": _write_events(tmp_path, urn)}},
     }
     if sink_config is not None:
         recipe["sink"] = {"type": "datahub-rest", "config": sink_config}
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     pipeline.raise_from_status()
 
@@ -223,7 +230,9 @@ def test_connector_graph_client_from_recipe_datahub_api(tmp_path, cleanup_urn):
             "config": {"server": GMS, "auth": auth_block, "mode": "SYNC"},
         },
     }
-    pipeline = Pipeline.create(recipe)
+    # report_to=None: see _run_file_pipeline — run-summary reporting needs
+    # privileges this canary's machine principal deliberately doesn't have.
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     pipeline.raise_from_status()
 
