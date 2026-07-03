@@ -422,7 +422,7 @@ class TestEventModeFallback:
         """Test fallback when Events API returns HTTP error."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -430,7 +430,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise HTTP error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 # Simulate HTTP 500 error
                 mock_response = Mock()
                 mock_response.raise_for_status.side_effect = requests.HTTPError(
@@ -452,7 +452,7 @@ class TestEventModeFallback:
         """Test fallback when Events API connection fails."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -460,7 +460,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise connection error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 mock_get.side_effect = requests.ConnectionError("Connection refused")
 
                 # Mock batch mode
@@ -477,7 +477,7 @@ class TestEventModeFallback:
         """Test fallback when Events API times out."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -485,7 +485,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise timeout
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 mock_get.side_effect = requests.Timeout("Request timed out")
 
                 # Mock batch mode
@@ -500,7 +500,7 @@ class TestEventModeFallback:
 
     def test_no_fallback_when_offsets_exist(self, ctx, config, mock_graph):
         """Test that fallback does NOT occur when offsets exist and events are processed."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -509,7 +509,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling with events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -559,7 +559,7 @@ class TestEventModeFallback:
 
     def test_fallback_when_no_events_and_no_lookback(self, ctx, config, mock_graph):
         """Test fallback when no events processed and no lookback window."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -568,7 +568,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling but no events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -779,7 +779,7 @@ class TestStateStorage:
     def test_event_mode_stores_offsets(self, ctx, config, mock_graph):
         """Test that event mode stores offsets in state."""
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             source.config.event_mode.enabled = True
 
@@ -790,7 +790,7 @@ class TestStateStorage:
             mock_state_handler.update_event_offset = Mock()
 
             # Mock successful event polling
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
