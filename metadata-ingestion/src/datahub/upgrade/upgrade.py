@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.utilities.perf_timer import PerfTimer
@@ -130,8 +131,6 @@ def _resolve_request_token(client_config: DatahubClientConfig) -> Optional[str]:
     """Materialize a bearer token for the single version-check request: minted
     fresh from the token provider under OAuth (auth=), else the static token."""
     if client_config.auth is not None:
-        from datahub.ingestion.auth.registry import build_token_provider
-
         return build_token_provider(client_config.auth).get_token().token
     return client_config.token
 

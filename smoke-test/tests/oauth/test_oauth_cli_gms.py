@@ -21,9 +21,11 @@ import pytest
 import requests
 from requests.exceptions import HTTPError
 
+from datahub.cli.config_utils import load_client_config
 from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.run.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +34,9 @@ TOKEN_ENDPOINT = os.environ.get("KEYCLOAK_TOKEN_ENDPOINT")
 
 # Env-based auth (DATAHUB_AUTH_TYPE) shipped after the auth layer itself; skip
 # those tests gracefully on an older SDK instead of failing collection. The CI
-# harness installs the SDK from the repo, so nothing skips there (and the CI
-# script fails the run if anything does).
+# harness overlays the triggering ref's SDK source onto the released install
+# (see run-oauth-ci.sh), so nothing skips there — and the CI script fails the
+# run if anything does.
 requires_env_auth = pytest.mark.skipif(
     importlib.util.find_spec("datahub.ingestion.auth.env") is None,
     reason="installed acryl-datahub predates env-based auth (datahub.ingestion.auth.env)",
@@ -116,8 +119,6 @@ def test_env_auth_resolves_client_config(monkeypatch):
     # DATAHUB_AUTH_TYPE alone (no DATAHUB_GMS_TOKEN) must yield an auth-carrying
     # client config — the path the CLI, default sink, and executor recipe
     # subprocesses resolve through.
-    from datahub.cli.config_utils import load_client_config
-
     _set_env_auth(monkeypatch)
     config = load_client_config()
     assert config.token is None
@@ -146,8 +147,6 @@ def _write_events(tmp_path, urn: str) -> str:
 
 def _run_file_pipeline(tmp_path, sink_config, urn: str) -> None:
     """Run a file-source ingest of one status aspect for `urn`; raise on failure."""
-    from datahub.ingestion.run.pipeline import Pipeline
-
     recipe: dict = {
         "source": {"type": "file", "config": {"path": _write_events(tmp_path, urn)}},
     }
@@ -205,8 +204,6 @@ def test_connector_graph_client_from_recipe_datahub_api(tmp_path, cleanup_urn):
     # no env vars involved. After the ingest, an authenticated connector-style
     # read through ctx.graph must see the entity. Sink mode is sync so the
     # write is immediately readable (no eventual-consistency flake).
-    from datahub.ingestion.run.pipeline import Pipeline
-
     auth_block = {
         "type": "oidc_client_credentials",
         "config": {

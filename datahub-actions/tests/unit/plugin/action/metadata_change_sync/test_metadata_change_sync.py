@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub_actions.plugin.action.metadata_change_sync.metadata_change_sync import (
     MetadataChangeSyncAction,
 )
@@ -36,8 +37,6 @@ def test_close():
 def test_create_with_auth_provider():
     # A declarative auth config (OAuth token provider) must land on the
     # emitter's session so tokens refresh per request.
-    from datahub.emitter.token_provider import TokenProviderAuth
-
     action = MetadataChangeSyncAction.create(
         {
             "gms_server": "https://destination.example.com/",

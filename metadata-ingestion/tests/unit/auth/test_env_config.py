@@ -1,11 +1,25 @@
-"""Tests for env-based auth config (DATAHUB_AUTH_TYPE) and its wiring into
-load_client_config, which is what ingestion default sinks and the CLI use."""
+"""Tests for env-based auth config (DATAHUB_AUTH_TYPE): parsing per provider,
+its wiring into load_client_config (what ingestion default sinks and the CLI
+use), the rest-sink env-merge and shared provider, the __from_env__ emitter
+path, and precedence over static tokens (env, ~/.datahubenv, sink blocks)."""
+
+import concurrent.futures
+import logging
 
 import pytest
+import yaml
 
-from datahub.cli.config_utils import load_client_config
+import datahub.cli.config_utils as config_utils
+import datahub.ingestion.sink.datahub_rest as sink_mod
+from datahub.cli.config_utils import MissingConfigError, load_client_config
+from datahub.cli.datapack.loader import _build_datapack_sink_config
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
 from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink, DatahubRestSinkConfig
 
 _AUTH_ENV_VARS = [
     "DATAHUB_AUTH_TYPE",
@@ -127,12 +141,6 @@ def test_rest_sink_emitter_carries_auth(monkeypatch):
     # Regression: DatahubRestSink._make_emitter must forward config.auth to the
     # emitter, or the default ingestion sink silently emits unauthenticated in
     # OAuth mode even though load_client_config resolved auth correctly.
-    from datahub.emitter.token_provider import TokenProviderAuth
-    from datahub.ingestion.sink.datahub_rest import (
-        DatahubRestSink,
-        DatahubRestSinkConfig,
-    )
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -151,12 +159,6 @@ def test_explicit_sink_without_credentials_inherits_env_auth(monkeypatch):
     # A recipe with an explicit `sink: datahub-rest` block that carries no
     # credentials must not silently bypass env OAuth — the sink inherits
     # DATAHUB_AUTH_TYPE just like the default (sink-less) path does.
-    from datahub.emitter.token_provider import TokenProviderAuth
-    from datahub.ingestion.sink.datahub_rest import (
-        DatahubRestSink,
-        DatahubRestSinkConfig,
-    )
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -170,11 +172,6 @@ def test_explicit_sink_token_wins_over_env_auth(monkeypatch):
     # Explicit credentials in the sink block beat the environment (config beats
     # env). This also prevents env OAuth tokens from being sent to a sink whose
     # server points somewhere other than the env-configured GMS.
-    from datahub.ingestion.sink.datahub_rest import (
-        DatahubRestSink,
-        DatahubRestSinkConfig,
-    )
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 
     sink_config = DatahubRestSinkConfig(server="http://gms:8080", token="recipe-pat")
@@ -185,10 +182,6 @@ def test_sink_resolves_one_provider_shared_across_thread_emitters(monkeypatch):
     # One token provider per sink, shared by all worker-thread emitters — a
     # provider per thread would each hit the IdP independently (max_threads
     # token requests at startup and per refresh window).
-    import concurrent.futures
-
-    import datahub.ingestion.sink.datahub_rest as sink_mod
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -221,9 +214,6 @@ def test_sink_resolves_one_provider_shared_across_thread_emitters(monkeypatch):
 def test_from_env_emitter_resolves_env_auth(monkeypatch):
     # The `__from_env__` construction path (components that defer all config to
     # env vars) must honor DATAHUB_AUTH_TYPE, not just GMS_URL/GMS_TOKEN.
-    from datahub.emitter.rest_emitter import DataHubRestEmitter
-    from datahub.emitter.token_provider import TokenProviderAuth
-
     monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
     monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
@@ -243,12 +233,6 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
     # The ~/.datahubenv branch of load_client_config must apply env auth over a
     # stored static token, and say so — silently rerouting credentials would
     # make auth-source debugging miserable.
-    import logging
-
-    import yaml
-
-    import datahub.cli.config_utils as config_utils
-
     path = tmp_path / ".datahubenv"
     path.write_text(
         yaml.safe_dump({"gms": {"server": "http://gms:8080", "token": "stored-pat"}})
@@ -266,9 +250,6 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
 def test_missing_server_error_names_gms_url_when_env_auth_set(tmp_path, monkeypatch):
     # A fully env-configured OAuth container missing only DATAHUB_GMS_URL should
     # be told exactly that, not to run `datahub init`.
-    import datahub.cli.config_utils as config_utils
-    from datahub.cli.config_utils import MissingConfigError
-
     monkeypatch.setattr(
         config_utils, "DATAHUB_CONFIG_PATH", str(tmp_path / "missing-datahubenv")
     )
@@ -282,9 +263,6 @@ def test_datapack_sink_config_carries_auth(monkeypatch):
     # Regression: the datapack loader builds its own sink config from the client
     # config; dropping auth there made demo-data / datapack loads emit
     # unauthenticated in OAuth mode.
-    from datahub.cli.datapack.loader import _build_datapack_sink_config
-    from datahub.ingestion.graph.config import DatahubClientConfig
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -302,10 +280,6 @@ def test_from_emitter_carries_session_auth():
     # Regression: DataHubGraph.from_emitter rebuilds the client config with only
     # the static token; the resolved requests auth object must be carried onto
     # the new graph's session or an OAuth emitter's graph loses credentials.
-    from datahub.emitter.rest_emitter import DataHubRestEmitter
-    from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
-    from datahub.ingestion.graph.client import DataHubGraph
-
     auth = TokenProviderAuth(StaticTokenProvider("tok"))
     emitter = DataHubRestEmitter("http://gms:8080", auth=auth)
     graph = DataHubGraph.from_emitter(emitter)

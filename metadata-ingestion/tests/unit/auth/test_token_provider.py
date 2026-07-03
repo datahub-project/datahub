@@ -1,3 +1,4 @@
+import io
 import time
 
 import requests
@@ -224,8 +225,6 @@ def test_auth_does_not_retry_401_with_streamed_body():
     # A file/generator body was consumed by the first send and cannot be
     # replayed — a retry would transmit an empty body under the original
     # Content-Length. The hook must surface the 401 instead.
-    import io
-
     provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
     auth = TokenProviderAuth(provider)
 

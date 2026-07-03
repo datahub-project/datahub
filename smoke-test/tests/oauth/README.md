@@ -59,7 +59,14 @@ issuer, and the JWKS URL all on internal hostnames and consistent.
    ```
 
    Expected: 8 passed, 0 skipped (the env-auth tests skip themselves on an SDK
-   without `datahub.ingestion.auth.env`; installing from `/repo` guarantees it).
+   without `datahub.ingestion.auth.env`; the editable install above — or the CI
+   script's source overlay onto the released SDK — guarantees it).
+
+> **Authorization note:** the overlay disables policy enforcement
+> (`AUTH_POLICIES_ENABLED=false`) because this canary tests *authentication*.
+> An OAuth machine principal appears to GMS as a fresh synthetic corpuser with
+> no roles — on a real deployment you must grant it a role/policy or every
+> write fails with `403 ... is unauthorized to modify entity`.
 
 ## Deterministic variant (no IdP), for fast CI
 

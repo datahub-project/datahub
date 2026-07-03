@@ -7,9 +7,10 @@ name: OAuth Smoke Test
 # static-vs-env precedence.
 #
 # Scope: GMS runs the *released* quickstart images (its OAuth validation is
-# shipped); the SDK under test is installed FROM THE TRIGGERING REF inside the
-# tester container, so this job gates client-side auth changes. Gating GMS auth
-# changes would still require building PR images in this job first.
+# shipped); the tester overlays the TRIGGERING REF's SDK source onto the
+# released install (see run-oauth-ci.sh), so this job gates client-side auth
+# changes. Gating GMS auth changes would still require building PR images in
+# this job first.
 on:
   workflow_dispatch:
   schedule:

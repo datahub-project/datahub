@@ -74,7 +74,10 @@ from datahub.emitter.response_helper import (
     extract_trace_data_from_mcps,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     DATAHUB_COMPONENT_ENV,
     ClientMode,
@@ -512,11 +515,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # Env-based OAuth (DATAHUB_AUTH_TYPE) must work on this path too —
             # it is the same "resolve everything from env vars" contract as
             # load_client_config, and takes the same precedence over a static
-            # DATAHUB_GMS_TOKEN. Imports are local to avoid import cycles.
-            from datahub.emitter.token_provider import TokenProviderAuth
-            from datahub.ingestion.auth.env import build_auth_config_from_env
-            from datahub.ingestion.auth.registry import build_token_provider
-
+            # DATAHUB_GMS_TOKEN.
             env_auth_config = build_auth_config_from_env()
             if env_auth_config is not None:
                 auth = TokenProviderAuth(build_token_provider(env_auth_config))
