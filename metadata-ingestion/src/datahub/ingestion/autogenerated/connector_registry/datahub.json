@@ -3958,6 +3958,56 @@
       "platform_name": "Salesforce",
       "support_status": "CERTIFIED"
     },
+    "sap-mdg": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default via SAP labels",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Emitted as foreign keys derived from OData navigation properties",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sap_mdg.source.SapMdgSource",
+      "platform_id": "sap-mdg",
+      "platform_name": "SAP MDG",
+      "support_status": "INCUBATING"
+    },
     "sigma": {
       "capabilities": [
         {

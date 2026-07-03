@@ -1002,6 +1002,11 @@ salesforce = [
     "simple-salesforce<2.0.0",
 ]
 
+sap-mdg = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "requests<3.0.0",
+]
+
 sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -1399,6 +1404,7 @@ dev = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1589,6 +1595,7 @@ docs = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1953,6 +1960,7 @@ qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
 quicksight = "datahub.ingestion.source.quicksight.quicksight:QuickSightSource"
 sigma = "datahub.ingestion.source.sigma.sigma:SigmaSource"
 sac = "datahub.ingestion.source.sac.sac:SACSource"
+sap-mdg = "datahub.ingestion.source.sap_mdg.source:SapMdgSource"
 cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"

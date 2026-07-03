@@ -523,6 +523,7 @@ dev = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -715,6 +716,7 @@ docs = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -1471,6 +1473,10 @@ salesforce = [
     { name = "cachetools" },
     { name = "simple-salesforce" },
 ]
+sap-mdg = [
+    { name = "defusedxml" },
+    { name = "requests" },
+]
 sigma = [
     { name = "patchy" },
     { name = "requests" },
@@ -1956,9 +1962,12 @@ requires-dist = [
     { name = "deepmerge", marker = "extra == 'looker'", specifier = ">=1.1.1,<3.0.0" },
     { name = "deepmerge", marker = "extra == 'lookml'", specifier = ">=1.1.1,<3.0.0" },
     { name = "defusedxml", marker = "extra == 'all'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'dev'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'docs'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'sap-mdg'", specifier = ">=0.7.1,<0.8.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'delta-lake'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'dev'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
@@ -2590,6 +2599,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'qlik-sense'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'rdf'", specifier = "==2.32.5" },
     { name = "requests", marker = "extra == 'sac'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'sap-mdg'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'sigma'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'superset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'unity-catalog'", specifier = "<3.0.0" },
@@ -3060,7 +3070,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-mdg", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"

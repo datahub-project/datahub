@@ -55,6 +55,7 @@ import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
 import sageMakerLogo from '@images/sagemakerlogo.png';
+import sapMdgLogo from '@images/sapmdglogo.png';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
@@ -203,6 +204,8 @@ const SIGMA = 'sigma';
 const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
 export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
+export const SAP_MDG = 'sap-mdg';
+export const SAP_MDG_URN = `urn:li:dataPlatform:${SAP_MDG}`;
 export const CASSANDRA = 'cassandra';
 export const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
 export const DATAHUB = 'datahub';
@@ -294,6 +297,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
+    [SAP_MDG_URN]: sapMdgLogo,
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
