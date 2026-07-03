@@ -76,6 +76,16 @@ class DrfConfig(ConfigModel):
         "MDG entity and the downstream dataset (safe by construction). Requires a "
         "DataHub sink/graph to be available.",
     )
+    emit_logical_parent: bool = Field(
+        default=False,
+        description="Also model the MDG entity as the logical parent of each replicated "
+        "downstream dataset (a `PhysicalInstanceOf` relationship), in addition to the "
+        "COPY lineage. This reflects MDG's role as the canonical master-data model that "
+        "is physically instantiated in each target system. Column-level physical-instance "
+        "links are emitted for fields matched by name (case-insensitive) against the "
+        "downstream schema read from DataHub. Viewing logical models in the UI requires "
+        "the `LOGICAL_MODELS_ENABLED` server flag.",
+    )
 
 
 class SapMdgSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

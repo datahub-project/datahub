@@ -17,6 +17,8 @@ class SapMdgSourceReport(StaleEntityRemovalSourceReport):
     foreign_keys_unresolved: int = 0
     lineage_edges_emitted: int = 0
     column_lineage_edges_emitted: int = 0
+    logical_parents_emitted: int = 0
+    logical_parent_fields_emitted: int = 0
     filtered_entity_sets: LossyList[str] = field(default_factory=LossyList)
     failed_services: LossyList[str] = field(default_factory=LossyList)
     # Target business systems that have no configured/known platform mapping, so

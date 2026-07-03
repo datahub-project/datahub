@@ -7,6 +7,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -58,10 +59,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     ForeignKeyConstraintClass,
+    LogicalParentClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -492,6 +495,43 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.column_lineage_edges_emitted += 1
         yield from self._patch_workunits(downstream_urn, patch)
         self.report.lineage_edges_emitted += 1
+        if self.config.drf.emit_logical_parent:
+            yield from self._emit_logical_parent(
+                source_urn, downstream_urn, field_names
+            )
+
+    def _emit_logical_parent(
+        self, source_urn: str, downstream_urn: str, field_names: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        # MDG is the canonical logical model and each replicated downstream dataset is
+        # one physical instantiation of it. The logicalParent aspect lives on the
+        # physical child (the downstream dataset) and points to the logical parent
+        # (the MDG entity), so this never overwrites the downstream connector's own
+        # metadata. Column-level physical-instance links use the same case-insensitive
+        # name match as column lineage.
+        yield self._logical_parent_workunit(downstream_urn, source_urn)
+        self.report.logical_parents_emitted += 1
+        for source_field, downstream_field in self._matched_downstream_fields(
+            downstream_urn, field_names
+        ).items():
+            yield self._logical_parent_workunit(
+                make_schema_field_urn(downstream_urn, downstream_field),
+                make_schema_field_urn(source_urn, source_field),
+            )
+            self.report.logical_parent_fields_emitted += 1
+
+    def _logical_parent_workunit(
+        self, child_urn: str, parent_urn: str
+    ) -> MetadataWorkUnit:
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=child_urn,
+            aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=parent_urn)),
+        )
+        return MetadataWorkUnit(
+            id=f"{child_urn}-logical-parent",
+            mcp=mcp,
+            is_primary_source=False,
+        )
 
     def _matched_downstream_fields(
         self, downstream_urn: str, source_field_names: List[str]

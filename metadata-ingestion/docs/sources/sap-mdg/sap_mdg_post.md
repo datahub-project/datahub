@@ -16,6 +16,10 @@ These tables have no standard OData service, so they are read through a customer
 
 With `drf.emit_column_lineage`, the downstream dataset's schema is read from DataHub and a field-level edge is emitted for each field whose name matches a property of the MDG entity. Matching is case-insensitive (the downstream platform often cases fields differently from MDG, e.g. `PartnerId` vs `partnerid`), while the emitted `schemaField` URNs preserve each side's real field path. This keeps column lineage correct by construction even though MDG cannot see the target's physical schema. It requires a DataHub graph/sink to be available; when absent, dataset-level lineage is still emitted.
 
+#### Logical models (opt-in)
+
+MDG is the canonical, governed definition of a master-data object that is then physically replicated into each downstream system. With `drf.emit_logical_parent`, the connector additionally models this hierarchy using DataHub's [logical models](https://docs.datahub.com/docs/features/feature-guides/logical-models): the MDG entity is the **logical parent** and each replicated downstream dataset is a **physical instantiation** of it (`PhysicalInstanceOf`), with column-level physical-instance links for fields matched by name (case-insensitive) against the downstream schema read from DataHub. The `logicalParent` aspect is written on the physical child, so it never overwrites the downstream connector's own metadata. This is emitted **in addition** to the COPY lineage, and reflects MDG's role as the master model whose governance can propagate to its physical copies. Viewing logical models in the UI requires the `LOGICAL_MODELS_ENABLED` server flag.
+
 ### Limitations
 
 - Only metadata declared in the OData `$metadata` document is ingested; row-level data and profiling are not collected.

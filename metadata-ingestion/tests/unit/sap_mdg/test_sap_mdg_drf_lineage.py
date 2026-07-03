@@ -11,6 +11,7 @@ from datahub.ingestion.source.sap_mdg.odata_client import SapMdgODataClient
 from datahub.ingestion.source.sap_mdg.report import SapMdgSourceReport
 from datahub.ingestion.source.sap_mdg.source import SapMdgSource
 from datahub.metadata.schema_classes import (
+    LogicalParentClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -211,6 +212,56 @@ def test_column_lineage_skipped_without_graph() -> None:
     _workunits(source)
     assert source.report.lineage_edges_emitted == 2
     assert source.report.column_lineage_edges_emitted == 0
+
+
+def _logical_parents(workunits: List[MetadataWorkUnit]) -> List[MetadataWorkUnit]:
+    return [
+        wu
+        for wu in workunits
+        if getattr(wu.metadata, "aspectName", None) == "logicalParent"
+    ]
+
+
+def test_logical_parent_emitted_alongside_lineage() -> None:
+    source = _source(logical_system_to_platform={"SYS_A": {"platform": "hana"}})
+    source.config.drf.service_to_data_model = {"ZMDG_DEMO_SRV": "BP"}
+    source.config.drf.emit_logical_parent = True
+    source._drf_distribution = DrfDistribution(targets_by_data_model={"BP": ["SYS_A"]})
+
+    workunits = _workunits(source)
+    parents = _logical_parents(workunits)
+
+    # One dataset-level logicalParent per entity set (Partners, Contacts), pointing
+    # at the MDG entity; COPY lineage is still emitted in addition.
+    assert source.report.logical_parents_emitted == 2
+    assert source.report.lineage_edges_emitted == 2
+    aspect = parents[0].metadata.aspect
+    assert isinstance(aspect, LogicalParentClass)
+    assert aspect.parent is not None
+    assert "sap-mdg" in aspect.parent.destinationUrn
+
+
+def test_logical_parent_column_links_use_graph() -> None:
+    source = _source(logical_system_to_platform={"SYS_A": {"platform": "hana"}})
+    source.config.drf.service_to_data_model = {"ZMDG_DEMO_SRV": "BP"}
+    source.config.drf.emit_logical_parent = True
+    source._drf_distribution = DrfDistribution(targets_by_data_model={"BP": ["SYS_A"]})
+    # Downstream cases PartnerId differently; column-level link should still match.
+    source.ctx.graph = _FakeGraph(["partnerid"])  # type: ignore[assignment]
+
+    _workunits(source)
+
+    # Partners.PartnerId and Contacts.PartnerId both match -> two field-level links.
+    assert source.report.logical_parent_fields_emitted == 2
+
+
+def test_logical_parent_disabled_by_default() -> None:
+    source = _source(logical_system_to_platform={"SYS_A": {"platform": "hana"}})
+    source.config.drf.service_to_data_model = {"ZMDG_DEMO_SRV": "BP"}
+    source._drf_distribution = DrfDistribution(targets_by_data_model={"BP": ["SYS_A"]})
+
+    assert _logical_parents(_workunits(source)) == []
+    assert source.report.logical_parents_emitted == 0
 
 
 def test_config_requires_table_read_service_when_drf_enabled() -> None:
