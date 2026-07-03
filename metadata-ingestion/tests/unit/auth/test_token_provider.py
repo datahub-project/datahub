@@ -220,6 +220,29 @@ def test_auth_does_not_retry_401_after_scheme_or_port_change():
         assert result is response  # returned untouched, no retry
 
 
+def test_auth_does_not_retry_401_with_streamed_body():
+    # A file/generator body was consumed by the first send and cannot be
+    # replayed — a retry would transmit an empty body under the original
+    # Content-Length. The hook must surface the 401 instead.
+    import io
+
+    provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
+    auth = TokenProviderAuth(provider)
+
+    original = requests.PreparedRequest()
+    original.prepare(
+        method="POST", url="http://gms:8080/aspects", data=io.BytesIO(b"payload")
+    )
+    auth(original)
+
+    response = requests.Response()
+    response.status_code = 401
+    response.request = original
+    response._content = b""
+
+    assert auth._handle_401(response) is response
+
+
 def test_auth_retries_401_on_same_host_via_hook():
     provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
     auth = TokenProviderAuth(provider)

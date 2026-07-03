@@ -44,6 +44,9 @@ class DataHubAssertionSensor(BaseSensorOperator):
 
         host, password, timeout_sec = hook._get_config()
         self.urn = urn
+        # TODO(oauth): only a static token is supported here; accept a declarative
+        # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+        # OAuth token providers work on this path too.
         config: AssertionCircuitBreakerConfig = AssertionCircuitBreakerConfig(
             datahub_host=host,
             datahub_token=password,

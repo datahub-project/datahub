@@ -504,11 +504,23 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        if gms_server == "__from_env__" and token is None:
+        if gms_server == "__from_env__" and token is None and auth is None:
             # HACK: similar to what we do with system auth, we transparently
             # inject the config in here. Ideally this should be done in the
             # config loader or by the caller, but it gets the job done for now.
             gms_server, token = config_utils.require_config_from_env()
+            # Env-based OAuth (DATAHUB_AUTH_TYPE) must work on this path too —
+            # it is the same "resolve everything from env vars" contract as
+            # load_client_config, and takes the same precedence over a static
+            # DATAHUB_GMS_TOKEN. Imports are local to avoid import cycles.
+            from datahub.emitter.token_provider import TokenProviderAuth
+            from datahub.ingestion.auth.env import build_auth_config_from_env
+            from datahub.ingestion.auth.registry import build_token_provider
+
+            env_auth_config = build_auth_config_from_env()
+            if env_auth_config is not None:
+                auth = TokenProviderAuth(build_token_provider(env_auth_config))
+                token = None
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token

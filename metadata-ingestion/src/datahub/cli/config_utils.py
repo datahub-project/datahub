@@ -137,6 +137,11 @@ def load_client_config() -> DatahubClientConfig:
     # by the Remote Executor, whose default sink resolves through this function —
     # authenticate with short-lived OAuth tokens.
     auth_env = build_auth_config_from_env()
+    if auth_env is not None and get_system_client_id() is not None:
+        logger.warning(
+            f"Both {ENV_AUTH_TYPE} and {ENV_DATAHUB_SYSTEM_CLIENT_ID} are set; "
+            f"using {ENV_AUTH_TYPE} and ignoring the system client credentials."
+        )
 
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
@@ -161,6 +166,16 @@ def load_client_config() -> DatahubClientConfig:
         datahub_config: DatahubClientConfig = DatahubConfig.model_validate(
             client_config_dict
         ).gms
+    except MissingConfigError:
+        if auth_env is not None:
+            # A fully env-configured OAuth container is missing only the server
+            # URL — telling it to run `datahub init` would be misleading.
+            raise MissingConfigError(
+                f"{ENV_AUTH_TYPE} is set but no GMS server was provided. "
+                f"Set {ENV_METADATA_HOST_URL} (or run `datahub init` to create "
+                f"a {CONDENSED_DATAHUB_CONFIG_PATH} file)."
+            ) from None
+        raise
     except ValidationError as e:
         click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")
         click.echo(e, err=True)
@@ -170,6 +185,11 @@ def load_client_config() -> DatahubClientConfig:
         # Env-configured OAuth overrides a static token stored in the config
         # file, and supersedes the browser-flow (`datahub init --oauth`) token
         # refresh below.
+        if datahub_config.token:
+            logger.warning(
+                f"{ENV_AUTH_TYPE} is set; ignoring the static token stored in "
+                f"{CONDENSED_DATAHUB_CONFIG_PATH}."
+            )
         return datahub_config.model_copy(update={"token": None, "auth": auth_env})
 
     refreshed_token = refresh_oauth_token_if_needed()

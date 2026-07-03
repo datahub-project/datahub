@@ -126,6 +126,10 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
+# TODO(oauth): only a static token is supported here; resolve the client config's
+# auth (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived OAuth
+# token providers work on this path too. Harmless today: /config is public, this
+# runs post-command, and failures are swallowed by the caller.
 async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
     import aiohttp
 

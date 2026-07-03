@@ -59,6 +59,9 @@ class DataHubOperationCircuitBreakerOperator(BaseSensorOperator):
         self.operation_type = operation_type
         self.source_type = source_type
 
+        # TODO(oauth): only a static token is supported here; accept a declarative
+        # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+        # OAuth token providers work on this path too.
         config: OperationCircuitBreakerConfig = OperationCircuitBreakerConfig(
             datahub_host=host,
             datahub_token=password,

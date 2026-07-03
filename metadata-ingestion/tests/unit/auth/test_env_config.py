@@ -141,8 +141,141 @@ def test_rest_sink_emitter_carries_auth(monkeypatch):
     sink_config = DatahubRestSinkConfig(
         server="http://gms:8080", auth=build_auth_config_from_env()
     )
-    emitter = DatahubRestSink._make_emitter(sink_config)
+    emitter = DatahubRestSink._make_emitter(
+        sink_config, auth=DatahubRestSink._resolve_auth(sink_config)
+    )
     assert isinstance(emitter._session.auth, TokenProviderAuth)
+
+
+def test_explicit_sink_without_credentials_inherits_env_auth(monkeypatch):
+    # A recipe with an explicit `sink: datahub-rest` block that carries no
+    # credentials must not silently bypass env OAuth — the sink inherits
+    # DATAHUB_AUTH_TYPE just like the default (sink-less) path does.
+    from datahub.emitter.token_provider import TokenProviderAuth
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    sink_config = DatahubRestSinkConfig(server="http://gms:8080")
+    assert isinstance(DatahubRestSink._resolve_auth(sink_config), TokenProviderAuth)
+
+
+def test_explicit_sink_token_wins_over_env_auth(monkeypatch):
+    # Explicit credentials in the sink block beat the environment (config beats
+    # env). This also prevents env OAuth tokens from being sent to a sink whose
+    # server points somewhere other than the env-configured GMS.
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+
+    sink_config = DatahubRestSinkConfig(server="http://gms:8080", token="recipe-pat")
+    assert DatahubRestSink._resolve_auth(sink_config) is None  # static-token path
+
+
+def test_sink_resolves_one_provider_shared_across_thread_emitters(monkeypatch):
+    # One token provider per sink, shared by all worker-thread emitters — a
+    # provider per thread would each hit the IdP independently (max_threads
+    # token requests at startup and per refresh window).
+    import concurrent.futures
+
+    import datahub.ingestion.sink.datahub_rest as sink_mod
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    calls = []
+    real_build = sink_mod.build_token_provider
+
+    def counting_build(auth):
+        calls.append(1)
+        return real_build(auth)
+
+    monkeypatch.setattr(sink_mod, "build_token_provider", counting_build)
+
+    sink_config = sink_mod.DatahubRestSinkConfig(server="http://gms:8080")
+    resolved = sink_mod.DatahubRestSink._resolve_auth(sink_config)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        emitters = list(
+            pool.map(
+                lambda _: sink_mod.DatahubRestSink._make_emitter(
+                    sink_config, auth=resolved
+                ),
+                range(4),
+            )
+        )
+    assert len(calls) == 1  # provider resolved exactly once, not per thread
+    assert all(e._session.auth is resolved for e in emitters)
+
+
+def test_from_env_emitter_resolves_env_auth(monkeypatch):
+    # The `__from_env__` construction path (components that defer all config to
+    # env vars) must honor DATAHUB_AUTH_TYPE, not just GMS_URL/GMS_TOKEN.
+    from datahub.emitter.rest_emitter import DataHubRestEmitter
+    from datahub.emitter.token_provider import TokenProviderAuth
+
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    emitter = DataHubRestEmitter("__from_env__")
+    assert isinstance(emitter._session.auth, TokenProviderAuth)
+    # Env auth wins over the static env token — no baked Authorization header.
+    assert "Authorization" not in emitter._session.headers
+
+
+def test_load_client_config_file_branch_env_auth_overrides_stored_token(
+    tmp_path, monkeypatch, caplog
+):
+    # The ~/.datahubenv branch of load_client_config must apply env auth over a
+    # stored static token, and say so — silently rerouting credentials would
+    # make auth-source debugging miserable.
+    import logging
+
+    import yaml
+
+    import datahub.cli.config_utils as config_utils
+
+    path = tmp_path / ".datahubenv"
+    path.write_text(
+        yaml.safe_dump({"gms": {"server": "http://gms:8080", "token": "stored-pat"}})
+    )
+    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+
+    with caplog.at_level(logging.WARNING):
+        config = load_client_config()
+    assert config.token is None
+    assert config.auth is not None and config.auth.type == "k8s_oidc"
+    assert any("ignoring the static token" in r.message for r in caplog.records)
+
+
+def test_missing_server_error_names_gms_url_when_env_auth_set(tmp_path, monkeypatch):
+    # A fully env-configured OAuth container missing only DATAHUB_GMS_URL should
+    # be told exactly that, not to run `datahub init`.
+    import datahub.cli.config_utils as config_utils
+    from datahub.cli.config_utils import MissingConfigError
+
+    monkeypatch.setattr(
+        config_utils, "DATAHUB_CONFIG_PATH", str(tmp_path / "missing-datahubenv")
+    )
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+
+    with pytest.raises(MissingConfigError, match="DATAHUB_GMS_URL"):
+        load_client_config()
 
 
 def test_datapack_sink_config_carries_auth(monkeypatch):

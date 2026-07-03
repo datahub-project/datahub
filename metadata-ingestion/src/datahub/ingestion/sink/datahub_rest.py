@@ -10,6 +10,7 @@ from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+import requests
 from pydantic import field_validator
 
 from datahub.configuration.common import (
@@ -40,6 +41,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -165,9 +167,12 @@ def _resolve_gms_emit_mode(
 
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     _emitter_thread_local: threading.local
+    _resolved_auth: Optional[requests.auth.AuthBase]
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
+        # Must be resolved before the first `self.emitter` access below.
+        self._resolved_auth = DatahubRestSink._resolve_auth(self.config)
         self._emitter_thread_local = threading.local()
         self._gms_emit_mode = _resolve_gms_emit_mode(
             self.config.mode, _DEFAULT_EMIT_MODE
@@ -213,14 +218,41 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
 
     @classmethod
-    def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
-        resolved_auth = None
-        if config.auth is not None:
-            resolved_auth = TokenProviderAuth(build_token_provider(config.auth))
+    def _resolve_auth(
+        cls, config: DatahubRestSinkConfig
+    ) -> Optional[requests.auth.AuthBase]:
+        # Resolved ONCE per sink and shared across the worker-thread emitters:
+        # TokenProviderAuth is thread-safe (per-request state is thread-local,
+        # the provider cache is lock-guarded), while a provider per thread would
+        # each hit the IdP independently — max_threads token requests at startup
+        # and per refresh window, multiplied across concurrent pipelines.
+        auth_config = config.auth
+        if auth_config is None and not config.token:
+            # A recipe sink block that carries no credentials inherits env-based
+            # OAuth (DATAHUB_AUTH_TYPE) — without this, an explicit
+            # `sink: datahub-rest` block silently bypasses env auth and emits
+            # unauthenticated. Explicit credentials in the sink block always win
+            # over the environment.
+            auth_config = build_auth_config_from_env()
+            if auth_config is not None:
+                logger.info(
+                    "datahub-rest sink has no credentials configured; using "
+                    "OAuth auth from DATAHUB_AUTH_TYPE."
+                )
+        if auth_config is None:
+            return None
+        return TokenProviderAuth(build_token_provider(auth_config))
+
+    @classmethod
+    def _make_emitter(
+        cls,
+        config: DatahubRestSinkConfig,
+        auth: Optional[requests.auth.AuthBase] = None,
+    ) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             config.server,
             config.token,
-            auth=resolved_auth,
+            auth=auth,
             connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
@@ -251,7 +283,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         thread_local = self._emitter_thread_local
         if not hasattr(thread_local, "emitter"):
             self.config.client_mode = ClientMode.INGESTION
-            thread_local.emitter = DatahubRestSink._make_emitter(self.config)
+            thread_local.emitter = DatahubRestSink._make_emitter(
+                self.config, auth=self._resolved_auth
+            )
         return thread_local.emitter
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:

@@ -157,6 +157,12 @@ class TokenProviderAuth(requests.auth.AuthBase):
             self._thread_local, "original_origin", None
         ):
             return response
+        # A streamed body (file object / generator) was consumed by the first
+        # send and cannot be replayed — a retry would transmit an empty body
+        # under the original Content-Length. Surface the 401 instead.
+        body = response.request.body
+        if body is not None and not isinstance(body, (str, bytes)):
+            return response
         invalidate = getattr(self._provider, "invalidate", None)
         if invalidate is None:
             return response
