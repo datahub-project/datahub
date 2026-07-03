@@ -193,6 +193,9 @@ class AutoResolveLineageUrnsProcessor(
         # upstreamLineage (table + fineGrained columns), dashboardInfo / chartInfo inputs,
         # and dataJobInputOutput inputs (dbt / Airflow / Spark). Other lineage aspects
         # don't target datasets or are the entity's own outputs (see the dev guide).
+        # Callable[..., bool] (not Callable[[_Aspect], bool]): each normalizer takes a
+        # specific aspect subtype, and function args are contravariant, so the precise
+        # signature won't accept them in a heterogeneous table (mypy list-item error).
         self._normalizers: List[Tuple[Type[_Aspect], Callable[..., bool]]] = [
             (UpstreamLineageClass, self._normalize_upstream_lineage),
             (DashboardInfoClass, self._normalize_dashboard_info),
@@ -475,6 +478,19 @@ class AutoResolveLineageUrnsProcessor(
     # matchType), so process() can skip the raw-MCP re-serialization when nothing in the
     # aspect was in scope.
 
+    def _tally_table_ref(self, res: _Resolution) -> bool:
+        """Record report counters for a table-level reference; return True iff it was
+        normalized (so the caller can rewrite the URN). Shared by the three table-level
+        paths; the column-level path (_resolve_field_urn) counts separately."""
+        if res.match_type == _NORMALIZED:
+            self.report.num_dataset_urns_normalized += 1
+            return True
+        if res.match_type == _UNRESOLVED:
+            self.report.num_refs_unresolved += 1
+        else:
+            self.report.num_refs_unchanged += 1
+        return False
+
     def _normalize_upstream_lineage(self, aspect: UpstreamLineageClass) -> bool:
         changed = False
         for upstream in aspect.upstreams:
@@ -488,13 +504,8 @@ class AutoResolveLineageUrnsProcessor(
             if res.match_type is not None:
                 upstream.matchType = res.match_type
                 changed = True
-            if res.match_type == _NORMALIZED:
+            if self._tally_table_ref(res):
                 upstream.dataset = res.urn
-                self.report.num_dataset_urns_normalized += 1
-            elif res.match_type == _UNRESOLVED:
-                self.report.num_refs_unresolved += 1
-            else:
-                self.report.num_refs_unchanged += 1
 
         for fine_grained in aspect.fineGrainedLineages or []:
             if self._normalize_fine_grained_upstreams(fine_grained):
@@ -615,16 +626,11 @@ class AutoResolveLineageUrnsProcessor(
                 healed.append(dataset)
                 continue
             res = self._resolve_dataset(dataset)
-            # A plain URN list / Edge has no matchType field to stamp, but the report
-            # counters must still distinguish UNRESOLVED (broken) from a clean ref so a
+            # A plain URN list / Edge has no matchType field to stamp, but the counters
+            # must still distinguish UNRESOLVED (broken) from a clean ref so a
             # dashboard/datajob pointing at broken lineage isn't invisible in the report.
-            if res.match_type == _NORMALIZED:
-                self.report.num_dataset_urns_normalized += 1
+            if self._tally_table_ref(res):
                 changed = True
-            elif res.match_type == _UNRESOLVED:
-                self.report.num_refs_unresolved += 1
-            else:
-                self.report.num_refs_unchanged += 1
             healed.append(res.urn)
         return healed, changed
 
@@ -635,12 +641,7 @@ class AutoResolveLineageUrnsProcessor(
             if not _is_dataset_urn(destination):
                 continue
             res = self._resolve_dataset(destination)
-            if res.match_type == _NORMALIZED:
+            if self._tally_table_ref(res):
                 edge.destinationUrn = res.urn
-                self.report.num_dataset_urns_normalized += 1
                 changed = True
-            elif res.match_type == _UNRESOLVED:
-                self.report.num_refs_unresolved += 1
-            else:
-                self.report.num_refs_unchanged += 1
         return changed
