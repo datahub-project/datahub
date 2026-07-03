@@ -279,17 +279,25 @@ class MicroStrategyMapper:
         fine_grained_lineages = self._fine_grained_lineages(dataset_urn, dataset)
         if fine_grained_lineages:
             self.report.report_model_lineage_edges(len(fine_grained_lineages))
+        fine_grained_table_urns = _upstream_dataset_urns(
+            dataset.field_warehouse_upstreams
+        )
         coarse_upstream_urns = (
             sorted(set(dataset.warehouse_upstream_urns))
             if include_coarse_lineage
             else []
         )
-        if coarse_upstream_urns:
-            self.report.report_warehouse_lineage_edges(len(coarse_upstream_urns))
-        upstream_urns = sorted(
-            set(coarse_upstream_urns)
-            | _upstream_dataset_urns(dataset.field_warehouse_upstreams)
-        )
+        if fine_grained_table_urns:
+            # Field-level lineage identifies the tables that actually feed
+            # this dataset's fields. SQL-view tables that were only joined
+            # for filtering (dimension lookups, calendar subqueries) are not
+            # emitted as upstreams — they would fan every dataset out to the
+            # whole schema.
+            upstream_urns = sorted(fine_grained_table_urns)
+        else:
+            upstream_urns = coarse_upstream_urns
+        if coarse_upstream_urns and upstream_urns:
+            self.report.report_warehouse_lineage_edges(len(upstream_urns))
         if upstream_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,

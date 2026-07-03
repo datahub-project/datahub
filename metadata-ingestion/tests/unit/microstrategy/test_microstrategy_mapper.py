@@ -662,6 +662,39 @@ def test_dataset_workunits_include_warehouse_upstream_lineage_when_enabled() -> 
     )
 
 
+def test_dataset_upstreams_restricted_to_field_lineage_tables_when_available() -> None:
+    mapper = _mapper(extract_warehouse_lineage=True)
+    dashboard = _definition()
+    dataset = dashboard.datasets[0]
+    fact_table = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    )
+    dim_table = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.dims.org_hier,PROD)"
+    )
+    calendar_table = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.dims.mcal_day,PROD)"
+    )
+    # SQL view referenced all three, but only the fact table contributes fields.
+    dataset.warehouse_upstream_urns = [fact_table, dim_table, calendar_table]
+    dataset.field_warehouse_upstreams = {
+        "Revenue": [f"urn:li:schemaField:({fact_table},net_sls_amt)"],
+    }
+
+    workunits = list(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dataset,
+            mapper.project_key("project-1"),
+        )
+    )
+
+    upstream_lineage = _aspect(workunits, UpstreamLineageClass)
+    assert [upstream.dataset for upstream in upstream_lineage.upstreams] == [fact_table]
+    assert upstream_lineage.fineGrainedLineages
+
+
 def test_report_source_dataset_warehouse_lineage_is_opt_in() -> None:
     report_object = MSTRObject.model_validate(
         {"id": "report-1", "name": "Sales Report", "type": "3"}
