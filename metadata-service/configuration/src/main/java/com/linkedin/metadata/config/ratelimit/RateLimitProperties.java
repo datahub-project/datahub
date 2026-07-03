@@ -218,6 +218,18 @@ public class RateLimitProperties {
      */
     private boolean exemptSystemActor;
 
+    /**
+     * Whether this bucket is keyed per actor. Only meaningful on the client-class buckets ({@code
+     * browser}/{@code sdk}): {@code false} (default) = one bucket per class per tenant ({@code
+     * {tenantId}:sdk}) shared by all actors of that class; {@code true} = keyed per actor ({@code
+     * {tenantId}:sdk:{urn}}) so each actor gets its own class-sized budget and one noisy actor
+     * can't drain the whole class. Set independently per class (e.g. per-actor for {@code sdk} but
+     * shared for {@code browser}). Ignored on the {@code actor} bucket (inherently per-actor) and
+     * {@code global} (inherently fleet-wide); falls back to the shared key when there is no actor
+     * (system principal / unauthenticated).
+     */
+    private boolean perActor;
+
     private int capacity;
     private int refillTokens;
 

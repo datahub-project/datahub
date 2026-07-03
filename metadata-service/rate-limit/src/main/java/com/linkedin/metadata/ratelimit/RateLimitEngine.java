@@ -172,12 +172,27 @@ public class RateLimitEngine {
   @Nonnull
   public RateLimitDecision evaluateAndAcquireRest(
       @Nonnull String requestUri, @Nonnull String method, @Nullable ClientClass clientClass) {
+    return evaluateAndAcquireRest(requestUri, method, clientClass, null);
+  }
+
+  /**
+   * REST/OpenAPI/Rest.li entry point that carries the authenticated actor, so the scoped chain's
+   * per-actor bucket applies to REST too — not just GraphQL. {@code actorUrn} is the caller's URN,
+   * or null for the exempt system principal / an unauthenticated request (per-actor step skipped,
+   * same as the GraphQL gate).
+   */
+  @Nonnull
+  public RateLimitDecision evaluateAndAcquireRest(
+      @Nonnull String requestUri,
+      @Nonnull String method,
+      @Nullable ClientClass clientClass,
+      @Nullable String actorUrn) {
     return evaluateAndAcquire(
         new RateLimitContext(
             stripPath(requestUri),
             method.toUpperCase(Locale.ROOT),
             null,
-            null,
+            actorUrn,
             clientClass,
             RateLimitSource.SERVLET_FILTER));
   }
@@ -549,10 +564,10 @@ public class RateLimitEngine {
    * dimensions are skipped:
    *
    * <ul>
-   *   <li>the actor step when {@code actorUrn} is null — this front gate is driven by the GraphQL
-   *       controller, which passes the authenticated actor URN for every caller except the exempt
-   *       system principal; a null here means "no per-actor dimension for this request" (e.g. the
-   *       system principal). REST/OpenAPI paths do not run this scoped chain at all.
+   *   <li>the actor step when {@code actorUrn} is null. Both the GraphQL controller and the
+   *       REST/OpenAPI servlet filter pass the authenticated actor URN for every caller except the
+   *       exempt system principal, so a null here means "no per-actor dimension" (the system
+   *       principal or an unauthenticated request) and only the class/global steps apply.
    *   <li>the class step when the client is unclassified or {@code clientClassEnabled=false}.
    * </ul>
    *
@@ -586,8 +601,15 @@ public class RateLimitEngine {
           browser ? scoped.getBrowser() : scoped.getSdk();
       if (!classLimits.isDisabled()) {
         String suffix = browser ? "browser" : "sdk";
-        steps.add(
-            new ScopedStep(tenantKey(tenant, suffix), classLimits, false, "scoped:" + suffix));
+        // This class bucket's own perActor flag decides its key: per actor ({tenant}:{class}:{urn})
+        // so each actor gets its own class-sized budget, or the shared tenant-wide class ceiling
+        // ({tenant}:{class}). Set independently per class. Falls back to shared when there's no
+        // actor.
+        String classKey =
+            classLimits.isPerActor() && actorUrn != null
+                ? tenantKey(tenant, suffix + ":" + actorUrn)
+                : tenantKey(tenant, suffix);
+        steps.add(new ScopedStep(classKey, classLimits, false, "scoped:" + suffix));
       }
     }
 
@@ -617,6 +639,11 @@ public class RateLimitEngine {
    * chain. When it denies, the GraphQL controller unwinds the front gate it already passed —
    * releasing the capacity slot and calling {@link #refundScopedChain} — so a request rejected here
    * doesn't permanently burn the actor/class/global quota.
+   *
+   * <p>Heavy-resolver buckets are <b>always per-tenant</b> ({@code {tenantId}:op:{resolver}}),
+   * never per-actor — deliberately: a tenant could otherwise multiply a hot resolver's budget just
+   * by spawning users. The {@code BucketLimits.perActor} flag (which applies to the browser/sdk
+   * class buckets) is therefore ignored here; this method doesn't even take an actor URN.
    *
    * <p>{@code systemActor} lets the internal system principal bypass resolvers configured with
    * {@code exemptSystemActor=true}, so high-volume internal traffic isn't throttled where that's

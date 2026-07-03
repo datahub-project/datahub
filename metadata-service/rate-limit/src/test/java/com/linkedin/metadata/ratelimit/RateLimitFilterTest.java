@@ -25,6 +25,8 @@ import org.testng.annotations.Test;
 
 public class RateLimitFilterTest {
 
+  private static final String ACTOR = "urn:li:corpuser:tester";
+
   private RateLimitEngine engine;
   private RateLimitFilter filter;
   private HttpServletRequest request;
@@ -33,7 +35,7 @@ public class RateLimitFilterTest {
   @BeforeMethod
   public void setup() {
     engine = mock(RateLimitEngine.class);
-    filter = new RateLimitFilter(engine);
+    filter = new RateLimitFilter(engine, () -> ACTOR);
     request = mock(HttpServletRequest.class);
     response = mock(HttpServletResponse.class);
     when(request.getMethod()).thenReturn("POST");
@@ -159,8 +161,21 @@ public class RateLimitFilterTest {
 
     filter.doFilter(request, response, (req, resp) -> {});
 
-    verify(engine, never()).evaluateAndAcquireRest(any(), any(), any());
+    verify(engine, never()).evaluateAndAcquireRest(any(), any(), any(), any());
     verify(engine, never()).release(any(), anyBoolean());
+  }
+
+  @Test
+  public void testPassesResolvedActorUrnToEngine() throws Exception {
+    // The filter must forward the supplied actor URN so the scoped per-actor bucket applies to REST
+    // (previously it always passed null, so REST skipped per-actor limiting).
+    stubAllowedAcquire();
+    when(request.isAsyncStarted()).thenReturn(false);
+    when(response.getStatus()).thenReturn(HttpServletResponse.SC_OK);
+
+    filter.doFilter(request, response, (req, resp) -> {});
+
+    verify(engine).evaluateAndAcquireRest(eq("/auth/signUp"), eq("POST"), any(), eq(ACTOR));
   }
 
   private void stubAllowedAcquire() throws Exception {
@@ -168,7 +183,7 @@ public class RateLimitFilterTest {
     when(engine.isExcluded(any())).thenReturn(false);
     when(engine.isGraphQLPost(any(), any())).thenReturn(false);
     RateLimitDecision decision = RateLimitDecision.builder().allowed(true).build();
-    when(engine.evaluateAndAcquireRest(any(), any(), any())).thenReturn(decision);
+    when(engine.evaluateAndAcquireRest(any(), any(), any(), any())).thenReturn(decision);
     RateLimitLease lease = new RateLimitLease(null, "_default_capacity", null, 0L);
     when(engine.toLease(decision)).thenReturn(lease);
     Mockito.doNothing().when(engine).applyHeaders(any(), any());

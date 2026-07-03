@@ -28,7 +28,7 @@ public class RateLimitEngineFactoryTest {
     RateLimitEngine engine =
         factory.rateLimitEngine(
             gmsConfiguration, null, null, operationContext, new StandardEnvironment());
-    RateLimitFilter filter = factory.rateLimitFilter(engine);
+    RateLimitFilter filter = factory.rateLimitFilter(engine, operationContext);
 
     assertNotNull(engine);
     assertNotNull(filter);

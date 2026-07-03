@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.ratelimit;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigValidator;
@@ -11,6 +13,7 @@ import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -70,8 +73,29 @@ public class RateLimitEngineFactory {
 
   @Bean
   @Nonnull
-  public RateLimitFilter rateLimitFilter(RateLimitEngine rateLimitEngine) {
-    return new RateLimitFilter(rateLimitEngine);
+  public RateLimitFilter rateLimitFilter(
+      RateLimitEngine rateLimitEngine,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+    // Capture the system principal's URN once so per-request resolution can exempt it (its
+    // high-volume internal calls shouldn't be per-actor throttled — mirrors the GraphQL gate).
+    String systemActorUrn = systemOperationContext.getAuthentication().getActor().toUrnStr();
+    return new RateLimitFilter(rateLimitEngine, () -> resolveRestActorUrn(systemActorUrn));
+  }
+
+  /**
+   * The current REST request's rate-limit actor URN for the scoped per-actor bucket: the
+   * authenticated caller's URN, or null for the exempt system principal or an unauthenticated
+   * request. Read from {@link AuthenticationContext}, which the auth extraction filter (ordered
+   * before the rate-limit filter) has already populated. Mirrors the GraphQL controller's handling.
+   */
+  @Nullable
+  private static String resolveRestActorUrn(@Nonnull String systemActorUrn) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (authentication == null || authentication.getActor() == null) {
+      return null;
+    }
+    String actorUrn = authentication.getActor().toUrnStr();
+    return actorUrn.equals(systemActorUrn) ? null : actorUrn;
   }
 
   /**

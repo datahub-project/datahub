@@ -226,11 +226,15 @@ datahub:
           refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
           refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
         browser:
+          # perActor=true keys this class bucket per actor ({tenantId}:browser:{urn}); false (default)
+          # is one shared browser ceiling per tenant. Set independently from sdk.
+          perActor: ${RATE_LIMITS_SCOPED_BROWSER_PER_ACTOR:false}
           capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
           refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_TOKENS:${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}}
           refillPeriodSeconds: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_PERIOD_SECONDS:60}
         sdk:
-          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}
+          perActor: ${RATE_LIMITS_SCOPED_SDK_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:1000}
           refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
           refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
         global:

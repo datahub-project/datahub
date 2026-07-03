@@ -199,7 +199,20 @@ Bundled defaults live under **`datahub.gms.rateLimits`** in `application.yaml` (
 
 ## Per-actor rate limiting
 
-Per-actor GraphQL throttling is provided by the **scoped chain's actor bucket** (`scoped:actor`, keyed `{tenantId}:actor:{urn}`), enabled with `scoped.enabled=true`. There is **no bundled per-actor endpoint rule** — `endpoint.rules` is empty by default, and there are no `RATE_LIMITS_PER_ACTOR_*` env vars.
+Per-actor throttling is provided by the **scoped chain's actor bucket** (`scoped:actor`, keyed `{tenantId}:actor:{urn}`), enabled with `scoped.enabled=true`. It applies to **both** GraphQL and REST/OpenAPI/Rest.li (the servlet filter passes the authenticated actor). There is **no bundled per-actor endpoint rule** — `endpoint.rules` is empty by default, and there are no `RATE_LIMITS_PER_ACTOR_*` env vars.
+
+### Scoped chain — how each bucket is keyed
+
+The scoped chain evaluates narrow → broad (`actor` → client class → `global`); the heavy-resolver gate runs separately, after the chain admits the request. What each bucket keys on:
+
+| Bucket               | Key                                                  | Scope                                                                                                                                                                                                                                                                                      |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `actor`              | `{tenantId}:actor:{urn}`                             | Per authenticated actor. Always per-actor (its whole purpose); system principal exempt.                                                                                                                                                                                                    |
+| `browser` / `sdk`    | `{tenantId}:{class}` — or `{tenantId}:{class}:{urn}` | Per **class per tenant** by default (a shared ceiling for all that class's traffic). With `scoped.<class>.perActor=true` it becomes **per actor within the class**. Set independently per class (`RATE_LIMITS_SCOPED_<CLASS>_PER_ACTOR`), and only applies when `clientClassEnabled=true`. |
+| `global`             | `global`                                             | Fleet-wide, **cross-tenant** (un-prefixed, shared map). The absolute backstop.                                                                                                                                                                                                             |
+| `heavyResolvers.<f>` | `{tenantId}:op:{resolver}`                           | Per resolver **per tenant** — **always**, never per-actor. Keeping it tenant-wide prevents a tenant from multiplying a hot resolver's budget by spawning users; the `perActor` flag is ignored here.                                                                                       |
+
+Because `global` is the only cross-tenant bucket, size it well above the sum of all per-tenant traffic or it becomes the fleet-wide bottleneck. `tenantId` comes from `RATE_LIMITS_TENANT_ID` (the deployment's `global.id` in Helm); when unset, the tenant-scoped keys are un-prefixed (e.g. `sdk`, `actor:{urn}`), which is fine for a single deployment but collides on a shared store — set it in multi-deployment setups.
 
 A lower-level **`perActor` endpoint-rule** mechanism still exists for advanced, manual per-path use: setting `perActor: true` on an **endpoint** (token-bucket) rule makes GMS keep a separate Bucket4j bucket per authenticated actor URN rather than one shared bucket. You author such a rule yourself (in a mounted config file); nothing enables it by default. Prefer the scoped actor bucket for ordinary per-actor GraphQL throttling.
 
@@ -261,7 +274,7 @@ datahub:
             refillPeriodSeconds: 60
 ```
 
-> **Planned (not yet available):** Per-actor coverage for Rest.li / OpenAPI paths is under consideration — the scoped actor bucket and `perActor` endpoint rules currently apply to the GraphQL POST path only. (The browser-vs-SDK **client-class** distinction is already implemented — see `clientClassEnabled` and the `scoped:browser`/`scoped:sdk` buckets — and is modeled in code as `ClientClass`.) Behavior documented here reflects the current implementation only.
+> **Scope of per-actor limiting:** The scoped **actor** bucket (`scoped:actor`) applies to both GraphQL and REST/OpenAPI/Rest.li — the servlet filter passes the authenticated actor, so a noisy SDK principal on REST paths is isolated the same way it is on GraphQL (the system principal and unauthenticated requests are exempt). The browser-vs-SDK **client-class** distinction (`clientClassEnabled`, `scoped:browser`/`scoped:sdk`, modeled as `ClientClass`) also applies across both. By default the class buckets are one shared ceiling per class per tenant, but each class can be flipped to **per-actor** independently via `scoped.<class>.perActor` (`RATE_LIMITS_SCOPED_<CLASS>_PER_ACTOR`) — e.g. give every SDK caller its own tight `sdk` budget (`{tenant}:sdk:{urn}`) while keeping `browser` a shared ceiling. The lower-level `perActor` flag on **endpoint rules** remains GraphQL-POST-only (see the per-actor endpoint-rule constraints above).
 
 ## Configuration reference
 
@@ -300,11 +313,25 @@ rateLimits:
     # Bucket sizes (env-overridable per deployment). Each field has its own env var:
     # RATE_LIMITS_SCOPED_<BUCKET>_{CAPACITY,REFILL_TOKENS,REFILL_PERIOD_SECONDS}.
     # refillTokens defaults to that bucket's CAPACITY; refillPeriodSeconds defaults to 60.
+    # perActor (browser/sdk only): true → key that class bucket per actor; false (default) → one
+    # shared ceiling per class per tenant. RATE_LIMITS_SCOPED_<CLASS>_PER_ACTOR.
     actor: { capacity: 2000, refillTokens: 2000, refillPeriodSeconds: 60 }
-    browser: { capacity: 5000, refillTokens: 5000, refillPeriodSeconds: 60 }
-    sdk: { capacity: 500, refillTokens: 500, refillPeriodSeconds: 60 }
+    browser:
+      {
+        perActor: false,
+        capacity: 5000,
+        refillTokens: 5000,
+        refillPeriodSeconds: 60,
+      }
+    sdk:
+      {
+        perActor: false,
+        capacity: 500,
+        refillTokens: 500,
+        refillPeriodSeconds: 60,
+      }
     global: { capacity: 20000, refillTokens: 20000, refillPeriodSeconds: 60 }
-    heavyResolvers: {} # per-resolver buckets; add via mounted file
+    heavyResolvers: {} # per-resolver buckets, always per-tenant; add via mounted file
   metrics:
     detailed: false
 ```
@@ -313,36 +340,37 @@ rateLimits:
 
 Key environment variables (full list at [Environment Variables — GMS Rate Limiting](./environment-vars.md#gms-rate-limiting)):
 
-| Environment variable                                   | Default                       | Description                                                                                                                                         |
-| ------------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                       | Enable adaptive in-flight (Gradient2) capacity limiting                                                                                             |
-| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                       | Enable token-bucket endpoint limiting (requires Hazelcast)                                                                                          |
-| `RATE_LIMITS_FAIL_OPEN`                                | `true`                        | Allow requests when evaluation throws an unexpected error                                                                                           |
-| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                          | Minimum `Retry-After` seconds on 429 responses                                                                                                      |
-| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                          | Jitter percentage added to `Retry-After`                                                                                                            |
-| `RATE_LIMITS_EXCLUDED_PATHS`                           | `/health,/health/live,...`    | Comma-separated Ant paths excluded from all rate limiting                                                                                           |
-| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                     | Spring resource URI of an override policy file, layered on the bundled defaults — must include a prefix (e.g. `file:/etc/datahub/rate-limits.yaml`) |
-| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                       | Enable detailed per-rule metric tags                                                                                                                |
-| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                        | Enable `_default_capacity` pool                                                                                                                     |
-| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                         | Gradient2 starting limit for default pool                                                                                                           |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                          | Gradient2 floor for default pool                                                                                                                    |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                        | Gradient2 ceiling for default pool                                                                                                                  |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                        | Enable `_graphql_capacity` pool                                                                                                                     |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                | Path matched by the GraphQL capacity pool                                                                                                           |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                        | Allow per-operation capacity rules for GraphQL                                                                                                      |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                         | Gradient2 starting limit for GraphQL pool                                                                                                           |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                          | Gradient2 floor for GraphQL pool                                                                                                                    |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                        | Gradient2 ceiling for GraphQL pool                                                                                                                  |
-| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets` | Hazelcast map name for endpoint buckets                                                                                                             |
-| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`         | `300`                         | Idle eviction window (seconds) for per-actor bucket entries                                                                                         |
-| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`                 | `100000`                      | LRU size cap for endpoint bucket entries per Hazelcast node                                                                                         |
-| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                       | Enable the scoped chain (per-actor → class → global)                                                                                                |
-| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                        | Per-actor (`scoped:actor`) bucket size — the per-actor GraphQL throttle                                                                             |
-| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                    |
-| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                        |
-| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_         | Tokens refilled per period for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`); defaults to that bucket's capacity                                    |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                          | Refill period (seconds) for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`)                                                                           |
+| Environment variable                                   | Default                       | Description                                                                                                                                                                                                                           |
+| ------------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                       | Enable adaptive in-flight (Gradient2) capacity limiting                                                                                                                                                                               |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                       | Enable token-bucket endpoint limiting (requires Hazelcast)                                                                                                                                                                            |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                        | Allow requests when evaluation throws an unexpected error                                                                                                                                                                             |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                          | Minimum `Retry-After` seconds on 429 responses                                                                                                                                                                                        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                          | Jitter percentage added to `Retry-After`                                                                                                                                                                                              |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | `/health,/health/live,...`    | Comma-separated Ant paths excluded from all rate limiting                                                                                                                                                                             |
+| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                     | Spring resource URI of an override policy file, layered on the bundled defaults — must include a prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)                                                                                   |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                       | Enable detailed per-rule metric tags                                                                                                                                                                                                  |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                        | Enable `_default_capacity` pool                                                                                                                                                                                                       |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                         | Gradient2 starting limit for default pool                                                                                                                                                                                             |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                          | Gradient2 floor for default pool                                                                                                                                                                                                      |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                        | Gradient2 ceiling for default pool                                                                                                                                                                                                    |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                        | Enable `_graphql_capacity` pool                                                                                                                                                                                                       |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                | Path matched by the GraphQL capacity pool                                                                                                                                                                                             |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                        | Allow per-operation capacity rules for GraphQL                                                                                                                                                                                        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                         | Gradient2 starting limit for GraphQL pool                                                                                                                                                                                             |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                          | Gradient2 floor for GraphQL pool                                                                                                                                                                                                      |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                        | Gradient2 ceiling for GraphQL pool                                                                                                                                                                                                    |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets` | Hazelcast map name for endpoint buckets                                                                                                                                                                                               |
+| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS`         | `300`                         | Idle eviction window (seconds) for per-actor bucket entries                                                                                                                                                                           |
+| `RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE`                 | `100000`                      | LRU size cap for endpoint bucket entries per Hazelcast node                                                                                                                                                                           |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                       | Enable the scoped chain (per-actor → class → global)                                                                                                                                                                                  |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                        | Per-actor (`scoped:actor`) bucket size — the per-actor GraphQL throttle                                                                                                                                                               |
+| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                         | SDK/non-browser class (`scoped:sdk`) bucket size                                                                                                                                                                                      |
+| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                        | Browser class (`scoped:browser`) bucket size                                                                                                                                                                                          |
+| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                       | Fleet-wide (`scoped:global`) ceiling                                                                                                                                                                                                  |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_         | Tokens refilled per period for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`); defaults to that bucket's capacity                                                                                                                      |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                          | Refill period (seconds) for `<BUCKET>` (`ACTOR`/`BROWSER`/`SDK`/`GLOBAL`)                                                                                                                                                             |
+| `RATE_LIMITS_SCOPED_<BUCKET>_PER_ACTOR`                | `false`                       | `BROWSER`/`SDK` only: `true` keys that class bucket per actor (`{tenant}:{class}:{urn}`); `false` = one shared ceiling per class per tenant. Set independently per class. Ignored for `ACTOR` (already per-actor) / `GLOBAL` (fleet). |
 
 ### Tier 2 — override policy file
 

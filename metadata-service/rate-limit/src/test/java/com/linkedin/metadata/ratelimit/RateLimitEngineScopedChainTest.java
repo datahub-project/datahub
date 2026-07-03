@@ -64,6 +64,54 @@ public class RateLimitEngineScopedChainTest {
   }
 
   @Test
+  public void testClassBucketSharedAcrossActorsByDefault() {
+    RateLimitProperties config = scopedConfig();
+    // Default (sdk.perActor=false): one shared sdk ceiling per tenant.
+    enable(config.getScoped().getSdk(), 1);
+    RateLimitEngine engine = engine(config);
+
+    // Alice consumes the single shared sdk token; Bob is denied on the SAME bucket.
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.NON_BROWSER).isAllowed());
+    RateLimitDecision denied = graphql(engine, "getMe", BOB, ClientClass.NON_BROWSER);
+    assertFalse(denied.isAllowed());
+    assertEquals(denied.getDenyingRuleId(), "scoped:sdk");
+  }
+
+  @Test
+  public void testClassBucketPerActorWhenFlagEnabled() {
+    RateLimitProperties config = scopedConfig();
+    enable(config.getScoped().getSdk(), 1);
+    config.getScoped().getSdk().setPerActor(true); // key the sdk class bucket per actor
+    RateLimitEngine engine = engine(config);
+
+    // Each actor now has its own sdk bucket, so Alice and Bob both pass their first call...
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.NON_BROWSER).isAllowed());
+    assertTrue(graphql(engine, "getMe", BOB, ClientClass.NON_BROWSER).isAllowed());
+    // ...and Alice's own bucket (not a shared one) is what denies her second call.
+    RateLimitDecision aliceDenied = graphql(engine, "getMe", ALICE, ClientClass.NON_BROWSER);
+    assertFalse(aliceDenied.isAllowed());
+    assertEquals(aliceDenied.getDenyingRuleId(), "scoped:sdk");
+  }
+
+  @Test
+  public void testPerActorIsIndependentPerClass() {
+    RateLimitProperties config = scopedConfig();
+    enable(config.getScoped().getSdk(), 1);
+    enable(config.getScoped().getBrowser(), 1);
+    config.getScoped().getSdk().setPerActor(true); // sdk: per-actor
+    // browser: left shared (perActor=false) — the flag is set independently per class.
+    RateLimitEngine engine = engine(config);
+
+    // sdk is per-actor → Alice and Bob each get their own sdk bucket, both pass.
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.NON_BROWSER).isAllowed());
+    assertTrue(graphql(engine, "getMe", BOB, ClientClass.NON_BROWSER).isAllowed());
+    // browser is shared → Alice takes the single token, Bob is denied on the same bucket.
+    assertTrue(graphql(engine, "getMe", ALICE, ClientClass.BROWSER).isAllowed());
+    assertEquals(
+        graphql(engine, "getMe", BOB, ClientClass.BROWSER).getDenyingRuleId(), "scoped:browser");
+  }
+
+  @Test
   public void testClassBucketSkippedWhenClientClassDisabled() {
     RateLimitProperties config = scopedConfig();
     // Class discrimination off: the scoped class step must be skipped entirely, so a (spoofable)
@@ -238,6 +286,41 @@ public class RateLimitEngineScopedChainTest {
   }
 
   @Test
+  public void testRestPerActorBucketDeniesAndIsolatesActors() {
+    RateLimitProperties config = scopedConfig();
+    enable(config.getScoped().getActor(), 1);
+    RateLimitEngine engine = engine(config);
+
+    // REST/OpenAPI carries the authenticated actor now, so the per-actor bucket applies (not just
+    // GraphQL). Alice's capacity-1 bucket denies her second REST call, while Bob is unaffected.
+    assertTrue(
+        engine
+            .evaluateAndAcquireRest("/openapi/v3/entity/scroll", "POST", null, ALICE)
+            .isAllowed());
+    RateLimitDecision denied =
+        engine.evaluateAndAcquireRest("/openapi/v3/entity/scroll", "POST", null, ALICE);
+    assertFalse(denied.isAllowed());
+    assertEquals(denied.getDenyingRuleId(), "scoped:actor");
+
+    assertTrue(
+        engine.evaluateAndAcquireRest("/openapi/v3/entity/scroll", "POST", null, BOB).isAllowed());
+  }
+
+  @Test
+  public void testRestNullActorSkipsPerActorStep() {
+    RateLimitProperties config = scopedConfig();
+    // Actor bucket is capacity-1; with a null actor (system/unauthenticated) the actor step is
+    // skipped, so repeated REST calls are not per-actor throttled.
+    enable(config.getScoped().getActor(), 1);
+    RateLimitEngine engine = engine(config);
+
+    assertTrue(
+        engine.evaluateAndAcquireRest("/openapi/v3/entity/scroll", "POST", null, null).isAllowed());
+    assertTrue(
+        engine.evaluateAndAcquireRest("/openapi/v3/entity/scroll", "POST", null, null).isAllowed());
+  }
+
+  @Test
   public void testRestScrollPathCoveredByFrontGateGlobalLane() {
     RateLimitProperties config = scopedConfig();
     enable(config.getScoped().getGlobal(), 1);
@@ -269,6 +352,23 @@ public class RateLimitEngineScopedChainTest {
 
     // A resolver that isn't configured heavy is never limited.
     assertNull(engine.consumeHeavyResolver("getMe", false));
+  }
+
+  @Test
+  public void testHeavyResolverStaysPerTenantEvenIfPerActorSet() {
+    RateLimitProperties config = scopedConfig();
+    RateLimitProperties.BucketLimits limits = bucketLimits(1);
+    limits.setPerActor(true); // must be IGNORED for heavy resolvers (per-tenant by design)
+    config.getScoped().getHeavyResolvers().put("searchAcrossEntities", limits);
+    RateLimitEngine engine = engine(config);
+
+    // The bucket is {tenant}:op:{resolver} regardless of perActor — no actor in the key — so the
+    // capacity-1 tenant bucket is exhausted on the second call. A tenant can't multiply this budget
+    // by using more users.
+    assertNull(engine.consumeHeavyResolver("searchAcrossEntities", false));
+    RateLimitDecision denied = engine.consumeHeavyResolver("searchAcrossEntities", false);
+    assertFalse(denied.isAllowed());
+    assertEquals(denied.getDenyingRuleId(), "scoped:op:searchAcrossEntities");
   }
 
   @Test
