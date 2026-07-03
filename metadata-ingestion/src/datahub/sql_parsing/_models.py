@@ -5,10 +5,6 @@ import sqlglot
 from pydantic import BaseModel
 
 
-def _default_leaf_name(exp: sqlglot.exp.Expression) -> str:
-    return exp.name
-
-
 class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
@@ -98,7 +94,7 @@ class _TableName(_FrozenModel):
         default_schema: Optional[str] = None,
         leaf_name_transform: Optional[Callable[[sqlglot.exp.Expression], str]] = None,
     ) -> "_TableName":
-        transform = leaf_name_transform or _default_leaf_name
+        transform = leaf_name_transform or (lambda exp: exp.name)
 
         # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
         # sqlglot parses every SEMANTIC_VIEW variant (simple/qualified name,
