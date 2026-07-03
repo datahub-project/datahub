@@ -15,26 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import yaml
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    ChartInfoClass,
-    ChartUsageStatisticsClass,
-    ContainerClass,
-    DashboardInfoClass,
-    DashboardUsageStatisticsClass,
-    DatasetPropertiesClass,
-    FineGrainedLineageClass,
-    GlobalTagsClass,
-    InputFieldsClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    TimeTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
-)
 from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -98,6 +78,26 @@ from datahub.ingestion.source.thoughtspot.source import (
 )
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
+)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChartInfoClass,
+    ChartUsageStatisticsClass,
+    ContainerClass,
+    DashboardInfoClass,
+    DashboardUsageStatisticsClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    GlobalTagsClass,
+    InputFieldsClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TimeTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 
