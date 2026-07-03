@@ -1,4 +1,3 @@
-version: "3"
 services:
   testmariadbusage:
     image: mariadb:10.6

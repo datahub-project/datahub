@@ -8,6 +8,9 @@ import sqlglot
 from sqlglot.dialects.dialect import Dialect
 
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_data_job_urn
+from datahub.ingestion.source.sql.stored_procedures.constants import (
+    STORED_PROCEDURES_CONTAINER,
+)
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.query_types import get_query_type_of_sql
@@ -25,10 +28,6 @@ from datahub.sql_parsing.sqlglot_utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Mirrors ``STORED_PROCEDURES_CONTAINER`` in ``base.py``. Duplicated to avoid
-# a circular import (``base.py`` imports ``parse_procedure_code`` from here).
-_STORED_PROCEDURES_CONTAINER = "stored_procedures"
 
 # Match a fully or partially qualified procedure identifier as it appears in a
 # CALL/EXEC statement. We don't try to parse argument lists — sqlglot has
@@ -161,7 +160,7 @@ def _build_call_datajob_urn(
         # Can't compose a flow URN with nothing — skip silently.
         return None
 
-    flow_parts = [p for p in (database, schema, _STORED_PROCEDURES_CONTAINER) if p]
+    flow_parts = [p for p in (database, schema, STORED_PROCEDURES_CONTAINER) if p]
     flow_name = ".".join(flow_parts)
 
     return make_data_job_urn(

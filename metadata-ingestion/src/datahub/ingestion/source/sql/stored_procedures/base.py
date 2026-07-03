@@ -18,6 +18,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     JobContainerSubTypes,
 )
+from datahub.ingestion.source.sql.stored_procedures.constants import (
+    STORED_PROCEDURES_CONTAINER,
+)
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -33,9 +36,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
-
-# Container name for stored procedures and functions
-STORED_PROCEDURES_CONTAINER = "stored_procedures"
 
 
 @dataclass

@@ -1,8 +1,9 @@
 # This import verifies that the dependencies are available.
 import logging
 import re
+from contextlib import contextmanager
 from datetime import timezone
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
@@ -12,7 +13,7 @@ from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
+    from sqlalchemy.engine import Connection, Engine
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
@@ -209,7 +210,9 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+    "Optionally enabled via `include_usage_statistics`. Reads query history from "
+    "`performance_schema` digests (default) or `mysql.general_log` "
+    "(`usage_source: general_log`), which also yields query-based table lineage.",
 )
 class MySQLSource(TwoTierSQLAlchemySource):
     """
@@ -240,10 +243,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 port=port,
                 aws_config=config.aws_config,
             )
-
-        if config.include_usage_statistics:
-            self.aggregator = self._build_usage_aggregator()
-            self.report.sql_aggregator = self.aggregator.report
 
     def get_platform(self):
         return "mysql"
@@ -353,9 +352,14 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 )
             return base_procedures
 
-    def _build_usage_aggregator(self) -> SqlParsingAggregator:
-        # The base class builds a lineage-only aggregator; swap in one that also
-        # emits usage and query entities for the digests we feed it later.
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        # Base __init__ calls this before our __init__ body, so only self.config /
+        # self.platform / self.ctx are safe to read. Overriding (vs. swapping
+        # self.aggregator later) keeps the base's single-aggregator contract.
+        if not self.config.include_usage_statistics:
+            return super()._create_aggregator()
+
+        # Base builds a lineage-only aggregator; usage also needs query + usage stats.
         return SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -372,22 +376,21 @@ class MySQLSource(TwoTierSQLAlchemySource):
         )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # Runs after the base has registered table schemas, so unqualified table
-        # references in the query history can resolve.
+        # Runs after the base registers table schemas, so unqualified references resolve.
         if self.config.include_usage_statistics:
             self._populate_usage_aggregator()
         yield from super()._generate_aggregator_workunits()
 
     def _populate_usage_aggregator(self) -> None:
         if self.config.usage_source == MySQLUsageSource.GENERAL_LOG:
-            queries: Iterable[ObservedQuery] = self._fetch_general_log_queries()
+            fetch = self._fetch_general_log_queries
             failure_title = "Failed to read usage from general_log"
             failure_hint = (
                 "Ensure general_log=ON, log_output=TABLE, and the user has SELECT on "
                 "mysql.general_log. Usage statistics were skipped."
             )
         else:
-            queries = self._fetch_performance_schema_queries()
+            fetch = self._fetch_performance_schema_queries
             failure_title = "Failed to read usage from performance_schema"
             failure_hint = (
                 "Ensure the statements_digest consumer is enabled and the user has SELECT "
@@ -395,17 +398,31 @@ class MySQLSource(TwoTierSQLAlchemySource):
             )
 
         try:
+            # Materialize so fetch()'s connection closes before we feed the
+            # aggregator; otherwise an aggregator error leaks the open connection.
+            # ponytail: whole result set held in memory; use a server-side cursor
+            # if a huge general_log ever OOMs.
+            queries = list(fetch())
             for observed_query in queries:
                 self.aggregator.add(observed_query)
         except Exception as e:
-            # Metadata/profiling is already emitted; a query-history failure
-            # (consumer disabled, missing grant) must not abort the run.
+            # Metadata is already emitted; a query-history failure (consumer
+            # disabled, missing grant) must not abort the run.
             self.report.warning(title=failure_title, message=failure_hint, exc=e)
 
-    def _fetch_performance_schema_queries(self) -> Iterable[ObservedQuery]:
+    @contextmanager
+    def _usage_connection(self) -> Iterator["Connection"]:
+        """Yield a connection with the session time zone pinned to UTC."""
         engine = create_engine(self.config.get_sql_alchemy_url(), **self.config.options)
         self._setup_rds_iam_event_listener(engine)
         with engine.connect() as conn:
+            # LAST_SEEN / event_time are TIMESTAMPs rendered in the session tz; pin
+            # UTC (offset form needs no tz tables) so naive reads are truly UTC.
+            conn.execute("SET time_zone = '+00:00'")
+            yield conn
+
+    def _fetch_performance_schema_queries(self) -> Iterable[ObservedQuery]:
+        with self._usage_connection() as conn:
             rows = conn.execute(
                 _PERFORMANCE_SCHEMA_DIGEST_QUERY,
                 {
@@ -424,8 +441,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 if count <= 0:
                     continue
 
-                # LAST_SEEN is in the server timezone; treat it as UTC so it lands
-                # in the usage window (bucket may drift by the server's UTC offset).
+                # Session is pinned to UTC, so a naive LAST_SEEN is already UTC.
                 timestamp = row.LAST_SEEN
                 if timestamp is not None and timestamp.tzinfo is None:
                     timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -433,17 +449,14 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 yield ObservedQuery(
                     query=row.DIGEST_TEXT,
                     timestamp=timestamp,
-                    # Two-tier: the schema is the database, so default_schema (not
-                    # default_db) yields `schema.table` URNs. Digests are aggregated
-                    # across users, so there is no actor to attribute.
+                    # Two-tier: schema acts as the database, so default_schema (not
+                    # default_db) yields schema.table URNs. Digests have no actor.
                     default_schema=schema_name,
                     usage_multiplier=count,
                 )
 
     def _fetch_general_log_queries(self) -> Iterable[ObservedQuery]:
-        engine = create_engine(self.config.get_sql_alchemy_url(), **self.config.options)
-        self._setup_rds_iam_event_listener(engine)
-        with engine.connect() as conn:
+        with self._usage_connection() as conn:
             rows = conn.execute(
                 _GENERAL_LOG_QUERY,
                 {
@@ -451,9 +464,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     "end_time": self.config.usage.end_time,
                 },
             )
-            # general_log has no schema column, so track each session's current
-            # database from `Init DB` rows and `USE` statements to resolve
-            # unqualified table names.
+            # general_log has no schema column; track each session's current db
+            # from Init DB / USE to resolve unqualified table names.
+            # ponytail: session_db grows with distinct thread ids, bounded by the
+            # window we already hold in memory; add an LRU cap if it ever dominates.
             session_db: dict[str, str] = {}
             for row in rows:
                 session_id = str(row.thread_id)
@@ -472,7 +486,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     continue
 
                 schema_name = session_db.get(session_id)
-                if schema_name is not None:
+                if schema_name is None:
+                    # No Init DB/USE seen for this session; unqualified tables
+                    # won't resolve. Emit anyway (qualified refs may) but log it.
+                    logger.debug(
+                        "general_log statement on thread %s has no known database; "
+                        "unqualified tables will not resolve: %s",
+                        session_id,
+                        argument,
+                    )
+                else:
                     if schema_name.lower() in _SYSTEM_SCHEMAS:
                         continue
                     if not self.config.database_pattern.allowed(schema_name):

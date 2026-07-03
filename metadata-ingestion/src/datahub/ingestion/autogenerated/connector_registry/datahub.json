@@ -2794,7 +2794,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Optionally enabled via `include_usage_statistics` (reads `performance_schema`)",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },

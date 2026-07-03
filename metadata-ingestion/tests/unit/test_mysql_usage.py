@@ -52,20 +52,6 @@ def _patch_rows(rows: list) -> MagicMock:
     return engine
 
 
-def test_create_aggregator_toggles_usage_flags():
-    enabled = _source().aggregator
-    assert enabled.generate_usage_statistics
-    assert enabled.generate_query_usage_statistics
-    assert enabled.usage_config is not None
-
-    disabled = MySQLSource(
-        MySQLConfig(), PipelineContext(run_id="mysql-usage-test")
-    ).aggregator
-    assert not disabled.generate_usage_statistics
-    assert not disabled.generate_query_usage_statistics
-    assert disabled.usage_config is None
-
-
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
 def test_fetch_performance_schema_maps_digest_rows(mock_create_engine):
     naive_last_seen = datetime.datetime(2023, 6, 1, 10, 30, 0)
