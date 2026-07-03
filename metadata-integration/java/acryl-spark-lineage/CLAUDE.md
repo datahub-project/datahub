@@ -91,6 +91,29 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
 - **`JdbcSparkUtils`**, **`FileStreamMicroBatchStreamStrategy`**: DataHub additions.
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
 
+### Relationship to upstream trimmers & the CLL consistency gap
+
+Upstream OpenLineage (since 1.39, PR #3996) ships **dataset name trimmers** — heuristic,
+on-by-default strippers for common partition patterns (`key=value`, date dirs, `yyyy/MM/dd`,
+`yyyyMM`), configurable via `spark.openlineage.dataset.disabledTrimmers` / `.extraTrimmers`.
+DataHub's **PathSpec** (`spark.datahub.platform.<p>.path_spec_list` with `{table}` markers) is a
+different mechanism: explicit pattern matching that also assigns platform-instance/env per path and
+strips arbitrary filenames/regex.
+
+They are **complementary, not replacements**: upstream trimmers auto-handle partition dirs but leave
+the trailing filename; PathSpec does explicit `{table}` mapping with richer metadata. Full coverage
+generally wants both.
+
+**Known gap — column-level lineage (CLL) can point at untrimmed URNs.** DataHub's
+`RemovePathPatternUtils` rewrites dataset names on the `Input`/`OutputDataset`, but upstream builds
+CLL field references in `ColumnLevelLineageBuilder` *before* that rewrite runs — so CLL
+`schemaField` URNs can reference the **untrimmed** dataset name and fail to match the emitted dataset
+entity (CLL looks broken in the UI). Upstream trimmers avoid this because they run inside
+`ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The strategic fix is to
+apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL consistency comes for
+free and the two hardest patches (`PlanUtils`, `RemovePathPatternUtils`) can eventually be dropped.
+See ING-2959 for the phased plan.
+
 ### Automated Upgrade Process
 
 Use the automated upgrade script:
