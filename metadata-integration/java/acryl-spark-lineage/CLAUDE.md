@@ -105,7 +105,7 @@ the trailing filename; PathSpec does explicit `{table}` mapping with richer meta
 generally wants both.
 
 **Default behavior in this plugin (`DatahubSparkListener.configureDatasetTrimmers`).** The upstream
-trimmers run *before* DataHub's path handling, so with a DataHub path-trimming mechanism configured
+trimmers run _before_ DataHub's path handling, so with a DataHub path-trimming mechanism configured
 they double-transform names and can break patterns that reference partition segments. Therefore the
 plugin **disables the OpenLineage trimmers when DataHub already does its own path trimming** — i.e.
 when a `path_spec_list` or a `file_partition_regexp` is set — and otherwise leaves them on (upstream
@@ -115,7 +115,7 @@ default). Override explicitly with `spark.datahub.metadata.dataset.openLineageTr
 
 **Known gap — column-level lineage (CLL) can point at untrimmed URNs.** DataHub's
 `RemovePathPatternUtils` rewrites dataset names on the `Input`/`OutputDataset`, but upstream builds
-CLL field references in `ColumnLevelLineageBuilder` *before* that rewrite runs — so CLL
+CLL field references in `ColumnLevelLineageBuilder` _before_ that rewrite runs — so CLL
 `schemaField` URNs can reference the **untrimmed** dataset name and fail to match the emitted dataset
 entity (CLL looks broken in the UI). Upstream trimmers avoid this because they run inside
 `ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The strategic fix is to
