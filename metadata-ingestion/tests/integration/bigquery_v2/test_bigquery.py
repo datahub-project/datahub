@@ -13,11 +13,6 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
 )
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
@@ -82,18 +77,6 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
                 "include_data_platform_instance": True,
                 "capture_table_label_as_tag": True,
                 "capture_dataset_label_as_tag": True,
-                "classification": ClassificationConfig(
-                    enabled=True,
-                    classifiers=[
-                        DynamicTypedClassifierConfig(
-                            type="datahub",
-                            config=DataHubClassifierConfig(
-                                minimum_values_threshold=1,
-                            ),
-                        )
-                    ],
-                    max_workers=1,
-                ).model_dump(),
                 **source_config_override,
             },
         },
@@ -577,7 +560,6 @@ LIMIT 100
             "include_schema_metadata": False,
             "include_table_lineage": True,
             "include_usage_statistics": True,
-            "classification": {"enabled": False},
         },
     )
 
@@ -775,7 +757,6 @@ def test_bigquery_convert_column_urns_to_lowercase(
             "convert_column_urns_to_lowercase": True,
             "use_queries_v2": True,
             "include_table_lineage": True,
-            "classification": {"enabled": False},
         },
     )
 
@@ -921,7 +902,6 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
             "use_queries_v2": use_queries_v2,
             "include_table_lineage": include_table_lineage,
             "include_usage_statistics": include_usage_statistics,
-            "classification": {"enabled": False},
         },
     )
 

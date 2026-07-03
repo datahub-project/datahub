@@ -24,6 +24,13 @@
     "connection_type": "Pull",
     "description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications."
   },
+  "bigid": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "BigID",
+    "description": "Enrich DataHub datasets with BigID classification and governance metadata: GlossaryTerms, Tags, risk scores, IDSoR correlation results, and profiles.",
+    "img_path": "img/logos/platforms/bigid.png"
+  },
   "bigquery": {
     "platform_type": "Database",
     "connection_type": "Pull",
@@ -780,18 +787,28 @@
     "img_path": "img/logos/platforms/microstrategy.svg"
   },
   "quicksight": {
-    "api_connector": true,
     "platform_type": "BI Tool",
+    "connection_type": "Pull",
     "title": "Amazon QuickSight",
     "description": "AWS serverless business intelligence service for creating interactive dashboards and visualizations.",
-    "img_path": "img/logos/platforms/quicksight.svg"
+    "img_path": "img/logos/platforms/quicksight.svg",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect"
+    ]
   },
   "kinesis": {
-    "api_connector": true,
     "platform_type": "Messaging",
-    "title": "Amazon Kinesis",
+    "title": "Amazon Kinesis Data Streams",
     "description": "AWS real-time data streaming service for collecting, processing, and analyzing data streams at any scale.",
     "img_path": "img/logos/platforms/kinesis.svg"
+  },
+  "kinesis-firehose": {
+    "supported_via": "kinesis",
+    "platform_type": "Messaging",
+    "title": "Amazon Data Firehose",
+    "description": "AWS managed service for delivering streaming data to S3, Redshift, OpenSearch, Snowflake, Apache Iceberg, and MongoDB (formerly Amazon Kinesis Data Firehose). Ingested via the unified `kinesis` connector.",
+    "img_path": "img/logos/platforms/kinesis-firehose.svg"
   },
   "redpanda": {
     "supported_via": "kafka",
@@ -1003,11 +1020,15 @@
     "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
   },
+  "github": {
+    "description": "Import files and documentation from GitHub repositories into DataHub as Documents, keeping them discoverable and governed alongside the rest of your metadata. Ingested on a schedule through UI or CLI ingestion.",
+    "img_path": "img/logos/platforms/github.png"
+  },
   "github-documents": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",
     "description": "Import files from a GitHub repository as DataHub Documents on a schedule.",
-    "img_path": "img/logos/platforms/github.svg"
+    "img_path": "img/logos/platforms/github.png"
   },
   "excel": {
     "platform_type": "Metadata Systems",

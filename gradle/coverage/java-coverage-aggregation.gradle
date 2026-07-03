@@ -1,0 +1,80 @@
+/*
+ * Aggregated (cross-module) JaCoCo coverage report.
+ *
+ * The per-module jacocoTestReport (see java-coverage.gradle) scores a module's own classes
+ * against that module's own test execution data only. When a class in module A is exercised
+ * by tests living in module B, JaCoCo records the hit in B's .exec file, but B's report
+ * discards A's classes (classDirectories is limited to B) and A's report never sees B's
+ * execution data. The cross-module coverage is therefore lost and the class looks untested
+ * in Codecov.
+ *
+ * This task decouples report generation from which tests ran: it scores the classes of every
+ * module that was TESTED in the current invocation against the union of every .exec file
+ * produced in that invocation. Run it once per CI job after the tests; Codecov merges the
+ * per-job reports (covered-in-any-report wins), recovering coverage contributed by tests in
+ * any sibling module that ran in the same job.
+ *
+ * Why only TESTED modules (those that produced a .exec), not every compiled module:
+ *   A module that is merely compiled as a transitive dependency but whose own tests did not
+ *   run in this job would be reported at ~0% (no execution data hits its classes). That is
+ *   wrong and actively harmful when the module's real test job is gated by path filters and
+ *   did not run for this commit (e.g. metadata-io's tests run in metadata-io.yml, are excluded
+ *   from build-and-test, and metadata-io.yml does not fire for a datahub-graphql-core-only PR).
+ *   Such a module would then have NO authoritative report to rescue it and its coverage would
+ *   regress. Restricting classDirectories to modules that actually ran tests here keeps the
+ *   report additive: it can only raise a class's coverage via Codecov's merge, never lower it.
+ *
+ * Note on configure-on-demand: this task reads other projects' outputs but declares no task
+ * dependency on them, so with org.gradle.configureondemand=true Gradle would not configure
+ * those projects and the report would come out empty. Invoke it with
+ * --no-configure-on-demand (see the CI workflows) so every module is configured and visible
+ * to the gradle.projectsEvaluated hook below. It is also meant to run as a SEPARATE gradle
+ * invocation after the tests, so the .exec files already exist when this is configured.
+ */
+// Applied to the root project so the JacocoReport task below gets a configured
+// jacocoClasspath (the JaCoCo tooling classpath); the per-module reports get theirs from
+// java-coverage.gradle. Keep toolVersion in sync with that file.
+apply plugin: 'jacoco'
+
+jacoco {
+  toolVersion = '0.8.12'
+}
+
+tasks.register('jacocoMergedReport', JacocoReport) {
+  group = 'verification'
+  description = 'Aggregates JaCoCo coverage across modules tested in this invocation (cross-module).'
+
+  reports {
+    xml.required = true
+    csv.required = false
+    html.required = false
+    xml.outputLocation = rootProject.layout.buildDirectory.file('coverage-reports/jacoco-merged.xml')
+  }
+
+  // Skip instead of failing when no tests ran in this invocation (e.g. a partial local build).
+  onlyIf { !executionData.empty }
+}
+
+gradle.projectsEvaluated {
+  def execTreeOf = { p -> p.fileTree(p.layout.buildDirectory.dir('jacoco')).include('*.exec') }
+
+  // Generated code dominates report size and has no meaningful coverage. Keep in sync with
+  // java-coverage.gradle.
+  def jacocoCoverageExcludes = ['**/generated/**']
+
+  // Only modules whose tests actually ran in THIS invocation (their .exec exists). See the
+  // header comment for why compiled-but-untested modules must be excluded.
+  def testedProjects = subprojects.findAll { p ->
+    p.pluginManager.hasPlugin('jacoco') &&
+        p.extensions.findByName('sourceSets')?.findByName('main') &&
+        !execTreeOf(p).empty
+  }
+
+  tasks.named('jacocoMergedReport').configure {
+    classDirectories.setFrom(rootProject.files(testedProjects.collect { p ->
+      p.sourceSets.main.output.collect { dir -> p.fileTree(dir: dir, excludes: jacocoCoverageExcludes) }
+    }))
+    sourceDirectories.setFrom(rootProject.files(testedProjects.collect { it.sourceSets.main.allSource.srcDirs }))
+    executionData.setFrom(rootProject.files(testedProjects.collect { execTreeOf(it) }))
+  }
+}

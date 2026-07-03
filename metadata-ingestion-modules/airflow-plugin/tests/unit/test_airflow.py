@@ -186,6 +186,29 @@ def test_datajob_url_link_taskinstance_rejected_with_migration_message():
             get_lineage_config()
 
 
+def test_emit_mode_defaults_to_async_and_is_overridable():
+    """The listener defaults to ASYNC emit so high-volume DAG runs don't block
+    GMS, and operators can override it via `[datahub] emit_mode`."""
+    from datahub.emitter.rest_emitter import EmitMode
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    # Default: no emit_mode in airflow.cfg -> ASYNC.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: fallback,
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.ASYNC
+
+    # Explicit override in airflow.cfg.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "SYNC_WAIT" if key == "emit_mode" else fallback
+        ),
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.SYNC_WAIT
+
+
 def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
     """BaseHook moved into the Task SDK (airflow.sdk.bases.hook) in Airflow 3.1.
     On Airflow 3.0.x it is only importable from airflow.hooks.base, so

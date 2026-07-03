@@ -46,6 +46,8 @@ const LoadMoreContainer = styled.div<{ $level: number }>`
 // DocumentTreeItem (8 + level*16) so a level-1 platform header lines up with a
 // level-1 doc row. The chevron sits on the right (vs. left on tree items) to
 // signal that this row is a structural group, not an interactive doc.
+// No hover background — it's a tree label, not a nav row; the pointer
+// cursor alone is enough affordance for the toggle.
 const SectionHeader = styled.button<{ $level: number }>`
     display: flex;
     align-items: center;
@@ -62,10 +64,6 @@ const SectionHeader = styled.button<{ $level: number }>`
     font-family: Mulish;
     font-size: 14px;
     font-weight: 700;
-
-    &:hover {
-        background: ${(props) => props.theme.colors.bgHover};
-    }
 `;
 
 const SectionHeaderLabel = styled.span`

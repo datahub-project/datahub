@@ -326,8 +326,8 @@ class ViewErrorCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
-def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
-    """Classify a view-processing exception for report error-breakdown counters.
+def _categorize_teradata_error(exc: BaseException) -> ViewErrorCategory:
+    """Classify a Teradata exception for report error-breakdown counters.
 
     Returns one of the ``ViewErrorCategory`` enum members:
         ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
@@ -792,6 +792,27 @@ def _strip_padded_autoincrement(row: Any, col_info: Dict[str, Any]) -> None:
         col_info["autoincrement"] = val in ("GA", "GD")
 
 
+def _report_table_missing_from_cache(self: Any, schema: str, table_name: str) -> None:
+    """Record a table that was discovered but absent from the cache at column
+    extraction time, so the run report shows a count and the affected names
+    rather than a silent log line."""
+    if hasattr(self, "report"):
+        self.report.increment_tables_missing_from_cache()
+        self.report.warning(
+            title="Table missing from cache during column extraction",
+            message=(
+                "Table was not found in the cache when extracting columns, "
+                "likely dropped after table discovery. The dataset is emitted "
+                "without columns."
+            ),
+            context=f"{schema}.{table_name}",
+        )
+    else:
+        logger.warning(
+            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
+        )
+
+
 def optimized_get_columns(
     self: Any,
     connection: Connection,
@@ -829,9 +850,10 @@ def optimized_get_columns(
             break
 
     if td_table is None:
-        logger.warning(
-            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
-        )
+        # The table was listed during caching but is no longer in the cache at
+        # column-extraction time (e.g. dropped between the two phases). We still
+        # emit the dataset, just without columns.
+        _report_table_missing_from_cache(self, schema, table_name)
         return []
 
     res: List[Any] = []
@@ -1035,6 +1057,11 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_primary_keys_processed: int = 0
     column_extraction_duration_seconds: float = 0.0
 
+    # Tables that were listed during caching but were no longer present in the
+    # cache at column-extraction time (e.g. dropped between the two phases).
+    # Their datasets are still emitted, but without columns.
+    num_tables_missing_from_cache: int = 0
+
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
@@ -1078,13 +1105,18 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_db_retries: int = 0
 
     # Per-phase error breakdown for self-service diagnostics; categories align
-    # with _categorize_view_error() so support can pinpoint root cause quickly.
+    # with _categorize_teradata_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
     historical_lineage_check_failures: int = 0
     view_timeout_errors: int = 0
     view_parse_errors: int = 0
     view_permission_errors: int = 0
     view_unknown_errors: int = 0
+
+    # Permission denials hit while sizing tables for profiling (DBC.TableSizeV).
+    # Tracked separately so a missing grant on the sizing view is visible in the
+    # report rather than buried in the generic profiling-failure warning.
+    profiling_permission_errors: int = 0
 
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
@@ -1120,6 +1152,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
         with self._lock:
             self.num_column_extraction_failures += 1
 
+    def increment_tables_missing_from_cache(self) -> None:
+        with self._lock:
+            self.num_tables_missing_from_cache += 1
+
     def increment_primary_keys_processed(self) -> None:
         with self._lock:
             self.num_primary_keys_processed += 1
@@ -1127,6 +1163,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_profiling_permission_error(self) -> None:
+        with self._lock:
+            self.profiling_permission_errors += 1
 
     def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
@@ -1782,6 +1822,17 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             _use_qvci = self.config.use_qvci
             _use_dbc_columns_for_views = self.config.use_dbc_columns_for_views
             _tables_needing_extraction = self._tables_needing_column_extraction
+
+            # The patched dialect functions below run with a TeradataDialect instance
+            # as `self` (SQLAlchemy calls them via Inspector -> dialect), not this
+            # source. They read `self.report` to record run-level metrics (columns
+            # processed, extraction failures, tables missing from cache, column
+            # extraction duration, etc.). The dialect has no report of its own, so
+            # without this attach those `getattr/hasattr(self, "report")` checks are
+            # always False and the metrics silently stay at 0. Attach the source's
+            # report to the dialect class so the metrics are actually populated.
+            setattr(TeradataDialect, "report", self.report)  # noqa: B010
+
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
@@ -2382,7 +2433,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                 except Exception as e:
-                    _error_category = _categorize_view_error(e)
+                    _error_category = _categorize_teradata_error(e)
                     self.report.increment_view_error(_error_category)
                     logger.error(
                         f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -2453,7 +2504,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             # here, so skip increment_view_error.
                             pass
                         except Exception as e:
-                            _error_category = _categorize_view_error(e)
+                            _error_category = _categorize_teradata_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
                             # fut.result() can raise for infrastructure-level exceptions
                             # (e.g. concurrent.futures internals) that are NOT caught by
@@ -2626,7 +2677,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                     except Exception as e:
-                        _error_category = _categorize_view_error(e)
+                        _error_category = _categorize_teradata_error(e)
                         self.report.increment_view_error(_error_category)
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -3463,14 +3514,28 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
             # Teradata instances routinely withhold. Fall back to "no filtering"
             # (return None) so profiling proceeds for all tables rather than
-            # failing the entire run.
-            self.report.warning(
-                title="Could not size tables for profiling",
-                message=(
+            # failing the entire run. A missing grant (permission error) is
+            # surfaced under a distinct, actionable title and counted separately
+            # so it isn't lost in the generic sizing-failure bucket.
+            if _categorize_teradata_error(e) is ViewErrorCategory.PERMISSION:
+                self.report.increment_profiling_permission_error()
+                title = "Unauthorized to size tables for profiling"
+                message = (
+                    "Permission denied querying DBC.TableSizeV to apply "
+                    "profile_table_size_limit. Profiling will proceed without "
+                    "size-based filtering for this schema. Grant the ingestion "
+                    "user SELECT on DBC.TableSizeV to skip large tables."
+                )
+            else:
+                title = "Could not size tables for profiling"
+                message = (
                     "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
                     "Profiling will proceed without size-based filtering for this schema. "
                     "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
-                ),
+                )
+            self.report.warning(
+                title=title,
+                message=message,
                 context=f"schema={schema}",
                 exc=e,
             )
