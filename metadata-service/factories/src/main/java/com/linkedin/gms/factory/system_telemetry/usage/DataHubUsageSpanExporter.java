@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.common.CompletableResultCode;
@@ -24,20 +24,19 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.clients.producer.ProducerRecord;
 
 @Slf4j
 public class DataHubUsageSpanExporter implements SpanExporter {
 
-  private final GenericProducer<String> producer;
+  private final UsageEventPublisher publisher;
   private final String topic;
   private final Set<String> eventTypes;
   private final Set<String> aspectTypes;
   private final Set<String> userFilters;
 
   public DataHubUsageSpanExporter(
-      GenericProducer<String> producer, String topic, UsageExportConfiguration config) {
-    this.producer = producer;
+      UsageEventPublisher publisher, String topic, UsageExportConfiguration config) {
+    this.publisher = publisher;
     this.topic = topic;
     if (StringUtils.isNotBlank(config.getUsageEventTypes())) {
       this.eventTypes = Set.of(config.getUsageEventTypes().split(","));
@@ -165,20 +164,18 @@ public class DataHubUsageSpanExporter implements SpanExporter {
     usageEvent.put(USAGE_SOURCE, BACKEND_SOURCE);
     log.debug(
         String.format("Emitting product analytics event. actor: %s, event: %s", actor, usageEvent));
-    final ProducerRecord<String, String> record =
-        new ProducerRecord<>(topic, actor, usageEvent.toString());
-    producer.send(record, null);
+    publisher.publish(topic, actor, usageEvent.toString());
   }
 
   @Override
   public CompletableResultCode flush() {
-    producer.flush();
+    publisher.flush();
     return CompletableResultCode.ofSuccess();
   }
 
   @Override
   public CompletableResultCode shutdown() {
-    producer.flush();
+    publisher.flush();
     return CompletableResultCode.ofSuccess();
   }
 }

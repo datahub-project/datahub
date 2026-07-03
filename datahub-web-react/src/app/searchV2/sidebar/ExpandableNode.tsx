@@ -55,7 +55,7 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: b
     }
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.bgSelected};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

@@ -153,7 +153,7 @@
                 {
                     "fieldPath": "pk",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -162,19 +162,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "purchase_amount",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -183,19 +176,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "status",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -204,19 +190,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "tax_amount",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -225,19 +204,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "total_amount",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -246,19 +218,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "user_fk",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -267,19 +232,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "is_expensive_purchase",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -288,19 +246,12 @@
                     },
                     "nativeDataType": "yesno",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "user_email",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -309,19 +260,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "created",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -330,22 +274,12 @@
                     },
                     "nativeDataType": "time",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "updated",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -354,22 +288,12 @@
                     },
                     "nativeDataType": "time",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "purchase_age",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -378,22 +302,12 @@
                     },
                     "nativeDataType": "duration",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "num_of_expensive_purchases",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -402,19 +316,12 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "average_purchase_value",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -423,19 +330,12 @@
                     },
                     "nativeDataType": "average",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -444,13 +344,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -814,7 +707,7 @@
                 {
                     "fieldPath": "user_id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -823,19 +716,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "purchase_count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -844,19 +730,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "total_spent",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -865,19 +744,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "customer_segment",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -886,19 +758,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "high_value_customer_count",
                     "nullable": false,
-                    "description": "Count of customers who spent over $1000",
+                    "description": "Measure. Count of customers who spent over $1000",
                     "label": "",
                     "type": {
                         "type": {
@@ -907,13 +772,6 @@
                     },
                     "nativeDataType": "count_distinct",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1179,7 +1037,7 @@
                 {
                     "fieldPath": "email",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1188,19 +1046,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "pk",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1209,19 +1060,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "user_purchase_status",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1230,19 +1074,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "created",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1251,22 +1088,12 @@
                     },
                     "nativeDataType": "time",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "updated",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1275,22 +1102,12 @@
                     },
                     "nativeDataType": "time",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "user_age",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension Group. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1299,22 +1116,12 @@
                     },
                     "nativeDataType": "duration",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "lifetime_purchase_count",
                     "nullable": false,
-                    "description": "Total lifetime purchases count by user",
+                    "description": "Measure. Total lifetime purchases count by user",
                     "label": "",
                     "type": {
                         "type": {
@@ -1323,19 +1130,12 @@
                     },
                     "nativeDataType": "count_distinct",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "lifetime_total_purchase_amount",
                     "nullable": false,
-                    "description": "Total lifetime revenue from purchases by user",
+                    "description": "Measure. Total lifetime revenue from purchases by user",
                     "label": "",
                     "type": {
                         "type": {
@@ -1344,19 +1144,12 @@
                     },
                     "nativeDataType": "sum",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1365,13 +1158,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1611,54 +1397,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Dimension",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Dimension"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Measure",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Measure"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Temporal",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Temporal"
         }
     },
     "systemMetadata": {

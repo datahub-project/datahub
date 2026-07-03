@@ -115,11 +115,12 @@ type Props = {
 
 export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onClear, onClick }: Props) => {
     return (
-        <SelectButtonContainer>
+        <SelectButtonContainer data-testid="views-button-container">
             <SelectButton
                 $selectedViewName={selectedViewName}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
                 onClick={() => onClick?.()}
+                data-testid="views-button"
             >
                 <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
                     <ViewLabel data-testid="views-icon">
@@ -130,6 +131,7 @@ export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onC
             {selectedViewName && (
                 <CloseButtonContainer
                     className="close-container"
+                    data-testid="views-clear-button"
                     onClick={(e) => {
                         e.stopPropagation();
                         onClear();

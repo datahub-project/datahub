@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
@@ -41,7 +42,9 @@ public class DelegatingMappingsBuilderTest {
     // Initialize DelegatingMappingsBuilder with actual builders
     List<MappingsBuilder> builders = new ArrayList<>();
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      builders.add(new V2MappingsBuilder(entityIndexConfiguration));
+      builders.add(
+          new V2MappingsBuilder(
+              entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -106,7 +109,8 @@ public class DelegatingMappingsBuilderTest {
 
     // Create DelegatingMappingsBuilder with only v2 builder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new V2MappingsBuilder(v2OnlyConfig));
+    builders.add(
+        new V2MappingsBuilder(v2OnlyConfig, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getIndexMappings(operationContext);
 
@@ -245,7 +249,7 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new V2MappingsBuilder(config));
+    builders.add(new V2MappingsBuilder(config, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
     try {
       builders.add(new MultiEntityMappingsBuilder(config));
     } catch (IOException e) {

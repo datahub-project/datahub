@@ -23,6 +23,11 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
+          type: "doc",
+          label: "Use Docs with AI",
+          id: "docs/use-docs-with-ai",
+        },
+        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -31,6 +36,26 @@ module.exports = {
           type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Core Capabilities",
+      link: {
+        type: "generated-index",
+        title: "Core Capabilities",
+        description:
+          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
+      },
+      items: [
+        {
+          label: "Data Quality & Observability",
+          type: "doc",
+          id: "docs/features/feature-guides/observe",
+          customProps: {
+            icon: "🔍",
+          },
         },
       ],
     },
@@ -241,21 +266,15 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              label: "Anomaly Detection ⚡",
               type: "doc",
-              id: "docs/managed-datahub/observe/smart-assertions",
+              id: "docs/managed-datahub/observe/anomaly-detection",
               className: "saasOnly",
             },
             {
               label: "Backfill Assertion History",
               type: "doc",
               id: "docs/managed-datahub/observe/assertion-backfill",
-              className: "saasOnly",
-            },
-            {
-              label: "Data Health Dashboard",
-              type: "doc",
-              id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
             {
@@ -285,9 +304,31 @@ module.exports = {
           ],
         },
         {
-          label: "Data Access Workflows",
-          type: "doc",
-          id: "docs/managed-datahub/workflows/access-workflows",
+          label: "Workflows",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+            },
+          ],
         },
         {
           label: "Data Access Roles",
@@ -321,15 +362,21 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Databricks Metadata Sync",
               type: "doc",
               id: "docs/automations/databricks-metadata-sync",
               className: "saasOnly",
             },
             {
-              label: "Snowflake Tag Sync",
+              label: "Snowflake Metadata Sync",
               type: "doc",
-              id: "docs/automations/snowflake-tag-propagation",
+              id: "docs/automations/snowflake-metadata-sync",
               className: "saasOnly",
             },
             {
@@ -393,6 +440,12 @@ module.exports = {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Data Health Dashboard",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-health-dashboard",
+          className: "saasOnly",
         },
         {
           label: "Data Products",
@@ -543,6 +596,18 @@ module.exports = {
           id: "docs/features/feature-guides/service-accounts",
         },
         {
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
+          label: "SMTP Email Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/smtp-email",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -608,6 +673,16 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/remote-executor/monitoring",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
           className: "saasOnly",
         },
       ],
@@ -683,12 +758,9 @@ module.exports = {
       id: "docs/managed-datahub/chrome-extension",
     },
     {
-      type: "doc",
-      id: "docs/managed-datahub/subscription-and-notification",
-      className: "saasOnly",
-    },
-    {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_0_0",
+        "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
@@ -851,6 +923,16 @@ module.exports = {
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
         //"metadata-ingestion/source-docs-template",
+        // Discoverability alias: "Amazon Data Firehose" is ingested by
+        // the same `kinesis` connector, but users searching for "Firehose"
+        // expect to see it as its own sidebar entry. Use `ref` so
+        // docusaurus allows pointing at the same doc twice (the autogen
+        // list below produces the "Amazon Kinesis Data Streams" entry).
+        {
+          type: "ref",
+          id: "docs/generated/ingestion/sources/kinesis",
+          label: "Amazon Data Firehose",
+        },
         {
           type: "autogenerated",
           dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
@@ -1302,6 +1384,9 @@ module.exports = {
       label: "Advanced Guides",
       items: [
         "docs/deploy/confluent-cloud",
+        "docs/deploy/gms-rate-limiting",
+        "docs/deploy/gms-entity-graph-cache",
+        "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
       ],
@@ -1365,6 +1450,8 @@ module.exports = {
         "datahub-web-react/src/app/analytics/README",
         // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
+        "docs/docker/bundled-ingestion-venvs",
+        "docs/docker/ingestion-executor-security",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",

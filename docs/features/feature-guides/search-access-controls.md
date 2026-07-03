@@ -8,6 +8,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+:::note Self-hosted (OSS) deployments
+Search Access Controls with query-time filtering are a **DataHub Cloud** feature. On OSS, set `VIEW_AUTHORIZATION_ENABLED=true` for entity page gating — this does **not** filter search at query time. See [Designing policies for view-based access control](../../authorization/policies.md#designing-policies-for-view-based-access-control) in the Policies Guide.
+:::
+
 Search Access Controls allow organizations to restrict which entities users can discover through search results. This feature uses the **View Entity** permission to filter search results based on policies, ensuring users only see metadata they are authorized to access.
 
 ## Key Concepts

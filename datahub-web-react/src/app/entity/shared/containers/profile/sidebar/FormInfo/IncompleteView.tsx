@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
@@ -39,6 +40,7 @@ export default function IncompleteView({
     isUserAssigned,
     openFormModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <CTAWrapper shouldDisplayBackground={isUserAssigned}>
             <FlexWrapper>
@@ -53,10 +55,14 @@ export default function IncompleteView({
                 )}
                 {!isUserAssigned && <StyledIcon component={GrayVerificationIcon} />}
                 <div>
-                    <Title>Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}</Title>
+                    <Title>
+                        {showVerificationStyles
+                            ? t('sidebar.formInfo.awaitingVerificationTitle')
+                            : t('sidebar.formInfo.awaitingDocumentationTitle')}
+                    </Title>
                     {isUserAssigned && (
                         <>
-                            You are being asked to complete a set of requirements for this entity.
+                            {t('sidebar.formInfo.assignedBodyText')}
                             <RequiredPromptsRemaining numRemaining={numRequiredPromptsRemaining} />
                             <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
                         </>
@@ -65,7 +71,9 @@ export default function IncompleteView({
             </FlexWrapper>
             {!!openFormModal && isUserAssigned && (
                 <StyledButton type="primary" onClick={openFormModal}>
-                    {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
+                    {showVerificationStyles
+                        ? t('sidebar.formInfo.completeVerificationButton')
+                        : t('sidebar.formInfo.completeDocumentationButton')}
                 </StyledButton>
             )}
         </CTAWrapper>

@@ -211,10 +211,16 @@ fragment autoCompleteFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on GlossaryNode {
         properties {
             name
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
     }
     ... on Domain {
@@ -927,6 +933,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -1270,6 +1279,22 @@ fragment facetFields on FacetMetadata {
                 valueType {
                     urn
                 }
+                allowedValues {
+                    value {
+                        ... on StringValue {
+                            stringValue
+                        }
+                        ... on NumberValue {
+                            numberValue
+                        }
+                    }
+                }
+                typeQualifier {
+                    allowedTypes {
+                        urn
+                        type
+                    }
+                }
             }
         }
     }
@@ -1294,6 +1319,9 @@ fragment facetFields on FacetMetadata {
                 }
                 parentNodes {
                     ...parentNodesFields
+                }
+                displayProperties {
+                    ...displayPropertiesFields
                 }
             }
             ... on DataPlatform {

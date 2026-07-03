@@ -7,6 +7,8 @@ import styled, { useTheme } from 'styled-components';
 import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 
+const MIN_CONTENT = 'min-content' as const;
+
 const ParentNameText = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.text};
     font-size: 14px;
@@ -73,7 +75,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
                     <Tooltip
                         color={theme.colors.bgTooltip}
                         placement="topRight"
-                        overlayStyle={{ minWidth: 'min-content' }}
+                        overlayStyle={{ minWidth: MIN_CONTENT }}
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}
                     >
                         <ChildNameText>

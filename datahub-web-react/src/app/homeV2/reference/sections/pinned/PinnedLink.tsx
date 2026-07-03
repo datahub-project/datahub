@@ -23,7 +23,7 @@ const LinkButton = styled.a<{ $isShowNavBarRedesign?: boolean }>`
         border-radius: 8px;
 
         :hover {
-            border: 1px solid ${props.theme.colors.hyperlinks};
+            border: 1px solid ${props.theme.colors.borderHover};
         }
     `}
 `;

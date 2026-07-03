@@ -118,7 +118,8 @@ public class EntityUtilsTest {
 
   @Test
   public void testToSystemAspect_NullEntityAspect() {
-    var result = EntityUtils.toSystemAspect(opContext.getRetrieverContext(), null, false);
+    var result =
+        EntityUtils.toSystemAspect(opContext, opContext.getRetrieverContext(), null, false);
     assertTrue(result.isEmpty());
   }
 
@@ -129,8 +130,10 @@ public class EntityUtilsTest {
     Map<String, Map<String, SystemAspect>> latestAspects = new HashMap<>();
     Map<String, Set<String>> urnAspects = new HashMap<>();
 
+    OperationContext opContext = mock(OperationContext.class);
     Map<String, Map<String, Long>> result =
-        EntityUtils.calculateNextVersions(txContext, aspectDao, latestAspects, urnAspects);
+        EntityUtils.calculateNextVersions(
+            opContext, txContext, aspectDao, latestAspects, urnAspects);
 
     assertTrue(result.isEmpty());
   }

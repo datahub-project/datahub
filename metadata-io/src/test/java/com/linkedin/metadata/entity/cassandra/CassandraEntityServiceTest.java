@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.EntityServiceTest;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -83,7 +84,9 @@ public class CassandraEntityServiceTest
     reset(_mockUpdateIndicesService);
 
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(_currentSession, List.of(), null);
+    _aspectDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     _aspectDao.setConnectionValidated(true);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();

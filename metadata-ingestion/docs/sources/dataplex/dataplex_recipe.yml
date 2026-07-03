@@ -4,7 +4,8 @@ source:
     # GCP project selection — set at least one of project_ids, project_id_pattern,
     # or project_labels. project_ids takes precedence and skips Resource Manager
     # API calls; the pattern/labels options auto-discover projects (require
-    # roles/resourcemanager.folderViewer on the parent folder/organization).
+    # roles/browser or any role granting resourcemanager.projects.get on the
+    # candidate projects).
     project_ids:
       - "my-gcp-project"
 

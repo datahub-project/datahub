@@ -3,6 +3,9 @@ import { getMarkRange } from '@remirror/core-utils';
 import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
 import { Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+const LINK_URL_PLACEHOLDER = 'https://www.google.com';
 
 type LinkModalProps = {
     open: boolean;
@@ -11,6 +14,8 @@ type LinkModalProps = {
 
 export const LinkModal = (props: LinkModalProps) => {
     const { open, handleClose } = props;
+    const { t } = useTranslation('entity.profile.editor');
+    const { t: tc } = useTranslation('common.actions');
 
     const [trPos, setTrPos] = useState<FromToProps>({ from: 0, to: 0 });
     const [form] = Form.useForm();
@@ -58,7 +63,7 @@ export const LinkModal = (props: LinkModalProps) => {
     };
 
     return (
-        <Modal title="Add Link" okText="Save" onCancel={handleClose} onOk={handleOk} open={open}>
+        <Modal title={t('link.title')} okText={tc('save')} onCancel={handleClose} onOk={handleOk} open={open}>
             <Form
                 form={form}
                 layout="vertical"
@@ -68,12 +73,12 @@ export const LinkModal = (props: LinkModalProps) => {
             >
                 <Form.Item
                     name="href"
-                    label={<Typography.Text strong>Link URL</Typography.Text>}
+                    label={<Typography.Text strong>{t('link.linkUrl')}</Typography.Text>}
                     rules={[{ required: true }]}
                 >
-                    <Input placeholder="https://www.google.com" autoFocus />
+                    <Input placeholder={LINK_URL_PLACEHOLDER} autoFocus />
                 </Form.Item>
-                <Form.Item name="text" label={<Typography.Text strong>Text</Typography.Text>}>
+                <Form.Item name="text" label={<Typography.Text strong>{t('link.text')}</Typography.Text>}>
                     <Input />
                 </Form.Item>
             </Form>

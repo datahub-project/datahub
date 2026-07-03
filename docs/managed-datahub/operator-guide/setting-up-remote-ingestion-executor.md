@@ -50,7 +50,7 @@ Before deploying a Remote Executor, ensure you have the following:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
    - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
-   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
 4. **Registry Access**
@@ -87,6 +87,10 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
+### Custom images with additional connectors
+
+Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
+
 ### Deploy on Amazon ECS
 
 1. **AWS Account Configuration**
@@ -114,7 +118,7 @@ Optional parameters:
 - Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple variable by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2`.
 
 :::note
-Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
+When you wire **local** secrets into the executor (ECS `SECRET_NAME=SECRET_ARN`, Kubernetes mounts, or runtime AWS/GCP Secret Manager), credentials stay in your environment and are not stored in DataHub. Reference them in ingestion source configs using `${SECRET_NAME}`. This is different from **DataHub UI Secrets** — see [Secret security considerations](#secret-security-considerations).
 :::
 
 3. **Deploy Stack**
@@ -394,6 +398,49 @@ New Ingestion Sources will automatically use your designated Default Pool if you
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
 
+## Mutual TLS (mTLS) for Outbound HTTPS
+
+If DataHub Cloud GMS sits behind a proxy or load balancer that requires the client to present a certificate during the TLS handshake (mutual TLS), point the executor at a client certificate via two environment variables. The CLI / Python SDK reads these on every outbound HTTPS call, so configuring them once on the executor pod covers all of them.
+
+| Environment variable       | Purpose                                                                                                                                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATAHUB_CLIENT_CERT_PATH` | Path to a PEM file containing the client certificate. The file may be a combined PEM (cert + private key) when `DATAHUB_CLIENT_KEY_PATH` is not set.                                                                                             |
+| `DATAHUB_CLIENT_KEY_PATH`  | Path to a PEM file containing the private key matching `DATAHUB_CLIENT_CERT_PATH`. Required only when the cert and key live in separate files (e.g. the kubernetes `tls`-secret layout, where `tls.crt` and `tls.key` are mounted side by side). |
+
+When both env vars are unset, no client certificate is sent — fully backwards compatible.
+
+### Example: Kubernetes
+
+Mount a `kubernetes.io/tls` Secret into the executor pod and point the env vars at the mount.
+
+1. Create the TLS Secret from your cert and key files:
+
+```bash
+kubectl create secret tls datahub-executor-mtls-cert \
+  --cert=client.crt \
+  --key=client.key
+```
+
+2. Mount the Secret and set the env vars in your `values.yaml`:
+
+```yaml
+extraVolumes:
+  - name: mtls-cert
+    secret:
+      secretName: datahub-executor-mtls-cert
+extraVolumeMounts:
+  - name: mtls-cert
+    mountPath: /secrets/mtls
+    readOnly: true
+extraEnvs:
+  - name: DATAHUB_CLIENT_CERT_PATH
+    value: /secrets/mtls/tls.crt
+  - name: DATAHUB_CLIENT_KEY_PATH
+    value: /secrets/mtls/tls.key
+```
+
+3. Apply with `helm upgrade`. The pod restarts and presents the client cert on every outbound HTTPS call to GMS.
+
 ## Using Cloud Secret Managers
 
 You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
@@ -547,6 +594,49 @@ serviceAccount:
   annotations:
     iam.gke.io/gcp-service-account: "<sa>@<project-id>.iam.gserviceaccount.com"
 ```
+
+## Secret security considerations
+
+Security-conscious Remote Executor deployments should keep credentials **local to your environment** rather than in DataHub UI Secrets.
+
+:::note Secure by default
+DataHub ships with `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`. Browser sessions and user Personal Access Tokens **cannot** call `getSecretValues` or otherwise decrypt secrets through human-facing API paths. On DataHub OSS, scheduled UI ingestion uses [**datahub-actions**](../../actions/actions/executor.md) with system client credentials for the same trusted-worker path. You only need to change this setting for a staged rollout (`AUDIT`) or break-glass incident response (`DISABLED`, administrator approval required).
+:::
+
+:::caution DataHub UI Secrets and Remote Executor
+Secrets created in the DataHub UI are encrypted at rest in DataHub, but when a Remote Executor resolves `${SECRET_NAME}` against the **DataHub** secret backend, GMS decrypts the value and returns it in plaintext over the DataHub API (protected by TLS). The credential transits from DataHub Cloud back into your executor at runtime.
+
+This is convenient for getting started, but weaker than local secret backends for deployments where credentials must not leave your environment boundary.
+:::
+
+### Recommended approach (local secrets)
+
+For production Remote Executor pools, prefer:
+
+- **Kubernetes Secrets** mounted at `/mnt/secrets/` — see [Configure Secret Mounting](#configure-secret-mounting-optional)
+- **Runtime AWS Secrets Manager or GCP Secret Manager** — see [Using Cloud Secret Managers](#using-cloud-secret-managers)
+- **ECS deploy-time secrets** via CloudFormation `SECRET_NAME=SECRET_ARN`
+- **Environment variables** on the executor container
+
+Use an **embedded executor** access token when configuring the worker — not a user-issued Personal Access Token.
+
+### Discouraged approach (DataHub UI Secrets)
+
+Avoid creating secrets in the DataHub UI **Secrets** tab for ingestion sources assigned to Remote Executor pools. If a UI secret shares a name with a locally mounted secret, the **DataHub backend takes precedence** — see [Secret Resolution](../../secret-resolution.md).
+
+### Caller guard modes (override only when needed)
+
+GMS enforces a caller guard on `SecretService` decryption. The default is **secure by default** — no configuration required for production:
+
+| Value      | Behavior                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ENFORCE`  | Blocks `getSecretValues` for browser sessions, user PATs, and other non-embedded-executor callers (**default**). |
+| `AUDIT`    | Allows decryption but logs a warning — use only for staged rollout before enforcing.                             |
+| `DISABLED` | No enforcement — break-glass only; contact your DataHub administrator to enable on request.                      |
+
+`ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
+
+See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

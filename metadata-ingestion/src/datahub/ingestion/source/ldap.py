@@ -19,10 +19,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_ldap,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -61,6 +64,7 @@ user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
 user_attrs_map["memberOf"] = "memberOf"
+user_attrs_map["accountStatus"] = "userAccountControl"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
@@ -265,14 +269,6 @@ class LDAPSource(StatefulIngestionSourceBase):
         config = LDAPSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
         cookie = True
@@ -432,11 +428,19 @@ class LDAPSource(StatefulIngestionSourceBase):
             email if email and self.config.use_email_as_username else ldap_user
         )
 
+        account_status_attr = self.config.user_attrs_map.get(
+            "accountStatus", "userAccountControl"
+        )
+        user_status = derive_corp_user_status_from_ldap(
+            attrs,
+            account_status_attr,
+            get_attr=get_attr_or_none,
+        )
         user_snapshot = CorpUserSnapshotClass(
             urn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
-                    active=True,
+                    active=corp_user_info_active_from_status(user_status),
                     email=email,
                     fullName=full_name,
                     firstName=first_name,
@@ -449,6 +453,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     managerUrn=manager_urn,
                     customProperties=custom_props_map,
                 ),
+                make_corp_user_status_aspect(user_status),
             ],
         )
 

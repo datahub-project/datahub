@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Text = styled.div`
@@ -7,17 +8,25 @@ const Text = styled.div`
 `;
 
 export const EmptyGlossaryNodesYouOwn = () => {
+    const { t } = useTranslation('home.v2');
     return (
         <Text>
-            You have not created any glossary terms or groups yet. <br />
-            <a
-                target="_blank"
-                rel="noreferrer noopener"
-                href="https://docs.datahub.com/docs/glossary/business-glossary/"
-            >
-                Learn more
-            </a>{' '}
-            about glossary items.
+            {t('yourGlossary.emptyNotCreated')}
+            <br />
+            <Trans
+                t={t}
+                i18nKey="yourGlossary.learnMoreAbout"
+                components={{
+                    anchor: (
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                        <a
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            href="https://docs.datahub.com/docs/glossary/business-glossary/"
+                        />
+                    ),
+                }}
+            />
         </Text>
     );
 };

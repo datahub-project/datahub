@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;

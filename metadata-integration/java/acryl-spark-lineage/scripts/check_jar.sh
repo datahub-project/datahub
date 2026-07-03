@@ -4,6 +4,16 @@ libName=acryl-spark-lineage
 jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
+  # OpenLineage must be shaded under io.acryl.shaded so this agent can coexist with environments
+  # that ship their own io.openlineage.* (e.g. EMR/DataZone). The only OpenLineage classes allowed
+  # to remain unrelocated are the extension SPI, which connectors implement at its canonical name.
+  unrelocatedOl=$(jar -tf "$jarFile" | grep '^io/openlineage/' | grep -v '^io/openlineage/spark/extension/' | grep -E '\.class$')
+  if [ -n "$unrelocatedOl" ]; then
+    echo "💥 Found unrelocated OpenLineage classes in ${jarFile}:"
+    echo "$unrelocatedOl"
+    exit 1
+  fi
+
   jar -tvf $jarFile |\
       grep -v "log4j.xml" |\
       grep -v "log4j2.xml" |\
@@ -25,6 +35,7 @@ for jarFile in ${jarFiles}; do
       grep -v "git.properties" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
+      grep -v "jakarta/" |\
       grep -v "io/swagger" |\
       grep -v "JavaSpring" |\
       grep -v "java-header-style.xml" |\
