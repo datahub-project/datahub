@@ -263,6 +263,17 @@ public class OpenLineageToDataHub {
     // Resolve the per-connection detail once; both platform_instance and env key off it.
     ConnectionInstanceDetail connectionDetail =
         connectionKey == null ? null : mappingConfig.getConnectionInstanceMap().get(connectionKey);
+    if (!mappingConfig.getConnectionInstanceMap().isEmpty()) {
+      // Surface every connection-key lookup so a configured `connections` entry that never matches
+      // an emitted namespace (trailing slash, omitted port, sqlserver:// vs mssql, case when
+      // lowerCaseUrns is off, or an authority-less namespace like hive/bigquery) is diagnosable —
+      // otherwise the URN silently falls back to the global platform_instance/env and dangles.
+      log.debug(
+          "Connection-instance lookup: namespace={} -> key={} -> matched={}",
+          namespace,
+          connectionKey,
+          connectionDetail != null);
+    }
     String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
     FabricType env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);

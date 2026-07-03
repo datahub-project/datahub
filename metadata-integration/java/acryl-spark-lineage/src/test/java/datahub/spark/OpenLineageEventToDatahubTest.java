@@ -804,6 +804,26 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testConnectionInstanceMapSkipsEmptyBlock() {
+    // A block with a typo'd sub-key (`platform_instance` instead of `platformInstance`) yields
+    // neither field, so it's a phantom "configured" connection. It must be skipped, not stored as
+    // an entry that resolves to nothing.
+    Config datahubConfig =
+        ConfigFactory.parseString(
+            "metadata.dataset.connections {\n"
+                + "  \"postgres://good:5432\" { platformInstance = \"a\" }\n"
+                + "  \"postgres://typo:5432\" { platform_instance = \"oops\" }\n"
+                + "}");
+
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
+
+    assertTrue(conf.getConnectionInstanceMap().containsKey("postgres://good:5432"));
+    assertTrue(!conf.getConnectionInstanceMap().containsKey("postgres://typo:5432"));
+    assertEquals(1, conf.getConnectionInstanceMap().size());
+  }
+
+  @Test
   public void testDataJobHasPlatformInstanceAspect() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();

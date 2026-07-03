@@ -273,7 +273,22 @@ public class SparkConfigParser {
               Arrays.toString(FabricType.values()));
         }
       }
-      map.put(namespace, detailBuilder.build());
+      ConnectionInstanceDetail detail = detailBuilder.build();
+      if (!detail.getPlatformInstance().isPresent() && !detail.getEnv().isPresent()) {
+        // A block with neither platformInstance nor env (e.g. a typo'd sub-key such as
+        // `platform_instance` instead of `platformInstance`) is a phantom "configured" connection
+        // that resolves to nothing. Skip it and warn so the misconfig is visible rather than a
+        // silent lookup miss later.
+        log.warn(
+            "Connection '{}' under {} has neither {} nor {} set (check for a typo'd sub-key); "
+                + "ignoring it.",
+            namespace,
+            DATASET_CONNECTIONS_KEY,
+            PLATFORM_INSTANCE_KEY,
+            FABRIC_TYPE_KEY);
+        continue;
+      }
+      map.put(namespace, detail);
     }
     return map;
   }
