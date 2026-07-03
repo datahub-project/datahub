@@ -189,6 +189,26 @@ class TestLeafNameTransform:
 
         assert result.table == "<my_view>"
 
+    def test_semantic_view_bare_identifier_fallback(self):
+        """SemanticView wrapping a bare Identifier (not a Table) falls back to the
+        leaf. sqlglot always wraps in a Table, so it's built manually here."""
+        table_node = sqlglot.exp.Table(
+            catalog=sqlglot.exp.Identifier(this="my_db"),
+            db=sqlglot.exp.Identifier(this="my_schema"),
+            this=sqlglot.exp.SemanticView(
+                this=sqlglot.exp.Identifier(this="my_view"),
+            ),
+        )
+
+        result = _TableName.from_sqlglot_table(
+            table_node,
+            leaf_name_transform=lambda exp: f"<{exp.name}>",
+        )
+
+        assert result.table == "<my_view>"
+        assert result.database == "my_db"
+        assert result.db_schema == "my_schema"
+
 
 class TestTableNameFromSqlglotTableWithDialect:
     """Tests for _table_name_from_sqlglot_table() with dialect awareness."""

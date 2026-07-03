@@ -116,8 +116,6 @@ def _restore_mssql_temp_table_prefix(
     name = identifier.name
     if dialect is None or not is_dialect_instance(dialect, ["mssql"]):
         return name
-    if not hasattr(identifier, "args"):
-        return name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
     is_global_temp = identifier.args.get("global_", False) or identifier.args.get(

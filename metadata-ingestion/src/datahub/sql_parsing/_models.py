@@ -106,14 +106,20 @@ class _TableName(_FrozenModel):
         # and recurse.
         if isinstance(table.this, sqlglot.exp.SemanticView):
             inner_table = table.this.this
-            assert isinstance(inner_table, sqlglot.exp.Table), (
-                f"Unexpected SemanticView inner type: {type(inner_table).__name__}"
-            )
-            return cls.from_sqlglot_table(
-                inner_table,
-                default_db=default_db,
-                default_schema=default_schema,
-                leaf_name_transform=leaf_name_transform,
+            if isinstance(inner_table, sqlglot.exp.Table):
+                return cls.from_sqlglot_table(
+                    inner_table,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                    leaf_name_transform=leaf_name_transform,
+                )
+            # sqlglot always wraps the reference in a Table today; fall back to
+            # the bare leaf if that ever changes, rather than crashing.
+            return cls(
+                database=table.catalog or default_db,
+                db_schema=table.db or default_schema,
+                table=transform(inner_table),
+                parts=None,
             )
 
         if isinstance(table.this, sqlglot.exp.Dot):
