@@ -11,16 +11,6 @@ on:
   schedule:
     - cron: "0 6 * * *" # 06:00 UTC daily
   workflow_dispatch: # also manually triggerable from the Actions tab
-  pull_request:
-    paths:
-      # Re-run on any change that could break the patch round-trip or the
-      # ZDU framework. Lets reviewers catch drift before merge.
-      - "smoke-test/tests/zdu/**"
-      - "metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl"
-      - "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl"
-      - "entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/**"
-      - "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/migrations/**"
-      - ".github/workflows/zdu-e2e-daily.yml"
 
 concurrency:
   group: zdu-e2e-${{ github.ref }}
@@ -30,10 +20,11 @@ jobs:
   zdu-e2e:
     # Use the same depot runner the rest of the repo's test workflows use
     # (see docker-unified.yml's set-runner step). Depot has unlimited
-    # concurrency for org-internal runs; falls back to ubuntu-latest for
-    # fork PRs since they can't authenticate to depot.
-    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'depot-ubuntu-24.04-4' }}
-    timeout-minutes: 60
+    # concurrency for org-internal runs. This workflow only runs via the
+    # daily schedule or manual dispatch on the org repo, so depot is always
+    # available.
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -42,11 +33,17 @@ jobs:
 
       - name: Fetch master ref
         # The ZDU framework's build_images phase creates a git worktree
-        # pinned to `master` (the OLD-image base). actions/checkout only
-        # fetches the PR merge commit by default; the `master` local
-        # branch ref doesn't exist on the runner without this step.
+        # pinned to `master` (the OLD-image base), so the local `master`
+        # branch ref must exist on the runner. On schedule / dispatch-from-
+        # master runs `master` is already the checked-out branch, and
+        # `git fetch origin master:master` would fail ("refusing to fetch
+        # into branch checked out"). Fetch master (always writes FETCH_HEAD,
+        # regardless of checkout's narrow remote refspec) and create the local
+        # branch only when it's missing (e.g. a workflow_dispatch from another
+        # branch); when `master` is already checked out this is a no-op.
         run: |
-          git fetch origin master:master
+          git fetch origin master
+          git rev-parse --verify --quiet refs/heads/master || git branch master FETCH_HEAD
 
       - name: Set up JDK 21
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
