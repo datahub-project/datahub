@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.api.common import PipelineContext
@@ -10,9 +10,44 @@ from datahub.ingestion.source.tibco_ems.models import (
     TibcoDestination,
 )
 from datahub.ingestion.source.tibco_ems.source import TibcoEmsSource
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    UpstreamLineageClass,
+)
 
 _BASE_URL = "https://ems.example.com:8080"
+
+
+class _FakeGraph:
+    # Returns a schema only for urns present in the supplied map, mimicking the graph
+    # having schemas for some destinations (e.g. populated by a schema-registry source)
+    # and none for others.
+    def __init__(self, fields_by_urn: Dict[str, List[str]]) -> None:
+        self._fields_by_urn = fields_by_urn
+
+    def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
+        fields = self._fields_by_urn.get(entity_urn)
+        if fields is None:
+            return None
+        return SchemaMetadataClass(
+            schemaName="t",
+            platform="urn:li:dataPlatform:tibco-ems",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath=name,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                )
+                for name in fields
+            ],
+        )
 
 
 def _source(**config_overrides: object) -> TibcoEmsSource:
@@ -188,3 +223,113 @@ def test_bridges_skipped_when_disabled() -> None:
     list(source.get_workunits_internal())
     client.fetch_bridges.assert_not_called()
     assert source.report.datasets_emitted == 1
+
+
+def _orders_urn(source: TibcoEmsSource) -> str:
+    return source._dataset_urn(
+        source._dataset_name(DestinationType.QUEUE, "orders.new")
+    )
+
+
+def _audit_urn(source: TibcoEmsSource) -> str:
+    return source._dataset_urn(
+        source._dataset_name(DestinationType.TOPIC, "events.audit")
+    )
+
+
+def test_bridge_column_lineage_matches_shared_fields() -> None:
+    source = _source(emit_column_lineage=True)
+    _mock_client(
+        source,
+        queues=[_queue("orders.new")],
+        topics=[_topic("events.audit")],
+        bridges=[_orders_to_audit_bridge()],
+    )
+    # Source and target share id + payload; target's extra "ts" has no match.
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {
+            _orders_urn(source): ["id", "payload"],
+            _audit_urn(source): ["id", "payload", "ts"],
+        }
+    )
+
+    lineage = _lineage_workunits(source)
+    aspect = lineage[0].metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert aspect.fineGrainedLineages is not None
+    downstreams = {
+        fine.downstreams[0]  # type: ignore[index]
+        for fine in aspect.fineGrainedLineages
+    }
+    assert downstreams == {
+        f"urn:li:schemaField:({_audit_urn(source)},id)",
+        f"urn:li:schemaField:({_audit_urn(source)},payload)",
+    }
+    assert source.report.column_lineage_edges_emitted == 2
+
+
+def test_bridge_column_lineage_matches_across_casing() -> None:
+    source = _source(emit_column_lineage=True)
+    _mock_client(
+        source,
+        queues=[_queue("orders.new")],
+        topics=[_topic("events.audit")],
+        bridges=[_orders_to_audit_bridge()],
+    )
+    # Same field, different casing on each side; urns must keep each side's real case.
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {
+            _orders_urn(source): ["OrderId"],
+            _audit_urn(source): ["orderid"],
+        }
+    )
+
+    lineage = _lineage_workunits(source)
+    aspect = lineage[0].metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert aspect.fineGrainedLineages is not None
+    fine = aspect.fineGrainedLineages[0]
+    assert fine.upstreams == [f"urn:li:schemaField:({_orders_urn(source)},OrderId)"]
+    assert fine.downstreams == [f"urn:li:schemaField:({_audit_urn(source)},orderid)"]
+    assert source.report.column_lineage_edges_emitted == 1
+
+
+def test_bridge_column_lineage_skipped_without_schema() -> None:
+    source = _source(emit_column_lineage=True)
+    _mock_client(
+        source,
+        queues=[_queue("orders.new")],
+        topics=[_topic("events.audit")],
+        bridges=[_orders_to_audit_bridge()],
+    )
+    # Only the source has a schema in the graph; nothing to match against.
+    source.ctx.graph = _FakeGraph({_orders_urn(source): ["id"]})  # type: ignore[assignment]
+
+    lineage = _lineage_workunits(source)
+    aspect = lineage[0].metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert aspect.fineGrainedLineages is None
+    assert source.report.lineage_edges_emitted == 1
+    assert source.report.column_lineage_edges_emitted == 0
+
+
+def test_bridge_column_lineage_disabled_by_default() -> None:
+    source = _source()  # emit_column_lineage defaults to False
+    _mock_client(
+        source,
+        queues=[_queue("orders.new")],
+        topics=[_topic("events.audit")],
+        bridges=[_orders_to_audit_bridge()],
+    )
+    source.ctx.graph = _FakeGraph(  # type: ignore[assignment]
+        {
+            _orders_urn(source): ["id"],
+            _audit_urn(source): ["id"],
+        }
+    )
+
+    lineage = _lineage_workunits(source)
+    aspect = lineage[0].metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert aspect.fineGrainedLineages is None
+    assert source.report.column_lineage_edges_emitted == 0

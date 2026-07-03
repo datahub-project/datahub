@@ -14,6 +14,7 @@ class TibcoEmsSourceReport(StaleEntityRemovalSourceReport):
     bridges_scanned: int = 0
     lineage_edges_emitted: int = 0
     lineage_edges_unresolved: int = 0
+    column_lineage_edges_emitted: int = 0
     filtered_destinations: LossyList[str] = field(default_factory=LossyList)
     # Bridge endpoints that cannot be mapped to a concrete dataset (wildcard
     # subscriptions or endpoints with an unrecognised destination type).

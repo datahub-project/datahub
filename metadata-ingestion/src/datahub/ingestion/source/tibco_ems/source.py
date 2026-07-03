@@ -2,7 +2,10 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from requests.exceptions import RequestException
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -49,6 +52,9 @@ from datahub.ingestion.source.tibco_ems.report import TibcoEmsSourceReport
 from datahub.ingestion.source.tibco_ems.rest_client import TibcoEmsRestClient
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -70,6 +76,12 @@ _SUBTYPE_BY_DESTINATION_TYPE: Dict[DestinationType, str] = {
     SourceCapability.LINEAGE_COARSE,
     "Emitted from EMS bridges via the `include_bridges` config field",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Best-effort for bridges when both endpoints have a schema in DataHub, matched by "
+    "name (a bridge copies whole messages); enable with `emit_column_lineage`",
+    supported=True,
+)
 class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = TIBCO_EMS_PLATFORM
 
@@ -78,6 +90,8 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: TibcoEmsSourceReport = TibcoEmsSourceReport()
         self.client = TibcoEmsRestClient(config)
+        # Field names per dataset urn, read from DataHub once and reused across bridges.
+        self._schema_field_cache: Dict[str, Dict[str, str]] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TibcoEmsSource":
@@ -163,6 +177,11 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
             self._collect_bridge_upstreams(bridge, upstreams_by_target)
 
         for target_urn, source_urns in upstreams_by_target.items():
+            fine_grained = (
+                self._build_column_lineage(target_urn, source_urns)
+                if self.config.emit_column_lineage
+                else []
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=target_urn,
                 aspect=UpstreamLineageClass(
@@ -172,10 +191,62 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
                             type=DatasetLineageTypeClass.COPY,
                         )
                         for source_urn in sorted(source_urns)
-                    ]
+                    ],
+                    fineGrainedLineages=fine_grained or None,
                 ),
             ).as_workunit()
             self.report.lineage_edges_emitted += len(source_urns)
+
+    def _build_column_lineage(
+        self, target_urn: str, source_urns: Set[str]
+    ) -> List[FineGrainedLineageClass]:
+        # A bridge copies whole messages unchanged, so a field present on both the
+        # source and target destination is the same field. We can only match fields
+        # that are actually described in DataHub, so this is best-effort: absent
+        # schemas simply yield no column lineage and the coarse edge still stands.
+        # Matching is case-insensitive because the same field is often cased
+        # differently across platforms (e.g. ID vs id), but the schemaField urns use
+        # each side's real field path.
+        target_fields = self._schema_field_names(target_urn)
+        if not target_fields:
+            return []
+        fine_grained: List[FineGrainedLineageClass] = []
+        for source_urn in sorted(source_urns):
+            source_fields = self._schema_field_names(source_urn)
+            for key in sorted(source_fields.keys() & target_fields.keys()):
+                fine_grained.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        upstreams=[
+                            make_schema_field_urn(source_urn, source_fields[key])
+                        ],
+                        downstreams=[
+                            make_schema_field_urn(target_urn, target_fields[key])
+                        ],
+                    )
+                )
+                self.report.column_lineage_edges_emitted += 1
+        return fine_grained
+
+    def _schema_field_names(self, urn: str) -> Dict[str, str]:
+        # Maps a case-folded field path to the real field path so callers can match
+        # fields case-insensitively while still emitting correctly-cased urns.
+        # ponytail: a schema with two fields differing only in case collapses to one
+        # entry (last wins); acceptable for this best-effort name match.
+        if urn in self._schema_field_cache:
+            return self._schema_field_cache[urn]
+        fields: Dict[str, str] = {}
+        graph = self.ctx.graph
+        if graph is not None:
+            schema = graph.get_schema_metadata(urn)
+            if schema is not None:
+                fields = {
+                    field.fieldPath.casefold(): field.fieldPath
+                    for field in schema.fields
+                }
+        self._schema_field_cache[urn] = fields
+        return fields
 
     def _collect_bridge_upstreams(
         self,

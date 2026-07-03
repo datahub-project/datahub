@@ -54,6 +54,14 @@ class TibcoEmsSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         default=True,
         description="Emit lineage between destinations derived from configured EMS bridges.",
     )
+    emit_column_lineage: bool = Field(
+        default=False,
+        description="Also emit column-level lineage for bridges. An EMS bridge copies "
+        "whole messages unchanged, so fields are matched by name using schemas read "
+        "from DataHub (populated for the destinations by a schema-registry or other "
+        "connector). Best-effort: emitted only where both endpoints have a schema and "
+        "share field names. Requires a DataHub graph to be available.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion config for stale entity removal.",
