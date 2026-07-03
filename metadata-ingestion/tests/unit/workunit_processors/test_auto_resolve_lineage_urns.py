@@ -4,6 +4,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest import mock
 
+import pydantic
 import pytest
 
 from datahub.emitter.mce_builder import (
@@ -908,6 +909,14 @@ def test_enabled_when_flag_on_with_graph():
         AutoResolveLineageUrnsProcessor.should_enable(_ctx(True, mock.MagicMock()))
         is True
     )
+
+
+def test_env_is_validated_and_normalized():
+    # UpstreamPlatformCasing inherits EnvConfigMixin, so env is validated + uppercased
+    # (a lowercase value heals instead of silently under-resolving; a typo is rejected).
+    assert UpstreamPlatformCasing(platform="snowflake", env="prod").env == "PROD"
+    with pytest.raises(pydantic.ValidationError):
+        UpstreamPlatformCasing(platform="snowflake", env="not-an-env")
 
 
 def test_disabled_under_bare_mock_ctx():

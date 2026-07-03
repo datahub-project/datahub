@@ -17,9 +17,14 @@ from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_report_warning_sample_size,
 )
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
+from datahub.metadata.urns import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
 
@@ -47,22 +52,19 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
-class UpstreamPlatformCasing(ConfigModel):
+class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
     """An upstream warehouse platform whose asset casing lineage references should
-    be reconciled against."""
+    be reconciled against.
+
+    Inherits ``platform_instance`` and ``env`` (with its FabricType validator) from the
+    shared config mixins, so `env` is validated/normalized rather than under-resolving
+    silently on a typo.
+    """
 
     platform: str = Field(
         description="Upstream data platform whose assets are referenced by this "
         "source's lineage (e.g. `snowflake`). References to this platform's assets "
         "are reconciled against the casing stored in DataHub.",
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of the upstream platform, if any.",
-    )
-    env: str = Field(
-        default="PROD",
-        description="Environment (FabricType) of the upstream platform's assets.",
     )
 
     @field_validator("platform")
@@ -71,8 +73,6 @@ class UpstreamPlatformCasing(ConfigModel):
         # Accept either a bare platform name ("snowflake") or a full data-platform URN
         # ("urn:li:dataPlatform:snowflake") and store the bare name, so downstream
         # matching against the platform parsed from dataset URNs is like-for-like.
-        from datahub.metadata.urns import DataPlatformUrn
-
         return DataPlatformUrn(v).platform_name
 
 
