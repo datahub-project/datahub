@@ -483,7 +483,7 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       long startTimeMillis,
@@ -540,7 +540,7 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       int maxChangeTransactions,
@@ -557,7 +557,7 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   private List<ChangeTransaction> processAspectTimeline(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       @Nonnull final Set<String> aspectNames,
@@ -605,7 +605,7 @@ public class TimelineServiceImpl implements TimelineService {
    * @return map constructed as described
    */
   private Map<String, TreeSet<EntityAspect>> constructAspectRowSetMap(
-      @Nonnull final OperationContext opContext,
+      @Nonnull OperationContext opContext,
       Urn urn,
       Set<String> fullAspectNames,
       List<EntityAspect> aspectsInRange) {
@@ -622,7 +622,9 @@ public class TimelineServiceImpl implements TimelineService {
 
     // we need to pull previous versions of these aspects that are currently at a 0
     Map<String, Long> nextVersions =
-        _aspectDao.getNextVersions(opContext, urn.toString(), fullAspectNames);
+        _aspectDao
+            .getNextVersions(opContext, Map.of(urn.toString(), fullAspectNames), false)
+            .get(urn.toString());
 
     for (Map.Entry<String, TreeSet<EntityAspect>> aspectMinVersion : aspectRowSetMap.entrySet()) {
       TreeSet<EntityAspect> aspectSet = aspectMinVersion.getValue();

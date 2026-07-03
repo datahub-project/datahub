@@ -306,7 +306,7 @@ public class EntityUtils {
    * @return map of the urn/aspect to the next aspect version
    */
   public static <T extends SystemAspect> Map<String, Map<String, Long>> calculateNextVersions(
-      OperationContext opContext,
+      @Nonnull OperationContext opContext,
       TransactionContext txContext,
       AspectDao aspectDao,
       Map<String, Map<String, T>> latestAspects,
@@ -348,7 +348,7 @@ public class EntityUtils {
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
-            : aspectDao.getNextVersions(opContext, missingAspectVersions);
+            : aspectDao.getNextVersions(opContext, missingAspectVersions, true);
 
     // stitch back together the precalculated and database versions
     return Stream.concat(

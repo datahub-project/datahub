@@ -25,11 +25,13 @@ export default function DisplayedColumns({ displayedColumns }: Props) {
         <span>
             {displayedColumns.map((entity, index) => {
                 if (entity) {
+                    const columnName =
+                        entity.type === EntityType.SchemaField
+                            ? decodeSchemaField(downgradeV2FieldPath((entity as SchemaFieldEntity).fieldPath) || '')
+                            : entityRegistry.getDisplayName(entity.type, entity);
                     return (
-                        <ColumnNameWrapper key={entity.urn}>
-                            {entity.type === EntityType.SchemaField
-                                ? decodeSchemaField(downgradeV2FieldPath((entity as SchemaFieldEntity).fieldPath) || '')
-                                : entityRegistry.getDisplayName(entity.type, entity)}
+                        <ColumnNameWrapper key={entity.urn} data-testid={`displayed-column-${columnName}`}>
+                            {columnName}
                             {index !== displayedColumns.length - 1 && COLUMN_SEPARATOR}
                         </ColumnNameWrapper>
                     );

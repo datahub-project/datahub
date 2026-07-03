@@ -76,6 +76,9 @@ from datahub.ingestion.source.thoughtspot.source import (
     ThoughtSpotSource,
     _resolve_author_login,
 )
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChartInfoClass,
@@ -5370,20 +5373,24 @@ class TestStatefulStaleRemovalIntegration:
         source = ThoughtSpotSource(config, ctx)
 
         processors = source.get_workunit_processors()
-        # The handler comes through as functools.partial(auto_stale_entity_removal,
-        # <StaleEntityRemovalHandler>) — we check both partial.args and
-        # __self__ to stay robust against the SDK's wrapping style.
 
-        def _references_stale_handler(p: object) -> bool:
-            if isinstance(getattr(p, "__self__", None), StaleEntityRemovalHandler):
+        # The processor comes through as a bound method of AutoStaleEntityRemovalProcessor,
+        # which wraps the StaleEntityRemovalHandler internally.
+        def _references_stale_processor(p: object) -> bool:
+            self_obj = getattr(p, "__self__", None)
+            if isinstance(
+                self_obj, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
+            ):
                 return True
             for arg in getattr(p, "args", ()):
-                if isinstance(arg, StaleEntityRemovalHandler):
+                if isinstance(
+                    arg, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
+                ):
                     return True
             return False
 
-        assert any(_references_stale_handler(p) for p in processors if p), (
-            "No StaleEntityRemovalHandler workunit processor registered — "
+        assert any(_references_stale_processor(p) for p in processors if p), (
+            "No AutoStaleEntityRemovalProcessor workunit processor registered — "
             "entities that disappear between runs will not be soft-deleted."
         )
 
@@ -7725,9 +7732,11 @@ class TestProcessDatasetSqlViewIntegration:
         monkeypatch.setattr(
             source,
             "_make_self_dataset_urn",
-            lambda name: upstream_urn
-            if name == "prod.public.upstream"
-            else original_make_self_urn(name),
+            lambda name: (
+                upstream_urn
+                if name == "prod.public.upstream"
+                else original_make_self_urn(name)
+            ),
         )
 
         wus = list(source.get_workunits_internal())

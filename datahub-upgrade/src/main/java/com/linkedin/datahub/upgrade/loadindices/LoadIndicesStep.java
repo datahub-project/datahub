@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -73,7 +74,7 @@ public class LoadIndicesStep implements UpgradeStep {
             .addLine(
                 "Loading indices directly from local DB ordered by URN/aspect for optimal document batching");
 
-        indexManager.optimizeForBulkOperations();
+        indexManager.optimizeForBulkOperations(context.opContext());
         context.report().addLine("Optimized settings for bulk operations on DataHub indices");
 
         log.info("Starting loadIndices");
@@ -105,7 +106,7 @@ public class LoadIndicesStep implements UpgradeStep {
       } finally {
         if (indexManager.isSettingsOptimized()) {
           try {
-            indexManager.restoreFromConfiguration();
+            indexManager.restoreFromConfiguration(context.opContext());
             context
                 .report()
                 .addLine("Restored settings to configured values for all DataHub indices");
@@ -178,7 +179,7 @@ public class LoadIndicesStep implements UpgradeStep {
       // Create EbeanAspectDao for streaming
       EbeanAspectDao aspectDao =
           new EbeanAspectDao(
-              server,
+              PrimaryStorageResolver.forSingleEbeanDatabase(server),
               EbeanConfiguration.testDefault,
               null,
               java.util.Collections.emptyList(),

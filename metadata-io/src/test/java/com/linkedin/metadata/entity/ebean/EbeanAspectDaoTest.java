@@ -26,6 +26,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.TransactionResult;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -55,7 +56,11 @@ public class EbeanAspectDaoTest {
     server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
     testDao =
         new EbeanAspectDao(
-            server, EbeanConfiguration.testDefault, mock(MetricUtils.class), List.of(), null);
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            mock(MetricUtils.class),
+            List.of(),
+            null);
   }
 
   @AfterMethod
@@ -104,7 +109,9 @@ public class EbeanAspectDaoTest {
         opContext,
         (txContext) -> {
           testDao.getNextVersions(
-              opContext, Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")));
+              opContext,
+              Map.of("urn:li:corpuser:testGetNextVersionForUpdate", Set.of("status")),
+              true);
           return TransactionResult.commit("");
         },
         mock(AspectsBatch.class),
@@ -540,5 +547,15 @@ public class EbeanAspectDaoTest {
         testDao.getAspect(
             opContext, "urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
+  }
+
+  @Test
+  public void getVersionRangeReturnsSentinelWhenAspectMissing() {
+    com.linkedin.util.Pair<Long, Long> range =
+        testDao.getVersionRange(
+            opContext, "urn:li:container:missing-aspect-range-test", "containerKey");
+
+    assertEquals(range.getFirst(), Long.valueOf(-1L));
+    assertEquals(range.getSecond(), Long.valueOf(-1L));
   }
 }

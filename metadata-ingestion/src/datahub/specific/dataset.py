@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.documentation import HasDocumentationPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
@@ -53,8 +54,25 @@ class FieldPatchHelper(Generic[_Parent]):
             else SchemaMetadataClass.ASPECT_NAME
         )
         self.aspect_field = "editableSchemaFieldInfo" if editable else "schemaFieldInfo"
+        self._field_path_op_added = False
+
+    def _ensure_field_path(self) -> None:
+        # The array element is keyed by fieldPath, but GMS's patch merge rebuilds the element
+        # from the map value and does not re-inject the key. Without an explicit fieldPath op,
+        # a newly created element fails server-side validation ("fieldPath is required").
+        # Emitted once per field; a repeated add of the same scalar is a harmless no-op.
+        if self._field_path_op_added:
+            return
+        self._parent._add_patch(
+            self.aspect_name,
+            "add",
+            path=(self.aspect_field, self.field_path, "fieldPath"),
+            value=self.field_path,
+        )
+        self._field_path_op_added = True
 
     def add_tag(self, tag: Tag) -> "FieldPatchHelper":
+        self._ensure_field_path()
         self._parent._add_patch(
             self.aspect_name,
             "add",
@@ -85,6 +103,7 @@ class FieldPatchHelper(Generic[_Parent]):
         return self
 
     def add_term(self, term: Term) -> "FieldPatchHelper":
+        self._ensure_field_path()
         self._parent._add_patch(
             self.aspect_name,
             "add",
@@ -130,6 +149,7 @@ class DatasetPatchBuilder(
     HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     HasFineGrainedLineagePatch,
     HasSiblingsPatch,
     HasDocumentationPatch,

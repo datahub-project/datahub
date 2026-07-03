@@ -143,7 +143,7 @@ export const getSupportedTimezones = () => {
 };
 
 export const toRelativeTimeString = (timeMs: number | undefined) => {
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(i18next.language || 'en', { numeric: 'auto' });
 
     if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();

@@ -168,8 +168,6 @@ public class DataHubOAuthAuthenticator implements Authenticator {
     try {
       String jwtToken = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
 
-      log.info("Request headers are: {}", context.getRequestHeaders());
-
       if (jwtToken == null
           || (!jwtToken.startsWith("Bearer ") && !jwtToken.startsWith("bearer "))) {
         throw new AuthenticationException("Invalid Authorization header");
