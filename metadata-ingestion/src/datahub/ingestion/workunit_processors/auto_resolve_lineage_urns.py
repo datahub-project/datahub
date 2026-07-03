@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -63,6 +64,20 @@ logger = logging.getLogger(__name__)
 # is the planned follow-up; see the schemaless/membership backlog task.)
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
+# The closed set of matchType verdicts, as a Literal so the if/elif verdict chains that
+# drive correctness can be typo- and exhaustiveness-checked. LineageMatchTypeClass
+# renders these as plain ``str`` (codegen), so we bind Literal-typed aliases and assert
+# they stay in sync with the generated class.
+MatchType = Literal["EXACT", "NORMALIZED", "UNRESOLVED"]
+_EXACT: MatchType = "EXACT"
+_NORMALIZED: MatchType = "NORMALIZED"
+_UNRESOLVED: MatchType = "UNRESOLVED"
+assert (_EXACT, _NORMALIZED, _UNRESOLVED) == (
+    LineageMatchTypeClass.EXACT,
+    LineageMatchTypeClass.NORMALIZED,
+    LineageMatchTypeClass.UNRESOLVED,
+), "MatchType literals drifted from LineageMatchTypeClass"
+
 
 @dataclass
 class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
@@ -92,7 +107,7 @@ class _Resolution:
     urn: str  # The (possibly rewritten) URN to emit.
     schema: Optional[SchemaInfo]  # Cached schema of the resolved entity, if known.
     # EXACT / NORMALIZED / UNRESOLVED / None (no reconciliation performed).
-    match_type: Optional[str]
+    match_type: Optional[MatchType]
 
 
 def _parent_dataset_urn(field_urn: str) -> Optional[str]:
@@ -435,7 +450,7 @@ class AutoResolveLineageUrnsProcessor(
             return _Resolution(
                 urn,
                 self._schema_for(urn, resolvers) if include_schema else None,
-                LineageMatchTypeClass.EXACT,
+                _EXACT,
             )
 
         # No exact match: a unique case-insensitive match heals; ambiguity is left alone.
@@ -445,14 +460,14 @@ class AutoResolveLineageUrnsProcessor(
             return _Resolution(
                 resolved,
                 self._schema_for(resolved, resolvers) if include_schema else None,
-                LineageMatchTypeClass.NORMALIZED,
+                _NORMALIZED,
             )
         # On a configured platform but no unique match (none, or an ambiguous casing
         # collision): leave the URN unchanged but flag it UNRESOLVED so potentially
         # broken lineage is visible rather than indistinguishable from a clean edge.
         # Sampled here (the single UNRESOLVED site) for the aggregated end-of-run warning.
         self._unresolved_sample.append(urn)
-        return _Resolution(urn, None, LineageMatchTypeClass.UNRESOLVED)
+        return _Resolution(urn, None, _UNRESOLVED)
 
     # --- aspect rewriters -------------------------------------------------------
     #
@@ -473,10 +488,10 @@ class AutoResolveLineageUrnsProcessor(
             if res.match_type is not None:
                 upstream.matchType = res.match_type
                 changed = True
-            if res.match_type == LineageMatchTypeClass.NORMALIZED:
+            if res.match_type == _NORMALIZED:
                 upstream.dataset = res.urn
                 self.report.num_dataset_urns_normalized += 1
-            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+            elif res.match_type == _UNRESOLVED:
                 self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
@@ -495,7 +510,7 @@ class AutoResolveLineageUrnsProcessor(
             return False
         changed = False
         rewritten: List[str] = []
-        match_types: List[Optional[str]] = []
+        match_types: List[Optional[MatchType]] = []
         for field_urn in fine_grained.upstreams:
             new_urn, match_type = self._resolve_field_urn(field_urn)
             rewritten.append(new_urn)
@@ -508,18 +523,18 @@ class AutoResolveLineageUrnsProcessor(
         # field couldn't be matched) > EXACT (all verified). Absent only when every
         # field was out of scope.
         aggregate: Optional[str] = None
-        if LineageMatchTypeClass.NORMALIZED in match_types:
-            aggregate = LineageMatchTypeClass.NORMALIZED
-        elif LineageMatchTypeClass.UNRESOLVED in match_types:
-            aggregate = LineageMatchTypeClass.UNRESOLVED
-        elif LineageMatchTypeClass.EXACT in match_types:
-            aggregate = LineageMatchTypeClass.EXACT
+        if _NORMALIZED in match_types:
+            aggregate = _NORMALIZED
+        elif _UNRESOLVED in match_types:
+            aggregate = _UNRESOLVED
+        elif _EXACT in match_types:
+            aggregate = _EXACT
         if aggregate is not None:
             fine_grained.matchType = aggregate
             changed = True
         return changed
 
-    def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[str]]:
+    def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[MatchType]]:
         parent = _parent_dataset_urn(field_urn)
         field_path = _field_path(field_urn)
         if parent is None or field_path is None:
@@ -536,7 +551,7 @@ class AutoResolveLineageUrnsProcessor(
             new_field_path = match_columns_to_schema(res.schema, [field_path])[0]
 
         if res.urn == parent and new_field_path == field_path:
-            if res.match_type == LineageMatchTypeClass.UNRESOLVED:
+            if res.match_type == _UNRESOLVED:
                 self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
@@ -548,11 +563,7 @@ class AutoResolveLineageUrnsProcessor(
         # even when the parent dataset matched exactly, so report NORMALIZED in that
         # case rather than the parent's (EXACT) match type.
         self.report.num_column_urns_normalized += 1
-        match_type = (
-            LineageMatchTypeClass.NORMALIZED
-            if new_field_path != field_path
-            else res.match_type
-        )
+        match_type = _NORMALIZED if new_field_path != field_path else res.match_type
         return make_schema_field_urn(res.urn, new_field_path), match_type
 
     def _normalize_dashboard_info(self, aspect: DashboardInfoClass) -> bool:
@@ -607,10 +618,10 @@ class AutoResolveLineageUrnsProcessor(
             # A plain URN list / Edge has no matchType field to stamp, but the report
             # counters must still distinguish UNRESOLVED (broken) from a clean ref so a
             # dashboard/datajob pointing at broken lineage isn't invisible in the report.
-            if res.match_type == LineageMatchTypeClass.NORMALIZED:
+            if res.match_type == _NORMALIZED:
                 self.report.num_dataset_urns_normalized += 1
                 changed = True
-            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+            elif res.match_type == _UNRESOLVED:
                 self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
@@ -624,11 +635,11 @@ class AutoResolveLineageUrnsProcessor(
             if not _is_dataset_urn(destination):
                 continue
             res = self._resolve_dataset(destination)
-            if res.match_type == LineageMatchTypeClass.NORMALIZED:
+            if res.match_type == _NORMALIZED:
                 edge.destinationUrn = res.urn
                 self.report.num_dataset_urns_normalized += 1
                 changed = True
-            elif res.match_type == LineageMatchTypeClass.UNRESOLVED:
+            elif res.match_type == _UNRESOLVED:
                 self.report.num_refs_unresolved += 1
             else:
                 self.report.num_refs_unchanged += 1
