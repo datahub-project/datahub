@@ -293,6 +293,30 @@ def test_begin_end_wrapped_body_recovers_first_call():
     ]
 
 
+def test_labeled_begin_end_block_handled():
+    """MariaDB labeled blocks: ``my_label: BEGIN ... END my_label``. The labeled
+    opener is stripped and the labeled closer skipped, leaving clean call lineage."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """proc_body: BEGIN
+        CALL first_step();
+        CALL second_step();
+    END proc_body"""
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),first_step)",
+        "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),second_step)",
+    ]
+
+
 def test_begin_end_wrapped_body_recovers_first_dml_and_call():
     """The glued-on BEGIN must not drop first-statement DML either: an opening
     INSERT...SELECT plus a CALL should emit both dataset and dataJob lineage."""

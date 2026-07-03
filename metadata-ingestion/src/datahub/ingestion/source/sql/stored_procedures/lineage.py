@@ -57,6 +57,13 @@ _LEADING_BLOCK_OPENER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A block/control closer carries no lineage: bare ``END``, a labeled MariaDB block
+# closer (``END my_label``), or a compound-statement closer (``END IF/WHILE/LOOP/CASE``).
+_BLOCK_CLOSER_RE = re.compile(
+    r"^\s*END(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*$",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class _ProcedureCall:
@@ -269,6 +276,11 @@ def _classify_statements(
         # Unwrap a glued-on BEGIN so the underlying CALL/DML isn't lost.
         stmt_stripped = _LEADING_BLOCK_OPENER_RE.sub("", stmt_stripped, count=1)
         if not stmt_stripped:
+            continue
+
+        # Explicitly drop block closers (``END``, ``END my_label``, ``END IF`` ...);
+        # they'd parse to UNKNOWN and be dropped anyway, but skip them by design.
+        if _BLOCK_CLOSER_RE.match(stmt_stripped):
             continue
         stmt_upper = stmt_stripped.upper()
 

@@ -74,6 +74,24 @@ def test_fetch_performance_schema_maps_digest_rows(mock_create_engine):
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_usage_connection_pins_utc_and_disposes_engine(mock_create_engine):
+    engine = _patch_rows(
+        [_row("appdb", "SELECT 1", 1, datetime.datetime(2023, 6, 1, 10, 30, 0))]
+    )
+    mock_create_engine.return_value = engine
+
+    list(_source()._fetch_performance_schema_queries())
+
+    conn = engine.connect.return_value.__enter__.return_value
+    executed = [str(call.args[0]) for call in conn.execute.call_args_list]
+    assert any("SET time_zone = '+00:00'" in sql for sql in executed), (
+        f"session tz must be pinned to UTC; executed {executed}"
+    )
+    # Single-use engine must be disposed so the usage fetch leaks no connections.
+    engine.dispose.assert_called_once()
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
 def test_fetch_performance_schema_filters_system_and_empty_rows(mock_create_engine):
     last_seen = datetime.datetime(2023, 6, 1, 10, 30, 0)
     mock_create_engine.return_value = _patch_rows(
