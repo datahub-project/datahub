@@ -94,6 +94,7 @@ def test_project_schema_key_class_by_platform_covers_supported_platforms() -> No
         "pubsub",
         "bigtable",
         "vertexai",
+        "dataproc-metastore",
     }
     for key_class in PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.values():
         assert issubclass(key_class, DataplexProjectId)
