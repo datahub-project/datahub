@@ -159,7 +159,7 @@ def _extract_answer_chart_type(answer_tml: Dict[str, Any]) -> Optional[str]:
 _TS_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "DATABRICKS": "databricks",
     "SNOWFLAKE": "snowflake",
-    "BIGQUERY": "bigquery", # keep for backwards compatibility
+    "BIGQUERY": "bigquery",  # keep for backwards compatibility
     "GOOGLE_BIGQUERY": "bigquery",  # used in connections
     "GCP_BIGQUERY": "bigquery",  # used in tables
     "REDSHIFT": "redshift",
@@ -929,10 +929,12 @@ class ThoughtSpotClient:
                             flattened["stats"] = item["stats"]
 
                         if include_details:
-                            # in some rare cases, the metadata_detail field contains a string error message like 
+                            # in some rare cases, the metadata_detail field contains a string error message like
                             # 'Error fetching details for ...' instead of a dict. We handle that case to avoid breaking the ingestion.
                             if isinstance(item.get("metadata_detail"), str):
-                                logger.warning("Metadata detail invalid in item: %s", item)
+                                logger.warning(
+                                    "Metadata detail invalid in item: %s", item
+                                )
                                 item["metadata_detail"] = {}
                             detail = item.get("metadata_detail") or {}
                             if object_type == "LOGICAL_TABLE":
