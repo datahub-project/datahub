@@ -247,7 +247,8 @@ export class LineageV2Page extends BasePage {
   }
 
   async checkFilterMatches(nodeUrn: string, direction: 'up' | 'down', matchesNumber: string): Promise<void> {
-    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('matches')).toHaveText(`${matchesNumber} matches`, {
+    const label = matchesNumber === '1' ? '1 match' : `${matchesNumber} matches`;
+    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('matches')).toHaveText(label, {
       timeout: 5000,
     });
   }

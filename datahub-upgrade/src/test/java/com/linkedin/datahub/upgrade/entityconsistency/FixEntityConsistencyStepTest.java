@@ -401,7 +401,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse emptyResponse = createEmptySearchResponse();
 
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     // Mock entity existence check (both Set and single Urn versions)
@@ -532,7 +538,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse emptyResponse = createEmptySearchResponse();
 
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
@@ -541,7 +553,14 @@ public class FixEntityConsistencyStepTest {
 
     // Should have called scroll for assertions only
     verify(mockEsSystemMetadataDAO)
-        .scroll(any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt());
+        .scroll(
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt());
   }
 
   /** Test to verify that filtering by specific check ID works. */
@@ -576,7 +595,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse emptyResponse = createEmptySearchResponse();
 
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
@@ -615,7 +640,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse emptyResponse = createEmptySearchResponse();
 
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(assertionSearchResponse) // Assertions phase
         .thenReturn(emptyResponse); // Monitors phase
 
@@ -847,7 +878,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse assertionSearchResponse = createSearchResponseWithUrns(assertionUrn.toString());
     SearchResponse emptyResponse = createEmptySearchResponse();
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(assertionSearchResponse) // First batch
         .thenReturn(emptyResponse); // No more results
 
@@ -933,7 +970,13 @@ public class FixEntityConsistencyStepTest {
     // Mock empty search response (no more entities to process)
     SearchResponse emptyResponse = createEmptySearchResponse();
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
@@ -945,6 +988,7 @@ public class FixEntityConsistencyStepTest {
     // resume)
     verify(mockEsSystemMetadataDAO, atLeastOnce())
         .scroll(
+            any(OperationContext.class),
             any(BoolQueryBuilder.class),
             anyBoolean(),
             eq("test-scroll-id"),
@@ -983,14 +1027,27 @@ public class FixEntityConsistencyStepTest {
     // Mock empty search response
     SearchResponse emptyResponse = createEmptySearchResponse();
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     step.executable().apply(mockContext);
 
     // Verify scroll was called with null scrollId (not the saved one)
     verify(mockEsSystemMetadataDAO, atLeastOnce())
-        .scroll(any(BoolQueryBuilder.class), anyBoolean(), isNull(), any(), anyString(), anyInt());
+        .scroll(
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            isNull(),
+            any(),
+            anyString(),
+            anyInt());
   }
 
   // ============================================================================
@@ -1027,7 +1084,13 @@ public class FixEntityConsistencyStepTest {
     // Mock empty search response
     SearchResponse emptyResponse = createEmptySearchResponse();
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(emptyResponse);
 
     step.executable().apply(mockContext);
@@ -1035,7 +1098,14 @@ public class FixEntityConsistencyStepTest {
     // The step should complete - we can't easily verify the filter was applied
     // but we verify the step executes without error
     verify(mockEsSystemMetadataDAO, atLeastOnce())
-        .scroll(any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt());
+        .scroll(
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt());
   }
 
   /** Test that incremental filter is NOT applied for targeted runs (with timestamp filters). */
@@ -1154,7 +1224,13 @@ public class FixEntityConsistencyStepTest {
     SearchResponse emptyResponse = createEmptySearchResponse();
 
     when(mockEsSystemMetadataDAO.scroll(
-            any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt()))
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt()))
         .thenReturn(firstBatch)
         .thenReturn(emptyResponse);
 

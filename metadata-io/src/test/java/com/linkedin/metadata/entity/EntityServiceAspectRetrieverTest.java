@@ -44,20 +44,21 @@ public class EntityServiceAspectRetrieverTest {
 
   @Test
   public void testEntityExistsUsesBatchExists() {
-    when(entityService.exists(systemOperationContext, Set.of(EXISTING_URN, MISSING_URN), true))
+    when(entityService.exists(systemOperationContext, Set.of(EXISTING_URN, MISSING_URN)))
         .thenReturn(Set.of(EXISTING_URN));
 
-    Map<Urn, Boolean> result = retriever.entityExists(Set.of(EXISTING_URN, MISSING_URN));
+    Map<Urn, Boolean> result =
+        retriever.entityExists(systemOperationContext, Set.of(EXISTING_URN, MISSING_URN));
 
     assertTrue(result.get(EXISTING_URN));
     assertFalse(result.get(MISSING_URN));
     verify(entityService, times(1))
-        .exists(eq(systemOperationContext), eq(Set.of(EXISTING_URN, MISSING_URN)), eq(true));
+        .exists(eq(systemOperationContext), eq(Set.of(EXISTING_URN, MISSING_URN)));
   }
 
   @Test
   public void testEntityExistsEmptyInput() {
-    assertEquals(retriever.entityExists(Set.of()), Map.of());
-    verify(entityService, times(0)).exists(eq(systemOperationContext), eq(Set.of()), eq(true));
+    assertEquals(retriever.entityExists(systemOperationContext, Set.of()), Map.of());
+    verify(entityService, times(0)).exists(eq(systemOperationContext), eq(Set.of()));
   }
 }

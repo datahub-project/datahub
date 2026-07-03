@@ -13,9 +13,11 @@ import { Button, Text } from '@src/alchemy-components';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralizeIfIrregular } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
+
+// dayjs format token (localized weekday + date), not user-visible text.
+const DAY_HEADER_FORMAT = 'dddd, MMM DD ’YY';
 
 const Container = styled.div`
     display: flex;
@@ -113,7 +115,10 @@ export default function ChangeHistoryPopover({
 
     const renderOperation = (operation: Operation) => {
         const color = colorAccessors?.[operation.key](datum.value);
-        const name = operation.type === OperationType.Custom ? operation.name : pluralizeIfIrregular(operation.name);
+        const name =
+            operation.type === OperationType.Custom
+                ? operation.name
+                : t('changeHistoryPopover.operationNamePlural', { name: operation.name });
 
         return (
             <ValueContainer key={operation.key} data-testid={`operation-${operation.key}`}>
@@ -151,7 +156,7 @@ export default function ChangeHistoryPopover({
     return (
         <Container data-testid={`day-popover-${datum.key}`}>
             <Text size="sm" color="gray" type="div">
-                {dayjs(datum.day).format('dddd, MMM DD ’YY')}
+                {dayjs(datum.day).format(DAY_HEADER_FORMAT)}
             </Text>
             {renderChanges()}
         </Container>

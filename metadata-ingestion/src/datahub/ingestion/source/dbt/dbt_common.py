@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import auto
+from functools import cached_property
 from typing import (
     Any,
     Dict,
@@ -16,6 +17,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Type,
     TypedDict,
     Union,
 )
@@ -58,7 +60,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
     convert_upstream_lineage_to_patch,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -74,7 +75,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -132,6 +132,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DashboardUrn, DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -149,9 +150,27 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
+
+
+class _TwoTierSchemaResolver(SchemaResolver):
+    """SchemaResolver for dbt with include_database_name=False.
+
+    With include_database_name=False all URNs are registered as schema.table
+    (2-part), but dbt compiled SQL running on Trino/Athena references tables as
+    catalog.schema.table (3-part). Since no 3-part URN is ever registered, the
+    catalog component is stripped before every lookup so the resolved URN always
+    matches the 2-part URN that dbt and target_platform_urn_to_dbt_name use.
+    """
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        # All URNs are 2-part — strip any catalog prefix before lookup.
+        return super().resolve_table(table.model_copy(update={"database": None}))
+
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
@@ -306,6 +325,8 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     )
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
+
+    lineage_upstreams_skipped_missing: int = 0
 
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
@@ -542,6 +563,17 @@ class DBTCommonConfig(
         "Requires that `entities_enabled.sources` is set to `NO`. "
         "This is mainly useful when you have multiple, interdependent dbt projects. ",
     )
+    skip_missing_upstreams_in_lineage: bool = Field(
+        default=False,
+        description="When enabled, upstream datasets that do not already exist in DataHub are excluded from "
+        "lineage, preventing dangling graph edges from appearing in the lineage UI. "
+        "Typically used together with `skip_sources_in_lineage` and `entities_enabled.sources: NO`. "
+        "Important caveats: (1) if dbt is ingested before its upstream source systems, those lineage "
+        "edges will be silently omitted until dbt is re-ingested after the upstreams are present; "
+        "(2) adds one graph.exists() round-trip per unique upstream URN per run (cached within the run); "
+        "(3) soft-deleted upstream entities are treated as present. "
+        "Requires a DataHub graph connection.",
+    )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
     )
@@ -728,6 +760,15 @@ class DBTCommonConfig(
         if self.prefer_sql_parser_lineage and not self.skip_sources_in_lineage:
             raise ValueError(
                 "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            )
+
+        if self.skip_missing_upstreams_in_lineage and not self.skip_sources_in_lineage:
+            logger.warning(
+                "`skip_missing_upstreams_in_lineage` is most effective with `skip_sources_in_lineage` enabled. "
+                "Without it, source nodes appear as dbt URNs in lineage rather than target-platform URNs, "
+                "so on the first ingestion run dbt source entities do not yet exist in DataHub and their "
+                "lineage edges will be silently dropped. The flag still works correctly for model-to-model "
+                "lineage and on subsequent runs once source entities are committed."
             )
 
         if (
@@ -1224,7 +1265,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+def _get_dbt_cte_names(name: str, adapter: str) -> List[str]:
     # Match the dbt CTE naming scheme:
     # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
     # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
@@ -1243,8 +1284,8 @@ def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
     }
 
     cte_names = [default_cte_name]
-    if target_platform in adapter_cte_names:
-        cte_names.append(adapter_cte_names[target_platform])
+    if adapter in adapter_cte_names:
+        cte_names.append(adapter_cte_names[adapter])
 
     return cte_names
 
@@ -1402,14 +1443,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
         # Cached timestamp for Query entities (ensures reproducible output)
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
+        # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
+        self._upstream_exists_cache: Dict[str, bool] = {}
+
+    def get_excluded_workunit_processors(self):
+        from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+            AutoIncrementalLineageProcessor,
+        )
+
+        # dbt converts lineage to incremental patches internally (see dbt_common.py
+        # around the convert_upstream_lineage_to_patch call). Applying the generic
+        # AutoIncrementalLineageProcessor on top of that causes double-processing.
+        return [AutoIncrementalLineageProcessor]
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1434,6 +1483,66 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
         self.report.query_timestamps_fallback_used = True
         return self._query_timestamp_cache
+
+    def _upstream_exists_in_datahub(self, urn: str) -> bool:
+        """Check whether an upstream URN exists in DataHub, with per-run caching.
+
+        Fails open: if the existence check itself fails (transient GMS error, timeout,
+        etc.) the edge is kept to avoid silent lineage loss.
+        """
+        if urn not in self._upstream_exists_cache:
+            assert self.ctx.graph  # caller ensures graph is available
+            try:
+                self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
+            except Exception as e:
+                self.report.report_warning(
+                    title="Upstream existence check failed",
+                    message="Could not verify upstream existence; keeping the lineage edge to avoid silent lineage loss.",
+                    context=urn,
+                    exc=e,
+                )
+                self._upstream_exists_cache[urn] = True  # fail open
+            if not self._upstream_exists_cache[urn]:
+                self.report.lineage_upstreams_skipped_missing += 1
+        return self._upstream_exists_cache[urn]
+
+    @cached_property
+    def _column_meta_action_processor(self) -> OperationProcessor:
+        # Constructed once per run (its args are run-constant) rather than
+        # per-node, and shared across the schema and structured-property paths.
+        return OperationProcessor(
+            self.config.column_meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+
+    def _extract_column_meta_aspects(self, node: DBTNode) -> Dict[str, Dict[str, Any]]:
+        """Process each column's meta exactly once, returning meta_aspects keyed
+        by post-lowercasing field_name (matching get_schema_metadata's fieldPath)
+        so downstream callers don't re-run the processor on column.meta."""
+        if not (self.config.enable_meta_mapping and self.config.column_meta_mapping):
+            return {}
+        result: Dict[str, Dict[str, Any]] = {}
+        for column in node.columns:
+            if not column.meta:
+                continue
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+            try:
+                result[field_name] = self._column_meta_action_processor.process(
+                    column.meta
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process column meta_mapping",
+                    message="Column metadata derived from meta_mapping will be missing for this column.",
+                    context=f"{node.dbt_name}.{column.name}",
+                    exc=e,
+                )
+        return result
 
     def create_test_entity_mcps(
         self,
@@ -1769,12 +1878,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=GlobalTagsClass(tags=tag_associations),
                 )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
-
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
@@ -1793,6 +1896,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
+        if self.config.skip_missing_upstreams_in_lineage:
+            self.ctx.require_graph(
+                "Using dbt with skip_missing_upstreams_in_lineage=True"
+            )
 
         all_nodes, additional_custom_props = self.load_nodes()
 
@@ -1968,7 +2075,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
-        return {column.fieldPath: column.nativeDataType for column in schema_fields}
+        # Build the bare-name -> type map the SQL parser matches on, reducing v2
+        # fieldPaths to bare names. Mirrors `_convert_schema_field_list_to_info`.
+        schema_info: SchemaInfo = {}
+        for column in schema_fields:
+            simple_field_path = get_simple_field_path_from_v2_field_path(
+                column.fieldPath
+            )
+            # Skip columns nested within structs -- CLL can't target them yet, and
+            # their dotted paths would otherwise pollute the schema info.
+            if "." in simple_field_path:
+                continue
+            schema_info[simple_field_path] = column.nativeDataType
+        return schema_info
 
     def _determine_cll_required_nodes(
         self, all_nodes_map: Dict[str, DBTNode]
@@ -2028,7 +2147,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        schema_resolver = SchemaResolver(
+        resolver_class: Type[SchemaResolver] = (
+            SchemaResolver
+            if self.config.include_database_name
+            else _TwoTierSchemaResolver
+        )
+        schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
             env=self.config.env,
@@ -2192,7 +2316,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ]
                     if upstream_node.is_ephemeral_model()
                     for cte_name in _get_dbt_cte_names(
-                        upstream_node.name, schema_resolver.platform
+                        upstream_node.name,
+                        upstream_node.dbt_adapter or schema_resolver.platform,
                     )
                 }
                 if cte_mapping:
@@ -2277,10 +2402,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> SqlParsingResult:
         assert node.compiled_code is not None
 
+        # Use the dbt adapter as the SQL dialect (e.g. "trino", "snowflake").
+        # schema_resolver.platform is the storage platform (e.g. "glue") which
+        # is used for URN construction, not SQL parsing.
+        sql_dialect: str = node.dbt_adapter or schema_resolver.platform
+
         try:
             picked_statement = parse_statements_and_pick(
                 node.compiled_code,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
             )
         except Exception as e:
             logger.debug(
@@ -2293,7 +2423,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         try:
             preprocessed_sql = detach_ctes(
                 picked_statement,
-                platform=schema_resolver.platform,
+                platform=sql_dialect,
                 cte_mapping=cte_mapping,
             )
         except Exception as e:
@@ -2304,7 +2434,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
-        sql_result = sqlglot_lineage(preprocessed_sql, schema_resolver=schema_resolver)
+        sql_result = sqlglot_lineage(
+            preprocessed_sql,
+            schema_resolver=schema_resolver,
+            override_dialect=sql_dialect,
+        )
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
@@ -2357,8 +2491,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     action_processor_tag, meta_aspects, node
                 )  # mutates meta_aspects
 
+            # Process column.meta once and reuse across schema + structured props.
+            column_meta_aspects = self._extract_column_meta_aspects(node)
+
             aspects = self._generate_base_dbt_aspects(
-                node, additional_custom_props_filtered, DBT_PLATFORM, meta_aspects
+                node,
+                additional_custom_props_filtered,
+                DBT_PLATFORM,
+                meta_aspects,
+                column_meta_aspects=column_meta_aspects,
             )
 
             # Upstream lineage.
@@ -2431,6 +2572,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                )
+
+            # Column structured properties must be emitted as standalone MCPs
+            # because they attach to schemaField URNs, not the dataset URN.
+            if (
+                self.config.enable_meta_mapping
+                and self.config.entities_enabled.can_emit_node_type(node.node_type)
+            ):
+                yield from auto_workunit(
+                    self._create_column_structured_property_mcps(
+                        node,
+                        node_datahub_urn,
+                        column_meta_aspects=column_meta_aspects,
+                    )
                 )
 
             # Model performance.
@@ -2844,7 +2999,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         compiled_code = None
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
-                node.compiled_code, platform=self.config.target_platform
+                node.compiled_code,
+                platform=node.dbt_adapter or self.config.target_platform,
             )
             compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
@@ -2863,6 +3019,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         additional_custom_props_filtered: Dict[str, str],
         mce_platform: str,
         meta_aspects: Dict[str, Any],
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[Any]:
         """
         Some common aspects that get generated for dbt nodes.
@@ -2913,22 +3070,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if meta_links_aspect and self.config.enable_meta_mapping:
             aspects.append(meta_links_aspect)
 
+        # structuredProperties is not part of the DatasetSnapshot aspect union,
+        # but the create_*_platform_mces helpers automatically route any aspect
+        # not in the union into a standalone MCP.
+        meta_structured_properties_aspect = meta_aspects.get(
+            Constants.ADD_STRUCTURED_PROPERTY_OPERATION
+        )
+        if meta_structured_properties_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_structured_properties_aspect)
+
         # add schema metadata aspect
-        schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
+        schema_metadata = self.get_schema_metadata(
+            self.report, node, mce_platform, column_meta_aspects=column_meta_aspects
+        )
         aspects.append(schema_metadata)
 
         return aspects
 
     def get_schema_metadata(
-        self, report: DBTSourceReport, node: DBTNode, platform: str
+        self,
+        report: DBTSourceReport,
+        node: DBTNode,
+        platform: str,
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> SchemaMetadata:
-        action_processor = OperationProcessor(
-            self.config.column_meta_mapping,
-            self.config.tag_prefix,
-            "SOURCE_CONTROL",
-            self.config.strip_user_ids_from_email,
-            match_nested_props=True,
-        )
+        # Fall back to computing inline for direct callers/tests that don't
+        # thread the shared dict through.
+        if column_meta_aspects is None:
+            column_meta_aspects = self._extract_column_meta_aspects(node)
 
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
@@ -2945,9 +3114,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             elif column.description:
                 description = column.description
 
-            meta_aspects: Dict[str, Any] = {}
-            if self.config.enable_meta_mapping and column.meta:
-                meta_aspects = action_processor.process(column.meta)
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
+            meta_aspects = column_meta_aspects.get(field_name, {})
 
             if meta_aspects.get(Constants.ADD_OWNER_OPERATION):
                 logger.warning("The add_owner operation is not supported for columns.")
@@ -2969,10 +3140,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             glossaryTerms = None
             if meta_aspects.get(Constants.ADD_TERM_OPERATION):
                 glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-
-            field_name = column.name
-            if self.config.convert_column_urns_to_lowercase:
-                field_name = field_name.lower()
 
             field = SchemaField(
                 fieldPath=field_name,
@@ -3007,6 +3174,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             lastModified=last_modified,
             fields=canonical_schema,
         )
+
+    def _create_column_structured_property_mcps(
+        self,
+        node: DBTNode,
+        dataset_urn: str,
+        column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Emit a StructuredProperties MCP for each column with a matching
+        column_meta_mapping `add_structured_property` rule. The aspect attaches
+        to the column's schemaField URN, not the dataset URN.
+
+        Assigns values only; assumes the property definition exists (GMS's
+        StructuredPropertiesValidator enforces existence/type/cardinality at write
+        time). We don't pre-validate, as that would require a graph and break
+        graph-less dbt ingestion."""
+        if not self.config.column_meta_mapping:
+            return
+        if column_meta_aspects is None:
+            column_meta_aspects = self._extract_column_meta_aspects(node)
+
+        for field_name, meta_aspects in column_meta_aspects.items():
+            sp_aspect = meta_aspects.get(Constants.ADD_STRUCTURED_PROPERTY_OPERATION)
+            if not sp_aspect:
+                continue
+            yield MetadataChangeProposalWrapper(
+                entityUrn=mce_builder.make_schema_field_urn(dataset_urn, field_name),
+                aspect=sp_aspect,
+            )
 
     def _aggregate_owners(
         self, node: DBTNode, meta_owner_aspects: Any
@@ -3201,6 +3396,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         valid_cll_entries, lambda x: x.downstream_col
                     )
                 ]
+
+            if self.config.skip_missing_upstreams_in_lineage:
+                upstream_urns = [
+                    urn
+                    for urn in upstream_urns
+                    if self._upstream_exists_in_datahub(urn)
+                ]
+                # Also filter CLL: schemaField edges embed the parent dataset URN,
+                # so a missing upstream with CLL still creates the ghost node via
+                # graphService.addEdge(). Keep only entries whose upstream datasets
+                # are all in the surviving set.
+                if cll:
+                    existing_upstream_set = set(upstream_urns)
+                    filtered_cll = []
+                    for entry in cll:
+                        filtered_upstreams = [
+                            sf_urn
+                            for sf_urn in (entry.upstreams or [])
+                            if Urn.from_string(sf_urn).entity_ids[0]
+                            in existing_upstream_set
+                        ]
+                        if filtered_upstreams:
+                            entry.upstreams = filtered_upstreams
+                            filtered_cll.append(entry)
+                    cll = filtered_cll
 
             if not upstream_urns:
                 return None

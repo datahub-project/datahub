@@ -1,8 +1,8 @@
 import { Empty } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityEdge from '@app/lineage/manage/EntityEdge';
 import { Direction, FetchedEntity } from '@app/lineage/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -20,7 +20,7 @@ const EmptyWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 interface Props {
@@ -40,6 +40,7 @@ export default function LineageEdges({
     setEntitiesToAdd,
     setEntitiesToRemove,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
 
     let fetchedEntity: FetchedEntity | null | undefined = null;
@@ -70,7 +71,13 @@ export default function LineageEdges({
         <LineageEdgesWrapper>
             {!filteredRelationships?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty description={`No ${lineageDirection.toLocaleLowerCase()} entities`} />
+                    <Empty
+                        description={
+                            lineageDirection === Direction.Upstream
+                                ? t('edges.noUpstreamEntities')
+                                : t('edges.noDownstreamEntities')
+                        }
+                    />
                 </EmptyWrapper>
             )}
             {filteredRelationships &&

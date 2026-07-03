@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
@@ -73,6 +74,7 @@ function OwnerLabel({ entity }: PlatformLabelProps) {
 }
 
 export default function OwnerFilter(props: FilterComponentProps) {
+    const { t } = useTranslation('search');
     const renderEntity = useCallback((entity: Entity) => <OwnerLabel entity={entity} />, []);
 
     return (
@@ -80,7 +82,7 @@ export default function OwnerFilter(props: FilterComponentProps) {
             {...props}
             renderEntity={renderEntity}
             entityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
-            filterName="Owner"
+            filterName={t('filtersV2.ownerFilter.label')}
             dataTestId="filter-owner"
         />
     );

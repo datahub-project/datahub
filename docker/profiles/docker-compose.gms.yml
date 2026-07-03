@@ -722,7 +722,7 @@ services:
   datahub-mae-consumer-quickstart-postgres-cdc:
     <<: *datahub-mae-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
@@ -796,7 +796,7 @@ services:
   datahub-mce-consumer-quickstart-postgres-consumers-cdc:
     <<: *datahub-mce-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}

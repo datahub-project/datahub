@@ -1,6 +1,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
@@ -11,7 +12,6 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -291,9 +291,6 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
-            {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
-                <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
-            )}
             {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
                 <>
                     <RowContainer alignment="self-start">
@@ -407,6 +404,7 @@ export default function DefaultPreviewCard({
 }
 
 function useRemoveRelationship(entityType: EntityType) {
+    const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
     const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
@@ -423,26 +421,26 @@ function useRemoveRelationship(entityType: EntityType) {
             removeRelationship: () => (onRemove ? onRemove() : removeDomain(previewData?.urn)),
             removeButtonText:
                 showRemovalFromList && entityType !== EntityType.DataProduct
-                    ? removeText || 'Remove from Domain'
+                    ? removeText || t('removeFromDomain')
                     : null,
         };
     }
     if (pageEntityType === EntityType.GlossaryTerm) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeTerm(previewData, entityData.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove Glossary Term' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeGlossaryTerm') : null,
         };
     }
     if (pageEntityType === EntityType.DataProduct) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeDataProduct(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove from Data Product' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeFromDataProduct') : null,
         };
     }
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove from Application' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
         };
     }
 

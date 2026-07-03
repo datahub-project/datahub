@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
@@ -17,6 +18,8 @@ type Props = {
 };
 
 export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const [selectedMemberUrns, setSelectedMemberUrns] = useState<string[]>([]);
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
 
@@ -40,11 +43,11 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                     userUrns: selectedMemberUrns,
                 },
             });
-            message.success({ content: 'Group members added!', duration: 3 });
+            message.success({ content: t('group.membersAddedSuccess'), duration: 3 });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to group members: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('group.addMembersError', { error: e.message || '' }), duration: 3 });
             }
         } finally {
             onSubmit();
@@ -54,18 +57,18 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
 
     return (
         <Modal
-            title="Add group members"
+            title={t('group.addMembersTitle')}
             open={visible}
             onCancel={onModalClose}
             dataTestId="add-members-modal"
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onModalClose,
                 },
                 {
-                    text: 'Add',
+                    text: tc('add'),
                     onClick: onAdd,
                     variant: 'filled',
                     disabled: selectedMemberUrns.length === 0,
@@ -77,7 +80,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
             <ActorsSearchSelect
                 selectedActorUrns={selectedMemberUrns}
                 onUpdate={handleActorsUpdate}
-                placeholder="Search for users..."
+                placeholder={t('group.searchForUsersPlaceholder')}
                 entityTypes={[EntityType.CorpUser]}
                 width="full"
                 dataTestId="add-members-select"

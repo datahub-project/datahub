@@ -7,6 +7,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -373,10 +374,10 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
+    when(mockAspectDao.batchGet(any(OperationContext.class), anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
-              Set<EntityAspectIdentifier> ids = args.getArgument(0);
+              Set<EntityAspectIdentifier> ids = args.getArgument(1);
               return ids.stream()
                   .map(
                       id -> {

@@ -27,6 +27,10 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform } from '@types';
 
+const CSS_TRANSFORM_ROTATE_90 = 'rotate(90deg)';
+const CSS_TRANSITION_TRANSFORM = 'transform 200ms ease';
+const CSS_DISPLAY_NONE = 'none';
+
 const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;
     color: ${(props) => props.color};
@@ -124,9 +128,9 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                             dataTestId={`browse-platform-${label}`}
                             style={{
                                 marginRight: 4,
-                                transform: isOpen && 'rotate(90deg)',
-                                transition: 'transform 200ms ease',
-                                ...(collapsed && { display: 'none' }),
+                                transform: isOpen && CSS_TRANSFORM_ROTATE_90,
+                                transition: CSS_TRANSITION_TRANSFORM,
+                                ...(collapsed && { display: CSS_DISPLAY_NONE }),
                             }}
                         />
                         <PlatformIcon

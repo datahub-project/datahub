@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Iterator
 from unittest import mock
 
 import pandas as pd
@@ -64,7 +65,7 @@ def ge_data_context(tmp_path: str) -> FileDataContext:
 
 
 @pytest.fixture(scope="function")
-def spark_session() -> SparkSession:
+def spark_session() -> Iterator[SparkSession]:
     spark = (
         SparkSession.builder.master("local")
         .appName("pytest-pyspark-local-testing")
@@ -711,3 +712,24 @@ def test_DataHubValidationAction_existing_assertion_uses_patch(
         "/customProperties/expectation_suite_name",
     }
     assert {op["op"] for op in patch_ops} == {"add"}
+
+
+def test_emit_mode_defaults_to_async_and_coerces_string_override(
+    ge_data_context: FileDataContext,
+) -> None:
+    """The action defaults to ASYNC emit so high-volume validation runs don't
+    block GMS, and a string override from checkpoint YAML is coerced to
+    the EmitMode enum the emitter requires."""
+    from datahub.emitter.rest_emitter import EmitMode
+
+    default_action = DataHubValidationAction(
+        data_context=ge_data_context, server_url="http://localhost:9999"
+    )
+    assert default_action.emit_mode == EmitMode.ASYNC
+
+    override_action = DataHubValidationAction(
+        data_context=ge_data_context,
+        server_url="http://localhost:9999",
+        emit_mode="SYNC_WAIT",
+    )
+    assert override_action.emit_mode == EmitMode.SYNC_WAIT

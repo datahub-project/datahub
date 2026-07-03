@@ -866,11 +866,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     ComparableVersion finalRegistryVersion = registryVersion;
     String finalRegistryName1 = registryName;
     ComparableVersion finalRegistryVersion1 = registryVersion;
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "deleteAll", List.of()), authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
+
           RollbackResponse response = new RollbackResponse();
           List<AspectRowSummary> aspectRowsToDelete =
               systemMetadataService.findByRegistry(
+                  opContext,
                   finalRegistryName,
                   finalRegistryVersion.toString(),
                   false,
@@ -882,14 +888,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectRowsToDelete.stream()
                   .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                   .keySet();
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          OperationContext opContext = OperationContext.asSession(
+          OperationContext authContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           "deleteAll", urns), authorizer, auth, true);
-
           if (!isAPIAuthorizedEntityUrns(
-                  opContext,
+                  authContext,
                   DELETE,
                   urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()))) {
             throw new RestLiServiceException(
@@ -906,7 +909,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             Map<String, String> conditions = new HashMap();
             conditions.put("registryName", finalRegistryName1);
             conditions.put("registryVersion", finalRegistryVersion1.toString());
-            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false, false);
+            entityService.rollbackWithConditions(authContext, aspectRowsToDelete, conditions, false, false);
           }
           return response;
         },

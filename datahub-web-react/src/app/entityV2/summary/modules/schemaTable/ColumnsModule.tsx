@@ -1,5 +1,6 @@
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -17,12 +18,15 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDatasetQuery, useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
 import { EditableSchemaMetadata, EntityType, SchemaMetadata } from '@types';
 
+const SCHEMA_TABLE_FIELDS = ['fieldPath', 'type', 'description'];
+
 const Wrapper = styled.div`
     padding-top: 8px;
     height: 100%;
 `;
 
 export default function ColumnsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { urn: entityUrn } = useEntityData();
     const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(null);
     const entityRegistry = useEntityRegistry();
@@ -66,8 +70,8 @@ export default function ColumnsModule(props: ModuleProps) {
             <LargeModule {...props} loading={false} dataTestId="schema-table-module">
                 <EmptyContent
                     icon={Database}
-                    title="Schema Not Available"
-                    description="There was an error loading the schema for this dataset"
+                    title={t('columns.errorTitle')}
+                    description={t('columns.errorDescription')}
                 />
             </LargeModule>
         );
@@ -78,8 +82,8 @@ export default function ColumnsModule(props: ModuleProps) {
             <LargeModule {...props} loading={loading} dataTestId="schema-table-module">
                 <EmptyContent
                     icon={Database}
-                    title="No Schema Fields"
-                    description="This dataset has no schema fields to display"
+                    title={t('columns.emptyTitle')}
+                    description={t('columns.emptyDescription')}
                 />
             </LargeModule>
         );
@@ -92,7 +96,7 @@ export default function ColumnsModule(props: ModuleProps) {
                 loading={loading}
                 dataTestId="columns-module"
                 onClickViewAll={navigateToSchemaTab}
-                viewAllText="View in Columns"
+                viewAllText={t('columns.viewAll')}
             >
                 <Wrapper>
                     <SchemaTable
@@ -106,7 +110,7 @@ export default function ColumnsModule(props: ModuleProps) {
                         setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                         openTimelineDrawer={false}
                         refetch={refetch}
-                        visibleColumns={size === ModuleSize.FULL ? undefined : ['fieldPath', 'type', 'description']}
+                        visibleColumns={size === ModuleSize.FULL ? undefined : SCHEMA_TABLE_FIELDS}
                     />
                 </Wrapper>
             </LargeModule>

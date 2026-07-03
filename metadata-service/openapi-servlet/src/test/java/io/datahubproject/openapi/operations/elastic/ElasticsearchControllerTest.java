@@ -147,7 +147,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     when(taskResponse.isCompleted()).thenReturn(false);
 
     when(mockSystemMetadataService.getTaskStatus(
-            eq(TEST_NODE_ID), eq(Long.parseLong(TEST_TASK_ID))))
+            any(OperationContext.class), eq(TEST_NODE_ID), eq(Long.parseLong(TEST_TASK_ID))))
         .thenReturn(Optional.of(taskResponse));
 
     // Test the endpoint

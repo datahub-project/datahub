@@ -25,11 +25,15 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_azure_ad,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -233,14 +237,6 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.report.report_failure("get_token", error_str)
             click.echo("Error: Token response invalid")
             exit()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -561,6 +557,8 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
             corp_user_info = self._map_azure_ad_user_to_corp_user(user)
             corp_user_snapshot.aspects.append(corp_user_info)
+            user_status = derive_corp_user_status_from_azure_ad(user)
+            corp_user_snapshot.aspects.append(make_corp_user_status_aspect(user_status))
             yield corp_user_snapshot
 
     def _map_azure_ad_user_to_user_name(self, azure_ad_user):
@@ -583,8 +581,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             + " "
             + str(azure_ad_user.get("surname", ""))
         )
+        user_status = derive_corp_user_status_from_azure_ad(azure_ad_user)
         return CorpUserInfoClass(
-            active=True,
+            active=corp_user_info_active_from_status(user_status),
             displayName=azure_ad_user.get("displayName", full_name),
             firstName=azure_ad_user.get("givenName", None),
             lastName=azure_ad_user.get("surname", None),

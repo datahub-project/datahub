@@ -4,7 +4,8 @@ import { SearchV2Helper } from "./helpers/searchV2Helper";
 const SAMPLE_ENTITY_URN =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 
-describe("searchBarV2 - Matched Fields", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("searchBarV2 - Matched Fields", () => {
   const helper = new SearchV2Helper();
 
   const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {

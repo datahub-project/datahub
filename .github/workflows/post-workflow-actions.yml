@@ -10,33 +10,34 @@ on:
   workflow_run:
     workflows:
       - "AI Smoke Tests (Local Embeddings)"
-      - "DataHub Actions"
-      - "DataHub Agent Context"
       - "Airflow Plugin"
       - "build & test"
       - "Check Datahub Jars"
       - "check python dependencies"
       - "Dagster Plugin"
+      - "DataHub Actions"
+      - "DataHub Agent Context"
       - "Docker Build, Scan, Test"
-      - "ingestion smoke"
       - "documentation"
+      - "Frontend Preview"
       - "GX Plugin"
+      - "ingestion smoke"
       - "lint"
       - "Metadata Ingestion"
-      - "metadata-io"
       - "metadata model generate"
       - "Metadata Models Custom CI"
-      - "Prefect Plugin"
+      - "metadata-io"
+      - "Nightly Docker Test"
       - "PR Title Check"
+      - "Prefect Plugin"
       - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
       - "Python Build"
+      - "Python Tests for github scripts"
       - "Quickstart Test"
-      - "Frontend Preview"
-      - "spark smoke test"
-      - "Verify Quickstart Compose"
-      - "Nightly Docker Test"
       - "Release Tests"
       - "Release Validation"
+      - "spark smoke test"
+      - "Verify Quickstart Compose"
       - "ZDU E2E (daily)"
     types:
       - completed
@@ -72,16 +73,14 @@ permissions:
 
 jobs:
   collect-metrics:
-    # For workflow_run: only collect metrics for PRs and pushes to the default/release/hotfix
-    # branches — skip feature branches, dependabot bumps, etc.
-    # workflow_dispatch is always allowed for ad-hoc testing.
+    # For push events: only collect metrics for default/release/hotfix branches.
+    # All other event types (pull_request, schedule, release, etc.) and workflow_dispatch pass through.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.event == 'pull_request' ||
-      (github.event.workflow_run.event == 'push' &&
-        (github.event.workflow_run.head_branch == github.event.repository.default_branch ||
-         startsWith(github.event.workflow_run.head_branch, 'release/') ||
-         startsWith(github.event.workflow_run.head_branch, 'hotfix/')))
+      github.event.workflow_run.event != 'push' ||
+      github.event.workflow_run.head_branch == github.event.repository.default_branch ||
+      startsWith(github.event.workflow_run.head_branch, 'releases/') ||
+      startsWith(github.event.workflow_run.head_branch, 'hotfixes/')
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository

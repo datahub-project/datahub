@@ -149,24 +149,30 @@ def test_get_spaces_with_space_deny(
         assert "DOCS" in spaces
 
 
-def test_is_page_allowed_with_page_allow(
+def test_page_allow_is_seed_not_emission_filter(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    """Test page_allow filtering."""
+    """pages.allow seeds the crawl; it must not gate emission.
+
+    A recursively-discovered child page whose ID is not literally in
+    pages.allow must still be emitted (not denied), otherwise recursive
+    ingestion would only ever yield the root/seed pages.
+    """
     cloud_config._parsed_page_allow = ["123456", "789012"]
 
     with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
 
-        # Pages in allow list should be allowed
-        assert source._is_page_allowed("123456") is True
-        assert source._is_page_allowed("789012") is True
+        # Seed pages are not denied.
+        assert source._is_page_denied("123456") is False
+        assert source._is_page_denied("789012") is False
 
-        # Pages not in allow list should be denied
-        assert source._is_page_allowed("999999") is False
+        # A child page discovered via recursion (not in pages.allow) is also
+        # not denied - this is the regression the fix addresses.
+        assert source._is_page_denied("999999") is False
 
 
-def test_is_page_allowed_with_page_deny(
+def test_is_page_denied_with_page_deny(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test page_deny filtering."""
@@ -176,11 +182,11 @@ def test_is_page_allowed_with_page_deny(
         source = ConfluenceSource(cloud_config, pipeline_context)
 
         # Pages in deny list should be denied
-        assert source._is_page_allowed("999999") is False
-        assert source._is_page_allowed("888888") is False
+        assert source._is_page_denied("999999") is True
+        assert source._is_page_denied("888888") is True
 
-        # Pages not in deny list should be allowed
-        assert source._is_page_allowed("123456") is True
+        # Pages not in deny list should not be denied
+        assert source._is_page_denied("123456") is False
 
 
 def test_build_page_urn(
@@ -438,8 +444,8 @@ def test_cycle_detection_prevents_infinite_loop(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
-        mock_client.get_page_by_id.side_effect = (
-            lambda page_id, expand=None: mock_pages.get(page_id)
+        mock_client.get_page_by_id.side_effect = lambda page_id, expand=None: (
+            mock_pages.get(page_id)
         )
         mock_client.get_child_pages.side_effect = lambda page_id: iter(
             mock_children.get(page_id, [])
@@ -1112,3 +1118,190 @@ def test_content_hash_in_custom_properties(
         )
     ).hexdigest()
     assert different_hash != expected_hash
+
+
+def _build_source(
+    config: ConfluenceSourceConfig, ctx: PipelineContext
+) -> ConfluenceSource:
+    """Instantiate a ConfluenceSource with the network client patched out."""
+    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+        return ConfluenceSource(config, ctx)
+
+
+def test_folder_entity_emits_folder_subtype_document(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """A folder ancestor is emitted as a Folder-subtyped document with no text."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.ingestion.source.confluence.confluence_source import FOLDER_SUBTYPE
+    from datahub.metadata.schema_classes import (
+        DocumentInfoClass,
+        SubTypesClass,
+    )
+
+    source = _build_source(cloud_config, pipeline_context)
+    folder = FolderNode(
+        id="900",
+        title="Engineering",
+        parent_id=None,
+        space_name="Team Space",
+        space_key="TEAM",
+    )
+
+    workunits = list(source._create_folder_entity(folder, ingested_page_ids={"900"}))
+
+    assert source.report.folders_ingested == 1
+    assert workunits, "Folder should produce at least one workunit"
+
+    subtype = None
+    doc_info = None
+    for wu in workunits:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            if isinstance(wu.metadata.aspect, SubTypesClass):
+                subtype = wu.metadata.aspect
+            elif isinstance(wu.metadata.aspect, DocumentInfoClass):
+                doc_info = wu.metadata.aspect
+
+    assert subtype is not None and FOLDER_SUBTYPE in subtype.typeNames
+    assert doc_info is not None
+    assert doc_info.title == "Engineering"
+    # Folders carry no content but keep their Confluence id for traceability.
+    assert doc_info.customProperties.get("folder_id") == "900"
+    assert doc_info.customProperties.get("space_key") == "TEAM"
+
+
+def test_folder_entity_links_to_ingested_parent(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """When a folder's parent is also ingested, the folder links to it."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = _build_source(cloud_config, pipeline_context)
+    instance_id = source._get_instance_id()
+    folder = FolderNode(
+        id="900",
+        title="Sub Folder",
+        parent_id="100",
+        space_name="Team Space",
+        space_key="TEAM",
+    )
+
+    workunits = list(
+        source._create_folder_entity(folder, ingested_page_ids={"100", "900"})
+    )
+
+    parent = None
+    for wu in workunits:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, DocumentInfoClass
+        ):
+            parent = wu.metadata.aspect.parentDocument
+    assert parent is not None
+    assert parent.document == f"urn:li:document:confluence-{instance_id}-100"
+
+
+def test_folder_entity_omits_parent_when_not_ingested(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """A folder whose parent is outside the ingestion scope is a root document."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = _build_source(cloud_config, pipeline_context)
+    folder = FolderNode(
+        id="900",
+        title="Orphan Folder",
+        parent_id="100",  # parent not in ingested_page_ids
+        space_name="Team Space",
+        space_key="TEAM",
+    )
+
+    workunits = list(source._create_folder_entity(folder, ingested_page_ids={"900"}))
+
+    for wu in workunits:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, DocumentInfoClass
+        ):
+            assert wu.metadata.aspect.parentDocument is None
+
+
+def test_connection_reports_inaccessible_configured_space() -> None:
+    """Configured spaces that can't be reached surface as a failed capability."""
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "spaces": {"allow": ["SECRET"]},
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_client = MagicMock()
+        mock_client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
+        mock_client.get_space.side_effect = Exception("403 Forbidden")
+        mock_confluence.return_value = mock_client
+
+        report = ConfluenceSource.test_connection(config_dict)
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
+    assert report.capability_report is not None
+    access = report.capability_report["Space/Page Access"]
+    assert access.capable is False
+    assert "SECRET" in (access.failure_reason or "")
+
+
+def test_connection_validates_accessible_configured_space() -> None:
+    """When configured spaces are reachable, access is reported as capable."""
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "spaces": {"allow": ["TEAM"]},
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_client = MagicMock()
+        mock_client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
+        mock_client.get_space.return_value = {"key": "TEAM", "name": "Team Space"}
+        mock_client.get_all_pages_from_space.return_value = [{"id": "1"}, {"id": "2"}]
+        mock_confluence.return_value = mock_client
+
+        report = ConfluenceSource.test_connection(config_dict)
+
+    assert report.capability_report is not None
+    assert report.capability_report["Space/Page Access"].capable is True
+
+
+def test_connection_auto_discovery_reports_no_spaces() -> None:
+    """Auto-discovery surfaces a clear capability failure when no spaces exist."""
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_client = MagicMock()
+        # First call (basic connectivity) succeeds; the discovery call returns empty.
+        mock_client.get_all_spaces.side_effect = [
+            {"results": [{"key": "TEAM"}]},
+            {},
+        ]
+        mock_confluence.return_value = mock_client
+
+        report = ConfluenceSource.test_connection(config_dict)
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
+    assert report.capability_report is not None
+    assert report.capability_report["Auto-Discovery"].capable is False

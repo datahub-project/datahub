@@ -16,8 +16,44 @@ public class DataProductResolverUtils {
   }
 
   /**
+   * Verifies that all resources exist.
+   *
+   * @param resources list of resource URN strings to verify
+   * @param context the GraphQL query context
+   * @param dataProductService service to check entity existence
+   * @throws RuntimeException if any resource does not exist
+   */
+  public static void verifyResourcesExist(
+      @Nonnull final List<String> resources,
+      @Nonnull final QueryContext context,
+      @Nonnull final DataProductService dataProductService) {
+    for (String resource : resources) {
+      final Urn resourceUrn = UrnUtils.getUrn(resource);
+      if (!dataProductService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+        throw new RuntimeException(
+            String.format("Failed to update data products, resource %s does not exist", resource));
+      }
+    }
+  }
+
+  /**
+   * Verifies that a data product exists and the actor may change membership from the product side.
+   */
+  public static void verifyProductSideMembershipChange(
+      @Nonnull final String dataProductUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final DataProductService dataProductService) {
+    verifyDataProduct(dataProductUrn, context, dataProductService);
+    if (!DataProductAuthorizationUtils.isAuthorizedToChangeMembershipFromProductSide(
+        context, dataProductService, UrnUtils.getUrn(dataProductUrn))) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+  }
+
+  /**
    * Verifies that all resources exist and that the user has permission to update data products for
-   * them.
+   * them (asset-side {@code EDIT_ENTITY_DATA_PRODUCTS}).
    *
    * @param resources list of resource URN strings to verify
    * @param context the GraphQL query context
