@@ -37,6 +37,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.common",
+      "com.linkedin.gms.factory.usage",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.messaging",
