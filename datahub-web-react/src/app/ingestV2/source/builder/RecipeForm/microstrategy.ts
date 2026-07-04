@@ -290,6 +290,17 @@ export const MICROSTRATEGY_EXTRACT_REPORTS: RecipeField = {
     rules: null,
 };
 
+export const MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS: RecipeField = {
+    name: 'extract_independent_reports',
+    label: 'Extract Independent Reports',
+    helper: 'Include reports not used by any ingested dashboard',
+    tooltip:
+        'Whether to extract reports not referenced by any ingested dashboard. By default only dashboard-linked reports are ingested, so scoping dashboards also scopes reports.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_independent_reports',
+    rules: null,
+};
+
 const extractLineageFieldPath = 'source.config.extract_lineage';
 export const MICROSTRATEGY_EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage',

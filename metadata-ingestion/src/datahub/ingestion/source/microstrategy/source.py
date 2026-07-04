@@ -157,6 +157,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # first allowed dashboard/report needs them, so projects whose content
         # is entirely pattern-filtered don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
+        # Report ids referenced by allowed dashboards, collected during the
+        # dashboard pass so the report pass can scope to them.
+        linked_report_ids: Set[str] = set()
         yield from self.mapper.gen_project_container(
             project,
             source_warehouses=source_warehouses,
@@ -165,11 +168,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project_dashboards(
                 project.id,
                 lineage_context,
+                linked_report_ids,
             )
         if self.config.extract_reports:
             yield from self._process_project_reports(
                 project.id,
                 lineage_context,
+                linked_report_ids,
             )
 
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:
@@ -264,6 +269,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for dashboard_object in self.client.search_dashboards(project_id):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
@@ -274,6 +280,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dashboard_object,
                     lineage_context,
+                    linked_report_ids,
                 )
             except Exception as error:
                 self.report.warning(
@@ -295,6 +302,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dashboard_object: MSTRObject,
         lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.mapper.gen_folder_containers(project_id, dashboard_object)
         parent_key = self.mapper.folder_container_for_dashboard(
@@ -319,6 +327,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+        if linked_report_ids is not None:
+            linked_report_ids.update(
+                dependency.id.upper()
+                for dependency in dashboard.dependencies
+                if _is_report_dependency(dependency)
+            )
         extra_chart_urns = self._dashboard_report_chart_urns(project_id, dashboard)
         yield from self._process_dashboard(
             project_id,
@@ -332,10 +346,26 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        # Scope reports to those referenced by ingested dashboards when the
+        # linkage data exists; without dashboards or dependency extraction
+        # there is nothing to scope by, so all matching reports are ingested.
+        scope_to_dashboards = (
+            not self.config.extract_independent_reports
+            and self.config.extract_dashboards
+            and self.config.extract_dashboard_dependencies
+            and linked_report_ids is not None
+        )
         for report_object in self.client.search_reports(project_id):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
+                continue
+            if scope_to_dashboards and (
+                linked_report_ids is None
+                or report_object.id.upper() not in linked_report_ids
+            ):
+                self.report.report_report_not_dashboard_linked()
                 continue
             try:
                 yield from self._process_report_object(

@@ -426,6 +426,84 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     assert len(source.report.warnings) == 1
 
 
+def _report_scope_source(extra_config: dict | None = None) -> MicroStrategySource:
+    config = {
+        "extract_reports": True,
+        "extract_report_definitions": False,
+        "extract_metric_expressions": False,
+    }
+    config.update(extra_config or {})
+    return _source(config)
+
+
+class _ReportSearchClient:
+    def search_reports(self, project_id: str) -> Iterator[MSTRObject]:
+        return iter(
+            [
+                MSTRObject.model_validate(
+                    {"id": "REPORT-1", "name": "Linked Report", "type": "3"}
+                ),
+                MSTRObject.model_validate(
+                    {"id": "REPORT-2", "name": "Unlinked Report", "type": "3"}
+                ),
+            ]
+        )
+
+
+def test_reports_scoped_to_dashboard_linked_by_default() -> None:
+    source = _report_scope_source()
+    source.client = _ReportSearchClient()  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1",
+            _LazyProjectLineage(source, "project-1", []),
+            {"REPORT-1"},
+        )
+    )
+    urns = {workunit.get_urn() for workunit in workunits}
+
+    assert source.mapper.report_urn("project-1", "REPORT-1") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-2") not in urns
+    assert source.report.reports_skipped_not_dashboard_linked == 1
+
+
+def test_reports_not_scoped_when_independent_reports_enabled() -> None:
+    source = _report_scope_source({"extract_independent_reports": True})
+    source.client = _ReportSearchClient()  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1",
+            _LazyProjectLineage(source, "project-1", []),
+            {"REPORT-1"},
+        )
+    )
+    urns = {workunit.get_urn() for workunit in workunits}
+
+    assert source.mapper.report_urn("project-1", "REPORT-1") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-2") in urns
+    assert source.report.reports_skipped_not_dashboard_linked == 0
+
+
+def test_reports_not_scoped_without_dashboard_extraction() -> None:
+    # Reports-only recipes have no dashboard linkage to scope by.
+    source = _report_scope_source({"extract_dashboards": False})
+    source.client = _ReportSearchClient()  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1",
+            _LazyProjectLineage(source, "project-1", []),
+            set(),
+        )
+    )
+    urns = {workunit.get_urn() for workunit in workunits}
+
+    assert source.mapper.report_urn("project-1", "REPORT-1") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-2") in urns
+
+
 def test_resolve_visualization_bindings_uses_dataset_scoped_derived_objects() -> None:
     source = _source()
     derived_id = "A" * 32

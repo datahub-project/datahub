@@ -128,6 +128,17 @@ class MicroStrategyConfig(
             "attribute details when `extract_reports` is enabled."
         ),
     )
+    extract_independent_reports: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract reports not referenced by any ingested "
+            "dashboard. By default only dashboard-linked reports are ingested "
+            "(`report_pattern` still applies), so scoping dashboards also "
+            "scopes reports. The linkage comes from "
+            "`extract_dashboard_dependencies`; when dashboards or dependencies "
+            "are not extracted, all matching reports are ingested."
+        ),
+    )
     extract_cubes: bool = Field(
         default=True,
         description="Whether to extract embedded dashboard datasets as DataHub datasets.",
