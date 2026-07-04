@@ -156,14 +156,14 @@ def test_datasource_connection_parses_jdbc_url_query_params() -> None:
             "connectionString": (
                 ";JDBC;DRIVER={net.snowflake.client.jdbc.SnowflakeDriver};"
                 "URL={jdbc:snowflake://acme.us-east-1.snowflakecomputing.com/"
-                "?AUTHENTICATOR=SNOWFLAKE_JWT&warehouse=REP_WH&db=P_MER_EDW_DB"
-                "&schema=XRBIA_DM&role=RPT_ROLE};MSTR_AUTH=standard;"
+                "?AUTHENTICATOR=SNOWFLAKE_JWT&warehouse=REPORT_WH&db=MY_EDW_DB"
+                "&schema=SALES_DM&role=READER_ROLE};MSTR_AUTH=standard;"
             ),
         }
     )
 
-    assert connection.database_name == "P_MER_EDW_DB"
-    assert connection.schema_name == "XRBIA_DM"
+    assert connection.database_name == "MY_EDW_DB"
+    assert connection.schema_name == "SALES_DM"
     assert "connectionString" not in connection.model_dump()
 
 

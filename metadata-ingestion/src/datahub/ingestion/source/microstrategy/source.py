@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from pydantic import ValidationError
 
@@ -30,6 +30,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPE_REPORT,
+    USAGE_TARGET_CHART,
+    USAGE_TARGET_DASHBOARD,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
@@ -59,6 +61,10 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.usage import (
+    MicroStrategyUsageExtractor,
+    UsageBucket,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -87,6 +93,11 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Dashboard and report usage from the Platform Analytics cube when "
+    "`extract_usage_statistics` is enabled",
+)
 class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     config: MicroStrategyConfig
     report: MicroStrategyReport
@@ -101,6 +112,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.lineage = self.mapper.lineage
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
+        # Object GUID (upper) -> (usage target kind, entity urn) for entities
+        # ingested this run; usage buckets only attach to these.
+        self._usage_targets: Dict[str, Tuple[str, str]] = {}
 
     @classmethod
     def create(
@@ -133,6 +147,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
+        auth_lost = False
         try:
             projects = self.client.list_projects()
             for index, project in enumerate(projects, start=1):
@@ -165,6 +180,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         context=f"project_id={project.id}, project_name={project.name}",
                         exc=error,
                     )
+                    auth_lost = True
                     break
                 except Exception as error:
                     self.report.failure(
@@ -176,8 +192,74 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                         context=f"project_id={project.id}, project_name={project.name}",
                         exc=error,
                     )
+            if self.config.extract_usage_statistics and not auth_lost:
+                yield from self._process_usage_statistics(projects)
         finally:
             self.client.close()
+
+    def _process_usage_statistics(
+        self,
+        projects: List[Project],
+    ) -> Iterable[MetadataWorkUnit]:
+        # The Platform Analytics project is matched against the full project
+        # list, not the pattern-filtered one: telemetry lives in its own
+        # project that recipes typically do not allow-list for ingestion.
+        extractor = MicroStrategyUsageExtractor(self.client, self.config, self.report)
+        pa_project = extractor.find_platform_analytics_project(projects)
+        if pa_project is None:
+            self.report.warning(
+                title="Platform Analytics Project Not Found",
+                message=(
+                    "Skipping usage statistics because the Platform Analytics "
+                    "project was not found or is not visible to the principal."
+                ),
+                context=(
+                    "platform_analytics_project_name="
+                    f"{self.config.platform_analytics_project_name!r}"
+                ),
+            )
+            return
+        try:
+            buckets = extractor.fetch_usage_buckets(pa_project.id)
+        except Exception as error:
+            # Usage is supplementary: a warning (not a failure) so a broken
+            # telemetry cube never blocks stale-entity cleanup of the
+            # successfully ingested entities.
+            self.report.warning(
+                title="Failed to Extract Usage Statistics",
+                message="Skipping usage statistics after an unexpected error.",
+                context=f"project_id={pa_project.id}",
+                exc=error,
+            )
+            return
+        yield from self._usage_bucket_workunits(buckets)
+
+    def _usage_bucket_workunits(
+        self,
+        buckets: List[UsageBucket],
+    ) -> Iterable[MetadataWorkUnit]:
+        for bucket in buckets:
+            target = self._usage_targets.get(bucket.object_guid)
+            if target is None:
+                # Telemetry covers every object in the environment; rows for
+                # objects outside this run's scope are expected.
+                self.report.report_usage_object_unmatched()
+                continue
+            entity_kind, entity_urn = target
+            yield from self.mapper.gen_usage_workunits(
+                entity_kind,
+                entity_urn,
+                bucket,
+            )
+
+    def _register_usage_target(
+        self,
+        object_id: str,
+        entity_kind: str,
+        entity_urn: str,
+    ) -> None:
+        if self.config.extract_usage_statistics:
+            self._usage_targets[object_id.strip().upper()] = (entity_kind, entity_urn)
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         source_warehouses = self._get_project_source_warehouses(project.id)
@@ -371,6 +453,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if _is_report_dependency(dependency)
             )
         extra_chart_urns = self._dashboard_report_chart_urns(project_id, dashboard)
+        self._register_usage_target(
+            dashboard_object.id,
+            USAGE_TARGET_DASHBOARD,
+            self.mapper.dashboard_urn(project_id, dashboard_object.id),
+        )
         yield from self._process_dashboard(
             project_id,
             dashboard_object,
@@ -466,6 +553,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report_object.name,
             report_object.id,
             project_id,
+        )
+        self._register_usage_target(
+            report_object.id,
+            USAGE_TARGET_CHART,
+            self.mapper.report_urn(project_id, report_object.id),
         )
         try:
             yield from self._process_report_object(

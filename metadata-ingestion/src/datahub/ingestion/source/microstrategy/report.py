@@ -33,6 +33,10 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     chart_lineage_edges: int = 0
     dashboard_dataset_edges: int = 0
     sessions_reauthenticated: int = 0
+    usage_rows_scanned: int = 0
+    usage_buckets_emitted: int = 0
+    usage_objects_unmatched: int = 0
+    usage_dates_unparsed: int = 0
     unresolved_visualizations: int = 0
     visualizations_suppressed_ambiguous: int = 0
     visualizations_bound_by_derived_objects: int = 0
@@ -130,6 +134,18 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_session_reauthenticated(self) -> None:
         self.sessions_reauthenticated += 1
+
+    def report_usage_rows_scanned(self, count: int) -> None:
+        self.usage_rows_scanned += count
+
+    def report_usage_bucket_emitted(self) -> None:
+        self.usage_buckets_emitted += 1
+
+    def report_usage_object_unmatched(self) -> None:
+        self.usage_objects_unmatched += 1
+
+    def report_usage_date_unparsed(self) -> None:
+        self.usage_dates_unparsed += 1
 
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
         self.warehouse_upstreams_pruned_by_field_evidence += count

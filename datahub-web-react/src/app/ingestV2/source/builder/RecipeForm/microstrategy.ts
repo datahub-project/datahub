@@ -301,6 +301,17 @@ export const MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS: RecipeField = {
     rules: null,
 };
 
+export const MICROSTRATEGY_EXTRACT_USAGE_STATISTICS: RecipeField = {
+    name: 'extract_usage_statistics',
+    label: 'Extract Usage Statistics',
+    helper: 'Dashboard and report usage from Platform Analytics',
+    tooltip:
+        'Whether to extract dashboard and report usage statistics (view counts, unique users) by querying the MicroStrategy Platform Analytics telemetry cube. Requires the Platform Analytics project to be enabled and readable by the ingestion user.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_usage_statistics',
+    rules: null,
+};
+
 const extractLineageFieldPath = 'source.config.extract_lineage';
 export const MICROSTRATEGY_EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage',

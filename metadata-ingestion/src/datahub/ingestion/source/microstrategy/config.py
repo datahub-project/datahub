@@ -241,6 +241,53 @@ class MicroStrategyConfig(
             "because BI dashboards with many datasets make lineage views noisy."
         ),
     )
+    extract_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract dashboard and report usage statistics (view "
+            "counts, unique users, per-user counts) by querying the MicroStrategy "
+            "Platform Analytics telemetry cube. Requires the Platform Analytics "
+            "project to be enabled on the environment (standard on MicroStrategy "
+            "Cloud) and readable by the ingestion principal. Disabled by default."
+        ),
+    )
+    usage_lookback_days: int = Field(
+        default=14,
+        gt=0,
+        le=365,
+        description=(
+            "How many days of usage history to request from the Platform "
+            "Analytics cube. The shipped aggregate cube typically retains a "
+            "14-day rolling window, so larger values only help when the "
+            "environment retains more history."
+        ),
+    )
+    platform_analytics_project_name: str = Field(
+        default="Platform Analytics",
+        description=(
+            "Name of the MicroStrategy project that hosts Platform Analytics "
+            "telemetry. Only change this if the environment renamed the "
+            "standard project."
+        ),
+    )
+    usage_cube_name: str = Field(
+        default="Platform Analytics (Agg)",
+        description=(
+            "Name of the Platform Analytics cube to query for usage. The "
+            "default is the aggregate telemetry cube shipped with Platform "
+            "Analytics; a custom cube works as long as it exposes Date, "
+            "Project, Object, and User attributes and an executions metric."
+        ),
+    )
+    usage_query_timeout_seconds: int = Field(
+        default=180,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for Platform Analytics cube query calls. "
+            "Cube execution is server-side work and can be slower than "
+            "metadata definition APIs."
+        ),
+    )
     tag_measures_and_dimensions: bool = Field(
         default=True,
         description=(

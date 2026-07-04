@@ -706,7 +706,7 @@ def test_dataset_upstreams_restricted_to_field_lineage_tables_when_available() -
     # SQL view referenced all three, but only the fact table contributes fields.
     dataset.warehouse_upstream_urns = [fact_table, dim_table, calendar_table]
     dataset.field_warehouse_upstreams = {
-        "Revenue": [f"urn:li:schemaField:({fact_table},net_sls_amt)"],
+        "Revenue": [f"urn:li:schemaField:({fact_table},net_sales_amt)"],
     }
 
     workunits = list(

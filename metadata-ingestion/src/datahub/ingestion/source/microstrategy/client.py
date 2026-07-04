@@ -490,10 +490,70 @@ class MicroStrategyClient:
             project_id=project_id,
         )
 
+    def get_cube_definition(self, project_id: str, cube_id: str) -> Dict[str, Any]:
+        """Raw cube definition JSON with availableObjects (attributes with
+        forms, metrics); the usage extractor resolves objects by name from it."""
+        return self._get_json(
+            f"/api/v2/cubes/{cube_id}",
+            project_id=project_id,
+        )
+
+    def execute_cube_query(
+        self,
+        project_id: str,
+        cube_id: str,
+        body: Dict[str, Any],
+        limit: int,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Execute a cube query (requestedObjects + viewFilter) and return the
+        first page of grid data."""
+        return self._get_json(
+            f"/api/v2/cubes/{cube_id}/instances",
+            project_id=project_id,
+            params={"limit": limit, "offset": offset},
+            method="POST",
+            json=body,
+            timeout_seconds=self.config.usage_query_timeout_seconds,
+            # Cube execution is server-side work; retrying a long timeout
+            # multiplies a slow query into silent minutes, so one attempt.
+            max_attempts=1,
+        )
+
+    def get_cube_instance_page(
+        self,
+        project_id: str,
+        cube_id: str,
+        instance_id: str,
+        limit: int,
+        offset: int,
+    ) -> Dict[str, Any]:
+        """Fetch a subsequent page of a previously executed cube query."""
+        return self._get_json(
+            f"/api/v2/cubes/{cube_id}/instances/{instance_id}",
+            project_id=project_id,
+            params={"limit": limit, "offset": offset},
+            timeout_seconds=self.config.usage_query_timeout_seconds,
+        )
+
+    def search_objects_by_name(
+        self,
+        project_id: str,
+        object_type: int,
+        name: str,
+    ) -> Iterable[Dict[str, Any]]:
+        """Quick search filtered by object type and name pattern."""
+        yield from self._metadata_search(
+            project_id=project_id,
+            type_filter=str(object_type),
+            name=name,
+        )
+
     def _metadata_search(
         self,
         project_id: str,
         type_filter: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
@@ -507,6 +567,8 @@ class MicroStrategyClient:
             }
             if type_filter:
                 payload["type"] = type_filter
+            if name:
+                payload["name"] = name
 
             result = self._get_json(
                 MSTR_API_SEARCHES,
