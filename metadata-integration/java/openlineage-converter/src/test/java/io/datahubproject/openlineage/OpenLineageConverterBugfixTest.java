@@ -289,6 +289,34 @@ public class OpenLineageConverterBugfixTest {
   }
 
   @Test
+  public void documentationJobFacetLandsOnDataJobNotDataFlow() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.DocumentationJobFacet doc =
+        ol.newDocumentationJobFacetBuilder().description("my job docs").build();
+    OpenLineage.RunEvent event =
+        ol.newRunEventBuilder()
+            .eventTime(ZonedDateTime.now())
+            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+            .run(ol.newRunBuilder().runId(UUID.randomUUID()).build())
+            .job(
+                ol.newJobBuilder()
+                    .namespace("ns")
+                    .name("job")
+                    .facets(ol.newJobFacetsBuilder().documentation(doc).build())
+                    .build())
+            .inputs(Collections.emptyList())
+            .outputs(Collections.emptyList())
+            .build();
+
+    DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config());
+    // DocumentationJobFacet is a job facet -> DataJob description only.
+    assertEquals(job.getJobInfo().getDescription(), "my job docs");
+    assertTrue(
+        job.getDataFlowInfo().getDescription() == null,
+        "DataFlow must not carry the job's DocumentationJobFacet description");
+  }
+
+  @Test
   public void completeEventStillEmitsSuccessRunEvent() throws Exception {
     OpenLineage ol = new OpenLineage(PRODUCER);
     OpenLineage.RunEvent event =
