@@ -65,6 +65,26 @@ public class OpenLineageConverterBugfixTest {
   }
 
   @Test
+  public void schemaTypeMappingCoversCommonSqlTypes() {
+    // synonyms + parameterized suffixes resolve instead of falling to NullType
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("varchar").isStringType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("varchar(255)").isStringType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("integer").isNumberType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("bigint").isNumberType());
+    assertTrue(
+        OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("decimal(10,2)").isNumberType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("boolean").isBooleanType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("date").isDateType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("binary").isBytesType());
+    assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("array<string>").isArrayType());
+    assertTrue(
+        OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("map<string,long>").isMapType());
+    // genuinely unknown types still fall back to NullType
+    assertTrue(
+        OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("some_weird_type").isNullType());
+  }
+
+  @Test
   public void schemaMetadataIncludesNestedStructFields() {
     OpenLineage ol = new OpenLineage(PRODUCER);
     OpenLineage.SchemaDatasetFacetFields city =

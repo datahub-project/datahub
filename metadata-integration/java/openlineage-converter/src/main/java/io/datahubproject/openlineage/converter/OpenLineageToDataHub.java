@@ -43,6 +43,11 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
+import com.linkedin.schema.ArrayType;
+import com.linkedin.schema.BooleanType;
+import com.linkedin.schema.BytesType;
+import com.linkedin.schema.DateType;
+import com.linkedin.schema.EnumType;
 import com.linkedin.schema.MapType;
 import com.linkedin.schema.MySqlDDL;
 import com.linkedin.schema.NullType;
@@ -53,6 +58,7 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
+import com.linkedin.schema.UnionType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
@@ -1573,20 +1579,78 @@ public class OpenLineageToDataHub {
     if (openLineageFieldType == null) {
       return SchemaFieldDataType.Type.create(new NullType());
     }
-    // OpenLineage field types are free-form strings; producers vary in case (e.g. Spark emits
-    // lowercase, Trino/JDBC often uppercase). Normalize so "STRING"/"INT" resolve like
-    // "string"/"int"
-    // instead of silently falling through to NullType.
-    switch (openLineageFieldType.toLowerCase(Locale.ROOT)) {
+    // OpenLineage field types are free-form strings and vary by producer: case (Spark lowercase
+    // vs Trino/JDBC uppercase), synonyms (int/integer/bigint), and parameter/element suffixes
+    // (varchar(255), decimal(10,2), array<string>, struct<...>). Normalize to a lowercase base
+    // token so equivalent types resolve to the same DataHub type instead of falling to NullType.
+    String base = openLineageFieldType.trim().toLowerCase(Locale.ROOT);
+    int cut = base.length();
+    int paren = base.indexOf('(');
+    int angle = base.indexOf('<');
+    if (paren >= 0) {
+      cut = Math.min(cut, paren);
+    }
+    if (angle >= 0) {
+      cut = Math.min(cut, angle);
+    }
+    base = base.substring(0, cut).trim();
+    switch (base) {
       case "string":
+      case "varchar":
+      case "char":
+      case "nvarchar":
+      case "nchar":
+      case "character":
+      case "varying":
+      case "text":
+      case "uuid":
         return SchemaFieldDataType.Type.create(new StringType());
-      case "long":
       case "int":
+      case "integer":
+      case "long":
+      case "bigint":
+      case "smallint":
+      case "tinyint":
+      case "short":
+      case "byte":
+      case "double":
+      case "float":
+      case "decimal":
+      case "numeric":
+      case "number":
+      case "real":
+      case "money":
         return SchemaFieldDataType.Type.create(new NumberType());
+      case "boolean":
+      case "bool":
+        return SchemaFieldDataType.Type.create(new BooleanType());
+      case "date":
+        return SchemaFieldDataType.Type.create(new DateType());
       case "timestamp":
+      case "timestamp_ntz":
+      case "timestamp_tz":
+      case "timestamptz":
+      case "datetime":
+      case "time":
         return SchemaFieldDataType.Type.create(new TimeType());
-      case "struct":
+      case "binary":
+      case "varbinary":
+      case "bytes":
+      case "blob":
+        return SchemaFieldDataType.Type.create(new BytesType());
+      case "array":
+      case "list":
+        return SchemaFieldDataType.Type.create(new ArrayType());
+      case "map":
         return SchemaFieldDataType.Type.create(new MapType());
+      case "struct":
+      case "record":
+      case "row":
+        return SchemaFieldDataType.Type.create(new MapType());
+      case "union":
+        return SchemaFieldDataType.Type.create(new UnionType());
+      case "enum":
+        return SchemaFieldDataType.Type.create(new EnumType());
       default:
         return SchemaFieldDataType.Type.create(new NullType());
     }
