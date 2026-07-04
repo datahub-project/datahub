@@ -175,6 +175,21 @@ MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE = re.compile(
     re.IGNORECASE,
 )
 MSTR_CREATE_STATEMENT_RE = re.compile(r"^\s*create\b", re.IGNORECASE)
+# Captures the target name of a CREATE ... TABLE statement, tolerating any
+# modifiers between CREATE and TABLE (VOLATILE, MULTISET, SET, GLOBAL TEMPORARY,
+# TEMP, ...). Group 1 is the (optionally dotted/quoted) created table name; its
+# leaf identifies the intermediate temp table to collapse for SQL-view lineage.
+MSTR_CREATE_TABLE_NAME_RE = re.compile(
+    r"^\s*create\b[\s\S]*?\btable\s+(?:if\s+not\s+exists\s+)?([A-Za-z0-9_$#.\"]+)",
+    re.IGNORECASE,
+)
+# Matches a statement that returns rows (bare SELECT or a CTE-led SELECT). Only
+# these can define a SQL-view dataset's output columns.
+MSTR_SELECT_STATEMENT_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
+# Non-emitted sentinel output table. Wrapping a SQL view's final SELECT as
+# `CREATE TABLE <sentinel> AS <select>` gives the parser a concrete downstream,
+# so it surfaces the final projection's column lineage (temp tables collapsed).
+MSTR_SQL_VIEW_OUTPUT_SENTINEL = "__datahub_mstr_sql_view_output__"
 
 # Alphanumeric run used to tokenize object names for the lineage overlap
 # heuristic.
@@ -190,3 +205,95 @@ MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
 MSTR_WHITESPACE_RE = re.compile(r"\s+")
 # Collapses repeated dots when normalizing a qualified table name.
 MSTR_DOT_COLLAPSE_RE = re.compile(r"\.+")
+
+# Maps normalized MicroStrategy datasource/database type tokens (see
+# _normalize_source_type) to DataHub platform names. Keyed by the normalized
+# form so both "SQL Server" and "sql_server" resolve to "mssql".
+MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM = {
+    "athena": "athena",
+    "big_query": "bigquery",
+    "bigquery": "bigquery",
+    "db2": "db2",
+    "google_bigquery": "bigquery",
+    "microsoft_sql_server": "mssql",
+    "mysql": "mysql",
+    "oracle": "oracle",
+    "postgre_sql": "postgres",
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "red_shift": "redshift",
+    "redshift": "redshift",
+    "snow_flake": "snowflake",
+    "snowflake": "snowflake",
+    "sql_server": "mssql",
+    "sqlserver": "mssql",
+    "synapse": "mssql",
+    "teradata": "teradata",
+}
+
+# Number of parts a warehouse table's fully-qualified name carries on each
+# platform, so model-derived table urns match the native connector's. Most
+# warehouses use database.schema.table (3); MySQL/MariaDB use database.table (2)
+# because they have no schema layer. Platforms absent here default to 3.
+MSTR_PLATFORM_QUALIFIED_NAME_PARTS = {
+    "mysql": 2,
+    "mariadb": 2,
+}
+MSTR_DEFAULT_QUALIFIED_NAME_PARTS = 3
+
+# Keywords and function names excluded when extracting column identifiers from
+# model expression text (e.g. `SUM(QTY_SOLD * UNIT_PRICE)` must yield only the
+# column names, never the function tokens).
+MSTR_SQL_EXPRESSION_KEYWORDS = frozenset(
+    {
+        "abs",
+        "and",
+        "as",
+        "avg",
+        "between",
+        "case",
+        "cast",
+        "coalesce",
+        "count",
+        "cross",
+        "delete",
+        "distinct",
+        "else",
+        "end",
+        "first",
+        "full",
+        "group",
+        "having",
+        "if",
+        "in",
+        "inner",
+        "into",
+        "is",
+        "join",
+        "last",
+        "left",
+        "max",
+        "median",
+        "min",
+        "not",
+        "null",
+        "nullif",
+        "on",
+        "or",
+        "order",
+        "outer",
+        "right",
+        "round",
+        "select",
+        "set",
+        "stdev",
+        "sum",
+        "then",
+        "trunc",
+        "update",
+        "var",
+        "when",
+        "where",
+        "with",
+    }
+)

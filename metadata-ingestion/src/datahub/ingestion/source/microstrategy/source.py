@@ -1157,6 +1157,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             if upstream_urns:
                 dataset.warehouse_upstream_urns = upstream_urns
+            self._attach_sql_view_field_lineage(sql_statement, dataset, dataset_context)
+
+    def _attach_sql_view_field_lineage(
+        self,
+        sql_statement: str,
+        dataset: DatasetObject,
+        context: WarehouseLineageContext,
+    ) -> None:
+        # Callers are already gated by extract_report_sql_lineage /
+        # extract_warehouse_lineage; this adds column-level edges on top of the
+        # coarse table-level upstreams computed alongside it.
+        field_upstreams = self.lineage.warehouse_field_upstreams_from_sql(
+            sql_statement,
+            context,
+            self.mapper.dataset_field_paths(dataset),
+            graph=self.ctx.graph,
+        )
+        if field_upstreams:
+            dataset.field_warehouse_upstreams = field_upstreams
 
     def _enrich_report_sql_lineage(
         self,
@@ -1211,6 +1230,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if upstream_urns:
             dataset.warehouse_upstream_urns = upstream_urns
+        self._attach_sql_view_field_lineage(sql_statement, dataset, context)
 
     def _create_dashboard_instance(
         self,

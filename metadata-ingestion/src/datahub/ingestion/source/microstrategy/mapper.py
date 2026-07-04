@@ -154,10 +154,24 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         model_lineage_index: ModelLineageIndex,
     ) -> None:
-        dataset.field_warehouse_upstreams = self._model_field_upstreams(
+        # Union with any SQL-view-derived column lineage already attached: both
+        # describe warehouse upstreams for the same dataset field, so a field can
+        # legitimately carry edges from both the model and the report SQL.
+        merged = {
+            field_path: list(upstreams)
+            for field_path, upstreams in dataset.field_warehouse_upstreams.items()
+        }
+        for field_path, upstreams in self._model_field_upstreams(
             dataset,
             model_lineage_index,
-        )
+        ).items():
+            merged[field_path] = sorted(
+                set(merged.get(field_path, [])) | set(upstreams)
+            )
+        dataset.field_warehouse_upstreams = merged
+
+    def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
+        return [spec.field_path for spec in _iter_dataset_fields(dataset)]
 
     def gen_project_container(
         self,

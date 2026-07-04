@@ -782,3 +782,101 @@ def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
     assert index.attribute_field_urns("attr-1", "ID") == [
         f"urn:li:schemaField:({upstream_dataset_urn},order_date_id)"
     ]
+
+
+def test_qualify_table_name_two_part_platform_drops_schema() -> None:
+    # MySQL has no schema layer, so its native urn is database.table; the
+    # MicroStrategy schema/tablePrefix must not leak in as a third part.
+    assert (
+        qualify_table_name("orders", database="shop_db", schema="ignored", name_parts=2)
+        == "shop_db.orders"
+    )
+    assert (
+        qualify_table_name(
+            "shop_db.orders", database="shop_db", schema="ignored", name_parts=2
+        )
+        == "shop_db.orders"
+    )
+
+
+def test_model_lineage_uses_two_part_names_for_mysql() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="mysql",
+        env="PROD",
+        database="SHOP_DB",
+        schema="SHOP",
+    )
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {"tablePrefix": "SHOP.", "tableName": "fact_orders"},
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "net_sales_amt"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,"
+        "shop_db.fact_orders,PROD),net_sales_amt)"
+    ]
+
+
+def test_warehouse_field_upstreams_from_sql_through_temp_tables() -> None:
+    # Real MicroStrategy multi-pass SQL: base table -> volatile temp table ->
+    # final SELECT. Column lineage must flow through the temp table to the base
+    # columns, and output columns must match dataset fields case-insensitively.
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+    multipass_sql = (
+        "CREATE VOLATILE TABLE T0SP000 AS\n"
+        "select region_number as region, net_sales_amt as revenue "
+        "from SALES.fact_sales\n"
+        "\n"
+        "select region, revenue from T0SP000\n"
+    )
+
+    field_upstreams = extractor.warehouse_field_upstreams_from_sql(
+        multipass_sql,
+        context,
+        dataset_field_paths=["Region", "Revenue"],
+    )
+
+    base = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    )
+    assert field_upstreams == {
+        "Region": [f"urn:li:schemaField:({base},region_number)"],
+        "Revenue": [f"urn:li:schemaField:({base},net_sales_amt)"],
+    }
+
+
+def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
+    )
+
+    # A script whose final statement materializes a table (no trailing SELECT
+    # defining the dataset's columns) yields no field-level lineage.
+    assert (
+        extractor.warehouse_field_upstreams_from_sql(
+            "create table SALES.snapshot as select region from SALES.fact_sales",
+            context,
+            dataset_field_paths=["Region"],
+        )
+        == {}
+    )

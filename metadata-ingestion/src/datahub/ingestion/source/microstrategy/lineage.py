@@ -20,12 +20,19 @@ from datahub.ingestion.source.microstrategy.config import (
 )
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_CREATE_STATEMENT_RE,
+    MSTR_CREATE_TABLE_NAME_RE,
+    MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
     MSTR_HEX_OBJECT_ID_RE,
     MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
     MSTR_LINEAGE_STOP_WORDS,
     MSTR_NAME_TOKEN_RE,
     MSTR_NON_ALNUM_RE,
+    MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
+    MSTR_SELECT_STATEMENT_RE,
+    MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
+    MSTR_SQL_EXPRESSION_KEYWORDS,
     MSTR_SQL_IDENTIFIER_RE,
+    MSTR_SQL_VIEW_OUTPUT_SENTINEL,
     MSTR_WHITESPACE_RE,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -198,11 +205,14 @@ class MicroStrategyLineageExtractor:
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
         from datahub.sql_parsing.split_statements import split_statements
+        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
         from datahub.sql_parsing.sqlglot_lineage import (
             create_lineage_sql_parsed_result,
         )
 
-        dialect = _sqlglot_dialect(context.platform)
+        # Resolve the sqlglot dialect through DataHub's central platform->dialect
+        # map so tokenization matches what the parser itself uses.
+        dialect = get_dialect_str(context.platform)
         # MicroStrategy SQL views are multi-pass: statements (often CREATE VOLATILE/TEMP
         # TABLE ... AS select) concatenated without semicolons. Parse per statement and
         # subtract CREATE targets so volatile intermediates never appear as upstreams. Only
@@ -229,7 +239,6 @@ class MicroStrategyLineageExtractor:
                     platform_instance=context.platform_instance,
                     env=context.env,
                     graph=graph,
-                    override_dialect=dialect,
                     generate_column_lineage=False,
                 )
             except Exception as error:
@@ -275,6 +284,85 @@ class MicroStrategyLineageExtractor:
             statement.strip()[:200],
         )
         return True
+
+    def warehouse_field_upstreams_from_sql(
+        self,
+        sql: str,
+        context: WarehouseLineageContext,
+        dataset_field_paths: Iterable[str],
+        graph: Optional["DataHubGraph"] = None,
+    ) -> Dict[str, List[str]]:
+        """Column-level warehouse lineage from a SQL view's final projection.
+
+        MicroStrategy SQL views build intermediate (VOLATILE/temp) tables and end
+        in a SELECT. The dialect does not mark those tables as temporary, so we
+        pass an ``is_temp_table`` predicate (any table created within the script)
+        to the shared multi-statement parser, which resolves lineage through them
+        to the real base tables. The trailing SELECT is wrapped as a sentinel
+        CTAS so its projection becomes a concrete downstream we can read column
+        lineage from, then each output column is matched back to a dataset field
+        (case-insensitively; best effort).
+        """
+        field_path_by_name = {path.lower(): path for path in dataset_field_paths}
+        if not sql.strip() or not field_path_by_name:
+            return {}
+
+        from datahub.sql_parsing.split_statements import split_statements
+        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+        from datahub.sql_parsing.sqlglot_lineage import (
+            create_lineage_from_sql_statements,
+        )
+
+        dialect = get_dialect_str(context.platform)
+        statements = [
+            statement
+            for statement in split_statements(sql, dialect=dialect)
+            if statement.strip() and not _is_lineage_irrelevant_statement(statement)
+        ]
+        if not statements or not MSTR_SELECT_STATEMENT_RE.match(statements[-1]):
+            return {}
+
+        created_tables = _created_table_leaf_names(statements)
+        statements[-1] = (
+            f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{statements[-1]}"
+        )
+
+        try:
+            result = create_lineage_from_sql_statements(
+                queries=statements,
+                default_db=context.database,
+                default_schema=context.schema,
+                platform=context.platform,
+                platform_instance=context.platform_instance,
+                env=context.env,
+                graph=graph,
+                is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
+            )
+        except Exception as error:
+            self._record_statement_parse_failure(sql, context, error)
+            return {}
+        if result.debug_info.error is not None or not result.column_lineage:
+            return {}
+
+        field_upstreams: Dict[str, List[str]] = {}
+        for column_lineage in result.column_lineage:
+            field_path = field_path_by_name.get(
+                column_lineage.downstream.column.lower()
+            )
+            if field_path is None:
+                continue
+            # Temp tables have already been collapsed, so every remaining
+            # upstream is a real warehouse column.
+            upstream_urns = [
+                builder.make_schema_field_urn(upstream.table, upstream.column)
+                for upstream in column_lineage.upstreams
+            ]
+            if upstream_urns:
+                field_upstreams.setdefault(field_path, []).extend(upstream_urns)
+        return {
+            field_path: _dedupe_sorted(urns)
+            for field_path, urns in field_upstreams.items()
+        }
 
     def model_lineage_index_from_tables(
         self,
@@ -362,6 +450,7 @@ class MicroStrategyLineageExtractor:
             table_name,
             database=context.database,
             schema=context.schema,
+            name_parts=_platform_name_parts(context.platform),
         )
         return make_dataset_urn_with_platform_instance(
             platform=context.platform,
@@ -488,7 +577,7 @@ def datahub_platform_for_source_type(*values: Optional[str]) -> Optional[str]:
         normalized = _normalize_source_type(value)
         if not normalized:
             continue
-        platform = _MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM.get(normalized)
+        platform = MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM.get(normalized)
         if platform:
             return platform
     return None
@@ -616,8 +705,15 @@ def qualify_table_name(
     table_name: str,
     database: Optional[str] = None,
     schema: Optional[str] = None,
+    name_parts: int = MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
 ) -> str:
     parts = [part for part in table_name.split(".") if part]
+    if name_parts <= 2:
+        # 2-part platforms (e.g. MySQL) qualify as database.table; they have no
+        # schema layer, so the schema/tablePrefix is never part of the native urn.
+        if len(parts) == 1 and database:
+            return f"{database}.{parts[0]}"
+        return ".".join(parts)
     if len(parts) == 1:
         if database and schema:
             return f"{database}.{schema}.{parts[0]}"
@@ -667,8 +763,10 @@ def _normalize_source_type(value: Optional[str]) -> Optional[str]:
     return MSTR_NON_ALNUM_RE.sub("_", value.strip().lower()).strip("_")
 
 
-def _sqlglot_dialect(platform: str) -> Optional[str]:
-    return _DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT.get(platform)
+def _platform_name_parts(platform: str) -> int:
+    return MSTR_PLATFORM_QUALIFIED_NAME_PARTS.get(
+        platform, MSTR_DEFAULT_QUALIFIED_NAME_PARTS
+    )
 
 
 def _physical_table_name(
@@ -691,6 +789,7 @@ def _physical_table_name(
         or _clean_identifier_part(physical_table.get("namespace")),
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
+        name_parts=_platform_name_parts(context.platform),
     )
 
 
@@ -708,7 +807,7 @@ def extract_field_names_from_expression(expression: str) -> List[str]:
     identifiers = [
         identifier
         for identifier in MSTR_SQL_IDENTIFIER_RE.findall(expression)
-        if identifier.lower() not in _SQL_KEYWORDS
+        if identifier.lower() not in MSTR_SQL_EXPRESSION_KEYWORDS
     ]
     return _dedupe_sorted(identifiers)
 
@@ -865,92 +964,14 @@ def _dedupe_sorted(values: Iterable[str]) -> List[str]:
     return sorted(set(values))
 
 
-_MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM = {
-    "athena": "athena",
-    "big_query": "bigquery",
-    "bigquery": "bigquery",
-    "db2": "db2",
-    "google_bigquery": "bigquery",
-    "microsoft_sql_server": "mssql",
-    "mysql": "mysql",
-    "oracle": "oracle",
-    "postgre_sql": "postgres",
-    "postgres": "postgres",
-    "postgresql": "postgres",
-    "red_shift": "redshift",
-    "redshift": "redshift",
-    "snow_flake": "snowflake",
-    "snowflake": "snowflake",
-    "sql_server": "mssql",
-    "sqlserver": "mssql",
-    "synapse": "mssql",
-    "teradata": "teradata",
-}
+def _leaf_identifier(name: str) -> str:
+    return name.split(".")[-1].strip('"[]').lower()
 
-_DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT = {
-    "athena": "presto",
-    "bigquery": "bigquery",
-    "db2": "db2",
-    "mssql": "tsql",
-    "mysql": "mysql",
-    "oracle": "oracle",
-    "postgres": "postgres",
-    "redshift": "redshift",
-    "snowflake": "snowflake",
-    "teradata": "teradata",
-}
 
-# Keywords and function names excluded when extracting column identifiers from
-# model expression text (e.g. `SUM(QTY_SOLD * UNIT_PRICE)` must yield only the
-# column names, never the function tokens).
-_SQL_KEYWORDS = {
-    "abs",
-    "and",
-    "as",
-    "avg",
-    "between",
-    "case",
-    "cast",
-    "coalesce",
-    "count",
-    "cross",
-    "delete",
-    "distinct",
-    "else",
-    "end",
-    "first",
-    "full",
-    "group",
-    "having",
-    "if",
-    "in",
-    "inner",
-    "into",
-    "is",
-    "join",
-    "last",
-    "left",
-    "max",
-    "median",
-    "min",
-    "not",
-    "null",
-    "nullif",
-    "on",
-    "or",
-    "order",
-    "outer",
-    "right",
-    "round",
-    "select",
-    "set",
-    "stdev",
-    "sum",
-    "then",
-    "trunc",
-    "update",
-    "var",
-    "when",
-    "where",
-    "with",
-}
+def _created_table_leaf_names(statements: List[str]) -> Set[str]:
+    names: Set[str] = set()
+    for statement in statements:
+        match = MSTR_CREATE_TABLE_NAME_RE.match(statement)
+        if match:
+            names.add(_leaf_identifier(match.group(1)))
+    return names
