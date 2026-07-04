@@ -62,6 +62,7 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 
 logger = logging.getLogger(__name__)
 
@@ -133,12 +134,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
         try:
-            for project in self.client.list_projects():
+            projects = self.client.list_projects()
+            for index, project in enumerate(projects, start=1):
                 if not self.config.project_pattern.allowed(project.name):
                     self.report.filtered_projects.append(project.name)
                     continue
+                # Project-level progress: a single project can take minutes
+                # (paginated searches plus per-object instance execution), so
+                # the log must show which project is in flight and how far
+                # through the project list the run is.
+                logger.info(
+                    "Processing project %r (%s) [%d/%d]",
+                    project.name,
+                    project.id,
+                    index,
+                    len(projects),
+                )
                 try:
-                    yield from self._process_project(project)
+                    with self.report.new_stage(
+                        f"{project.name}: {METADATA_EXTRACTION}"
+                    ):
+                        yield from self._process_project(project)
                 except MicroStrategyAuthError as error:
                     # Auth is irrecoverably dead: every remaining call would
                     # fail identically, so stop with one clear failure instead
@@ -739,6 +755,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             offset += len(tables)
             if not tables:
                 break
+            # Large projects paginate thousands of model tables; log progress so
+            # the lineage-index build does not look hung.
+            logger.info(
+                "Model tables progress: %d/%s tables (project=%s)",
+                offset,
+                total if isinstance(total, int) else "?",
+                project_id,
+            )
             if isinstance(total, int):
                 if offset >= total:
                     break
