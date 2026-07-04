@@ -487,6 +487,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not linked_report_ids:
                 # Enumerating a project's report library is expensive (thousands of
                 # paginated searches); skip it when no dashboard referenced a report.
+                self.report.report_reports_skipped_not_dashboard_linked()
                 logger.info(
                     "Skipping report enumeration for project %s: no reports are "
                     "referenced by ingested dashboards",

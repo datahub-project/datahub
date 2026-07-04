@@ -590,6 +590,11 @@ def test_extract_field_names_excludes_function_names() -> None:
         "QTY_SOLD",
         "UNIT_PRICE",
     ]
+    # Nested analytic/window functions must not be mistaken for fields.
+    assert extract_field_names_from_expression("Sum(Rank(REVENUE))") == ["REVENUE"]
+    assert extract_field_names_from_expression(
+        "ROW_NUMBER() OVER (PARTITION BY REGION ORDER BY NET_SALES)"
+    ) == ["NET_SALES", "REGION"]
 
 
 def test_metric_fact_ids_from_model_accepts_nested_and_top_level_tokens() -> None:

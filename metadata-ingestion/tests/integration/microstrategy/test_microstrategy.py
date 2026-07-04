@@ -423,6 +423,7 @@ def test_microstrategy_sql_view_temp_table_column_lineage(
     pytestconfig: Any, tmp_path: Path
 ) -> None:
     output_path = tmp_path / "microstrategy_temp_table_mcps.json"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/microstrategy"
 
     config = _pipeline_config(output_path)
     config["source"]["config"]["extract_warehouse_lineage"] = True
@@ -485,3 +486,11 @@ def test_microstrategy_sql_view_temp_table_column_lineage(
     )
     assert f"urn:li:schemaField:({base},net_sales_amt)" in upstreams
     assert f"urn:li:schemaField:({base},order_date_id)" in upstreams
+
+    # Golden file pins the full end-to-end lineage shape for the
+    # extract_warehouse_lineage=True path (targeted asserts above document intent).
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "microstrategy_warehouse_lineage_golden.json",
+    )

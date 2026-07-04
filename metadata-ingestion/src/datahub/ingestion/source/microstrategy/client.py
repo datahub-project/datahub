@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import requests
+import urllib3
 from pydantic import BaseModel, ValidationError
 
 from datahub.ingestion.source.microstrategy.config import (
@@ -69,6 +70,17 @@ class MicroStrategyClient:
                 "Content-Type": "application/json",
             }
         )
+        if not config.verify_ssl:
+            # Silence the per-request urllib3 InsecureRequestWarning spam and
+            # surface the disabled cert validation in the ingestion report.
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            self.report.warning(
+                title="SSL Verification Disabled",
+                message=(
+                    "verify_ssl=False is set; TLS certificate validation is off "
+                    "for MicroStrategy API calls."
+                ),
+            )
 
     def login(self) -> None:
         auth = self.config.auth
