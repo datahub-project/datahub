@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 from typing import (
-    TYPE_CHECKING,
     Dict,
     Iterable,
     List,
@@ -14,12 +13,12 @@ from typing import (
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.config import (
     ConnectionPlatformConfig,
     MicroStrategyConfig,
 )
 from datahub.ingestion.source.microstrategy.constants import (
-    MSTR_CREATE_STATEMENT_RE,
     MSTR_CREATE_TABLE_NAME_RE,
     MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
     MSTR_HEX_OBJECT_ID_RE,
@@ -45,9 +44,6 @@ from datahub.ingestion.source.microstrategy.models import (
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
-if TYPE_CHECKING:
-    from datahub.ingestion.graph.client import DataHubGraph
-
 logger = logging.getLogger(__name__)
 
 LineageKey = TypeVar("LineageKey")
@@ -67,6 +63,14 @@ class WarehouseLineageContext:
 class ModelFieldLineage:
     upstream_dataset_urn: str
     upstream_field_urns: List[str]
+
+
+@dataclass(frozen=True)
+class SqlViewLineage:
+    # Table-level upstream dataset urns and, keyed by dataset field path, the
+    # upstream warehouse schemaField urns feeding that field.
+    upstream_urns: List[str]
+    field_upstreams: Dict[str, List[str]]
 
 
 @dataclass
@@ -193,143 +197,66 @@ class MicroStrategyLineageExtractor:
                 unresolved[visualization.key] = sorted(missing)
         return unresolved
 
-    def warehouse_upstream_urns_from_sql(
+    def warehouse_lineage_from_sql(
         self,
         sql: str,
         context: WarehouseLineageContext,
-        graph: Optional["DataHubGraph"] = None,
-    ) -> List[str]:
+        dataset_field_paths: Iterable[str],
+        graph: Optional[DataHubGraph] = None,
+    ) -> "SqlViewLineage":
+        """Table- and column-level warehouse lineage from a SQL view, in one parse.
+
+        MicroStrategy SQL views are multi-pass scripts: statements (often CREATE
+        VOLATILE/TEMP TABLE ... AS select) concatenated without semicolons, ending
+        in a SELECT. A single ``create_lineage_from_sql_statements`` call resolves
+        lineage through those intermediates to the real base tables; its
+        ``in_tables`` are the table-level upstreams. The dialect does not mark the
+        intermediates as temporary, so we pass an ``is_temp_table`` predicate (any
+        table the script creates). When dataset field paths are supplied and the
+        script ends in a SELECT, that SELECT is wrapped as a sentinel CTAS so its
+        projection becomes a concrete downstream we can read column lineage from,
+        and each output column is matched back to a dataset field
+        (case-insensitively; best effort).
+        """
+        field_path_by_name = {path.lower(): path for path in dataset_field_paths}
         if not sql.strip():
-            return []
+            return SqlViewLineage([], {})
 
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
         from datahub.sql_parsing.split_statements import split_statements
         from datahub.sql_parsing.sql_parsing_common import get_dialect_str
         from datahub.sql_parsing.sqlglot_lineage import (
-            create_lineage_sql_parsed_result,
+            create_lineage_from_sql_statements,
         )
 
         # Resolve the sqlglot dialect through DataHub's central platform->dialect
         # map so tokenization matches what the parser itself uses.
-        dialect = get_dialect_str(context.platform)
-        # MicroStrategy SQL views are multi-pass: statements (often CREATE VOLATILE/TEMP
-        # TABLE ... AS select) concatenated without semicolons. Parse per statement and
-        # subtract CREATE targets so volatile intermediates never appear as upstreams. Only
-        # CREATE targets are subtracted: a table read and written by the same DML
-        # (self-referencing INSERT/MERGE) is a genuine upstream.
-        in_urns: Set[str] = set()
-        created_urns: Set[str] = set()
-        had_parse_failure = False
-        for statement in split_statements(sql, dialect=dialect):
-            if not statement.strip():
-                continue
-            if _is_lineage_irrelevant_statement(statement):
-                logger.debug(
-                    "Skipping non-lineage SQL-view statement: %s",
-                    statement.strip()[:120],
-                )
-                continue
-            try:
-                parsed = create_lineage_sql_parsed_result(
-                    query=statement,
-                    default_db=context.database,
-                    default_schema=context.schema,
-                    platform=context.platform,
-                    platform_instance=context.platform_instance,
-                    env=context.env,
-                    graph=graph,
-                    generate_column_lineage=False,
-                )
-            except Exception as error:
-                had_parse_failure = self._record_statement_parse_failure(
-                    statement, context, error
-                )
-                continue
-            if parsed.debug_info.table_error is not None:
-                had_parse_failure = self._record_statement_parse_failure(
-                    statement, context, parsed.debug_info.table_error
-                )
-                continue
-            in_urns.update(parsed.in_tables)
-            if MSTR_CREATE_STATEMENT_RE.match(statement):
-                created_urns.update(parsed.out_tables)
-
-        upstream_urns = in_urns - created_urns
-        if not upstream_urns and had_parse_failure:
-            self.report.warning(
-                title="Failed to parse MicroStrategy SQL view",
-                message=(
-                    "No statement in a MicroStrategy SQL view could be parsed; "
-                    "warehouse lineage for this dataset was skipped."
-                ),
-                context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
-            )
-        return sorted(upstream_urns)
-
-    def _record_statement_parse_failure(
-        self,
-        statement: str,
-        context: WarehouseLineageContext,
-        error: Exception,
-    ) -> bool:
-        self.report.report_sql_parse_failure(
-            f"platform={context.platform}, "
-            f"error={type(error).__name__}: {str(error)[:160]}, "
-            f"sql_prefix={statement.strip()[:80]!r}"
-        )
-        logger.debug(
-            "Failed to parse MicroStrategy SQL-view statement (%s): %s",
-            error,
-            statement.strip()[:200],
-        )
-        return True
-
-    def warehouse_field_upstreams_from_sql(
-        self,
-        sql: str,
-        context: WarehouseLineageContext,
-        dataset_field_paths: Iterable[str],
-        graph: Optional["DataHubGraph"] = None,
-    ) -> Dict[str, List[str]]:
-        """Column-level warehouse lineage from a SQL view's final projection.
-
-        MicroStrategy SQL views build intermediate (VOLATILE/temp) tables and end
-        in a SELECT. The dialect does not mark those tables as temporary, so we
-        pass an ``is_temp_table`` predicate (any table created within the script)
-        to the shared multi-statement parser, which resolves lineage through them
-        to the real base tables. The trailing SELECT is wrapped as a sentinel
-        CTAS so its projection becomes a concrete downstream we can read column
-        lineage from, then each output column is matched back to a dataset field
-        (case-insensitively; best effort).
-        """
-        field_path_by_name = {path.lower(): path for path in dataset_field_paths}
-        if not sql.strip() or not field_path_by_name:
-            return {}
-
-        from datahub.sql_parsing.split_statements import split_statements
-        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-        from datahub.sql_parsing.sqlglot_lineage import (
-            create_lineage_from_sql_statements,
-        )
-
         dialect = get_dialect_str(context.platform)
         statements = [
             statement
             for statement in split_statements(sql, dialect=dialect)
             if statement.strip() and not _is_lineage_irrelevant_statement(statement)
         ]
-        if not statements or not MSTR_SELECT_STATEMENT_RE.match(statements[-1]):
-            return {}
+        if not statements:
+            return SqlViewLineage([], {})
 
         created_tables = _created_table_leaf_names(statements)
-        statements[-1] = (
-            f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{statements[-1]}"
+        # Column lineage needs the final SELECT wrapped as a sentinel CTAS so its
+        # projection is a concrete downstream; table-level upstreams don't, so
+        # skip the wrap when there are no field paths or no trailing SELECT.
+        want_columns = bool(field_path_by_name) and bool(
+            MSTR_SELECT_STATEMENT_RE.match(statements[-1])
         )
+        queries = list(statements)
+        if want_columns:
+            queries[-1] = (
+                f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
+            )
 
         try:
             result = create_lineage_from_sql_statements(
-                queries=statements,
+                queries=queries,
                 default_db=context.database,
                 default_schema=context.schema,
                 platform=context.platform,
@@ -339,36 +266,67 @@ class MicroStrategyLineageExtractor:
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
             )
         except Exception as error:
-            self._record_statement_parse_failure(sql, context, error)
-            return {}
-        if result.debug_info.error is not None or not result.column_lineage:
-            return {}
+            self._report_sql_parse_failure(sql, context, error)
+            return SqlViewLineage([], {})
+        if result.debug_info.error is not None:
+            self._report_sql_parse_failure(sql, context, result.debug_info.error)
+            return SqlViewLineage([], {})
 
         field_upstreams: Dict[str, List[str]] = {}
-        for column_lineage in result.column_lineage:
-            field_path = field_path_by_name.get(
-                column_lineage.downstream.column.lower()
-            )
-            if field_path is None:
-                continue
-            # Temp tables have already been collapsed, so every remaining
-            # upstream is a real warehouse column.
-            upstream_urns = [
-                builder.make_schema_field_urn(upstream.table, upstream.column)
-                for upstream in column_lineage.upstreams
-            ]
-            if upstream_urns:
-                field_upstreams.setdefault(field_path, []).extend(upstream_urns)
-        return {
-            field_path: _dedupe_sorted(urns)
-            for field_path, urns in field_upstreams.items()
-        }
+        if want_columns:
+            for column_lineage in result.column_lineage or []:
+                field_path = field_path_by_name.get(
+                    column_lineage.downstream.column.lower()
+                )
+                if field_path is None:
+                    continue
+                # Temp tables have already been collapsed, so every remaining
+                # upstream is a real warehouse column.
+                upstream_urns = [
+                    builder.make_schema_field_urn(upstream.table, upstream.column)
+                    for upstream in column_lineage.upstreams
+                ]
+                if upstream_urns:
+                    field_upstreams.setdefault(field_path, []).extend(upstream_urns)
+
+        return SqlViewLineage(
+            upstream_urns=_dedupe_sorted(result.in_tables),
+            field_upstreams={
+                field_path: _dedupe_sorted(urns)
+                for field_path, urns in field_upstreams.items()
+            },
+        )
+
+    def _report_sql_parse_failure(
+        self,
+        sql: str,
+        context: WarehouseLineageContext,
+        error: BaseException,
+    ) -> None:
+        self.report.report_sql_parse_failure(
+            f"platform={context.platform}, "
+            f"error={type(error).__name__}: {str(error)[:160]}, "
+            f"sql_prefix={sql.strip()[:80]!r}"
+        )
+        self.report.warning(
+            title="Failed to parse MicroStrategy SQL view",
+            message=(
+                "A MicroStrategy SQL view could not be parsed; warehouse lineage "
+                "for this dataset was skipped."
+            ),
+            context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
+        )
+        logger.debug(
+            "Failed to parse MicroStrategy SQL view (%s): %s",
+            error,
+            sql.strip()[:200],
+        )
 
     def model_lineage_index_from_tables(
         self,
         model_tables: List[Dict[str, object]],
         context: WarehouseLineageContext,
-        graph: Optional["DataHubGraph"] = None,
+        graph: Optional[DataHubGraph] = None,
     ) -> ModelLineageIndex:
         fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
         attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
@@ -466,7 +424,7 @@ class MicroStrategyLineageExtractor:
         field_names: List[str],
         upstream_dataset_urn: str,
         convert_to_lowercase: bool,
-        graph: Optional["DataHubGraph"],
+        graph: Optional[DataHubGraph],
     ) -> List[str]:
         # Prefer the warehouse dataset's real column casing from the graph so
         # schemaField urns byte-match regardless of the case MicroStrategy reports;
@@ -485,7 +443,7 @@ class MicroStrategyLineageExtractor:
     def _warehouse_field_map(
         self,
         upstream_dataset_urn: str,
-        graph: Optional["DataHubGraph"],
+        graph: Optional[DataHubGraph],
     ) -> Optional[Dict[str, str]]:
         if graph is None:
             return None

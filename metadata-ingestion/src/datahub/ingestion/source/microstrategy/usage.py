@@ -14,32 +14,24 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
-from datahub.ingestion.source.microstrategy.constants import MSTR_OBJECT_TYPE_REPORT
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_OBJECT_TYPE_REPORT,
+    MSTR_USAGE_CUBE_SUBTYPES,
+    MSTR_USAGE_DATE_ATTRIBUTE_NAME,
+    MSTR_USAGE_DATE_FORMATS,
+    MSTR_USAGE_EXECUTIONS_METRIC_NAMES,
+    MSTR_USAGE_GUID_FORM_NAME,
+    MSTR_USAGE_ID_FORM_NAME,
+    MSTR_USAGE_NAME_FORM_NAME,
+    MSTR_USAGE_OBJECT_ATTRIBUTE_NAME,
+    MSTR_USAGE_PROJECT_ATTRIBUTE_NAME,
+    MSTR_USAGE_USER_ATTRIBUTE_NAME,
+    MSTR_USAGE_USER_FORM_NAMES,
+)
 from datahub.ingestion.source.microstrategy.models import Project
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 logger = logging.getLogger(__name__)
-
-# Object names in the shipped Platform Analytics aggregate cube. GUIDs are
-# stable across shipped versions in practice but undocumented as a contract,
-# so everything is resolved by name from the live cube definition.
-_DATE_ATTRIBUTE_NAME = "Date"
-_PROJECT_ATTRIBUTE_NAME = "Project"
-_OBJECT_ATTRIBUTE_NAME = "Object"
-_USER_ATTRIBUTE_NAME = "User"
-_EXECUTIONS_METRIC_NAMES = ("Num Executions", "Count Actions")
-_GUID_FORM_NAME = "GUID"
-_NAME_FORM_NAME = "Name"
-_ID_FORM_NAME = "ID"
-_USER_FORM_NAMES = ("Login", "Name")
-
-# Intelligent cube (776) and super cube (779) subtypes; the quick search for
-# the cube name can also match plain reports, which must be skipped.
-_CUBE_SUBTYPES = {"776", "779"}
-
-# Date form values are rendered strings whose format follows the
-# Intelligence Server locale; month-first is the shipped default.
-_DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m/%d/%Y %I:%M:%S %p")
 
 
 @dataclass
@@ -81,6 +73,30 @@ class UsageBucket:
     user_counts: Dict[str, int] = field(default_factory=dict)
 
 
+@dataclass
+class UsageTarget:
+    """An ingested entity that usage buckets can attach to, keyed by object GUID."""
+
+    kind: str
+    urn: str
+
+
+@dataclass
+class UsageQueryPlanResult:
+    """Resolved query plan, or the reason the cube shape was not recognized."""
+
+    plan: Optional[UsageQueryPlan] = None
+    error: Optional[str] = None
+
+
+@dataclass
+class UsagePage:
+    """One decoded page of cube grid data."""
+
+    rows: List[UsageRow]
+    total: Optional[int]
+
+
 def _find_by_name(items: List[Dict[str, Any]], name: str) -> Optional[Dict[str, Any]]:
     target = name.strip().lower()
     for item in items:
@@ -102,23 +118,23 @@ def _form_id(attribute: Dict[str, Any], *names: str) -> Optional[str]:
 
 def resolve_usage_query_plan(
     cube_definition: Dict[str, Any],
-) -> Tuple[Optional[UsageQueryPlan], Optional[str]]:
-    """Resolve the query plan from a cube definition, or (None, reason)."""
+) -> UsageQueryPlanResult:
+    """Resolve the query plan from a cube definition, or the reason it failed."""
     definition = cube_definition.get("definition")
     if not isinstance(definition, dict):
         definition = cube_definition
     available = definition.get("availableObjects")
     if not isinstance(available, dict):
-        return None, "cube definition has no availableObjects"
+        return UsageQueryPlanResult(error="cube definition has no availableObjects")
     attributes = [a for a in available.get("attributes") or [] if isinstance(a, dict)]
     metrics = [m for m in available.get("metrics") or [] if isinstance(m, dict)]
 
-    date_attr = _find_by_name(attributes, _DATE_ATTRIBUTE_NAME)
-    project_attr = _find_by_name(attributes, _PROJECT_ATTRIBUTE_NAME)
-    object_attr = _find_by_name(attributes, _OBJECT_ATTRIBUTE_NAME)
-    user_attr = _find_by_name(attributes, _USER_ATTRIBUTE_NAME)
+    date_attr = _find_by_name(attributes, MSTR_USAGE_DATE_ATTRIBUTE_NAME)
+    project_attr = _find_by_name(attributes, MSTR_USAGE_PROJECT_ATTRIBUTE_NAME)
+    object_attr = _find_by_name(attributes, MSTR_USAGE_OBJECT_ATTRIBUTE_NAME)
+    user_attr = _find_by_name(attributes, MSTR_USAGE_USER_ATTRIBUTE_NAME)
     metric = None
-    for metric_name in _EXECUTIONS_METRIC_NAMES:
+    for metric_name in MSTR_USAGE_EXECUTIONS_METRIC_NAMES:
         metric = _find_by_name(metrics, metric_name)
         if metric:
             break
@@ -126,23 +142,26 @@ def resolve_usage_query_plan(
     missing = [
         label
         for label, found in (
-            (f"attribute {_DATE_ATTRIBUTE_NAME!r}", date_attr),
-            (f"attribute {_PROJECT_ATTRIBUTE_NAME!r}", project_attr),
-            (f"attribute {_OBJECT_ATTRIBUTE_NAME!r}", object_attr),
-            (f"attribute {_USER_ATTRIBUTE_NAME!r}", user_attr),
-            (f"metric {' or '.join(map(repr, _EXECUTIONS_METRIC_NAMES))}", metric),
+            (f"attribute {MSTR_USAGE_DATE_ATTRIBUTE_NAME!r}", date_attr),
+            (f"attribute {MSTR_USAGE_PROJECT_ATTRIBUTE_NAME!r}", project_attr),
+            (f"attribute {MSTR_USAGE_OBJECT_ATTRIBUTE_NAME!r}", object_attr),
+            (f"attribute {MSTR_USAGE_USER_ATTRIBUTE_NAME!r}", user_attr),
+            (
+                f"metric {' or '.join(map(repr, MSTR_USAGE_EXECUTIONS_METRIC_NAMES))}",
+                metric,
+            ),
         )
         if found is None
     ]
     if missing:
-        return None, f"cube is missing {', '.join(missing)}"
+        return UsageQueryPlanResult(error=f"cube is missing {', '.join(missing)}")
     assert date_attr and project_attr and object_attr and user_attr and metric
 
-    date_form = _form_id(date_attr, _ID_FORM_NAME)
-    project_form = _form_id(project_attr, _GUID_FORM_NAME)
-    object_guid_form = _form_id(object_attr, _GUID_FORM_NAME)
-    object_name_form = _form_id(object_attr, _NAME_FORM_NAME)
-    user_form = _form_id(user_attr, *_USER_FORM_NAMES)
+    date_form = _form_id(date_attr, MSTR_USAGE_ID_FORM_NAME)
+    project_form = _form_id(project_attr, MSTR_USAGE_GUID_FORM_NAME)
+    object_guid_form = _form_id(object_attr, MSTR_USAGE_GUID_FORM_NAME)
+    object_name_form = _form_id(object_attr, MSTR_USAGE_NAME_FORM_NAME)
+    user_form = _form_id(user_attr, *MSTR_USAGE_USER_FORM_NAMES)
     missing_forms = [
         label
         for label, found in (
@@ -155,13 +174,13 @@ def resolve_usage_query_plan(
         if not found
     ]
     if missing_forms:
-        return None, f"cube is missing {', '.join(missing_forms)}"
+        return UsageQueryPlanResult(error=f"cube is missing {', '.join(missing_forms)}")
     assert (
         date_form and project_form and object_guid_form and object_name_form
     ) and user_form
 
-    return (
-        UsageQueryPlan(
+    return UsageQueryPlanResult(
+        plan=UsageQueryPlan(
             date_attribute_id=str(date_attr["id"]),
             date_form_id=date_form,
             project_attribute_id=str(project_attr["id"]),
@@ -173,8 +192,7 @@ def resolve_usage_query_plan(
             user_form_id=user_form,
             metric_id=str(metric["id"]),
             metric_name=str(metric.get("name") or ""),
-        ),
-        None,
+        )
     )
 
 
@@ -212,10 +230,8 @@ def build_usage_query_body(plan: UsageQueryPlan, since_date: str) -> Dict[str, A
     }
 
 
-def parse_usage_page(
-    page: Dict[str, Any],
-) -> Tuple[List[UsageRow], Optional[int]]:
-    """Decode one page of cube grid data into rows; returns (rows, total)."""
+def parse_usage_page(page: Dict[str, Any]) -> UsagePage:
+    """Decode one page of cube grid data into rows plus the reported total."""
     grid = page.get("definition", {}).get("grid", {})
     grid_rows = grid.get("rows")
     data = page.get("data", {})
@@ -230,7 +246,7 @@ def parse_usage_page(
         or not isinstance(header_rows, list)
         or not isinstance(metric_rows, list)
     ):
-        return [], total
+        return UsagePage(rows=[], total=total)
 
     elements_by_attribute: List[List[Dict[str, Any]]] = []
     for grid_row in grid_rows:
@@ -243,7 +259,7 @@ def parse_usage_page(
             else []
         )
     if len(elements_by_attribute) < 4:
-        return [], total
+        return UsagePage(rows=[], total=total)
 
     def form_values(attribute_index: int, element_index: Any) -> List[str]:
         elements = elements_by_attribute[attribute_index]
@@ -279,7 +295,7 @@ def parse_usage_page(
                 count=count,
             )
         )
-    return rows, total
+    return UsagePage(rows=rows, total=total)
 
 
 def parse_usage_date_ms(date_text: str) -> Optional[int]:
@@ -287,7 +303,7 @@ def parse_usage_date_ms(date_text: str) -> Optional[int]:
     text = date_text.strip()
     if not text:
         return None
-    for fmt in _DATE_FORMATS:
+    for fmt in MSTR_USAGE_DATE_FORMATS:
         try:
             parsed = datetime.strptime(text, fmt)
         except ValueError:
@@ -332,7 +348,8 @@ class MicroStrategyUsageExtractor:
             return []
 
         cube_definition = self.client.get_cube_definition(pa_project_id, cube_id)
-        plan, reason = resolve_usage_query_plan(cube_definition)
+        resolution = resolve_usage_query_plan(cube_definition)
+        plan = resolution.plan
         if plan is None:
             self.report.warning(
                 title="Platform Analytics Cube Shape Not Recognized",
@@ -340,7 +357,7 @@ class MicroStrategyUsageExtractor:
                     "Skipping usage statistics because the usage cube does not "
                     "expose the expected attributes/metrics by name."
                 ),
-                context=f"cube_id={cube_id}, reason={reason}",
+                context=f"cube_id={cube_id}, reason={resolution.error}",
             )
             return []
         logger.info(
@@ -365,7 +382,7 @@ class MicroStrategyUsageExtractor:
             MSTR_OBJECT_TYPE_REPORT,
             self.config.usage_cube_name,
         ):
-            if str(item.get("subtype")) not in _CUBE_SUBTYPES:
+            if str(item.get("subtype")) not in MSTR_USAGE_CUBE_SUBTYPES:
                 continue
             if str(item.get("name") or "").strip().lower() == target:
                 object_id = item.get("id")
@@ -387,8 +404,9 @@ class MicroStrategyUsageExtractor:
             limit=page_size,
         )
         instance_id = first_page.get("instanceId") or first_page.get("id")
-        rows, total = parse_usage_page(first_page)
-        all_rows = list(rows)
+        first = parse_usage_page(first_page)
+        total = first.total
+        all_rows = list(first.rows)
         offset = page_size
         while (
             isinstance(instance_id, str)
@@ -403,10 +421,10 @@ class MicroStrategyUsageExtractor:
                 limit=page_size,
                 offset=offset,
             )
-            page_rows, _ = parse_usage_page(page)
-            if not page_rows:
+            page_result = parse_usage_page(page)
+            if not page_result.rows:
                 break
-            all_rows.extend(page_rows)
+            all_rows.extend(page_result.rows)
             offset += page_size
             logger.info("Usage cube pagination progress: %d/%d rows", offset, total)
         return all_rows

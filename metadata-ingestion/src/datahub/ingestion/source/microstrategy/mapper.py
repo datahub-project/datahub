@@ -10,7 +10,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Tuple,
     Union,
 )
 
@@ -28,6 +27,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     MSTR_DOT_COLLAPSE_RE,
+    MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
     USAGE_TARGET_DASHBOARD,
@@ -93,6 +93,14 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.error import InvalidUrnError
+
+
+@dataclass
+class DatasetSchemaFields:
+    """A dataset's schema fields plus an index from source object id to fields."""
+
+    fields: List[SchemaFieldClass]
+    by_object_id: Dict[str, List[SchemaFieldClass]]
 
 
 class MicroStrategyMapper:
@@ -573,14 +581,13 @@ class MicroStrategyMapper:
         ).as_workunit()
 
     def _schema_fields(self, dataset: DatasetObject) -> List[SchemaFieldClass]:
-        fields, _ = self._schema_fields_and_object_map(dataset, report_fields=True)
-        return fields
+        return self._schema_fields_and_object_map(dataset, report_fields=True).fields
 
     def _schema_fields_and_object_map(
         self,
         dataset: DatasetObject,
         report_fields: bool = False,
-    ) -> Tuple[List[SchemaFieldClass], Dict[str, List[SchemaFieldClass]]]:
+    ) -> DatasetSchemaFields:
         fields: List[SchemaFieldClass] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
 
@@ -653,7 +660,10 @@ class MicroStrategyMapper:
                 if report_fields:
                     self.report.report_attribute_field(temporal=spec.temporal)
 
-        return sorted(fields, key=lambda field: field.fieldPath), fields_by_object_id
+        return DatasetSchemaFields(
+            fields=sorted(fields, key=lambda field: field.fieldPath),
+            by_object_id=fields_by_object_id,
+        )
 
     def _visualization_input_fields(
         self,
@@ -674,9 +684,9 @@ class MicroStrategyMapper:
             dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
             if dataset_urn not in input_urn_set:
                 continue
-            _, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+            schema_fields = self._schema_fields_and_object_map(dataset)
             for object_id in visualization_object_ids:
-                for schema_field in fields_by_object_id.get(object_id, []):
+                for schema_field in schema_fields.by_object_id.get(object_id, []):
                     _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
         return _input_fields_aspect(input_fields_by_urn)
@@ -687,17 +697,17 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         object_ids: Optional[Sequence[str]] = None,
     ) -> Optional[InputFieldsClass]:
-        fields, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+        schema_fields = self._schema_fields_and_object_map(dataset)
         input_fields_by_urn: Dict[str, InputFieldClass] = {}
         if object_ids:
             normalized_object_ids = {
                 _normalize_object_id(object_id) for object_id in object_ids
             }
             for object_id in normalized_object_ids:
-                for schema_field in fields_by_object_id.get(object_id, []):
+                for schema_field in schema_fields.by_object_id.get(object_id, []):
                     _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
         else:
-            for schema_field in fields:
+            for schema_field in schema_fields.fields:
                 _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
         return _input_fields_aspect(input_fields_by_urn)
@@ -1413,11 +1423,7 @@ def _parse_microstrategy_time(date_value: Optional[str]) -> Optional[int]:
     normalized = date_value.strip()
     if normalized.endswith("Z"):
         normalized = f"{normalized[:-1]}+0000"
-    for format_string in (
-        "%Y-%m-%dT%H:%M:%S.%f%z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%d %H:%M:%S%z",
-    ):
+    for format_string in MSTR_OBJECT_TIMESTAMP_FORMATS:
         try:
             parsed = datetime.strptime(normalized, format_string)
             return int(parsed.timestamp() * 1000)

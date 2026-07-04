@@ -208,10 +208,11 @@ def test_warehouse_upstream_urns_from_sql() -> None:
         schema="SALES",
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(
+    upstreams = extractor.warehouse_lineage_from_sql(
         "select * from fact_sales join ORDERS.fact_orders on 1 = 1",
         context,
-    )
+        [],
+    ).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:"
@@ -230,13 +231,14 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
         side_effect=RuntimeError("parser exploded"),
     ):
-        upstreams = extractor.warehouse_upstream_urns_from_sql(
+        upstreams = extractor.warehouse_lineage_from_sql(
             "select * from fact_sales",
             context,
-        )
+            [],
+        ).upstream_urns
 
     assert upstreams == []
     assert len(extractor.report.sql_parse_failures) == 1
@@ -271,7 +273,9 @@ def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> 
         '  join "SALES_DM"."DIM_ITEM_V" c on b.k = c.k'
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(multipass_sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(
+        multipass_sql, context, []
+    ).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:"
@@ -303,7 +307,7 @@ def test_warehouse_upstream_urns_skips_non_lineage_trailers() -> None:
         "with parameters:\n\t1"
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -323,7 +327,7 @@ def test_warehouse_upstream_urns_drops_only_script_stays_silent() -> None:
 
     sql = "drop table T1SP000\n\ndrop table T2SP001\n\n[Analytical engine steps]"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == []
     assert len(extractor.report.sql_parse_failures) == 0
@@ -343,7 +347,7 @@ def test_warehouse_upstream_urns_keeps_cte_named_parameters() -> None:
     # (the real MicroStrategy trailer is "with parameters:").
     sql = "with parameters as (select * from fact_sales) select * from parameters"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -368,7 +372,7 @@ def test_warehouse_upstream_urns_keeps_self_referencing_write_reads() -> None:
         "select * from fact_rollup join dim_org on 1=1"
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.dim_org,PROD)",
@@ -432,14 +436,13 @@ def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -
 
     sql = "SET ANSI_NULLS ON\n\nselect * from fact_sales"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
     ]
-    # The unsupported SET statement is counted but must not raise the loud
-    # warning because lineage was still extracted.
-    assert len(extractor.report.sql_parse_failures) == 1
+    # The unsupported SET statement is tolerated: lineage is still extracted and
+    # no loud warning is raised.
     assert not extractor.report.warnings
 
 
@@ -849,11 +852,11 @@ def test_warehouse_field_upstreams_from_sql_through_temp_tables() -> None:
         "select region, revenue from T0SP000\n"
     )
 
-    field_upstreams = extractor.warehouse_field_upstreams_from_sql(
+    field_upstreams = extractor.warehouse_lineage_from_sql(
         multipass_sql,
         context,
         dataset_field_paths=["Region", "Revenue"],
-    )
+    ).field_upstreams
 
     base = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -873,10 +876,10 @@ def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
     # A script whose final statement materializes a table (no trailing SELECT
     # defining the dataset's columns) yields no field-level lineage.
     assert (
-        extractor.warehouse_field_upstreams_from_sql(
+        extractor.warehouse_lineage_from_sql(
             "create table SALES.snapshot as select region from SALES.fact_sales",
             context,
             dataset_field_paths=["Region"],
-        )
+        ).field_upstreams
         == {}
     )

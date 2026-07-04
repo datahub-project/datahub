@@ -174,7 +174,6 @@ MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE = re.compile(
     r"^\s*(drop\s|\[|with\s+parameters\s*:)",
     re.IGNORECASE,
 )
-MSTR_CREATE_STATEMENT_RE = re.compile(r"^\s*create\b", re.IGNORECASE)
 # Captures the target name of a CREATE ... TABLE statement, tolerating any
 # modifiers between CREATE and TABLE (VOLATILE, MULTISET, SET, GLOBAL TEMPORARY,
 # TEMP, ...). Group 1 is the (optionally dotted/quoted) created table name; its
@@ -296,4 +295,35 @@ MSTR_SQL_EXPRESSION_KEYWORDS = frozenset(
         "where",
         "with",
     }
+)
+
+# --- Platform Analytics usage cube ------------------------------------------
+# Object names in the shipped Platform Analytics aggregate cube. GUIDs are
+# stable across shipped versions in practice but undocumented as a contract, so
+# everything is resolved by name from the live cube definition.
+MSTR_USAGE_DATE_ATTRIBUTE_NAME = "Date"
+MSTR_USAGE_PROJECT_ATTRIBUTE_NAME = "Project"
+MSTR_USAGE_OBJECT_ATTRIBUTE_NAME = "Object"
+MSTR_USAGE_USER_ATTRIBUTE_NAME = "User"
+MSTR_USAGE_EXECUTIONS_METRIC_NAMES = ("Num Executions", "Count Actions")
+MSTR_USAGE_GUID_FORM_NAME = "GUID"
+MSTR_USAGE_NAME_FORM_NAME = "Name"
+MSTR_USAGE_ID_FORM_NAME = "ID"
+MSTR_USAGE_USER_FORM_NAMES = ("Login", "Name")
+
+# Intelligent cube (776) and super cube (779) subtypes; the quick search for the
+# cube name can also match plain reports, which must be skipped.
+MSTR_USAGE_CUBE_SUBTYPES = frozenset({"776", "779"})
+
+# Date form values are rendered strings whose format follows the Intelligence
+# Server locale; month-first is the shipped default.
+MSTR_USAGE_DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m/%d/%Y %I:%M:%S %p")
+
+# Timestamp formats returned by object metadata (creation/modification dates).
+# MicroStrategy renders a trailing 'Z' that strptime cannot parse as a zone, so
+# callers normalize it to +0000 before matching against these.
+MSTR_OBJECT_TIMESTAMP_FORMATS = (
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S%z",
 )

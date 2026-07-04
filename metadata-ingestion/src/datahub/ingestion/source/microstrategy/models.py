@@ -2,7 +2,6 @@ import hashlib
 import json
 import re
 from typing import (
-    TYPE_CHECKING,
     Any,
     Dict,
     Iterable,
@@ -52,9 +51,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_OBJECT_TYPES,
     MSTR_SCHEMA_PARAM_RE,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
 # Raw MicroStrategy REST payloads; shapes vary across server versions, so values
 # stay dynamic (Any) until normalized by the model validators below.
@@ -67,7 +64,7 @@ def _validate_items(
     model_cls: Type[_ModelT],
     items: Iterable[object],
     context: str,
-    report: Optional["MicroStrategyReport"],
+    report: Optional[MicroStrategyReport],
 ) -> List[_ModelT]:
     # Validate one item at a time so a single malformed object is skipped, not the dashboard.
     validated: List[_ModelT] = []
@@ -335,7 +332,7 @@ class DashboardDefinition(MicroStrategyBaseModel):
         object_name: str,
         response: MicroStrategyDict,
         description: Optional[str] = None,
-        report: Optional["MicroStrategyReport"] = None,
+        report: Optional[MicroStrategyReport] = None,
     ) -> "DashboardDefinition":
         definition = _unwrap_definition(response)
         context = f"dashboard definition dashboard_id={object_id}"

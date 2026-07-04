@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
@@ -64,6 +64,7 @@ from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import (
     MicroStrategyUsageExtractor,
     UsageBucket,
+    UsageTarget,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -112,9 +113,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.lineage = self.mapper.lineage
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
-        # Object GUID (upper) -> (usage target kind, entity urn) for entities
-        # ingested this run; usage buckets only attach to these.
-        self._usage_targets: Dict[str, Tuple[str, str]] = {}
+        # Object GUID (upper) -> usage target for entities ingested this run;
+        # usage buckets only attach to these.
+        self._usage_targets: Dict[str, UsageTarget] = {}
 
     @classmethod
     def create(
@@ -245,10 +246,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 # objects outside this run's scope are expected.
                 self.report.report_usage_object_unmatched()
                 continue
-            entity_kind, entity_urn = target
             yield from self.mapper.gen_usage_workunits(
-                entity_kind,
-                entity_urn,
+                target.kind,
+                target.urn,
                 bucket,
             )
 
@@ -259,7 +259,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         entity_urn: str,
     ) -> None:
         if self.config.extract_usage_statistics:
-            self._usage_targets[object_id.strip().upper()] = (entity_kind, entity_urn)
+            self._usage_targets[object_id.strip().upper()] = UsageTarget(
+                kind=entity_kind, urn=entity_urn
+            )
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         source_warehouses = self._get_project_source_warehouses(project.id)
@@ -1150,32 +1152,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_sql_view_without_statement()
                 continue
 
-            upstream_urns = self.lineage.warehouse_upstream_urns_from_sql(
-                sql_statement,
-                dataset_context,
-                graph=self.ctx.graph,
-            )
-            if upstream_urns:
-                dataset.warehouse_upstream_urns = upstream_urns
-            self._attach_sql_view_field_lineage(sql_statement, dataset, dataset_context)
+            self._attach_sql_view_lineage(sql_statement, dataset, dataset_context)
 
-    def _attach_sql_view_field_lineage(
+    def _attach_sql_view_lineage(
         self,
         sql_statement: str,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
         # Callers are already gated by extract_report_sql_lineage /
-        # extract_warehouse_lineage; this adds column-level edges on top of the
-        # coarse table-level upstreams computed alongside it.
-        field_upstreams = self.lineage.warehouse_field_upstreams_from_sql(
+        # extract_warehouse_lineage. A single parse yields both the table-level
+        # upstreams and the column-level edges on top of them.
+        result = self.lineage.warehouse_lineage_from_sql(
             sql_statement,
             context,
             self.mapper.dataset_field_paths(dataset),
             graph=self.ctx.graph,
         )
-        if field_upstreams:
-            dataset.field_warehouse_upstreams = field_upstreams
+        if result.upstream_urns:
+            dataset.warehouse_upstream_urns = result.upstream_urns
+        if result.field_upstreams:
+            dataset.field_warehouse_upstreams = result.field_upstreams
 
     def _enrich_report_sql_lineage(
         self,
@@ -1223,14 +1220,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
 
         self.report.report_warehouse_lineage_sql_views_scanned(1)
-        upstream_urns = self.lineage.warehouse_upstream_urns_from_sql(
-            sql_statement,
-            context,
-            graph=self.ctx.graph,
-        )
-        if upstream_urns:
-            dataset.warehouse_upstream_urns = upstream_urns
-        self._attach_sql_view_field_lineage(sql_statement, dataset, context)
+        self._attach_sql_view_lineage(sql_statement, dataset, context)
 
     def _create_dashboard_instance(
         self,
