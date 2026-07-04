@@ -991,6 +991,30 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
 
     assert "microstrategyMetricExpressionText" in (revenue.jsonProps or "")
     assert "Revenue Fact" in (revenue.jsonProps or "")
+    # The formula also renders in the field description as a markdown code
+    # block, after any human-authored description.
+    assert revenue.description is not None
+    assert revenue.description.endswith(
+        "**MicroStrategy expression:**\n\n```\nSum(Revenue)\n```"
+    )
+
+
+def test_metric_description_without_expression_is_unchanged() -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        ),
+        SchemaMetadataClass,
+    )
+    revenue = next(field for field in schema.fields if field.fieldPath == "Revenue")
+
+    assert "MicroStrategy expression" not in (revenue.description or "")
 
 
 def test_extract_folder_parts_from_search_result_payloads() -> None:

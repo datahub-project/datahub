@@ -361,6 +361,7 @@
                 {
                     "fieldPath": "Revenue",
                     "nullable": false,
+                    "description": "**MicroStrategy expression:**\n\n```\nSum(Revenue Fact)\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -382,7 +383,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782968024142,
+        "lastObserved": 1783134313949,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -722,6 +723,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue",
                         "nullable": false,
+                        "description": "**MicroStrategy expression:**\n\n```\nSum(Revenue Fact)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -744,7 +746,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782968024144,
+        "lastObserved": 1783134313951,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -568,7 +568,10 @@ class MicroStrategyMapper:
                 schema_field = self._make_schema_field(
                     field_path=spec.field_path,
                     native_type=_field_native_type(metric) or "Metric",
-                    description=_optional_str(metric.get("description")),
+                    description=_metric_field_description(
+                        _optional_str(metric.get("description")),
+                        enrichment,
+                    ),
                     tag_urns=[MEASURE_TAG_URN]
                     if self.config.tag_measures_and_dimensions
                     else [],
@@ -1095,6 +1098,25 @@ def _field_native_type(item: Dict[str, object]) -> Optional[str]:
         if value:
             return str(value)
     return None
+
+
+def _metric_field_description(
+    description: Optional[str],
+    enrichment: Optional[MetricEnrichment],
+) -> Optional[str]:
+    """Human description first, then the metric formula in a fenced code block.
+
+    Field descriptions render as markdown in the UI, so the formula stays
+    readable without drowning out the business description (unlike jsonProps,
+    which the UI barely surfaces).
+    """
+    expression = enrichment.expression_text if enrichment else None
+    if not expression:
+        return description
+    block = f"**MicroStrategy expression:**\n\n```\n{expression}\n```"
+    if description:
+        return f"{description}\n\n{block}"
+    return block
 
 
 def _metric_expression_json_props(
