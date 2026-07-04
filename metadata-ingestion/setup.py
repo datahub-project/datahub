@@ -714,6 +714,7 @@ plugins: Dict[str, Set[str]] = {
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
+    "lightdash": {"requests<3.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
@@ -989,6 +990,7 @@ base_dev_requirements = {
             "mongodb",
             "json-schema",
             "ldap",
+            "lightdash",
             "looker",
             "lookml",
             "glue",
@@ -1154,6 +1156,7 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
+        "lightdash = datahub.ingestion.source.lightdash.source:LightdashSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",

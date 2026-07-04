@@ -1,0 +1,1481 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "lightdash",
+                "env": "PROD",
+                "organization_uuid": "00000000-0000-0000-0000-000000000001",
+                "project_uuid": "11111111-1111-1111-1111-000000000001",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001",
+                "warehouseType": "clickhouse",
+                "projectType": "DEFAULT"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001",
+            "name": "Acme Marketing",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "lightdash",
+                "env": "PROD",
+                "organization_uuid": "00000000-0000-0000-0000-000000000001",
+                "project_uuid": "11111111-1111-1111-1111-000000000001",
+                "space_uuid": "22222222-2222-2222-2222-00000000000a",
+                "lightdashSpaceUuid": "22222222-2222-2222-2222-00000000000a",
+                "lightdashSpaceSlug": "marketing",
+                "lightdashChartCount": "2",
+                "lightdashDashboardCount": "1"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/spaces/22222222-2222-2222-2222-00000000000a",
+            "name": "Marketing",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "lightdash",
+                "env": "PROD",
+                "organization_uuid": "00000000-0000-0000-0000-000000000001",
+                "project_uuid": "11111111-1111-1111-1111-000000000001",
+                "space_uuid": "22222222-2222-2222-2222-00000000000b",
+                "lightdashSpaceUuid": "22222222-2222-2222-2222-00000000000b",
+                "lightdashSpaceSlug": "analytics",
+                "lightdashChartCount": "2",
+                "lightdashDashboardCount": "1"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/spaces/22222222-2222-2222-2222-00000000000b",
+            "name": "Analytics",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashChartUuid": "33333333-3333-3333-3333-000000000001",
+                "lightdashChartKind": "vertical_bar",
+                "lightdashChartType": "cartesian",
+                "lightdashTableName": "orders_enriched",
+                "lightdashSpaceName": "Marketing",
+                "lightdashSlug": "orders-by-region",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000001/view",
+            "title": "Orders by Region",
+            "description": "Bar chart of order count by region",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744286400000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000001/view",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:260862c8ca2f301e407ffde049b54cc6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),order_region)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_order_region",
+                        "nullable": false,
+                        "description": "Order region",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),order_id)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_order_count",
+                        "nullable": false,
+                        "description": "Order count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "count",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                },
+                {
+                    "id": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+                    "urn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashChartUuid": "33333333-3333-3333-3333-000000000002",
+                "lightdashChartKind": "line",
+                "lightdashChartType": "cartesian",
+                "lightdashTableName": "orders_enriched",
+                "lightdashSpaceName": "Marketing",
+                "lightdashSlug": "revenue-with-discount-avg",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000002/view",
+            "title": "Revenue with Avg Discount",
+            "description": "Revenue plus an additionalMetric over discount",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744459200000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000002/view",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:260862c8ca2f301e407ffde049b54cc6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),order_month)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_order_month",
+                        "nullable": false,
+                        "description": "Order month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "date",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),revenue_total)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_revenue_total",
+                        "nullable": false,
+                        "description": "Revenue total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "sum",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),discount_pct)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_avg_discount",
+                        "nullable": false,
+                        "description": "Avg discount %",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "average",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                },
+                {
+                    "id": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+                    "urn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashChartUuid": "33333333-3333-3333-3333-000000000003",
+                "lightdashChartKind": "table",
+                "lightdashChartType": "table",
+                "lightdashTableName": "orders_enriched",
+                "lightdashSpaceName": "Analytics",
+                "lightdashSlug": "quarterly-revenue-with-bins",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000003/view",
+            "title": "Quarterly Revenue with Bins",
+            "description": "Uses customDimension bin and customSqlDimension",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744545600000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000003/view",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),order_region)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_order_region",
+                        "nullable": false,
+                        "description": "Order region",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),revenue_total)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_revenue_total",
+                        "nullable": false,
+                        "description": "Revenue total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "sum",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),discount_pct)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_discount_bucket",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "number",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),discount_pct)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_is_high_discount",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                },
+                {
+                    "id": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+                    "urn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashChartUuid": "33333333-3333-3333-3333-000000000004",
+                "lightdashChartKind": "horizontal_bar",
+                "lightdashChartType": "cartesian",
+                "lightdashTableName": "orders_enriched",
+                "lightdashSpaceName": "Analytics",
+                "lightdashSlug": "top-customers-with-calc",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000004/view",
+            "title": "Top Customers with Calc",
+            "description": "Has a tableCalculation that should be reported as skipped",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744632000000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/saved/33333333-3333-3333-3333-000000000004/view",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),customer_id)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_customer_id",
+                        "nullable": false,
+                        "description": "Customer id",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.orders_enriched,PROD),revenue_total)",
+                    "schemaField": {
+                        "fieldPath": "orders_enriched_revenue_total",
+                        "nullable": false,
+                        "description": "Revenue total",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "sum",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf",
+                    "urn": "urn:li:container:5fb5e22cd291497a89622e2fff14fdbf"
+                },
+                {
+                    "id": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+                    "urn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c"
+                },
+                {
+                    "id": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+                    "urn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashDashboardUuid": "44444444-4444-4444-4444-000000000001",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001",
+                "tileCount": "2"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/dashboards/44444444-4444-4444-4444-000000000001/view",
+            "title": "Marketing Overview",
+            "description": "Top-line marketing metrics",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744704000000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/dashboards/44444444-4444-4444-4444-000000000001/view"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eeb564c48955a55f473edb1fdee8e4fd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:229c6d513649a1069f3664b60765a36e",
+                    "urn": "urn:li:container:229c6d513649a1069f3664b60765a36e"
+                },
+                {
+                    "id": "urn:li:container:ad4f9588f0753ab1915fa67b4e5eb6a8",
+                    "urn": "urn:li:container:ad4f9588f0753ab1915fa67b4e5eb6a8"
+                },
+                {
+                    "id": "urn:li:container:eeb564c48955a55f473edb1fdee8e4fd",
+                    "urn": "urn:li:container:eeb564c48955a55f473edb1fdee8e4fd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:lightdash"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "lightdashDashboardUuid": "44444444-4444-4444-4444-000000000002",
+                "lightdashProjectUuid": "11111111-1111-1111-1111-000000000001",
+                "tileCount": "2"
+            },
+            "externalUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/dashboards/44444444-4444-4444-4444-000000000002/view",
+            "title": "Revenue Insights",
+            "description": "Bucketed revenue + top customers",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1744707600000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://lightdash.example.com/projects/11111111-1111-1111-1111-000000000001/dashboards/44444444-4444-4444-4444-000000000002/view"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f1fb9267b8839942d9d87d1b3e13add2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stan.dmitriev@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:229c6d513649a1069f3664b60765a36e",
+                    "urn": "urn:li:container:229c6d513649a1069f3664b60765a36e"
+                },
+                {
+                    "id": "urn:li:container:ad4f9588f0753ab1915fa67b4e5eb6a8",
+                    "urn": "urn:li:container:ad4f9588f0753ab1915fa67b4e5eb6a8"
+                },
+                {
+                    "id": "urn:li:container:f1fb9267b8839942d9d87d1b3e13add2",
+                    "urn": "urn:li:container:f1fb9267b8839942d9d87d1b3e13add2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(lightdash,33333333-3333-3333-3333-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:260862c8ca2f301e407ffde049b54cc6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d83b99de057bc03de68b77c7600e25c",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd01ffcd17196a4eecd5aabf3cf5e2c1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(lightdash,44444444-4444-4444-4444-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1746046800000,
+        "runId": "lightdash-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

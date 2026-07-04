@@ -1,0 +1,70 @@
+{
+  "status": "ok",
+  "results": {
+    "name": "orders_enriched",
+    "label": "Orders Enriched",
+    "baseTable": "orders_enriched",
+    "targetDatabase": "clickhouse",
+    "tables": {
+      "orders_enriched": {
+        "name": "orders_enriched",
+        "schema": "default",
+        "database": "default",
+        "sqlTable": "`default`.`orders_enriched`",
+        "dimensions": {
+          "order_region": {
+            "name": "order_region",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.order_region",
+            "type": "string",
+            "label": "Order region",
+            "fieldType": "dimension"
+          },
+          "order_month": {
+            "name": "order_month",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.order_month",
+            "type": "date",
+            "label": "Order month",
+            "fieldType": "dimension"
+          },
+          "customer_id": {
+            "name": "customer_id",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.customer_id",
+            "type": "string",
+            "label": "Customer id",
+            "fieldType": "dimension"
+          },
+          "discount_pct": {
+            "name": "discount_pct",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.discount_pct",
+            "type": "number",
+            "label": "Discount %",
+            "fieldType": "dimension"
+          }
+        },
+        "metrics": {
+          "order_count": {
+            "name": "order_count",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.order_id",
+            "type": "count",
+            "label": "Order count",
+            "fieldType": "metric"
+          },
+          "revenue_total": {
+            "name": "revenue_total",
+            "table": "orders_enriched",
+            "sql": "${TABLE}.revenue_total",
+            "type": "sum",
+            "label": "Revenue total",
+            "fieldType": "metric"
+          }
+        }
+      }
+    },
+    "joinedTables": []
+  }
+}
