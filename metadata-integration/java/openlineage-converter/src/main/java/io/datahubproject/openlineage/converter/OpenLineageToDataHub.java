@@ -770,7 +770,26 @@ public class OpenLineageToDataHub {
         return description;
       }
     }
+    // Generic: when the event's job is top-level (has no ParentRunFacet), it is not a task within a
+    // flow, so its DocumentationJobFacet describes the flow itself and applies to the DataFlow. A
+    // job
+    // WITH a parent is a task within a flow, so its documentation stays on the DataJob only.
+    if (isFlowLevelJob(event)) {
+      return getDescription(event);
+    }
     return null;
+  }
+
+  // A job is flow-level when it has no ParentRunFacet, i.e. it is not a child (task) of another
+  // job.
+  // This is deliberately based on the parent link rather than the presence of a "." in the job
+  // name:
+  // OpenLineage job names are free-form strings and routinely contain dots (e.g. Spark plan names,
+  // Airflow ids), so "." does not reliably delimit flow from task.
+  private static boolean isFlowLevelJob(OpenLineage.RunEvent event) {
+    return event.getRun() == null
+        || event.getRun().getFacets() == null
+        || event.getRun().getFacets().getParent() == null;
   }
 
   private static GlobalTags generateTags(OpenLineage.RunEvent event) {
