@@ -514,12 +514,11 @@ def warehouse_context_from_datasources(
     env: str,
     mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
-    contexts = {
-        context
+    resolved = (
+        warehouse_context_from_datasource(datasource, env, mapping)
         for datasource in datasources
-        if (context := warehouse_context_from_datasource(datasource, env, mapping))
-        is not None
-    }
+    )
+    contexts = {context for context in resolved if context is not None}
     if len(contexts) == 1:
         return next(iter(contexts))
     return None
@@ -803,12 +802,15 @@ def bind_visualizations_by_derived_objects(
     for visualization in dashboard.visualizations:
         if visualization.datasets or not visualization.object_ids:
             continue
-        owners = {
-            owner_by_derived_id[normalized]
-            for object_id in visualization.object_ids
-            if (normalized := _normalize_object_id(object_id)) in owner_by_derived_id
-            and normalized not in shared_catalog_ids
-        } & dataset_ids
+        owners: Set[str] = set()
+        for object_id in visualization.object_ids:
+            normalized = _normalize_object_id(object_id)
+            if (
+                normalized in owner_by_derived_id
+                and normalized not in shared_catalog_ids
+            ):
+                owners.add(owner_by_derived_id[normalized])
+        owners &= dataset_ids
         if owners:
             visualization.datasets = sorted(owners)
             bound += 1

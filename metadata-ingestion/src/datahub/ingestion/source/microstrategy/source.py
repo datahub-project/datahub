@@ -604,9 +604,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     source_dataset,
                 )
-            if self.config.extract_report_sql_lineage and (
-                warehouse_context := lineage_context.warehouse_context
-            ):
+            warehouse_context = lineage_context.warehouse_context
+            if self.config.extract_report_sql_lineage and warehouse_context:
                 self._enrich_report_sql_lineage(
                     project_id=project_id,
                     report_object=report_object,
