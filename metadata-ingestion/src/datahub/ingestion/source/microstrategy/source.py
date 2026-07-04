@@ -336,7 +336,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context = warehouse_context_from_datasources(
             source_warehouses,
             self.config.env,
-            self.config.warehouse_platform_map,
+            self.config.datasource_platform_mapping,
         )
         if not context:
             return None
@@ -344,7 +344,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         datasource = matching_datasource_for_context(
             source_warehouses,
             context,
-            self.config.warehouse_platform_map,
+            self.config.datasource_platform_mapping,
         )
         if datasource and datasource.connection_id:
             try:
@@ -370,7 +370,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context = warehouse_context_with_connection(
                     context,
                     connection,
-                    self.config.warehouse_platform_map,
+                    self.config.datasource_platform_mapping,
                 )
         return context
 
@@ -851,6 +851,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return self.lineage.model_lineage_index_from_tables(
             model_tables,
             warehouse_context,
+            graph=self.ctx.graph,
         )
 
     def _enrich_dashboard_dependencies(
@@ -1136,7 +1137,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_context_from_datasource(
                     dataset.source_warehouse,
                     self.config.env,
-                    self.config.warehouse_platform_map,
+                    self.config.datasource_platform_mapping,
                 )
                 if dataset.source_warehouse
                 else None

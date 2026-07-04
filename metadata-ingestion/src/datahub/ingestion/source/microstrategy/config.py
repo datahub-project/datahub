@@ -40,7 +40,13 @@ MicroStrategyAuthConfig = Annotated[
 ]
 
 
-class WarehousePlatformDetail(ConfigModel):
+class ConnectionPlatformConfig(ConfigModel):
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform name (for example `snowflake`) to override the "
+        "one auto-detected from the datasource's database type. Set this when the "
+        "warehouse is custom or its database type is not recognized.",
+    )
     platform_instance: Optional[str] = Field(
         default=None,
         description="The platform instance the warehouse was ingested under.",
@@ -299,14 +305,17 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
-    warehouse_platform_map: Dict[str, WarehousePlatformDetail] = Field(
+    datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(
-            "Optional mapping from warehouse platform name (for example `snowflake`) "
-            "to the platform instance, environment, and URN casing that warehouse was "
-            "ingested under. Set an entry so warehouse lineage URNs match the ingested "
-            "tables; platforms with no entry use this connector's `env`, no platform "
-            "instance, and lowercase URNs."
+            "Optional mapping from MicroStrategy datasource or connection name to the "
+            "platform, platform instance, environment, and URN casing that warehouse "
+            "was ingested under. MicroStrategy can hold several connections to the same "
+            "warehouse platform (for example a prod and a dev Snowflake account), so "
+            "keying by connection name lets each resolve to the right instance. Entries "
+            "are matched against the datasource's connection name first, then its "
+            "datasource name. Datasources with no entry auto-detect their platform and "
+            "use this connector's `env`, no platform instance, and lowercase URNs."
         ),
     )
 

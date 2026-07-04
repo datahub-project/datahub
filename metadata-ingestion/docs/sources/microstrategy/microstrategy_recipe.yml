@@ -41,12 +41,16 @@ source:
     extract_warehouse_lineage: false
     extract_report_sql_lineage: false
 
-    # Map each source warehouse platform to the platform instance, env, and URN
-    # casing it was ingested under, so warehouse lineage URNs match those tables.
-    # Platforms with no entry use this connector's env, no platform instance, and
-    # lowercase URNs.
-    # warehouse_platform_map:
-    #   snowflake:
+    # Map each MicroStrategy datasource / connection name to the platform,
+    # platform instance, env, and URN casing it was ingested under, so warehouse
+    # lineage URNs match those tables. Keying by connection name lets several
+    # connections to the same platform (e.g. prod vs dev Snowflake) resolve
+    # independently. Matched against the connection name first, then the
+    # datasource name. Datasources with no entry auto-detect their platform and
+    # use this connector's env, no platform instance, and lowercase URNs.
+    # datasource_platform_mapping:
+    #   "Snowflake Prod":
+    #     platform: snowflake
     #     platform_instance: my_snowflake_instance
     #     env: PROD
     #     convert_urns_to_lowercase: true

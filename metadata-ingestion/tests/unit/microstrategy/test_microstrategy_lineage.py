@@ -2,8 +2,8 @@ from typing import Any, Dict, List
 from unittest import mock
 
 from datahub.ingestion.source.microstrategy.config import (
+    ConnectionPlatformConfig,
     MicroStrategyConfig,
-    WarehousePlatformDetail,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
@@ -77,12 +77,12 @@ def _snowflake_datasource() -> DatasourceReference:
     )
 
 
-def test_warehouse_platform_map_applies_platform_instance_and_casing() -> None:
+def test_datasource_platform_mapping_by_datasource_name() -> None:
     context = warehouse_context_from_datasource(
         _snowflake_datasource(),
         "PROD",
         {
-            "snowflake": WarehousePlatformDetail(
+            "Sales Warehouse": ConnectionPlatformConfig(
                 platform_instance="prod_wh",
                 convert_urns_to_lowercase=False,
             )
@@ -95,18 +95,56 @@ def test_warehouse_platform_map_applies_platform_instance_and_casing() -> None:
     assert context.convert_urns_to_lowercase is False
 
 
-def test_warehouse_platform_map_overrides_env() -> None:
+def test_datasource_platform_mapping_by_connection_name_takes_precedence() -> None:
+    datasource = DatasourceReference.model_validate(
+        {
+            "id": "source-1",
+            "name": "Sales Warehouse",
+            "connection": {"id": "conn-1", "name": "Snowflake Prod"},
+            "database": {"type": "snow_flake", "name": "SALES_DB", "schema": "SALES"},
+        }
+    )
+
+    context = warehouse_context_from_datasource(
+        datasource,
+        "PROD",
+        {
+            "Snowflake Prod": ConnectionPlatformConfig(platform_instance="prod_wh"),
+            "Sales Warehouse": ConnectionPlatformConfig(platform_instance="ignored"),
+        },
+    )
+
+    assert context is not None
+    assert context.platform_instance == "prod_wh"
+
+
+def test_datasource_platform_mapping_platform_override() -> None:
+    datasource = DatasourceReference.model_validate(
+        {"id": "source-1", "name": "Custom Warehouse"}
+    )
+
+    context = warehouse_context_from_datasource(
+        datasource,
+        "PROD",
+        {"Custom Warehouse": ConnectionPlatformConfig(platform="databricks")},
+    )
+
+    assert context is not None
+    assert context.platform == "databricks"
+
+
+def test_datasource_platform_mapping_overrides_env() -> None:
     context = warehouse_context_from_datasource(
         _snowflake_datasource(),
         "PROD",
-        {"snowflake": WarehousePlatformDetail(env="DEV")},
+        {"Sales Warehouse": ConnectionPlatformConfig(env="DEV")},
     )
 
     assert context is not None
     assert context.env == "DEV"
 
 
-def test_warehouse_platform_map_unmapped_platform_uses_defaults() -> None:
+def test_datasource_platform_mapping_unmapped_uses_defaults() -> None:
     context = warehouse_context_from_datasource(_snowflake_datasource(), "PROD")
 
     assert context is not None
@@ -654,6 +692,44 @@ def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
     assert index.fact_field_urns(["fact-1"]) == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
         "P_MER_EDW_DB.XRBIA_DM.W_RTL_SLS_IT_LC_DY_A,PROD),NET_SLS_QTY)"
+    ]
+
+
+def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:
+    # When the warehouse dataset's schema is in the graph, column urns must adopt
+    # its actual casing regardless of what MicroStrategy reports, so edges anchor
+    # to real fields even when the two systems disagree on case.
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="MY_EDW_DB", schema="SALES_DM"
+    )
+    field = mock.Mock()
+    field.fieldPath = "Net_Sales_Qty"
+    schema = mock.Mock()
+    schema.fields = [field]
+    graph = mock.Mock()
+    graph.get_schema_metadata.return_value = schema
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {"tableName": "W_SLS_ITEM_DY_A"},
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "NET_SALES_QTY"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+        graph=graph,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "my_edw_db.sales_dm.w_sls_item_dy_a,PROD),Net_Sales_Qty)"
     ]
 
 

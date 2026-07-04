@@ -147,3 +147,46 @@ MSTR_DATABASE_PARAM_RE = _compile_connection_param_re(
 MSTR_SCHEMA_PARAM_RE = _compile_connection_param_re(
     "schema", "currentSchema", "CURRENT_SCHEMA", "searchpath", "search_path"
 )
+
+# Generic BI vocabulary excluded from the name-token overlap heuristic used to
+# infer visualization -> dataset lineage. Only genuinely non-discriminating
+# words belong here; business terms (e.g. "SALES") must NOT be added because
+# they legitimately distinguish datasets on real tenants.
+MSTR_LINEAGE_STOP_WORDS = frozenset(
+    {
+        "AND",
+        "DASHBOARD",
+        "DATA",
+        "DATASET",
+        "REPORT",
+        "TOTAL",
+        "VISUALIZATION",
+    }
+)
+
+# MicroStrategy SQL views append non-SQL commentary after the final pass
+# ("[Analytical engine calculation steps: ...]", "with parameters: 1") and
+# include DROP statements for its volatile tables. None of these carry lineage,
+# so they are skipped instead of counted as parse failures. The "with
+# parameters" match requires the trailing colon so a legitimate CTE named
+# "parameters" is never skipped.
+MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE = re.compile(
+    r"^\s*(drop\s|\[|with\s+parameters\s*:)",
+    re.IGNORECASE,
+)
+MSTR_CREATE_STATEMENT_RE = re.compile(r"^\s*create\b", re.IGNORECASE)
+
+# Alphanumeric run used to tokenize object names for the lineage overlap
+# heuristic.
+MSTR_NAME_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+# Collapses non-alphanumeric runs to a single underscore when normalizing a
+# datasource source-type into a comparable key.
+MSTR_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+# SQL identifier (column/table token) extractor for expression parsing.
+MSTR_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][\w$#]*")
+# A 32-char hex string is MicroStrategy's canonical object-id form.
+MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
+# Collapses internal whitespace runs to a single space.
+MSTR_WHITESPACE_RE = re.compile(r"\s+")
+# Collapses repeated dots when normalizing a qualified table name.
+MSTR_DOT_COLLAPSE_RE = re.compile(r"\.+")

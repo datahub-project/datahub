@@ -1,5 +1,4 @@
 import json
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -28,6 +27,8 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_DOT_COLLAPSE_RE,
+    MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
     USAGE_TARGET_DASHBOARD,
 )
@@ -1136,7 +1137,7 @@ def _attribute_field_path(
 
 
 def _dedupe_field_path(name: str, seen: Set[str]) -> str:
-    cleaned = re.sub(r"\s+", " ", name).strip() or "unknown"
+    cleaned = MSTR_WHITESPACE_RE.sub(" ", name).strip() or "unknown"
     if cleaned not in seen:
         seen.add(cleaned)
         return cleaned
@@ -1365,7 +1366,7 @@ def _dataset_lineage_match_keys(dataset_urn: Optional[str]) -> Set[str]:
     except InvalidUrnError:
         return set()
     platform = parsed.platform.removeprefix("urn:li:dataPlatform:").lower()
-    qualified_name = re.sub(r"\.+", ".", parsed.name.strip(".").lower())
+    qualified_name = MSTR_DOT_COLLAPSE_RE.sub(".", parsed.name.strip(".").lower())
     parts = [part for part in qualified_name.split(".") if part]
     keys = {f"{platform}:{qualified_name}"}
     # Require at least schema.table for the relaxed match; a bare table name
