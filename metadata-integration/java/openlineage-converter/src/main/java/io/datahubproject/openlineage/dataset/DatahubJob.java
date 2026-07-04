@@ -8,6 +8,7 @@ import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.TagAssociation;
@@ -35,6 +36,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -79,8 +81,9 @@ public class DatahubJob {
   DataFlowInfo dataFlowInfo;
   DataJobUrn jobUrn;
   DataJobInfo jobInfo;
-  Ownership flowOwnership;
+  Ownership jobOwnership;
   GlobalTags flowGlobalTags;
+  GlobalTags jobGlobalTags;
   Domains flowDomains;
   DataPlatformInstance flowPlatformInstance;
   DataPlatformInstance jobPlatformInstance;
@@ -146,8 +149,12 @@ public class DatahubJob {
     addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobInfo, mcps);
     generateStatus(jobUrn, DATAJOB_ENTITY_TYPE, mcps);
 
-    // Generate and add tags Aspect
-    generateFlowGlobalTagsAspect(flowUrn, flowGlobalTags, config, mcps);
+    // Generate and add tags Aspect. Airflow DAG tags stay on the DataFlow (backward compatible);
+    // OpenLineage TagsJobFacet tags and OwnershipJobFacet owners are job facets, so they go on the
+    // DataJob.
+    generateGlobalTagsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowGlobalTags, config, mcps);
+    generateGlobalTagsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobGlobalTags, config, mcps);
+    generateOwnershipAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobOwnership, config, mcps);
 
     // Generate and add domain Aspect
     generateFlowDomainsAspect(mcps, customProperties);
@@ -431,21 +438,40 @@ public class DatahubJob {
     }
   }
 
-  private void generateFlowGlobalTagsAspect(
-      Urn flowUrn,
-      GlobalTags flowGlobalTags,
+  private void generateGlobalTagsAspect(
+      Urn entityUrn,
+      String entityType,
+      GlobalTags globalTags,
       DatahubOpenlineageConfig config,
       List<MetadataChangeProposal> mcps) {
-    if (flowGlobalTags != null) {
-      if ((config.isUsePatch() && (!flowGlobalTags.getTags().isEmpty()))) {
-        GlobalTagsPatchBuilder globalTagsPatchBuilder = new GlobalTagsPatchBuilder().urn(flowUrn);
-        for (TagAssociation tag : flowGlobalTags.getTags()) {
+    if (globalTags != null) {
+      if (config.isUsePatch() && !globalTags.getTags().isEmpty()) {
+        GlobalTagsPatchBuilder globalTagsPatchBuilder = new GlobalTagsPatchBuilder().urn(entityUrn);
+        for (TagAssociation tag : globalTags.getTags()) {
           globalTagsPatchBuilder.addTag(tag.getTag(), null);
         }
-        globalTagsPatchBuilder.urn(flowUrn);
         mcps.add(globalTagsPatchBuilder.build());
       } else {
-        addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, flowGlobalTags, mcps);
+        addAspectToMcps(entityUrn, entityType, globalTags, mcps);
+      }
+    }
+  }
+
+  private void generateOwnershipAspect(
+      Urn entityUrn,
+      String entityType,
+      Ownership ownership,
+      DatahubOpenlineageConfig config,
+      List<MetadataChangeProposal> mcps) {
+    if (ownership != null && ownership.getOwners() != null && !ownership.getOwners().isEmpty()) {
+      if (config.isUsePatch()) {
+        OwnershipPatchBuilder ownershipPatchBuilder = new OwnershipPatchBuilder().urn(entityUrn);
+        for (Owner owner : ownership.getOwners()) {
+          ownershipPatchBuilder.addOwner(owner.getOwner(), owner.getType());
+        }
+        mcps.add(ownershipPatchBuilder.build());
+      } else {
+        addAspectToMcps(entityUrn, entityType, ownership, mcps);
       }
     }
   }
