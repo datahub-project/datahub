@@ -1,5 +1,16 @@
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
+# REST endpoint paths that are referenced in more than one place -- the request
+# plus its response-shape/error check, or the re-auth guard -- are centralized
+# so the two uses cannot drift apart. Single-use paths stay inline.
+MSTR_API_AUTH_PREFIX = "/api/auth/"
+MSTR_API_AUTH_LOGIN = "/api/auth/login"
+MSTR_API_AUTH_LOGOUT = "/api/auth/logout"
+MSTR_API_PROJECTS = "/api/projects"
+MSTR_API_OBJECT = "/api/objects/{object_id}"
+MSTR_API_METADATA_SEARCHES = "/api/metadataSearches/results"
+MSTR_API_SEARCHES = "/api/searches/results"
+
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8
 

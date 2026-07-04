@@ -14,9 +14,11 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    ModelTablesResponse,
     MSTRObject,
     Project,
     ReportDefinition,
+    SqlView,
 )
 from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
@@ -180,8 +182,8 @@ def test_report_sql_lineage_attaches_upstreams_to_report_source_dataset() -> Non
             project_id: str,
             report_id: str,
             instance_id: str,
-        ) -> dict:
-            return {"sqlStatement": "select * from fact_sales"}
+        ) -> SqlView:
+            return SqlView(sql_statement="select * from fact_sales")
 
         def delete_report_instance(
             self,
@@ -805,7 +807,7 @@ def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     class FakeClient:
         model_table_calls = 0
 
-        def list_model_tables(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
             self.model_table_calls += 1
             raise ValueError("unexpected model tables failure")
 
@@ -846,9 +848,9 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
                 [MSTRObject.model_validate({"id": "dash-1", "name": "Filtered Out"})]
             )
 
-        def list_model_tables(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
             self.model_table_calls += 1
-            return {"tables": [], "total": 0}
+            return ModelTablesResponse(tables=[], total=0)
 
         def get_datasource_connection(self, *args: Any, **kwargs: Any) -> Any:
             self.connection_calls += 1

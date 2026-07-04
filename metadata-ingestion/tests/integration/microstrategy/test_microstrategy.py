@@ -7,6 +7,7 @@ from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
+    ModelTablesResponse,
     MSTRObject,
     Project,
 )
@@ -259,39 +260,41 @@ def _model_tables(
     limit: int = 1,
     offset: int = 0,
     fields: str | None = None,
-) -> Dict[str, Any]:
+) -> ModelTablesResponse:
     assert fields == "physicalTable,attributes,facts"
     if offset > 0:
-        return {"tables": [], "total": 1}
-    return {
-        "tables": [
-            {
-                "physicalTable": {
-                    "namespace": "SALES_DB",
-                    "tablePrefix": "ORDERS",
-                    "tableName": "fact_orders",
-                },
-                "facts": [
-                    {
-                        "information": {"objectId": "fact-1"},
-                        "expression": {"text": "net_sales_amt"},
-                    }
-                ],
-                "attributes": [
-                    {
-                        "information": {"objectId": "attr-1"},
-                        "forms": [
-                            {
-                                "name": "ID",
-                                "expression": {"text": "order_date_id"},
-                            }
-                        ],
-                    }
-                ],
-            }
-        ],
-        "total": 1,
-    }
+        return ModelTablesResponse(tables=[], total=1)
+    return ModelTablesResponse.model_validate(
+        {
+            "tables": [
+                {
+                    "physicalTable": {
+                        "namespace": "SALES_DB",
+                        "tablePrefix": "ORDERS",
+                        "tableName": "fact_orders",
+                    },
+                    "facts": [
+                        {
+                            "information": {"objectId": "fact-1"},
+                            "expression": {"text": "net_sales_amt"},
+                        }
+                    ],
+                    "attributes": [
+                        {
+                            "information": {"objectId": "attr-1"},
+                            "forms": [
+                                {
+                                    "name": "ID",
+                                    "expression": {"text": "order_date_id"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "total": 1,
+        }
+    )
 
 
 def _dataset_sql_view(

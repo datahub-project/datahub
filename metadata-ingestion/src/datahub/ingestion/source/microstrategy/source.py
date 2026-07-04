@@ -722,22 +722,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return None
 
-            tables = response.get("tables")
-            if not isinstance(tables, list):
-                if offset == 0 and response:
+            tables = response.tables
+            if tables is None:
+                if offset == 0:
                     self.report.warning(
                         title="Unrecognized model tables response shape",
                         message=(
                             "The model tables API returned a payload without a "
                             "'tables' list; model lineage may be missing."
                         ),
-                        context=(
-                            f"project_id={project_id}, keys={sorted(response)[:10]}"
-                        ),
+                        context=f"project_id={project_id}",
                     )
                 break
             model_tables.extend(table for table in tables if isinstance(table, dict))
-            total = response.get("total")
+            total = response.total
             offset += len(tables)
             if not tables:
                 break
@@ -1103,10 +1101,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         finally:
             self._delete_report_instance(project_id, report_object.id, instance_id)
 
-        sql_statement = sql_statement_from_sql_view_entry(sql_view)
-        result = sql_view.get("result")
-        if not sql_statement and isinstance(result, dict):
-            sql_statement = sql_statement_from_sql_view_entry(result)
+        sql_statement = sql_view.get_statement()
         if not sql_statement:
             self.report.report_sql_view_without_statement()
             return

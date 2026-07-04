@@ -124,6 +124,36 @@ class MetricEnrichment(MicroStrategyBaseModel):
     fact_ids: List[str] = Field(default_factory=list)
 
 
+class ModelTablesResponse(MicroStrategyBaseModel):
+    """Envelope for the model-tables listing. Only the outer shape is stable;
+    each table's nested modeling structure varies by server version and is
+    parsed by the lineage helpers, so tables stay untyped payloads here."""
+
+    # None (key absent) is kept distinct from an empty list so the pagination
+    # loop can tell "unrecognized response shape" from "empty page".
+    tables: Optional[List[MSTRDict]] = None
+    total: Optional[int] = None
+
+
+class SqlView(MicroStrategyBaseModel):
+    """SQL-view response for a report instance. The statement can arrive under
+    any of several keys and older servers nest it under `result`, so the lookup
+    checks the top level then recurses once into `result`."""
+
+    sql_statement: Optional[str] = Field(default=None, alias="sqlStatement")
+    sql: Optional[str] = None
+    statement: Optional[str] = None
+    result: Optional["SqlView"] = None
+
+    def get_statement(self) -> str:
+        for value in (self.sql_statement, self.sql, self.statement):
+            if isinstance(value, str) and value:
+                return value
+        if self.result is not None:
+            return self.result.get_statement()
+        return ""
+
+
 class DatasetObject(MicroStrategyBaseModel):
     id: str
     name: str

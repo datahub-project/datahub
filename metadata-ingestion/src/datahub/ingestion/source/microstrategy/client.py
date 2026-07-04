@@ -11,6 +11,13 @@ from datahub.ingestion.source.microstrategy.config import (
     MicroStrategyPasswordAuth,
 )
 from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_API_AUTH_LOGIN,
+    MSTR_API_AUTH_LOGOUT,
+    MSTR_API_AUTH_PREFIX,
+    MSTR_API_METADATA_SEARCHES,
+    MSTR_API_OBJECT,
+    MSTR_API_PROJECTS,
+    MSTR_API_SEARCHES,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
     MSTR_OBJECT_TYPE_DASHBOARD,
@@ -19,8 +26,10 @@ from datahub.ingestion.source.microstrategy.constants import (
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
+    ModelTablesResponse,
     MSTRObject,
     Project,
+    SqlView,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -79,7 +88,7 @@ class MicroStrategyClient:
         else:
             raise MicroStrategyAPIError(f"Unsupported auth config {type(auth)}")
 
-        response = self._request("POST", "/api/auth/login", json=payload)
+        response = self._request("POST", MSTR_API_AUTH_LOGIN, json=payload)
         token = response.headers.get("X-MSTR-AuthToken")
         if not token:
             raise MicroStrategyAPIError("MicroStrategy login did not return auth token")
@@ -87,7 +96,7 @@ class MicroStrategyClient:
 
     def close(self) -> None:
         try:
-            self._request("POST", "/api/auth/logout")
+            self._request("POST", MSTR_API_AUTH_LOGOUT)
         except Exception:
             logger.debug("MicroStrategy logout failed", exc_info=True)
         self.session.close()
@@ -128,7 +137,7 @@ class MicroStrategyClient:
         return [item for item in parsed if item is not None]
 
     def list_projects(self) -> List[Project]:
-        payload = self._get_json("/api/projects")
+        payload = self._get_json(MSTR_API_PROJECTS)
         projects: Any
         if isinstance(payload, list):
             projects = payload
@@ -138,9 +147,9 @@ class MicroStrategyClient:
             projects = []
         if not projects:
             self._warn_if_unrecognized_shape(
-                payload, "/api/projects", recognized_keys={"projects", "result"}
+                payload, MSTR_API_PROJECTS, recognized_keys={"projects", "result"}
             )
-        return self._parse_models(Project, projects, "GET /api/projects")
+        return self._parse_models(Project, projects, f"GET {MSTR_API_PROJECTS}")
 
     def list_datasources(self, project_id: str) -> List[Datasource]:
         path = "/api/datasources"
@@ -202,8 +211,9 @@ class MicroStrategyClient:
         Lets the report pass fetch dashboard-linked reports directly by id
         instead of paginating the project's entire report library.
         """
+        path = MSTR_API_OBJECT.format(object_id=report_id)
         payload = self._get_json(
-            f"/api/objects/{report_id}",
+            path,
             project_id=project_id,
             params={"type": MSTR_OBJECT_TYPE_REPORT},
         )
@@ -212,7 +222,7 @@ class MicroStrategyClient:
             item = item["result"]
         if not item:
             self._warn_if_unrecognized_shape(
-                payload, f"/api/objects/{report_id}", recognized_keys={"id", "result"}
+                payload, path, recognized_keys={"id", "result"}
             )
             return None
         return self._parse_model(
@@ -244,7 +254,7 @@ class MicroStrategyClient:
         object_type: str,
     ) -> List[MSTRObject]:
         create_response = self._get_json(
-            "/api/metadataSearches/results",
+            MSTR_API_METADATA_SEARCHES,
             project_id=project_id,
             params={
                 "domain": 2,
@@ -260,7 +270,7 @@ class MicroStrategyClient:
                 f"for object_id={object_id}, object_type={object_type}"
             )
         result = self._get_json(
-            "/api/metadataSearches/results",
+            MSTR_API_METADATA_SEARCHES,
             project_id=project_id,
             params={"searchId": search_id, "offset": 0, "limit": -1},
         )
@@ -294,14 +304,17 @@ class MicroStrategyClient:
         limit: int = 1,
         offset: int = 0,
         fields: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> ModelTablesResponse:
         params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if fields:
             params["fields"] = fields
-        return self._get_json(
+        payload = self._get_json(
             "/api/model/tables",
             project_id=project_id,
             params=params,
+        )
+        return ModelTablesResponse.model_validate(
+            payload if isinstance(payload, dict) else {}
         )
 
     def get_dossier_definition(
@@ -418,8 +431,8 @@ class MicroStrategyClient:
         project_id: str,
         report_id: str,
         instance_id: str,
-    ) -> Dict[str, Any]:
-        return self._get_json(
+    ) -> SqlView:
+        payload = self._get_json(
             f"/api/v2/reports/{report_id}/instances/{instance_id}/sqlView",
             project_id=project_id,
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
@@ -428,6 +441,7 @@ class MicroStrategyClient:
             # a slow report into 10+ silent minutes, so they get one attempt.
             max_attempts=1,
         )
+        return SqlView.model_validate(payload if isinstance(payload, dict) else {})
 
     def delete_dossier_instance(
         self,
@@ -506,7 +520,7 @@ class MicroStrategyClient:
                 payload["type"] = type_filter
 
             result = self._get_json(
-                "/api/searches/results",
+                MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
             )
@@ -515,7 +529,7 @@ class MicroStrategyClient:
                 total = self._extract_total(result)
             if not items:
                 if offset == 0:
-                    self._warn_if_unrecognized_shape(result, "/api/searches/results")
+                    self._warn_if_unrecognized_shape(result, MSTR_API_SEARCHES)
                 break
             # Progress per page: large libraries take many slow searches and
             # the log stream must not go silent while paginating them.
@@ -724,7 +738,9 @@ class MicroStrategyClient:
 
             if expected_statuses and response.status_code in expected_statuses:
                 return response
-            if response.status_code == 401 and not path.startswith("/api/auth/"):
+            if response.status_code == 401 and not path.startswith(
+                MSTR_API_AUTH_PREFIX
+            ):
                 # Session tokens can be invalidated at any moment (idle or
                 # absolute timeouts, concurrent-session limits, admin action),
                 # so one re-login + replay recovers long runs. The replay does
