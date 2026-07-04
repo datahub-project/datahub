@@ -2290,6 +2290,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result;
   }
 
+  @Override
+  public void flushEventProducer() {
+    producer.flush();
+  }
+
   /**
    * Lists the entity URNs found in storage.
    *
