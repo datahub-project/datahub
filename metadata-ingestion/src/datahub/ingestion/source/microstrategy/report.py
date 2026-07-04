@@ -32,7 +32,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     temporal_fields_scanned: int = 0
     chart_lineage_edges: int = 0
     dashboard_dataset_edges: int = 0
-    reports_skipped_not_dashboard_linked: int = 0
+    sessions_reauthenticated: int = 0
     unresolved_visualizations: int = 0
     visualizations_suppressed_ambiguous: int = 0
     visualizations_bound_by_derived_objects: int = 0
@@ -128,8 +128,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_visualization_suppressed_ambiguous(self) -> None:
         self.visualizations_suppressed_ambiguous += 1
 
-    def report_report_not_dashboard_linked(self) -> None:
-        self.reports_skipped_not_dashboard_linked += 1
+    def report_session_reauthenticated(self) -> None:
+        self.sessions_reauthenticated += 1
 
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
         self.warehouse_upstreams_pruned_by_field_evidence += count

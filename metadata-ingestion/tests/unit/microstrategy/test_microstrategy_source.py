@@ -4,7 +4,10 @@ from unittest import mock
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.microstrategy.client import MicroStrategyAPIError
+from datahub.ingestion.source.microstrategy.client import (
+    MicroStrategyAPIError,
+    MicroStrategyAuthError,
+)
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.models import (
@@ -12,6 +15,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasetObject,
     Datasource,
     MSTRObject,
+    Project,
     ReportDefinition,
 )
 from datahub.ingestion.source.microstrategy.source import (
@@ -437,7 +441,12 @@ def _report_scope_source(extra_config: dict | None = None) -> MicroStrategySourc
 
 
 class _ReportSearchClient:
+    def __init__(self) -> None:
+        self.search_calls = 0
+        self.object_info_calls: List[str] = []
+
     def search_reports(self, project_id: str) -> Iterator[MSTRObject]:
+        self.search_calls += 1
         return iter(
             [
                 MSTRObject.model_validate(
@@ -449,10 +458,22 @@ class _ReportSearchClient:
             ]
         )
 
+    def get_report_object(self, project_id: str, report_id: str) -> MSTRObject:
+        self.object_info_calls.append(report_id)
+        return MSTRObject.model_validate(
+            {
+                "id": report_id,
+                "name": "Linked Report",
+                "type": "3",
+                "ancestors": [{"id": "folder-1", "name": "Shared Reports"}],
+            }
+        )
+
 
 def test_reports_scoped_to_dashboard_linked_by_default() -> None:
     source = _report_scope_source()
-    source.client = _ReportSearchClient()  # type: ignore[assignment]
+    client = _ReportSearchClient()
+    source.client = client  # type: ignore[assignment]
 
     workunits = list(
         source._process_project_reports(
@@ -465,12 +486,69 @@ def test_reports_scoped_to_dashboard_linked_by_default() -> None:
 
     assert source.mapper.report_urn("project-1", "REPORT-1") in urns
     assert source.mapper.report_urn("project-1", "REPORT-2") not in urns
-    assert source.report.reports_skipped_not_dashboard_linked == 1
+    # Linked reports are fetched directly by id; the expensive report library
+    # enumeration must not run at all.
+    assert client.search_calls == 0
+    assert client.object_info_calls == ["REPORT-1"]
+
+
+def test_linked_report_fetch_failure_skips_that_report() -> None:
+    source = _report_scope_source()
+
+    class FailingClient(_ReportSearchClient):
+        def get_report_object(self, project_id: str, report_id: str) -> MSTRObject:
+            if report_id == "REPORT-1":
+                raise MicroStrategyAPIError("object info failed")
+            return super().get_report_object(project_id, report_id)
+
+    client = FailingClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1",
+            _LazyProjectLineage(source, "project-1", []),
+            {"REPORT-1", "REPORT-3"},
+        )
+    )
+    urns = {workunit.get_urn() for workunit in workunits}
+
+    assert source.mapper.report_urn("project-1", "REPORT-1") not in urns
+    assert source.mapper.report_urn("project-1", "REPORT-3") in urns
+    assert len(source.report.warnings) == 1
+
+
+def test_report_enumeration_skipped_when_no_dashboard_links() -> None:
+    source = _report_scope_source()
+
+    class FakeClient:
+        search_calls = 0
+
+        def search_reports(self, project_id: str) -> Iterator[MSTRObject]:
+            self.search_calls += 1
+            return iter([])
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1",
+            _LazyProjectLineage(source, "project-1", []),
+            set(),
+        )
+    )
+
+    # The expensive report library search must not run at all when no
+    # ingested dashboard referenced a report.
+    assert workunits == []
+    assert fake_client.search_calls == 0
 
 
 def test_reports_not_scoped_when_independent_reports_enabled() -> None:
     source = _report_scope_source({"extract_independent_reports": True})
-    source.client = _ReportSearchClient()  # type: ignore[assignment]
+    client = _ReportSearchClient()
+    source.client = client  # type: ignore[assignment]
 
     workunits = list(
         source._process_project_reports(
@@ -483,7 +561,47 @@ def test_reports_not_scoped_when_independent_reports_enabled() -> None:
 
     assert source.mapper.report_urn("project-1", "REPORT-1") in urns
     assert source.mapper.report_urn("project-1", "REPORT-2") in urns
-    assert source.report.reports_skipped_not_dashboard_linked == 0
+    assert client.search_calls == 1
+    assert client.object_info_calls == []
+
+
+def test_auth_loss_aborts_remaining_projects() -> None:
+    source = _source(
+        {
+            "extract_reports": False,
+            "extract_source_warehouses": False,
+        }
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.projects_started: List[str] = []
+
+        def login(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+        def list_projects(self) -> List[Project]:
+            return [
+                Project.model_validate({"id": "project-1", "name": "First"}),
+                Project.model_validate({"id": "project-2", "name": "Second"}),
+            ]
+
+        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+            self.projects_started.append(project_id)
+            raise MicroStrategyAuthError("session invalidated and re-login failed")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    list(source.get_workunits_internal())
+
+    # The run must stop at the first project once auth is irrecoverable
+    # instead of failing every remaining project the same way.
+    assert fake_client.projects_started == ["project-1"]
+    assert len(source.report.failures) == 1
 
 
 def test_reports_not_scoped_without_dashboard_extraction() -> None:

@@ -20,7 +20,7 @@ dashboard_pattern:
 
 Set `extract_reports: true` to ingest MicroStrategy reports as DataHub chart entities with the `Report` subtype. Report extraction is disabled by default because report libraries can be much larger than curated dossiers. Use `report_pattern` to scope report extraction.
 
-When dashboards are also extracted, only reports referenced by an ingested dashboard are ingested by default, so scoping dashboards with `dashboard_pattern` scopes reports too. Set `extract_independent_reports: true` to also ingest reports not used by any dashboard (every report matching `report_pattern`). This scoping relies on `extract_dashboard_dependencies` for the dashboard-to-report linkage; without it, or without dashboard extraction, all matching reports are ingested.
+When dashboards are also extracted, only reports referenced by an ingested dashboard are ingested by default, so scoping dashboards with `dashboard_pattern` scopes reports too. Linked reports are fetched directly by id rather than by enumerating the project's report library, so large report libraries do not slow down scoped runs. Set `extract_independent_reports: true` to also ingest reports not used by any dashboard (every report matching `report_pattern`); this enumerates the full report library. This scoping relies on `extract_dashboard_dependencies` for the dashboard-to-report linkage; without it, or without dashboard extraction, all matching reports are ingested.
 
 When report definitions expose source and `availableObjects` metadata, the connector emits a report-scoped MicroStrategy source dataset containing the report metrics, attributes, and attribute forms. Report lineage uses `ChartInfo.inputs`, `ChartInfo.inputEdges`, and chart `InputFields` from that report source dataset to the report chart.
 
@@ -83,6 +83,10 @@ If charts do not show upstream datasets, the static dashboard definition may not
 #### 403 errors on modeling or SQL-view APIs
 
 The connector does not fail ingestion on modeling API 403s — it records warnings and counters in the ingestion report and continues. Check the report counters to see which APIs were inaccessible, and grant the principal instance-creation and SQL-view access (for warehouse lineage) or modeling privileges (for `extract_metric_expressions` / `extract_model_lineage`) as needed.
+
+#### Session invalidation mid-run
+
+MicroStrategy can invalidate the session token at any time (idle or absolute timeouts, concurrent-session limits, administrator action). The connector re-authenticates automatically and replays the failed request; the `sessions_reauthenticated` counter in the ingestion report shows when this happened. If re-login itself fails — or the server rejects a request immediately after a successful re-login — the run aborts with a single `MicroStrategy Authentication Lost` failure instead of failing every remaining project. Avoid signing in elsewhere with the ingestion service account while a run is in progress if your tenant enforces concurrent-session limits.
 
 #### Empty or incomplete results
 

@@ -7,6 +7,7 @@ from pytest import MonkeyPatch
 
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
+    MicroStrategyAuthError,
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -288,6 +289,7 @@ def test_get_dossier_datasets_sql_extracts_dataset_rows(
         path: str,
         project_id: Optional[str] = None,
         timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
     ) -> Dict[str, Any]:
         return {
             "result": [
@@ -328,6 +330,7 @@ def test_report_instance_lifecycle_uses_v2_report_endpoints(
         method: str = "GET",
         json: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
     ) -> Dict[str, Any]:
         calls.append(
             {
@@ -337,6 +340,7 @@ def test_report_instance_lifecycle_uses_v2_report_endpoints(
                 "method": method,
                 "json": json,
                 "timeout_seconds": timeout_seconds,
+                "max_attempts": max_attempts,
             }
         )
         return {"instanceId": "instance-1"}
@@ -354,6 +358,7 @@ def test_report_instance_lifecycle_uses_v2_report_endpoints(
             "method": "POST",
             "json": {},
             "timeout_seconds": config.warehouse_lineage_sql_timeout_seconds,
+            "max_attempts": 1,
         }
     ]
 
@@ -430,14 +435,41 @@ def test_request_raises_after_exhausting_retries_on_persistent_503(
     assert report.api_errors == 1
 
 
-def test_request_fails_fast_on_non_retryable_401(monkeypatch: MonkeyPatch) -> None:
+def test_sql_view_and_instance_calls_use_a_single_attempt(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Instance execution and SQL-view calls run the dashboard/report on the
+    # server; retrying their long timeouts multiplies one slow report into
+    # many silent minutes, so they must not retry even on retryable statuses.
+    client, report = _make_client({"max_retries": 3})
+    call_count = 0
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        nonlocal call_count
+        call_count += 1
+        return StatusResponse(503)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+        client.get_report_sql_view("project-1", "report-1", "instance-1")
+    assert call_count == 1
+
+    call_count = 0
+    with mock.patch("time.sleep"), pytest.raises(MicroStrategyAPIError):
+        client.create_report_instance("project-1", "report-1")
+    assert call_count == 1
+    assert report.api_errors == 2
+
+
+def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> None:
     client, report = _make_client()
     call_count = 0
 
     def fake_request(**kwargs: Any) -> StatusResponse:
         nonlocal call_count
         call_count += 1
-        return StatusResponse(401)
+        return StatusResponse(404)
 
     monkeypatch.setattr(client.session, "request", fake_request)
 
@@ -447,6 +479,97 @@ def test_request_fails_fast_on_non_retryable_401(monkeypatch: MonkeyPatch) -> No
     assert call_count == 1
     assert fake_sleep.call_count == 0
     assert report.api_errors == 1
+
+
+def _reauth_client(
+    monkeypatch: MonkeyPatch,
+    responses_by_path: Dict[str, List[StatusResponse]],
+) -> Tuple[MicroStrategyClient, MicroStrategyReport, List[str]]:
+    """Client whose session serves scripted responses per path, recording calls."""
+    client, report = _make_client(
+        {"auth": {"type": "password", "username": "svc", "password": "secret"}}
+    )
+    calls: List[str] = []
+
+    def fake_request(**kwargs: Any) -> StatusResponse:
+        path = kwargs["url"].replace(client.base_url, "")
+        calls.append(path)
+        return responses_by_path[path].pop(0)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    return client, report, calls
+
+
+def test_mid_run_401_triggers_relogin_and_replay(monkeypatch: MonkeyPatch) -> None:
+    client, report, calls = _reauth_client(
+        monkeypatch,
+        {
+            "/api/projects": [
+                StatusResponse(401),
+                StatusResponse(200, payload={"projects": []}),
+            ],
+            "/api/auth/login": [
+                StatusResponse(204, headers={"X-MSTR-AuthToken": "token-2"})
+            ],
+        },
+    )
+
+    payload = client._get_json("/api/projects")
+
+    assert payload == {"projects": []}
+    assert calls == ["/api/projects", "/api/auth/login", "/api/projects"]
+    assert client.session.headers["X-MSTR-AuthToken"] == "token-2"
+    assert report.sessions_reauthenticated == 1
+    assert report.api_errors == 0
+
+
+def test_second_401_after_relogin_kills_auth(monkeypatch: MonkeyPatch) -> None:
+    client, _report, calls = _reauth_client(
+        monkeypatch,
+        {
+            "/api/projects": [StatusResponse(401), StatusResponse(401)],
+            "/api/auth/login": [
+                StatusResponse(204, headers={"X-MSTR-AuthToken": "token-2"})
+            ],
+        },
+    )
+
+    with pytest.raises(MicroStrategyAuthError):
+        client._get_json("/api/projects")
+    assert calls == ["/api/projects", "/api/auth/login", "/api/projects"]
+
+    # Auth is dead: further requests must fail immediately without touching
+    # the network, so the source can abort instead of hammering the API.
+    with pytest.raises(MicroStrategyAuthError):
+        client._get_json("/api/datasources")
+    assert calls == ["/api/projects", "/api/auth/login", "/api/projects"]
+
+
+def test_failed_relogin_kills_auth(monkeypatch: MonkeyPatch) -> None:
+    client, _report, calls = _reauth_client(
+        monkeypatch,
+        {
+            "/api/projects": [StatusResponse(401)],
+            "/api/auth/login": [StatusResponse(401)],
+        },
+    )
+
+    with pytest.raises(MicroStrategyAuthError):
+        client._get_json("/api/projects")
+    assert calls == ["/api/projects", "/api/auth/login"]
+
+
+def test_initial_login_401_is_plain_api_error(monkeypatch: MonkeyPatch) -> None:
+    # A 401 from the login endpoint itself is bad credentials, not a lost
+    # session; it must not recurse into re-authentication.
+    client, _report, calls = _reauth_client(
+        monkeypatch,
+        {"/api/auth/login": [StatusResponse(401)]},
+    )
+
+    with pytest.raises(MicroStrategyAPIError):
+        client.login()
+    assert calls == ["/api/auth/login"]
 
 
 def test_retry_delay_honors_retry_after_header() -> None:

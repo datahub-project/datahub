@@ -41,11 +41,22 @@ class MicroStrategyAPIError(RuntimeError):
     pass
 
 
+class MicroStrategyAuthError(RuntimeError):
+    """Authentication was lost mid-run and could not be re-established.
+
+    Deliberately not a MicroStrategyAPIError subclass: per-object error
+    boundaries swallow API errors to keep the run going, but once auth is
+    irrecoverably dead every remaining call would fail, so this must
+    propagate to the top-level project loop and abort the run.
+    """
+
+
 class MicroStrategyClient:
     def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
         self.config = config
         self.report = report
         self.base_url = config.base_url
+        self._auth_dead = False
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -181,6 +192,35 @@ class MicroStrategyClient:
             project_id, MSTR_OBJECT_TYPE_REPORT, "report search"
         )
 
+    def get_report_object(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[MSTRObject]:
+        """Object info for one report, including the folder ancestors array.
+
+        Lets the report pass fetch dashboard-linked reports directly by id
+        instead of paginating the project's entire report library.
+        """
+        payload = self._get_json(
+            f"/api/objects/{report_id}",
+            project_id=project_id,
+            params={"type": MSTR_OBJECT_TYPE_REPORT},
+        )
+        item = payload
+        if "id" not in item and isinstance(item.get("result"), dict):
+            item = item["result"]
+        if not item:
+            self._warn_if_unrecognized_shape(
+                payload, f"/api/objects/{report_id}", recognized_keys={"id", "result"}
+            )
+            return None
+        return self._parse_model(
+            MSTRObject,
+            item,
+            f"report object info project_id={project_id}, report_id={report_id}",
+        )
+
     def _search_typed_objects(
         self,
         project_id: str,
@@ -295,6 +335,10 @@ class MicroStrategyClient:
             method="POST",
             json={},
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            # Instance execution and SQL-view calls are expensive (the server
+            # runs the dashboard/report); retrying a 180s timeout multiplies
+            # a slow report into 10+ silent minutes, so they get one attempt.
+            max_attempts=1,
         )
         instance_id = self._extract_instance_id(response)
         if not instance_id:
@@ -311,6 +355,10 @@ class MicroStrategyClient:
             method="POST",
             json={},
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            # Instance execution and SQL-view calls are expensive (the server
+            # runs the dashboard/report); retrying a 180s timeout multiplies
+            # a slow report into 10+ silent minutes, so they get one attempt.
+            max_attempts=1,
         )
         instance_id = self._extract_instance_id(response)
         if not instance_id:
@@ -328,6 +376,10 @@ class MicroStrategyClient:
             method="POST",
             json={},
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            # Instance execution and SQL-view calls are expensive (the server
+            # runs the dashboard/report); retrying a 180s timeout multiplies
+            # a slow report into 10+ silent minutes, so they get one attempt.
+            max_attempts=1,
         )
         instance_id = self._extract_instance_id(response)
         if not instance_id:
@@ -347,6 +399,10 @@ class MicroStrategyClient:
             f"/api/dossiers/{dossier_id}/instances/{instance_id}/datasets/sqlView",
             project_id=project_id,
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            # Instance execution and SQL-view calls are expensive (the server
+            # runs the dashboard/report); retrying a 180s timeout multiplies
+            # a slow report into 10+ silent minutes, so they get one attempt.
+            max_attempts=1,
         )
         datasets = self._extract_list(payload, "datasets")
         if datasets:
@@ -367,6 +423,10 @@ class MicroStrategyClient:
             f"/api/v2/reports/{report_id}/instances/{instance_id}/sqlView",
             project_id=project_id,
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            # Instance execution and SQL-view calls are expensive (the server
+            # runs the dashboard/report); retrying a 180s timeout multiplies
+            # a slow report into 10+ silent minutes, so they get one attempt.
+            max_attempts=1,
         )
 
     def delete_dossier_instance(
@@ -457,6 +517,15 @@ class MicroStrategyClient:
                 if offset == 0:
                     self._warn_if_unrecognized_shape(result, "/api/searches/results")
                 break
+            # Progress per page: large libraries take many slow searches and
+            # the log stream must not go silent while paginating them.
+            logger.info(
+                "Metadata search progress: %d/%s objects (type=%s, project=%s)",
+                offset + len(items),
+                total if total is not None else "?",
+                type_filter,
+                project_id,
+            )
             yield from items
             offset += len(items)
             if total is not None:
@@ -566,6 +635,7 @@ class MicroStrategyClient:
         method: str = "GET",
         json: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
+        max_attempts: Optional[int] = None,
     ) -> Dict[str, Any]:
         response = self._request(
             method,
@@ -574,6 +644,7 @@ class MicroStrategyClient:
             params=params,
             json=json,
             timeout_seconds=timeout_seconds,
+            max_attempts=max_attempts,
         )
         if not response.content:
             return {}
@@ -608,15 +679,26 @@ class MicroStrategyClient:
         expected_statuses: Optional[Set[int]] = None,
         **kwargs: Any,
     ) -> requests.Response:
+        if self._auth_dead:
+            # A failed re-login means every further call would 401; refusing
+            # immediately lets the source abort the run instead of failing
+            # every remaining project one API call at a time.
+            raise MicroStrategyAuthError(
+                "MicroStrategy authentication was lost and could not be "
+                f"re-established; refusing request: {method} {path}"
+            )
         url = f"{self.base_url}{path}"
         headers = kwargs.pop("headers", {})
         if project_id:
             headers["X-MSTR-ProjectID"] = project_id
         timeout_seconds = kwargs.pop("timeout_seconds", None)
+        max_attempts = kwargs.pop("max_attempts", None)
 
-        attempts = self.config.max_retries + 1
+        attempts = max_attempts or self.config.max_retries + 1
         last_error: Optional[Exception] = None
-        for attempt in range(attempts):
+        reauth_attempted = False
+        attempt = 0
+        while attempt < attempts:
             try:
                 response = self.session.request(
                     method=method,
@@ -633,6 +715,7 @@ class MicroStrategyClient:
                 last_error = error
                 if attempt < attempts - 1:
                     time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    attempt += 1
                     continue
                 self.report.report_api_error()
                 raise MicroStrategyAPIError(
@@ -641,11 +724,22 @@ class MicroStrategyClient:
 
             if expected_statuses and response.status_code in expected_statuses:
                 return response
+            if response.status_code == 401 and not path.startswith("/api/auth/"):
+                # Session tokens can be invalidated at any moment (idle or
+                # absolute timeouts, concurrent-session limits, admin action),
+                # so one re-login + replay recovers long runs. The replay does
+                # not consume a retry attempt: this is auth recovery, not a
+                # retry of a failing endpoint, and must work even for
+                # max_attempts=1 calls.
+                self._reauthenticate_or_die(method, path, reauth_attempted)
+                reauth_attempted = True
+                continue
             if (
                 response.status_code in _RETRYABLE_STATUS_CODES
                 and attempt < attempts - 1
             ):
                 time.sleep(self._retry_delay(response, attempt))
+                attempt += 1
                 continue
             try:
                 response.raise_for_status()
@@ -659,6 +753,41 @@ class MicroStrategyClient:
         raise MicroStrategyAPIError(
             f"MicroStrategy API request failed: {method} {path}: {last_error}"
         )
+
+    def _reauthenticate_or_die(
+        self,
+        method: str,
+        path: str,
+        reauth_attempted: bool,
+    ) -> None:
+        """Re-login after a mid-run 401, or mark auth as irrecoverably dead.
+
+        A second 401 after a successful re-login means the credentials no
+        longer grant access, so retrying further requests is pointless.
+        """
+        if reauth_attempted:
+            self._auth_dead = True
+            self.report.report_api_error()
+            raise MicroStrategyAuthError(
+                "MicroStrategy rejected the request again immediately after "
+                f"a successful re-login; aborting: {method} {path}"
+            )
+        logger.info(
+            "MicroStrategy session was rejected (401) on %s %s; "
+            "re-authenticating and replaying the request",
+            method,
+            path,
+        )
+        try:
+            self.login()
+        except Exception as error:
+            self._auth_dead = True
+            self.report.report_api_error()
+            raise MicroStrategyAuthError(
+                "MicroStrategy session was invalidated and re-login failed: "
+                f"{method} {path}: {error}"
+            ) from error
+        self.report.report_session_reauthenticated()
 
     @staticmethod
     def _retry_delay(response: requests.Response, attempt: int) -> float:

@@ -22,6 +22,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
+    MicroStrategyAuthError,
     MicroStrategyClient,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
@@ -138,6 +139,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 try:
                     yield from self._process_project(project)
+                except MicroStrategyAuthError as error:
+                    # Auth is irrecoverably dead: every remaining call would
+                    # fail identically, so stop with one clear failure instead
+                    # of a per-project error cascade.
+                    self.report.failure(
+                        title="MicroStrategy Authentication Lost",
+                        message=(
+                            "The session was invalidated mid-run and could not "
+                            "be re-established; aborting the remaining projects."
+                        ),
+                        context=f"project_id={project.id}, project_name={project.name}",
+                        exc=error,
+                    )
+                    break
                 except Exception as error:
                     self.report.failure(
                         title="Failed to Process Project",
@@ -275,6 +290,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
                 self.report.filtered_dashboards.append(dashboard_object.name)
                 continue
+            # Progress line before the expensive per-dashboard work (instance
+            # execution, SQL views) so the log stream never goes silent for
+            # minutes at a time.
+            logger.info(
+                "Processing dashboard %r (%s) in project %s",
+                dashboard_object.name,
+                dashboard_object.id,
+                project_id,
+            )
             try:
                 yield from self._process_dashboard_object(
                     project_id,
@@ -282,6 +306,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     lineage_context,
                     linked_report_ids,
                 )
+            except MicroStrategyAuthError:
+                # Not a per-dashboard problem; must abort the whole run.
+                raise
             except Exception as error:
                 self.report.warning(
                     title="Failed to Process Dashboard",
@@ -357,35 +384,107 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             and self.config.extract_dashboard_dependencies
             and linked_report_ids is not None
         )
+        if scope_to_dashboards:
+            assert linked_report_ids is not None
+            if not linked_report_ids:
+                # Enumerating a project's report library is expensive
+                # (paginated ancestor-resolving searches over potentially
+                # thousands of reports); skip it entirely when no ingested
+                # dashboard referenced a report.
+                logger.info(
+                    "Skipping report enumeration for project %s: no reports are "
+                    "referenced by ingested dashboards",
+                    project_id,
+                )
+                return
+            yield from self._process_linked_reports(
+                project_id,
+                lineage_context,
+                linked_report_ids,
+            )
+            return
         for report_object in self.client.search_reports(project_id):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
                 continue
-            if scope_to_dashboards and (
-                linked_report_ids is None
-                or report_object.id.upper() not in linked_report_ids
-            ):
-                self.report.report_report_not_dashboard_linked()
-                continue
+            yield from self._process_report_with_boundary(
+                project_id,
+                report_object,
+                lineage_context,
+            )
+
+    def _process_linked_reports(
+        self,
+        project_id: str,
+        lineage_context: "_LazyProjectLineage",
+        linked_report_ids: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # Dashboard-linked reports are fetched directly by id: enumerating the
+        # report library to keep a handful of linked reports means paginating
+        # tens of thousands of objects (minutes per project), which was also
+        # the connector's largest exposure window to mid-run session loss.
+        for report_id in sorted(linked_report_ids):
             try:
-                yield from self._process_report_object(
-                    project_id,
-                    report_object,
-                    lineage_context,
-                )
-            except Exception as error:
+                report_object = self.client.get_report_object(project_id, report_id)
+            except MicroStrategyAPIError as error:
                 self.report.warning(
-                    title="Failed to Process Report",
+                    title="Failed to Fetch Linked Report",
                     message=(
-                        "Skipping report after an unexpected error; other reports "
-                        "will still be processed."
+                        "Skipping a dashboard-linked report whose object info "
+                        "could not be fetched."
                     ),
-                    context=(
-                        f"project_id={project_id}, report_id={report_object.id}, "
-                        f"report_name={report_object.name}"
-                    ),
+                    context=f"project_id={project_id}, report_id={report_id}",
                     exc=error,
                 )
+                continue
+            if report_object is None:
+                continue
+            if not self.config.report_pattern.allowed(report_object.name):
+                self.report.filtered_reports.append(report_object.name)
+                continue
+            yield from self._process_report_with_boundary(
+                project_id,
+                report_object,
+                lineage_context,
+            )
+
+    def _process_report_with_boundary(
+        self,
+        project_id: str,
+        report_object: MSTRObject,
+        lineage_context: "_LazyProjectLineage",
+    ) -> Iterable[MetadataWorkUnit]:
+        # Progress line before the expensive per-report work (instance
+        # execution, SQL views) so the log stream never goes silent for
+        # minutes at a time.
+        logger.info(
+            "Processing report %r (%s) in project %s",
+            report_object.name,
+            report_object.id,
+            project_id,
+        )
+        try:
+            yield from self._process_report_object(
+                project_id,
+                report_object,
+                lineage_context,
+            )
+        except MicroStrategyAuthError:
+            # Not a per-report problem; must abort the whole run.
+            raise
+        except Exception as error:
+            self.report.warning(
+                title="Failed to Process Report",
+                message=(
+                    "Skipping report after an unexpected error; other reports "
+                    "will still be processed."
+                ),
+                context=(
+                    f"project_id={project_id}, report_id={report_object.id}, "
+                    f"report_name={report_object.name}"
+                ),
+                exc=error,
+            )
 
     def _process_report_object(
         self,
