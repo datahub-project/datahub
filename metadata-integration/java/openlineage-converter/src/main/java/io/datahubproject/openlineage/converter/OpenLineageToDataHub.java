@@ -439,10 +439,18 @@ public class OpenLineageToDataHub {
     StringMap customProperties = generateCustomProperties(event, true);
     dfi.setCustomProperties(customProperties);
 
-    // Note: the OpenLineage DocumentationJobFacet is a *job* facet and is written to the DataJob
-    // (see convertJobToDataJob). It is intentionally not written to the DataFlow here — a job-level
-    // description does not describe the flow, and with multiple jobs per flow each would overwrite
-    // the others. OpenLineage has no flow-level documentation facet.
+    // The DataFlow description is the *flow's* own description, not the job's. The OpenLineage
+    // DocumentationJobFacet describes the job and is written to the DataJob (see
+    // convertJobToDataJob),
+    // not here — a job-level description doesn't describe the flow, and with many jobs per flow
+    // each
+    // would overwrite the others. The only flow-level description OpenLineage carries is the
+    // Airflow
+    // DAG description in the airflow custom run facet, which getFlowDescription reads.
+    String flowDescription = getFlowDescription(event);
+    if (flowDescription != null) {
+      dfi.setDescription(flowDescription);
+    }
     jobBuilder.dataFlowInfo(dfi);
 
     // Ownership comes from the OpenLineage OwnershipJobFacet (a job facet), so it belongs on the
@@ -715,8 +723,12 @@ public class OpenLineageToDataHub {
     return true;
   }
 
-  private static GlobalTags generateTags(OpenLineage.RunEvent event) {
-    if (event.getRun().getFacets() == null
+  // The Airflow OpenLineage provider ships DAG metadata in a custom run facet
+  // (run.facets.airflow.dag). Returns that dag property map, or null when the event is not from
+  // Airflow / has no dag facet.
+  private static Map<String, Object> getAirflowDagProperties(OpenLineage.RunEvent event) {
+    if (event.getRun() == null
+        || event.getRun().getFacets() == null
         || event.getRun().getFacets().getAdditionalProperties() == null
         || event.getRun().getFacets().getAdditionalProperties().get("airflow") == null
         || event
@@ -725,19 +737,47 @@ public class OpenLineageToDataHub {
                 .getAdditionalProperties()
                 .get("airflow")
                 .getAdditionalProperties()
-                .get("dag")
             == null) {
       return null;
     }
-    Map<String, Object> airflowProperties =
+    Object dag =
         event
             .getRun()
             .getFacets()
             .getAdditionalProperties()
             .get("airflow")
-            .getAdditionalProperties();
-    @SuppressWarnings("unchecked")
-    Map<String, Object> dagProperties = (Map<String, Object>) airflowProperties.get("dag");
+            .getAdditionalProperties()
+            .get("dag");
+    if (dag instanceof Map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> dagProperties = (Map<String, Object>) dag;
+      return dagProperties;
+    }
+    return null;
+  }
+
+  // DataFlow (= Airflow DAG) description. Sourced from the Airflow custom run facet's
+  // dag.description
+  // — the DAG's own description, present on every task event — rather than the job's
+  // DocumentationJobFacet (which describes the task and belongs on the DataJob). Foolproof for
+  // Airflow because it is gated on the Airflow facet; other producers have no flow-level
+  // description.
+  private static String getFlowDescription(OpenLineage.RunEvent event) {
+    Map<String, Object> dagProperties = getAirflowDagProperties(event);
+    if (dagProperties != null && dagProperties.get("description") instanceof String) {
+      String description = ((String) dagProperties.get("description")).trim();
+      if (!description.isEmpty()) {
+        return description;
+      }
+    }
+    return null;
+  }
+
+  private static GlobalTags generateTags(OpenLineage.RunEvent event) {
+    Map<String, Object> dagProperties = getAirflowDagProperties(event);
+    if (dagProperties == null) {
+      return null;
+    }
     if (dagProperties.get("tags") != null) {
       try {
         JSONArray arr = new JSONArray(((String) dagProperties.get("tags")).replace("'", "\""));
