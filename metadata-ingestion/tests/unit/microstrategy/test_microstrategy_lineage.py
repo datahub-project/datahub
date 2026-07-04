@@ -569,7 +569,9 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
                 "facts": [
                     {
                         "information": {"objectId": "fact-1"},
-                        "expression": {"text": "net_sls_qty"},
+                        # Real modeling responses carry the warehouse's
+                        # canonical upper case.
+                        "expression": {"text": "NET_SLS_QTY"},
                     }
                 ],
                 "attributes": [],
@@ -578,6 +580,8 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
         context,
     )
 
+    # Field urns must be lowercased to anchor on the warehouse connector's
+    # lowercase schema fieldPaths; schemaField urns match case-sensitively.
     upstreams = index.fact_field_urns(["fact-1"])
     assert upstreams == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"

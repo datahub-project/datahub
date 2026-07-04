@@ -640,7 +640,12 @@ def _model_expression_field_urns(
         text = str(expression.get("text") or "")
     field_names = extract_field_names_from_expression(text)
     return [
-        builder.make_schema_field_urn(upstream_dataset_urn, field_name)
+        # MicroStrategy expressions carry the warehouse's canonical (upper)
+        # case, but warehouse connectors emit lowercase schema fieldPaths for
+        # case-insensitive warehouses and schemaField urns match
+        # case-sensitively — mirror the dataset-urn lowercasing
+        # (warehouse_dataset_urn) so fine-grained edges anchor to real fields.
+        builder.make_schema_field_urn(upstream_dataset_urn, field_name.lower())
         for field_name in field_names
     ]
 
