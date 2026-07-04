@@ -525,6 +525,38 @@ public class OpenLineageEventToDatahubTest {
     assertTrue(fieldType(output, "address.zip").isNumberType());
   }
 
+  @Test
+  public void testArraySchemaGeneratesV2FieldPaths() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("spark")
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .build();
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_array_schema.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertEquals(1, datahubJob.getOutSet().size());
+    DatahubDataset output = datahubJob.getOutSet().iterator().next();
+    assertNotNull(output.getSchemaMetadata());
+
+    // An array is present, so the whole schema must be emitted with v2 fieldPaths.
+    assertTrue(hasFieldPath(output, "[version=2.0].[type=struct].[type=long].id"));
+    assertTrue(hasFieldPath(output, "[version=2.0].[type=struct].[type=array].[type=string].tags"));
+    assertTrue(
+        hasFieldPath(output, "[version=2.0].[type=struct].[type=array].[type=struct].markers"));
+    assertTrue(
+        hasFieldPath(
+            output,
+            "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name"));
+  }
+
   private static boolean hasFieldPath(DatahubDataset dataset, String fieldPath) {
     return dataset.getSchemaMetadata().getFields().stream()
         .anyMatch(f -> fieldPath.equals(f.getFieldPath()));
