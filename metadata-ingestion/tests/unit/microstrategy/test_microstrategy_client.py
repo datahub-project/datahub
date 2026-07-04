@@ -363,6 +363,21 @@ def test_report_instance_lifecycle_uses_v2_report_endpoints(
     ]
 
 
+def test_instance_delete_tolerates_405_method_not_allowed(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Real MicroStrategy Cloud returns 405 on DELETE of report/document instances
+    # (they auto-expire). This must degrade quietly, not raise or count as an API
+    # error, mirroring how dossier instance deletes already tolerate 405.
+    client, report = _make_client()
+
+    monkeypatch.setattr(client.session, "request", lambda **kwargs: StatusResponse(405))
+
+    assert client.delete_report_instance("project-1", "report-1", "inst-1") is False
+    assert client.delete_document_instance("project-1", "doc-1", "inst-1") is False
+    assert report.api_errors == 0
+
+
 def test_extract_search_id_from_metadata_search_response() -> None:
     assert MicroStrategyClient._extract_search_id({"id": "search-1"}) == "search-1"
     assert (

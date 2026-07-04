@@ -464,13 +464,15 @@ class MicroStrategyClient:
         document_id: str,
         instance_id: str,
     ) -> bool:
+        # 405 tolerated like dossiers: some MicroStrategy versions do not expose
+        # DELETE on the instance path and expire instances on their own.
         response = self._request(
             "DELETE",
             f"/api/documents/{document_id}/instances/{instance_id}",
             project_id=project_id,
-            expected_statuses={200, 202, 204, 404},
+            expected_statuses={200, 202, 204, 404, 405},
         )
-        return response.status_code != 404
+        return response.status_code not in {404, 405}
 
     def delete_report_instance(
         self,
@@ -478,13 +480,15 @@ class MicroStrategyClient:
         report_id: str,
         instance_id: str,
     ) -> bool:
+        # 405 tolerated like dossiers: some MicroStrategy versions do not expose
+        # DELETE on the instance path and expire instances on their own.
         response = self._request(
             "DELETE",
             f"/api/v2/reports/{report_id}/instances/{instance_id}",
             project_id=project_id,
-            expected_statuses={200, 202, 204, 404},
+            expected_statuses={200, 202, 204, 404, 405},
         )
-        return response.status_code != 404
+        return response.status_code not in {404, 405}
 
     def get_dossier_visualization(
         self,
