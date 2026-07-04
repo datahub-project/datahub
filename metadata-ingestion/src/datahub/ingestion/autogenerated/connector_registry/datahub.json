@@ -2575,6 +2575,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Dashboard and report usage from the Platform Analytics cube when `extract_usage_statistics` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,

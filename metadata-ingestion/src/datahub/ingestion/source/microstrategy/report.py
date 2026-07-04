@@ -50,6 +50,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     sql_view_rows_unmatched: int = 0
     sql_view_rows_without_context: int = 0
     sql_views_without_statement: int = 0
+    reports_skipped_not_dashboard_linked: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
 
     def report_project_scanned(self) -> None:
@@ -167,6 +168,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_sql_view_without_statement(self) -> None:
         self.sql_views_without_statement += 1
+
+    def report_reports_skipped_not_dashboard_linked(self) -> None:
+        self.reports_skipped_not_dashboard_linked += 1
 
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)

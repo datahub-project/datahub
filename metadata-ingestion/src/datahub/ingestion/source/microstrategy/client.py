@@ -1,8 +1,9 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import requests
+import urllib3
 from pydantic import BaseModel, ValidationError
 
 from datahub.ingestion.source.microstrategy.config import (
@@ -11,6 +12,13 @@ from datahub.ingestion.source.microstrategy.config import (
     MicroStrategyPasswordAuth,
 )
 from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_API_AUTH_LOGIN,
+    MSTR_API_AUTH_LOGOUT,
+    MSTR_API_AUTH_PREFIX,
+    MSTR_API_METADATA_SEARCHES,
+    MSTR_API_OBJECT,
+    MSTR_API_PROJECTS,
+    MSTR_API_SEARCHES,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
     MSTR_OBJECT_TYPE_DASHBOARD,
@@ -19,8 +27,10 @@ from datahub.ingestion.source.microstrategy.constants import (
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
-    MSTRObject,
+    MicroStrategyObject,
+    ModelTablesResponse,
     Project,
+    SqlView,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -42,13 +52,9 @@ class MicroStrategyAPIError(RuntimeError):
 
 
 class MicroStrategyAuthError(RuntimeError):
-    """Authentication was lost mid-run and could not be re-established.
-
-    Deliberately not a MicroStrategyAPIError subclass: per-object error
-    boundaries swallow API errors to keep the run going, but once auth is
-    irrecoverably dead every remaining call would fail, so this must
-    propagate to the top-level project loop and abort the run.
-    """
+    """Auth lost mid-run and unrecoverable. Deliberately not a MicroStrategyAPIError:
+    per-object boundaries swallow API errors to keep going, but dead auth must propagate
+    to the project loop and abort the run."""
 
 
 class MicroStrategyClient:
@@ -64,10 +70,21 @@ class MicroStrategyClient:
                 "Content-Type": "application/json",
             }
         )
+        if not config.verify_ssl:
+            # Silence the per-request urllib3 InsecureRequestWarning spam and
+            # surface the disabled cert validation in the ingestion report.
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            self.report.warning(
+                title="SSL Verification Disabled",
+                message=(
+                    "verify_ssl=False is set; TLS certificate validation is off "
+                    "for MicroStrategy API calls."
+                ),
+            )
 
     def login(self) -> None:
         auth = self.config.auth
-        payload: Dict[str, Any]
+        payload: Dict[str, Union[str, int]]
         if isinstance(auth, MicroStrategyGuestAuth):
             payload = {"loginMode": MSTR_LOGIN_MODE_GUEST}
         elif isinstance(auth, MicroStrategyPasswordAuth):
@@ -79,7 +96,7 @@ class MicroStrategyClient:
         else:
             raise MicroStrategyAPIError(f"Unsupported auth config {type(auth)}")
 
-        response = self._request("POST", "/api/auth/login", json=payload)
+        response = self._request("POST", MSTR_API_AUTH_LOGIN, json=payload)
         token = response.headers.get("X-MSTR-AuthToken")
         if not token:
             raise MicroStrategyAPIError("MicroStrategy login did not return auth token")
@@ -87,7 +104,7 @@ class MicroStrategyClient:
 
     def close(self) -> None:
         try:
-            self._request("POST", "/api/auth/logout")
+            self._request("POST", MSTR_API_AUTH_LOGOUT)
         except Exception:
             logger.debug("MicroStrategy logout failed", exc_info=True)
         self.session.close()
@@ -95,11 +112,10 @@ class MicroStrategyClient:
     def _parse_model(
         self,
         model_cls: Type[_ModelT],
-        item: Dict[str, Any],
+        item: Dict[str, object],
         context: str,
     ) -> Optional[_ModelT]:
-        """Validate one API object, reporting and skipping malformed items so a
-        single bad object cannot abort the whole ingestion run."""
+        """Validate one API object, skipping (and reporting) malformed items."""
         try:
             return model_cls.model_validate(item)
         except ValidationError as error:
@@ -117,7 +133,7 @@ class MicroStrategyClient:
     def _parse_models(
         self,
         model_cls: Type[_ModelT],
-        items: Iterable[Any],
+        items: Iterable[object],
         context: str,
     ) -> List[_ModelT]:
         parsed = [
@@ -128,19 +144,16 @@ class MicroStrategyClient:
         return [item for item in parsed if item is not None]
 
     def list_projects(self) -> List[Project]:
-        payload = self._get_json("/api/projects")
-        projects: Any
+        payload = self._get_json(MSTR_API_PROJECTS)
         if isinstance(payload, list):
-            projects = payload
-        elif isinstance(payload, dict):
-            projects = payload.get("projects") or payload.get("result") or []
+            projects: List[object] = payload
         else:
-            projects = []
+            projects = payload.get("projects") or payload.get("result") or []
         if not projects:
             self._warn_if_unrecognized_shape(
-                payload, "/api/projects", recognized_keys={"projects", "result"}
+                payload, MSTR_API_PROJECTS, recognized_keys={"projects", "result"}
             )
-        return self._parse_models(Project, projects, "GET /api/projects")
+        return self._parse_models(Project, projects, f"GET {MSTR_API_PROJECTS}")
 
     def list_datasources(self, project_id: str) -> List[Datasource]:
         path = "/api/datasources"
@@ -182,12 +195,12 @@ class MicroStrategyClient:
                 "not match the expected shape"
             ) from error
 
-    def search_dashboards(self, project_id: str) -> Iterable[MSTRObject]:
+    def search_dashboards(self, project_id: str) -> Iterable[MicroStrategyObject]:
         yield from self._search_typed_objects(
             project_id, MSTR_OBJECT_TYPE_DASHBOARD, "dashboard search"
         )
 
-    def search_reports(self, project_id: str) -> Iterable[MSTRObject]:
+    def search_reports(self, project_id: str) -> Iterable[MicroStrategyObject]:
         yield from self._search_typed_objects(
             project_id, MSTR_OBJECT_TYPE_REPORT, "report search"
         )
@@ -196,14 +209,11 @@ class MicroStrategyClient:
         self,
         project_id: str,
         report_id: str,
-    ) -> Optional[MSTRObject]:
-        """Object info for one report, including the folder ancestors array.
-
-        Lets the report pass fetch dashboard-linked reports directly by id
-        instead of paginating the project's entire report library.
-        """
+    ) -> Optional[MicroStrategyObject]:
+        """Fetch one report (with folder ancestors) by id, avoiding a full library scan."""
+        path = MSTR_API_OBJECT.format(object_id=report_id)
         payload = self._get_json(
-            f"/api/objects/{report_id}",
+            path,
             project_id=project_id,
             params={"type": MSTR_OBJECT_TYPE_REPORT},
         )
@@ -212,11 +222,11 @@ class MicroStrategyClient:
             item = item["result"]
         if not item:
             self._warn_if_unrecognized_shape(
-                payload, f"/api/objects/{report_id}", recognized_keys={"id", "result"}
+                payload, path, recognized_keys={"id", "result"}
             )
             return None
         return self._parse_model(
-            MSTRObject,
+            MicroStrategyObject,
             item,
             f"report object info project_id={project_id}, report_id={report_id}",
         )
@@ -226,13 +236,13 @@ class MicroStrategyClient:
         project_id: str,
         object_type: int,
         context: str,
-    ) -> Iterable[MSTRObject]:
+    ) -> Iterable[MicroStrategyObject]:
         for item in self._metadata_search(
             project_id=project_id,
             type_filter=str(object_type),
         ):
             parsed = self._parse_model(
-                MSTRObject, item, f"{context} project_id={project_id}"
+                MicroStrategyObject, item, f"{context} project_id={project_id}"
             )
             if parsed is not None:
                 yield parsed
@@ -242,9 +252,9 @@ class MicroStrategyClient:
         project_id: str,
         object_id: str,
         object_type: str,
-    ) -> List[MSTRObject]:
+    ) -> List[MicroStrategyObject]:
         create_response = self._get_json(
-            "/api/metadataSearches/results",
+            MSTR_API_METADATA_SEARCHES,
             project_id=project_id,
             params={
                 "domain": 2,
@@ -260,29 +270,29 @@ class MicroStrategyClient:
                 f"for object_id={object_id}, object_type={object_type}"
             )
         result = self._get_json(
-            "/api/metadataSearches/results",
+            MSTR_API_METADATA_SEARCHES,
             project_id=project_id,
             params={"searchId": search_id, "offset": 0, "limit": -1},
         )
         return self._parse_models(
-            MSTRObject,
+            MicroStrategyObject,
             self._extract_search_results(result),
             f"object dependencies object_id={object_id}",
         )
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
-        """Raw model JSON; shape varies by MicroStrategy version and is parsed
-        by the lineage helpers."""
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
+        """Raw model JSON; shape varies by version, parsed by the lineage helpers."""
         return self._get_json(
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
         )
 
-    def get_model_document(self, project_id: str, document_id: str) -> Dict[str, Any]:
-        """Raw modeling JSON for a document/dossier; exposes per-dataset derived
-        metrics/attributes whose embedded object ids identify which dataset a
-        visualization reads. Parsed by the lineage helpers."""
+    def get_model_document(
+        self, project_id: str, document_id: str
+    ) -> Dict[str, object]:
+        """Raw modeling JSON for a document/dossier; its per-dataset derived objects let
+        the lineage helpers resolve which dataset a visualization reads."""
         return self._get_json(
             f"/api/model/documents/{document_id}",
             project_id=project_id,
@@ -294,21 +304,23 @@ class MicroStrategyClient:
         limit: int = 1,
         offset: int = 0,
         fields: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> ModelTablesResponse:
         params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if fields:
             params["fields"] = fields
-        return self._get_json(
+        payload = self._get_json(
             "/api/model/tables",
             project_id=project_id,
             params=params,
         )
+        return ModelTablesResponse.model_validate(
+            payload if isinstance(payload, dict) else {}
+        )
 
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
-    ) -> Dict[str, Any]:
-        """Raw definition JSON; shape varies by MicroStrategy version and is
-        parsed by DashboardDefinition.from_api_response."""
+    ) -> Dict[str, object]:
+        """Raw definition JSON; parsed by DashboardDefinition.from_api_response."""
         return self._get_json(
             f"/api/v2/dossiers/{dossier_id}/definition",
             project_id=project_id,
@@ -316,13 +328,15 @@ class MicroStrategyClient:
 
     def get_document_definition(
         self, project_id: str, document_id: str
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         return self._get_json(
             f"/api/documents/{document_id}/definition",
             project_id=project_id,
         )
 
-    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_report_definition(
+        self, project_id: str, report_id: str
+    ) -> Dict[str, object]:
         return self._get_json(
             f"/api/v2/reports/{report_id}",
             project_id=project_id,
@@ -394,7 +408,7 @@ class MicroStrategyClient:
         project_id: str,
         dossier_id: str,
         instance_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, object]]:
         payload = self._get_json(
             f"/api/dossiers/{dossier_id}/instances/{instance_id}/datasets/sqlView",
             project_id=project_id,
@@ -418,8 +432,8 @@ class MicroStrategyClient:
         project_id: str,
         report_id: str,
         instance_id: str,
-    ) -> Dict[str, Any]:
-        return self._get_json(
+    ) -> SqlView:
+        payload = self._get_json(
             f"/api/v2/reports/{report_id}/instances/{instance_id}/sqlView",
             project_id=project_id,
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
@@ -428,6 +442,7 @@ class MicroStrategyClient:
             # a slow report into 10+ silent minutes, so they get one attempt.
             max_attempts=1,
         )
+        return SqlView.model_validate(payload if isinstance(payload, dict) else {})
 
     def delete_dossier_instance(
         self,
@@ -478,7 +493,7 @@ class MicroStrategyClient:
         instance_id: str,
         chapter_key: str,
         visualization_key: str,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         return self._get_json(
             (
                 f"/api/v2/dossiers/{dossier_id}/instances/{instance_id}"
@@ -551,7 +566,7 @@ class MicroStrategyClient:
         project_id: str,
         type_filter: Optional[str] = None,
         name: Optional[str] = None,
-    ) -> Iterable[Dict[str, Any]]:
+    ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
         while True:
@@ -568,7 +583,7 @@ class MicroStrategyClient:
                 payload["name"] = name
 
             result = self._get_json(
-                "/api/searches/results",
+                MSTR_API_SEARCHES,
                 project_id=project_id,
                 params=payload,
             )
@@ -577,7 +592,7 @@ class MicroStrategyClient:
                 total = self._extract_total(result)
             if not items:
                 if offset == 0:
-                    self._warn_if_unrecognized_shape(result, "/api/searches/results")
+                    self._warn_if_unrecognized_shape(result, MSTR_API_SEARCHES)
                 break
             # Progress per page: large libraries take many slow searches and
             # the log stream must not go silent while paginating them.
@@ -601,7 +616,7 @@ class MicroStrategyClient:
 
     def _warn_if_unrecognized_shape(
         self,
-        response: Any,
+        response: object,
         path: str,
         recognized_keys: Optional[Set[str]] = None,
     ) -> None:
@@ -627,7 +642,7 @@ class MicroStrategyClient:
             )
 
     @staticmethod
-    def _extract_total(response: Any) -> Optional[int]:
+    def _extract_total(response: object) -> Optional[int]:
         if not isinstance(response, dict):
             return None
         for source in (response, response.get("result")):
@@ -640,7 +655,7 @@ class MicroStrategyClient:
         return None
 
     @staticmethod
-    def _extract_search_results(response: Any) -> List[Dict[str, Any]]:
+    def _extract_search_results(response: object) -> List[Dict[str, object]]:
         if isinstance(response, list):
             return [item for item in response if isinstance(item, dict)]
         if not isinstance(response, dict):
@@ -656,7 +671,7 @@ class MicroStrategyClient:
         return []
 
     @staticmethod
-    def _extract_search_id(response: Any) -> Optional[str]:
+    def _extract_search_id(response: object) -> Optional[str]:
         if not isinstance(response, dict):
             return None
         for key in ("id", "searchId"):
@@ -669,7 +684,7 @@ class MicroStrategyClient:
         return None
 
     @staticmethod
-    def _extract_list(response: Any, key: str) -> List[Any]:
+    def _extract_list(response: object, key: str) -> List[object]:
         if isinstance(response, list):
             return response
         if not isinstance(response, dict):
@@ -721,7 +736,7 @@ class MicroStrategyClient:
         return value if isinstance(value, dict) else {"result": value}
 
     @staticmethod
-    def _extract_instance_id(response: Any) -> Optional[str]:
+    def _extract_instance_id(response: object) -> Optional[str]:
         if not isinstance(response, dict):
             return None
         for key in ("instanceId", "instanceID", "mid", "id"):
@@ -786,7 +801,9 @@ class MicroStrategyClient:
 
             if expected_statuses and response.status_code in expected_statuses:
                 return response
-            if response.status_code == 401 and not path.startswith("/api/auth/"):
+            if response.status_code == 401 and not path.startswith(
+                MSTR_API_AUTH_PREFIX
+            ):
                 # Session tokens can be invalidated at any moment (idle or
                 # absolute timeouts, concurrent-session limits, admin action),
                 # so one re-login + replay recovers long runs. The replay does
@@ -822,11 +839,7 @@ class MicroStrategyClient:
         path: str,
         reauth_attempted: bool,
     ) -> None:
-        """Re-login after a mid-run 401, or mark auth as irrecoverably dead.
-
-        A second 401 after a successful re-login means the credentials no
-        longer grant access, so retrying further requests is pointless.
-        """
+        """Re-login after a mid-run 401; a second 401 means auth is dead, so give up."""
         if reauth_attempted:
             self._auth_dead = True
             self.report.report_api_error()

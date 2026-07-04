@@ -13,7 +13,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     MetricEnrichment,
-    MSTRObject,
+    MicroStrategyObject,
     ReportDefinition,
     extract_folder_parts,
 )
@@ -220,7 +220,7 @@ def test_chart_input_fields_reference_metric_and_attribute_fields() -> None:
 
 def test_report_chart_uses_report_source_dataset_inputs_and_fields() -> None:
     mapper = _mapper()
-    report_object = MSTRObject.model_validate(
+    report_object = MicroStrategyObject.model_validate(
         {
             "id": "report-1",
             "name": "Sales Report",
@@ -373,7 +373,7 @@ def test_chart_inputs_are_inferred_from_runtime_visualization_objects() -> None:
 def test_dashboard_dataset_edges_are_disabled_by_default() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": dashboard.id, "name": dashboard.name}
     )
 
@@ -397,7 +397,7 @@ def test_dashboard_dataset_edges_are_disabled_by_default() -> None:
 def test_dashboard_info_can_include_report_chart_dependency_edges() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": dashboard.id, "name": dashboard.name}
     )
     report_urn = mapper.report_urn("project-1", "report-1")
@@ -424,7 +424,7 @@ def test_dashboard_info_can_include_report_chart_dependency_edges() -> None:
 def test_dashboard_dataset_edges_are_opt_in() -> None:
     mapper = _mapper(emit_dashboard_dataset_edges=True)
     dashboard = _definition()
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": dashboard.id, "name": dashboard.name}
     )
 
@@ -468,7 +468,7 @@ def test_chart_and_dashboard_descriptions_default_to_empty_string() -> None:
             ],
         },
     )
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": dashboard.id, "name": dashboard.name}
     )
     parent_key = mapper.project_key("project-1")
@@ -538,7 +538,7 @@ def test_dataset_properties_include_source_warehouse_when_present() -> None:
 def test_dashboard_info_includes_lifecycle_metadata() -> None:
     mapper = _mapper()
     dashboard = _definition()
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {
             "id": dashboard.id,
             "name": dashboard.name,
@@ -727,7 +727,7 @@ def test_dataset_upstreams_restricted_to_field_lineage_tables_when_available() -
 
 
 def test_report_source_dataset_warehouse_lineage_is_opt_in() -> None:
-    report_object = MSTRObject.model_validate(
+    report_object = MicroStrategyObject.model_validate(
         {"id": "report-1", "name": "Sales Report", "type": "3"}
     )
     source_dataset = DatasetObject.model_validate(
@@ -763,7 +763,7 @@ def test_report_source_dataset_warehouse_lineage_is_opt_in() -> None:
 
 def test_report_source_dataset_includes_model_fine_grained_lineage() -> None:
     mapper = _mapper()
-    report_object = MSTRObject.model_validate(
+    report_object = MicroStrategyObject.model_validate(
         {"id": "report-1", "name": "Sales Report", "type": "3"}
     )
     source_dataset = DatasetObject.model_validate(
@@ -938,14 +938,14 @@ def test_dashboard_properties_include_direct_dependency_summary() -> None:
     mapper = _mapper()
     dashboard = _definition()
     dashboard.dependencies = [
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "metric-1", "name": "Revenue", "type": 4, "subtype": 1024}
         ),
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "attr-1", "name": "Order Date", "type": 12, "subtype": 3072}
         ),
     ]
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": dashboard.id, "name": dashboard.name}
     )
 
@@ -1041,7 +1041,7 @@ def test_extract_folder_parts_from_search_result_payloads() -> None:
 
 def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:
     mapper = _mapper()
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": "dash-1", "name": "Sales Dashboard", "location": "/A/B"}
     )
     project_urn = mapper.project_key("project-1").as_urn()

@@ -109,9 +109,10 @@ def _instance_page(
 
 
 def test_resolve_usage_query_plan_by_names() -> None:
-    plan, reason = resolve_usage_query_plan(_CUBE_DEFINITION)
+    resolution = resolve_usage_query_plan(_CUBE_DEFINITION)
+    plan = resolution.plan
 
-    assert reason is None
+    assert resolution.error is None
     assert plan is not None
     assert plan.date_form_id == "DATE-ID-FORM"
     assert plan.project_form_id == "PROJECT-GUID-FORM"
@@ -133,13 +134,13 @@ def test_resolve_usage_query_plan_by_names() -> None:
 
 
 def test_resolve_usage_query_plan_reports_missing_objects() -> None:
-    plan, reason = resolve_usage_query_plan(
+    resolution = resolve_usage_query_plan(
         {"definition": {"availableObjects": {"attributes": [], "metrics": []}}}
     )
 
-    assert plan is None
-    assert reason is not None
-    assert "Date" in reason
+    assert resolution.plan is None
+    assert resolution.error is not None
+    assert "Date" in resolution.error
 
 
 def test_parse_usage_page_decodes_header_indices() -> None:
@@ -149,11 +150,12 @@ def test_parse_usage_page_decodes_header_indices() -> None:
         total=3,
     )
 
-    rows, total = parse_usage_page(page)
+    result = parse_usage_page(page)
 
-    assert total == 3
+    assert result.total == 3
     assert [
-        (r.date_text, r.object_guid, r.object_name, r.user, r.count) for r in rows
+        (r.date_text, r.object_guid, r.object_name, r.user, r.count)
+        for r in result.rows
     ] == [
         ("5/6/2026", "DASH-1", "Sales Dashboard", "alice", 4),
         ("5/6/2026", "REPORT-1", "Sales Report", "bob", 2),

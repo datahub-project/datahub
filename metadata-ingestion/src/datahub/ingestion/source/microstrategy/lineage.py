@@ -1,8 +1,6 @@
 import logging
-import re
 from dataclasses import dataclass
 from typing import (
-    TYPE_CHECKING,
     Dict,
     Iterable,
     List,
@@ -15,7 +13,27 @@ from typing import (
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.microstrategy.config import (
+    ConnectionPlatformConfig,
+    MicroStrategyConfig,
+)
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_CREATE_TABLE_NAME_RE,
+    MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
+    MSTR_HEX_OBJECT_ID_RE,
+    MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
+    MSTR_LINEAGE_STOP_WORDS,
+    MSTR_NAME_TOKEN_RE,
+    MSTR_NON_ALNUM_RE,
+    MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
+    MSTR_SELECT_STATEMENT_RE,
+    MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
+    MSTR_SQL_EXPRESSION_KEYWORDS,
+    MSTR_SQL_IDENTIFIER_RE,
+    MSTR_SQL_VIEW_OUTPUT_SENTINEL,
+    MSTR_WHITESPACE_RE,
+)
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
@@ -25,9 +43,6 @@ from datahub.ingestion.source.microstrategy.models import (
     Visualization,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
-
-if TYPE_CHECKING:
-    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +56,21 @@ class WarehouseLineageContext:
     platform_instance: Optional[str] = None
     database: Optional[str] = None
     schema: Optional[str] = None
+    convert_urns_to_lowercase: bool = True
 
 
 @dataclass(frozen=True)
 class ModelFieldLineage:
     upstream_dataset_urn: str
     upstream_field_urns: List[str]
+
+
+@dataclass(frozen=True)
+class SqlViewLineage:
+    # Table-level upstream dataset urns and, keyed by dataset field path, the
+    # upstream warehouse schemaField urns feeding that field.
+    upstream_urns: List[str]
+    field_upstreams: Dict[str, List[str]]
 
 
 @dataclass
@@ -94,6 +118,10 @@ class MicroStrategyLineageExtractor:
     def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
         self.config = config
         self.report = report
+        # upstream dataset urn -> {lower(fieldPath): fieldPath}, or None when the
+        # warehouse dataset has no schema in the graph. Cached so each upstream is
+        # fetched at most once per run.
+        self._warehouse_field_cache: Dict[str, Optional[Dict[str, str]]] = {}
 
     def dataset_urn(
         self,
@@ -169,102 +197,136 @@ class MicroStrategyLineageExtractor:
                 unresolved[visualization.key] = sorted(missing)
         return unresolved
 
-    def warehouse_upstream_urns_from_sql(
+    def warehouse_lineage_from_sql(
         self,
         sql: str,
         context: WarehouseLineageContext,
-        graph: Optional["DataHubGraph"] = None,
-    ) -> List[str]:
+        dataset_field_paths: Iterable[str],
+        graph: Optional[DataHubGraph] = None,
+    ) -> "SqlViewLineage":
+        """Table- and column-level warehouse lineage from a SQL view, in one parse.
+
+        MicroStrategy SQL views are multi-pass scripts: statements (often CREATE
+        VOLATILE/TEMP TABLE ... AS select) concatenated without semicolons, ending
+        in a SELECT. A single ``create_lineage_from_sql_statements`` call resolves
+        lineage through those intermediates to the real base tables; its
+        ``in_tables`` are the table-level upstreams. The dialect does not mark the
+        intermediates as temporary, so we pass an ``is_temp_table`` predicate (any
+        table the script creates). When dataset field paths are supplied and the
+        script ends in a SELECT, that SELECT is wrapped as a sentinel CTAS so its
+        projection becomes a concrete downstream we can read column lineage from,
+        and each output column is matched back to a dataset field
+        (case-insensitively; best effort).
+        """
+        field_path_by_name = {path.lower(): path for path in dataset_field_paths}
         if not sql.strip():
-            return []
+            return SqlViewLineage([], {})
 
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
         from datahub.sql_parsing.split_statements import split_statements
+        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
         from datahub.sql_parsing.sqlglot_lineage import (
-            create_lineage_sql_parsed_result,
+            create_lineage_from_sql_statements,
         )
 
-        dialect = _sqlglot_dialect(context.platform)
-        # MicroStrategy SQL views contain multi-pass SQL: several statements
-        # (typically CREATE VOLATILE/TEMP TABLE ... AS select) concatenated
-        # without semicolons. Parse per statement and subtract the tables
-        # CREATED within the script so volatile intermediates never appear as
-        # warehouse upstreams. Only CREATE targets are subtracted: a table
-        # that is read and written by the same DML statement (self-referencing
-        # INSERT/MERGE) is a genuine upstream.
-        in_urns: Set[str] = set()
-        created_urns: Set[str] = set()
-        had_parse_failure = False
-        for statement in split_statements(sql, dialect=dialect):
-            if not statement.strip():
-                continue
-            if _is_lineage_irrelevant_statement(statement):
-                logger.debug(
-                    "Skipping non-lineage SQL-view statement: %s",
-                    statement.strip()[:120],
-                )
-                continue
-            try:
-                parsed = create_lineage_sql_parsed_result(
-                    query=statement,
-                    default_db=context.database,
-                    default_schema=context.schema,
-                    platform=context.platform,
-                    platform_instance=context.platform_instance,
-                    env=context.env,
-                    graph=graph,
-                    override_dialect=dialect,
-                    generate_column_lineage=False,
-                )
-            except Exception as error:
-                had_parse_failure = self._record_statement_parse_failure(
-                    statement, context, error
-                )
-                continue
-            if parsed.debug_info.table_error is not None:
-                had_parse_failure = self._record_statement_parse_failure(
-                    statement, context, parsed.debug_info.table_error
-                )
-                continue
-            in_urns.update(parsed.in_tables)
-            if _CREATE_STATEMENT.match(statement):
-                created_urns.update(parsed.out_tables)
+        # Resolve the sqlglot dialect through DataHub's central platform->dialect
+        # map so tokenization matches what the parser itself uses.
+        dialect = get_dialect_str(context.platform)
+        statements = [
+            statement
+            for statement in split_statements(sql, dialect=dialect)
+            if statement.strip() and not _is_lineage_irrelevant_statement(statement)
+        ]
+        if not statements:
+            return SqlViewLineage([], {})
 
-        upstream_urns = in_urns - created_urns
-        if not upstream_urns and had_parse_failure:
-            self.report.warning(
-                title="Failed to parse MicroStrategy SQL view",
-                message=(
-                    "No statement in a MicroStrategy SQL view could be parsed; "
-                    "warehouse lineage for this dataset was skipped."
-                ),
-                context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
+        created_tables = _created_table_leaf_names(statements)
+        # Column lineage needs the final SELECT wrapped as a sentinel CTAS so its
+        # projection is a concrete downstream; table-level upstreams don't, so
+        # skip the wrap when there are no field paths or no trailing SELECT.
+        want_columns = bool(field_path_by_name) and bool(
+            MSTR_SELECT_STATEMENT_RE.match(statements[-1])
+        )
+        queries = list(statements)
+        if want_columns:
+            queries[-1] = (
+                f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
             )
-        return sorted(upstream_urns)
 
-    def _record_statement_parse_failure(
+        try:
+            result = create_lineage_from_sql_statements(
+                queries=queries,
+                default_db=context.database,
+                default_schema=context.schema,
+                platform=context.platform,
+                platform_instance=context.platform_instance,
+                env=context.env,
+                graph=graph,
+                is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
+            )
+        except Exception as error:
+            self._report_sql_parse_failure(sql, context, error)
+            return SqlViewLineage([], {})
+        if result.debug_info.error is not None:
+            self._report_sql_parse_failure(sql, context, result.debug_info.error)
+            return SqlViewLineage([], {})
+
+        field_upstreams: Dict[str, List[str]] = {}
+        if want_columns:
+            for column_lineage in result.column_lineage or []:
+                field_path = field_path_by_name.get(
+                    column_lineage.downstream.column.lower()
+                )
+                if field_path is None:
+                    continue
+                # Temp tables have already been collapsed, so every remaining
+                # upstream is a real warehouse column.
+                upstream_urns = [
+                    builder.make_schema_field_urn(upstream.table, upstream.column)
+                    for upstream in column_lineage.upstreams
+                ]
+                if upstream_urns:
+                    field_upstreams.setdefault(field_path, []).extend(upstream_urns)
+
+        return SqlViewLineage(
+            upstream_urns=_dedupe_sorted(result.in_tables),
+            field_upstreams={
+                field_path: _dedupe_sorted(urns)
+                for field_path, urns in field_upstreams.items()
+            },
+        )
+
+    def _report_sql_parse_failure(
         self,
-        statement: str,
+        sql: str,
         context: WarehouseLineageContext,
-        error: Exception,
-    ) -> bool:
+        error: BaseException,
+    ) -> None:
         self.report.report_sql_parse_failure(
             f"platform={context.platform}, "
             f"error={type(error).__name__}: {str(error)[:160]}, "
-            f"sql_prefix={statement.strip()[:80]!r}"
+            f"sql_prefix={sql.strip()[:80]!r}"
+        )
+        self.report.warning(
+            title="Failed to parse MicroStrategy SQL view",
+            message=(
+                "A MicroStrategy SQL view could not be parsed; warehouse lineage "
+                "for this dataset was skipped."
+            ),
+            context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
         )
         logger.debug(
-            "Failed to parse MicroStrategy SQL-view statement (%s): %s",
+            "Failed to parse MicroStrategy SQL view (%s): %s",
             error,
-            statement.strip()[:200],
+            sql.strip()[:200],
         )
-        return True
 
     def model_lineage_index_from_tables(
         self,
         model_tables: List[Dict[str, object]],
         context: WarehouseLineageContext,
+        graph: Optional[DataHubGraph] = None,
     ) -> ModelLineageIndex:
         fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
         attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
@@ -288,9 +350,11 @@ class MicroStrategyLineageExtractor:
                 fact_id = _object_id(fact.get("information"))
                 if not fact_id:
                     continue
-                field_urns = _model_expression_field_urns(
-                    fact,
+                field_urns = self._upstream_field_urns(
+                    _model_expression_field_names(fact),
                     upstream_dataset_urn,
+                    context.convert_urns_to_lowercase,
+                    graph,
                 )
                 if field_urns:
                     _append_lineage(
@@ -305,9 +369,11 @@ class MicroStrategyLineageExtractor:
                     continue
                 attribute_lineages: List[ModelFieldLineage] = []
                 for form in _coerce_dicts(attribute.get("forms")):
-                    field_urns = _model_expression_field_urns(
-                        form,
+                    field_urns = self._upstream_field_urns(
+                        _model_expression_field_names(form),
                         upstream_dataset_urn,
+                        context.convert_urns_to_lowercase,
+                        graph,
                     )
                     if not field_urns:
                         continue
@@ -333,8 +399,8 @@ class MicroStrategyLineageExtractor:
             attribute_form_upstreams=attribute_form_upstreams,
         )
 
-    @staticmethod
     def warehouse_dataset_urn(
+        self,
         context: WarehouseLineageContext,
         table_name: str,
     ) -> str:
@@ -342,13 +408,66 @@ class MicroStrategyLineageExtractor:
             table_name,
             database=context.database,
             schema=context.schema,
+            name_parts=_platform_name_parts(context.platform),
         )
         return make_dataset_urn_with_platform_instance(
             platform=context.platform,
             platform_instance=context.platform_instance,
             env=context.env,
-            name=qualified_name.lower(),
+            name=qualified_name.lower()
+            if context.convert_urns_to_lowercase
+            else qualified_name,
         )
+
+    def _upstream_field_urns(
+        self,
+        field_names: List[str],
+        upstream_dataset_urn: str,
+        convert_to_lowercase: bool,
+        graph: Optional[DataHubGraph],
+    ) -> List[str]:
+        # Prefer the warehouse dataset's real column casing from the graph so
+        # schemaField urns byte-match regardless of the case MicroStrategy reports;
+        # fall back to the casing heuristic when the schema is unavailable.
+        schema_fields = self._warehouse_field_map(upstream_dataset_urn, graph)
+        urns: List[str] = []
+        for field_name in field_names:
+            resolved = None
+            if schema_fields is not None:
+                resolved = schema_fields.get(field_name.lower())
+            if resolved is None:
+                resolved = field_name.lower() if convert_to_lowercase else field_name
+            urns.append(builder.make_schema_field_urn(upstream_dataset_urn, resolved))
+        return urns
+
+    def _warehouse_field_map(
+        self,
+        upstream_dataset_urn: str,
+        graph: Optional[DataHubGraph],
+    ) -> Optional[Dict[str, str]]:
+        if graph is None:
+            return None
+        if upstream_dataset_urn in self._warehouse_field_cache:
+            return self._warehouse_field_cache[upstream_dataset_urn]
+
+        field_map: Optional[Dict[str, str]] = None
+        try:
+            schema = graph.get_schema_metadata(upstream_dataset_urn)
+        except Exception as error:
+            logger.debug(
+                "Failed to fetch schema for %s from graph: %s",
+                upstream_dataset_urn,
+                error,
+            )
+            schema = None
+        if schema is not None:
+            # Later fields win on case-insensitive collisions, which is rare and
+            # harmless since either casing anchors to the same column.
+            field_map = {
+                field.fieldPath.lower(): field.fieldPath for field in schema.fields
+            }
+        self._warehouse_field_cache[upstream_dataset_urn] = field_map
+        return field_map
 
     def _infer_visualization_dataset_inputs(
         self,
@@ -371,13 +490,11 @@ class MicroStrategyLineageExtractor:
                 inputs.append(self.dataset_urn(project_id, dashboard.id, dataset))
 
         unique_inputs = sorted(set(inputs))
-        # Dashboards built from many cubes that share one object catalog (e.g.
-        # one cube per time period) make every dataset "match" every
-        # visualization. An inference that cannot exclude anything carries no
-        # signal, so treat it as unresolved rather than emit an all-to-all
-        # lineage fan-out. Two-dataset dashboards are exempt: a visualization
-        # combining both datasets is common and plausible there. Dashboard-level
-        # fallback lineage remains available via `emit_dashboard_dataset_edges`.
+        # Dashboards built from many cubes sharing one object catalog (e.g. one cube per
+        # time period) make every dataset "match" every visualization. An inference that
+        # excludes nothing carries no signal, so treat it as unresolved rather than emit an
+        # all-to-all fan-out. Two-dataset dashboards are exempt (a combined viz is plausible);
+        # dashboard-level fallback remains via `emit_dashboard_dataset_edges`.
         if len(dashboard.datasets) > 2 and len(unique_inputs) == len(
             dashboard.datasets
         ):
@@ -418,27 +535,37 @@ def datahub_platform_for_source_type(*values: Optional[str]) -> Optional[str]:
         normalized = _normalize_source_type(value)
         if not normalized:
             continue
-        platform = _MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM.get(normalized)
+        platform = MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM.get(normalized)
         if platform:
             return platform
+    return None
+
+
+DatasourcePlatformMapping = Optional[Dict[str, ConnectionPlatformConfig]]
+
+
+def _detail_for_names(
+    mapping: DatasourcePlatformMapping,
+    *names: Optional[str],
+) -> Optional[ConnectionPlatformConfig]:
+    if not mapping:
+        return None
+    for name in names:
+        if name and name in mapping:
+            return mapping[name]
     return None
 
 
 def warehouse_context_from_datasources(
     datasources: List[Datasource],
     env: str,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
-    contexts = {
-        context
+    resolved = (
+        warehouse_context_from_datasource(datasource, env, mapping)
         for datasource in datasources
-        if (
-            context := warehouse_context_from_datasource(
-                datasource, env, platform_instance_map
-            )
-        )
-        is not None
-    }
+    )
+    contexts = {context for context in resolved if context is not None}
     if len(contexts) == 1:
         return next(iter(contexts))
     return None
@@ -447,30 +574,34 @@ def warehouse_context_from_datasources(
 def warehouse_context_from_datasource(
     datasource: DatasourceReference,
     env: str,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    mapping: DatasourcePlatformMapping = None,
 ) -> Optional[WarehouseLineageContext]:
-    platform = datahub_platform_for_datasource(datasource)
+    detail = _detail_for_names(mapping, datasource.connection_name, datasource.name)
+    platform = (
+        detail.platform if detail and detail.platform else None
+    ) or datahub_platform_for_datasource(datasource)
     if not platform:
         return None
     return WarehouseLineageContext(
         platform=platform,
-        env=env,
-        platform_instance=(platform_instance_map or {}).get(platform),
+        env=(detail.env if detail and detail.env else env),
+        platform_instance=detail.platform_instance if detail else None,
         database=datasource.database_name,
         schema=datasource.schema_name,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase if detail else True
+        ),
     )
 
 
 def matching_datasource_for_context(
     datasources: List[Datasource],
     context: WarehouseLineageContext,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    mapping: DatasourcePlatformMapping = None,
 ) -> Optional[Datasource]:
     for datasource in datasources:
         if (
-            warehouse_context_from_datasource(
-                datasource, context.env, platform_instance_map
-            )
+            warehouse_context_from_datasource(datasource, context.env, mapping)
             == context
         ):
             return datasource
@@ -480,18 +611,27 @@ def matching_datasource_for_context(
 def warehouse_context_with_connection(
     context: WarehouseLineageContext,
     connection: DatasourceConnection,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    mapping: DatasourcePlatformMapping = None,
 ) -> WarehouseLineageContext:
-    platform = datahub_platform_for_connection(connection) or context.platform
-    platform_instance = (platform_instance_map or {}).get(
-        platform, context.platform_instance
+    detail = _detail_for_names(mapping, connection.name)
+    platform = (
+        (detail.platform if detail and detail.platform else None)
+        or datahub_platform_for_connection(connection)
+        or context.platform
     )
     return WarehouseLineageContext(
         platform=platform,
-        env=context.env,
-        platform_instance=platform_instance,
+        env=(detail.env if detail and detail.env else context.env),
+        platform_instance=(
+            detail.platform_instance if detail else context.platform_instance
+        ),
         database=connection.database_name or context.database,
         schema=connection.schema_name or context.schema,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase
+            if detail
+            else context.convert_urns_to_lowercase
+        ),
     )
 
 
@@ -523,8 +663,15 @@ def qualify_table_name(
     table_name: str,
     database: Optional[str] = None,
     schema: Optional[str] = None,
+    name_parts: int = MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
 ) -> str:
     parts = [part for part in table_name.split(".") if part]
+    if name_parts <= 2:
+        # 2-part platforms (e.g. MySQL) qualify as database.table; they have no
+        # schema layer, so the schema/tablePrefix is never part of the native urn.
+        if len(parts) == 1 and database:
+            return f"{database}.{parts[0]}"
+        return ".".join(parts)
     if len(parts) == 1:
         if database and schema:
             return f"{database}.{schema}.{parts[0]}"
@@ -556,55 +703,28 @@ def _expression_target_ids(model: Dict[str, object], subtype: str) -> List[str]:
     return sorted(object_ids)
 
 
-# Generic BI vocabulary excluded from the name-token overlap heuristic used to
-# infer visualization -> dataset lineage. Only genuinely non-discriminating
-# words belong here; business terms (e.g. "SALES") must NOT be added because
-# they legitimately distinguish datasets on real tenants.
-_LINEAGE_STOP_WORDS = {
-    "AND",
-    "DASHBOARD",
-    "DATA",
-    "DATASET",
-    "REPORT",
-    "TOTAL",
-    "VISUALIZATION",
-}
-
-
-# MicroStrategy SQL views append non-SQL commentary after the final pass
-# ("[Analytical engine calculation steps: ...]", "with parameters: 1") and
-# include DROP statements for its volatile tables. None of these carry
-# lineage, so they are skipped instead of counted as parse failures. The
-# "with parameters" match requires the trailing colon so a legitimate CTE
-# named "parameters" is never skipped.
-_LINEAGE_IRRELEVANT_STATEMENT = re.compile(
-    r"^\s*(drop\s|\[|with\s+parameters\s*:)",
-    re.IGNORECASE,
-)
-
-_CREATE_STATEMENT = re.compile(r"^\s*create\b", re.IGNORECASE)
-
-
 def _is_lineage_irrelevant_statement(statement: str) -> bool:
-    return bool(_LINEAGE_IRRELEVANT_STATEMENT.match(statement))
+    return bool(MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE.match(statement))
 
 
 def _lineage_name_tokens(name: str) -> Set[str]:
     return {
         token
-        for token in re.findall(r"[A-Za-z0-9]+", name.upper())
-        if len(token) > 1 and token not in _LINEAGE_STOP_WORDS
+        for token in MSTR_NAME_TOKEN_RE.findall(name.upper())
+        if len(token) > 1 and token not in MSTR_LINEAGE_STOP_WORDS
     }
 
 
 def _normalize_source_type(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
-    return re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
+    return MSTR_NON_ALNUM_RE.sub("_", value.strip().lower()).strip("_")
 
 
-def _sqlglot_dialect(platform: str) -> Optional[str]:
-    return _DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT.get(platform)
+def _platform_name_parts(platform: str) -> int:
+    return MSTR_PLATFORM_QUALIFIED_NAME_PARTS.get(
+        platform, MSTR_DEFAULT_QUALIFIED_NAME_PARTS
+    )
 
 
 def _physical_table_name(
@@ -627,27 +747,16 @@ def _physical_table_name(
         or _clean_identifier_part(physical_table.get("namespace")),
         schema=_clean_identifier_part(physical_table.get("tablePrefix"))
         or context.schema,
+        name_parts=_platform_name_parts(context.platform),
     )
 
 
-def _model_expression_field_urns(
-    item: Dict[str, object],
-    upstream_dataset_urn: str,
-) -> List[str]:
+def _model_expression_field_names(item: Dict[str, object]) -> List[str]:
     expression = item.get("expression")
     text = ""
     if isinstance(expression, dict):
         text = str(expression.get("text") or "")
-    field_names = extract_field_names_from_expression(text)
-    return [
-        # MicroStrategy expressions carry the warehouse's canonical (upper)
-        # case, but warehouse connectors emit lowercase schema fieldPaths for
-        # case-insensitive warehouses and schemaField urns match
-        # case-sensitively — mirror the dataset-urn lowercasing
-        # (warehouse_dataset_urn) so fine-grained edges anchor to real fields.
-        builder.make_schema_field_urn(upstream_dataset_urn, field_name.lower())
-        for field_name in field_names
-    ]
+    return extract_field_names_from_expression(text)
 
 
 def extract_field_names_from_expression(expression: str) -> List[str]:
@@ -655,8 +764,8 @@ def extract_field_names_from_expression(expression: str) -> List[str]:
         return []
     identifiers = [
         identifier
-        for identifier in re.findall(r"[A-Za-z_][\w$#]*", expression)
-        if identifier.lower() not in _SQL_KEYWORDS
+        for identifier in MSTR_SQL_IDENTIFIER_RE.findall(expression)
+        if identifier.lower() not in MSTR_SQL_EXPRESSION_KEYWORDS
     ]
     return _dedupe_sorted(identifiers)
 
@@ -701,19 +810,10 @@ def _form_name(form: Dict[str, object]) -> Optional[str]:
 
 
 def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str, str]:
-    """Map derived-object ids to the id of the single dataset that defines them.
-
-    The modeling document API lists each dataset's derived metrics/attributes;
-    those objects (and their embedded helper objects) are scoped to one
-    dataset, so a visualization grid referencing them must be reading that
-    dataset. Only each derived entry's own id and its ``embeddedObjects`` ids
-    are collected — ids merely *referenced* from expression trees may point at
-    shared-catalog objects and would mis-attribute ownership. Ids defined in
-    more than one dataset carry no signal and are dropped.
-
-    Keys are normalized (upper-cased) object ids; values are dataset ids as
-    reported by the API.
-    """
+    """Map each derived-object id to the single dataset that defines it. Only an entry's
+    own id and its ``embeddedObjects`` ids count — ids merely referenced from expression
+    trees may be shared-catalog objects and would mis-attribute ownership. Ids seen in more
+    than one dataset carry no signal and are dropped. Keys are upper-cased object ids."""
     owners: Dict[str, str] = {}
     shared: Set[str] = set()
     for dataset in _coerce_dicts(model_document.get("datasets")):
@@ -747,13 +847,8 @@ def bind_visualizations_by_derived_objects(
     dashboard: DashboardDefinition,
     owner_by_derived_id: Dict[str, str],
 ) -> int:
-    """Set ``visualization.datasets`` from dataset-scoped derived-object ids.
-
-    Ids that also exist in any dashboard dataset's shared object catalog are
-    ignored: a shared object cannot discriminate between datasets even when
-    only one dataset's derived expressions happen to reference it. Returns the
-    number of visualizations bound.
-    """
+    """Set ``visualization.datasets`` from dataset-scoped derived-object ids, ignoring ids
+    in any dataset's shared object catalog (they cannot discriminate). Returns the count bound."""
     dataset_ids = {dataset.id for dataset in dashboard.datasets}
     shared_catalog_ids = {
         _normalize_object_id(object_id)
@@ -764,23 +859,23 @@ def bind_visualizations_by_derived_objects(
     for visualization in dashboard.visualizations:
         if visualization.datasets or not visualization.object_ids:
             continue
-        owners = {
-            owner_by_derived_id[normalized]
-            for object_id in visualization.object_ids
-            if (normalized := _normalize_object_id(object_id)) in owner_by_derived_id
-            and normalized not in shared_catalog_ids
-        } & dataset_ids
+        owners: Set[str] = set()
+        for object_id in visualization.object_ids:
+            normalized = _normalize_object_id(object_id)
+            if (
+                normalized in owner_by_derived_id
+                and normalized not in shared_catalog_ids
+            ):
+                owners.add(owner_by_derived_id[normalized])
+        owners &= dataset_ids
         if owners:
             visualization.datasets = sorted(owners)
             bound += 1
     return bound
 
 
-_HEX_OBJECT_ID = re.compile(r"[0-9A-Fa-f]{32}")
-
-
 def _add_hex_object_id(value: object, out: Set[str]) -> None:
-    if isinstance(value, str) and _HEX_OBJECT_ID.fullmatch(value):
+    if isinstance(value, str) and MSTR_HEX_OBJECT_ID_RE.fullmatch(value):
         out.add(_normalize_object_id(value))
 
 
@@ -813,7 +908,7 @@ def _normalize_object_id(value: str) -> str:
 
 
 def _normalize_lineage_key(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip().lower()
+    return MSTR_WHITESPACE_RE.sub(" ", value).strip().lower()
 
 
 def _clean_identifier_part(value: object) -> Optional[str]:
@@ -827,92 +922,14 @@ def _dedupe_sorted(values: Iterable[str]) -> List[str]:
     return sorted(set(values))
 
 
-_MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM = {
-    "athena": "athena",
-    "big_query": "bigquery",
-    "bigquery": "bigquery",
-    "db2": "db2",
-    "google_bigquery": "bigquery",
-    "microsoft_sql_server": "mssql",
-    "mysql": "mysql",
-    "oracle": "oracle",
-    "postgre_sql": "postgres",
-    "postgres": "postgres",
-    "postgresql": "postgres",
-    "red_shift": "redshift",
-    "redshift": "redshift",
-    "snow_flake": "snowflake",
-    "snowflake": "snowflake",
-    "sql_server": "mssql",
-    "sqlserver": "mssql",
-    "synapse": "mssql",
-    "teradata": "teradata",
-}
+def _leaf_identifier(name: str) -> str:
+    return name.split(".")[-1].strip('"[]').lower()
 
-_DATAHUB_PLATFORM_TO_SQLGLOT_DIALECT = {
-    "athena": "presto",
-    "bigquery": "bigquery",
-    "db2": "db2",
-    "mssql": "tsql",
-    "mysql": "mysql",
-    "oracle": "oracle",
-    "postgres": "postgres",
-    "redshift": "redshift",
-    "snowflake": "snowflake",
-    "teradata": "teradata",
-}
 
-# Keywords and function names excluded when extracting column identifiers from
-# model expression text (e.g. `SUM(QTY_SOLD * UNIT_PRICE)` must yield only the
-# column names, never the function tokens).
-_SQL_KEYWORDS = {
-    "abs",
-    "and",
-    "as",
-    "avg",
-    "between",
-    "case",
-    "cast",
-    "coalesce",
-    "count",
-    "cross",
-    "delete",
-    "distinct",
-    "else",
-    "end",
-    "first",
-    "full",
-    "group",
-    "having",
-    "if",
-    "in",
-    "inner",
-    "into",
-    "is",
-    "join",
-    "last",
-    "left",
-    "max",
-    "median",
-    "min",
-    "not",
-    "null",
-    "nullif",
-    "on",
-    "or",
-    "order",
-    "outer",
-    "right",
-    "round",
-    "select",
-    "set",
-    "stdev",
-    "sum",
-    "then",
-    "trunc",
-    "update",
-    "var",
-    "when",
-    "where",
-    "with",
-}
+def _created_table_leaf_names(statements: List[str]) -> Set[str]:
+    names: Set[str] = set()
+    for statement in statements:
+        match = MSTR_CREATE_TABLE_NAME_RE.match(statement)
+        if match:
+            names.add(_leaf_identifier(match.group(1)))
+    return names

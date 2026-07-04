@@ -9,6 +9,7 @@ from collections import defaultdict
 from typing import (
     AbstractSet,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -2462,6 +2463,7 @@ def create_lineage_from_sql_statements(
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
+    is_temp_table: Optional[Callable[[str], bool]] = None,
 ) -> SqlParsingResult:
     """Parse multiple SQL statements and return merged lineage with temp table resolution.
 
@@ -2482,6 +2484,11 @@ def create_lineage_from_sql_statements(
         default_schema: Optional default schema for unqualified table references
         graph: Optional DataHub graph client for schema resolution
         schema_aware: Whether to use schema-aware parsing
+        is_temp_table: Optional predicate, given a table name, returning whether it
+                 is an intermediate temp table. Use it when the dialect's own
+                 syntax does not mark them (e.g. Teradata ``CREATE VOLATILE TABLE``
+                 parsed under another platform's dialect); such tables are then
+                 collapsed so lineage flows through to the real base tables.
 
     Returns:
         SqlParsingResult containing merged lineage from all statements
@@ -2523,6 +2530,7 @@ def create_lineage_from_sql_statements(
             generate_operations=False,
             generate_query_subject_fields=False,
             generate_query_usage_statistics=False,
+            is_temp_table=is_temp_table,
         )
 
         try:

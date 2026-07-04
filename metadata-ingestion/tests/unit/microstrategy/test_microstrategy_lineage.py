@@ -1,7 +1,10 @@
 from typing import Any, Dict, List
 from unittest import mock
 
-from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.config import (
+    ConnectionPlatformConfig,
+    MicroStrategyConfig,
+)
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
@@ -60,8 +63,8 @@ def test_warehouse_context_from_datasource_reference() -> None:
     )
 
 
-def test_warehouse_context_from_datasource_applies_platform_instance_map() -> None:
-    datasource = DatasourceReference.model_validate(
+def _snowflake_datasource() -> DatasourceReference:
+    return DatasourceReference.model_validate(
         {
             "id": "source-1",
             "name": "Sales Warehouse",
@@ -73,14 +76,81 @@ def test_warehouse_context_from_datasource_applies_platform_instance_map() -> No
         }
     )
 
+
+def test_datasource_platform_mapping_by_datasource_name() -> None:
     context = warehouse_context_from_datasource(
-        datasource,
+        _snowflake_datasource(),
         "PROD",
-        platform_instance_map={"snowflake": "prod_wh"},
+        {
+            "Sales Warehouse": ConnectionPlatformConfig(
+                platform_instance="prod_wh",
+                convert_urns_to_lowercase=False,
+            )
+        },
     )
 
     assert context is not None
     assert context.platform_instance == "prod_wh"
+    assert context.env == "PROD"
+    assert context.convert_urns_to_lowercase is False
+
+
+def test_datasource_platform_mapping_by_connection_name_takes_precedence() -> None:
+    datasource = DatasourceReference.model_validate(
+        {
+            "id": "source-1",
+            "name": "Sales Warehouse",
+            "connection": {"id": "conn-1", "name": "Snowflake Prod"},
+            "database": {"type": "snow_flake", "name": "SALES_DB", "schema": "SALES"},
+        }
+    )
+
+    context = warehouse_context_from_datasource(
+        datasource,
+        "PROD",
+        {
+            "Snowflake Prod": ConnectionPlatformConfig(platform_instance="prod_wh"),
+            "Sales Warehouse": ConnectionPlatformConfig(platform_instance="ignored"),
+        },
+    )
+
+    assert context is not None
+    assert context.platform_instance == "prod_wh"
+
+
+def test_datasource_platform_mapping_platform_override() -> None:
+    datasource = DatasourceReference.model_validate(
+        {"id": "source-1", "name": "Custom Warehouse"}
+    )
+
+    context = warehouse_context_from_datasource(
+        datasource,
+        "PROD",
+        {"Custom Warehouse": ConnectionPlatformConfig(platform="databricks")},
+    )
+
+    assert context is not None
+    assert context.platform == "databricks"
+
+
+def test_datasource_platform_mapping_overrides_env() -> None:
+    context = warehouse_context_from_datasource(
+        _snowflake_datasource(),
+        "PROD",
+        {"Sales Warehouse": ConnectionPlatformConfig(env="DEV")},
+    )
+
+    assert context is not None
+    assert context.env == "DEV"
+
+
+def test_datasource_platform_mapping_unmapped_uses_defaults() -> None:
+    context = warehouse_context_from_datasource(_snowflake_datasource(), "PROD")
+
+    assert context is not None
+    assert context.platform_instance is None
+    assert context.env == "PROD"
+    assert context.convert_urns_to_lowercase is True
 
 
 def test_warehouse_context_from_datasources_requires_unique_context() -> None:
@@ -138,10 +208,11 @@ def test_warehouse_upstream_urns_from_sql() -> None:
         schema="SALES",
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(
+    upstreams = extractor.warehouse_lineage_from_sql(
         "select * from fact_sales join ORDERS.fact_orders on 1 = 1",
         context,
-    )
+        [],
+    ).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:"
@@ -160,13 +231,14 @@ def test_warehouse_upstream_urns_from_sql_reports_parse_failures() -> None:
     )
 
     with mock.patch(
-        "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_from_sql_statements",
         side_effect=RuntimeError("parser exploded"),
     ):
-        upstreams = extractor.warehouse_upstream_urns_from_sql(
+        upstreams = extractor.warehouse_lineage_from_sql(
             "select * from fact_sales",
             context,
-        )
+            [],
+        ).upstream_urns
 
     assert upstreams == []
     assert len(extractor.report.sql_parse_failures) == 1
@@ -201,7 +273,9 @@ def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> 
         '  join "SALES_DM"."DIM_ITEM_V" c on b.k = c.k'
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(multipass_sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(
+        multipass_sql, context, []
+    ).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:"
@@ -233,7 +307,7 @@ def test_warehouse_upstream_urns_skips_non_lineage_trailers() -> None:
         "with parameters:\n\t1"
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -253,7 +327,7 @@ def test_warehouse_upstream_urns_drops_only_script_stays_silent() -> None:
 
     sql = "drop table T1SP000\n\ndrop table T2SP001\n\n[Analytical engine steps]"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == []
     assert len(extractor.report.sql_parse_failures) == 0
@@ -273,7 +347,7 @@ def test_warehouse_upstream_urns_keeps_cte_named_parameters() -> None:
     # (the real MicroStrategy trailer is "with parameters:").
     sql = "with parameters as (select * from fact_sales) select * from parameters"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
@@ -298,7 +372,7 @@ def test_warehouse_upstream_urns_keeps_self_referencing_write_reads() -> None:
         "select * from fact_rollup join dim_org on 1=1"
     )
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.dim_org,PROD)",
@@ -362,14 +436,13 @@ def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -
 
     sql = "SET ANSI_NULLS ON\n\nselect * from fact_sales"
 
-    upstreams = extractor.warehouse_upstream_urns_from_sql(sql, context)
+    upstreams = extractor.warehouse_lineage_from_sql(sql, context, []).upstream_urns
 
     assert upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
     ]
-    # The unsupported SET statement is counted but must not raise the loud
-    # warning because lineage was still extracted.
-    assert len(extractor.report.sql_parse_failures) == 1
+    # The unsupported SET statement is tolerated: lineage is still extracted and
+    # no loud warning is raised.
     assert not extractor.report.warnings
 
 
@@ -517,6 +590,11 @@ def test_extract_field_names_excludes_function_names() -> None:
         "QTY_SOLD",
         "UNIT_PRICE",
     ]
+    # Nested analytic/window functions must not be mistaken for fields.
+    assert extract_field_names_from_expression("Sum(Rank(REVENUE))") == ["REVENUE"]
+    assert extract_field_names_from_expression(
+        "ROW_NUMBER() OVER (PARTITION BY REGION ORDER BY NET_SALES)"
+    ) == ["NET_SALES", "REGION"]
 
 
 def test_metric_fact_ids_from_model_accepts_nested_and_top_level_tokens() -> None:
@@ -589,6 +667,80 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
     ]
 
 
+def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="P_MER_EDW_DB",
+        schema="XRBIA_DM",
+        convert_urns_to_lowercase=False,
+    )
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {
+                    "namespace": "XRBIA_DM_1",
+                    "tablePrefix": "XRBIA_DM.",
+                    "tableName": "W_RTL_SLS_IT_LC_DY_A",
+                },
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "NET_SLS_QTY"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "P_MER_EDW_DB.XRBIA_DM.W_RTL_SLS_IT_LC_DY_A,PROD),NET_SLS_QTY)"
+    ]
+
+
+def test_model_lineage_anchors_columns_to_graph_field_casing() -> None:
+    # When the warehouse dataset's schema is in the graph, column urns must adopt
+    # its actual casing regardless of what MicroStrategy reports, so edges anchor
+    # to real fields even when the two systems disagree on case.
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="MY_EDW_DB", schema="SALES_DM"
+    )
+    field = mock.Mock()
+    field.fieldPath = "Net_Sales_Qty"
+    schema = mock.Mock()
+    schema.fields = [field]
+    graph = mock.Mock()
+    graph.get_schema_metadata.return_value = schema
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {"tableName": "W_SLS_ITEM_DY_A"},
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "NET_SALES_QTY"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+        graph=graph,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "my_edw_db.sales_dm.w_sls_item_dy_a,PROD),Net_Sales_Qty)"
+    ]
+
+
 def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(
@@ -638,3 +790,101 @@ def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
     assert index.attribute_field_urns("attr-1", "ID") == [
         f"urn:li:schemaField:({upstream_dataset_urn},order_date_id)"
     ]
+
+
+def test_qualify_table_name_two_part_platform_drops_schema() -> None:
+    # MySQL has no schema layer, so its native urn is database.table; the
+    # MicroStrategy schema/tablePrefix must not leak in as a third part.
+    assert (
+        qualify_table_name("orders", database="shop_db", schema="ignored", name_parts=2)
+        == "shop_db.orders"
+    )
+    assert (
+        qualify_table_name(
+            "shop_db.orders", database="shop_db", schema="ignored", name_parts=2
+        )
+        == "shop_db.orders"
+    )
+
+
+def test_model_lineage_uses_two_part_names_for_mysql() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="mysql",
+        env="PROD",
+        database="SHOP_DB",
+        schema="SHOP",
+    )
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {"tablePrefix": "SHOP.", "tableName": "fact_orders"},
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "net_sales_amt"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,"
+        "shop_db.fact_orders,PROD),net_sales_amt)"
+    ]
+
+
+def test_warehouse_field_upstreams_from_sql_through_temp_tables() -> None:
+    # Real MicroStrategy multi-pass SQL: base table -> volatile temp table ->
+    # final SELECT. Column lineage must flow through the temp table to the base
+    # columns, and output columns must match dataset fields case-insensitively.
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="SALES_DB",
+        schema="SALES",
+    )
+    multipass_sql = (
+        "CREATE VOLATILE TABLE T0SP000 AS\n"
+        "select region_number as region, net_sales_amt as revenue "
+        "from SALES.fact_sales\n"
+        "\n"
+        "select region, revenue from T0SP000\n"
+    )
+
+    field_upstreams = extractor.warehouse_lineage_from_sql(
+        multipass_sql,
+        context,
+        dataset_field_paths=["Region", "Revenue"],
+    ).field_upstreams
+
+    base = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    )
+    assert field_upstreams == {
+        "Region": [f"urn:li:schemaField:({base},region_number)"],
+        "Revenue": [f"urn:li:schemaField:({base},net_sales_amt)"],
+    }
+
+
+def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
+    extractor = _extractor()
+    context = WarehouseLineageContext(
+        platform="snowflake", env="PROD", database="SALES_DB", schema="SALES"
+    )
+
+    # A script whose final statement materializes a table (no trailing SELECT
+    # defining the dataset's columns) yields no field-level lineage.
+    assert (
+        extractor.warehouse_lineage_from_sql(
+            "create table SALES.snapshot as select region from SALES.fact_sales",
+            context,
+            dataset_field_paths=["Region"],
+        ).field_upstreams
+        == {}
+    )

@@ -40,6 +40,29 @@ MicroStrategyAuthConfig = Annotated[
 ]
 
 
+class ConnectionPlatformConfig(ConfigModel):
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform name (for example `snowflake`) to override the "
+        "one auto-detected from the datasource's database type. Set this when the "
+        "warehouse is custom or its database type is not recognized.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The platform instance the warehouse was ingested under.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="The environment the warehouse was ingested under. Defaults to "
+        "this connector's `env` when unset.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Lowercase the upstream warehouse dataset and column URNs. Set to "
+        "false when this warehouse was ingested with case preserved so lineage URNs match.",
+    )
+
+
 class MicroStrategyConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -282,13 +305,17 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
-    warehouse_platform_instance_map: Dict[str, str] = Field(
+    datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(
-            "Optional mapping from warehouse platform name (for example `snowflake`) "
-            "to the DataHub platform instance used when that warehouse was ingested. "
-            "Required for warehouse lineage URNs to match when the warehouse source "
-            "uses a `platform_instance`."
+            "Optional mapping from MicroStrategy datasource or connection name to the "
+            "platform, platform instance, environment, and URN casing that warehouse "
+            "was ingested under. MicroStrategy can hold several connections to the same "
+            "warehouse platform (for example a prod and a dev Snowflake account), so "
+            "keying by connection name lets each resolve to the right instance. Entries "
+            "are matched against the datasource's connection name first, then its "
+            "datasource name. Datasources with no entry auto-detect their platform and "
+            "use this connector's `env`, no platform instance, and lowercase URNs."
         ),
     )
 

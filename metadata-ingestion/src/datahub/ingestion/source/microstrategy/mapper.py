@@ -1,5 +1,4 @@
 import json
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -11,7 +10,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Tuple,
     Union,
 )
 
@@ -28,6 +26,9 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_DOT_COLLAPSE_RE,
+    MSTR_OBJECT_TIMESTAMP_FORMATS,
+    MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
     USAGE_TARGET_DASHBOARD,
 )
@@ -42,7 +43,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceReference,
     FolderKey,
     MetricEnrichment,
-    MSTRObject,
+    MicroStrategyObject,
     Project,
     ProjectKey,
     ReportDefinition,
@@ -92,6 +93,14 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.error import InvalidUrnError
+
+
+@dataclass
+class DatasetSchemaFields:
+    """A dataset's schema fields plus an index from source object id to fields."""
+
+    fields: List[SchemaFieldClass]
+    by_object_id: Dict[str, List[SchemaFieldClass]]
 
 
 class MicroStrategyMapper:
@@ -153,10 +162,24 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         model_lineage_index: ModelLineageIndex,
     ) -> None:
-        dataset.field_warehouse_upstreams = self._model_field_upstreams(
+        # Union with any SQL-view-derived column lineage already attached: both
+        # describe warehouse upstreams for the same dataset field, so a field can
+        # legitimately carry edges from both the model and the report SQL.
+        merged = {
+            field_path: list(upstreams)
+            for field_path, upstreams in dataset.field_warehouse_upstreams.items()
+        }
+        for field_path, upstreams in self._model_field_upstreams(
             dataset,
             model_lineage_index,
-        )
+        ).items():
+            merged[field_path] = sorted(
+                set(merged.get(field_path, [])) | set(upstreams)
+            )
+        dataset.field_warehouse_upstreams = merged
+
+    def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
+        return [spec.field_path for spec in _iter_dataset_fields(dataset)]
 
     def gen_project_container(
         self,
@@ -176,7 +199,7 @@ class MicroStrategyMapper:
     def gen_folder_containers(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
     ) -> Iterable[MetadataWorkUnit]:
         parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
@@ -196,7 +219,7 @@ class MicroStrategyMapper:
             parent_key = folder_key
 
     def folder_container_for_dashboard(
-        self, project_id: str, dashboard_object: MSTRObject
+        self, project_id: str, dashboard_object: MicroStrategyObject
     ) -> ProjectKey:
         parts = extract_folder_parts(dashboard_object.model_dump())
         allowed_parts = [
@@ -229,7 +252,7 @@ class MicroStrategyMapper:
     def gen_report_source_dataset_workunits(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         dataset: DatasetObject,
         parent_key: ProjectKey,
     ) -> Iterable[MetadataWorkUnit]:
@@ -348,7 +371,7 @@ class MicroStrategyMapper:
     def gen_report_workunits(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
         parent_key: ProjectKey,
@@ -476,7 +499,7 @@ class MicroStrategyMapper:
     def gen_dashboard_workunits(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
@@ -558,14 +581,13 @@ class MicroStrategyMapper:
         ).as_workunit()
 
     def _schema_fields(self, dataset: DatasetObject) -> List[SchemaFieldClass]:
-        fields, _ = self._schema_fields_and_object_map(dataset, report_fields=True)
-        return fields
+        return self._schema_fields_and_object_map(dataset, report_fields=True).fields
 
     def _schema_fields_and_object_map(
         self,
         dataset: DatasetObject,
         report_fields: bool = False,
-    ) -> Tuple[List[SchemaFieldClass], Dict[str, List[SchemaFieldClass]]]:
+    ) -> DatasetSchemaFields:
         fields: List[SchemaFieldClass] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
 
@@ -638,7 +660,10 @@ class MicroStrategyMapper:
                 if report_fields:
                     self.report.report_attribute_field(temporal=spec.temporal)
 
-        return sorted(fields, key=lambda field: field.fieldPath), fields_by_object_id
+        return DatasetSchemaFields(
+            fields=sorted(fields, key=lambda field: field.fieldPath),
+            by_object_id=fields_by_object_id,
+        )
 
     def _visualization_input_fields(
         self,
@@ -659,9 +684,9 @@ class MicroStrategyMapper:
             dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
             if dataset_urn not in input_urn_set:
                 continue
-            _, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+            schema_fields = self._schema_fields_and_object_map(dataset)
             for object_id in visualization_object_ids:
-                for schema_field in fields_by_object_id.get(object_id, []):
+                for schema_field in schema_fields.by_object_id.get(object_id, []):
                     _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
         return _input_fields_aspect(input_fields_by_urn)
@@ -672,17 +697,17 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         object_ids: Optional[Sequence[str]] = None,
     ) -> Optional[InputFieldsClass]:
-        fields, fields_by_object_id = self._schema_fields_and_object_map(dataset)
+        schema_fields = self._schema_fields_and_object_map(dataset)
         input_fields_by_urn: Dict[str, InputFieldClass] = {}
         if object_ids:
             normalized_object_ids = {
                 _normalize_object_id(object_id) for object_id in object_ids
             }
             for object_id in normalized_object_ids:
-                for schema_field in fields_by_object_id.get(object_id, []):
+                for schema_field in schema_fields.by_object_id.get(object_id, []):
                     _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
         else:
-            for schema_field in fields:
+            for schema_field in schema_fields.fields:
                 _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
         return _input_fields_aspect(input_fields_by_urn)
@@ -905,7 +930,7 @@ class MicroStrategyMapper:
     def _report_source_dataset_custom_properties(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         dataset: DatasetObject,
     ) -> Dict[str, str]:
         properties = {
@@ -924,7 +949,7 @@ class MicroStrategyMapper:
     def _report_properties(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
     ) -> Dict[str, str]:
@@ -1051,7 +1076,9 @@ class MicroStrategyMapper:
         }
 
     @staticmethod
-    def _dashboard_object_properties(dashboard_object: MSTRObject) -> Dict[str, str]:
+    def _dashboard_object_properties(
+        dashboard_object: MicroStrategyObject,
+    ) -> Dict[str, str]:
         return {
             key: value
             for key, value in {
@@ -1066,7 +1093,7 @@ class MicroStrategyMapper:
 
     @staticmethod
     def _dashboard_audit_stamps(
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
     ) -> ChangeAuditStampsClass:
         owner = dashboard_object.owner or "datahub"
         return ChangeAuditStampsClass(
@@ -1134,7 +1161,7 @@ def _attribute_field_path(
 
 
 def _dedupe_field_path(name: str, seen: Set[str]) -> str:
-    cleaned = re.sub(r"\s+", " ", name).strip() or "unknown"
+    cleaned = MSTR_WHITESPACE_RE.sub(" ", name).strip() or "unknown"
     if cleaned not in seen:
         seen.add(cleaned)
         return cleaned
@@ -1158,12 +1185,7 @@ def _metric_field_description(
     description: Optional[str],
     enrichment: Optional[MetricEnrichment],
 ) -> Optional[str]:
-    """Human description first, then the metric formula in a fenced code block.
-
-    Field descriptions render as markdown in the UI, so the formula stays
-    readable without drowning out the business description (unlike jsonProps,
-    which the UI barely surfaces).
-    """
+    """Description first, then the formula as a fenced block (descriptions render as markdown)."""
     expression = enrichment.expression_text if enrichment else None
     if not expression:
         return description
@@ -1205,12 +1227,7 @@ class _FieldSpec:
 
 
 def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
-    """Single source of truth for schema-field paths.
-
-    Both schema emission and model field lineage iterate this generator, so
-    fine-grained lineage downstream field paths always match the emitted
-    schema field paths.
-    """
+    """Single source of field paths, so schema emission and field lineage always agree."""
     seen: Set[str] = set()
     available_objects = dataset.available_objects or {}
 
@@ -1373,7 +1390,7 @@ def _dataset_lineage_match_keys(dataset_urn: Optional[str]) -> Set[str]:
     except InvalidUrnError:
         return set()
     platform = parsed.platform.removeprefix("urn:li:dataPlatform:").lower()
-    qualified_name = re.sub(r"\.+", ".", parsed.name.strip(".").lower())
+    qualified_name = MSTR_DOT_COLLAPSE_RE.sub(".", parsed.name.strip(".").lower())
     parts = [part for part in qualified_name.split(".") if part]
     keys = {f"{platform}:{qualified_name}"}
     # Require at least schema.table for the relaxed match; a bare table name
@@ -1406,11 +1423,7 @@ def _parse_microstrategy_time(date_value: Optional[str]) -> Optional[int]:
     normalized = date_value.strip()
     if normalized.endswith("Z"):
         normalized = f"{normalized[:-1]}+0000"
-    for format_string in (
-        "%Y-%m-%dT%H:%M:%S.%f%z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%d %H:%M:%S%z",
-    ):
+    for format_string in MSTR_OBJECT_TIMESTAMP_FORMATS:
         try:
             parsed = datetime.strptime(normalized, format_string)
             return int(parsed.timestamp() * 1000)
