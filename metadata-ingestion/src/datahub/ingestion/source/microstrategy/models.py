@@ -16,6 +16,43 @@ from typing import (
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_DATABASE_PARAM_RE,
+    MSTR_DATASET_CONTAINER_KEYS,
+    MSTR_DATASET_KEY_RE,
+    MSTR_KEYS_DATABASE_NAME,
+    MSTR_KEYS_DATABASE_NAME_NESTED,
+    MSTR_KEYS_DATABASE_TYPE,
+    MSTR_KEYS_DATABASE_VERSION,
+    MSTR_KEYS_DATASET_ID,
+    MSTR_KEYS_DATASET_OBJECT_ID,
+    MSTR_KEYS_DATASOURCE_ID,
+    MSTR_KEYS_DATASOURCE_REFERENCE,
+    MSTR_KEYS_DATASOURCE_TYPE,
+    MSTR_KEYS_DBMS_NAME,
+    MSTR_KEYS_DISPLAY_NAME,
+    MSTR_KEYS_DRIVER_TYPE,
+    MSTR_KEYS_FOLDER_PATH,
+    MSTR_KEYS_ID,
+    MSTR_KEYS_KEY_ID,
+    MSTR_KEYS_LIST_CONTAINERS,
+    MSTR_KEYS_NAME,
+    MSTR_KEYS_OWNER,
+    MSTR_KEYS_PROJECT_ID,
+    MSTR_KEYS_PROJECT_NAME,
+    MSTR_KEYS_SCHEMA_NAME,
+    MSTR_KEYS_SCHEMA_NAME_NESTED,
+    MSTR_KEYS_SOURCE_ID,
+    MSTR_KEYS_SOURCE_NAME,
+    MSTR_KEYS_SOURCE_OBJECT,
+    MSTR_KEYS_SOURCE_OBJECT_ID,
+    MSTR_KEYS_VISUALIZATION_KEY,
+    MSTR_KEYS_VISUALIZATION_TYPE,
+    MSTR_NULL_OBJECT_ID,
+    MSTR_OBJECT_ID_PARENT_KEYS,
+    MSTR_OBJECT_TYPES,
+    MSTR_SCHEMA_PARAM_RE,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -85,8 +122,8 @@ class Project(MicroStrategyBaseModel):
     def normalize(cls, data: Any) -> MSTRDict:
         if isinstance(data, dict):
             result = dict(data)
-            result["id"] = _first_str(result, ["id", "projectId", "project_id"])
-            result["name"] = _first_str(result, ["name", "projectName"]) or result["id"]
+            result["id"] = _first_str(result, MSTR_KEYS_PROJECT_ID)
+            result["name"] = _first_str(result, MSTR_KEYS_PROJECT_NAME) or result["id"]
             return result
         return data
 
@@ -106,11 +143,11 @@ class MSTRObject(MicroStrategyBaseModel):
     def normalize(cls, data: Any) -> MSTRDict:
         if isinstance(data, dict):
             result = dict(data)
-            result["id"] = _first_str(result, ["id", "objectId"])
-            result["name"] = _first_str(result, ["name", "title"]) or result["id"]
+            result["id"] = _first_str(result, MSTR_KEYS_ID)
+            result["name"] = _first_str(result, MSTR_KEYS_NAME) or result["id"]
             owner = result.get("owner")
             if isinstance(owner, dict):
-                result["owner"] = _first_str(owner, ["username", "name", "id"])
+                result["owner"] = _first_str(owner, MSTR_KEYS_OWNER)
             return result
         return data
 
@@ -174,8 +211,8 @@ class DatasetObject(MicroStrategyBaseModel):
     def normalize(cls, data: Any) -> MSTRDict:
         if isinstance(data, dict):
             result = dict(data)
-            result["id"] = _first_str(result, ["id", "objectId", "datasetId"])
-            result["name"] = _first_str(result, ["name", "title"]) or result["id"]
+            result["id"] = _first_str(result, MSTR_KEYS_DATASET_OBJECT_ID)
+            result["name"] = _first_str(result, MSTR_KEYS_NAME) or result["id"]
             result["availableObjects"] = _normalize_available_objects(
                 result.get("availableObjects") or result.get("available_objects")
             )
@@ -236,29 +273,22 @@ class DatasourceConnection(MicroStrategyBaseModel):
                 database = {}
             connection_string = str(data.get("connectionString") or "")
             result = dict(data)
-            result["id"] = _first_str(result, ["id", "objectId"])
-            result["name"] = _first_str(result, ["name", "title"]) or result["id"]
-            result["driverType"] = _first_str(result, ["driverType", "driver"])
-            result["databaseType"] = _first_str(database, ["type", "databaseType"])
-            result["databaseVersion"] = _first_str(
-                database, ["version", "databaseVersion"]
-            )
+            result["id"] = _first_str(result, MSTR_KEYS_ID)
+            result["name"] = _first_str(result, MSTR_KEYS_NAME) or result["id"]
+            result["driverType"] = _first_str(result, MSTR_KEYS_DRIVER_TYPE)
+            result["databaseType"] = _first_str(database, MSTR_KEYS_DATABASE_TYPE)
+            result["databaseVersion"] = _first_str(database, MSTR_KEYS_DATABASE_VERSION)
             result["databaseName"] = _first_str(
-                result, ["databaseName", "database", "catalog"]
-            ) or _first_str(database, ["name", "databaseName", "catalog"])
+                result, MSTR_KEYS_DATABASE_NAME
+            ) or _first_str(database, MSTR_KEYS_DATABASE_NAME_NESTED)
             result["schemaName"] = _first_str(
-                result, ["schemaName", "schema", "databaseSchema"]
-            ) or _first_str(database, ["schema", "schemaName", "databaseSchema"])
+                result, MSTR_KEYS_SCHEMA_NAME
+            ) or _first_str(database, MSTR_KEYS_SCHEMA_NAME_NESTED)
             result["databaseName"] = result["databaseName"] or _connection_param(
-                connection_string, "DATABASE", "databaseName", "db", "catalog"
+                connection_string, MSTR_DATABASE_PARAM_RE
             )
             result["schemaName"] = result["schemaName"] or _connection_param(
-                connection_string,
-                "schema",
-                "currentSchema",
-                "CURRENT_SCHEMA",
-                "searchpath",
-                "search_path",
+                connection_string, MSTR_SCHEMA_PARAM_RE
             )
             result["connectionStringPresent"] = bool(connection_string)
             result.pop("connectionString", None)
@@ -281,32 +311,15 @@ class Visualization(MicroStrategyBaseModel):
     def normalize(cls, data: Any) -> MSTRDict:
         if isinstance(data, dict):
             result = dict(data)
-            key = _first_str(
-                result,
-                [
-                    "key",
-                    "id",
-                    "objectId",
-                    "visualizationKey",
-                    "nodeKey",
-                    "definitionKey",
-                ],
-            )
+            key = _first_str(result, MSTR_KEYS_VISUALIZATION_KEY)
             if not key:
                 seed = json.dumps(data, sort_keys=True, default=str)
                 key = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:16]
             result["key"] = key
             result["name"] = (
-                _first_str(
-                    result,
-                    ["name", "title", "displayName"],
-                )
-                or f"Visualization {key}"
+                _first_str(result, MSTR_KEYS_DISPLAY_NAME) or f"Visualization {key}"
             )
-            result["type"] = _first_str(
-                result,
-                ["type", "visualizationType"],
-            )
+            result["type"] = _first_str(result, MSTR_KEYS_VISUALIZATION_TYPE)
             result["datasets"] = _extract_dataset_ids(result)
             result["object_ids"] = _extract_object_ids(result)
             result["raw"] = data
@@ -475,53 +488,18 @@ def _normalize_available_objects(value: Any) -> MSTRDict:
 
 def _extract_report_source(*locations: MSTRDict) -> Tuple[Optional[str], Optional[str]]:
     for location in locations:
-        for source_key in (
-            "dataSource",
-            "datasource",
-            "source",
-            "sourceObject",
-            "cube",
-            "dataset",
-        ):
+        for source_key in MSTR_KEYS_SOURCE_OBJECT:
             source = location.get(source_key)
             if isinstance(source, dict):
-                source_id = _first_str(
-                    source,
-                    [
-                        "id",
-                        "objectId",
-                        "sourceId",
-                        "dataSourceId",
-                        "datasetId",
-                        "cubeId",
-                    ],
-                )
+                source_id = _first_str(source, MSTR_KEYS_SOURCE_OBJECT_ID)
                 if source_id:
-                    return source_id, _first_str(source, ["name", "title"])
+                    return source_id, _first_str(source, MSTR_KEYS_NAME)
             elif isinstance(source, str) and source:
                 return source, None
 
-        source_id = _first_str(
-            location,
-            [
-                "sourceId",
-                "dataSourceId",
-                "datasourceId",
-                "datasetId",
-                "cubeId",
-            ],
-        )
+        source_id = _first_str(location, MSTR_KEYS_SOURCE_ID)
         if source_id:
-            return source_id, _first_str(
-                location,
-                [
-                    "sourceName",
-                    "dataSourceName",
-                    "datasourceName",
-                    "datasetName",
-                    "cubeName",
-                ],
-            )
+            return source_id, _first_str(location, MSTR_KEYS_SOURCE_NAME)
     return None, None
 
 
@@ -539,22 +517,20 @@ def _normalize_datasource_reference(data: MSTRDict) -> MSTRDict:
         connection = {}
 
     result = dict(data)
-    result["id"] = _first_str(result, ["id", "objectId", "datasourceId"])
-    result["name"] = _first_str(result, ["name", "title"]) or result.get("id")
-    result["datasourceType"] = _first_str(
-        result, ["datasourceType", "sourceType", "type"]
+    result["id"] = _first_str(result, MSTR_KEYS_DATASOURCE_ID)
+    result["name"] = _first_str(result, MSTR_KEYS_NAME) or result.get("id")
+    result["datasourceType"] = _first_str(result, MSTR_KEYS_DATASOURCE_TYPE)
+    result["databaseType"] = _first_str(database, MSTR_KEYS_DATABASE_TYPE)
+    result["databaseVersion"] = _first_str(database, MSTR_KEYS_DATABASE_VERSION)
+    result["dbmsName"] = _first_str(dbms, MSTR_KEYS_DBMS_NAME)
+    result["connectionId"] = _first_str(connection, MSTR_KEYS_ID)
+    result["connectionName"] = _first_str(connection, MSTR_KEYS_NAME)
+    result["databaseName"] = _first_str(result, MSTR_KEYS_DATABASE_NAME) or _first_str(
+        database, MSTR_KEYS_DATABASE_NAME_NESTED
     )
-    result["databaseType"] = _first_str(database, ["type", "databaseType"])
-    result["databaseVersion"] = _first_str(database, ["version", "databaseVersion"])
-    result["dbmsName"] = _first_str(dbms, ["name", "type"])
-    result["connectionId"] = _first_str(connection, ["id", "objectId"])
-    result["connectionName"] = _first_str(connection, ["name", "title"])
-    result["databaseName"] = _first_str(
-        result, ["databaseName", "database", "catalog"]
-    ) or _first_str(database, ["name", "databaseName", "catalog"])
-    result["schemaName"] = _first_str(
-        result, ["schemaName", "schema", "databaseSchema"]
-    ) or _first_str(database, ["schema", "schemaName", "databaseSchema"])
+    result["schemaName"] = _first_str(result, MSTR_KEYS_SCHEMA_NAME) or _first_str(
+        database, MSTR_KEYS_SCHEMA_NAME_NESTED
+    )
     embedded = connection.get("embedded")
     if embedded is None:
         embedded = connection.get("isEmbedded")
@@ -567,24 +543,19 @@ def _list_items(value: Any) -> List[Any]:
     if isinstance(value, list):
         return value
     if isinstance(value, dict):
-        for key in ("items", "objects", "prompts"):
+        for key in MSTR_KEYS_LIST_CONTAINERS:
             nested = value.get(key)
             if isinstance(nested, list):
                 return nested
     return []
 
 
-def _connection_param(connection_string: str, *param_names: str) -> Optional[str]:
+def _connection_param(
+    connection_string: str, pattern: re.Pattern[str]
+) -> Optional[str]:
     if not connection_string:
         return None
-    alternatives = "|".join(re.escape(name) for name in param_names)
-    # Delimiters cover ODBC-style (;KEY=value) and JDBC URL query-string
-    # style (?db=value&schema=value) connection strings.
-    match = re.search(
-        rf"(?:^|[;,&?\s])(?:{alternatives})\s*=\s*([^;&,\s}}]+)",
-        connection_string,
-        re.IGNORECASE,
-    )
+    match = pattern.search(connection_string)
     if not match:
         return None
     return match.group(1).strip().strip("'\"")
@@ -610,14 +581,7 @@ def _looks_like_datasource_reference(value: Any) -> bool:
 
 
 def _extract_datasource_reference(data: MSTRDict) -> Optional[MSTRDict]:
-    for key in (
-        "sourceWarehouse",
-        "warehouse",
-        "sourceDatasource",
-        "sourceDataSource",
-        "dataSource",
-        "datasource",
-    ):
+    for key in MSTR_KEYS_DATASOURCE_REFERENCE:
         value = data.get(key)
         if _looks_like_datasource_reference(value):
             return value
@@ -647,14 +611,14 @@ def _extract_visualizations(definition: MSTRDict) -> List[MSTRDict]:
         for chapter in chapters:
             if not isinstance(chapter, dict):
                 continue
-            chapter_key = _first_str(chapter, ["key", "id"])
+            chapter_key = _first_str(chapter, MSTR_KEYS_KEY_ID)
             pages = chapter.get("pages")
             if not isinstance(pages, list):
                 continue
             for page in pages:
                 if not isinstance(page, dict):
                     continue
-                page_key = _first_str(page, ["key", "id"])
+                page_key = _first_str(page, MSTR_KEYS_KEY_ID)
                 visualizations = page.get("visualizations")
                 if not isinstance(visualizations, list):
                     continue
@@ -684,25 +648,14 @@ def _extract_dataset_ids(value: Any) -> List[str]:
         if isinstance(candidate, str) and candidate:
             dataset_ids.append(candidate)
         elif isinstance(candidate, dict):
-            candidate_id = _first_str(
-                candidate, ["id", "objectId", "datasetId", "dataSetId"]
-            )
+            candidate_id = _first_str(candidate, MSTR_KEYS_DATASET_ID)
             if candidate_id:
                 dataset_ids.append(candidate_id)
 
     def visit(node: Any, parent_key: Optional[str] = None) -> None:
         if isinstance(node, dict):
             for key, child in node.items():
-                lowered = key.lower()
-                if lowered in {
-                    "dataset",
-                    "datasets",
-                    "datasetid",
-                    "datasetids",
-                    "datasetkey",
-                    "datasources",
-                    "datasource",
-                }:
+                if key.lower() in MSTR_DATASET_CONTAINER_KEYS:
                     if isinstance(child, list):
                         for item in child:
                             add(item)
@@ -713,7 +666,7 @@ def _extract_dataset_ids(value: Any) -> List[str]:
         elif isinstance(node, list):
             for child in node:
                 visit(child, parent_key)
-        elif parent_key and re.search("dataset", parent_key, re.IGNORECASE):
+        elif parent_key and MSTR_DATASET_KEY_RE.search(parent_key):
             add(node)
 
     visit(value)
@@ -727,17 +680,9 @@ def _extract_object_ids(value: Any) -> List[str]:
         if isinstance(node, dict):
             node_type = str(node.get("type") or node.get("objectType") or "").lower()
             parent = (parent_key or "").lower()
-            if node_type in {"metric", "attribute"} or parent in {
-                "metric",
-                "metrics",
-                "attribute",
-                "attributes",
-                # templateMetrics is a container key in dossier definitions,
-                # not an object type.
-                "templatemetrics",
-            }:
-                object_id = _first_str(node, ["id", "objectId"])
-                if object_id and object_id != "00000000000000000000000000000000":
+            if node_type in MSTR_OBJECT_TYPES or parent in MSTR_OBJECT_ID_PARENT_KEYS:
+                object_id = _first_str(node, MSTR_KEYS_ID)
+                if object_id and object_id != MSTR_NULL_OBJECT_ID:
                     object_ids.append(object_id)
             for child_key, child in node.items():
                 visit(child, str(child_key))
@@ -755,7 +700,7 @@ def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
     ancestors = raw_object.get("ancestors")
     if isinstance(ancestors, list) and ancestors:
         parts = [
-            _first_str(ancestor, ["name", "title"])
+            _first_str(ancestor, MSTR_KEYS_NAME)
             for ancestor in ancestors
             if isinstance(ancestor, dict)
         ]
@@ -766,7 +711,7 @@ def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
             return [part for part in parts if part]
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
-        path = _first_str(folder, ["path", "name"])
+        path = _first_str(folder, MSTR_KEYS_FOLDER_PATH)
     else:
         path = str(folder) if folder else None
     return [part for part in (path or "").strip("/").split("/") if part]
