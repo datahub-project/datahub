@@ -1,5 +1,6 @@
 package io.datahubproject.openlineage;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -199,6 +200,92 @@ public class OpenLineageConverterBugfixTest {
     assertFalse(
         anyAspectContains(mcps, "$UNKNOWN"),
         "missing eventType must not produce a $UNKNOWN aspect");
+  }
+
+  @Test
+  public void errorMessageRunFacetSurfacesAsCustomProperties() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.ErrorMessageRunFacet error =
+        ol.newErrorMessageRunFacetBuilder()
+            .message("boom")
+            .programmingLanguage("scala")
+            .stackTrace("at Foo.bar(Foo.scala:1)")
+            .build();
+    OpenLineage.Run run =
+        ol.newRunBuilder()
+            .runId(UUID.randomUUID())
+            .facets(ol.newRunFacetsBuilder().errorMessage(error).build())
+            .build();
+    OpenLineage.RunEvent event =
+        ol.newRunEventBuilder()
+            .eventTime(ZonedDateTime.now())
+            .eventType(OpenLineage.RunEvent.EventType.FAIL)
+            .run(run)
+            .job(
+                ol.newJobBuilder()
+                    .namespace("ns")
+                    .name("job")
+                    .facets(ol.newJobFacetsBuilder().build())
+                    .build())
+            .inputs(Collections.emptyList())
+            .outputs(Collections.emptyList())
+            .build();
+
+    DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config());
+    java.util.Map<String, String> props =
+        job.getDataProcessInstanceProperties().getCustomProperties();
+
+    assertEquals(props.get("errorMessage"), "boom");
+    assertEquals(props.get("programmingLanguage"), "scala");
+    assertTrue(
+        props.get("stackTrace") != null && props.get("stackTrace").contains("Foo.scala"),
+        "stackTrace should be preserved: " + props);
+  }
+
+  @Test
+  public void errorMessageStackTraceIsTruncated() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    StringBuilder hugeTrace = new StringBuilder();
+    for (int i = 0; i < 20000; i++) {
+      hugeTrace.append("x");
+    }
+    OpenLineage.ErrorMessageRunFacet error =
+        ol.newErrorMessageRunFacetBuilder()
+            .message("boom")
+            .programmingLanguage("scala")
+            .stackTrace(hugeTrace.toString())
+            .build();
+    OpenLineage.Run run =
+        ol.newRunBuilder()
+            .runId(UUID.randomUUID())
+            .facets(ol.newRunFacetsBuilder().errorMessage(error).build())
+            .build();
+    OpenLineage.RunEvent event =
+        ol.newRunEventBuilder()
+            .eventTime(ZonedDateTime.now())
+            .eventType(OpenLineage.RunEvent.EventType.FAIL)
+            .run(run)
+            .job(
+                ol.newJobBuilder()
+                    .namespace("ns")
+                    .name("job")
+                    .facets(ol.newJobFacetsBuilder().build())
+                    .build())
+            .inputs(Collections.emptyList())
+            .outputs(Collections.emptyList())
+            .build();
+
+    java.util.Map<String, String> props =
+        OpenLineageToDataHub.convertRunEventToJob(event, config())
+            .getDataProcessInstanceProperties()
+            .getCustomProperties();
+
+    String stackTrace = props.get("stackTrace");
+    assertTrue(
+        stackTrace.length() < 20000, "stack trace should be truncated: " + stackTrace.length());
+    assertTrue(stackTrace.endsWith("...[truncated]"), "truncation marker expected");
+    // small fields are kept verbatim
+    assertEquals(props.get("errorMessage"), "boom");
   }
 
   @Test
