@@ -1257,7 +1257,45 @@ public class OpenLineageToDataHub {
     }
     auditStamp.setActor(Urn.createFromString(URN_LI_CORPUSER_DATAHUB));
     dpiProperties.setCreated(auditStamp);
+
+    // Surface the OpenLineage ErrorMessageRunFacet (message / programmingLanguage / stackTrace) as
+    // custom properties so FAIL/ABORT diagnostics aren't lost.
+    StringMap errorProperties = errorMessageProperties(event);
+    if (!errorProperties.isEmpty()) {
+      dpiProperties.setCustomProperties(errorProperties);
+    }
     return dpiProperties;
+  }
+
+  // Cap stack traces so a single failed run can't bloat the aspect / MCP payload. The message and
+  // programmingLanguage are small and kept verbatim; the full trace remains in the raw OL event.
+  private static final int ERROR_STACK_TRACE_MAX_CHARS = 4096;
+
+  private static StringMap errorMessageProperties(OpenLineage.RunEvent event) {
+    StringMap properties = new StringMap();
+    if (event.getRun() == null
+        || event.getRun().getFacets() == null
+        || event.getRun().getFacets().getErrorMessage() == null) {
+      return properties;
+    }
+    OpenLineage.ErrorMessageRunFacet error = event.getRun().getFacets().getErrorMessage();
+    if (error.getMessage() != null) {
+      properties.put("errorMessage", error.getMessage());
+    }
+    if (error.getProgrammingLanguage() != null) {
+      properties.put("programmingLanguage", error.getProgrammingLanguage());
+    }
+    if (error.getStackTrace() != null) {
+      properties.put("stackTrace", truncate(error.getStackTrace(), ERROR_STACK_TRACE_MAX_CHARS));
+    }
+    return properties;
+  }
+
+  private static String truncate(String value, int maxChars) {
+    if (value.length() <= maxChars) {
+      return value;
+    }
+    return value.substring(0, maxChars) + "...[truncated]";
   }
 
   public static Edge createEdge(Urn urn, ZonedDateTime eventTime) {
