@@ -97,6 +97,54 @@ public class OpenLineageConverterBugfixTest {
         paths.contains("address.zip"), "nested field 'address.zip' should be present: " + paths);
   }
 
+  @Test
+  public void schemaWithArrayEmitsV2FieldPaths() {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.SchemaDatasetFacetFields id =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("id").type("long").build();
+    // array of primitive: element type parsed from the type string.
+    OpenLineage.SchemaDatasetFacetFields tags =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("tags").type("array<string>").build();
+    // array of struct: element is a struct, its fields come via getFields().
+    OpenLineage.SchemaDatasetFacetFields markerName =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("name").type("string").build();
+    OpenLineage.SchemaDatasetFacetFields markers =
+        ol.newSchemaDatasetFacetFieldsBuilder()
+            .name("markers")
+            .type("array")
+            .fields(java.util.Collections.singletonList(markerName))
+            .build();
+    OpenLineage.SchemaDatasetFacet schema =
+        ol.newSchemaDatasetFacetBuilder()
+            .fields(java.util.Arrays.asList(id, tags, markers))
+            .build();
+    OpenLineage.InputDataset ds =
+        ol.newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("db.table")
+            .facets(ol.newDatasetFacetsBuilder().schema(schema).build())
+            .build();
+
+    java.util.Set<String> paths =
+        OpenLineageToDataHub.getSchemaMetadata(ds, config()).getFields().stream()
+            .map(f -> f.getFieldPath())
+            .collect(java.util.stream.Collectors.toSet());
+
+    // An array is present, so the whole schema must use v2 fieldPaths.
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=long].id"), "simple field v2: " + paths);
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=array].[type=string].tags"),
+        "array<string> v2: " + paths);
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=array].[type=struct].markers"),
+        "array<struct> v2: " + paths);
+    assertTrue(
+        paths.contains(
+            "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name"),
+        "nested field under array<struct> v2: " + paths);
+  }
+
   // ---- eventType handling ----
 
   private static OpenLineage.RunEventBuilder baseEvent(OpenLineage ol) {
