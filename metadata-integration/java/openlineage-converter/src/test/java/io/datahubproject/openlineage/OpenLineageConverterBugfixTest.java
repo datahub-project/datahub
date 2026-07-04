@@ -5,6 +5,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
 import io.datahubproject.openlineage.dataset.DatahubJob;
@@ -60,6 +61,40 @@ public class OpenLineageConverterBugfixTest {
         "'STRUCT' should map to MapType");
     // Lowercase must keep working.
     assertTrue(OpenLineageToDataHub.convertOlFieldTypeToDHFieldType("string").isStringType());
+  }
+
+  @Test
+  public void schemaMetadataIncludesNestedStructFields() {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.SchemaDatasetFacetFields city =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("city").type("string").build();
+    OpenLineage.SchemaDatasetFacetFields zip =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("zip").type("long").build();
+    OpenLineage.SchemaDatasetFacetFields address =
+        ol.newSchemaDatasetFacetFieldsBuilder()
+            .name("address")
+            .type("struct")
+            .fields(java.util.Arrays.asList(city, zip))
+            .build();
+    OpenLineage.SchemaDatasetFacet schema =
+        ol.newSchemaDatasetFacetBuilder().fields(Collections.singletonList(address)).build();
+    OpenLineage.InputDataset ds =
+        ol.newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("db.table")
+            .facets(ol.newDatasetFacetsBuilder().schema(schema).build())
+            .build();
+
+    SchemaMetadata md = OpenLineageToDataHub.getSchemaMetadata(ds, config());
+    java.util.Set<String> paths =
+        md.getFields().stream()
+            .map(f -> f.getFieldPath())
+            .collect(java.util.stream.Collectors.toSet());
+    assertTrue(paths.contains("address"), "top-level struct field should be present: " + paths);
+    assertTrue(
+        paths.contains("address.city"), "nested field 'address.city' should be present: " + paths);
+    assertTrue(
+        paths.contains("address.zip"), "nested field 'address.zip' should be present: " + paths);
   }
 
   // ---- eventType handling ----

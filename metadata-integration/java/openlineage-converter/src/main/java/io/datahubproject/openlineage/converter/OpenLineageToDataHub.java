@@ -1506,6 +1506,28 @@ public class OpenLineageToDataHub {
     }
   }
 
+  // OpenLineage schema fields nest: a struct/record field carries its children in getFields().
+  // Emit the parent plus each descendant with a dotted fieldPath so nested columns aren't dropped
+  // (previously only top-level fields were emitted; nested ones survived only in the raw DDL blob).
+  private static void addSchemaFieldRecursively(
+      OpenLineage.SchemaDatasetFacetFields field,
+      String parentPath,
+      SchemaFieldArray schemaFieldArray) {
+    String fieldPath = parentPath.isEmpty() ? field.getName() : parentPath + "." + field.getName();
+    SchemaField schemaField = new SchemaField();
+    schemaField.setFieldPath(fieldPath);
+    schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
+    schemaField.setType(
+        new SchemaFieldDataType().setType(convertOlFieldTypeToDHFieldType(field.getType())));
+    schemaFieldArray.add(schemaField);
+
+    if (field.getFields() != null) {
+      for (OpenLineage.SchemaDatasetFacetFields child : field.getFields()) {
+        addSchemaFieldRecursively(child, fieldPath, schemaFieldArray);
+      }
+    }
+  }
+
   public static SchemaMetadata getSchemaMetadata(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
@@ -1525,16 +1547,7 @@ public class OpenLineageToDataHub {
         .getFacets()
         .getSchema()
         .getFields()
-        .forEach(
-            field -> {
-              SchemaField schemaField = new SchemaField();
-              schemaField.setFieldPath(field.getName());
-              schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
-              schemaField.setType(
-                  new SchemaFieldDataType()
-                      .setType(convertOlFieldTypeToDHFieldType(field.getType())));
-              schemaFieldArray.add(schemaField);
-            });
+        .forEach(field -> addSchemaFieldRecursively(field, "", schemaFieldArray));
     SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setPlatformSchema(new SchemaMetadata.PlatformSchema());
     schemaMetadata.setSchemaName("");
