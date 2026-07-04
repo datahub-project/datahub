@@ -73,6 +73,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -443,11 +444,18 @@ public class OpenLineageToDataHub {
     }
     jobBuilder.dataFlowInfo(dfi);
 
+    // Ownership comes from the OpenLineage OwnershipJobFacet (a job facet), so it belongs on the
+    // DataJob.
     Ownership ownership = generateOwnership(event);
-    jobBuilder.flowOwnership(ownership);
+    jobBuilder.jobOwnership(ownership);
 
-    GlobalTags tags = generateTags(event);
-    jobBuilder.flowGlobalTags(tags);
+    // Airflow-style DAG tags live in the run facet and stay on the DataFlow (backward compatible).
+    GlobalTags flowTags = generateTags(event);
+    jobBuilder.flowGlobalTags(flowTags);
+
+    // Standard OpenLineage TagsJobFacet tags are a job facet, so they go on the DataJob.
+    GlobalTags jobTags = generateJobTags(event);
+    jobBuilder.jobGlobalTags(jobTags);
 
     DatahubJob datahubJob = jobBuilder.build();
     convertJobToDataJob(datahubJob, event, datahubConf);
@@ -476,7 +484,7 @@ public class OpenLineageToDataHub {
         Owner owner = new Owner();
         try {
           owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
-          owner.setType(OwnershipType.DEVELOPER);
+          owner.setType(mapOwnershipType(ownerFacet.getType()));
           OwnershipSource source = new OwnershipSource();
           source.setType(OwnershipSourceType.SERVICE);
           owner.setSource(source);
@@ -496,6 +504,51 @@ public class OpenLineageToDataHub {
       log.warn("Unable to create actor urn for actor: {}", URN_LI_CORPUSER_DATAHUB);
     }
     return ownership;
+  }
+
+  /**
+   * Best-effort map an OpenLineage owner {@code type} (a free-text string, e.g. {@code DEVELOPER})
+   * onto a DataHub {@link OwnershipType}. Unknown or blank values fall back to {@code
+   * TECHNICAL_OWNER}.
+   */
+  private static OwnershipType mapOwnershipType(String openLineageType) {
+    if (openLineageType != null && !openLineageType.trim().isEmpty()) {
+      try {
+        return OwnershipType.valueOf(openLineageType.trim().toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        log.debug(
+            "Unknown OpenLineage owner type '{}', defaulting to TECHNICAL_OWNER", openLineageType);
+      }
+    }
+    return OwnershipType.TECHNICAL_OWNER;
+  }
+
+  /**
+   * Extract tags from the standard OpenLineage {@code TagsJobFacet} (a job facet). Each key/value
+   * pair becomes a {@code key:value} tag (or just {@code key} when the value is empty). Returns
+   * {@code null} when no tags are present.
+   */
+  private static GlobalTags generateJobTags(OpenLineage.RunEvent event) {
+    if (event.getJob() == null
+        || event.getJob().getFacets() == null
+        || event.getJob().getFacets().getTags() == null
+        || event.getJob().getFacets().getTags().getTags() == null) {
+      return null;
+    }
+    List<String> tagNames = new LinkedList<>();
+    for (OpenLineage.TagsJobFacetFields tag : event.getJob().getFacets().getTags().getTags()) {
+      String key = tag.getKey();
+      if (key == null || key.trim().isEmpty()) {
+        continue;
+      }
+      String value = tag.getValue();
+      tagNames.add(
+          (value == null || value.trim().isEmpty()) ? key.trim() : key.trim() + ":" + value.trim());
+    }
+    if (tagNames.isEmpty()) {
+      return null;
+    }
+    return generateTags(tagNames);
   }
 
   private static String getDescription(OpenLineage.RunEvent event) {
