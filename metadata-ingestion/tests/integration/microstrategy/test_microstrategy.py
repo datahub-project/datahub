@@ -7,8 +7,8 @@ from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
+    MicroStrategyObject,
     ModelTablesResponse,
-    MSTRObject,
     Project,
 )
 from datahub.testing import mce_helpers
@@ -90,9 +90,9 @@ def _source_connection(
 def _dashboards(
     _client: MicroStrategyClient,
     _project_id: str,
-) -> Iterable[MSTRObject]:
+) -> Iterable[MicroStrategyObject]:
     return [
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {
                 "id": "dash-1",
                 "name": "Sales Performance",
@@ -116,15 +116,15 @@ def _dashboard_dependencies(
     project_id: str,
     object_id: str,
     object_type: str,
-) -> List[MSTRObject]:
+) -> List[MicroStrategyObject]:
     assert project_id == "project-1"
     assert object_id == "dash-1"
     assert object_type == "55"
     return [
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "metric-1", "name": "Revenue", "type": "4", "subtype": "1024"}
         ),
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "attr-1", "name": "Order Date", "type": "12", "subtype": "3072"}
         ),
     ]

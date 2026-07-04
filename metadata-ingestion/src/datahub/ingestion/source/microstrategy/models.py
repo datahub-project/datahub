@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 
 # Raw MicroStrategy REST payloads; shapes vary across server versions, so they
 # stay untyped until normalized by the model validators below.
-MSTRDict = Dict[str, Any]
+MicroStrategyDict = Dict[str, Any]
 
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
 
@@ -101,7 +101,7 @@ class MicroStrategyBaseModel(BaseModel):
     )
 
 
-def _first_str(data: MSTRDict, keys: Iterable[str]) -> Optional[str]:
+def _first_str(data: MicroStrategyDict, keys: Iterable[str]) -> Optional[str]:
     for key in keys:
         value = data.get(key)
         if isinstance(value, str) and value:
@@ -118,7 +118,7 @@ class Project(MicroStrategyBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             result = dict(data)
             result["id"] = _first_str(result, MSTR_KEYS_PROJECT_ID)
@@ -127,7 +127,7 @@ class Project(MicroStrategyBaseModel):
         return data
 
 
-class MSTRObject(MicroStrategyBaseModel):
+class MicroStrategyObject(MicroStrategyBaseModel):
     id: str
     name: str
     type: Optional[str] = None
@@ -139,7 +139,7 @@ class MSTRObject(MicroStrategyBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             result = dict(data)
             result["id"] = _first_str(result, MSTR_KEYS_ID)
@@ -167,7 +167,7 @@ class ModelTablesResponse(MicroStrategyBaseModel):
 
     # None (key absent) is kept distinct from an empty list so the pagination
     # loop can tell "unrecognized response shape" from "empty page".
-    tables: Optional[List[MSTRDict]] = None
+    tables: Optional[List[MicroStrategyDict]] = None
     total: Optional[int] = None
 
 
@@ -194,7 +194,9 @@ class DatasetObject(MicroStrategyBaseModel):
     id: str
     name: str
     description: Optional[str] = None
-    available_objects: MSTRDict = Field(default_factory=dict, alias="availableObjects")
+    available_objects: MicroStrategyDict = Field(
+        default_factory=dict, alias="availableObjects"
+    )
     object_ids: List[str] = Field(default_factory=list)
     source_warehouse: Optional["DatasourceReference"] = Field(
         default=None,
@@ -207,7 +209,7 @@ class DatasetObject(MicroStrategyBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             result = dict(data)
             result["id"] = _first_str(result, MSTR_KEYS_DATASET_OBJECT_ID)
@@ -239,7 +241,7 @@ class DatasourceReference(MicroStrategyBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             return _normalize_datasource_reference(data)
         return data
@@ -265,7 +267,7 @@ class DatasourceConnection(MicroStrategyBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             database = data.get("database")
             if not isinstance(database, dict):
@@ -303,11 +305,11 @@ class Visualization(MicroStrategyBaseModel):
     page_key: Optional[str] = Field(default=None, alias="pageKey")
     datasets: List[str] = Field(default_factory=list)
     object_ids: List[str] = Field(default_factory=list)
-    raw: MSTRDict = Field(default_factory=dict)
+    raw: MicroStrategyDict = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
-    def normalize(cls, data: Any) -> MSTRDict:
+    def normalize(cls, data: Any) -> MicroStrategyDict:
         if isinstance(data, dict):
             result = dict(data)
             key = _first_str(result, MSTR_KEYS_VISUALIZATION_KEY)
@@ -332,14 +334,14 @@ class DashboardDefinition(MicroStrategyBaseModel):
     description: Optional[str] = None
     datasets: List[DatasetObject] = Field(default_factory=list)
     visualizations: List[Visualization] = Field(default_factory=list)
-    dependencies: List[MSTRObject] = Field(default_factory=list)
+    dependencies: List[MicroStrategyObject] = Field(default_factory=list)
 
     @classmethod
     def from_api_response(
         cls,
         object_id: str,
         object_name: str,
-        response: MSTRDict,
+        response: MicroStrategyDict,
         description: Optional[str] = None,
         report: Optional["MicroStrategyReport"] = None,
     ) -> "DashboardDefinition":
@@ -375,7 +377,9 @@ class ReportDefinition(MicroStrategyBaseModel):
     description: Optional[str] = None
     source_id: Optional[str] = Field(default=None, alias="sourceId")
     source_name: Optional[str] = Field(default=None, alias="sourceName")
-    available_objects: MSTRDict = Field(default_factory=dict, alias="availableObjects")
+    available_objects: MicroStrategyDict = Field(
+        default_factory=dict, alias="availableObjects"
+    )
     object_ids: List[str] = Field(default_factory=list)
     prompt_count: int = Field(default=0, alias="promptCount")
     has_filter: bool = Field(default=False, alias="hasFilter")
@@ -385,7 +389,7 @@ class ReportDefinition(MicroStrategyBaseModel):
         cls,
         object_id: str,
         object_name: str,
-        response: MSTRDict,
+        response: MicroStrategyDict,
         description: Optional[str] = None,
     ) -> "ReportDefinition":
         result = response.get("result", response)
@@ -420,7 +424,9 @@ class ReportDefinition(MicroStrategyBaseModel):
         )
 
     @classmethod
-    def from_search_result(cls, report_object: MSTRObject) -> "ReportDefinition":
+    def from_search_result(
+        cls, report_object: MicroStrategyObject
+    ) -> "ReportDefinition":
         raw = report_object.model_dump(by_alias=True, exclude_none=True)
         source = _extract_report_source(raw)
         available_objects = _normalize_available_objects(raw.get("availableObjects"))
@@ -443,7 +449,7 @@ class FolderKey(ProjectKey):
     folder_path: str
 
 
-def _unwrap_definition(response: MSTRDict) -> MSTRDict:
+def _unwrap_definition(response: MicroStrategyDict) -> MicroStrategyDict:
     result = response.get("result", response)
     if isinstance(result, dict):
         definition = result.get("definition", result)
@@ -452,7 +458,7 @@ def _unwrap_definition(response: MSTRDict) -> MSTRDict:
     return response
 
 
-def _extract_datasets(definition: MSTRDict) -> List[MSTRDict]:
+def _extract_datasets(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
     datasets = definition.get("datasets")
     if isinstance(datasets, list):
         return [dataset for dataset in datasets if isinstance(dataset, dict)]
@@ -462,15 +468,15 @@ def _extract_datasets(definition: MSTRDict) -> List[MSTRDict]:
     return []
 
 
-def _normalize_available_objects(value: Any) -> MSTRDict:
+def _normalize_available_objects(value: Any) -> MicroStrategyDict:
     if isinstance(value, dict):
         return value
     if not isinstance(value, list):
         return {}
 
-    metrics: List[MSTRDict] = []
-    attributes: List[MSTRDict] = []
-    others: List[MSTRDict] = []
+    metrics: List[MicroStrategyDict] = []
+    attributes: List[MicroStrategyDict] = []
+    others: List[MicroStrategyDict] = []
     for item in value:
         if not isinstance(item, dict):
             continue
@@ -484,7 +490,7 @@ def _normalize_available_objects(value: Any) -> MSTRDict:
         else:
             others.append(item)
 
-    normalized: MSTRDict = {}
+    normalized: MicroStrategyDict = {}
     if metrics:
         normalized["metrics"] = metrics
     if attributes:
@@ -494,7 +500,7 @@ def _normalize_available_objects(value: Any) -> MSTRDict:
     return normalized
 
 
-def _extract_report_source(*locations: MSTRDict) -> ReportSource:
+def _extract_report_source(*locations: MicroStrategyDict) -> ReportSource:
     for location in locations:
         for source_key in MSTR_KEYS_SOURCE_OBJECT:
             source = location.get(source_key)
@@ -515,7 +521,7 @@ def _extract_report_source(*locations: MSTRDict) -> ReportSource:
     return ReportSource()
 
 
-def _normalize_datasource_reference(data: MSTRDict) -> MSTRDict:
+def _normalize_datasource_reference(data: MicroStrategyDict) -> MicroStrategyDict:
     database = data.get("database")
     if not isinstance(database, dict):
         database = {}
@@ -592,7 +598,9 @@ def _looks_like_datasource_reference(value: Any) -> bool:
     )
 
 
-def _extract_datasource_reference(data: MSTRDict) -> Optional[MSTRDict]:
+def _extract_datasource_reference(
+    data: MicroStrategyDict,
+) -> Optional[MicroStrategyDict]:
     for key in MSTR_KEYS_DATASOURCE_REFERENCE:
         value = data.get(key)
         if _looks_like_datasource_reference(value):
@@ -602,8 +610,8 @@ def _extract_datasource_reference(data: MSTRDict) -> Optional[MSTRDict]:
     return None
 
 
-def _extract_visualizations(definition: MSTRDict) -> List[MSTRDict]:
-    found: List[MSTRDict] = []
+def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
+    found: List[MicroStrategyDict] = []
 
     def visit(value: Any) -> None:
         if isinstance(value, dict):
@@ -646,7 +654,7 @@ def _extract_visualizations(definition: MSTRDict) -> List[MSTRDict]:
 
     visit(definition.get("chapters", definition))
 
-    unique: Dict[str, MSTRDict] = {}
+    unique: Dict[str, MicroStrategyDict] = {}
     for item in found:
         parsed = Visualization.model_validate(item)
         unique.setdefault(parsed.key, item)
@@ -706,7 +714,7 @@ def _extract_object_ids(value: Any) -> List[str]:
     return sorted(set(object_ids))
 
 
-def extract_folder_parts(raw_object: MSTRDict) -> List[str]:
+def extract_folder_parts(raw_object: MicroStrategyDict) -> List[str]:
     # Quick-search results requested with getAncestors carry the folder path
     # as a top-down list of ancestor objects.
     ancestors = raw_object.get("ancestors")

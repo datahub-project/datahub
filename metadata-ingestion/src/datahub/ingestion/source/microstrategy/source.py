@@ -52,7 +52,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasetObject,
     Datasource,
     MetricEnrichment,
-    MSTRObject,
+    MicroStrategyObject,
     Project,
     ProjectKey,
     ReportDefinition,
@@ -343,7 +343,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_dashboard_object(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
@@ -467,7 +467,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_report_with_boundary(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         # Progress line before the expensive per-report work (instance
@@ -505,7 +505,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_report_object(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.mapper.gen_folder_containers(project_id, report_object)
@@ -556,7 +556,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _get_dashboard_definition(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
     ) -> Optional[DashboardDefinition]:
         dashboard_id = dashboard_object.id
         try:
@@ -651,7 +651,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _get_report_definition(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
     ) -> Optional[ReportDefinition]:
         if not self.config.extract_report_definitions:
             return ReportDefinition.from_search_result(report_object)
@@ -680,7 +680,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _report_source_dataset(
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
     ) -> Optional[DatasetObject]:
         if report_definition is None:
@@ -783,7 +783,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _enrich_dashboard_dependencies(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
     ) -> None:
         object_type = dashboard_object.type
@@ -890,7 +890,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _enrich_visualization_details(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
     ) -> None:
         if not dashboard.visualizations:
@@ -982,7 +982,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _enrich_warehouse_lineage(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
     ) -> None:
@@ -1088,7 +1088,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _enrich_report_sql_lineage(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
@@ -1142,7 +1142,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _create_dashboard_instance(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard_id: str,
     ) -> str:
         if dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT:
@@ -1152,7 +1152,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _delete_dashboard_instance(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard_id: str,
         instance_id: str,
     ) -> None:
@@ -1209,7 +1209,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _process_dashboard(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
@@ -1298,7 +1298,7 @@ def _metric_items(available_objects: Dict[str, Any]) -> Iterable[Dict[str, Any]]
                 yield metric
 
 
-def _is_report_dependency(dependency: MSTRObject) -> bool:
+def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     # Match on the MicroStrategy object type only; a name-substring heuristic
     # would fabricate report chart URNs for anything named "...Report...".
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)

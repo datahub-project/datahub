@@ -41,7 +41,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceReference,
     FolderKey,
     MetricEnrichment,
-    MSTRObject,
+    MicroStrategyObject,
     Project,
     ProjectKey,
     ReportDefinition,
@@ -168,7 +168,7 @@ class MicroStrategyMapper:
     def gen_folder_containers(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
     ) -> Iterable[MetadataWorkUnit]:
         parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
@@ -188,7 +188,7 @@ class MicroStrategyMapper:
             parent_key = folder_key
 
     def folder_container_for_dashboard(
-        self, project_id: str, dashboard_object: MSTRObject
+        self, project_id: str, dashboard_object: MicroStrategyObject
     ) -> ProjectKey:
         parts = extract_folder_parts(dashboard_object.model_dump())
         allowed_parts = [
@@ -221,7 +221,7 @@ class MicroStrategyMapper:
     def gen_report_source_dataset_workunits(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         dataset: DatasetObject,
         parent_key: ProjectKey,
     ) -> Iterable[MetadataWorkUnit]:
@@ -340,7 +340,7 @@ class MicroStrategyMapper:
     def gen_report_workunits(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
         parent_key: ProjectKey,
@@ -468,7 +468,7 @@ class MicroStrategyMapper:
     def gen_dashboard_workunits(
         self,
         project_id: str,
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
@@ -851,7 +851,7 @@ class MicroStrategyMapper:
     def _report_source_dataset_custom_properties(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         dataset: DatasetObject,
     ) -> Dict[str, str]:
         properties = {
@@ -870,7 +870,7 @@ class MicroStrategyMapper:
     def _report_properties(
         self,
         project_id: str,
-        report_object: MSTRObject,
+        report_object: MicroStrategyObject,
         report_definition: Optional[ReportDefinition],
         source_dataset: Optional[DatasetObject],
     ) -> Dict[str, str]:
@@ -997,7 +997,9 @@ class MicroStrategyMapper:
         }
 
     @staticmethod
-    def _dashboard_object_properties(dashboard_object: MSTRObject) -> Dict[str, str]:
+    def _dashboard_object_properties(
+        dashboard_object: MicroStrategyObject,
+    ) -> Dict[str, str]:
         return {
             key: value
             for key, value in {
@@ -1012,7 +1014,7 @@ class MicroStrategyMapper:
 
     @staticmethod
     def _dashboard_audit_stamps(
-        dashboard_object: MSTRObject,
+        dashboard_object: MicroStrategyObject,
     ) -> ChangeAuditStampsClass:
         owner = dashboard_object.owner or "datahub"
         return ChangeAuditStampsClass(

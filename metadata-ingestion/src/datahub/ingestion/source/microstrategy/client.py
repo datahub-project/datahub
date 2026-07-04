@@ -26,8 +26,8 @@ from datahub.ingestion.source.microstrategy.constants import (
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     DatasourceConnection,
+    MicroStrategyObject,
     ModelTablesResponse,
-    MSTRObject,
     Project,
     SqlView,
 )
@@ -191,12 +191,12 @@ class MicroStrategyClient:
                 "not match the expected shape"
             ) from error
 
-    def search_dashboards(self, project_id: str) -> Iterable[MSTRObject]:
+    def search_dashboards(self, project_id: str) -> Iterable[MicroStrategyObject]:
         yield from self._search_typed_objects(
             project_id, MSTR_OBJECT_TYPE_DASHBOARD, "dashboard search"
         )
 
-    def search_reports(self, project_id: str) -> Iterable[MSTRObject]:
+    def search_reports(self, project_id: str) -> Iterable[MicroStrategyObject]:
         yield from self._search_typed_objects(
             project_id, MSTR_OBJECT_TYPE_REPORT, "report search"
         )
@@ -205,7 +205,7 @@ class MicroStrategyClient:
         self,
         project_id: str,
         report_id: str,
-    ) -> Optional[MSTRObject]:
+    ) -> Optional[MicroStrategyObject]:
         """Object info for one report, including the folder ancestors array.
 
         Lets the report pass fetch dashboard-linked reports directly by id
@@ -226,7 +226,7 @@ class MicroStrategyClient:
             )
             return None
         return self._parse_model(
-            MSTRObject,
+            MicroStrategyObject,
             item,
             f"report object info project_id={project_id}, report_id={report_id}",
         )
@@ -236,13 +236,13 @@ class MicroStrategyClient:
         project_id: str,
         object_type: int,
         context: str,
-    ) -> Iterable[MSTRObject]:
+    ) -> Iterable[MicroStrategyObject]:
         for item in self._metadata_search(
             project_id=project_id,
             type_filter=str(object_type),
         ):
             parsed = self._parse_model(
-                MSTRObject, item, f"{context} project_id={project_id}"
+                MicroStrategyObject, item, f"{context} project_id={project_id}"
             )
             if parsed is not None:
                 yield parsed
@@ -252,7 +252,7 @@ class MicroStrategyClient:
         project_id: str,
         object_id: str,
         object_type: str,
-    ) -> List[MSTRObject]:
+    ) -> List[MicroStrategyObject]:
         create_response = self._get_json(
             MSTR_API_METADATA_SEARCHES,
             project_id=project_id,
@@ -275,7 +275,7 @@ class MicroStrategyClient:
             params={"searchId": search_id, "offset": 0, "limit": -1},
         )
         return self._parse_models(
-            MSTRObject,
+            MicroStrategyObject,
             self._extract_search_results(result),
             f"object dependencies object_id={object_id}",
         )

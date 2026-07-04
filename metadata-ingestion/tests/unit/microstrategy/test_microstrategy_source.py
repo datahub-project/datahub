@@ -14,8 +14,8 @@ from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
+    MicroStrategyObject,
     ModelTablesResponse,
-    MSTRObject,
     Project,
     ReportDefinition,
     SqlView,
@@ -110,7 +110,7 @@ def test_attach_dataset_warehouse_upstreams_skips_without_context() -> None:
 
 
 def test_report_source_dataset_uses_report_definition_source_and_fields() -> None:
-    report_object = MSTRObject.model_validate(
+    report_object = MicroStrategyObject.model_validate(
         {"id": "report-1", "name": "Sales Report", "type": "3"}
     )
     report_definition = ReportDefinition.from_api_response(
@@ -148,13 +148,13 @@ def test_dashboard_report_chart_edges_are_filtered_by_report_pattern() -> None:
     )
     dashboard = _dashboard()
     dashboard.dependencies = [
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "report-1", "name": "Sales Report", "type": "3"}
         ),
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "report-2", "name": "Operations Report", "type": "3"}
         ),
-        MSTRObject.model_validate(
+        MicroStrategyObject.model_validate(
             {"id": "dash-2", "name": "Other Dashboard", "type": "55"}
         ),
     ]
@@ -166,7 +166,7 @@ def test_dashboard_report_chart_edges_are_filtered_by_report_pattern() -> None:
 
 def test_report_sql_lineage_attaches_upstreams_to_report_source_dataset() -> None:
     source = _source({"extract_report_sql_lineage": True})
-    report_object = MSTRObject.model_validate(
+    report_object = MicroStrategyObject.model_validate(
         {"id": "report-1", "name": "Sales Report", "type": "3"}
     )
     dataset = DatasetObject.model_validate({"id": "cube-1", "name": "Sales Cube"})
@@ -299,7 +299,7 @@ def test_get_dashboard_definition_falls_back_to_document_definition() -> None:
             "extract_metric_expressions": False,
         }
     )
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": "dash-1", "name": "Sales Dashboard"}
     )
 
@@ -334,7 +334,7 @@ def test_get_dashboard_definition_returns_none_when_both_apis_fail() -> None:
             "extract_metric_expressions": False,
         }
     )
-    dashboard_object = MSTRObject.model_validate(
+    dashboard_object = MicroStrategyObject.model_validate(
         {"id": "dash-1", "name": "Sales Dashboard"}
     )
 
@@ -402,12 +402,16 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
         }
     )
     dashboards = [
-        MSTRObject.model_validate({"id": "dash-1", "name": "Broken Dashboard"}),
-        MSTRObject.model_validate({"id": "dash-2", "name": "Healthy Dashboard"}),
+        MicroStrategyObject.model_validate(
+            {"id": "dash-1", "name": "Broken Dashboard"}
+        ),
+        MicroStrategyObject.model_validate(
+            {"id": "dash-2", "name": "Healthy Dashboard"}
+        ),
     ]
 
     class FakeClient:
-        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             return iter(dashboards)
 
         def get_dossier_definition(
@@ -447,22 +451,22 @@ class _ReportSearchClient:
         self.search_calls = 0
         self.object_info_calls: List[str] = []
 
-    def search_reports(self, project_id: str) -> Iterator[MSTRObject]:
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
         self.search_calls += 1
         return iter(
             [
-                MSTRObject.model_validate(
+                MicroStrategyObject.model_validate(
                     {"id": "REPORT-1", "name": "Linked Report", "type": "3"}
                 ),
-                MSTRObject.model_validate(
+                MicroStrategyObject.model_validate(
                     {"id": "REPORT-2", "name": "Unlinked Report", "type": "3"}
                 ),
             ]
         )
 
-    def get_report_object(self, project_id: str, report_id: str) -> MSTRObject:
+    def get_report_object(self, project_id: str, report_id: str) -> MicroStrategyObject:
         self.object_info_calls.append(report_id)
-        return MSTRObject.model_validate(
+        return MicroStrategyObject.model_validate(
             {
                 "id": report_id,
                 "name": "Linked Report",
@@ -498,7 +502,9 @@ def test_linked_report_fetch_failure_skips_that_report() -> None:
     source = _report_scope_source()
 
     class FailingClient(_ReportSearchClient):
-        def get_report_object(self, project_id: str, report_id: str) -> MSTRObject:
+        def get_report_object(
+            self, project_id: str, report_id: str
+        ) -> MicroStrategyObject:
             if report_id == "REPORT-1":
                 raise MicroStrategyAPIError("object info failed")
             return super().get_report_object(project_id, report_id)
@@ -526,7 +532,7 @@ def test_report_enumeration_skipped_when_no_dashboard_links() -> None:
     class FakeClient:
         search_calls = 0
 
-        def search_reports(self, project_id: str) -> Iterator[MSTRObject]:
+        def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
             self.search_calls += 1
             return iter([])
 
@@ -591,7 +597,7 @@ def test_auth_loss_aborts_remaining_projects() -> None:
                 Project.model_validate({"id": "project-2", "name": "Second"}),
             ]
 
-        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             self.projects_started.append(project_id)
             raise MicroStrategyAuthError("session invalidated and re-login failed")
 
@@ -843,9 +849,13 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
             self.model_table_calls = 0
             self.connection_calls = 0
 
-        def search_dashboards(self, project_id: str) -> Iterator[MSTRObject]:
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             return iter(
-                [MSTRObject.model_validate({"id": "dash-1", "name": "Filtered Out"})]
+                [
+                    MicroStrategyObject.model_validate(
+                        {"id": "dash-1", "name": "Filtered Out"}
+                    )
+                ]
             )
 
         def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
