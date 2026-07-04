@@ -65,6 +65,17 @@ MicroStrategy metrics and attributes are emitted as schema fields on the dashboa
 
 These tags are written to source-managed `SchemaMetadata` field metadata, not editable schema metadata.
 
+#### Usage Statistics
+
+Set `extract_usage_statistics: true` to emit daily view counts, unique-user counts, and per-user usage for ingested dashboards and reports. MicroStrategy has no per-object usage REST endpoint; the connector queries the Platform Analytics telemetry cube (the `Platform Analytics (Agg)` cube in the `Platform Analytics` project) through the standard cube instance APIs and joins the telemetry rows to ingested entities by object GUID.
+
+Requirements and behavior:
+
+- Platform Analytics must be enabled on the environment (standard on MicroStrategy Cloud) and the ingestion principal needs read access to the Platform Analytics project. When the project or cube is missing, the connector records one warning and continues without usage.
+- The cube's attributes and metrics are resolved by name (`Date`, `Project`, `Object`, `User`, and `Num Executions` or `Count Actions`), so renamed or heavily customized telemetry cubes are skipped with a warning explaining what was missing. Use `usage_cube_name` to point at a custom cube that exposes the same objects.
+- `usage_lookback_days` bounds the request window (default 14 days — the shipped aggregate cube typically retains a 14-day rolling window). Usage freshness depends on the environment's Platform Analytics cube refresh schedule.
+- Usage rows for objects outside the ingested scope are counted in the `usage_objects_unmatched` report counter and skipped.
+
 ### Limitations
 
 - Warehouse lineage from the SQL-view APIs is coarse table-level lineage and is disabled by default (`extract_warehouse_lineage` and `extract_report_sql_lineage`). Field-level metric, attribute, or fact lineage to warehouse tables is not available yet.

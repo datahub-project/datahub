@@ -620,7 +620,7 @@ def _physical_table_name(
         return None
     # The warehouse context carries the real database (from the JDBC
     # connection); MicroStrategy's table "namespace" is a logical namespace
-    # (e.g. "XRBIA_DM_1" with a dedup suffix), so it is only a last resort.
+    # (e.g. "SALES_DM_1" with a dedup suffix), so it is only a last resort.
     return qualify_table_name(
         table_name,
         database=context.database

@@ -191,23 +191,23 @@ def test_warehouse_upstream_urns_from_multipass_sql_excludes_intermediates() -> 
     # no semicolons; later passes read the volatile tables created earlier.
     multipass_sql = (
         "CREATE VOLATILE  TABLE T08Q9Z6Q3SP000 AS \n"
-        'select a11.REGION_NUMBER from "XRBIA_DM"."W_RTL_SLS_IT_LC_DY_A" a11\n'
+        'select a11.REGION_NUMBER from "SALES_DM"."W_SLS_ITEM_DY_A" a11\n'
         "group by a11.REGION_NUMBER\n"
         "\n"
         "CREATE VOLATILE  TABLE TAWFLXJ4PSP001 AS \n"
         "select * from T08Q9Z6Q3SP000\n"
         "\n"
         "select b.REGION_NUMBER from TAWFLXJ4PSP001 b\n"
-        '  join "XRBIA_DM"."DIM_ITEM_CV" c on b.k = c.k'
+        '  join "SALES_DM"."DIM_ITEM_V" c on b.k = c.k'
     )
 
     upstreams = extractor.warehouse_upstream_urns_from_sql(multipass_sql, context)
 
     assert upstreams == [
         "urn:li:dataset:"
-        "(urn:li:dataPlatform:snowflake,retail_db.xrbia_dm.dim_item_cv,PROD)",
+        "(urn:li:dataPlatform:snowflake,retail_db.sales_dm.dim_item_v,PROD)",
         "urn:li:dataset:"
-        "(urn:li:dataPlatform:snowflake,retail_db.xrbia_dm.w_rtl_sls_it_lc_dy_a,PROD)",
+        "(urn:li:dataPlatform:snowflake,retail_db.sales_dm.w_sls_item_dy_a,PROD)",
     ]
     assert not extractor.report.warnings
 
@@ -554,24 +554,24 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
     context = WarehouseLineageContext(
         platform="snowflake",
         env="PROD",
-        database="P_MER_EDW_DB",
-        schema="XRBIA_DM",
+        database="MY_EDW_DB",
+        schema="SALES_DM",
     )
 
     index = extractor.model_lineage_index_from_tables(
         [
             {
                 "physicalTable": {
-                    "namespace": "XRBIA_DM_1",
-                    "tablePrefix": "XRBIA_DM.",
-                    "tableName": "W_RTL_SLS_IT_LC_DY_A",
+                    "namespace": "SALES_DM_1",
+                    "tablePrefix": "SALES_DM.",
+                    "tableName": "W_SLS_ITEM_DY_A",
                 },
                 "facts": [
                     {
                         "information": {"objectId": "fact-1"},
                         # Real modeling responses carry the warehouse's
                         # canonical upper case.
-                        "expression": {"text": "NET_SLS_QTY"},
+                        "expression": {"text": "NET_SALES_QTY"},
                     }
                 ],
                 "attributes": [],
@@ -585,7 +585,7 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
     upstreams = index.fact_field_urns(["fact-1"])
     assert upstreams == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
-        "p_mer_edw_db.xrbia_dm.w_rtl_sls_it_lc_dy_a,PROD),net_sls_qty)"
+        "my_edw_db.sales_dm.w_sls_item_dy_a,PROD),net_sales_qty)"
     ]
 
 

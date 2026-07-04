@@ -29,6 +29,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
+    USAGE_TARGET_DASHBOARD,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
@@ -49,11 +50,17 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.usage import UsageBucket
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    CalendarIntervalClass,
     ChangeAuditStampsClass,
     ChartInfoClass,
+    ChartUsageStatisticsClass,
+    ChartUserUsageCountsClass,
     DashboardInfoClass,
+    DashboardUsageStatisticsClass,
+    DashboardUserUsageCountsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -78,6 +85,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeWindowSizeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -737,6 +745,52 @@ class MicroStrategyMapper:
                 )
             )
         return lineages
+
+    def gen_usage_workunits(
+        self,
+        entity_kind: str,
+        entity_urn: str,
+        bucket: UsageBucket,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Daily usage bucket -> Dashboard/Chart usage statistics aspect."""
+        granularity = TimeWindowSizeClass(unit=CalendarIntervalClass.DAY, multiple=1)
+        sorted_user_counts = sorted(bucket.user_counts.items())
+        aspect: Union[DashboardUsageStatisticsClass, ChartUsageStatisticsClass]
+        if entity_kind == USAGE_TARGET_DASHBOARD:
+            aspect = DashboardUsageStatisticsClass(
+                timestampMillis=bucket.bucket_start_ms,
+                eventGranularity=granularity,
+                viewsCount=bucket.view_count,
+                uniqueUserCount=len(bucket.user_counts) or None,
+                userCounts=[
+                    DashboardUserUsageCountsClass(
+                        user=builder.make_user_urn(user),
+                        viewsCount=count,
+                    )
+                    for user, count in sorted_user_counts
+                ]
+                or None,
+            )
+        else:
+            aspect = ChartUsageStatisticsClass(
+                timestampMillis=bucket.bucket_start_ms,
+                eventGranularity=granularity,
+                viewsCount=bucket.view_count,
+                uniqueUserCount=len(bucket.user_counts) or None,
+                userCounts=[
+                    ChartUserUsageCountsClass(
+                        user=builder.make_user_urn(user),
+                        viewsCount=count,
+                    )
+                    for user, count in sorted_user_counts
+                ]
+                or None,
+            )
+        self.report.report_usage_bucket_emitted()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=aspect,
+        ).as_workunit()
 
     def _make_schema_field(
         self,
