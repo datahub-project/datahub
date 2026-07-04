@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
+import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
@@ -450,6 +451,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_USER_ENTITY_NAME)
                             .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator corpUserPrivilegedFlagsValidator() {
+    return new CorpUserPrivilegedFlagsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CorpUserPrivilegedFlagsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, CREATE, CREATE_ENTITY, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }
