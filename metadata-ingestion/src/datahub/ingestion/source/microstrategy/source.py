@@ -139,10 +139,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if not self.config.project_pattern.allowed(project.name):
                     self.report.filtered_projects.append(project.name)
                     continue
-                # Project-level progress: a single project can take minutes
-                # (paginated searches plus per-object instance execution), so
-                # the log must show which project is in flight and how far
-                # through the project list the run is.
+                # A project can take minutes (paginated searches plus per-object
+                # execution), so show which project is in flight and how far along.
                 logger.info(
                     "Processing project %r (%s) [%d/%d]",
                     project.name,
@@ -156,9 +154,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     ):
                         yield from self._process_project(project)
                 except MicroStrategyAuthError as error:
-                    # Auth is irrecoverably dead: every remaining call would
-                    # fail identically, so stop with one clear failure instead
-                    # of a per-project error cascade.
+                    # Auth is dead: every remaining call fails identically, so stop
+                    # with one clear failure instead of a per-project cascade.
                     self.report.failure(
                         title="MicroStrategy Authentication Lost",
                         message=(
@@ -184,9 +181,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         source_warehouses = self._get_project_source_warehouses(project.id)
-        # Warehouse-connection and model-table lookups are deferred until the
-        # first allowed dashboard/report needs them, so projects whose content
-        # is entirely pattern-filtered don't pay for those API calls.
+        # Warehouse/model-table lookups are deferred until an allowed dashboard/report
+        # needs them, so fully-filtered projects don't pay for those API calls.
         lineage_context = _LazyProjectLineage(self, project.id, source_warehouses)
         # Report ids referenced by allowed dashboards, collected during the
         # dashboard pass so the report pass can scope to them.
@@ -306,9 +302,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
                 self.report.filtered_dashboards.append(dashboard_object.name)
                 continue
-            # Progress line before the expensive per-dashboard work (instance
-            # execution, SQL views) so the log stream never goes silent for
-            # minutes at a time.
+            # Progress before the expensive per-dashboard work so the log never goes silent.
             logger.info(
                 "Processing dashboard %r (%s) in project %s",
                 dashboard_object.name,
@@ -391,9 +385,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        # Scope reports to those referenced by ingested dashboards when the
-        # linkage data exists; without dashboards or dependency extraction
-        # there is nothing to scope by, so all matching reports are ingested.
+        # Scope reports to those referenced by ingested dashboards when linkage exists;
+        # otherwise there's nothing to scope by, so all matching reports are ingested.
         scope_to_dashboards = (
             not self.config.extract_independent_reports
             and self.config.extract_dashboards
@@ -403,10 +396,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if scope_to_dashboards:
             assert linked_report_ids is not None
             if not linked_report_ids:
-                # Enumerating a project's report library is expensive
-                # (paginated ancestor-resolving searches over potentially
-                # thousands of reports); skip it entirely when no ingested
-                # dashboard referenced a report.
+                # Enumerating a project's report library is expensive (thousands of
+                # paginated searches); skip it when no dashboard referenced a report.
                 logger.info(
                     "Skipping report enumeration for project %s: no reports are "
                     "referenced by ingested dashboards",
@@ -435,10 +426,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
-        # Dashboard-linked reports are fetched directly by id: enumerating the
-        # report library to keep a handful of linked reports means paginating
-        # tens of thousands of objects (minutes per project), which was also
-        # the connector's largest exposure window to mid-run session loss.
+        # Dashboard-linked reports are fetched directly by id: enumerating the library
+        # to find a handful means paginating tens of thousands of objects (minutes per
+        # project) and was the largest exposure window to mid-run session loss.
         for report_id in sorted(linked_report_ids):
             try:
                 report_object = self.client.get_report_object(project_id, report_id)
@@ -470,9 +460,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        # Progress line before the expensive per-report work (instance
-        # execution, SQL views) so the log stream never goes silent for
-        # minutes at a time.
+        # Progress before the expensive per-report work so the log never goes silent.
         logger.info(
             "Processing report %r (%s) in project %s",
             report_object.name,
@@ -606,13 +594,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dashboard: DashboardDefinition,
     ) -> None:
-        """Bind visualizations to datasets via dataset-scoped derived objects.
-
-        The definition APIs do not serialize which dataset a visualization
-        reads, but the modeling document API lists each dataset's derived
-        metrics/attributes. A visualization grid referencing an object that is
-        defined in exactly one dataset must be reading that dataset.
-        """
+        """Bind visualizations to datasets via dataset-scoped derived objects: the
+        definition APIs omit which dataset a visualization reads, but an object defined
+        in exactly one dataset pins the visualization to that dataset."""
         unbound = [
             visualization
             for visualization in dashboard.visualizations
@@ -625,9 +609,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         try:
             model_document = self.client.get_model_document(project_id, dashboard.id)
         except MicroStrategyAPIError as error:
-            # Modeling access is optional; name/object inference still
-            # applies. Privileges are project-scoped, so remember the failure
-            # instead of re-attempting for every dashboard.
+            # Modeling access is optional and project-scoped; remember the failure
+            # instead of re-attempting it for every dashboard.
             self._model_document_unavailable_projects.add(project_id)
             self.report.info(
                 title="Modeling document API unavailable",
@@ -767,9 +750,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if offset >= total:
                     break
             elif len(tables) < self.config.page_size:
-                # Without a total, a short page is the only end-of-results
-                # signal; servers that cap page size below the requested limit
-                # should be reporting a total.
+                # Without a total, a short page is the only end-of-results signal.
                 break
 
         self.report.report_model_tables_scanned(len(model_tables))
@@ -1239,13 +1220,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
 
 class _LazyProjectLineage:
-    """Per-project lineage context resolved on first use.
-
-    The datasource-connection lookup and model-tables pagination are only
-    worth their API cost once at least one dashboard or report in the project
-    survives pattern filtering, so both are deferred until first accessed and
-    then cached for the rest of the project.
-    """
+    """Per-project lineage context resolved on first use: the datasource lookup and
+    model-tables pagination cost API calls, so they are deferred until a dashboard or
+    report survives filtering, then cached for the project."""
 
     def __init__(
         self,
@@ -1263,10 +1240,8 @@ class _LazyProjectLineage:
 
     @property
     def warehouse_context(self) -> Optional[WarehouseLineageContext]:
-        # Resolution is cached even when it raises: an unexpected error must
-        # surface once (and be handled by the caller's boundary), not be
-        # re-attempted for every dashboard in the project. This is also why
-        # functools.cached_property is not used here — it retries on failure.
+        # Cached even when it raises: an error must surface once, not retry per dashboard.
+        # (This is why functools.cached_property is not used here — it retries on failure.)
         if not self._context_resolved:
             try:
                 self._context = self._source._get_project_warehouse_context(

@@ -1106,12 +1106,7 @@ def _metric_field_description(
     description: Optional[str],
     enrichment: Optional[MetricEnrichment],
 ) -> Optional[str]:
-    """Human description first, then the metric formula in a fenced code block.
-
-    Field descriptions render as markdown in the UI, so the formula stays
-    readable without drowning out the business description (unlike jsonProps,
-    which the UI barely surfaces).
-    """
+    """Description first, then the formula as a fenced block (descriptions render as markdown)."""
     expression = enrichment.expression_text if enrichment else None
     if not expression:
         return description
@@ -1153,12 +1148,7 @@ class _FieldSpec:
 
 
 def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
-    """Single source of truth for schema-field paths.
-
-    Both schema emission and model field lineage iterate this generator, so
-    fine-grained lineage downstream field paths always match the emitted
-    schema field paths.
-    """
+    """Single source of field paths, so schema emission and field lineage always agree."""
     seen: Set[str] = set()
     available_objects = dataset.available_objects or {}
 

@@ -186,13 +186,11 @@ class MicroStrategyLineageExtractor:
         )
 
         dialect = _sqlglot_dialect(context.platform)
-        # MicroStrategy SQL views contain multi-pass SQL: several statements
-        # (typically CREATE VOLATILE/TEMP TABLE ... AS select) concatenated
-        # without semicolons. Parse per statement and subtract the tables
-        # CREATED within the script so volatile intermediates never appear as
-        # warehouse upstreams. Only CREATE targets are subtracted: a table
-        # that is read and written by the same DML statement (self-referencing
-        # INSERT/MERGE) is a genuine upstream.
+        # MicroStrategy SQL views are multi-pass: statements (often CREATE VOLATILE/TEMP
+        # TABLE ... AS select) concatenated without semicolons. Parse per statement and
+        # subtract CREATE targets so volatile intermediates never appear as upstreams. Only
+        # CREATE targets are subtracted: a table read and written by the same DML
+        # (self-referencing INSERT/MERGE) is a genuine upstream.
         in_urns: Set[str] = set()
         created_urns: Set[str] = set()
         had_parse_failure = False
@@ -371,13 +369,11 @@ class MicroStrategyLineageExtractor:
                 inputs.append(self.dataset_urn(project_id, dashboard.id, dataset))
 
         unique_inputs = sorted(set(inputs))
-        # Dashboards built from many cubes that share one object catalog (e.g.
-        # one cube per time period) make every dataset "match" every
-        # visualization. An inference that cannot exclude anything carries no
-        # signal, so treat it as unresolved rather than emit an all-to-all
-        # lineage fan-out. Two-dataset dashboards are exempt: a visualization
-        # combining both datasets is common and plausible there. Dashboard-level
-        # fallback lineage remains available via `emit_dashboard_dataset_edges`.
+        # Dashboards built from many cubes sharing one object catalog (e.g. one cube per
+        # time period) make every dataset "match" every visualization. An inference that
+        # excludes nothing carries no signal, so treat it as unresolved rather than emit an
+        # all-to-all fan-out. Two-dataset dashboards are exempt (a combined viz is plausible);
+        # dashboard-level fallback remains via `emit_dashboard_dataset_edges`.
         if len(dashboard.datasets) > 2 and len(unique_inputs) == len(
             dashboard.datasets
         ):
@@ -640,11 +636,10 @@ def _model_expression_field_urns(
         text = str(expression.get("text") or "")
     field_names = extract_field_names_from_expression(text)
     return [
-        # MicroStrategy expressions carry the warehouse's canonical (upper)
-        # case, but warehouse connectors emit lowercase schema fieldPaths for
-        # case-insensitive warehouses and schemaField urns match
-        # case-sensitively — mirror the dataset-urn lowercasing
-        # (warehouse_dataset_urn) so fine-grained edges anchor to real fields.
+        # MicroStrategy expressions carry the warehouse's canonical (upper) case, but
+        # warehouse connectors emit lowercase fieldPaths and schemaField urns match
+        # case-sensitively — mirror warehouse_dataset_urn's lowercasing so edges anchor to
+        # real fields.
         builder.make_schema_field_urn(upstream_dataset_urn, field_name.lower())
         for field_name in field_names
     ]
@@ -701,19 +696,10 @@ def _form_name(form: Dict[str, object]) -> Optional[str]:
 
 
 def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str, str]:
-    """Map derived-object ids to the id of the single dataset that defines them.
-
-    The modeling document API lists each dataset's derived metrics/attributes;
-    those objects (and their embedded helper objects) are scoped to one
-    dataset, so a visualization grid referencing them must be reading that
-    dataset. Only each derived entry's own id and its ``embeddedObjects`` ids
-    are collected — ids merely *referenced* from expression trees may point at
-    shared-catalog objects and would mis-attribute ownership. Ids defined in
-    more than one dataset carry no signal and are dropped.
-
-    Keys are normalized (upper-cased) object ids; values are dataset ids as
-    reported by the API.
-    """
+    """Map each derived-object id to the single dataset that defines it. Only an entry's
+    own id and its ``embeddedObjects`` ids count — ids merely referenced from expression
+    trees may be shared-catalog objects and would mis-attribute ownership. Ids seen in more
+    than one dataset carry no signal and are dropped. Keys are upper-cased object ids."""
     owners: Dict[str, str] = {}
     shared: Set[str] = set()
     for dataset in _coerce_dicts(model_document.get("datasets")):
@@ -747,13 +733,8 @@ def bind_visualizations_by_derived_objects(
     dashboard: DashboardDefinition,
     owner_by_derived_id: Dict[str, str],
 ) -> int:
-    """Set ``visualization.datasets`` from dataset-scoped derived-object ids.
-
-    Ids that also exist in any dashboard dataset's shared object catalog are
-    ignored: a shared object cannot discriminate between datasets even when
-    only one dataset's derived expressions happen to reference it. Returns the
-    number of visualizations bound.
-    """
+    """Set ``visualization.datasets`` from dataset-scoped derived-object ids, ignoring ids
+    in any dataset's shared object catalog (they cannot discriminate). Returns the count bound."""
     dataset_ids = {dataset.id for dataset in dashboard.datasets}
     shared_catalog_ids = {
         _normalize_object_id(object_id)

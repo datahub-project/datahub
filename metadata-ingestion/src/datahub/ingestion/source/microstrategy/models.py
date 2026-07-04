@@ -69,9 +69,7 @@ def _validate_items(
     context: str,
     report: Optional["MicroStrategyReport"],
 ) -> List[_ModelT]:
-    """Validate embedded definition objects one at a time so a single malformed
-    dataset or visualization degrades to a skipped item, not a skipped
-    dashboard."""
+    # Validate one item at a time so a single malformed object is skipped, not the dashboard.
     validated: List[_ModelT] = []
     for item in items:
         if not isinstance(item, dict):
@@ -152,8 +150,7 @@ class MicroStrategyObject(MicroStrategyBaseModel):
 
 
 class MetricEnrichment(MicroStrategyBaseModel):
-    """Metric model details fetched separately from the modeling API and joined
-    onto dataset metrics by metric ID."""
+    """Metric model details, fetched separately and joined onto metrics by ID."""
 
     expression_text: Optional[str] = None
     expression_tokens: Optional[str] = None
@@ -161,20 +158,15 @@ class MetricEnrichment(MicroStrategyBaseModel):
 
 
 class ModelTablesResponse(MicroStrategyBaseModel):
-    """Envelope for the model-tables listing. Only the outer shape is stable;
-    each table's nested modeling structure varies by server version and is
-    parsed by the lineage helpers, so tables stay untyped payloads here."""
+    """Model-tables envelope; tables stay untyped as their shape varies by server version."""
 
-    # None (key absent) is kept distinct from an empty list so the pagination
-    # loop can tell "unrecognized response shape" from "empty page".
+    # None (absent) differs from [] (empty page) so pagination can spot an unrecognized shape.
     tables: Optional[List[MicroStrategyDict]] = None
     total: Optional[int] = None
 
 
 class SqlView(MicroStrategyBaseModel):
-    """SQL-view response for a report instance. The statement can arrive under
-    any of several keys and older servers nest it under `result`, so the lookup
-    checks the top level then recurses once into `result`."""
+    """SQL-view response; the statement may arrive under several keys or nested in `result`."""
 
     sql_statement: Optional[str] = Field(default=None, alias="sqlStatement")
     sql: Optional[str] = None
@@ -363,9 +355,7 @@ class DashboardDefinition(MicroStrategyBaseModel):
 
 
 class ReportSource(MicroStrategyBaseModel):
-    """The upstream object a report reads from (a dataset, cube, or data
-    source). Both fields are optional: a report built directly on warehouse
-    tables, or one whose source could not be resolved, has neither."""
+    """The dataset, cube, or data source a report reads from; both fields optional."""
 
     id: Optional[str] = None
     name: Optional[str] = None

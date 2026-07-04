@@ -51,13 +51,9 @@ class MicroStrategyAPIError(RuntimeError):
 
 
 class MicroStrategyAuthError(RuntimeError):
-    """Authentication was lost mid-run and could not be re-established.
-
-    Deliberately not a MicroStrategyAPIError subclass: per-object error
-    boundaries swallow API errors to keep the run going, but once auth is
-    irrecoverably dead every remaining call would fail, so this must
-    propagate to the top-level project loop and abort the run.
-    """
+    """Auth lost mid-run and unrecoverable. Deliberately not a MicroStrategyAPIError:
+    per-object boundaries swallow API errors to keep going, but dead auth must propagate
+    to the project loop and abort the run."""
 
 
 class MicroStrategyClient:
@@ -107,8 +103,7 @@ class MicroStrategyClient:
         item: Dict[str, Any],
         context: str,
     ) -> Optional[_ModelT]:
-        """Validate one API object, reporting and skipping malformed items so a
-        single bad object cannot abort the whole ingestion run."""
+        """Validate one API object, skipping (and reporting) malformed items."""
         try:
             return model_cls.model_validate(item)
         except ValidationError as error:
@@ -206,11 +201,7 @@ class MicroStrategyClient:
         project_id: str,
         report_id: str,
     ) -> Optional[MicroStrategyObject]:
-        """Object info for one report, including the folder ancestors array.
-
-        Lets the report pass fetch dashboard-linked reports directly by id
-        instead of paginating the project's entire report library.
-        """
+        """Fetch one report (with folder ancestors) by id, avoiding a full library scan."""
         path = MSTR_API_OBJECT.format(object_id=report_id)
         payload = self._get_json(
             path,
@@ -281,8 +272,7 @@ class MicroStrategyClient:
         )
 
     def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
-        """Raw model JSON; shape varies by MicroStrategy version and is parsed
-        by the lineage helpers."""
+        """Raw model JSON; shape varies by version, parsed by the lineage helpers."""
         return self._get_json(
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
@@ -290,9 +280,8 @@ class MicroStrategyClient:
         )
 
     def get_model_document(self, project_id: str, document_id: str) -> Dict[str, Any]:
-        """Raw modeling JSON for a document/dossier; exposes per-dataset derived
-        metrics/attributes whose embedded object ids identify which dataset a
-        visualization reads. Parsed by the lineage helpers."""
+        """Raw modeling JSON for a document/dossier; its per-dataset derived objects let
+        the lineage helpers resolve which dataset a visualization reads."""
         return self._get_json(
             f"/api/model/documents/{document_id}",
             project_id=project_id,
@@ -320,8 +309,7 @@ class MicroStrategyClient:
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
     ) -> Dict[str, Any]:
-        """Raw definition JSON; shape varies by MicroStrategy version and is
-        parsed by DashboardDefinition.from_api_response."""
+        """Raw definition JSON; parsed by DashboardDefinition.from_api_response."""
         return self._get_json(
             f"/api/v2/dossiers/{dossier_id}/definition",
             project_id=project_id,
@@ -776,11 +764,7 @@ class MicroStrategyClient:
         path: str,
         reauth_attempted: bool,
     ) -> None:
-        """Re-login after a mid-run 401, or mark auth as irrecoverably dead.
-
-        A second 401 after a successful re-login means the credentials no
-        longer grant access, so retrying further requests is pointless.
-        """
+        """Re-login after a mid-run 401; a second 401 means auth is dead, so give up."""
         if reauth_attempted:
             self._auth_dead = True
             self.report.report_api_error()
