@@ -548,8 +548,10 @@ def _connection_param(connection_string: str, *param_names: str) -> Optional[str
     if not connection_string:
         return None
     alternatives = "|".join(re.escape(name) for name in param_names)
+    # Delimiters cover ODBC-style (;KEY=value) and JDBC URL query-string
+    # style (?db=value&schema=value) connection strings.
     match = re.search(
-        rf"(?:^|[;,\s])(?:{alternatives})\s*=\s*([^;&,\s}}]+)",
+        rf"(?:^|[;,&?\s])(?:{alternatives})\s*=\s*([^;&,\s}}]+)",
         connection_string,
         re.IGNORECASE,
     )

@@ -145,6 +145,28 @@ def test_datasource_connection_drops_raw_connection_string_but_keeps_context() -
     assert "connectionString" not in connection.model_dump()
 
 
+def test_datasource_connection_parses_jdbc_url_query_params() -> None:
+    # Snowflake JDBC connections carry db/schema as URL query parameters
+    # (&db=...&schema=...), not ODBC-style ;KEY=value pairs.
+    connection = DatasourceConnection.model_validate(
+        {
+            "id": "conn-1",
+            "name": "SNOWFLAKE_DWH_JDBC_Connection",
+            "database": {"type": "snow_flake"},
+            "connectionString": (
+                ";JDBC;DRIVER={net.snowflake.client.jdbc.SnowflakeDriver};"
+                "URL={jdbc:snowflake://acme.us-east-1.snowflakecomputing.com/"
+                "?AUTHENTICATOR=SNOWFLAKE_JWT&warehouse=REP_WH&db=P_MER_EDW_DB"
+                "&schema=XRBIA_DM&role=RPT_ROLE};MSTR_AUTH=standard;"
+            ),
+        }
+    )
+
+    assert connection.database_name == "P_MER_EDW_DB"
+    assert connection.schema_name == "XRBIA_DM"
+    assert "connectionString" not in connection.model_dump()
+
+
 def test_dataset_preserves_source_warehouse_reference_when_present() -> None:
     dataset = DatasetObject.model_validate(
         {

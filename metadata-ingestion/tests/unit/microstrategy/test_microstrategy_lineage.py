@@ -547,6 +547,44 @@ def test_metric_metric_ids_from_model_accepts_nested_and_top_level_tokens() -> N
     assert metric_metric_ids_from_model(top_level_model) == ["METRIC-2"]
 
 
+def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
+    extractor = _extractor()
+    # The JDBC connection provides the real warehouse database; MicroStrategy's
+    # table "namespace" is a logical namespace (dedup-suffixed) and must lose.
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="P_MER_EDW_DB",
+        schema="XRBIA_DM",
+    )
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {
+                    "namespace": "XRBIA_DM_1",
+                    "tablePrefix": "XRBIA_DM.",
+                    "tableName": "W_RTL_SLS_IT_LC_DY_A",
+                },
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "net_sls_qty"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+    )
+
+    upstreams = index.fact_field_urns(["fact-1"])
+    assert upstreams == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "p_mer_edw_db.xrbia_dm.w_rtl_sls_it_lc_dy_a,PROD),net_sls_qty)"
+    ]
+
+
 def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(
