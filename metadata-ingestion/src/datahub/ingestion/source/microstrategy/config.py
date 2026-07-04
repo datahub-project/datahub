@@ -244,6 +244,15 @@ class MicroStrategyConfig(
             "uses a `platform_instance`."
         ),
     )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Lowercase the upstream warehouse dataset and column URNs used for "
+            "warehouse lineage. Keep the default unless the warehouse was ingested "
+            "with case preserved, in which case set this to false so lineage URNs "
+            "match the ingested tables."
+        ),
+    )
 
     metric_glossary_term_mapping: Dict[str, str] = Field(
         default_factory=dict,

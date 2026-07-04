@@ -589,6 +589,47 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
     ]
 
 
+def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "convert_urns_to_lowercase": False,
+        }
+    )
+    extractor = MicroStrategyLineageExtractor(config, MicroStrategyReport())
+    context = WarehouseLineageContext(
+        platform="snowflake",
+        env="PROD",
+        database="P_MER_EDW_DB",
+        schema="XRBIA_DM",
+    )
+
+    index = extractor.model_lineage_index_from_tables(
+        [
+            {
+                "physicalTable": {
+                    "namespace": "XRBIA_DM_1",
+                    "tablePrefix": "XRBIA_DM.",
+                    "tableName": "W_RTL_SLS_IT_LC_DY_A",
+                },
+                "facts": [
+                    {
+                        "information": {"objectId": "fact-1"},
+                        "expression": {"text": "NET_SLS_QTY"},
+                    }
+                ],
+                "attributes": [],
+            }
+        ],
+        context,
+    )
+
+    assert index.fact_field_urns(["fact-1"]) == [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "P_MER_EDW_DB.XRBIA_DM.W_RTL_SLS_IT_LC_DY_A,PROD),NET_SLS_QTY)"
+    ]
+
+
 def test_model_lineage_index_maps_facts_and_attribute_forms_to_fields() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(

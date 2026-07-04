@@ -289,6 +289,7 @@ class MicroStrategyLineageExtractor:
                 field_urns = _model_expression_field_urns(
                     fact,
                     upstream_dataset_urn,
+                    self.config.convert_urns_to_lowercase,
                 )
                 if field_urns:
                     _append_lineage(
@@ -306,6 +307,7 @@ class MicroStrategyLineageExtractor:
                     field_urns = _model_expression_field_urns(
                         form,
                         upstream_dataset_urn,
+                        self.config.convert_urns_to_lowercase,
                     )
                     if not field_urns:
                         continue
@@ -331,8 +333,8 @@ class MicroStrategyLineageExtractor:
             attribute_form_upstreams=attribute_form_upstreams,
         )
 
-    @staticmethod
     def warehouse_dataset_urn(
+        self,
         context: WarehouseLineageContext,
         table_name: str,
     ) -> str:
@@ -345,8 +347,11 @@ class MicroStrategyLineageExtractor:
             platform=context.platform,
             platform_instance=context.platform_instance,
             env=context.env,
-            name=qualified_name.lower(),
+            name=self._maybe_lower(qualified_name),
         )
+
+    def _maybe_lower(self, value: str) -> str:
+        return value.lower() if self.config.convert_urns_to_lowercase else value
 
     def _infer_visualization_dataset_inputs(
         self,
@@ -629,6 +634,7 @@ def _physical_table_name(
 def _model_expression_field_urns(
     item: Dict[str, object],
     upstream_dataset_urn: str,
+    convert_to_lowercase: bool,
 ) -> List[str]:
     expression = item.get("expression")
     text = ""
@@ -638,9 +644,12 @@ def _model_expression_field_urns(
     return [
         # MicroStrategy expressions carry the warehouse's canonical (upper) case, but
         # warehouse connectors emit lowercase fieldPaths and schemaField urns match
-        # case-sensitively — mirror warehouse_dataset_urn's lowercasing so edges anchor to
+        # case-sensitively — mirror warehouse_dataset_urn's casing so edges anchor to
         # real fields.
-        builder.make_schema_field_urn(upstream_dataset_urn, field_name.lower())
+        builder.make_schema_field_urn(
+            upstream_dataset_urn,
+            field_name.lower() if convert_to_lowercase else field_name,
+        )
         for field_name in field_names
     ]
 
