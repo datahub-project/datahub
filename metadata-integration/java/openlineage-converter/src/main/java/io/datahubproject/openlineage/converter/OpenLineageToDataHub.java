@@ -1369,6 +1369,16 @@ public class OpenLineageToDataHub {
 
   private static DataProcessInstanceRunEvent processDataProcessInstanceResult(
       OpenLineage.RunEvent event) {
+    // OTHER events (and events with no eventType) are supplementary-metadata events, not run-state
+    // transitions. They have no valid DataProcessRunStatus/RunResultType, so emit no run-event MCP
+    // rather than a RunResultType.$UNKNOWN aspect that the downstream validator rejects — which
+    // would
+    // otherwise be a silent drop (HTTP 200, aspect discarded). A missing eventType previously NPE'd
+    // on the switch below.
+    if (event.getEventType() == null) {
+      return null;
+    }
+
     DataProcessInstanceRunEvent dpire = new DataProcessInstanceRunEvent();
 
     DataProcessInstanceRunResult result = new DataProcessInstanceRunResult();
@@ -1402,13 +1412,8 @@ public class OpenLineageToDataHub {
         break;
       case OTHER:
       default:
-        result.setNativeResultType(event.getEventType().toString());
-        if (event.getEventTime() != null) {
-          dpire.setTimestampMillis(event.getEventTime().toInstant().toEpochMilli());
-        }
-        result.setType(RunResultType.$UNKNOWN);
-        dpire.setResult(result);
-        break;
+        // Not a run-state transition — no run-event aspect to emit.
+        return null;
     }
     return dpire;
   }
@@ -1482,7 +1487,11 @@ public class OpenLineageToDataHub {
     if (openLineageFieldType == null) {
       return SchemaFieldDataType.Type.create(new NullType());
     }
-    switch (openLineageFieldType) {
+    // OpenLineage field types are free-form strings; producers vary in case (e.g. Spark emits
+    // lowercase, Trino/JDBC often uppercase). Normalize so "STRING"/"INT" resolve like
+    // "string"/"int"
+    // instead of silently falling through to NullType.
+    switch (openLineageFieldType.toLowerCase(Locale.ROOT)) {
       case "string":
         return SchemaFieldDataType.Type.create(new StringType());
       case "long":
