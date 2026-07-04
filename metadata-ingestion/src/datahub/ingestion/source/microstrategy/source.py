@@ -930,6 +930,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except MicroStrategyAPIError:
             self.report.report_metric_expression_api_failure()
             self.report.report_failed_metric_model(metric_id)
+            # Aggregated under one title (log=False avoids one line per metric) so
+            # operators see that some metric models were skipped -- most often
+            # because the metric lives in another project or the principal lacks
+            # modeling access to it.
+            self.report.warning(
+                title="MicroStrategy metric model unavailable",
+                message=(
+                    "Could not fetch a metric model, so expression metadata and "
+                    "fact-based lineage were skipped for it. The metric may belong "
+                    "to another project or the ingestion principal may lack "
+                    "modeling access."
+                ),
+                context=f"project={project_id}, metric={metric_id}",
+                log=False,
+            )
             logger.debug(
                 "Failed to fetch MicroStrategy metric model %s",
                 metric_id,

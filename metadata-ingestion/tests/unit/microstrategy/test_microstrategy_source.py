@@ -391,6 +391,22 @@ def test_metric_model_fact_ids_terminates_on_metric_cycles() -> None:
     assert fact_ids == ["FACT-1", "FACT-2"]
 
 
+def test_get_metric_model_failure_warns_and_degrades() -> None:
+    source = _source()
+
+    class FakeClient:
+        def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("404 Not Found")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._get_metric_model("project-1", "metric-x") == {}
+    assert source.report.metric_expression_api_failures == 1
+    assert "metric-x" in source.report.failed_metric_model_ids
+    # Surfaced once so operators notice cross-project / access-limited metrics.
+    assert len(source.report.warnings) == 1
+
+
 def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     source = _source(
         {
