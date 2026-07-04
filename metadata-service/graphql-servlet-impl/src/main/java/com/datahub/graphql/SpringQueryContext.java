@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
-import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +45,8 @@ public class SpringQueryContext implements QueryContext {
     this.authorizer = authorizer;
 
     // operationName is an optional field only required if multiple operations are present
-    this.queryName = GraphQLOperationNameResolver.resolve(operationName, jsonQuery);
+    this.queryName =
+        GraphqlDocumentAnalyzer.analyze(operationName, jsonQuery, null).resolvedOperationName();
 
     GraphQLConfiguration graphQL =
         Objects.requireNonNull(
