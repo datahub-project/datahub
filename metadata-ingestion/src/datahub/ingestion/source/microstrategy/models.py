@@ -8,7 +8,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Tuple,
     Type,
     TypeVar,
 )
@@ -361,6 +360,15 @@ class DashboardDefinition(MicroStrategyBaseModel):
         )
 
 
+class ReportSource(MicroStrategyBaseModel):
+    """The upstream object a report reads from (a dataset, cube, or data
+    source). Both fields are optional: a report built directly on warehouse
+    tables, or one whose source could not be resolved, has neither."""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+
 class ReportDefinition(MicroStrategyBaseModel):
     id: str
     name: str
@@ -383,7 +391,7 @@ class ReportDefinition(MicroStrategyBaseModel):
         result = response.get("result", response)
         root = result if isinstance(result, dict) else response
         definition = _unwrap_definition(response)
-        source_id, source_name = _extract_report_source(definition, root)
+        source = _extract_report_source(definition, root)
         available_objects = _normalize_available_objects(
             definition.get("availableObjects") or root.get("availableObjects")
         )
@@ -396,8 +404,8 @@ class ReportDefinition(MicroStrategyBaseModel):
                 or _first_str(definition, ["description"])
                 or _first_str(root, ["description"])
             ),
-            source_id=source_id,
-            source_name=source_name,
+            source_id=source.id,
+            source_name=source.name,
             available_objects=available_objects,
             object_ids=_extract_object_ids({"availableObjects": available_objects}),
             prompt_count=len(prompts),
@@ -414,14 +422,14 @@ class ReportDefinition(MicroStrategyBaseModel):
     @classmethod
     def from_search_result(cls, report_object: MSTRObject) -> "ReportDefinition":
         raw = report_object.model_dump(by_alias=True, exclude_none=True)
-        source_id, source_name = _extract_report_source(raw)
+        source = _extract_report_source(raw)
         available_objects = _normalize_available_objects(raw.get("availableObjects"))
         return cls(
             id=report_object.id,
             name=report_object.name,
             description=report_object.description,
-            source_id=source_id,
-            source_name=source_name,
+            source_id=source.id,
+            source_name=source.name,
             available_objects=available_objects,
             object_ids=_extract_object_ids({"availableObjects": available_objects}),
         )
@@ -486,21 +494,25 @@ def _normalize_available_objects(value: Any) -> MSTRDict:
     return normalized
 
 
-def _extract_report_source(*locations: MSTRDict) -> Tuple[Optional[str], Optional[str]]:
+def _extract_report_source(*locations: MSTRDict) -> ReportSource:
     for location in locations:
         for source_key in MSTR_KEYS_SOURCE_OBJECT:
             source = location.get(source_key)
             if isinstance(source, dict):
                 source_id = _first_str(source, MSTR_KEYS_SOURCE_OBJECT_ID)
                 if source_id:
-                    return source_id, _first_str(source, MSTR_KEYS_NAME)
+                    return ReportSource(
+                        id=source_id, name=_first_str(source, MSTR_KEYS_NAME)
+                    )
             elif isinstance(source, str) and source:
-                return source, None
+                return ReportSource(id=source)
 
         source_id = _first_str(location, MSTR_KEYS_SOURCE_ID)
         if source_id:
-            return source_id, _first_str(location, MSTR_KEYS_SOURCE_NAME)
-    return None, None
+            return ReportSource(
+                id=source_id, name=_first_str(location, MSTR_KEYS_SOURCE_NAME)
+            )
+    return ReportSource()
 
 
 def _normalize_datasource_reference(data: MSTRDict) -> MSTRDict:
