@@ -439,10 +439,10 @@ public class OpenLineageToDataHub {
     StringMap customProperties = generateCustomProperties(event, true);
     dfi.setCustomProperties(customProperties);
 
-    String description = getDescription(event);
-    if (description != null) {
-      dfi.setDescription(description);
-    }
+    // Note: the OpenLineage DocumentationJobFacet is a *job* facet and is written to the DataJob
+    // (see convertJobToDataJob). It is intentionally not written to the DataFlow here — a job-level
+    // description does not describe the flow, and with multiple jobs per flow each would overwrite
+    // the others. OpenLineage has no flow-level documentation facet.
     jobBuilder.dataFlowInfo(dfi);
 
     // Ownership comes from the OpenLineage OwnershipJobFacet (a job facet), so it belongs on the
