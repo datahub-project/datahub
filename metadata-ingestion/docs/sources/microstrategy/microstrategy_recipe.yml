@@ -41,10 +41,15 @@ source:
     extract_warehouse_lineage: false
     extract_report_sql_lineage: false
 
-    # If a warehouse (e.g. Snowflake) was ingested with a platform_instance,
-    # map it here so warehouse lineage URNs match that instance.
-    # warehouse_platform_instance_map:
-    #   snowflake: my_snowflake_instance
+    # Map each source warehouse platform to the platform instance, env, and URN
+    # casing it was ingested under, so warehouse lineage URNs match those tables.
+    # Platforms with no entry use this connector's env, no platform instance, and
+    # lowercase URNs.
+    # warehouse_platform_map:
+    #   snowflake:
+    #     platform_instance: my_snowflake_instance
+    #     env: PROD
+    #     convert_urns_to_lowercase: true
 
     # Disabled by default to keep DataHub lineage graphs focused on
     # dataset -> visualization edges.

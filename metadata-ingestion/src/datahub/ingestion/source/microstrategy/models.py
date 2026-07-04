@@ -56,8 +56,8 @@ from datahub.ingestion.source.microstrategy.constants import (
 if TYPE_CHECKING:
     from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
-# Raw MicroStrategy REST payloads; shapes vary across server versions, so they
-# stay untyped until normalized by the model validators below.
+# Raw MicroStrategy REST payloads; shapes vary across server versions, so values
+# stay dynamic (Any) until normalized by the model validators below.
 MicroStrategyDict = Dict[str, Any]
 
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
@@ -65,7 +65,7 @@ _ModelT = TypeVar("_ModelT", bound=BaseModel)
 
 def _validate_items(
     model_cls: Type[_ModelT],
-    items: Iterable[Any],
+    items: Iterable[object],
     context: str,
     report: Optional["MicroStrategyReport"],
 ) -> List[_ModelT]:
@@ -458,7 +458,7 @@ def _extract_datasets(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
     return []
 
 
-def _normalize_available_objects(value: Any) -> MicroStrategyDict:
+def _normalize_available_objects(value: object) -> MicroStrategyDict:
     if isinstance(value, dict):
         return value
     if not isinstance(value, list):
@@ -547,7 +547,7 @@ def _normalize_datasource_reference(data: MicroStrategyDict) -> MicroStrategyDic
     return result
 
 
-def _list_items(value: Any) -> List[Any]:
+def _list_items(value: object) -> List[object]:
     if isinstance(value, list):
         return value
     if isinstance(value, dict):
@@ -569,7 +569,7 @@ def _connection_param(
     return match.group(1).strip().strip("'\"")
 
 
-def _looks_like_datasource_reference(value: Any) -> bool:
+def _looks_like_datasource_reference(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     database = value.get("database")
@@ -603,7 +603,7 @@ def _extract_datasource_reference(
 def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
     found: List[MicroStrategyDict] = []
 
-    def visit(value: Any) -> None:
+    def visit(value: object) -> None:
         if isinstance(value, dict):
             maybe_visualizations = value.get("visualizations")
             if isinstance(maybe_visualizations, list):
@@ -651,10 +651,10 @@ def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategy
     return list(unique.values())
 
 
-def _extract_dataset_ids(value: Any) -> List[str]:
+def _extract_dataset_ids(value: object) -> List[str]:
     dataset_ids: List[str] = []
 
-    def add(candidate: Any) -> None:
+    def add(candidate: object) -> None:
         if isinstance(candidate, str) and candidate:
             dataset_ids.append(candidate)
         elif isinstance(candidate, dict):
@@ -662,7 +662,7 @@ def _extract_dataset_ids(value: Any) -> List[str]:
             if candidate_id:
                 dataset_ids.append(candidate_id)
 
-    def visit(node: Any, parent_key: Optional[str] = None) -> None:
+    def visit(node: object, parent_key: Optional[str] = None) -> None:
         if isinstance(node, dict):
             for key, child in node.items():
                 if key.lower() in MSTR_DATASET_CONTAINER_KEYS:
@@ -683,10 +683,10 @@ def _extract_dataset_ids(value: Any) -> List[str]:
     return sorted(set(dataset_ids))
 
 
-def _extract_object_ids(value: Any) -> List[str]:
+def _extract_object_ids(value: object) -> List[str]:
     object_ids: List[str] = []
 
-    def visit(node: Any, parent_key: Optional[str] = None) -> None:
+    def visit(node: object, parent_key: Optional[str] = None) -> None:
         if isinstance(node, dict):
             node_type = str(node.get("type") or node.get("objectType") or "").lower()
             parent = (parent_key or "").lower()

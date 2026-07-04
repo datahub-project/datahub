@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
@@ -99,7 +99,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
-        self._metric_model_cache: Dict[str, Dict[str, Any]] = {}
+        self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
 
     @classmethod
@@ -112,7 +112,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         return cls(config, ctx)
 
     @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
+    def test_connection(config_dict: Dict[str, object]) -> TestConnectionReport:
         test_report = TestConnectionReport()
         client: Optional[MicroStrategyClient] = None
         try:
@@ -254,7 +254,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context = warehouse_context_from_datasources(
             source_warehouses,
             self.config.env,
-            self.config.warehouse_platform_instance_map,
+            self.config.warehouse_platform_map,
         )
         if not context:
             return None
@@ -262,7 +262,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         datasource = matching_datasource_for_context(
             source_warehouses,
             context,
-            self.config.warehouse_platform_instance_map,
+            self.config.warehouse_platform_map,
         )
         if datasource and datasource.connection_id:
             try:
@@ -288,7 +288,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context = warehouse_context_with_connection(
                     context,
                     connection,
-                    self.config.warehouse_platform_instance_map,
+                    self.config.warehouse_platform_map,
                 )
         return context
 
@@ -697,7 +697,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        model_tables: List[Dict[str, Any]] = []
+        model_tables: List[Dict[str, object]] = []
         offset = 0
         while True:
             try:
@@ -825,7 +825,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self,
         project_id: str,
         metric_id: str,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         normalized_metric_id = metric_id.upper()
         model = self._metric_model_cache.get(normalized_metric_id)
         if model is not None:
@@ -849,7 +849,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     def _metric_model_fact_ids(
         self,
         project_id: str,
-        model: Dict[str, Any],
+        model: Dict[str, object],
         visited: Set[str],
     ) -> List[str]:
         fact_ids = set(metric_fact_ids_from_model(model))
@@ -1013,7 +1013,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _attach_dataset_warehouse_upstreams(
         self,
-        sql_view_rows: List[Dict[str, Any]],
+        sql_view_rows: List[Dict[str, object]],
         dashboard: DashboardDefinition,
         context: Optional[WarehouseLineageContext],
     ) -> None:
@@ -1044,7 +1044,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_context_from_datasource(
                     dataset.source_warehouse,
                     self.config.env,
-                    self.config.warehouse_platform_instance_map,
+                    self.config.warehouse_platform_map,
                 )
                 if dataset.source_warehouse
                 else None
@@ -1265,7 +1265,7 @@ class _LazyProjectLineage:
         return self._index
 
 
-def _metric_items(available_objects: Dict[str, Any]) -> Iterable[Dict[str, Any]]:
+def _metric_items(available_objects: Dict[str, object]) -> Iterable[Dict[str, object]]:
     metrics = available_objects.get("metrics")
     if isinstance(metrics, list):
         for metric in metrics:
@@ -1279,7 +1279,7 @@ def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)
 
 
-def _metric_expression_summary(model: Dict[str, Any]) -> Optional[MetricEnrichment]:
+def _metric_expression_summary(model: Dict[str, object]) -> Optional[MetricEnrichment]:
     expression = model.get("expression")
     if not isinstance(expression, dict):
         return None

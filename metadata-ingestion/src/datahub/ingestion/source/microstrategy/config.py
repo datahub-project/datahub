@@ -40,6 +40,23 @@ MicroStrategyAuthConfig = Annotated[
 ]
 
 
+class WarehousePlatformDetail(ConfigModel):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The platform instance the warehouse was ingested under.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="The environment the warehouse was ingested under. Defaults to "
+        "this connector's `env` when unset.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Lowercase the upstream warehouse dataset and column URNs. Set to "
+        "false when this warehouse was ingested with case preserved so lineage URNs match.",
+    )
+
+
 class MicroStrategyConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -235,22 +252,14 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
-    warehouse_platform_instance_map: Dict[str, str] = Field(
+    warehouse_platform_map: Dict[str, WarehousePlatformDetail] = Field(
         default_factory=dict,
         description=(
             "Optional mapping from warehouse platform name (for example `snowflake`) "
-            "to the DataHub platform instance used when that warehouse was ingested. "
-            "Required for warehouse lineage URNs to match when the warehouse source "
-            "uses a `platform_instance`."
-        ),
-    )
-    convert_urns_to_lowercase: bool = Field(
-        default=True,
-        description=(
-            "Lowercase the upstream warehouse dataset and column URNs used for "
-            "warehouse lineage. Keep the default unless the warehouse was ingested "
-            "with case preserved, in which case set this to false so lineage URNs "
-            "match the ingested tables."
+            "to the platform instance, environment, and URN casing that warehouse was "
+            "ingested under. Set an entry so warehouse lineage URNs match the ingested "
+            "tables; platforms with no entry use this connector's `env`, no platform "
+            "instance, and lowercase URNs."
         ),
     )
 

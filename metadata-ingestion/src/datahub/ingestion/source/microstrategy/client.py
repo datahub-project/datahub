@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -72,7 +72,7 @@ class MicroStrategyClient:
 
     def login(self) -> None:
         auth = self.config.auth
-        payload: Dict[str, Any]
+        payload: Dict[str, Union[str, int]]
         if isinstance(auth, MicroStrategyGuestAuth):
             payload = {"loginMode": MSTR_LOGIN_MODE_GUEST}
         elif isinstance(auth, MicroStrategyPasswordAuth):
@@ -100,7 +100,7 @@ class MicroStrategyClient:
     def _parse_model(
         self,
         model_cls: Type[_ModelT],
-        item: Dict[str, Any],
+        item: Dict[str, object],
         context: str,
     ) -> Optional[_ModelT]:
         """Validate one API object, skipping (and reporting) malformed items."""
@@ -121,7 +121,7 @@ class MicroStrategyClient:
     def _parse_models(
         self,
         model_cls: Type[_ModelT],
-        items: Iterable[Any],
+        items: Iterable[object],
         context: str,
     ) -> List[_ModelT]:
         parsed = [
@@ -133,13 +133,10 @@ class MicroStrategyClient:
 
     def list_projects(self) -> List[Project]:
         payload = self._get_json(MSTR_API_PROJECTS)
-        projects: Any
         if isinstance(payload, list):
-            projects = payload
-        elif isinstance(payload, dict):
-            projects = payload.get("projects") or payload.get("result") or []
+            projects: List[object] = payload
         else:
-            projects = []
+            projects = payload.get("projects") or payload.get("result") or []
         if not projects:
             self._warn_if_unrecognized_shape(
                 payload, MSTR_API_PROJECTS, recognized_keys={"projects", "result"}
@@ -271,7 +268,7 @@ class MicroStrategyClient:
             f"object dependencies object_id={object_id}",
         )
 
-    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, object]:
         """Raw model JSON; shape varies by version, parsed by the lineage helpers."""
         return self._get_json(
             f"/api/model/metrics/{metric_id}",
@@ -279,7 +276,9 @@ class MicroStrategyClient:
             params={"showExpressionAs": "tokens"},
         )
 
-    def get_model_document(self, project_id: str, document_id: str) -> Dict[str, Any]:
+    def get_model_document(
+        self, project_id: str, document_id: str
+    ) -> Dict[str, object]:
         """Raw modeling JSON for a document/dossier; its per-dataset derived objects let
         the lineage helpers resolve which dataset a visualization reads."""
         return self._get_json(
@@ -308,7 +307,7 @@ class MicroStrategyClient:
 
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         """Raw definition JSON; parsed by DashboardDefinition.from_api_response."""
         return self._get_json(
             f"/api/v2/dossiers/{dossier_id}/definition",
@@ -317,13 +316,15 @@ class MicroStrategyClient:
 
     def get_document_definition(
         self, project_id: str, document_id: str
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         return self._get_json(
             f"/api/documents/{document_id}/definition",
             project_id=project_id,
         )
 
-    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+    def get_report_definition(
+        self, project_id: str, report_id: str
+    ) -> Dict[str, object]:
         return self._get_json(
             f"/api/v2/reports/{report_id}",
             project_id=project_id,
@@ -395,7 +396,7 @@ class MicroStrategyClient:
         project_id: str,
         dossier_id: str,
         instance_id: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, object]]:
         payload = self._get_json(
             f"/api/dossiers/{dossier_id}/instances/{instance_id}/datasets/sqlView",
             project_id=project_id,
@@ -480,7 +481,7 @@ class MicroStrategyClient:
         instance_id: str,
         chapter_key: str,
         visualization_key: str,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, object]:
         return self._get_json(
             (
                 f"/api/v2/dossiers/{dossier_id}/instances/{instance_id}"
@@ -493,7 +494,7 @@ class MicroStrategyClient:
         self,
         project_id: str,
         type_filter: Optional[str] = None,
-    ) -> Iterable[Dict[str, Any]]:
+    ) -> Iterable[Dict[str, object]]:
         offset = 0
         total: Optional[int] = None
         while True:
@@ -541,7 +542,7 @@ class MicroStrategyClient:
 
     def _warn_if_unrecognized_shape(
         self,
-        response: Any,
+        response: object,
         path: str,
         recognized_keys: Optional[Set[str]] = None,
     ) -> None:
@@ -567,7 +568,7 @@ class MicroStrategyClient:
             )
 
     @staticmethod
-    def _extract_total(response: Any) -> Optional[int]:
+    def _extract_total(response: object) -> Optional[int]:
         if not isinstance(response, dict):
             return None
         for source in (response, response.get("result")):
@@ -580,7 +581,7 @@ class MicroStrategyClient:
         return None
 
     @staticmethod
-    def _extract_search_results(response: Any) -> List[Dict[str, Any]]:
+    def _extract_search_results(response: object) -> List[Dict[str, object]]:
         if isinstance(response, list):
             return [item for item in response if isinstance(item, dict)]
         if not isinstance(response, dict):
@@ -596,7 +597,7 @@ class MicroStrategyClient:
         return []
 
     @staticmethod
-    def _extract_search_id(response: Any) -> Optional[str]:
+    def _extract_search_id(response: object) -> Optional[str]:
         if not isinstance(response, dict):
             return None
         for key in ("id", "searchId"):
@@ -609,7 +610,7 @@ class MicroStrategyClient:
         return None
 
     @staticmethod
-    def _extract_list(response: Any, key: str) -> List[Any]:
+    def _extract_list(response: object, key: str) -> List[object]:
         if isinstance(response, list):
             return response
         if not isinstance(response, dict):
@@ -661,7 +662,7 @@ class MicroStrategyClient:
         return value if isinstance(value, dict) else {"result": value}
 
     @staticmethod
-    def _extract_instance_id(response: Any) -> Optional[str]:
+    def _extract_instance_id(response: object) -> Optional[str]:
         if not isinstance(response, dict):
             return None
         for key in ("instanceId", "instanceID", "mid", "id"):

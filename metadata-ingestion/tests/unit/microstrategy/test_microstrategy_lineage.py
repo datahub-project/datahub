@@ -1,7 +1,10 @@
 from typing import Any, Dict, List
 from unittest import mock
 
-from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.config import (
+    MicroStrategyConfig,
+    WarehousePlatformDetail,
+)
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
@@ -60,8 +63,8 @@ def test_warehouse_context_from_datasource_reference() -> None:
     )
 
 
-def test_warehouse_context_from_datasource_applies_platform_instance_map() -> None:
-    datasource = DatasourceReference.model_validate(
+def _snowflake_datasource() -> DatasourceReference:
+    return DatasourceReference.model_validate(
         {
             "id": "source-1",
             "name": "Sales Warehouse",
@@ -73,14 +76,43 @@ def test_warehouse_context_from_datasource_applies_platform_instance_map() -> No
         }
     )
 
+
+def test_warehouse_platform_map_applies_platform_instance_and_casing() -> None:
     context = warehouse_context_from_datasource(
-        datasource,
+        _snowflake_datasource(),
         "PROD",
-        platform_instance_map={"snowflake": "prod_wh"},
+        {
+            "snowflake": WarehousePlatformDetail(
+                platform_instance="prod_wh",
+                convert_urns_to_lowercase=False,
+            )
+        },
     )
 
     assert context is not None
     assert context.platform_instance == "prod_wh"
+    assert context.env == "PROD"
+    assert context.convert_urns_to_lowercase is False
+
+
+def test_warehouse_platform_map_overrides_env() -> None:
+    context = warehouse_context_from_datasource(
+        _snowflake_datasource(),
+        "PROD",
+        {"snowflake": WarehousePlatformDetail(env="DEV")},
+    )
+
+    assert context is not None
+    assert context.env == "DEV"
+
+
+def test_warehouse_platform_map_unmapped_platform_uses_defaults() -> None:
+    context = warehouse_context_from_datasource(_snowflake_datasource(), "PROD")
+
+    assert context is not None
+    assert context.platform_instance is None
+    assert context.env == "PROD"
+    assert context.convert_urns_to_lowercase is True
 
 
 def test_warehouse_context_from_datasources_requires_unique_context() -> None:
@@ -590,18 +622,13 @@ def test_physical_table_uses_context_database_over_mstr_namespace() -> None:
 
 
 def test_convert_urns_to_lowercase_false_preserves_warehouse_case() -> None:
-    config = MicroStrategyConfig.model_validate(
-        {
-            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-            "convert_urns_to_lowercase": False,
-        }
-    )
-    extractor = MicroStrategyLineageExtractor(config, MicroStrategyReport())
+    extractor = _extractor()
     context = WarehouseLineageContext(
         platform="snowflake",
         env="PROD",
         database="P_MER_EDW_DB",
         schema="XRBIA_DM",
+        convert_urns_to_lowercase=False,
     )
 
     index = extractor.model_lineage_index_from_tables(

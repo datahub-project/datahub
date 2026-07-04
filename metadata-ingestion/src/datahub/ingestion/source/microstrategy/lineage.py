@@ -15,7 +15,10 @@ from typing import (
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
+from datahub.ingestion.source.microstrategy.config import (
+    MicroStrategyConfig,
+    WarehousePlatformDetail,
+)
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
@@ -41,6 +44,7 @@ class WarehouseLineageContext:
     platform_instance: Optional[str] = None
     database: Optional[str] = None
     schema: Optional[str] = None
+    convert_urns_to_lowercase: bool = True
 
 
 @dataclass(frozen=True)
@@ -289,7 +293,7 @@ class MicroStrategyLineageExtractor:
                 field_urns = _model_expression_field_urns(
                     fact,
                     upstream_dataset_urn,
-                    self.config.convert_urns_to_lowercase,
+                    context.convert_urns_to_lowercase,
                 )
                 if field_urns:
                     _append_lineage(
@@ -307,7 +311,7 @@ class MicroStrategyLineageExtractor:
                     field_urns = _model_expression_field_urns(
                         form,
                         upstream_dataset_urn,
-                        self.config.convert_urns_to_lowercase,
+                        context.convert_urns_to_lowercase,
                     )
                     if not field_urns:
                         continue
@@ -347,11 +351,10 @@ class MicroStrategyLineageExtractor:
             platform=context.platform,
             platform_instance=context.platform_instance,
             env=context.env,
-            name=self._maybe_lower(qualified_name),
+            name=qualified_name.lower()
+            if context.convert_urns_to_lowercase
+            else qualified_name,
         )
-
-    def _maybe_lower(self, value: str) -> str:
-        return value.lower() if self.config.convert_urns_to_lowercase else value
 
     def _infer_visualization_dataset_inputs(
         self,
@@ -425,19 +428,18 @@ def datahub_platform_for_source_type(*values: Optional[str]) -> Optional[str]:
     return None
 
 
+PlatformMap = Optional[Dict[str, WarehousePlatformDetail]]
+
+
 def warehouse_context_from_datasources(
     datasources: List[Datasource],
     env: str,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    platform_map: PlatformMap = None,
 ) -> Optional[WarehouseLineageContext]:
     contexts = {
         context
         for datasource in datasources
-        if (
-            context := warehouse_context_from_datasource(
-                datasource, env, platform_instance_map
-            )
-        )
+        if (context := warehouse_context_from_datasource(datasource, env, platform_map))
         is not None
     }
     if len(contexts) == 1:
@@ -448,30 +450,32 @@ def warehouse_context_from_datasources(
 def warehouse_context_from_datasource(
     datasource: DatasourceReference,
     env: str,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    platform_map: PlatformMap = None,
 ) -> Optional[WarehouseLineageContext]:
     platform = datahub_platform_for_datasource(datasource)
     if not platform:
         return None
+    detail = (platform_map or {}).get(platform)
     return WarehouseLineageContext(
         platform=platform,
-        env=env,
-        platform_instance=(platform_instance_map or {}).get(platform),
+        env=(detail.env if detail and detail.env else env),
+        platform_instance=detail.platform_instance if detail else None,
         database=datasource.database_name,
         schema=datasource.schema_name,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase if detail else True
+        ),
     )
 
 
 def matching_datasource_for_context(
     datasources: List[Datasource],
     context: WarehouseLineageContext,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    platform_map: PlatformMap = None,
 ) -> Optional[Datasource]:
     for datasource in datasources:
         if (
-            warehouse_context_from_datasource(
-                datasource, context.env, platform_instance_map
-            )
+            warehouse_context_from_datasource(datasource, context.env, platform_map)
             == context
         ):
             return datasource
@@ -481,18 +485,23 @@ def matching_datasource_for_context(
 def warehouse_context_with_connection(
     context: WarehouseLineageContext,
     connection: DatasourceConnection,
-    platform_instance_map: Optional[Dict[str, str]] = None,
+    platform_map: PlatformMap = None,
 ) -> WarehouseLineageContext:
     platform = datahub_platform_for_connection(connection) or context.platform
-    platform_instance = (platform_instance_map or {}).get(
-        platform, context.platform_instance
-    )
+    detail = (platform_map or {}).get(platform)
     return WarehouseLineageContext(
         platform=platform,
-        env=context.env,
-        platform_instance=platform_instance,
+        env=(detail.env if detail and detail.env else context.env),
+        platform_instance=(
+            detail.platform_instance if detail else context.platform_instance
+        ),
         database=connection.database_name or context.database,
         schema=connection.schema_name or context.schema,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase
+            if detail
+            else context.convert_urns_to_lowercase
+        ),
     )
 
 
