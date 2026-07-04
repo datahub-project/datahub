@@ -288,32 +288,80 @@ public class OpenLineageConverterBugfixTest {
     assertEquals(props.get("errorMessage"), "boom");
   }
 
+  private static OpenLineage.RunEvent eventWithJobDoc(OpenLineage ol, String jobName, String doc) {
+    return ol.newRunEventBuilder()
+        .eventTime(ZonedDateTime.now())
+        .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+        .run(ol.newRunBuilder().runId(UUID.randomUUID()).build())
+        .job(
+            ol.newJobBuilder()
+                .namespace("ns")
+                .name(jobName)
+                .facets(
+                    ol.newJobFacetsBuilder()
+                        .documentation(
+                            ol.newDocumentationJobFacetBuilder().description(doc).build())
+                        .build())
+                .build())
+        .inputs(Collections.emptyList())
+        .outputs(Collections.emptyList())
+        .build();
+  }
+
   @Test
-  public void documentationJobFacetLandsOnDataJobNotDataFlow() throws Exception {
+  public void taskDocumentationJobFacetLandsOnDataJobOnly() throws Exception {
     OpenLineage ol = new OpenLineage(PRODUCER);
-    OpenLineage.DocumentationJobFacet doc =
-        ol.newDocumentationJobFacetBuilder().description("my job docs").build();
+    // Has a ParentRunFacet -> it's a task within a flow; its doc must not leak onto the DataFlow.
+    OpenLineage.ParentRunFacet parent =
+        ol.newParentRunFacetBuilder()
+            .job(ol.newParentRunFacetJobBuilder().namespace("ns").name("my_flow").build())
+            .run(ol.newParentRunFacetRunBuilder().runId(UUID.randomUUID()).build())
+            .build();
     OpenLineage.RunEvent event =
         ol.newRunEventBuilder()
             .eventTime(ZonedDateTime.now())
             .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(ol.newRunBuilder().runId(UUID.randomUUID()).build())
+            .run(
+                ol.newRunBuilder()
+                    .runId(UUID.randomUUID())
+                    .facets(ol.newRunFacetsBuilder().parent(parent).build())
+                    .build())
             .job(
                 ol.newJobBuilder()
                     .namespace("ns")
-                    .name("job")
-                    .facets(ol.newJobFacetsBuilder().documentation(doc).build())
+                    .name("my_flow.my_task")
+                    .facets(
+                        ol.newJobFacetsBuilder()
+                            .documentation(
+                                ol.newDocumentationJobFacetBuilder()
+                                    .description("my task docs")
+                                    .build())
+                            .build())
                     .build())
             .inputs(Collections.emptyList())
             .outputs(Collections.emptyList())
             .build();
 
     DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config());
-    // DocumentationJobFacet is a job facet -> DataJob description only.
-    assertEquals(job.getJobInfo().getDescription(), "my job docs");
+    assertEquals(job.getJobInfo().getDescription(), "my task docs");
     assertTrue(
         job.getDataFlowInfo().getDescription() == null,
-        "DataFlow must not carry the job's DocumentationJobFacet description");
+        "DataFlow must not carry a task-level DocumentationJobFacet description");
+  }
+
+  @Test
+  public void flowLevelDocumentationJobFacetLandsOnDataFlow() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    // No ParentRunFacet -> the job is top-level (the flow), so its DocumentationJobFacet describes
+    // the flow. The dotted name proves this does not rely on "." delimiting flow from task.
+    DatahubJob job =
+        OpenLineageToDataHub.convertRunEventToJob(
+            eventWithJobDoc(ol, "com.company.my_app", "flow docs"), config());
+    assertEquals(
+        job.getDataFlowInfo().getDescription(),
+        "flow docs",
+        "flow-level DocumentationJobFacet should land on the DataFlow");
+    assertEquals(job.getJobInfo().getDescription(), "flow docs");
   }
 
   @Test
