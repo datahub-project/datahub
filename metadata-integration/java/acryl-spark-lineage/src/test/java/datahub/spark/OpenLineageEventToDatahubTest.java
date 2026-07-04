@@ -557,6 +557,30 @@ public class OpenLineageEventToDatahubTest {
             "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name"));
   }
 
+  @Test
+  public void testAirflowDagDescriptionLandsOnDataFlowTaskDescriptionOnDataJob()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("airflow")
+            .build();
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_airflow_dag_description.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    // DAG description (airflow custom run facet) -> DataFlow; task DocumentationJobFacet ->
+    // DataJob.
+    assertEquals(
+        datahubJob.getDataFlowInfo().getDescription(), "DAG-level description from Airflow");
+    assertEquals(
+        datahubJob.getJobInfo().getDescription(), "Task-level description from the operator");
+  }
+
   private static boolean hasFieldPath(DatahubDataset dataset, String fieldPath) {
     return dataset.getSchemaMetadata().getFields().stream()
         .anyMatch(f -> fieldPath.equals(f.getFieldPath()));
