@@ -54,6 +54,12 @@ def _cll_map(result: SqlParsingResult) -> Dict[str, Dict[str, List[str]]]:
     return out
 
 
+def _leaf_in(*names: str) -> Callable[[str], bool]:
+    """Predicate matching a fully qualified name whose leaf (table) is in names."""
+    wanted = set(names)
+    return lambda name: name.split(".")[-1] in wanted
+
+
 @pytest.fixture(scope="function", autouse=True)
 def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Disable SQL lineage timeout to avoid flaky test failures."""
@@ -772,18 +778,13 @@ class TestIsTempTablePredicate:
     Without the predicate the same plain CREATE TABLE stays persistent (see
     TestPersistentTableLineage)."""
 
-    @staticmethod
-    def _leaf_in(*names: str) -> Callable[[str], bool]:
-        wanted = set(names)
-        return lambda name: name.split(".")[-1] in wanted
-
     def test_predicate_collapses_plain_create_table(self) -> None:
         result = _parse(
             [
                 "CREATE TABLE staging AS SELECT id, name FROM source",
                 "INSERT INTO target SELECT id, name FROM staging",
             ],
-            is_temp_table=self._leaf_in("staging"),
+            is_temp_table=_leaf_in("staging"),
         )
         assert _table_short_names(result.in_tables) == {"source"}
         assert _table_short_names(result.out_tables) == {"target"}
@@ -794,7 +795,7 @@ class TestIsTempTablePredicate:
                 "CREATE TABLE staging AS SELECT id, 2 * val AS doubled FROM source",
                 "INSERT INTO target SELECT id, doubled FROM staging",
             ],
-            is_temp_table=self._leaf_in("staging"),
+            is_temp_table=_leaf_in("staging"),
         )
         cll = _cll_map(result)
         assert set(cll["target"]["id"]) == {"source.id"}
@@ -811,7 +812,7 @@ class TestIsTempTablePredicate:
                 "INSERT INTO target SELECT staging.id, staging.amount, tmp.label "
                 "FROM staging JOIN tmp ON staging.id = tmp.id",
             ],
-            is_temp_table=self._leaf_in("tmp"),
+            is_temp_table=_leaf_in("tmp"),
         )
         in_names = _table_short_names(result.in_tables)
         out_names = _table_short_names(result.out_tables)
