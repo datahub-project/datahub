@@ -54,8 +54,8 @@ def _cll_map(result: SqlParsingResult) -> Dict[str, Dict[str, List[str]]]:
     return out
 
 
-def _leaf_in(*names: str) -> Callable[[str], bool]:
-    """Predicate matching a fully qualified name whose leaf (table) is in names."""
+def _table_name_in(*names: str) -> Callable[[str], bool]:
+    """Predicate matching a qualified name whose leaf (table) is in names."""
     wanted = set(names)
     return lambda name: name.split(".")[-1] in wanted
 
@@ -784,7 +784,7 @@ class TestIsTempTablePredicate:
                 "CREATE TABLE staging AS SELECT id, name FROM source",
                 "INSERT INTO target SELECT id, name FROM staging",
             ],
-            is_temp_table=_leaf_in("staging"),
+            is_temp_table=_table_name_in("staging"),
         )
         assert _table_short_names(result.in_tables) == {"source"}
         assert _table_short_names(result.out_tables) == {"target"}
@@ -795,7 +795,7 @@ class TestIsTempTablePredicate:
                 "CREATE TABLE staging AS SELECT id, 2 * val AS doubled FROM source",
                 "INSERT INTO target SELECT id, doubled FROM staging",
             ],
-            is_temp_table=_leaf_in("staging"),
+            is_temp_table=_table_name_in("staging"),
         )
         cll = _cll_map(result)
         assert set(cll["target"]["id"]) == {"source.id"}
@@ -812,7 +812,7 @@ class TestIsTempTablePredicate:
                 "INSERT INTO target SELECT staging.id, staging.amount, tmp.label "
                 "FROM staging JOIN tmp ON staging.id = tmp.id",
             ],
-            is_temp_table=_leaf_in("tmp"),
+            is_temp_table=_table_name_in("tmp"),
         )
         in_names = _table_short_names(result.in_tables)
         out_names = _table_short_names(result.out_tables)
@@ -846,5 +846,18 @@ class TestIsTempTablePredicate:
             is_temp_table=lambda name: False,
         )
         # Equivalent to passing no predicate: staging stays persistent.
+        assert "staging" in _table_short_names(result.in_tables)
+        assert "staging" in _table_short_names(result.out_tables)
+
+    def test_predicate_none_preserves_persistent_table(self) -> None:
+        # None takes the no-predicate fast path (distinct from a False-returning
+        # callable, even though the resulting lineage is identical).
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            is_temp_table=None,
+        )
         assert "staging" in _table_short_names(result.in_tables)
         assert "staging" in _table_short_names(result.out_tables)
