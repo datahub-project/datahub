@@ -76,6 +76,8 @@ import org.springframework.core.env.Environment;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
+// NOTE: the optional rate-limit override file is @PropertySource'd on RateLimitEngineFactory, not
+// here, so it loads wherever the engine is built (not only the war).
 public class CommonApplicationConfig {
 
   @Autowired private Environment environment;
