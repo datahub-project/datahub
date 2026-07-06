@@ -1,6 +1,7 @@
 """Unit tests for Dataplex entry-type mappers (payload -> DataHub entities)."""
 
 import string
+from datetime import datetime, timezone
 from typing import Optional, cast
 from unittest.mock import Mock, patch
 
@@ -13,6 +14,10 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
     ContainerIdentity,
     DatasetIdentity,
     EntryMappingContext,
+    _extract_datetime,
+    _extract_description,
+    _extract_display_name,
+    _extract_entry_group_id,
     dataset_urn_from_fqn_only,
     get_entry_mapper,
     is_lineage_supported,
@@ -375,6 +380,24 @@ def test_dataset_name_format_fields_are_captured_by_fqn_regex(short_name: str) -
     )
 
 
+PARENT_TYPES = [c[0] for c in CASES if c[2]]  # entries with a parent_entry
+
+
+@pytest.mark.parametrize("short_name", PARENT_TYPES)
+def test_parent_entry_regex_groups_are_parent_key_fields(short_name: str) -> None:
+    """Guardrail for the parent-entry regex↔key-field contract the docstring
+    claims: every named group of a ParentEntryLink's regex must be a field on its
+    schema-key class (instantiate_key silently drops unknown groups, so a
+    renamed/superfluous group would otherwise build a wrong-but-valid key)."""
+    link = ENTRY_MAPPERS[short_name].dataplex_parent_entry
+    assert link is not None
+    regex_groups = set(link.dataplex_parent_entry_regex.groupindex.keys())
+    key_fields = set(link.datahub_schemakey_class.model_fields.keys())
+    assert regex_groups <= key_fields, (
+        f"{short_name}: parent regex groups {regex_groups} not all key fields {key_fields}"
+    )
+
+
 CONTAINER_TYPES = {c[0] for c in CASES if c[3] == "Container"}
 
 
@@ -439,3 +462,66 @@ def test_graph_schema_fallback_used_only_for_spanner_graph() -> None:
             _ctx(include_schema=True),
         )
         assert not mock_graph.called
+
+
+# ---------------------------------------------------------------------------
+# Payload-extraction helpers (partial-payload branches not covered by goldens)
+# ---------------------------------------------------------------------------
+
+
+def test_extract_display_name_prefers_source_then_falls_back() -> None:
+    entry = Mock(spec=dataplex_v1.Entry)
+    entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
+
+    source = Mock()
+    source.display_name = "Nice Name"
+    entry.entry_source = source
+    assert _extract_display_name(entry) == "Nice Name"
+
+    # Non-string display_name falls back to the last name segment.
+    source.display_name = Mock()
+    assert _extract_display_name(entry) == "e1"
+
+    # Missing entry_source also falls back.
+    entry.entry_source = None
+    assert _extract_display_name(entry) == "e1"
+
+
+def test_extract_description_defaults_to_empty() -> None:
+    entry = Mock(spec=dataplex_v1.Entry)
+    source = Mock()
+    source.description = "some description"
+    entry.entry_source = source
+    assert _extract_description(entry) == "some description"
+
+    entry.entry_source = None
+    assert _extract_description(entry) == ""
+
+
+def test_extract_datetime_converts_to_utc_and_guards() -> None:
+    entry = Mock(spec=dataplex_v1.Entry)
+
+    entry.entry_source = None
+    assert _extract_datetime(entry, "create_time") is None
+
+    source = Mock()
+    ts = Mock()
+    ts.timestamp.return_value = 1_700_000_000.0
+    source.create_time = ts
+    source.update_time = None
+    entry.entry_source = source
+    assert _extract_datetime(entry, "create_time") == datetime.fromtimestamp(
+        1_700_000_000.0, tz=timezone.utc
+    )
+    assert _extract_datetime(entry, "update_time") is None
+
+
+def test_extract_entry_group_id_and_unknown_fallback() -> None:
+    assert (
+        _extract_entry_group_id(
+            "projects/p/locations/us/entryGroups/@bigquery/entries/e"
+        )
+        == "@bigquery"
+    )
+    # No entryGroups segment -> "unknown".
+    assert _extract_entry_group_id("projects/p/locations/us/entries/e") == "unknown"
