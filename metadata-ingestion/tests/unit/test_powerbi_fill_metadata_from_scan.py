@@ -1794,3 +1794,38 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     info_titles = [i.title for i in api.reporter.infos]
     assert "Missing Dataset Lineage For Tile" in info_titles
     assert "Missing Report Lineage For Tile" in info_titles
+
+
+def test_get_workspace_datasets_recovers_parameters_from_scan_expressions():
+    """Under admin_apis_only the regular /parameters endpoint is unavailable, so
+    dataset parameters must be recovered from the scan result's dataset-level
+    `expressions` array to keep M-query lineage resolvable."""
+    api = _make_api(admin_apis_only=True)
+    workspace = _make_workspace("ws-1")
+    workspace.scan_result = _scan_workspace_payload(
+        "ws-1",
+        datasets=[
+            {
+                Constant.ID: "ds-1",
+                Constant.NAME: "ds",
+                "tables": [],
+                "expressions": [
+                    {
+                        "name": "Revenues",
+                        "expression": "let\n    Source = Sql.Database(SrvName, DbName)\nin\n    Source",
+                    },
+                    {
+                        "name": "SrvName",
+                        "expression": '"adb-574989277074981.1.azuredatabricks.net" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]',
+                    },
+                ],
+            }
+        ],
+    )
+
+    datasets = api._get_workspace_datasets(workspace)
+
+    # Only the parameter is recovered; the shared query expression is skipped.
+    assert datasets["ds-1"].parameters == {
+        "SrvName": "adb-574989277074981.1.azuredatabricks.net"
+    }

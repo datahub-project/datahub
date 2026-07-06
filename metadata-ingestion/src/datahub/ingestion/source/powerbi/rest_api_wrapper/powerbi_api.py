@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     new_powerbi_dashboards,
     new_powerbi_dataset,
     new_powerbi_reports,
+    parse_dataset_parameters_from_expressions,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -612,14 +613,24 @@ class PowerBiAPI:
             dataset_instance = new_powerbi_dataset(workspace, dataset_dict)
 
             # fetch + set dataset parameters
+            regular_parameters: Dict[str, str] = {}
             try:
-                dataset_parameters = self._get_resolver().get_dataset_parameters(
+                regular_parameters = self._get_resolver().get_dataset_parameters(
                     workspace_id=workspace.id,
                     dataset_id=dataset_id,
                 )
-                dataset_instance.parameters = dataset_parameters
             except Exception as e:
                 logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
+
+            # The admin scan (datasetExpressions=true) carries parameter values in
+            # the dataset-level `expressions` array. Use them as a base so
+            # admin_apis_only ingestions — where the regular /parameters endpoint is
+            # unavailable — can still resolve M-query parameters for lineage. Values
+            # from the regular API win when both are present.
+            scan_parameters = parse_dataset_parameters_from_expressions(
+                dataset_dict.get(Constant.EXPRESSIONS)
+            )
+            dataset_instance.parameters = {**scan_parameters, **regular_parameters}
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(

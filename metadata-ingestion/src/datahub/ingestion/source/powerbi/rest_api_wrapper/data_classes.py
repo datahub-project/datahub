@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -440,6 +441,36 @@ class Dashboard:
 
     def __hash__(self):
         return hash(self.__members())
+
+
+def parse_dataset_parameters_from_expressions(
+    expressions: Optional[List[Dict[str, str]]],
+) -> Dict[str, str]:
+    """Extract Power BI query parameter name->value pairs from a scan result's
+    dataset-level ``expressions`` array (returned when the scan is created with
+    ``datasetExpressions=true``).
+
+    A parameter is an M expression of the form ``<literal> meta [IsParameterQuery=true, ...]``,
+    e.g. ``"adb-....azuredatabricks.net" meta [IsParameterQuery=true, Type="Text"]``.
+    Shared (non-parameter) query expressions are skipped. This lets ``admin_apis_only``
+    ingestions resolve M-query parameters that would otherwise only come from the
+    regular ``/datasets/{id}/parameters`` endpoint (unavailable via the Admin API).
+    """
+    parameters: Dict[str, str] = {}
+    for expression in expressions or []:
+        name = expression.get(Constant.NAME)
+        raw = expression.get(Constant.EXPRESSION)
+        # Only literal parameter queries carry a resolvable value; skip shared
+        # query expressions (which are full ``let ... in ...`` M programs).
+        if not name or not raw or "IsParameterQuery=true" not in raw.replace(" ", ""):
+            continue
+        # Drop the trailing ``meta [ ... ]`` annotation to leave just the literal.
+        value = re.sub(r"\s*meta\s*\[.*\]\s*$", "", raw, flags=re.DOTALL).strip()
+        # Unwrap an M text literal; leave numeric/other literals untouched.
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+        parameters[name] = value
+    return parameters
 
 
 def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:

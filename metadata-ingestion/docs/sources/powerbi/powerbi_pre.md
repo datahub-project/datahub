@@ -43,7 +43,7 @@ If you have granted your Entra application permissions to the public APIs and ad
 If you don't want to add an Entra application as a member in your workspace, then you can enable `admin_apis_only: true` in your recipe to use the Power BI Admin API only. Caveats of setting `admin_apis_only` to `true`:
 
 - Report Pages will not get ingested as the page API is not available in the Power BI Admin API
-- [Power BI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) will not get resolved to actual values while processing M-Query for table lineage
+- [Power BI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) referenced in M-Queries are resolved from the dataset's mashup expressions returned by the Admin scan. This requires the **"Enhance admin APIs responses with DAX and mashup expressions"** tenant setting to be enabled for your Entra application (see [Admin APIs ingestion](#admin-apis-ingestion) below). Without that setting — or for parameters whose values are not present in the mashup expressions — M-Query table lineage may be incomplete.
 - Dataset profiling is unavailable, as it requires access to the non-admin workspace API
 
 #### Admin APIs ingestion

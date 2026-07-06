@@ -123,6 +123,7 @@ class Constant:
     ENDORSEMENT_DETAIL = "endorsementDetails"
     TABLES = "tables"
     EXPRESSION = "expression"
+    EXPRESSIONS = "expressions"
     SOURCE = "source"
     SCHEMA_METADATA = "schemaMetadata"
     PLATFORM_NAME = "powerbi"
