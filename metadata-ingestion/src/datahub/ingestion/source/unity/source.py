@@ -1383,7 +1383,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         catalog = table.schema.catalog
         if not (
             catalog.is_foreign_catalog
-            and self.config.federation_resolve_columns_from_external
+            and self.config.include_federation_column_backfill
         ):
             return None
         external_urn = self._external_dataset_urn(
@@ -2304,7 +2304,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.num_federation_columns_backfilled += 1
             elif (
                 table.schema.catalog.is_foreign_catalog
-                and self.config.federation_resolve_columns_from_external
+                and self.config.include_federation_column_backfill
             ):
                 # Backfill was requested for a schema-less foreign table but produced
                 # nothing (no graph configured, or the external source isn't ingested

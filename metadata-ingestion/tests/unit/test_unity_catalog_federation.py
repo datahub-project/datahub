@@ -851,7 +851,7 @@ def test_resolve_external_schema_fields_none_when_disabled():
             {
                 **_BASE,
                 "include_metastore": False,
-                "federation_resolve_columns_from_external": False,
+                "include_federation_column_backfill": False,
             }
         )
         src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)

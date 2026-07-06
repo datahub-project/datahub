@@ -353,7 +353,7 @@ class UnityCatalogSourceConfig(
             description="Per-connection overrides keyed by Unity Catalog connection name.",
         )
     )
-    federation_resolve_columns_from_external: bool = pydantic.Field(
+    include_federation_column_backfill: bool = pydantic.Field(
         default=True,
         description="For foreign (Lakehouse Federation) catalog tables whose columns "
         "Unity Catalog has not synced yet, resolve the schema from the already-ingested "
