@@ -36,8 +36,6 @@ def _make_api(monkeypatch, **config_overrides) -> DremioAPIOperations:
 
 class TestViewDefinitionQueries:
     def test_datasets_query_does_not_carry_view_definition(self):
-        # The per-column datasets query must not select VIEW_DEFINITION — that
-        # duplication per column is what overflowed Dremio's 2 GiB vector.
         for query in (
             DremioSQLQueries.QUERY_DATASETS_CE_GLOBAL,
             DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
@@ -46,9 +44,7 @@ class TestViewDefinitionQueries:
             assert "VIEW_DEFINITION" not in query
             assert "SQL_DEFINITION" not in query
 
-    def test_view_definition_queries_are_one_row_per_view(self):
-        # The dedicated view queries carry the definition but must not join
-        # against COLUMNS (which is what caused the per-column fan-out).
+    def test_view_definition_queries_do_not_join_columns(self):
         for query in (
             DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE,
             DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE,
@@ -94,7 +90,6 @@ class TestGetViewDefinitions:
         result = api._get_view_definitions("", "")
 
         assert result == {"space.view_a": "SELECT 1", "space.view_b": "SELECT 2"}
-        # SUBSTR must not appear when no truncation is configured.
         query_arg = api.execute_query_iter.call_args[1]["query"]
         assert "SUBSTR" not in query_arg
         assert "LIMIT 1000 OFFSET 0" in query_arg
@@ -125,8 +120,6 @@ class TestGetViewDefinitions:
 
         result = api._get_view_definitions("", "")
 
-        # Partial (empty) map returned, but the run is marked failed rather
-        # than silently dropping view definitions.
         assert result == {}
         api.report.failure.assert_called_once()
 

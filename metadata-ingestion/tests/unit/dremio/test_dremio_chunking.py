@@ -124,8 +124,6 @@ class TestDremioChunking:
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter(mock_results)
         )
-        # View definitions are now fetched by a separate query; stub it out so
-        # this test stays focused on the global-query dispatch.
         dremio_api._get_view_definitions = Mock(return_value={})
 
         tables = list(dremio_api.get_all_tables_and_columns())

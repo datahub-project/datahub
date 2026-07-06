@@ -750,9 +750,8 @@ class DremioAPIOperations:
         return f"AND {operator}({field}, '{pattern_str}')"
 
     def _get_view_definition_select(self) -> str:
-        # EE/Cloud store the SQL under SYS.VIEWS.SQL_DEFINITION; Community under
-        # INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION. SUBSTR caps oversized
-        # definitions server-side before the VARCHAR vector is built.
+        # EE/Cloud expose the SQL as SYS.VIEWS.SQL_DEFINITION; Community as
+        # INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION.
         source_column = (
             "VIEW_DEFINITION"
             if self.edition == DremioEdition.COMMUNITY
@@ -778,12 +777,7 @@ class DremioAPIOperations:
         schema_condition: str,
         deny_schema_condition: str,
     ) -> Dict[str, Optional[str]]:
-        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view.
-
-        Kept out of the per-column datasets query so a large definition isn't
-        duplicated per column — that duplication overflowed Dremio's 2 GiB
-        VARCHAR vector (OversizedAllocationException) and dropped datasets.
-        """
+        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view."""
         query_template = self._get_view_definition_query()
         definitions: Dict[str, Optional[str]] = {}
 
@@ -810,8 +804,7 @@ class DremioAPIOperations:
             try:
                 chunk_results = list(self.execute_query_iter(query=formatted_query))
             except DremioAPIException as e:
-                # Fail loudly rather than silently dropping view definitions and
-                # the lineage derived from them.
+                # Fail loudly rather than silently dropping view definitions.
                 self.report.failure(
                     message="Failed to fetch Dremio view definitions; view "
                     "lineage may be incomplete. Consider setting "
