@@ -422,7 +422,7 @@ class TestEventModeFallback:
         """Test fallback when Events API returns HTTP error."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -430,7 +430,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise HTTP error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 # Simulate HTTP 500 error
                 mock_response = Mock()
                 mock_response.raise_for_status.side_effect = requests.HTTPError(
@@ -452,7 +452,7 @@ class TestEventModeFallback:
         """Test fallback when Events API connection fails."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -460,7 +460,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise connection error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.ConnectionError("Connection refused")
 
                 # Mock batch mode
@@ -477,7 +477,7 @@ class TestEventModeFallback:
         """Test fallback when Events API times out."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -485,7 +485,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise timeout
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.Timeout("Request timed out")
 
                 # Mock batch mode
@@ -500,7 +500,7 @@ class TestEventModeFallback:
 
     def test_no_fallback_when_offsets_exist(self, ctx, config, mock_graph):
         """Test that fallback does NOT occur when offsets exist and events are processed."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -509,7 +509,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling with events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -559,7 +559,7 @@ class TestEventModeFallback:
 
     def test_fallback_when_no_events_and_no_lookback(self, ctx, config, mock_graph):
         """Test fallback when no events processed and no lookback window."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -568,7 +568,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling but no events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -779,7 +779,7 @@ class TestStateStorage:
     def test_event_mode_stores_offsets(self, ctx, config, mock_graph):
         """Test that event mode stores offsets in state."""
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             source.config.event_mode.enabled = True
 
@@ -790,7 +790,7 @@ class TestStateStorage:
             mock_state_handler.update_event_offset = Mock()
 
             # Mock successful event polling
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -1014,7 +1014,7 @@ class TestStateStorage:
         """Test that fallback to batch mode preserves existing event offsets."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             source.config.event_mode.enabled = True
 
@@ -1023,52 +1023,50 @@ class TestStateStorage:
             mock_state_handler.is_checkpointing_enabled.return_value = True
             mock_state_handler.get_event_offset.return_value = "existing-offset-123"
 
-            # Mock event API to fail (triggers fallback)
-            with patch("requests.get") as mock_get:
-                mock_get.side_effect = requests.ConnectionError("Connection refused")
+            # Event polling goes through the graph's session; make it fail to
+            # trigger the fallback to batch mode.
+            mock_graph_cls.return_value.session.get.side_effect = (
+                requests.ConnectionError("Connection refused")
+            )
 
-                # Mock batch mode
-                mock_docs = [{"urn": "urn:li:document:1", "text": "Document 1"}]
-                with (
-                    patch.object(
-                        source, "_fetch_documents_graphql", return_value=mock_docs
-                    ),
-                    patch.object(
-                        source, "_process_single_document", return_value=iter([])
-                    ),
-                ):
-                    mock_state_handler.update_document_state = Mock()
-                    mock_state_handler.update_event_offset = Mock()
+            # Mock batch mode
+            mock_docs = [{"urn": "urn:li:document:1", "text": "Document 1"}]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(source, "_process_single_document", return_value=iter([])),
+            ):
+                mock_state_handler.update_document_state = Mock()
+                mock_state_handler.update_event_offset = Mock()
 
-                    # Process in event mode - should fallback
-                    list(source._process_event_mode())
+                # Process in event mode - should fallback
+                list(source._process_event_mode())
 
-                    # Verify document state was updated (fallback processed documents)
-                    mock_state_handler.update_document_state.assert_called_once()
+                # Verify document state was updated (fallback processed documents)
+                mock_state_handler.update_document_state.assert_called_once()
 
-                    # Note: update_event_offset may be called when event consumer closes
-                    # This is fine - it preserves the existing offset value
-                    # The important thing is that offsets are not cleared
+                # Note: update_event_offset may be called when event consumer closes
+                # This is fine - it preserves the existing offset value
+                # The important thing is that offsets are not cleared
 
-                    # Verify existing offset is still accessible (not cleared)
-                    assert (
-                        mock_state_handler.get_event_offset(
-                            "MetadataChangeLog_Versioned_v1"
-                        )
-                        == "existing-offset-123"
+                # Verify existing offset is still accessible (not cleared)
+                assert (
+                    mock_state_handler.get_event_offset(
+                        "MetadataChangeLog_Versioned_v1"
                     )
+                    == "existing-offset-123"
+                )
 
-                    # Verify offset was preserved (not changed to a different value)
-                    # If update_event_offset was called, it should be with the same offset
-                    if mock_state_handler.update_event_offset.called:
-                        offset_calls = (
-                            mock_state_handler.update_event_offset.call_args_list
-                        )
-                        # All calls should preserve the existing offset
-                        for call in offset_calls:
-                            assert (
-                                call[0][1] == "existing-offset-123"
-                            )  # Same offset preserved
+                # Verify offset was preserved (not changed to a different value)
+                # If update_event_offset was called, it should be with the same offset
+                if mock_state_handler.update_event_offset.called:
+                    offset_calls = mock_state_handler.update_event_offset.call_args_list
+                    # All calls should preserve the existing offset
+                    for call in offset_calls:
+                        assert (
+                            call[0][1] == "existing-offset-123"
+                        )  # Same offset preserved
 
     def test_incremental_mode_skips_unchanged_documents(self, ctx, config, mock_graph):
         """Test that incremental mode skips documents with unchanged hashes."""
@@ -2274,8 +2272,8 @@ class TestGetCurrentOffset:
         """Create a mock DataHubGraph."""
         graph = Mock()
         graph.config.server = "http://localhost:8080"
-        graph._session = Mock()
-        graph._session.headers = {"Authorization": "Bearer test-token"}
+        graph.session = Mock()
+        graph.session.headers = {"Authorization": "Bearer test-token"}
         return graph
 
     def test_get_current_offset_success(self, mock_graph):
@@ -2284,21 +2282,22 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get response
+        # The consumer polls through the graph's session (session.auth carries
+        # OAuth credentials), so mock the session, not module-level requests.
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-123"}
         mock_response.raise_for_status = Mock()
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            assert offset == "test-offset-123"
+        assert offset == "test-offset-123"
 
     def test_get_current_offset_no_offset_in_response(self, mock_graph):
         """Test when Events API returns no offsetId."""
@@ -2306,21 +2305,20 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get response with no offsetId
         mock_response = Mock()
         mock_response.json.return_value = {"events": []}  # No offsetId field
         mock_response.raise_for_status = Mock()
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            assert offset is None
+        assert offset is None
 
     def test_get_current_offset_http_error(self, mock_graph):
         """Test when Events API returns HTTP error."""
@@ -2330,23 +2328,22 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get to raise HTTPError
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "401 Unauthorized"
         )
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            # Should return None on error, not raise
-            assert offset is None
+        # Should return None on error, not raise
+        assert offset is None
 
     def test_get_current_offset_connection_error(self, mock_graph):
         """Test when Events API connection fails."""
@@ -2356,21 +2353,20 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get to raise ConnectionError
-        with patch(
-            "requests.get",
-            side_effect=requests.exceptions.ConnectionError("Connection failed"),
-        ):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        mock_graph.session.get.side_effect = requests.exceptions.ConnectionError(
+            "Connection failed"
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            # Should return None on error, not raise
-            assert offset is None
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+
+        # Should return None on error, not raise
+        assert offset is None
 
     def test_get_current_offset_polls_with_no_offset_and_no_lookback(self, mock_graph):
         """Test that get_current_offset polls with no offsetId and no lookbackWindowDays."""
@@ -2381,25 +2377,26 @@ class TestGetCurrentOffset:
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-456"}
         mock_response.raise_for_status = Mock()
+        mock_get = mock_graph.session.get
+        mock_get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            # Verify the request was made with correct parameters
-            assert mock_get.called
-            call_args = mock_get.call_args
-            assert call_args[1]["params"]["topic"] == "MetadataChangeLog_Versioned_v1"
-            assert call_args[1]["params"]["limit"] == 1
-            # Should NOT include offsetId or lookbackWindowDays
-            assert "offsetId" not in call_args[1]["params"]
-            assert "lookbackWindowDays" not in call_args[1]["params"]
-            assert offset == "test-offset-456"
+        # Verify the request was made with correct parameters
+        assert mock_get.called
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["topic"] == "MetadataChangeLog_Versioned_v1"
+        assert call_args[1]["params"]["limit"] == 1
+        # Should NOT include offsetId or lookbackWindowDays
+        assert "offsetId" not in call_args[1]["params"]
+        assert "lookbackWindowDays" not in call_args[1]["params"]
+        assert offset == "test-offset-456"
 
 
 class TestDataHubGraphInitialization:

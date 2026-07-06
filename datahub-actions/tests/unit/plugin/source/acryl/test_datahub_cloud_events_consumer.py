@@ -29,7 +29,7 @@ from datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer_offsets_s
 @pytest.fixture
 def mock_graph() -> DataHubGraph:
     """
-    Provide a mock DataHubGraph instance, including a mock config and _session.
+    Provide a mock DataHubGraph instance, including a mock config and session.
     This prevents 'AttributeError: Mock object has no attribute "config"'.
     """
     mock_graph = MagicMock(spec=DataHubGraph)
@@ -42,7 +42,7 @@ def mock_graph() -> DataHubGraph:
     # Mock _session with headers
     mock_session = MagicMock()
     mock_session.headers = {"Authorization": "Bearer test-token"}
-    mock_graph._session = mock_session
+    mock_graph.session = mock_session
 
     return cast(DataHubGraph, mock_graph)
 
@@ -146,48 +146,48 @@ def test_poll_events_success(
         offset_id="initial-offset-456",
     )
 
-    with patch("requests.get") as mock_get:
-        mock_response = MagicMock()
-        # Simulate JSON decoding
-        mock_response.json.return_value = {
-            "offsetId": external_events_response.offsetId,
-            "count": external_events_response.count,
-            "events": [
-                {"contentType": evt.contentType, "value": evt.value}
-                for evt in external_events_response.events
-            ],
-        }
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+    mock_get = cast(MagicMock, mock_graph.session.get)
+    mock_response = MagicMock()
+    # Simulate JSON decoding
+    mock_response.json.return_value = {
+        "offsetId": external_events_response.offsetId,
+        "count": external_events_response.count,
+        "events": [
+            {"contentType": evt.contentType, "value": evt.value}
+            for evt in external_events_response.events
+        ],
+    }
+    mock_response.raise_for_status.return_value = None
+    mock_get.return_value = mock_response
 
-        polled_response = consumer.poll_events(
-            topic="TestTopic",
-            offset_id=given_offset_id,
-            limit=10,
-            poll_timeout_seconds=5,
-        )
+    polled_response = consumer.poll_events(
+        topic="TestTopic",
+        offset_id=given_offset_id,
+        limit=10,
+        poll_timeout_seconds=5,
+    )
 
-        # Verify the request params
-        expected_params = {
-            "topic": "TestTopic",
-            "offsetId": given_offset_id or "initial-offset-456",
-            "limit": 10,
-            "pollTimeoutSeconds": 5,
-        }
+    # Verify the request params
+    expected_params = {
+        "topic": "TestTopic",
+        "offsetId": given_offset_id or "initial-offset-456",
+        "limit": 10,
+        "pollTimeoutSeconds": 5,
+    }
 
-        # Check that requests.get was called once
-        mock_get.assert_called_once()
-        call_args, call_kwargs = mock_get.call_args
-        assert call_args[0] == f"{consumer.base_url}/v1/events/poll"
-        assert call_kwargs["params"] == expected_params
+    # Check that requests.get was called once
+    mock_get.assert_called_once()
+    call_args, call_kwargs = mock_get.call_args
+    assert call_args[0] == f"{consumer.base_url}/v1/events/poll"
+    assert call_kwargs["params"] == expected_params
 
-        # Verify returned response
-        assert polled_response.offsetId == external_events_response.offsetId
-        assert polled_response.count == external_events_response.count
-        assert len(polled_response.events) == len(external_events_response.events)
+    # Verify returned response
+    assert polled_response.offsetId == external_events_response.offsetId
+    assert polled_response.count == external_events_response.count
+    assert len(polled_response.events) == len(external_events_response.events)
 
-        # The consumer's offset_id should be updated
-        assert consumer.offset_id == external_events_response.offsetId
+    # The consumer's offset_id should be updated
+    assert consumer.offset_id == external_events_response.offsetId
 
 
 def test_poll_events_http_error(mock_graph: DataHubGraph) -> None:
@@ -208,8 +208,8 @@ def test_poll_events_http_error(mock_graph: DataHubGraph) -> None:
             if n == 15
             else stop_after_attempt(n),
         ),
-        patch(
-            "requests.get", side_effect=HTTPError(response=dummy_response)
+        patch.object(
+            mock_graph.session, "get", side_effect=HTTPError(response=dummy_response)
         ) as mock_get,
     ):
         with pytest.raises(HTTPError):
@@ -235,8 +235,8 @@ def test_poll_events_connection_error(mock_graph: DataHubGraph) -> None:
             "datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer.stop_after_attempt",
             return_value=stop_after_attempt(3),
         ),
-        patch(
-            "requests.get", side_effect=ConnectionError("Connection Error")
+        patch.object(
+            mock_graph.session, "get", side_effect=ConnectionError("Connection Error")
         ) as mock_get,
     ):
         with pytest.raises(ConnectionError):
@@ -262,8 +262,10 @@ def test_poll_events_chunked_encoding_error(mock_graph: DataHubGraph) -> None:
             "datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer.stop_after_attempt",
             return_value=stop_after_attempt(3),
         ),
-        patch(
-            "requests.get", side_effect=ChunkedEncodingError("Chunked Encoding Error")
+        patch.object(
+            mock_graph.session,
+            "get",
+            side_effect=ChunkedEncodingError("Chunked Encoding Error"),
         ) as mock_get,
     ):
         with pytest.raises(ChunkedEncodingError):
@@ -289,7 +291,9 @@ def test_poll_events_timeout(mock_graph: DataHubGraph) -> None:
             "datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer.stop_after_attempt",
             return_value=stop_after_attempt(3),
         ),
-        patch("requests.get", side_effect=Timeout("Request Timeout")) as mock_get,
+        patch.object(
+            mock_graph.session, "get", side_effect=Timeout("Request Timeout")
+        ) as mock_get,
     ):
         with pytest.raises(Timeout):
             consumer.poll_events(topic="TestTopic")
@@ -390,7 +394,7 @@ def test_poll_events_infinite_retry_retries_more_than_default(
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch("requests.get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 6 times (5 failures + 1 success)
@@ -418,8 +422,8 @@ def test_poll_events_infinite_retry_false_uses_default_retries(
             "datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer.stop_after_attempt",
             return_value=stop_after_attempt(3),
         ),
-        patch(
-            "requests.get", side_effect=HTTPError(response=dummy_response)
+        patch.object(
+            mock_graph.session, "get", side_effect=HTTPError(response=dummy_response)
         ) as mock_get,
     ):
         with pytest.raises(HTTPError):
@@ -460,7 +464,7 @@ def test_poll_events_infinite_retry_connection_error(
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch("requests.get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 5 times (4 failures + 1 success)
@@ -497,7 +501,7 @@ def test_poll_events_infinite_retry_timeout(mock_graph: DataHubGraph) -> None:
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch("requests.get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 8 times (7 failures + 1 success)
