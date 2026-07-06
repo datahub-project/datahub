@@ -55,6 +55,17 @@ public class UsageMetadataChangeProposalEnricherTest {
   }
 
   @Test
+  public void testSkipsWhenRequestContextNull() {
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getRequestContext()).thenReturn(null);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+
+    UsageMetadataChangeProposalEnricher.enrich(opContext, mcp);
+
+    Assert.assertFalse(UsageDedupHeaders.isPreRecorded(mcp));
+  }
+
+  @Test
   public void testSkipsMessagingRequestApi() {
     RequestContext requestContext =
         RequestContext.builder()
