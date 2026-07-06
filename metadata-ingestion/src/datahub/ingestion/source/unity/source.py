@@ -1350,7 +1350,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.federation_link_type == FederationLinkType.SIBLINGS:
             yield from self.gen_siblings_workunit(dataset_urn, external_urn)
         elif self.config.federation_link_type == FederationLinkType.LINEAGE:
-            yield from self.gen_lineage_workunit(dataset_urn, external_urn)
+            # A foreign catalog is a read-only mirror (copy) of the external
+            # dataset, so COPY is more accurate than the default VIEW used for the
+            # delta-lake sibling path.
+            yield from self.gen_lineage_workunit(
+                dataset_urn, external_urn, lineage_type=DatasetLineageType.COPY
+            )
         else:
             assert_never(self.config.federation_link_type)
 
@@ -2447,6 +2452,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
+        lineage_type: DatasetLineageType = DatasetLineageType.VIEW,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate dataset to source connector lineage workunit
@@ -2454,8 +2460,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
-                upstreams=[
-                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                upstreams=[Upstream(dataset=source_dataset_urn, type=lineage_type)]
             ),
         ).as_workunit()
