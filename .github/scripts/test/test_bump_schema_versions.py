@@ -1069,3 +1069,40 @@ def test_check_mode_passes_for_comment_only_change(tmp_path, monkeypatch):
     rc = _run_check(tmp_path, monkeypatch, [enum_file], {str(enum_file): enum_base})
 
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# main() release/hotfix skip
+# ---------------------------------------------------------------------------
+
+
+def test_main_skips_on_explicit_release_base(monkeypatch):
+    monkeypatch.setattr(
+        sys, "argv",
+        ["bump_schema_versions.py", "--check", "--base-branch", "releases/v0.3.12"],
+    )
+    # If the skip fails, main() would call get_merge_base — make that explode.
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_skips_when_nearest_ancestor_is_release(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: "origin/releases/v0.3.12")
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_local_no_release_ancestor_proceeds(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: None)
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [])
+    # No changed PDL files → main() returns 0 after resolving the default base.
+    assert bsv.main() == 0

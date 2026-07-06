@@ -14,6 +14,10 @@ Rules:
   - If a non-aspect record A is included by aspect B and A changes, B is bumped
   - If a non-aspect record A is referenced as a field type in aspect B
     (e.g. `schedule: optional A`) and A changes, B is bumped
+  - The check is skipped entirely (exit 0, no bump) when the base is a
+    release (releases/*) or hotfix (hotfixes/*) branch. CI classifies the
+    explicit --base-branch; the local pre-commit hook infers the nearest
+    ancestor branch. OSS repos have no such branches, so this never fires there.
 
 Environment variables:
   PDL_ROOTS    Colon-separated list of PDL source roots to scan.
@@ -753,8 +757,6 @@ def find_transitively_affected_aspects(
 
 
 def main() -> int:
-    default_branch = detect_default_branch()
-
     parser = argparse.ArgumentParser(
         description="Bump schemaVersion on changed PDL aspect files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -762,8 +764,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--base-branch",
-        default=default_branch,
-        help=f"Branch to compare against (default: auto-detected '{default_branch}')",
+        default=None,
+        help="Branch to compare against. Defaults to the auto-detected default "
+        "branch. The check is skipped entirely when the base is a releases/* or "
+        "hotfixes/* branch.",
     )
     parser.add_argument(
         "--dry-run",
@@ -784,7 +788,31 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    remote_ref = f"refs/remotes/origin/{args.base_branch}"
+    # Skip on release/hotfix lines: the version-bump check compares against
+    # trunk and would demand pulling unrelated trunk schema churn into a
+    # release/hotfix. When an explicit base is given (CI passes the PR target),
+    # classify it directly; otherwise (local pre-commit hook) infer the nearest
+    # ancestor branch from git topology.
+    if args.base_branch is not None:
+        if is_release_or_hotfix_branch(args.base_branch):
+            print(
+                f"Base branch '{args.base_branch}' is a release/hotfix branch; "
+                "skipping schema version check."
+            )
+            return 0
+        base_branch = args.base_branch
+    else:
+        default_branch = detect_default_branch()
+        nearest = find_nearest_ancestor_release_branch(default_branch)
+        if nearest:
+            print(
+                f"Nearest base branch '{nearest}' is a release/hotfix branch; "
+                "skipping schema version check."
+            )
+            return 0
+        base_branch = default_branch
+
+    remote_ref = f"refs/remotes/origin/{base_branch}"
     merge_base = get_merge_base(remote_ref)
 
     directly_changed = get_changed_pdl_files(merge_base)
@@ -816,15 +844,15 @@ def main() -> int:
     if conflicting:
         files_list = "\n".join(f"  {f}" for f in conflicting)
         print(
-            f"ERROR: The following PDL file(s) also changed on {args.base_branch} "
+            f"ERROR: The following PDL file(s) also changed on {base_branch} "
             f"since this branch diverged. Please merge or rebase from "
-            f"{args.base_branch} first:\n{files_list}",
+            f"{base_branch} first:\n{files_list}",
             file=sys.stderr,
         )
         return 1
 
     if args.verbose:
-        print(f"Comparing against branch: {args.base_branch} (merge-base: {merge_base[:12]})")
+        print(f"Comparing against branch: {base_branch} (merge-base: {merge_base[:12]})")
         print(f"Found {len(directly_changed)} directly changed PDL file(s):")
         for f in directly_changed:
             print(f"  {f}")
