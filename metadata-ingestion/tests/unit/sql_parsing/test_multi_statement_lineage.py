@@ -861,3 +861,26 @@ class TestIsTempTablePredicate:
         )
         assert "staging" in _table_short_names(result.in_tables)
         assert "staging" in _table_short_names(result.out_tables)
+
+    def test_predicate_receives_name_without_platform_instance(self) -> None:
+        # With a platform_instance set, the aggregator strips the instance prefix
+        # before calling the predicate, so it still sees db.schema.table (not
+        # my_instance.db.schema.table) and the marked table is still collapsed.
+        seen: List[str] = []
+
+        def predicate(name: str) -> bool:
+            seen.append(name)
+            return name.split(".")[-1] == "staging"
+
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            platform_instance="my_instance",
+            is_temp_table=predicate,
+        )
+        assert "dev.public.staging" in seen
+        assert not any(name.startswith("my_instance") for name in seen)
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
