@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from typing import Optional, Pattern, Union
 
 from google.cloud import dataplex_v1
-from typing_extensions import assert_never
+from typing_extensions import TypeAlias, assert_never
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.source import SourceReport
@@ -113,7 +113,7 @@ class EntryMappingContext:
     report: SourceReport
 
 
-@dataclass
+@dataclass(frozen=True)
 class EntryMappingResult:
     """The DataHub entities a mapper produced for a single Dataplex entry.
 
@@ -128,20 +128,8 @@ class EntryMappingResult:
     lineage_entry: Optional[EntryDataTuple] = None
 
 
-class DatahubIdentity:
-    """How a mapper turns parsed FQN identity fields into its main entity's id.
-
-    Shared base for the two per-family variants — see :class:`DatasetIdentity`
-    and :class:`ContainerIdentity`. The variant a mapper carries also determines
-    ``EntryMapper.datahub_main_entity_type``. It is a plain base (not an ABC): the
-    variants expose different builders (``dataset_name`` vs ``container_key``), so
-    there is no shared abstract method. New identity shapes are added by
-    subclassing this and extending the ``datahub_main_entity_type`` dispatch.
-    """
-
-
 @dataclass(frozen=True)
-class DatasetIdentity(DatahubIdentity):
+class DatasetIdentity:
     """Dataset identity: a dotted name built from FQN fields via a format string.
 
     ``name_format`` references FQN named groups, e.g.
@@ -166,7 +154,7 @@ class DatasetIdentity(DatahubIdentity):
 
 
 @dataclass(frozen=True)
-class ContainerIdentity(DatahubIdentity):
+class ContainerIdentity:
     """Container identity: a ``ContainerKey`` built directly from FQN fields.
 
     ``key_class`` fields map 1:1 to FQN named groups (project_id, dataset_id, …).
@@ -182,6 +170,13 @@ class ContainerIdentity(DatahubIdentity):
         their names must match ``key_class`` fields.
         """
         return instantiate_key(self.key_class, identity_fields)
+
+
+# A mapper's identity is exactly one of these two variants. Modeled as a union
+# (not a shared base class) — the variants expose different builders
+# (dataset_name vs container_key), so there is no shared method, and the union
+# gives assert_never exhaustiveness in datahub_main_entity_type.
+DatahubIdentity: TypeAlias = Union[DatasetIdentity, ContainerIdentity]
 
 
 @dataclass(frozen=True)
@@ -281,7 +276,7 @@ class EntryMapper(ABC):
 
     @property
     @abstractmethod
-    def datahub_identity(self) -> Union[DatasetIdentity, ContainerIdentity]:
+    def datahub_identity(self) -> DatahubIdentity:
         """How this entry's parsed FQN fields become the main entity's DataHub id.
 
         A :class:`DatasetIdentity` (name built from a format string) or a
@@ -325,10 +320,12 @@ class EntryMapper(ABC):
 
     @property
     def datahub_additional_entity_types(self) -> tuple[type[Entity], ...]:
-        """Entities this mapper may also emit alongside the main one.
+        """Entity types this mapper may emit besides the main one (the owning
+        project Container, hence the default).
 
-        Declarative; the orchestrator dedups them. Every mapper emits the owning
-        project Container, hence the default.
+        Descriptive contract surface only — it documents the mapper's outputs and
+        is **not** consumed at runtime: the orchestrator dedups the concrete
+        ``result.additional_entities`` instances, not this declaration.
         """
         return (Container,)
 
@@ -693,6 +690,21 @@ def build_container(
     container_parent_key: Optional[DataplexProjectId] = None
     if parent is not None and entry.parent_entry:
         container_parent_key = parent.container_key(entry.parent_entry)
+        if container_parent_key is None:
+            # Mirror build_dataset: a present-but-unparseable parent_entry should
+            # not silently reparent the container under its project root.
+            ctx.report.warning(
+                title="Unparseable Dataplex parent_entry",
+                message=(
+                    "Could not parse parent_entry into a parent container. "
+                    "Falling back to the project container."
+                ),
+                context=(
+                    f"entry_type={entry.entry_type}, "
+                    f"entry_name={entry.name}, "
+                    f"parent_entry={entry.parent_entry}"
+                ),
+            )
     if container_parent_key is None:
         container_parent_key = _project_schema_key(
             fqn_regex, platform, entry.fully_qualified_name
