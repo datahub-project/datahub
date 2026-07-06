@@ -313,10 +313,12 @@ class EntryMapper(ABC):
 
     @property
     def datahub_additional_entity_types(self) -> tuple[type[Entity], ...]:
-        """Entities this mapper may also emit alongside the main one.
+        """Entity types this mapper may emit besides the main one (the owning
+        project Container, hence the default).
 
-        Declarative; the orchestrator dedups them. Every mapper emits the owning
-        project Container, hence the default.
+        Descriptive contract surface only — it documents the mapper's outputs and
+        is **not** consumed at runtime: the orchestrator dedups the concrete
+        ``result.additional_entities`` instances, not this declaration.
         """
         return (Container,)
 
