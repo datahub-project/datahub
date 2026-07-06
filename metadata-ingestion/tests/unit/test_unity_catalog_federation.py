@@ -21,7 +21,12 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    MySqlDDLClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
     SiblingsClass,
+    StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     UpstreamLineageClass,
@@ -309,7 +314,7 @@ def _make_source():
 
 def test_foreign_catalog_container_has_structured_properties():
     src = _make_source()
-    src.unity_catalog_api_proxy.connections = lambda: {
+    src.unity_catalog_api_proxy._connections_cache = {
         "pg_conn": ConnectionInfo(
             name="pg_conn", connection_type=ConnectionType.POSTGRESQL
         )
@@ -334,7 +339,7 @@ def test_foreign_catalog_container_has_structured_properties():
 
 def test_property_definitions_emitted_once_when_enabled():
     src = _make_source()
-    src.unity_catalog_api_proxy.connections = lambda: {}
+    src.unity_catalog_api_proxy._connections_cache = {}
     wus = list(src._gen_federation_property_definition_workunits())
     qns = {
         wu.get_aspect_of_type(StructuredPropertyDefinitionClass).qualifiedName
@@ -381,7 +386,7 @@ def _definition_qns(wus: List[MetadataWorkUnit]) -> Set[Optional[str]]:
 
 def test_property_definitions_emitted_lazily_from_gen_catalog_containers():
     src = _make_source()
-    src.unity_catalog_api_proxy.connections = lambda: {
+    src.unity_catalog_api_proxy._connections_cache = {
         "pg_conn": ConnectionInfo(
             name="pg_conn", connection_type=ConnectionType.POSTGRESQL
         )
@@ -411,7 +416,7 @@ def test_property_definitions_registered_via_graph_when_available():
     src = _make_source()
     graph = MagicMock()
     src.ctx.graph = graph
-    src.unity_catalog_api_proxy.connections = lambda: {
+    src.unity_catalog_api_proxy._connections_cache = {
         "pg_conn": ConnectionInfo(
             name="pg_conn", connection_type=ConnectionType.POSTGRESQL
         )
@@ -479,7 +484,7 @@ def _source_with_link(link_type: str, lowercase: bool = False) -> UnityCatalogSo
             }
         )
         src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
-    src.unity_catalog_api_proxy.connections = lambda: {  # type: ignore[method-assign]
+    src.unity_catalog_api_proxy._connections_cache = {
         "pg_conn": ConnectionInfo(
             name="pg_conn", connection_type=ConnectionType.POSTGRESQL
         )
@@ -594,7 +599,7 @@ def test_unresolved_target_warns_once_and_caches():
     src = _source_with_link("siblings")
     # No override in federation_connection_details for this connection, and the
     # connections API doesn't know about it either -> cannot resolve.
-    src.unity_catalog_api_proxy.connections = lambda: {}  # type: ignore[method-assign]
+    src.unity_catalog_api_proxy._connections_cache = {}
     catalog = Catalog(
         id="c",
         name="unresolvable_catalog",
@@ -639,7 +644,7 @@ def test_per_connection_lowercase_override_wins_over_global_false():
             }
         )
         src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
-    src.unity_catalog_api_proxy.connections = lambda: {  # type: ignore[method-assign]
+    src.unity_catalog_api_proxy._connections_cache = {
         "pg_conn": ConnectionInfo(
             name="pg_conn", connection_type=ConnectionType.POSTGRESQL
         )
@@ -692,3 +697,194 @@ def test_per_connection_lowercase_override_wins_over_global_false():
     assert up[0].upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
     )
+
+
+def _snowflake_conn_source() -> UnityCatalogSource:
+    """Source whose proxy resolves pg_conn -> a SNOWFLAKE connection."""
+    src = _make_source()
+    src.unity_catalog_api_proxy._connections_cache = {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.SNOWFLAKE
+        )
+    }
+    return src
+
+
+def _external_schema(fields: List[SchemaFieldClass]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="ext",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=MySqlDDLClass(tableSchema=""),
+        fields=fields,
+    )
+
+
+def _field(path: str) -> SchemaFieldClass:
+    return SchemaFieldClass(
+        fieldPath=path,
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="NUMBER",
+    )
+
+
+def test_resolve_external_schema_fields_backfills_from_graph():
+    src = _snowflake_conn_source()
+    graph = MagicMock()
+    graph.get_aspect.return_value = _external_schema(
+        [_field("invoice_id"), _field("total_amount")]
+    )
+    src.ctx.graph = graph
+
+    catalog = _foreign_catalog()  # connection pg_conn, options {"database": "my_db"}
+    table = _foreign_table(catalog)  # schema my_schema, table t, no columns
+
+    fields = src._resolve_external_schema_fields(table)
+
+    assert fields is not None
+    assert [f.fieldPath for f in fields] == ["invoice_id", "total_amount"]
+    # resolved against the external snowflake URN we synthesize from the connection
+    called_urn = graph.get_aspect.call_args.args[0]
+    assert "dataPlatform:snowflake" in called_urn
+    assert "my_db.my_schema.t" in called_urn
+
+
+def test_resolve_external_schema_fields_none_for_managed_catalog():
+    src = _snowflake_conn_source()
+    src.ctx.graph = MagicMock()
+    managed = Catalog(
+        id="c",
+        name="c",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.MANAGED_CATALOG,
+    )
+    assert src._resolve_external_schema_fields(_foreign_table(managed)) is None
+
+
+def test_resolve_external_schema_fields_none_without_graph():
+    src = _snowflake_conn_source()  # ctx.graph is None by default
+    assert (
+        src._resolve_external_schema_fields(_foreign_table(_foreign_catalog())) is None
+    )
+
+
+def test_resolve_external_schema_fields_none_when_disabled():
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_resolve_columns_from_external": False,
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.ctx.graph = MagicMock()
+    src.unity_catalog_api_proxy._connections_cache = {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.SNOWFLAKE
+        )
+    }
+    assert (
+        src._resolve_external_schema_fields(_foreign_table(_foreign_catalog())) is None
+    )
+
+
+def test_schema_metadata_backfilled_for_foreign_table_without_columns():
+    src = _snowflake_conn_source()
+    graph = MagicMock()
+    graph.get_aspect.return_value = _external_schema(
+        [_field("invoice_id"), _field("total_amount")]
+    )
+    src.ctx.graph = graph
+    table = _foreign_table(_foreign_catalog())  # no UC columns
+    schema_metadata, _ = src._create_schema_metadata_aspect(table)
+    assert [f.fieldPath for f in schema_metadata.fields] == [
+        "invoice_id",
+        "total_amount",
+    ]
+    assert src.report.num_federation_columns_backfilled == 1
+
+
+def test_schema_metadata_prefers_uc_columns_when_present():
+    from datahub.ingestion.source.unity.proxy_types import Column
+
+    src = _snowflake_conn_source()
+    graph = MagicMock()
+    graph.get_aspect.return_value = _external_schema([_field("should_not_be_used")])
+    src.ctx.graph = graph
+    catalog = _foreign_catalog()
+    schema = Schema(
+        id="c.my_schema", name="my_schema", catalog=catalog, comment=None, owner=None
+    )
+    col = Column(
+        id="c.my_schema.t.uc_col",
+        name="uc_col",
+        type_text="int",
+        type_name=None,
+        type_precision=None,
+        type_scale=None,
+        position=0,
+        nullable=True,
+        comment=None,
+    )
+    table = Table(
+        id="c.my_schema.t",
+        name="t",
+        comment=None,
+        schema=schema,
+        columns=[col],
+        storage_location=None,
+        data_source_format=None,
+        table_type=None,
+        owner=None,
+        generation=None,
+        created_at=None,
+        created_by=None,
+        updated_at=None,
+        updated_by=None,
+        table_id=None,
+        view_definition=None,
+        properties={},
+    )
+    schema_metadata, _ = src._create_schema_metadata_aspect(table)
+    assert [f.fieldPath for f in schema_metadata.fields] == ["uc_col"]
+    assert src.report.num_federation_columns_backfilled == 0
+
+
+def test_backfilled_fields_drop_external_column_governance():
+    from datahub.metadata.schema_classes import (
+        GlobalTagsClass,
+        GlossaryTermAssociationClass,
+        GlossaryTermsClass,
+        TagAssociationClass,
+    )
+
+    tagged = _field("invoice_id")
+    tagged.globalTags = GlobalTagsClass(
+        tags=[TagAssociationClass(tag="urn:li:tag:PII")]
+    )
+    tagged.glossaryTerms = GlossaryTermsClass(
+        terms=[GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:Sensitive")],
+        auditStamp=_audit_stamp(),
+    )
+    src = _snowflake_conn_source()
+    graph = MagicMock()
+    graph.get_aspect.return_value = _external_schema([tagged])
+    src.ctx.graph = graph
+
+    fields = src._resolve_external_schema_fields(_foreign_table(_foreign_catalog()))
+
+    assert fields is not None
+    assert fields[0].fieldPath == "invoice_id"
+    # structure is backfilled, but the external source's column tags/terms are not
+    assert fields[0].globalTags is None
+    assert fields[0].glossaryTerms is None
+
+
+def _audit_stamp():
+    from datahub.metadata.schema_classes import AuditStampClass
+
+    return AuditStampClass(time=0, actor="urn:li:corpuser:unknown")

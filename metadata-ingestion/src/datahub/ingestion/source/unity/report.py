@@ -73,6 +73,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0
     num_federation_targets_unresolved: int = 0
+    num_federation_columns_backfilled: int = 0
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0

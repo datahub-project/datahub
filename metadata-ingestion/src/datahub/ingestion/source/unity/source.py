@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import json
 import logging
@@ -1319,6 +1320,65 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         for mcp in mcps:
             yield mcp.as_workunit()
 
+    def _external_dataset_urn(
+        self, catalog: Catalog, schema_name: str, table_name: str
+    ) -> Optional[str]:
+        """External source dataset URN for a foreign-catalog table, or None if the
+        federation target can't be resolved. Honors the per-connection
+        platform_instance, env, and case-folding so the URN byte-matches the external
+        source's own ingestion."""
+        detail, target = self._resolve_federation(catalog)
+        if target is None:
+            return None
+        name = federation.external_dataset_name(target, schema_name, table_name)
+        lowercase = self.config.convert_urns_to_lowercase
+        if detail is not None and detail.convert_urns_to_lowercase is not None:
+            lowercase = detail.convert_urns_to_lowercase
+        if lowercase:
+            name = name.lower()
+        return make_dataset_urn_with_platform_instance(
+            platform=target.platform,
+            name=name,
+            platform_instance=detail.platform_instance if detail else None,
+            env=detail.env if (detail and detail.env) else self.config.env,
+        )
+
+    def _resolve_external_schema_fields(
+        self, table: Table
+    ) -> Optional[List[SchemaFieldClass]]:
+        """Backfill a foreign-catalog table's columns from the already-ingested
+        external source via the DataHub graph, for the common case where Unity
+        Catalog has not synced the foreign table's schema. Returns None unless the
+        catalog is foreign, the feature is enabled, a graph is available, and the
+        external dataset's schema is found in the graph."""
+        catalog = table.schema.catalog
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.federation_resolve_columns_from_external
+        ):
+            return None
+        if self.ctx.graph is None:
+            return None
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
+        )
+        if external_urn is None:
+            return None
+        external_schema = self.ctx.graph.get_aspect(external_urn, SchemaMetadataClass)
+        if not (external_schema and external_schema.fields):
+            return None
+        # Backfill column structure only. Do NOT import the external source's
+        # column-level governance (tags / glossary terms) onto the foreign-catalog
+        # mirror — that metadata belongs to the external dataset. deepcopy so the
+        # graph resolver's cached aspect is not mutated.
+        fields: List[SchemaFieldClass] = []
+        for field in external_schema.fields:
+            field_copy = copy.deepcopy(field)
+            field_copy.globalTags = None
+            field_copy.glossaryTerms = None
+            fields.append(field_copy)
+        return fields
+
     def _gen_federation_link(
         self, dataset_urn: str, table: Table, catalog: Catalog
     ) -> Iterable[MetadataWorkUnit]:
@@ -1329,22 +1389,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.federation_link_type == FederationLinkType.NONE:
             return
 
-        detail, target = self._resolve_federation(catalog)
-        if target is None:
-            return
-
-        name = federation.external_dataset_name(target, table.schema.name, table.name)
-        lowercase = self.config.convert_urns_to_lowercase
-        if detail is not None and detail.convert_urns_to_lowercase is not None:
-            lowercase = detail.convert_urns_to_lowercase
-        if lowercase:
-            name = name.lower()
-        external_urn = make_dataset_urn_with_platform_instance(
-            platform=target.platform,
-            name=name,
-            platform_instance=detail.platform_instance if detail else None,
-            env=detail.env if (detail and detail.env) else self.config.env,
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
         )
+        if external_urn is None:
+            return
 
         self.report.num_federation_links_emitted += 1
         if self.config.federation_link_type == FederationLinkType.SIBLINGS:
@@ -2157,6 +2206,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+        # Foreign (Lakehouse Federation) catalog tables often have no columns from
+        # Unity Catalog (UC syncs a foreign table's schema lazily). Backfill them
+        # from the already-ingested external source dataset via the graph.
+        if not schema_fields:
+            backfilled = self._resolve_external_schema_fields(table)
+            if backfilled:
+                schema_fields = backfilled
+                self.report.num_federation_columns_backfilled += 1
+
         platform_resources = self.gen_platform_resources(list(unique_tags))
         return (
             SchemaMetadataClass(
@@ -2452,7 +2510,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
-        lineage_type: DatasetLineageType = DatasetLineageType.VIEW,
+        lineage_type: str = DatasetLineageType.VIEW,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate dataset to source connector lineage workunit

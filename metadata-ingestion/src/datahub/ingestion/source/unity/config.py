@@ -359,6 +359,14 @@ class UnityCatalogSourceConfig(
             description="Per-connection overrides keyed by Unity Catalog connection name.",
         )
     )
+    federation_resolve_columns_from_external: bool = pydantic.Field(
+        default=True,
+        description="For foreign (Lakehouse Federation) catalog tables whose columns "
+        "Unity Catalog has not synced yet, resolve the schema from the already-ingested "
+        "external source dataset via the DataHub graph. Requires a graph connection "
+        "(e.g. a datahub-rest sink) and the external source to be ingested; otherwise "
+        "it is a no-op.",
+    )
 
     include_table_constraints: bool = pydantic.Field(
         default=False,
