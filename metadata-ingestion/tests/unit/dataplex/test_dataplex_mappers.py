@@ -51,7 +51,7 @@ def _ctx(include_schema: bool = False) -> EntryMappingContext:
     return EntryMappingContext(config=config, location="us-west2", report=Mock())
 
 
-# (short_name, fqn, parent_entry, expected main type, expected dataset name or None, expected subtype or None)
+# (short_name, fqn, parent_entry, expected main type, expected dataset name or None, expected subtype)
 CASES = [
     (
         "bigquery-dataset",
@@ -68,7 +68,7 @@ CASES = [
         "bigquery.googleapis.com/projects/my-project/datasets/my_dataset",
         "Dataset",
         "my-project.my_dataset.my_table",
-        None,
+        "Table",
     ),
     (
         "bigquery-view",
@@ -77,7 +77,7 @@ CASES = [
         "bigquery.googleapis.com/projects/my-project/datasets/my_dataset",
         "Dataset",
         "my-project.my_dataset.my_view",
-        None,
+        "View",
     ),
     (
         "cloudsql-mysql-instance",
@@ -103,7 +103,7 @@ CASES = [
         "cloudsql.googleapis.com/projects/my-project/locations/us-west2/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.us-west2.my-instance.my-db.my_table",
-        None,
+        "Table",
     ),
     (
         "cloud-spanner-instance",
@@ -129,7 +129,7 @@ CASES = [
         "spanner.googleapis.com/projects/my-project/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.regional-us-west2.my-instance.my-db.my_table",
-        None,
+        "Table",
     ),
     (
         "cloud-spanner-graph",
@@ -138,7 +138,7 @@ CASES = [
         "spanner.googleapis.com/projects/my-project/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.regional-us-west2.my-instance.my-db.MyGraph",
-        None,
+        "Graph",
     ),
     (
         "cloud-bigtable-instance",
@@ -155,7 +155,7 @@ CASES = [
         "bigtable.googleapis.com/projects/my-project/instances/my-instance",
         "Dataset",
         "my-project.my-instance.my_table",
-        None,
+        "Table",
     ),
     (
         "pubsub-topic",
@@ -163,7 +163,7 @@ CASES = [
         "",
         "Dataset",
         "my-project.my-topic",
-        None,
+        "Topic",
     ),
     (
         "vertexai-dataset",
@@ -171,7 +171,7 @@ CASES = [
         "",
         "Dataset",
         "my-project.us-west2.123456",
-        None,
+        "Table",
     ),
     (
         "dataproc-metastore-service",
@@ -197,7 +197,7 @@ CASES = [
         "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service/databases/my-db",
         "Dataset",
         "my-project.us-west1.my-service.my-db.my_table",
-        None,
+        "Table",
     ),
 ]
 
@@ -232,8 +232,12 @@ def test_mapper_builds_expected_entity(
     assert project_container.display_name == "my-project"
     assert project_container.parent_container is None
 
+    # Validate subtype for both Container and Dataset entities
+    assert expected_subtype is not None
+
     if main_type == "Dataset":
         assert isinstance(result.main_entity, Dataset)
+        assert result.main_entity.subtype == expected_subtype
         assert dataset_name is not None
         expected_platform = mapper.datahub_platform
         assert result.main_entity.urn.urn() == (
@@ -245,9 +249,6 @@ def test_mapper_builds_expected_entity(
         assert result.lineage_entry.dataplex_location == "us-west2"
     else:
         assert isinstance(result.main_entity, Container)
-        assert expected_subtype is not None, (
-            "Container entries must have expected_subtype"
-        )
         assert result.main_entity.subtype == expected_subtype
         assert result.lineage_entry is None
 
