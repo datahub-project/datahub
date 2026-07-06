@@ -1096,6 +1096,85 @@ Key Decisions and Rationale:
    - Reduced code complexity
    - Consistent naming across telemetry types
 
+### API usage aggregation metrics
+
+#### Two in-memory usage systems (do not confuse)
+
+GMS has **two separate** in-memory rollup systems. They are not unified; type names differ on purpose.
+
+|                  | **Billing rollup**                                                 | **API usage aggregation**                                                                    |
+| ---------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| **Java package** | `com.linkedin.metadata.billing.rollup`                             | `com.linkedin.metadata.usage.store`                                                          |
+| **Store types**  | `UsageRollupStore`, `InMemoryUsageRollupStore` (canonical — older) | `UsageAggregationStore`, `InMemoryUsageAggregationStore`                                     |
+| **Purpose**      | Product billing events → Metronome (MCP, LLM tokens, AI messages)  | GMS HTTP + MCE queue ingest → Micrometer (+ SaaS commercial overlay)                         |
+| **Entry**        | `BillingHandler`, `POST /openapi/v1/billing/usage`                 | GMS: `UsageMetricsSessionEnricher`, tagged HTTP controllers; MCE: `UsageQueueIngestRecorder` |
+| **Flush**        | `BillingHandler` scheduler (default daily)                         | `AdaptiveFlushCoordinator` (60s / max-window / cardinality)                                  |
+| **Enable**       | `BILLING_ENABLED`, `BILLING_ROLLUP_ENABLED`                        | `USAGE_AGGREGATION_ENABLED`, `BILLING_USAGE_METRICS_ENABLED`                                 |
+
+Package READMEs: `metadata-io/.../billing/rollup/README.md` and `metadata-io/.../usage/store/README.md`.
+
+GMS aggregates API usage in-memory (`datahub.usage.aggregation`), flushes on a schedule, and exports to Micrometer. This is **operational** API usage metrics for Prometheus/Grafana — distinct from [product telemetry](../deploy/telemetry.md) (anonymous usage stats) and from Kafka `DataHubUsageEvent` product analytics.
+
+**Architecture:** Requests are tagged at call sites with a `UsageOperation` key governed by `usage_operations.yaml`. Only explicitly tagged requests are recorded — untagged traffic is not aggregated. The in-memory store rolls up additive counters (requests, bytes) and distinct identity sets (active users/readers/writers), then flushes on a schedule, max window, or cardinality threshold.
+
+**Instrumentation:**
+
+- **Classification:** Set `withUsageOperation(...)` on OpenAPI/Rest.li controllers, or rely on GraphQL classification in `SpringQueryContext` via `GraphqlUsageClassificationRegistry`. Direct Kafka/pgQueue MCP consumption on the MCE consumer records `metadata_ingest` with `request_api=messaging` when `USAGE_AGGREGATION_ENABLED=true` on MCE. Untagged routes (health checks, GraphiQL, admin) are not recorded. For GraphQL, named operations use `graphql.operation_names` entries in `usage_operations.yaml`; anonymous requests use `graphql.root_fields` overrides then code heuristics (`search*`, `scroll*`, `browse*`, `*Lineage*`). Entity GraphQL queries (including `getDataset`) classify as `metadata_query` because nested selections vary in cost — `metadata_read` is emitted from OpenAPI/Rest.li call sites only.
+- **Input bytes:** `Content-Length` from the request when available (`buildOpenapi`, `buildGraphql`, and `buildRestli` apply this automatically). Omitted when streaming/chunked or length is unknown.
+- **Output bytes:** Best-effort via `RequestContext.resolveResponseOutputBytes`; omitted (`null`) for streaming or chunked responses.
+
+**Exported metrics (on flush, default every 60s):**
+
+| Metric                            | Type    | Description                                                      |
+| --------------------------------- | ------- | ---------------------------------------------------------------- |
+| `datahub_request_count`           | Counter | API requests per flush window                                    |
+| `datahub.usage.input_bytes`       | Counter | Request body bytes per window (all instrumented requests)        |
+| `datahub.usage.billed_bytes`      | Counter | Ingest request body bytes per window (SaaS when billing enabled) |
+| `datahub.usage.output_bytes`      | Counter | Response body bytes per window                                   |
+| `datahub.usage.active_identities` | Gauge   | Unique active users/readers/writers in the last flush window     |
+
+**Tags:** `usage_operation`, `actor_class` (`regular` / `system` / `support`), `agent_class`, `request_api`, `auth_channel` (`session`, `pat`, `oauth`, `system`, `anonymous`, `unknown`) on request and byte counters. On `datahub.usage.active_identities`, only `identity_metric` (`active_users`, `active_readers`, `active_writers`) and `actor_class` are exported. The gauge is the count of **unique catalog identities** in that actor class during the flush window (one in-memory bucket per pair; empty windows publish `0` rather than omitting the series).
+
+**Actor classification:**
+
+| Tag / metric              | Source                                   | Meaning                                                                                        |
+| ------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `agent_class`             | User-Agent parsing (`AgentClass`)        | Client type: browser, CLI, ingestion, SDK, etc.                                                |
+| `actor_class`             | `UsageActorClassResolver` at record time | Billing/aggregation bucket: `regular`, `system`, or `support` (support users and admin actors) |
+| Legacy JMX `userCategory` | `UsageActorClass.fromActorUrn()`         | URN-only classification; support users remain `regular` on this path                           |
+
+**Distinct activity metrics** (each exported on `datahub.usage.active_identities` with an `identity_metric` tag; distinct identity sets are tracked **per `actor_class`** so regular, support, and system buckets do not mix):
+
+- `active_users` — any catalog read, write, or operational activity
+- `active_readers` — catalog reads **and** operational/admin activity (`activity_class: operation` in `usage_operations.yaml`)
+- `active_writers` — catalog metadata writes and deletes (`activity_class: write` with `default_cost_units > 0` in `usage_operations.yaml`; zero-cost writes such as `other_write` count toward `active_users` only)
+
+**OSS vs commercial paths:**
+
+| Flag                                 | Path                         | Sink                                                                   |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------------------------------- |
+| `USAGE_AGGREGATION_ENABLED=true`     | OSS operational metrics      | Micrometer (`datahub_request_count`, byte counters, active identities) |
+| `BILLING_USAGE_METRICS_ENABLED=true` | Commercial billing manifests | Metronome flush sink (stub today) plus SaaS Micrometer `billed_bytes`  |
+
+Both flags are independent. **`input_bytes`** (operational) and **`billed_bytes`** (ingest-only billing) are separate rollup keys and separate Prometheus counters when billing is enabled — they must not be summed as one byte total. Other billing-only metrics (`api_cost_units`, `mcp_queries`) are not exported to Micrometer. Metronome MAU uses OSS **`active_users`** distinct snapshots filtered to **`actor_class=regular`** at the billing flush sink (support/system identity sets are operational-only). **MCE consumer** can run the same aggregation stack for queue-path `metadata_ingest` (`request_api=messaging`); MAE and upgrade force `datahub.usage.aggregation.enabled=false`. Async REST ingest is counted on GMS only — GMS stamps `X-DataHub-Usage-PreRecorded` on the outbound MCP `headers` map so MCE does not double-count (transport-agnostic across Kafka and pgQueue).
+
+**Flush retries:** The store retries the composite flush sink when any delegate fails. `UsageFlushSinkComposer` tracks which delegates already succeeded for a given batch and skips them on retry so Micrometer counters are not double-counted. OSS today runs Micrometer plus a no-op billing stub; SaaS adds a real Metronome sink when billing is enabled.
+
+Only instrumented requests are aggregated. Set `USAGE_AGGREGATION_ENABLED=true` to enable (default `false` in `application.yaml`; Docker quickstart and debug compose default to `true` for the OSS Micrometer path only).
+
+**Legacy JMX metrics:** `requestContext_{userCategory}_{agentClass}_{requestAPI}` Dropwizard counters are unchanged. `userCategory` is derived from `UsageActorClass.fromActorUrn()`.
+
+**Example PromQL:**
+
+```promql
+sum by (usage_operation) (rate(datahub_request_count[5m]))
+sum(rate(datahub.usage.input_bytes[5m]))
+# Total metadata_ingest across GMS (openapi/restli) and MCE (messaging):
+sum by (request_api) (rate(datahub_request_count{usage_operation="metadata_ingest"}[5m]))
+```
+
+`usage_operation` is bounded by the yaml-governed taxonomy (≤12 keys) — do not expect per-GraphQL-operation-name series.
+
 ### Future State
 
 <p align="center">

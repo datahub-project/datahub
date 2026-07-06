@@ -87,6 +87,52 @@ def get_gms_prometheus_base_url():
     return base
 
 
+def _prometheus_actuator_reachable(base_url: str, timeout: float = 2.0) -> bool:
+    try:
+        response = requests.get(
+            f"{base_url.rstrip('/')}/actuator/prometheus", timeout=timeout
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def resolve_queue_ingest_prometheus_base_url() -> tuple[Optional[str], str]:
+    """Resolve Prometheus base URL for queue-path ``metadata_ingest`` metrics.
+
+    Standalone MCE consumer deployments expose metrics on the MCE management port; embedded
+    consumer deployments (``quickstart`` without ``quickstart-consumers``) share the GMS JVM and
+    fall back to the GMS management URL when no separate MCE actuator is reachable.
+
+    Returns:
+        (base_url, source) where source is ``mce``, ``gms``, or ``none``.
+    """
+    explicit_mce = env_vars.get_mce_management_url()
+    if explicit_mce and explicit_mce.strip():
+        base = explicit_mce.strip().rstrip("/")
+        if _prometheus_actuator_reachable(base):
+            return base, "mce"
+        return None, "none"
+
+    for candidate in ("http://datahub-mce-consumer:4319",):
+        if _prometheus_actuator_reachable(candidate):
+            return candidate.rstrip("/"), "mce"
+
+    gms_base = get_gms_prometheus_base_url()
+    if gms_base and _prometheus_actuator_reachable(gms_base):
+        return gms_base.rstrip("/"), "gms"
+
+    return None, "none"
+
+
+def get_queue_ingest_prometheus_url() -> tuple[Optional[str], str]:
+    """Full ``/actuator/prometheus`` URL for queue ingest metrics, plus source label."""
+    base, source = resolve_queue_ingest_prometheus_base_url()
+    if base is None:
+        return None, source
+    return f"{base}/actuator/prometheus", source
+
+
 def get_frontend_url():
     return env_vars.get_frontend_url() or f"http://localhost:9002{get_base_path()}"
 

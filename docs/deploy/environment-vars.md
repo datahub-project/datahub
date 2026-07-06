@@ -1071,6 +1071,46 @@ The following environment variables are used in the codebase but may not be expl
 | `USAGE_CLIENT_NUM_RETRIES`                            | `0`     | Usage client number of retries                      | GMS, MAE Consumer, PE Consumer |
 | `USAGE_CLIENT_TIMEOUT_MS`                             | `3000`  | Usage client timeout in milliseconds                | GMS, MAE Consumer, PE Consumer |
 
+### API usage aggregation (GMS)
+
+These variables configure **`InMemoryUsageAggregationStore`** (API traffic). For product-event billing rollup
+(`InMemoryUsageRollupStore` in `billing.rollup`), see **Commercial usage billing** below.
+
+| Environment Variable                                   | Default                                             | Description                                                           | Service           |
+| ------------------------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------------- | ----------------- |
+| `USAGE_AGGREGATION_ENABLED`                            | `false` (`true` in Docker quickstart/debug compose) | Enable in-memory usage aggregation (OSS Micrometer path; not billing) | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED`          | `true`                                              | Export aggregation to Micrometer on flush                             | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_WINDOW_SECONDS`                 | `300`                                               | Max in-memory window before flush                                     | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_CARDINALITY`                    | `10000`                                             | Cardinality threshold for early flush                                 | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS`             | `60`                                                | Scheduled flush interval                                              | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS`               | `3`                                                 | Publish retry attempts before re-merge on failure                     | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS` | `100`                                               | Initial backoff between flush publish retries (ms)                    | GMS, MCE consumer |
+
+**GMS** records HTTP API traffic (`UsageMetricsSessionEnricher`). **MCE consumer** records direct Kafka/pgQueue
+`metadata_ingest` via `UsageQueueIngestRecorder` when enabled (same env var). MAE and upgrade services keep
+`datahub.usage.aggregation.enabled=false`. Scrape **both** GMS and MCE Actuator Prometheus endpoints and sum
+`metadata_ingest` across services for total ingest volume.
+
+### Commercial usage billing (GMS, SaaS)
+
+Product-event billing (`BillingHandler`, `billing.rollup.InMemoryUsageRollupStore`) — integrations MCP/LLM,
+Metronome ingest. Separate from API usage aggregation above.
+
+| Environment Variable                          | Default     | Description                                            | Service |
+| --------------------------------------------- | ----------- | ------------------------------------------------------ | ------- |
+| `BILLING_ENABLED`                             | `false`     | Master billing switch                                  | GMS     |
+| `BILLING_USAGE_METRICS_ENABLED`               | `false`     | Enable GMS usage aggregation billing manifests + flush | GMS     |
+| `BILLING_CUSTOMER_ID`                         | _(empty)_   | Metronome customer identifier                          | GMS     |
+| `BILLING_INSTANCE_ID`                         | _(empty)_   | Deployment/instance identifier for billing events      | GMS     |
+| `BILLING_PROVIDER`                            | `metronome` | Billing provider backend                               | GMS     |
+| `BILLING_ROLLUP_ENABLED`                      | `false`     | Legacy entity-layer billing rollup scheduler           | GMS     |
+| `BILLING_ROLLUP_INTERVAL_SECONDS`             | `86400`     | Legacy rollup flush interval                           | GMS     |
+| `BILLING_ROLLUP_RETRY_ATTEMPTS`               | `3`         | Legacy rollup publish retries                          | GMS     |
+| `BILLING_ROLLUP_RETRY_INITIAL_BACKOFF_MILLIS` | `200`       | Legacy rollup retry backoff (ms)                       | GMS     |
+| `METRONOME_API_KEY`                           | _(empty)_   | Metronome API key (sensitive)                          | GMS     |
+
+See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api-usage-aggregation-metrics) for how OSS Micrometer export differs from commercial billing metrics.
+
 ### Cache Configuration
 
 | Environment Variable                                | Default     | Description                                              | Components                     |
