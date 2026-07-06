@@ -24,7 +24,7 @@ def _try_reformat_with_black(code: str) -> str:
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
-    unpack_mces_into_mcps: bool = False
+    unpack_mces_into_mcps: bool = True
 
 
 class WorkUnitRecordExtractor(
