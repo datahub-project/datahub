@@ -15,12 +15,14 @@ flush sinks registered via Spring extension points.
 
 Types were named `*UsageRollupStore` initially but were **renamed to `*UsageAggregationStore`** to
 avoid colliding with the legacy product-usage rollup package under
-[`com.linkedin.metadata.billing.rollup`](../billing/rollup/README.md).
+`com.linkedin.metadata.billing.rollup` (SaaS).
 
 ## Entry points
 
-- `UsageMetricsSessionEnricher` — HTTP session lifecycle (`recordRequest` / `recordResponse`)
-- `UsageRecordingFilter` — response byte capture
+- `UsageMetricsSessionEnricher` — GMS HTTP session lifecycle (`recordRequest` / `recordResponse`)
+- `UsageQueueIngestRecorder` — MCE Kafka/pgQueue MCP consumption (`metadata_ingest`, `request_api=messaging`); skips when MCP `headers` contain `X-DataHub-Usage-PreRecorded`
+- `UsageMetadataChangeProposalEnricher` — stamps that header on GMS async MCP publish (OpenAPI/Rest.li `metadata_ingest`)
+- `UsageRecordingFilter` — response byte capture (GMS only)
 - Tagged controllers (`withUsageOperation`) + GraphQL classification
 
 ## Configuration
@@ -36,5 +38,4 @@ avoid colliding with the legacy product-usage rollup package under
 ## Not this package
 
 **Product usage events** from integrations (MCP, LLM tokens, etc.) use
-[`com.linkedin.metadata.billing.rollup`](../billing/rollup/README.md) (`UsageRollupStore`,
-`InMemoryUsageRollupStore`).
+`com.linkedin.metadata.billing.rollup` (`UsageRollupStore`, `InMemoryUsageRollupStore`) on SaaS.
