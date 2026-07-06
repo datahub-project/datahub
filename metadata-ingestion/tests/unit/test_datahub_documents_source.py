@@ -430,7 +430,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise HTTP error
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 # Simulate HTTP 500 error
                 mock_response = Mock()
                 mock_response.raise_for_status.side_effect = requests.HTTPError(
@@ -460,7 +460,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise connection error
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.ConnectionError("Connection refused")
 
                 # Mock batch mode
@@ -485,7 +485,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise timeout
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.Timeout("Request timed out")
 
                 # Mock batch mode
@@ -509,7 +509,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling with events
 
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -568,7 +568,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling but no events
 
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -790,7 +790,7 @@ class TestStateStorage:
             mock_state_handler.update_event_offset = Mock()
 
             # Mock successful event polling
-            with patch.object(mock_graph_cls.return_value._session, "get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -1025,7 +1025,7 @@ class TestStateStorage:
 
             # Event polling goes through the graph's session; make it fail to
             # trigger the fallback to batch mode.
-            mock_graph_cls.return_value._session.get.side_effect = (
+            mock_graph_cls.return_value.session.get.side_effect = (
                 requests.ConnectionError("Connection refused")
             )
 
@@ -2272,8 +2272,8 @@ class TestGetCurrentOffset:
         """Create a mock DataHubGraph."""
         graph = Mock()
         graph.config.server = "http://localhost:8080"
-        graph._session = Mock()
-        graph._session.headers = {"Authorization": "Bearer test-token"}
+        graph.session = Mock()
+        graph.session.headers = {"Authorization": "Bearer test-token"}
         return graph
 
     def test_get_current_offset_success(self, mock_graph):
@@ -2287,7 +2287,7 @@ class TestGetCurrentOffset:
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-123"}
         mock_response.raise_for_status = Mock()
-        mock_graph._session.get.return_value = mock_response
+        mock_graph.session.get.return_value = mock_response
 
         consumer = DocumentEventConsumer(
             graph=mock_graph,
@@ -2308,7 +2308,7 @@ class TestGetCurrentOffset:
         mock_response = Mock()
         mock_response.json.return_value = {"events": []}  # No offsetId field
         mock_response.raise_for_status = Mock()
-        mock_graph._session.get.return_value = mock_response
+        mock_graph.session.get.return_value = mock_response
 
         consumer = DocumentEventConsumer(
             graph=mock_graph,
@@ -2332,7 +2332,7 @@ class TestGetCurrentOffset:
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "401 Unauthorized"
         )
-        mock_graph._session.get.return_value = mock_response
+        mock_graph.session.get.return_value = mock_response
 
         consumer = DocumentEventConsumer(
             graph=mock_graph,
@@ -2353,7 +2353,7 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        mock_graph._session.get.side_effect = requests.exceptions.ConnectionError(
+        mock_graph.session.get.side_effect = requests.exceptions.ConnectionError(
             "Connection failed"
         )
 
@@ -2377,7 +2377,7 @@ class TestGetCurrentOffset:
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-456"}
         mock_response.raise_for_status = Mock()
-        mock_get = mock_graph._session.get
+        mock_get = mock_graph.session.get
         mock_get.return_value = mock_response
 
         consumer = DocumentEventConsumer(

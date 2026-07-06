@@ -29,7 +29,7 @@ from datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer_offsets_s
 @pytest.fixture
 def mock_graph() -> DataHubGraph:
     """
-    Provide a mock DataHubGraph instance, including a mock config and _session.
+    Provide a mock DataHubGraph instance, including a mock config and session.
     This prevents 'AttributeError: Mock object has no attribute "config"'.
     """
     mock_graph = MagicMock(spec=DataHubGraph)
@@ -42,7 +42,7 @@ def mock_graph() -> DataHubGraph:
     # Mock _session with headers
     mock_session = MagicMock()
     mock_session.headers = {"Authorization": "Bearer test-token"}
-    mock_graph._session = mock_session
+    mock_graph.session = mock_session
 
     return cast(DataHubGraph, mock_graph)
 
@@ -146,7 +146,7 @@ def test_poll_events_success(
         offset_id="initial-offset-456",
     )
 
-    mock_get = cast(MagicMock, mock_graph._session.get)
+    mock_get = cast(MagicMock, mock_graph.session.get)
     mock_response = MagicMock()
     # Simulate JSON decoding
     mock_response.json.return_value = {
@@ -209,7 +209,7 @@ def test_poll_events_http_error(mock_graph: DataHubGraph) -> None:
             else stop_after_attempt(n),
         ),
         patch.object(
-            mock_graph._session, "get", side_effect=HTTPError(response=dummy_response)
+            mock_graph.session, "get", side_effect=HTTPError(response=dummy_response)
         ) as mock_get,
     ):
         with pytest.raises(HTTPError):
@@ -236,7 +236,7 @@ def test_poll_events_connection_error(mock_graph: DataHubGraph) -> None:
             return_value=stop_after_attempt(3),
         ),
         patch.object(
-            mock_graph._session, "get", side_effect=ConnectionError("Connection Error")
+            mock_graph.session, "get", side_effect=ConnectionError("Connection Error")
         ) as mock_get,
     ):
         with pytest.raises(ConnectionError):
@@ -263,7 +263,7 @@ def test_poll_events_chunked_encoding_error(mock_graph: DataHubGraph) -> None:
             return_value=stop_after_attempt(3),
         ),
         patch.object(
-            mock_graph._session,
+            mock_graph.session,
             "get",
             side_effect=ChunkedEncodingError("Chunked Encoding Error"),
         ) as mock_get,
@@ -292,7 +292,7 @@ def test_poll_events_timeout(mock_graph: DataHubGraph) -> None:
             return_value=stop_after_attempt(3),
         ),
         patch.object(
-            mock_graph._session, "get", side_effect=Timeout("Request Timeout")
+            mock_graph.session, "get", side_effect=Timeout("Request Timeout")
         ) as mock_get,
     ):
         with pytest.raises(Timeout):
@@ -394,7 +394,7 @@ def test_poll_events_infinite_retry_retries_more_than_default(
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch.object(mock_graph._session, "get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 6 times (5 failures + 1 success)
@@ -423,7 +423,7 @@ def test_poll_events_infinite_retry_false_uses_default_retries(
             return_value=stop_after_attempt(3),
         ),
         patch.object(
-            mock_graph._session, "get", side_effect=HTTPError(response=dummy_response)
+            mock_graph.session, "get", side_effect=HTTPError(response=dummy_response)
         ) as mock_get,
     ):
         with pytest.raises(HTTPError):
@@ -464,7 +464,7 @@ def test_poll_events_infinite_retry_connection_error(
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch.object(mock_graph._session, "get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 5 times (4 failures + 1 success)
@@ -501,7 +501,7 @@ def test_poll_events_infinite_retry_timeout(mock_graph: DataHubGraph) -> None:
         mock_response.raise_for_status.return_value = None
         return mock_response
 
-    with patch.object(mock_graph._session, "get", side_effect=side_effect) as mock_get:
+    with patch.object(mock_graph.session, "get", side_effect=side_effect) as mock_get:
         result = consumer.poll_events(topic="TestTopic")
 
         # Should have been called 8 times (7 failures + 1 success)

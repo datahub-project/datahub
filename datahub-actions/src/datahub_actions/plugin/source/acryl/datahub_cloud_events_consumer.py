@@ -142,14 +142,12 @@ class DataHubEventsConsumer:
         # Remove keys where the value is None
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Poll through the graph's session so authentication applies per request.
-        # Copying session.headers into a bare requests.get only worked for
-        # static tokens baked into the headers; an OAuth token provider lives in
-        # session.auth and would be silently bypassed (unauthenticated 401s).
-        # The read timeout must outlast the server-side long poll, and a timeout
-        # is required at all — sessions have no default, so a half-open
-        # connection would otherwise hang this consumer forever.
-        response = self.graph._session.get(
+        # Poll through the graph's authenticated session: per-request auth (e.g.
+        # an OAuth token provider in session.auth) only applies to requests made
+        # through it. The read timeout must outlast the server-side long poll,
+        # and a timeout is required at all — sessions have no default, so a
+        # half-open connection would otherwise hang this consumer forever.
+        response = self.graph.session.get(
             endpoint, params=params, timeout=(poll_timeout_seconds or 30) + 30
         )
         response.raise_for_status()
