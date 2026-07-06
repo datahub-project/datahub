@@ -84,25 +84,30 @@ def test_auto_workunit():
 def test_auto_status_aspect():
     initial_wu = list(auto_workunit(_base_metadata))
 
-    expected = [
-        *initial_wu,
-        *list(
-            auto_workunit(
-                [
-                    MetadataChangeProposalWrapper(
-                        entityUrn="urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
-                        aspect=models.StatusClass(removed=False),
-                    ),
-                    MetadataChangeProposalWrapper(
-                        entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.staffing,PROD)",
-                        aspect=models.StatusClass(removed=False),
-                    ),
-                ]
-            )
-        ),
-    ]
     processor = AutoStatusAspectProcessor.create(mock.MagicMock())
-    assert list(processor.process(initial_wu)) == expected
+    result = list(processor.process(initial_wu))
+
+    # First N items are the original workunits passed through unchanged.
+    assert result[: len(initial_wu)] == initial_wu
+
+    # The processor should emit PATCH MCPs for URNs that didn't already have a
+    # status aspect in the stream (container:008… and the staffing dataset).
+    auto_status_wus = result[len(initial_wu) :]
+    assert len(auto_status_wus) == 2
+
+    auto_status_urns = [wu.get_urn() for wu in auto_status_wus]
+    assert auto_status_urns == [
+        "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.staffing,PROD)",
+    ]
+
+    # Verify they are PATCH MCPs (not UPSERT) so they don't overwrite
+    # lifecycleStage/lifecycleState on existing status aspects.
+    for wu in auto_status_wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, models.MetadataChangeProposalClass)
+        assert mcp.changeType == models.ChangeTypeClass.PATCH
+        assert mcp.aspectName == "status"
 
 
 def test_auto_lowercase_aspects():

@@ -69,6 +69,15 @@ def _auto_status_aspect(stream):
     return processor.process(stream)
 
 
+def _is_status_wu(wu: MetadataWorkUnit) -> bool:
+    """Check if a workunit targets the status aspect (UPSERT or PATCH)."""
+    if wu.get_aspect_of_type(models.StatusClass):
+        return True
+    if isinstance(wu.metadata, models.MetadataChangeProposalClass):
+        return wu.metadata.aspectName == "status"
+    return False
+
+
 def test_auto_browse_path_v2_gen_containers_threaded():
     database_key = DatabaseKey(platform="snowflake", database="db")
     schema_keys = [
@@ -123,7 +132,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
 
     wus = list(_auto_status_aspect(_create_container_aspects(structure)))
     assert (  # Sanity check
-        sum(bool(wu.get_aspect_of_type(models.StatusClass)) for wu in wus) == 21
+        sum(bool(_is_status_wu(wu)) for wu in wus) == 21
     )
 
     new_wus = list(_make_processor().process(wus))
@@ -155,7 +164,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
             idx = next(
                 i
                 for i, wu in enumerate(new_wus)
-                if wu.get_aspect_of_type(models.StatusClass) and wu.get_urn() == urn
+                if _is_status_wu(wu) and wu.get_urn() == urn
             )
         assert new_wus[idx + 1].get_aspect_of_type(
             models.BrowsePathsV2Class

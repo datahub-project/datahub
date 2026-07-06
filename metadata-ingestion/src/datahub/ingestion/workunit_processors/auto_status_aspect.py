@@ -4,6 +4,7 @@ from typing import Iterable, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
@@ -69,7 +70,18 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
                 # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
                 continue
             self.report.num_status_aspects_emitted += 1
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=StatusClass(removed=False),
-            ).as_workunit()
+            # Use a PATCH MCP so we only set removed=false without overwriting
+            # other fields on the status aspect (e.g. lifecycleStage,
+            # lifecycleState, lifecycleLastUpdated).
+            patch_builder = MetadataPatchProposal(urn)
+            patch_builder._add_patch(
+                aspect_name=StatusClass.ASPECT_NAME,
+                op="add",
+                path=("removed",),
+                value=False,
+            )
+            for mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{urn}-auto-status",
+                    mcp=mcp,
+                )
