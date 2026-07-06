@@ -37,6 +37,7 @@ import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
+import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
@@ -128,6 +129,8 @@ export const MATILLION_DPC = 'matillion-dpc';
 export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MICROSTRATEGY = 'microstrategy';
+const MICROSTRATEGY_URN = `urn:li:dataPlatform:${MICROSTRATEGY}`;
 const MLFLOW = 'mlflow';
 const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 const MODE = 'mode';
@@ -259,6 +262,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
+    [MICROSTRATEGY_URN]: microstrategyLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
