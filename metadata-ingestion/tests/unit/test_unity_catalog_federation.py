@@ -1,12 +1,14 @@
 from typing import List, Optional, Set
 from unittest.mock import MagicMock, patch
 
+import pytest
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogType,
     ConnectionInfo,
     ConnectionType,
 )
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -129,6 +131,25 @@ def test_federation_connection_detail_override():
     assert detail.convert_urns_to_lowercase is None
 
 
+def test_federation_connection_detail_env_normalized_and_validated():
+    # The env override is upper-cased so the external URN byte-matches the source.
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {
+            **_BASE,
+            "federation_connection_details": {"c": {"env": "dev"}},
+        }
+    )
+    assert cfg.federation_connection_details["c"].env == "DEV"
+
+    with pytest.raises(ValidationError):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "federation_connection_details": {"c": {"env": "NOT_AN_ENV"}},
+            }
+        )
+
+
 def test_resolve_three_tier_uses_database_option():
     target = fed.resolve_federation_target(
         ConnectionType.POSTGRESQL,
@@ -226,13 +247,56 @@ def test_override_platform_without_connection_type():
     assert target.remote_database == "my_db"
 
 
-def test_none_connection_type_without_database_is_two_tier():
+def test_none_connection_type_three_tier_platform_without_database_is_unresolvable():
+    # connections API unavailable (connection_type None) and the overridden platform
+    # is three-tier (mssql) with no database override: emitting schema.table would
+    # drop the database segment and dangle, so resolution must fail (not guess).
+    assert (
+        fed.resolve_federation_target(
+            None, options=None, override_platform="mssql", override_database=None
+        )
+        is None
+    )
+
+
+def test_none_connection_type_two_tier_platform_is_two_tier():
+    # A genuinely two-tier overridden platform (mysql) with no connection type and no
+    # database is safe to emit as schema.table.
     target = fed.resolve_federation_target(
-        None, options=None, override_platform="mssql", override_database=None
+        None, options=None, override_platform="mysql", override_database=None
     )
     assert target is not None
-    assert target.platform == "mssql"
+    assert target.platform == "mysql"
     assert target.remote_database is None
+
+
+def test_connection_type_map_platform_and_tier_consistent():
+    # Exhaustively pin every mapped connection type's platform and two/three-tier
+    # classification so adding/editing a ConnectionType forces this test to be updated.
+    two_tier = {
+        ConnectionType.MYSQL,
+        ConnectionType.GLUE,
+        ConnectionType.HIVE_METASTORE,
+    }
+    for connection_type, mapping in fed.CONNECTION_TYPE_MAP.items():
+        options = (
+            {mapping.database_option_key: "db"} if mapping.database_option_key else None
+        )
+        target = fed.resolve_federation_target(
+            connection_type,
+            options=options,
+            override_platform=None,
+            override_database=None,
+        )
+        assert target is not None
+        assert target.platform == mapping.platform
+        if connection_type in two_tier:
+            assert mapping.database_option_key is None
+            assert target.remote_database is None
+        else:
+            assert mapping.database_option_key is not None
+            assert target.remote_database == "db"
+        assert mapping.platform in fed.KNOWN_FEDERATION_PLATFORMS
 
 
 def test_resolve_all_none_cannot_resolve():
@@ -243,14 +307,6 @@ def test_resolve_all_none_cannot_resolve():
         )
         is None
     )
-
-
-def test_structured_property_urns():
-    urns = fed.structured_property_urns("databricks.federation")
-    assert (
-        urns["platform"] == "urn:li:structuredProperty:databricks.federation.platform"
-    )
-    assert set(urns) == {"catalog_type", "platform", "connection", "remote_database"}
 
 
 def test_property_definition_mcps_target_container_and_platform_allowed_values():
@@ -509,12 +565,49 @@ def test_federation_lineage_mode_emits_upstream():
     assert up and up[0].upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
     )
+    assert src.report.num_federation_links_emitted == 1
 
 
 def test_federation_link_none_emits_nothing():
     src = _source_with_link(include_lineage=False)
     catalog = _foreign_catalog()
     assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
+
+
+def test_federation_link_skipped_for_managed_catalog():
+    # The COPY edge must never land on a regular (non-foreign) managed table.
+    src = _source_with_link()
+    catalog = _foreign_catalog()
+    catalog.type = CatalogType.MANAGED_CATALOG
+    catalog.connection_name = None
+    assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
+    assert src.report.num_federation_links_emitted == 0
+
+
+def test_federation_resolution_distinguishes_catalogs_sharing_a_connection():
+    # Two foreign catalogs on the same connection but different remote databases must
+    # resolve to different external URNs — the resolution cache is keyed by catalog,
+    # not by connection.
+    src = _source_with_link()
+    cat_a = _foreign_catalog()  # name="my_catalog", options database=my_db
+    cat_b = Catalog(
+        id="c2",
+        name="other_catalog",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="pg_conn",
+        options={"database": "other_db"},
+    )
+    urn_a = src._external_dataset_urn(cat_a, "my_schema", "t")
+    urn_b = src._external_dataset_urn(cat_b, "my_schema", "t")
+    assert urn_a == (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+    )
+    assert urn_b == (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.other_db.my_schema.t,PROD)"
+    )
 
 
 def test_federation_link_lowercase_applied():
@@ -863,6 +956,10 @@ def test_backfilled_fields_drop_external_column_governance():
     # structure is backfilled, but the external source's column tags/terms are not
     assert fields[0].globalTags is None
     assert fields[0].glossaryTerms is None
+    # the returned fields are a copy: the source aspect keeps its governance so the
+    # graph-cached aspect is not mutated in place
+    assert tagged.globalTags is not None
+    assert tagged.glossaryTerms is not None
 
 
 def _audit_stamp():

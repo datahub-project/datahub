@@ -585,7 +585,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "or connection ownership, or set federation_connection_details "
                     "overrides."
                 ),
-                context=f"{e}",
+                context="listing Unity Catalog connections",
                 exc=e,
             )
         self._connections_cache = result

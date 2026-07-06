@@ -2,12 +2,13 @@
 platforms and build external dataset URN names for foreign catalogs.
 
 A foreign catalog is a read-only mirror of an external database; its schemas and
-tables map 1:1 to the remote system, so only the database prefix differs by
-connector. See docs: CREATE FOREIGN CATALOG OPTIONS (database / dataProjectId / catalog).
+tables mirror the remote system's names 1:1. Connectors differ only in whether a
+database segment is present (two- vs three-tier) and which OPTIONS key carries it
+(database / dataProjectId / catalog). See docs: CREATE FOREIGN CATALOG OPTIONS.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, List, Optional
 
 from databricks.sdk.service.catalog import ConnectionType
 
@@ -30,44 +31,52 @@ from datahub.metadata.urns import (
     StructuredPropertyUrn,
 )
 
-CONNECTION_TYPE_TO_PLATFORM: Dict[ConnectionType, str] = {
-    ConnectionType.MYSQL: "mysql",
-    ConnectionType.POSTGRESQL: "postgres",
-    ConnectionType.SQLSERVER: "mssql",
-    ConnectionType.SQLDW: "mssql",
-    ConnectionType.SNOWFLAKE: "snowflake",
-    ConnectionType.REDSHIFT: "redshift",
-    ConnectionType.BIGQUERY: "bigquery",
-    ConnectionType.GLUE: "glue",
-    ConnectionType.ORACLE: "oracle",
-    ConnectionType.TERADATA: "teradata",
-    ConnectionType.DATABRICKS: "databricks",
-    ConnectionType.HIVE_METASTORE: "hive",
-}
 
-# Key in the foreign catalog's `options` holding the remote database/catalog name.
-# None => two-tier namespace (no database segment in the external URN).
-DATABASE_OPTION_KEY: Dict[ConnectionType, Optional[str]] = {
-    ConnectionType.MYSQL: None,
-    ConnectionType.POSTGRESQL: "database",
-    ConnectionType.SQLSERVER: "database",
-    ConnectionType.SQLDW: "database",
-    ConnectionType.SNOWFLAKE: "database",
-    ConnectionType.REDSHIFT: "database",
-    ConnectionType.ORACLE: "database",
-    ConnectionType.TERADATA: "database",
-    ConnectionType.BIGQUERY: "dataProjectId",
-    ConnectionType.DATABRICKS: "catalog",
-    ConnectionType.GLUE: None,
-    ConnectionType.HIVE_METASTORE: None,
+@dataclass(frozen=True)
+class ConnectorMapping:
+    """DataHub platform and the foreign-catalog OPTIONS key that carries the remote
+    database for one Unity Catalog connection type.
+
+    database_option_key is None for two-tier platforms (no database segment in the
+    external URN); otherwise it names the OPTIONS key holding the remote database.
+    """
+
+    platform: str
+    database_option_key: Optional[str]
+
+
+# Single source of truth per connection type: adding a connector means adding one
+# entry here, so platform and database-key can never drift out of sync.
+CONNECTION_TYPE_MAP: Dict[ConnectionType, ConnectorMapping] = {
+    ConnectionType.MYSQL: ConnectorMapping("mysql", None),
+    ConnectionType.POSTGRESQL: ConnectorMapping("postgres", "database"),
+    ConnectionType.SQLSERVER: ConnectorMapping("mssql", "database"),
+    ConnectionType.SQLDW: ConnectorMapping("mssql", "database"),
+    ConnectionType.SNOWFLAKE: ConnectorMapping("snowflake", "database"),
+    ConnectionType.REDSHIFT: ConnectorMapping("redshift", "database"),
+    ConnectionType.BIGQUERY: ConnectorMapping("bigquery", "dataProjectId"),
+    ConnectionType.GLUE: ConnectorMapping("glue", None),
+    # Oracle's foreign catalog OPTIONS key is `service_name`, not `database`.
+    ConnectionType.ORACLE: ConnectorMapping("oracle", "service_name"),
+    ConnectionType.TERADATA: ConnectorMapping("teradata", "database"),
+    ConnectionType.DATABRICKS: ConnectorMapping("databricks", "catalog"),
+    # Salesforce Data Cloud names its remote segment `dataspace`.
+    ConnectionType.SALESFORCE_DATA_CLOUD: ConnectorMapping("salesforce", "dataspace"),
+    ConnectionType.HIVE_METASTORE: ConnectorMapping("hive", None),
 }
 
 KNOWN_FEDERATION_PLATFORMS: List[str] = sorted(
-    set(CONNECTION_TYPE_TO_PLATFORM.values())
+    {m.platform for m in CONNECTION_TYPE_MAP.values()}
+)
+
+# Platforms whose external URN is two-tier (schema.table, no database segment).
+# Used to decide the fallback when the connection type could not be determined.
+PLATFORMS_WITHOUT_DATABASE_SEGMENT: FrozenSet[str] = frozenset(
+    m.platform for m in CONNECTION_TYPE_MAP.values() if m.database_option_key is None
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class FederationTarget:
     platform: str
     remote_database: Optional[str]  # None for two-tier platforms
@@ -86,28 +95,34 @@ def resolve_federation_target(
     connector's remote database is neither in `options` nor overridden (emitting a
     URN without it would dangle).
     """
-    platform = override_platform
-    if not platform and connection_type is not None:
-        platform = CONNECTION_TYPE_TO_PLATFORM.get(connection_type)
+    mapping = (
+        CONNECTION_TYPE_MAP.get(connection_type)
+        if connection_type is not None
+        else None
+    )
+    platform = override_platform or (mapping.platform if mapping else None)
     if not platform:
         return None
 
     if override_database:
         return FederationTarget(platform=platform, remote_database=override_database)
 
-    # No connection type known (e.g. connections API unavailable) and no db override:
-    # emit a two-tier URN rather than nothing.
-    if connection_type is None:
-        return FederationTarget(platform=platform, remote_database=None)
+    if mapping is not None:
+        if mapping.database_option_key is None:
+            return FederationTarget(platform=platform, remote_database=None)
+        remote_database = (options or {}).get(mapping.database_option_key)
+        if not remote_database:
+            return None
+        return FederationTarget(platform=platform, remote_database=remote_database)
 
-    db_key = DATABASE_OPTION_KEY.get(connection_type)
-    if db_key is None:
+    # Connection type unknown (e.g. the connections API was unavailable) and no
+    # database override. Only emit a two-tier URN when the (overridden) platform is
+    # inherently two-tier; for a three-tier or unrecognized platform the URN would
+    # be missing its database segment and dangle, so return None and let the caller
+    # warn and skip.
+    if platform in PLATFORMS_WITHOUT_DATABASE_SEGMENT:
         return FederationTarget(platform=platform, remote_database=None)
-
-    remote_database = (options or {}).get(db_key)
-    if not remote_database:
-        return None
-    return FederationTarget(platform=platform, remote_database=remote_database)
+    return None
 
 
 def external_dataset_name(target: FederationTarget, schema: str, table: str) -> str:
@@ -116,41 +131,52 @@ def external_dataset_name(target: FederationTarget, schema: str, table: str) -> 
     return f"{schema}.{table}"
 
 
-FEDERATION_PROPERTY_SUFFIXES: List[str] = [
-    "catalog_type",
-    "platform",
-    "connection",
-    "remote_database",
+# Structured-property suffixes (the last segment of each qualified name). Named
+# constants so producers (source.py) and definitions below share one spelling.
+FEDERATION_PROP_CATALOG_TYPE = "catalog_type"
+FEDERATION_PROP_PLATFORM = "platform"
+FEDERATION_PROP_CONNECTION = "connection"
+FEDERATION_PROP_REMOTE_DATABASE = "remote_database"
+
+
+@dataclass(frozen=True)
+class FederationProperty:
+    suffix: str
+    display_name: str
+    description: str
+    # Only the platform property constrains its values to the known platform list.
+    platform_allowed_values: bool = False
+
+
+# One record per property; the definition builder iterates this so display name and
+# description can never desync from the suffix list.
+FEDERATION_PROPERTIES: List[FederationProperty] = [
+    FederationProperty(
+        FEDERATION_PROP_CATALOG_TYPE,
+        "Catalog Type",
+        "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation).",
+    ),
+    FederationProperty(
+        FEDERATION_PROP_PLATFORM,
+        "Federation Platform",
+        "DataHub platform of the external system this foreign catalog mirrors.",
+        platform_allowed_values=True,
+    ),
+    FederationProperty(
+        FEDERATION_PROP_CONNECTION,
+        "Federation Connection",
+        "Unity Catalog connection backing this foreign catalog.",
+    ),
+    FederationProperty(
+        FEDERATION_PROP_REMOTE_DATABASE,
+        "Federation Remote Database",
+        "Name of the external database/project/catalog mirrored by this catalog.",
+    ),
 ]
-
-_PROPERTY_DISPLAY: Dict[str, str] = {
-    "catalog_type": "Catalog Type",
-    "platform": "Federation Platform",
-    "connection": "Federation Connection",
-    "remote_database": "Federation Remote Database",
-}
-
-_PROPERTY_DESCRIPTION: Dict[str, str] = {
-    "catalog_type": (
-        "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation)."
-    ),
-    "platform": "DataHub platform of the external system this foreign catalog mirrors.",
-    "connection": "Unity Catalog connection backing this foreign catalog.",
-    "remote_database": (
-        "Name of the external database/project/catalog mirrored by this catalog."
-    ),
-}
 
 
 def federation_property_urn(namespace: str, suffix: str) -> StructuredPropertyUrn:
     return StructuredPropertyUrn(f"{namespace}.{suffix}")
-
-
-def structured_property_urns(namespace: str) -> Dict[str, str]:
-    return {
-        suffix: federation_property_urn(namespace, suffix).urn()
-        for suffix in FEDERATION_PROPERTY_SUFFIXES
-    }
 
 
 def federation_property_definition_mcps(
@@ -159,18 +185,19 @@ def federation_property_definition_mcps(
     container_entity_type = EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn()
     value_type = DataTypeUrn("datahub.string").urn()
     mcps: List[MetadataChangeProposalWrapper] = []
-    for suffix in FEDERATION_PROPERTY_SUFFIXES:
-        qualified_name = f"{namespace}.{suffix}"
-        allowed_values = None
-        if suffix == "platform":
-            allowed_values = [
+    for prop in FEDERATION_PROPERTIES:
+        allowed_values = (
+            [
                 PropertyValueClass(value=platform)
                 for platform in KNOWN_FEDERATION_PLATFORMS
             ]
+            if prop.platform_allowed_values
+            else None
+        )
         aspect = StructuredPropertyDefinition(
-            qualifiedName=qualified_name,
-            displayName=_PROPERTY_DISPLAY[suffix],
-            description=_PROPERTY_DESCRIPTION[suffix],
+            qualifiedName=f"{namespace}.{prop.suffix}",
+            displayName=prop.display_name,
+            description=prop.description,
             valueType=value_type,
             entityTypes=[container_entity_type],
             cardinality="SINGLE",
@@ -178,7 +205,7 @@ def federation_property_definition_mcps(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=federation_property_urn(namespace, suffix).urn(),
+                entityUrn=federation_property_urn(namespace, prop.suffix).urn(),
                 aspect=aspect,
                 changeType=ChangeTypeClass.CREATE,
                 headers={"If-None-Match": "*"},

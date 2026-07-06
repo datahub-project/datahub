@@ -74,6 +74,9 @@ class UnityCatalogReport(SQLSourceReport):
     num_federation_links_emitted: int = 0
     num_federation_targets_unresolved: int = 0
     num_federation_columns_backfilled: int = 0
+    num_federation_columns_backfill_failed: int = 0
+    num_federation_external_schema_fetch_failed: int = 0
+    num_federation_property_defs_failed: int = 0
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0

@@ -85,6 +85,11 @@
                 },
                 {
                     "value": {
+                        "string": "salesforce"
+                    }
+                },
+                {
+                    "value": {
                         "string": "snowflake"
                     }
                 },
