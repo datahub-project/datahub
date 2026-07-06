@@ -167,38 +167,28 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
   });
 
-  test('can see when the inputs to a data job change', async ({ page }) => {
+  test('can see when the inputs to a data job change', async () => {
     test.setTimeout(90000);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
-    await page.goto(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
+    await lineagePage.goToLineageGraphWithTimeRange(
+      'tasks',
+      TRANSACTION_ETL_URN,
+      TIMESTAMP_MILLIS_14_DAYS_AGO,
+      TIMESTAMP_MILLIS_7_DAYS_AGO,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
-
-    await lineagePage.clickSidebarLineageTab();
-    // Downstream
     await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
-    // Upstream
-    await lineagePage.clickUpstreamDirection();
     await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
     await lineagePage.expectResultTextNotVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.SHORT);
 
     // From 7 days ago to now, user_profile was also added as an input
-    await page.goto(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
+    await lineagePage.goToLineageGraphWithTimeRange(
+      'tasks',
+      TRANSACTION_ETL_URN,
+      TIMESTAMP_MILLIS_7_DAYS_AGO,
+      TIMESTAMP_MILLIS_NOW,
     );
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
-
-    await lineagePage.clickSidebarLineageTab();
-    // Downstream
     await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
-    // Upstream
-    await lineagePage.clickUpstreamDirection();
     await lineagePage.expectResultTextVisible(UI_TEXT.TRANSACTIONS, TIMEOUTS.EXTRA_LONG);
     await lineagePage.expectResultTextVisible(UI_TEXT.USER_PROFILE, TIMEOUTS.EXTRA_LONG);
   });
