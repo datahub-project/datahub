@@ -765,6 +765,69 @@ def test_is_release_or_hotfix_branch_rejects_non_release():
     assert bsv.is_release_or_hotfix_branch("feature/releases-thing") is False
 
 
+# ---------------------------------------------------------------------------
+# _merge_base_distance
+# ---------------------------------------------------------------------------
+
+
+def test_merge_base_distance_returns_count(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(0, "3\n"))
+    assert bsv._merge_base_distance("origin/releases/x") == 3
+
+
+def test_merge_base_distance_none_on_failure(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(1))
+    assert bsv._merge_base_distance("origin/releases/x") is None
+
+
+# ---------------------------------------------------------------------------
+# find_nearest_ancestor_release_branch
+# ---------------------------------------------------------------------------
+
+
+def test_nearest_ancestor_no_candidates_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs", lambda: [])
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_release_branch_wins(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    # release branch 2 commits back, default branch 10 commits back
+    dist = {"origin/releases/v0.3.12": 2,
+            "refs/remotes/origin/acryl-main": 10, "acryl-main": 10}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert (bsv.find_nearest_ancestor_release_branch("acryl-main")
+            == "origin/releases/v0.3.12")
+
+
+def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 10,
+            "refs/remotes/origin/acryl-main": 2, "acryl-main": 2}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_tie_prefers_release(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/hotfixes/v0.3.12.1"])
+    dist = {"origin/hotfixes/v0.3.12.1": 5,
+            "refs/remotes/origin/acryl-main": 5, "acryl-main": 5}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert (bsv.find_nearest_ancestor_release_branch("acryl-main")
+            == "origin/hotfixes/v0.3.12.1")
+
+
+def test_nearest_ancestor_unresolvable_default_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 2}  # default branch unresolvable → None
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
 def test_get_merge_base_returns_sha(monkeypatch):
     monkeypatch.setattr(subprocess, "run",
                         lambda *a, **kw: _make_proc(0, "abc123def456\n"))

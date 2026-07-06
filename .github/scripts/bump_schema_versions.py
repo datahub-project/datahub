@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 CLI tool to bump schemaVersion annotations on changed PDL aspect files.
@@ -90,6 +91,92 @@ def is_release_or_hotfix_branch(name: str) -> bool:
             name = name[len(prefix):]
             break
     return name.startswith(RELEASE_BRANCH_PREFIXES)
+
+
+def _list_release_hotfix_refs() -> list[str]:
+    """Return short names of all local/remote releases/* and hotfixes/* refs.
+
+    Empty on git failure or when none exist (e.g. OSS DataHub).
+    """
+    result = subprocess.run(
+        [
+            "git",
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "refs/remotes/*/releases/*",
+            "refs/remotes/*/hotfixes/*",
+            "refs/heads/releases/*",
+            "refs/heads/hotfixes/*",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+
+
+def _merge_base_distance(ref: str) -> int | None:
+    """Return the number of commits from merge-base(HEAD, ref) to HEAD.
+
+    Smaller means ref is a nearer ancestor of HEAD. Returns None if ref does
+    not resolve or shares no history with HEAD.
+    """
+    mb = subprocess.run(
+        ["git", "merge-base", "HEAD", ref], capture_output=True, text=True
+    )
+    if mb.returncode != 0 or not mb.stdout.strip():
+        return None
+    count = subprocess.run(
+        ["git", "rev-list", "--count", f"{mb.stdout.strip()}..HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if count.returncode != 0 or not count.stdout.strip():
+        return None
+    try:
+        return int(count.stdout.strip())
+    except ValueError:
+        return None
+
+
+def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
+    """Return the releases/*|hotfixes/* branch that is the nearest ancestor of
+    HEAD, or None if the default branch is a nearer ancestor, none exist, or
+    the default branch cannot be resolved.
+
+    "Nearest" = fewest commits from the merge-base to HEAD. On a tie with the
+    default branch, the release/hotfix branch wins (release context is
+    intentional). Fails safe toward None so the check runs when in doubt.
+    """
+    candidates = _list_release_hotfix_refs()
+    if not candidates:
+        return None
+
+    # Distance to the default branch — try remote-tracking then bare name,
+    # since CI checkouts often only have the remote-tracking ref.
+    default_distance = None
+    for ref in (f"refs/remotes/origin/{default_branch}", default_branch):
+        default_distance = _merge_base_distance(ref)
+        if default_distance is not None:
+            break
+    if default_distance is None:
+        return None
+
+    nearest_ref = None
+    nearest_distance = None
+    for ref in candidates:
+        d = _merge_base_distance(ref)
+        if d is None:
+            continue
+        if nearest_distance is None or d < nearest_distance:
+            nearest_ref = ref
+            nearest_distance = d
+
+    if nearest_ref is None:
+        return None
+    # Tie → release/hotfix wins, hence <=.
+    return nearest_ref if nearest_distance <= default_distance else None
 
 
 def get_merge_base(remote_ref: str) -> str:
