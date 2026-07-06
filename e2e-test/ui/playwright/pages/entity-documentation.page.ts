@@ -194,13 +194,12 @@ export class EntityDocumentationPage extends BasePage {
     newLabel: string,
     showInPreview: boolean,
   ): Promise<void> {
-    // Each related link renders as an antd list item (<li>). The anchor and the
-    // edit/remove buttons are SIBLINGS inside that <li> — the buttons are NOT nested
-    // under the anchor — so scope the edit button by the list item holding the anchor.
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the edit
+    // button under the anchor for this link.
     // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-    const anchor = this.page.locator(`a[href="${currentUrl}"]`);
-    const item = this.relatedList.getByRole('listitem').filter({ has: anchor }).filter({ hasText: currentLabel });
-    await item.getByTestId('edit-link-button').click();
+    const pill = this.relatedList.locator(`a[href="${currentUrl}"]`).filter({ hasText: currentLabel });
+    await pill.getByTestId('edit-link-button').click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
     // Confirm via the updated link surfacing in the list rather than the stacking toast.
@@ -209,12 +208,12 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async removeLinkByUrl(url: string): Promise<void> {
-    // Each related link renders as an antd list item (<li>). The anchor and the
-    // edit/remove buttons are SIBLINGS inside that <li> — the buttons are NOT nested
-    // under the anchor — so scope the remove button by the list item holding the anchor.
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the remove
+    // button under the anchor for this link.
     // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-    const item = this.relatedList.getByRole('listitem').filter({ has: this.page.locator(`a[href="${url}"]`) });
-    await item.getByTestId('remove-link-button').click();
+    const pill = this.relatedList.locator(`a[href="${url}"]`);
+    await pill.getByTestId('remove-link-button').click();
     // Confirm removal by the link disappearing from the list. We deliberately do NOT
     // assert the "Link Removed" toast: toasts stack and linger, so removing several links
     // in quick succession makes getByText('Link Removed') match multiple nodes (strict-
