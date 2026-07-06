@@ -95,6 +95,14 @@ source:
         env: PROD
 ```
 
+:::caution Ghost siblings with the default `siblings` link
+
+With the default `federation_link_type: siblings`, the sibling relationship only resolves if the external source is **also ingested into DataHub** as its own recipe, using the exact same `platform_instance` (and `convert_urns_to_lowercase`) that you set in `federation_connection_details`. If the external source is never ingested, or is ingested with a different `platform_instance` or case-folding setting, the sibling points at a dataset URN that DataHub never creates — a "ghost" external dataset that never reconciles with the real one.
+
+:::
+
+`federation_link_type` is the only setting that controls federation links. The separate `emit_siblings` option described above governs only the Delta Lake (S3 external table) sibling path and has no effect on foreign catalog / Lakehouse Federation siblings.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces

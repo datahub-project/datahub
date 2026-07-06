@@ -1221,7 +1221,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ):
             return None
         ns = self.config.federation_structured_property_namespace
-        urns = federation.structured_property_urns(ns)
         values: Dict[str, str] = {"catalog_type": "FOREIGN_CATALOG"}
         if catalog.connection_name:
             values["connection"] = catalog.connection_name
@@ -1244,7 +1243,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return {
             StructuredPropertyUrn(f"{ns}.{suffix}"): value
             for suffix, value in values.items()
-            if suffix in urns
         }
 
     def _gen_federation_property_definition_workunits(

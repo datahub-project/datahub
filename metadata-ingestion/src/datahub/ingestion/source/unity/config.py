@@ -334,7 +334,7 @@ class UnityCatalogSourceConfig(
         default=FederationLinkType.SIBLINGS,
         description="How to link a Lakehouse Federation foreign catalog's tables to the "
         "external source dataset: 'siblings' (merge into one logical dataset — correct for a "
-        "read-only mirror), 'lineage' (an upstream edge), or 'none'. Never both.",
+        "read-only mirror), 'lineage' (an upstream edge), or 'none'.",
     )
     emit_federation_structured_properties: bool = pydantic.Field(
         default=True,
