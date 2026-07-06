@@ -16,10 +16,7 @@
 
 from unittest.mock import patch
 
-from datahub_actions.event.event_registry import (
-    ENTITY_CHANGE_EVENT_V1_TYPE,
-    METADATA_CHANGE_LOG_EVENT_V1_TYPE,
-)
+from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.filter.event_type_filter import EventTypeFilter
 from datahub_actions.plugin.source.kafka.kafka_event_source import (
@@ -67,11 +64,9 @@ _MCL_MSG = {
 
 def _make_source(
     enable_mcl_pre_deserialization_filter: bool = False,
-    async_commit_enabled: bool = True,
 ) -> KafkaEventSource:
     config = KafkaEventSourceConfig(
-        enable_mcl_pre_deserialization_filter=enable_mcl_pre_deserialization_filter,
-        async_commit_enabled=async_commit_enabled,
+        enable_mcl_pre_deserialization_filter=enable_mcl_pre_deserialization_filter
     )
     ctx = PipelineContext(pipeline_name="test-kafka", graph=None)
     with (
@@ -256,103 +251,3 @@ def test_disabled_when_predicate_has_no_extractable_fields():
 
     msg_chart = TestMessage({**_MCL_MSG, "entityType": "chart"})
     assert len(list(source.handle_mcl(msg_chart))) == 1, "Should pass (no early filter)"
-
-
-# A message dropped by the early filter must still advance the committed offset, so the
-# committed position tracks the log tip on a stream where matching events are rare
-# (otherwise lag grows unboundedly and every restart replays the whole backlog).
-
-_EXEC_REQUEST_FILTER = {
-    "filter": {
-        METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
-            "event": [{"entityType": "dataHubExecutionRequest"}]
-        }
-    }
-}
-
-
-def _rejected_msg() -> TestMessage:
-    # entityType=dataset does not match the execution-request filter -> definite miss.
-    return TestMessage(
-        {
-            **_MCL_MSG,
-            "topic": "MetadataChangeLog_Versioned_v1",
-            "partition": 3,
-            "offset": 100,
-        }
-    )
-
-
-def test_rejected_message_advances_offset_async():
-    ctx = PipelineContext(pipeline_name="test", graph=None)
-    f = EventTypeFilter.create(_EXEC_REQUEST_FILTER, ctx)
-    source = _make_source(enable_mcl_pre_deserialization_filter=True)
-    source.set_filters([f])
-
-    assert list(source.handle_mcl(_rejected_msg())) == [], (
-        "Should reject (definite miss)"
-    )
-
-    source.consumer.store_offsets.assert_called_once()
-    tp = source.consumer.store_offsets.call_args.kwargs["offsets"][0]
-    # Kafka commits the next offset to consume, i.e. message offset + 1.
-    assert (tp.topic, tp.partition, tp.offset) == (
-        "MetadataChangeLog_Versioned_v1",
-        3,
-        101,
-    )
-
-
-def test_skip_entirely_advances_offset_async():
-    # An EventTypeFilter that targets a non-MCL event type means the pipeline drops
-    # all MCLs, so the source skips them entirely (_skip_mcl_entirely) before
-    # deserialization. Those skipped MCLs must still advance the offset.
-    ctx = PipelineContext(pipeline_name="test", graph=None)
-    f = EventTypeFilter.create(
-        {"filter": {ENTITY_CHANGE_EVENT_V1_TYPE: {"event": [{"category": "TAG"}]}}},
-        ctx,
-    )
-    source = _make_source(enable_mcl_pre_deserialization_filter=True)
-    source.set_filters([f])
-    assert source._skip_mcl_entirely, "filter without MCL should skip all MCLs"
-
-    assert list(source.handle_mcl(_rejected_msg())) == []
-
-    source.consumer.store_offsets.assert_called_once()
-    tp = source.consumer.store_offsets.call_args.kwargs["offsets"][0]
-    assert tp.offset == 101
-
-
-def test_rejected_message_commits_offset_sync_mode():
-    ctx = PipelineContext(pipeline_name="test", graph=None)
-    f = EventTypeFilter.create(_EXEC_REQUEST_FILTER, ctx)
-    source = _make_source(
-        enable_mcl_pre_deserialization_filter=True, async_commit_enabled=False
-    )
-    source.set_filters([f])
-
-    assert list(source.handle_mcl(_rejected_msg())) == []
-
-    # Sync mode commits synchronously instead of storing for auto-commit.
-    source.consumer.commit.assert_called_once()
-    source.consumer.store_offsets.assert_not_called()
-
-
-def test_matched_message_does_not_advance_offset():
-    ctx = PipelineContext(pipeline_name="test", graph=None)
-    f = EventTypeFilter.create(
-        {
-            "filter": {
-                METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
-                    "event": [{"entityType": "dataset"}]
-                }
-            }
-        },
-        ctx,
-    )
-    source = _make_source(enable_mcl_pre_deserialization_filter=True)
-    source.set_filters([f])
-
-    # A matched message flows to the pipeline (yielded) and is acked there, not here.
-    assert len(list(source.handle_mcl(TestMessage(_MCL_MSG)))) == 1
-    source.consumer.store_offsets.assert_not_called()

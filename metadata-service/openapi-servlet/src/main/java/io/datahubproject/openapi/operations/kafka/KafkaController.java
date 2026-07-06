@@ -10,6 +10,7 @@ import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -113,7 +114,8 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -186,7 +188,8 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -261,7 +264,8 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);

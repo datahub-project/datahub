@@ -588,7 +588,4 @@ public interface EntityService<U extends ChangeMCP> {
   SearchIndicesService getUpdateIndicesService();
 
   void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
-
-  /** Flush the Kafka event producer to release buffered messages. */
-  void flushEventProducer();
 }

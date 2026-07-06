@@ -30,6 +30,10 @@ dependencies {
 
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
+  testImplementation testFixtures(project(':metadata-io'))
+  testImplementation project(':metadata-service:configuration')
+  testImplementation externalDependency.jacksonDataFormatYaml
+  testImplementation project(':metadata-operation-context')
 }
 
 configurations.all{
