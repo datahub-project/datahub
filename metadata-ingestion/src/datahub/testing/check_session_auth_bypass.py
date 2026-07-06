@@ -11,6 +11,12 @@ itself instead (``session.get(...)``), or pass the session's ``auth`` object.
 
 This has caused real production-shaped bugs (the DataHub Cloud events consumer
 polled with copied headers and 401'd under OAuth), so it is enforced as a test.
+
+Best-effort by design, not a guarantee: session detection is a substring
+heuristic, so an aliasing hop (``s = graph._session`` then ``headers=s.headers``
+where the alias name lacks "session", or hoisting the headers into a local)
+evades it. The enforced test keeps the known idioms extinct; it does not prove
+absence of the bug class.
 """
 
 from __future__ import annotations

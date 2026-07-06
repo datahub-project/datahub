@@ -20,25 +20,26 @@ Supported values of ``DATAHUB_AUTH_TYPE`` and their variables:
 
 from __future__ import annotations
 
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import SecretStr
 
+from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.auth.registry import AuthConfig
 
 ENV_AUTH_TYPE = "DATAHUB_AUTH_TYPE"
 
 
-def _require_env(auth_type: str, names: List[str]) -> Dict[str, str]:
-    missing = [name for name in names if not os.environ.get(name)]
+def _require_env(auth_type: str, values: Dict[str, Optional[str]]) -> Dict[str, str]:
+    """Values keyed by env-var name (for the error message), read via env_vars."""
+    missing = [name for name, value in values.items() if not value]
     if missing:
         raise ConfigurationError(
             f"{ENV_AUTH_TYPE}={auth_type} requires the following environment "
             f"variables to be set: {', '.join(missing)}"
         )
-    return {name: os.environ[name] for name in names}
+    return {name: value for name, value in values.items() if value}
 
 
 def build_auth_config_from_env() -> Optional[AuthConfig]:
@@ -48,52 +49,50 @@ def build_auth_config_from_env() -> Optional[AuthConfig]:
     the static ``DATAHUB_GMS_TOKEN`` / system-client behavior. Secrets are
     wrapped in :class:`pydantic.SecretStr` so config dumps/reprs mask them.
     """
-    auth_type = os.environ.get(ENV_AUTH_TYPE)
+    auth_type = env_vars.get_auth_type()
     if not auth_type:
         return None
 
     config: Dict[str, Any] = {}
     if auth_type == "k8s_oidc":
-        if os.environ.get("DATAHUB_AUTH_TOKEN_FILE"):
-            config["token_file"] = os.environ["DATAHUB_AUTH_TOKEN_FILE"]
-        if os.environ.get("DATAHUB_AUTH_AUDIENCE"):
-            config["audience"] = os.environ["DATAHUB_AUTH_AUDIENCE"]
+        if token_file := env_vars.get_auth_token_file():
+            config["token_file"] = token_file
+        if audience := env_vars.get_auth_audience():
+            config["audience"] = audience
     elif auth_type == "azure_entra":
         required = _require_env(
             auth_type,
-            [
-                "DATAHUB_AUTH_AZURE_TENANT_ID",
-                "DATAHUB_AUTH_AZURE_CLIENT_ID",
-                "DATAHUB_AUTH_AZURE_SCOPE",
-            ],
+            {
+                "DATAHUB_AUTH_AZURE_TENANT_ID": env_vars.get_auth_azure_tenant_id(),
+                "DATAHUB_AUTH_AZURE_CLIENT_ID": env_vars.get_auth_azure_client_id(),
+                "DATAHUB_AUTH_AZURE_SCOPE": env_vars.get_auth_azure_scope(),
+            },
         )
         config = {
             "tenant_id": required["DATAHUB_AUTH_AZURE_TENANT_ID"],
             "client_id": required["DATAHUB_AUTH_AZURE_CLIENT_ID"],
             "scope": required["DATAHUB_AUTH_AZURE_SCOPE"],
         }
-        if os.environ.get("DATAHUB_AUTH_AZURE_CLIENT_SECRET"):
-            config["client_secret"] = SecretStr(
-                os.environ["DATAHUB_AUTH_AZURE_CLIENT_SECRET"]
-            )
+        if azure_secret := env_vars.get_auth_azure_client_secret():
+            config["client_secret"] = SecretStr(azure_secret)
     elif auth_type == "oidc_client_credentials":
         required = _require_env(
             auth_type,
-            [
-                "DATAHUB_AUTH_TOKEN_ENDPOINT",
-                "DATAHUB_AUTH_CLIENT_ID",
-                "DATAHUB_AUTH_CLIENT_SECRET",
-            ],
+            {
+                "DATAHUB_AUTH_TOKEN_ENDPOINT": env_vars.get_auth_token_endpoint(),
+                "DATAHUB_AUTH_CLIENT_ID": env_vars.get_auth_client_id(),
+                "DATAHUB_AUTH_CLIENT_SECRET": env_vars.get_auth_client_secret(),
+            },
         )
         config = {
             "token_endpoint": required["DATAHUB_AUTH_TOKEN_ENDPOINT"],
             "client_id": required["DATAHUB_AUTH_CLIENT_ID"],
             "client_secret": SecretStr(required["DATAHUB_AUTH_CLIENT_SECRET"]),
         }
-        if os.environ.get("DATAHUB_AUTH_SCOPE"):
-            config["scope"] = os.environ["DATAHUB_AUTH_SCOPE"]
-        if os.environ.get("DATAHUB_AUTH_AUDIENCE"):
-            config["audience"] = os.environ["DATAHUB_AUTH_AUDIENCE"]
+        if scope := env_vars.get_auth_scope():
+            config["scope"] = scope
+        if audience := env_vars.get_auth_audience():
+            config["audience"] = audience
     else:
         raise ConfigurationError(
             f"Unsupported {ENV_AUTH_TYPE}: '{auth_type}'. Supported types: "
