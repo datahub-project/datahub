@@ -683,6 +683,21 @@ def build_container(
     container_parent_key: Optional[DataplexProjectId] = None
     if parent is not None and entry.parent_entry:
         container_parent_key = parent.container_key(entry.parent_entry)
+        if container_parent_key is None:
+            # Mirror build_dataset: a present-but-unparseable parent_entry should
+            # not silently reparent the container under its project root.
+            ctx.report.warning(
+                title="Unparseable Dataplex parent_entry",
+                message=(
+                    "Could not parse parent_entry into a parent container. "
+                    "Falling back to the project container."
+                ),
+                context=(
+                    f"entry_type={entry.entry_type}, "
+                    f"entry_name={entry.name}, "
+                    f"parent_entry={entry.parent_entry}"
+                ),
+            )
     if container_parent_key is None:
         container_parent_key = _project_schema_key(
             fqn_regex, platform, entry.fully_qualified_name
