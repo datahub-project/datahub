@@ -53,7 +53,14 @@ def _ctx(include_schema: bool = False) -> EntryMappingContext:
 
 # (short_name, fqn, parent_entry, expected main type, expected dataset name or None)
 CASES = [
-    ("bigquery-dataset", "bigquery:my-project.my_dataset", "", "Container", None),
+    (
+        "bigquery-dataset",
+        "bigquery:my-project.my_dataset",
+        "",
+        "Container",
+        None,
+        "Dataset",
+    ),
     (
         "bigquery-table",
         "bigquery:my-project.my_dataset.my_table",
@@ -61,6 +68,7 @@ CASES = [
         "bigquery.googleapis.com/projects/my-project/datasets/my_dataset",
         "Dataset",
         "my-project.my_dataset.my_table",
+        None,
     ),
     (
         "bigquery-view",
@@ -69,6 +77,7 @@ CASES = [
         "bigquery.googleapis.com/projects/my-project/datasets/my_dataset",
         "Dataset",
         "my-project.my_dataset.my_view",
+        None,
     ),
     (
         "cloudsql-mysql-instance",
@@ -76,6 +85,7 @@ CASES = [
         "",
         "Container",
         None,
+        "Instance",
     ),
     (
         "cloudsql-mysql-database",
@@ -84,6 +94,7 @@ CASES = [
         "cloudsql.googleapis.com/projects/my-project/locations/us-west2/instances/my-instance",
         "Container",
         None,
+        "Database",
     ),
     (
         "cloudsql-mysql-table",
@@ -92,6 +103,7 @@ CASES = [
         "cloudsql.googleapis.com/projects/my-project/locations/us-west2/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.us-west2.my-instance.my-db.my_table",
+        None,
     ),
     (
         "cloud-spanner-instance",
@@ -99,6 +111,7 @@ CASES = [
         "",
         "Container",
         None,
+        "Instance",
     ),
     (
         "cloud-spanner-database",
@@ -107,6 +120,7 @@ CASES = [
         "spanner.googleapis.com/projects/my-project/instances/my-instance",
         "Container",
         None,
+        "Database",
     ),
     (
         "cloud-spanner-table",
@@ -115,6 +129,7 @@ CASES = [
         "spanner.googleapis.com/projects/my-project/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.regional-us-west2.my-instance.my-db.my_table",
+        None,
     ),
     (
         "cloud-spanner-graph",
@@ -123,6 +138,7 @@ CASES = [
         "spanner.googleapis.com/projects/my-project/instances/my-instance/databases/my-db",
         "Dataset",
         "my-project.regional-us-west2.my-instance.my-db.MyGraph",
+        None,
     ),
     (
         "cloud-bigtable-instance",
@@ -130,6 +146,7 @@ CASES = [
         "",
         "Container",
         None,
+        "Instance",
     ),
     (
         "cloud-bigtable-table",
@@ -138,6 +155,7 @@ CASES = [
         "bigtable.googleapis.com/projects/my-project/instances/my-instance",
         "Dataset",
         "my-project.my-instance.my_table",
+        None,
     ),
     (
         "pubsub-topic",
@@ -145,6 +163,7 @@ CASES = [
         "",
         "Dataset",
         "my-project.my-topic",
+        None,
     ),
     (
         "vertexai-dataset",
@@ -152,6 +171,7 @@ CASES = [
         "",
         "Dataset",
         "my-project.us-west2.123456",
+        None,
     ),
     (
         "dataproc-metastore-service",
@@ -159,6 +179,7 @@ CASES = [
         "",
         "Container",
         None,
+        "Service",
     ),
     (
         "dataproc-metastore-database",
@@ -167,6 +188,7 @@ CASES = [
         "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service",
         "Container",
         None,
+        "Database",
     ),
     (
         "dataproc-metastore-table",
@@ -175,6 +197,7 @@ CASES = [
         "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service/databases/my-db",
         "Dataset",
         "my-project.us-west1.my-service.my-db.my_table",
+        None,
     ),
 ]
 
@@ -183,13 +206,16 @@ def test_registry_covers_all_supported_entry_types() -> None:
     assert set(ENTRY_MAPPERS.keys()) == {case[0] for case in CASES}
 
 
-@pytest.mark.parametrize("short_name,fqn,parent_entry,main_type,dataset_name", CASES)
+@pytest.mark.parametrize(
+    "short_name,fqn,parent_entry,main_type,dataset_name,expected_subtype", CASES
+)
 def test_mapper_builds_expected_entity(
     short_name: str,
     fqn: str,
     parent_entry: str,
     main_type: str,
     dataset_name: Optional[str],
+    expected_subtype: Optional[str],
 ) -> None:
     mapper = ENTRY_MAPPERS[short_name]
     result = mapper.map(
@@ -219,16 +245,23 @@ def test_mapper_builds_expected_entity(
         assert result.lineage_entry.dataplex_location == "us-west2"
     else:
         assert isinstance(result.main_entity, Container)
+        assert expected_subtype is not None, (
+            "Container entries must have expected_subtype"
+        )
+        assert result.main_entity.subtype == expected_subtype
         assert result.lineage_entry is None
 
 
-@pytest.mark.parametrize("short_name,fqn,parent_entry,main_type,dataset_name", CASES)
+@pytest.mark.parametrize(
+    "short_name,fqn,parent_entry,main_type,dataset_name,expected_subtype", CASES
+)
 def test_parent_entry_link_present_iff_entry_has_parent(
     short_name: str,
     fqn: str,
     parent_entry: str,
     main_type: str,
     dataset_name: Optional[str],
+    expected_subtype: Optional[str],
 ) -> None:
     """A mapper declares a ParentEntryLink exactly when the entry has a
     parent_entry finer than its project; otherwise the property is None.
@@ -442,7 +475,7 @@ def test_container_fqn_regex_groups_are_key_fields(short_name: str) -> None:
 def test_container_builds_expected_key_urn_for_non_bigquery_types() -> None:
     """Concrete container-identity checks for non-BigQuery platforms (the golden
     files are BigQuery-only), incl. the Spanner regional- location normalization."""
-    for short_name, fqn, parent_entry, _, _ in CASES:
+    for short_name, fqn, parent_entry, _, _, _ in CASES:
         if short_name not in {"cloud-spanner-database", "cloudsql-mysql-database"}:
             continue
         result = ENTRY_MAPPERS[short_name].map(
