@@ -245,6 +245,68 @@
       "platform_name": "Azure Data Factory",
       "support_status": "INCUBATING"
     },
+    "bigid": {
+      "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Column-level profiles from BigID columnProfile data",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Stale entity removal via stateful ingestion. Only meaningful with create_datasets=True: in pure enrichment mode the connector owns no Dataset entities, so there is nothing for stale removal to soft-delete (glossary terms, tags and domains are shared, not per-run).",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Domain entities created when domain_mode is auto_namespaced or config_map",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Ownership on GlossaryTerms (not Datasets); controlled by owner_type config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "BigID tags applied to datasets and columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "BigID classification findings as GlossaryTerms on SchemaFields",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Platform instance emitted per dataset when platform_instance is configured",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Column schema from BigID columns API (requires create_datasets=True)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.bigid.bigid_source.BigIDSource",
+      "platform_id": "bigid",
+      "platform_name": "BigID",
+      "support_status": "INCUBATING"
+    },
     "bigquery": {
       "capabilities": [
         {
@@ -2497,6 +2559,80 @@
       "platform_id": "metabase",
       "platform_name": "Metabase",
       "support_status": "CERTIFIED"
+    },
+    "microstrategy": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Projects and folders emit as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Modeling API field lineage from MicroStrategy metrics and attributes to source warehouse fields",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Dashboard and report usage from the Platform Analytics cube when `extract_usage_statistics` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `ingest_owner`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Metric, attribute, and temporal field tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Visualization and report inputs when resolvable",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.microstrategy.source.MicroStrategySource",
+      "platform_id": "microstrategy",
+      "platform_name": "MicroStrategy",
+      "support_status": "INCUBATING"
     },
     "mlflow": {
       "capabilities": [

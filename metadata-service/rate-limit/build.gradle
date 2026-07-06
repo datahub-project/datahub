@@ -7,6 +7,8 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 dependencies {
   api project(':metadata-service:configuration')
   implementation project(':metadata-utils')
+  // Provides io.datahubproject.metadata.context types used ONLY by tests (e.g. ObjectMapperContext).
+  testImplementation project(':metadata-operation-context')
 
   implementation externalDependency.concurrencyLimitsCore
   implementation externalDependency.bucket4jCore
@@ -23,7 +25,6 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
-  testImplementation project(':metadata-operation-context')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.jacksonDataFormatYaml

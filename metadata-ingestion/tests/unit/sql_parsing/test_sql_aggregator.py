@@ -11,7 +11,11 @@ from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.metadata.schema_classes import (
+    OperationClass,
+    QueryUsageStatisticsClass,
+)
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -246,65 +250,6 @@ def test_multistep_temp_table() -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
     )
-
-
-def test_composite_query_statement_is_capped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # When many statements write to a temp table in one session and a final
-    # query reads from it, the aggregator merges the whole chain into one
-    # synthetic "composite" query. Without a cap that merged statement can grow
-    # unbounded (hundreds of MB in production) and overflow the GMS payload
-    # limit. Verify the merged statement is bounded and the truncation is
-    # reported.
-    import datahub.sql_parsing.sql_parsing_aggregator as agg_module
-    from datahub.metadata.schema_classes import QueryPropertiesClass
-
-    cap = 2000
-    monkeypatch.setattr(agg_module, "MAX_COMPOSITE_QUERY_STATEMENT_CHARS", cap)
-
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_queries=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        is_temp_table=lambda name: "temp_sync" in name.lower(),
-    )
-
-    padding = "/* filler to make each statement non-trivial */ " * 5
-    for i in range(50):
-        aggregator.add_observed_query(
-            ObservedQuery(
-                query=f"insert into temp_sync select {i} as id, '{padding}' as note from src_{i}",
-                default_db="dev",
-                default_schema="public",
-                session_id="session1",
-            )
-        )
-    aggregator.add_observed_query(
-        ObservedQuery(
-            query="insert into prod_target select * from temp_sync",
-            default_db="dev",
-            default_schema="public",
-            session_id="session1",
-        )
-    )
-
-    composite_lengths = []
-    for mcp in aggregator.gen_metadata():
-        urn = mcp.entityUrn or ""
-        aspect = mcp.aspect
-        if urn.startswith("urn:li:query:composite_") and isinstance(
-            aspect, QueryPropertiesClass
-        ):
-            if aspect.statement and aspect.statement.value:
-                composite_lengths.append(len(aspect.statement.value))
-
-    assert composite_lengths, "expected at least one composite query to be generated"
-    # cap + the short truncation suffix
-    assert max(composite_lengths) <= cap + 200
-    assert aggregator.report.num_composite_queries_truncated_due_to_large_size >= 1
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -1053,6 +998,152 @@ def test_basic_usage() -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_query_usage_stats_attributed_to_temp_table_composite_query() -> None:
+    # Query usage counts are recorded per raw-statement fingerprint, but a query
+    # fed by temp tables is emitted as a Query entity under a *composite*
+    # fingerprint. The usage must land on that composite Query URN (the one the
+    # lineage edges reference), otherwise per-query popularity is silently dropped
+    # for every temp-table-fed target - the common ELT/dbt shape.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create temp table staging as select a, b from source_table",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="insert into prod_target select a, b from staging",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    # The temp-table session collapsed into exactly one composite query.
+    composite_ids = list(aggregator.report.queries_with_temp_upstreams.keys())
+    assert len(composite_ids) == 1
+    composite_query_urn = QueryUrn(composite_ids[0]).urn()
+
+    usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+
+    # Usage lands on the composite Query - and only there. The raw component
+    # statements must not surface as separate (orphan) Query entities carrying a
+    # duplicate of the same usage.
+    assert {mcp.entityUrn for mcp in usage_mcps} == {composite_query_urn}
+    # The pipeline ran once, so the count reflects the base statement (not the sum
+    # of the merged component statements, which would be > 1).
+    usage_aspect = usage_mcps[0].aspect
+    assert isinstance(usage_aspect, QueryUsageStatisticsClass)
+    assert usage_aspect.queryCount == 1
+    assert aggregator.report.num_query_usage_stats_generated == 1
+
+    # The composite is the only Query entity emitted - the raw component statements
+    # are subsumed, not emitted as separate (orphan) Query entities.
+    query_entity_urns = {
+        mcp.entityUrn
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    }
+    assert query_entity_urns == {composite_query_urn}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_table_composite_query_operations_and_repeated_execution() -> None:
+    # With generate_operations=True, the operation aspect must reference the same
+    # composite Query as lineage (not a raw component that is never emitted). And
+    # when the base statement runs multiple times, queryCount reflects the base
+    # execution count, not the sum of all merged component statements.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_operations=True,
+        generate_usage_statistics=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    # The same create-temp + insert pipeline runs in two sessions, so the base
+    # insert executes twice while the merged statements also each run twice.
+    for session in ("session1", "session2"):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="create temp table staging as select a, b from source_table",
+                default_db="dev",
+                default_schema="public",
+                session_id=session,
+                timestamp=frozen_timestamp,
+                user=CorpUserUrn("user1"),
+            )
+        )
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="insert into prod_target select a, b from staging",
+                default_db="dev",
+                default_schema="public",
+                session_id=session,
+                timestamp=frozen_timestamp,
+                user=CorpUserUrn("user1"),
+            )
+        )
+
+    mcps = list(aggregator.gen_metadata())
+
+    composite_ids = list(aggregator.report.queries_with_temp_upstreams.keys())
+    assert len(composite_ids) == 1
+    composite_query_urn = QueryUrn(composite_ids[0]).urn()
+
+    # The operation on prod_target references the composite Query (matching
+    # lineage), so the reference resolves to an emitted entity.
+    prod_urn = DatasetUrn("redshift", "dev.public.prod_target").urn()
+    op_queries = [
+        mcp.aspect.queries
+        for mcp in mcps
+        if mcp.entityUrn == prod_urn and isinstance(mcp.aspect, OperationClass)
+    ]
+    assert op_queries
+    assert all(queries == [composite_query_urn] for queries in op_queries)
+
+    # queryCount reflects the base statement executed twice - not the sum of the
+    # base plus the merged temp-loading statement (which would be 4).
+    usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+    assert {mcp.entityUrn for mcp in usage_mcps} == {composite_query_urn}
+    usage_aspect = usage_mcps[0].aspect
+    assert isinstance(usage_aspect, QueryUsageStatisticsClass)
+    assert usage_aspect.queryCount == 2
 
 
 def test_table_swap_id() -> None:
