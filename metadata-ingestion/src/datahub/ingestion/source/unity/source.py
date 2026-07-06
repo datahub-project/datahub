@@ -79,6 +79,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.unity import federation, proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
+    FederationLinkType,
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
@@ -901,6 +902,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
+        yield from self._gen_federation_link(dataset_urn, table, table.schema.catalog)
+
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for ml_model in self.unity_catalog_api_proxy.ml_models(
             schema=schema, max_results=self.config.ml_model_max_results
@@ -1267,6 +1270,55 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 except Exception as e:
                     logger.debug(f"Federation property existence check failed: {e}")
             yield mcp.as_workunit()
+
+    def _gen_federation_link(
+        self, dataset_urn: str, table: Table, catalog: Catalog
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit the single configured cross-platform link (siblings XOR lineage) from
+        a foreign-catalog table to its external source dataset."""
+        if (
+            not catalog.is_foreign_catalog
+            or self.config.federation_link_type == FederationLinkType.NONE
+        ):
+            return
+        detail = self.config.federation_connection_details.get(
+            catalog.connection_name or ""
+        )
+        connection = self.unity_catalog_api_proxy.connections().get(
+            catalog.connection_name or ""
+        )
+        target = federation.resolve_federation_target(
+            connection.connection_type if connection else None,
+            catalog.options,
+            detail.platform if detail else None,
+            detail.database if detail else None,
+        )
+        if target is None:
+            self.report.num_federation_targets_unresolved += 1
+            logger.warning(
+                f"Could not resolve federation target for catalog {catalog.name} "
+                f"(connection {catalog.connection_name}); skipping link."
+            )
+            return
+
+        name = federation.external_dataset_name(target, table.schema.name, table.name)
+        lowercase = self.config.convert_urns_to_lowercase
+        if detail is not None and detail.convert_urns_to_lowercase is not None:
+            lowercase = detail.convert_urns_to_lowercase
+        if lowercase:
+            name = name.lower()
+        external_urn = make_dataset_urn_with_platform_instance(
+            platform=target.platform,
+            name=name,
+            platform_instance=detail.platform_instance if detail else None,
+            env=detail.env if (detail and detail.env) else self.config.env,
+        )
+
+        self.report.num_federation_links_emitted += 1
+        if self.config.federation_link_type == FederationLinkType.SIBLINGS:
+            yield from self.gen_siblings_workunit(dataset_urn, external_urn)
+        else:
+            yield from self.gen_lineage_workunit(dataset_urn, external_urn)
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)

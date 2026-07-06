@@ -14,12 +14,14 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogSourceConfig,
 )
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
+from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore, Schema, Table
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.metadata.schema_classes import (
+    SiblingsClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
+    UpstreamLineageClass,
 )
 
 
@@ -303,3 +305,153 @@ def test_no_property_definitions_when_disabled():
         )
         src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
     assert list(src._gen_federation_property_definition_workunits()) == []
+
+
+def _foreign_table(catalog: Catalog) -> Table:
+    schema = Schema(
+        id="c.my_schema", name="my_schema", catalog=catalog, comment=None, owner=None
+    )
+    return Table(
+        id="c.my_schema.t",
+        name="t",
+        comment=None,
+        schema=schema,
+        columns=[],
+        storage_location=None,
+        data_source_format=None,
+        table_type=None,
+        owner=None,
+        generation=None,
+        created_at=None,
+        created_by=None,
+        updated_at=None,
+        updated_by=None,
+        table_id=None,
+        view_definition=None,
+        properties={},
+    )
+
+
+def _source_with_link(link_type: str, lowercase: bool = False) -> UnityCatalogSource:
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_link_type": link_type,
+                "convert_urns_to_lowercase": lowercase,
+                "federation_connection_details": {
+                    "pg_conn": {"platform_instance": "prod-pg"}
+                },
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.unity_catalog_api_proxy.connections = lambda: {  # type: ignore[method-assign]
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.POSTGRESQL
+        )
+    }
+    return src
+
+
+def test_federation_siblings_emitted_for_foreign_table():
+    src = _source_with_link("siblings")
+    catalog = _foreign_catalog()
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
+    )
+    wus = list(src._gen_federation_link(dataset_urn, _foreign_table(catalog), catalog))
+    siblings = [
+        aspect
+        for wu in wus
+        if isinstance(aspect := wu.get_aspect_of_type(SiblingsClass), SiblingsClass)
+    ]
+    assert siblings, "expected sibling aspects"
+    external = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+    )
+    assert any(external in s.siblings for s in siblings)
+
+
+def test_federation_lineage_mode_emits_upstream():
+    src = _source_with_link("lineage")
+    catalog = _foreign_catalog()
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
+    )
+    wus = list(src._gen_federation_link(dataset_urn, _foreign_table(catalog), catalog))
+    up = [
+        aspect
+        for wu in wus
+        if isinstance(
+            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    assert up and up[0].upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+    )
+
+
+def test_federation_link_none_emits_nothing():
+    src = _source_with_link("none")
+    catalog = _foreign_catalog()
+    assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
+
+
+def test_federation_link_lowercase_applied():
+    src = _source_with_link("lineage", lowercase=True)
+    catalog = Catalog(
+        id="c",
+        name="My_Catalog",
+        metastore=Metastore(
+            id="ms",
+            name="ms",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        ),
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="pg_conn",
+        options={"database": "My_DB"},
+    )
+    schema = Schema(
+        id="c.My_Schema", name="My_Schema", catalog=catalog, comment=None, owner=None
+    )
+    table = Table(
+        id="c.My_Schema.T",
+        name="T",
+        comment=None,
+        schema=schema,
+        columns=[],
+        storage_location=None,
+        data_source_format=None,
+        table_type=None,
+        owner=None,
+        generation=None,
+        created_at=None,
+        created_by=None,
+        updated_at=None,
+        updated_by=None,
+        table_id=None,
+        view_definition=None,
+        properties={},
+    )
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
+    )
+    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
+    up = [
+        aspect
+        for wu in wus
+        if isinstance(
+            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    assert up[0].upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+    )
