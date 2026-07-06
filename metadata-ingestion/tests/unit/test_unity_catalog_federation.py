@@ -7,6 +7,10 @@ from databricks.sdk.service.catalog import (
     ConnectionType,
 )
 
+from datahub.ingestion.source.unity.config import (
+    FederationLinkType,
+    UnityCatalogSourceConfig,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -82,3 +86,37 @@ def test_connections_returns_empty_on_error():
     proxy = _proxy(wc)
     assert proxy.connections() == {}
     assert proxy.report.num_federation_connections_list_failed == 1
+
+
+_BASE = {"workspace_url": "https://x.cloud.databricks.com", "token": "t"}
+
+
+def test_federation_config_defaults():
+    cfg = UnityCatalogSourceConfig.model_validate(_BASE)
+    assert cfg.federation_link_type == FederationLinkType.SIBLINGS
+    assert cfg.emit_federation_structured_properties is True
+    assert cfg.federation_structured_property_namespace == "databricks.federation"
+    assert cfg.federation_connection_details == {}
+
+
+def test_federation_connection_detail_override():
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {
+            **_BASE,
+            "federation_link_type": "lineage",
+            "federation_connection_details": {
+                "pg_conn": {
+                    "platform": "postgres",
+                    "platform_instance": "prod-pg",
+                    "env": "PROD",
+                    "database": "my_db",
+                }
+            },
+        }
+    )
+    assert cfg.federation_link_type == FederationLinkType.LINEAGE
+    detail = cfg.federation_connection_details["pg_conn"]
+    assert detail.platform == "postgres"
+    assert detail.platform_instance == "prod-pg"
+    assert detail.database == "my_db"
+    assert detail.convert_urns_to_lowercase is None

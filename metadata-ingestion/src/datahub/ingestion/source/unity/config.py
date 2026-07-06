@@ -2,6 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Dict, List, Optional, Union
 
 import pydantic
@@ -156,6 +157,39 @@ class UnityCatalogSQLAlchemyProfilerConfig(
     )
 
 
+class FederationLinkType(Enum):
+    SIBLINGS = "siblings"
+    LINEAGE = "lineage"
+    NONE = "none"
+
+
+class FederationConnectionDetail(ConfigModel):
+    platform: Optional[str] = pydantic.Field(
+        default=None,
+        description="Override the DataHub platform auto-detected from the Unity Catalog "
+        "connection type (e.g. 'mssql', 'postgres').",
+    )
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="platform_instance the external source was ingested under. Must match "
+        "for the sibling/lineage link to resolve.",
+    )
+    env: Optional[str] = pydantic.Field(
+        default=None,
+        description="env of the external dataset (defaults to the source env).",
+    )
+    database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Override the remote database name (falls back to the foreign catalog's "
+        "connection options).",
+    )
+    convert_urns_to_lowercase: Optional[bool] = pydantic.Field(
+        default=None,
+        description="Override case-folding of the external URN (defaults to the source's "
+        "convert_urns_to_lowercase). Must match how the external source was ingested.",
+    )
+
+
 class UnityCatalogSourceConfig(
     UnityCatalogConnectionConfig,
     SQLCommonConfig,
@@ -294,6 +328,29 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    federation_link_type: FederationLinkType = pydantic.Field(
+        default=FederationLinkType.SIBLINGS,
+        description="How to link a Lakehouse Federation foreign catalog's tables to the "
+        "external source dataset: 'siblings' (merge into one logical dataset — correct for a "
+        "read-only mirror), 'lineage' (an upstream edge), or 'none'. Never both.",
+    )
+    emit_federation_structured_properties: bool = pydantic.Field(
+        default=True,
+        description="Define and assign structured properties marking foreign catalogs as "
+        "federated (facetable in the UI).",
+    )
+    federation_structured_property_namespace: str = pydantic.Field(
+        default="databricks.federation",
+        description="Qualified-name namespace for the federation structured properties "
+        "(e.g. '<namespace>.platform').",
+    )
+    federation_connection_details: Dict[str, FederationConnectionDetail] = (
+        pydantic.Field(
+            default_factory=dict,
+            description="Per-connection overrides keyed by Unity Catalog connection name.",
+        )
     )
 
     include_table_constraints: bool = pydantic.Field(
