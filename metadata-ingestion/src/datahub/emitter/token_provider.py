@@ -5,7 +5,8 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 
@@ -83,25 +84,55 @@ class CachingTokenProvider(TokenProvider):
         self._fetch = fetch
         self._refresh_buffer_seconds = refresh_buffer_seconds
         self._lock = threading.Lock()
-        self._cached: Optional[TokenResult] = None
+        self._cached: Optional[Tuple[TokenResult, float]] = None
+        self._warned_nonpositive_lifetime = False
 
     def get_token(self) -> TokenResult:
         with self._lock:
-            if self._cached is not None and not self._is_stale(self._cached):
-                return self._cached
-            self._cached = self._fetch()
-            return self._cached
+            if self._cached is not None and not self._is_stale(*self._cached):
+                return self._cached[0]
+            result = self._fetch()
+            self._cached = (result, time.time())
+            return result
 
     def invalidate(self) -> None:
         with self._lock:
             self._cached = None
 
-    def _is_stale(self, cached: TokenResult) -> bool:
+    def _is_stale(self, cached: TokenResult, fetched_at: float) -> bool:
         # No reported expiry -> always re-fetch. The underlying acquisition is
         # cheap (a projected-token file read, or azure-identity's own caching).
         if cached.expires_at is None:
             return True
-        return time.time() >= (cached.expires_at - self._refresh_buffer_seconds)
+        # Clamp the buffer to half the token's observed lifetime: with an IdP
+        # issuing tokens whose lifetime <= the buffer (e.g. Keycloak's default
+        # 300s access tokens vs the default 300s buffer), a fixed buffer would
+        # mark every token permanently stale and turn each client request into
+        # a synchronous IdP round trip.
+        lifetime = cached.expires_at - fetched_at
+        if lifetime <= 0:
+            # Token arrived already expired (IdP expires_in <= 0, or client
+            # clock ahead of the token response): caching cannot help, so every
+            # request degrades to a synchronous IdP round trip under the
+            # provider lock. That must be loud — once — not silent.
+            if not self._warned_nonpositive_lifetime:
+                logger.warning(
+                    "Token provider returned a token with non-positive lifetime "
+                    "(%.0fs); every request will fetch a fresh token. Check the "
+                    "IdP's token lifetime configuration and client clock skew.",
+                    lifetime,
+                )
+                self._warned_nonpositive_lifetime = True
+            return True
+        buffer = min(self._refresh_buffer_seconds, lifetime / 2)
+        return time.time() >= (cached.expires_at - buffer)
+
+
+def _origin(url: Optional[str]) -> Optional[Tuple[str, Optional[str], Optional[int]]]:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    return (parsed.scheme, parsed.hostname, parsed.port)
 
 
 class TokenProviderAuth(requests.auth.AuthBase):
@@ -115,9 +146,23 @@ class TokenProviderAuth(requests.auth.AuthBase):
         self._provider = provider
         self._retry_on_401 = retry_on_401
         self._thread_local = threading.local()
+        self._warned_replaced_authorization = False
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         self._thread_local.retried = False
+        self._thread_local.original_origin = _origin(request.url)
+        if (
+            "Authorization" in request.headers
+            and not self._warned_replaced_authorization
+        ):
+            # e.g. a proxy credential injected via extra_headers — the provider
+            # token wins, but silently breaking the proxy hop is a footgun.
+            logger.warning(
+                "Replacing a pre-existing Authorization header with the OAuth "
+                "bearer token. If that header carried proxy/gateway credentials, "
+                "requests will no longer present them."
+            )
+            self._warned_replaced_authorization = True
         request.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         if self._retry_on_401:
             request.register_hook("response", self._handle_401)
@@ -127,6 +172,24 @@ class TokenProviderAuth(requests.auth.AuthBase):
         self, response: requests.Response, **kwargs: object
     ) -> requests.Response:
         if response.status_code != 401 or getattr(self._thread_local, "retried", False):
+            return response
+        # Never re-attach the token after a redirect off the original origin:
+        # requests strips Authorization not just on cross-host redirects but also
+        # on same-host scheme downgrades and port changes (should_strip_auth), and
+        # retrying here would hand the GMS credential to that other endpoint —
+        # e.g. over plaintext HTTP after an https->http redirect. Strict
+        # (scheme, host, port) equality is slightly stricter than requests' rule
+        # (it also refuses the benign http->https upgrade); the cost is only a
+        # surfaced 401, never a leaked token.
+        if _origin(response.request.url) != getattr(
+            self._thread_local, "original_origin", None
+        ):
+            return response
+        # A streamed body (file object / generator) was consumed by the first
+        # send and cannot be replayed — a retry would transmit an empty body
+        # under the original Content-Length. Surface the 401 instead.
+        body = response.request.body
+        if body is not None and not isinstance(body, (str, bytes)):
             return response
         invalidate = getattr(self._provider, "invalidate", None)
         if invalidate is None:
