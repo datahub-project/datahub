@@ -106,7 +106,7 @@ class EntryMappingContext:
     report: SourceReport
 
 
-@dataclass
+@dataclass(frozen=True)
 class EntryMappingResult:
     """The DataHub entities a mapper produced for a single Dataplex entry.
 
