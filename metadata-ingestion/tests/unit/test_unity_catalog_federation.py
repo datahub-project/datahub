@@ -803,25 +803,50 @@ def _field(path: str) -> SchemaFieldClass:
     )
 
 
-def test_resolve_external_schema_fields_backfills_from_graph():
-    src = _snowflake_conn_source()
-    graph = MagicMock()
-    graph.get_aspect.return_value = _external_schema(
-        [_field("invoice_id"), _field("total_amount")]
-    )
-    src.ctx.graph = graph
+def _seed_external_schema(
+    src: UnityCatalogSource,
+    catalog: Catalog,
+    schema_name: str,
+    table_name: str,
+    schema_info: dict,
+    *,
+    platform: str = "snowflake",
+    platform_instance: Optional[str] = None,
+    env: str = "PROD",
+) -> str:
+    """Seed a bulk-initialized SchemaResolver for the external platform so backfill /
+    column-lineage resolve the external schema in-memory, and return the external URN.
+    Mirrors what SchemaResolverProvider does at runtime (one scroll per platform)."""
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
 
+    urn = src._external_dataset_urn(catalog, schema_name, table_name)
+    assert urn is not None
+    resolver = SchemaResolver(
+        platform=platform, platform_instance=platform_instance, env=env, graph=None
+    )
+    resolver.add_raw_schema_info(urn, schema_info)
+    src._external_schema_resolvers[(platform, platform_instance, env)] = resolver
+    return urn
+
+
+def test_resolve_external_schema_fields_backfills_from_external():
+    src = _snowflake_conn_source()
     catalog = _foreign_catalog()  # connection pg_conn, options {"database": "my_db"}
     table = _foreign_table(catalog)  # schema my_schema, table t, no columns
+    _seed_external_schema(
+        src,
+        catalog,
+        "my_schema",
+        "t",
+        {"invoice_id": "NUMBER", "total_amount": "DECIMAL"},
+    )
 
     fields = src._resolve_external_schema_fields(table)
 
     assert fields is not None
     assert [f.fieldPath for f in fields] == ["invoice_id", "total_amount"]
-    # resolved against the external snowflake URN we synthesize from the connection
-    called_urn = graph.get_aspect.call_args.args[0]
-    assert "dataPlatform:snowflake" in called_urn
-    assert "my_db.my_schema.t" in called_urn
+    # native type is carried from the external source's schema
+    assert fields[1].nativeDataType == "DECIMAL"
 
 
 def test_resolve_external_schema_fields_none_for_managed_catalog():
@@ -868,12 +893,15 @@ def test_resolve_external_schema_fields_none_when_disabled():
 
 def test_schema_metadata_backfilled_for_foreign_table_without_columns():
     src = _snowflake_conn_source()
-    graph = MagicMock()
-    graph.get_aspect.return_value = _external_schema(
-        [_field("invoice_id"), _field("total_amount")]
+    catalog = _foreign_catalog()
+    table = _foreign_table(catalog)  # no UC columns
+    _seed_external_schema(
+        src,
+        catalog,
+        "my_schema",
+        "t",
+        {"invoice_id": "NUMBER", "total_amount": "NUMBER"},
     )
-    src.ctx.graph = graph
-    table = _foreign_table(_foreign_catalog())  # no UC columns
     schema_metadata, _ = src._create_schema_metadata_aspect(table)
     assert [f.fieldPath for f in schema_metadata.fields] == [
         "invoice_id",
@@ -886,10 +914,9 @@ def test_schema_metadata_prefers_uc_columns_when_present():
     from datahub.ingestion.source.unity.proxy_types import Column
 
     src = _snowflake_conn_source()
-    graph = MagicMock()
-    graph.get_aspect.return_value = _external_schema([_field("should_not_be_used")])
-    src.ctx.graph = graph
     catalog = _foreign_catalog()
+    # even with an external schema available, UC's own columns take precedence
+    _seed_external_schema(src, catalog, "my_schema", "t", {"should_not_be_used": "INT"})
     schema = Schema(
         id="c.my_schema", name="my_schema", catalog=catalog, comment=None, owner=None
     )
@@ -928,44 +955,20 @@ def test_schema_metadata_prefers_uc_columns_when_present():
     assert src.report.num_federation_columns_backfilled == 0
 
 
-def test_backfilled_fields_drop_external_column_governance():
-    from datahub.metadata.schema_classes import (
-        GlobalTagsClass,
-        GlossaryTermAssociationClass,
-        GlossaryTermsClass,
-        TagAssociationClass,
-    )
-
-    tagged = _field("invoice_id")
-    tagged.globalTags = GlobalTagsClass(
-        tags=[TagAssociationClass(tag="urn:li:tag:PII")]
-    )
-    tagged.glossaryTerms = GlossaryTermsClass(
-        terms=[GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:Sensitive")],
-        auditStamp=_audit_stamp(),
-    )
+def test_backfilled_fields_carry_structure_only():
+    # Backfill builds columns from the external source's field path + native type;
+    # governance (tags / glossary terms) is never copied onto the mirror.
     src = _snowflake_conn_source()
-    graph = MagicMock()
-    graph.get_aspect.return_value = _external_schema([tagged])
-    src.ctx.graph = graph
+    catalog = _foreign_catalog()
+    _seed_external_schema(src, catalog, "my_schema", "t", {"invoice_id": "NUMBER"})
 
-    fields = src._resolve_external_schema_fields(_foreign_table(_foreign_catalog()))
+    fields = src._resolve_external_schema_fields(_foreign_table(catalog))
 
     assert fields is not None
     assert fields[0].fieldPath == "invoice_id"
-    # structure is backfilled, but the external source's column tags/terms are not
+    assert fields[0].nativeDataType == "NUMBER"
     assert fields[0].globalTags is None
     assert fields[0].glossaryTerms is None
-    # the returned fields are a copy: the source aspect keeps its governance so the
-    # graph-cached aspect is not mutated in place
-    assert tagged.globalTags is not None
-    assert tagged.glossaryTerms is not None
-
-
-def _audit_stamp():
-    from datahub.metadata.schema_classes import AuditStampClass
-
-    return AuditStampClass(time=0, actor="urn:li:corpuser:unknown")
 
 
 def test_identity_column_lineage_matches_case_insensitively():
@@ -1027,15 +1030,13 @@ def _lineage_cll_source():
 
 def test_federation_lineage_emits_identity_column_lineage():
     src = _lineage_cll_source()
-    graph = MagicMock()
-    # external snowflake schema has lowercase field paths
-    graph.get_aspect.return_value = _external_schema(
-        [_field("customer_id"), _field("name")]
-    )
-    src.ctx.graph = graph
-
     catalog = _foreign_catalog()
     table = _foreign_table(catalog)
+    # external snowflake schema has lowercase field paths
+    _seed_external_schema(
+        src, catalog, "my_schema", "t", {"customer_id": "NUMBER", "name": "TEXT"}
+    )
+
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:databricks,"
         "datahub_snowflake.my_schema.t,PROD)"

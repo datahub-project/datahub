@@ -1,4 +1,3 @@
-import copy
 import dataclasses
 import json
 import logging
@@ -165,7 +164,8 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk import MLModel, MLModelGroup
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
@@ -451,10 +451,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 Optional[federation.FederationTarget],
             ],
         ] = {}
-        # External-source schemaMetadata fetched from the graph, cached by external
-        # URN so each foreign table's schema is fetched at most once (the backfill
-        # and column-lineage paths both need it).
-        self._external_schema_cache: Dict[str, Optional[List[SchemaFieldClass]]] = {}
+        # Bulk-loads external-source schemas once per (platform, platform_instance,
+        # env) via a scrolling query and resolves each foreign table's schema from
+        # the in-memory cache, instead of one graph round-trip per foreign table.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = (
+            SchemaResolverProvider(graph=self.ctx.graph)
+            if self.ctx.graph is not None
+            else None
+        )
+        # Per (platform, platform_instance, env) resolver, cached (None if the bulk
+        # load failed) so a failed platform isn't retried per table.
+        self._external_schema_resolvers: Dict[
+            Tuple[str, Optional[str], str], Optional[SchemaResolver]
+        ] = {}
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -1376,10 +1385,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, table: Table
     ) -> Optional[List[SchemaFieldClass]]:
         """Backfill a foreign-catalog table's columns from the already-ingested
-        external source via the DataHub graph, for the common case where Unity
-        Catalog has not synced the foreign table's schema. Returns None unless the
-        catalog is foreign, the feature is enabled, a graph is available, and the
-        external dataset's schema is found in the graph."""
+        external source, for the common case where Unity Catalog has not synced the
+        foreign table's schema yet. Returns None unless the catalog is foreign, the
+        feature is enabled, and the external dataset's schema is resolvable."""
         catalog = table.schema.catalog
         if not (
             catalog.is_foreign_catalog
@@ -1391,52 +1399,72 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
         if external_urn is None:
             return None
-        external_fields = self._external_schema_fields(external_urn)
-        if not external_fields:
+        schema_info = self._external_schema_info(catalog, external_urn)
+        if not schema_info:
             return None
-        # Backfill column structure only. Do NOT import the external source's
-        # column-level governance (tags / glossary terms) onto the foreign-catalog
-        # mirror — that metadata belongs to the external dataset. deepcopy so the
-        # cached external aspect is not mutated.
-        fields = copy.deepcopy(external_fields)
-        for field in fields:
-            field.globalTags = None
-            field.glossaryTerms = None
-        return fields
-
-    def _external_schema_fields(
-        self, external_urn: str
-    ) -> Optional[List[SchemaFieldClass]]:
-        """External dataset's schema fields from the DataHub graph, or None if no
-        graph is available or the dataset has no schema in the graph. Cached by URN
-        so the backfill and column-lineage paths don't each fetch the same aspect."""
-        if self.ctx.graph is None:
-            return None
-        if external_urn in self._external_schema_cache:
-            return self._external_schema_cache[external_urn]
-        fields: Optional[List[SchemaFieldClass]] = None
-        try:
-            external_schema = self.ctx.graph.get_aspect(
-                external_urn, SchemaMetadataClass
+        # Backfill column structure only (field path + native type). Governance
+        # (tags / glossary terms) is intentionally not copied — it belongs to the
+        # external dataset, not to this read-only mirror.
+        return [
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                nativeDataType=native_type or "",
             )
-            if external_schema and external_schema.fields:
-                fields = external_schema.fields
+            for field_path, native_type in schema_info.items()
+        ]
+
+    def _external_schema_info(
+        self, catalog: Catalog, external_urn: str
+    ) -> Optional[SchemaInfo]:
+        """External dataset's {field path: native type} from a SchemaResolver that
+        bulk-loads every dataset's schema for the external (platform, platform
+        instance, env) once, then resolves in memory. Returns None if no graph is
+        available or the dataset has no schema in DataHub."""
+        detail, target = self._resolve_federation(catalog)
+        if target is None:
+            return None
+        env = detail.env if (detail and detail.env) else self.config.env
+        platform_instance = detail.platform_instance if detail else None
+        resolver = self._external_schema_resolver(
+            target.platform, platform_instance, env
+        )
+        if resolver is None:
+            return None
+        _, schema_info = resolver.resolve_urn(external_urn)
+        return schema_info
+
+    def _external_schema_resolver(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> Optional[SchemaResolver]:
+        """Bulk-initialized SchemaResolver for an external platform/instance/env,
+        cached (None on failure) so a platform is scroll-fetched at most once."""
+        key = (platform, platform_instance, env)
+        if key in self._external_schema_resolvers:
+            return self._external_schema_resolvers[key]
+        if self._schema_resolver_provider is None:
+            return None
+        resolver: Optional[SchemaResolver] = None
+        try:
+            resolver = self._schema_resolver_provider.get(
+                platform=platform, platform_instance=platform_instance, env=env
+            )
         except Exception as e:
-            # A graph fetch is a known failure point (transient network / GMS 5xx /
-            # auth). Federation is supplemental, so degrade to no external schema
-            # rather than aborting table processing.
+            # Bulk fetch is a known failure point (network / GMS 5xx / auth).
+            # Federation is supplemental, so degrade to no external schema rather
+            # than aborting ingestion.
             self.report.num_federation_external_schema_fetch_failed += 1
             self.report.warning(
-                title="Failed to fetch external source schema for federation",
+                title="Failed to bulk-fetch external source schemas for federation",
                 message=(
                     "Foreign-catalog column backfill and column-level lineage will "
-                    "be skipped for the affected tables."
+                    "be skipped for the affected external platform."
                 ),
-                context=external_urn,
+                context=f"platform={platform}, platform_instance={platform_instance}, env={env}",
                 exc=e,
             )
-        self._external_schema_cache[external_urn] = fields
-        return fields
+        self._external_schema_resolvers[key] = resolver
+        return resolver
 
     def _gen_federation_link(
         self,
@@ -1464,7 +1492,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # schemas are resolvable — the mirror's columns are copies of the external.
         self.report.num_federation_links_emitted += 1
         fine_grained_lineages = self._federation_column_lineage(
-            dataset_urn, external_urn, schema_metadata
+            dataset_urn, external_urn, catalog, schema_metadata
         )
         yield from self.gen_lineage_workunit(
             dataset_urn,
@@ -1477,6 +1505,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         external_urn: str,
+        catalog: Catalog,
         schema_metadata: Optional[SchemaMetadataClass],
     ) -> Optional[List[FineGrainedLineage]]:
         if not (
@@ -1485,14 +1514,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and schema_metadata.fields
         ):
             return None
-        external_fields = self._external_schema_fields(external_urn)
-        if not external_fields:
+        schema_info = self._external_schema_info(catalog, external_urn)
+        if not schema_info:
             return None
         cll = federation.identity_column_lineage(
             dataset_urn=dataset_urn,
             external_urn=external_urn,
             downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
-            upstream_field_paths=[f.fieldPath for f in external_fields],
+            upstream_field_paths=list(schema_info.keys()),
         )
         return cll or None
 
@@ -2592,6 +2621,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self._schema_resolver_provider:
+            self._schema_resolver_provider.close()
 
         super().close()
 
