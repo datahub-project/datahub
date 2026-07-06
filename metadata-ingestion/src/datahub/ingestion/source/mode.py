@@ -1472,22 +1472,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         input_fields = []
 
-        # Chart formulas may reference columns in a different casing than the query's
-        # schema (which preserves the original field-path casing). Match
-        # case-insensitively and emit the schema's actual field path, so the input-field
-        # URN resolves to a real schema field instead of a lowercased ghost.
-        chart_fields_by_lower = {
-            field_path.lower(): field_path for field_path in chart_fields
-        }
         for field in fields:
-            actual_field_path = chart_fields_by_lower.get(field.lower())
-            if actual_field_path is None:
+            if field.lower() not in chart_fields:
                 continue
             input_field = InputFieldClass(
-                schemaFieldUrn=builder.make_schema_field_urn(
-                    query_urn, actual_field_path
-                ),
-                schemaField=chart_fields[actual_field_path],
+                schemaFieldUrn=builder.make_schema_field_urn(query_urn, field.lower()),
+                schemaField=chart_fields[field.lower()],
             )
             input_fields.append(input_field)
 

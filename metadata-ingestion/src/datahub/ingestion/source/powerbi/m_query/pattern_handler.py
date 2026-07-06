@@ -478,13 +478,7 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        # Preserve the original column casing. Whether the upstream
-                        # column ref is lowercased is governed downstream by
-                        # convert_lineage_urns_to_lowercase in powerbi.py. Pre-lowercasing
-                        # here defeats that flag (both branches end up lowercase) and
-                        # forces a mismatch against warehouses that store columns in their
-                        # original (e.g. PascalCase) casing, dropping the column-level edge.
-                        column=column.name,
+                        column=column.name.lower(),
                     )
                 ]
 
