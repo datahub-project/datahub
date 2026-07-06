@@ -222,7 +222,13 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
-        self.emitter.flush()
+        # Intentionally do NOT flush per work unit. A work unit is ~one record,
+        # so flushing here forces a synchronous broker round-trip per record --
+        # destroying async batching and making linger.ms a no-op. Delivery is
+        # driven by poll(0) before each produce and guaranteed by the flush in
+        # close() (which also surfaces any undelivered messages as a failure);
+        # the bounded queue + block-on-full backpressure cap memory in between.
+        pass
 
     def write_record_async(
         self,
@@ -265,7 +271,7 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                 # reach GMS before an earlier Kafka UPSERT is replayed.
                 # DELETE-heavy recipes should be aware of this.
                 try:
-                    undelivered = self.emitter.flush()
+                    undelivered = self.emitter.flush_with_undelivered_count()
                 except Exception as flush_err:
                     kafka_callback.report_emit_failure(
                         Exception(
@@ -340,8 +346,21 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
             # fail when serializing the record.
             kafka_callback.report_emit_failure(err)
 
+    def flush(self) -> None:
+        # Drain the producer and surface any undelivered messages as a failure.
+        # Called by the pipeline before process_commits (so checkpoints are not
+        # committed for writes that never landed) and again from close(). Any
+        # messages still undelivered are lost on process exit, so reporting them
+        # is what prevents a silent success-with-data-loss.
+        undelivered = self.emitter.flush_with_undelivered_count()
+        if undelivered:
+            self.report.report_failure(
+                f"{undelivered} message(s) not delivered to Kafka "
+                "(broker unreachable?); this metadata was dropped."
+            )
+
     def close(self) -> None:
         super().close()
-        self.emitter.flush()
+        self.flush()
         if self._rest_fallback_emitter is not None:
             self._rest_fallback_emitter.close()

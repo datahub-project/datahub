@@ -649,6 +649,73 @@ def test_kafka_sink_delete_rest_failure_is_reported(mock_producer, mock_make_emi
     kafka_sink.close()
 
 
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_close_reports_undelivered_as_failure(mock_producer):
+    """Messages still queued at close() are lost on exit; close() must surface
+    them as a failure so the run does not report success while dropping data."""
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    # Broker stalled: flush times out with messages still queued.
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 3
+
+    assert not kafka_sink.get_report().failures
+    kafka_sink.close()
+    assert kafka_sink.get_report().failures  # undelivered surfaced as a failure
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_flush_reports_undelivered_as_failure(mock_producer):
+    """The pipeline calls sink.flush() before committing state; undelivered
+    messages must be reported so the commit gate sees the failure."""
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 2
+
+    assert not kafka_sink.get_report().failures
+    kafka_sink.flush()
+    assert kafka_sink.get_report().failures
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_delete_skipped_when_flush_undelivered(
+    mock_producer, mock_make_emitter
+):
+    """If flush() leaves messages undelivered, the DELETE must be skipped-and-
+    failed -- prior writes for the entity are not confirmed landed."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_make_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    # flush leaves messages undelivered (no _delivery_failed set).
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 3
+
+    mcp = _make_delete_mcp()
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    mock_rest_emitter.emit_mcp.assert_not_called()
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+
+
 @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emitter):

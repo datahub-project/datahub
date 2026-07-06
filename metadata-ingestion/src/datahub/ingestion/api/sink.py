@@ -154,6 +154,16 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         # must call callback when done.
         pass
 
+    def flush(self) -> None:
+        """Block until all buffered/in-flight writes are delivered.
+
+        Called by the pipeline before committing state, so that async sinks can
+        confirm delivery (and record any failures on their report) before the
+        commit gate reads sink failures. Default is a no-op for synchronous
+        sinks; async sinks (e.g. datahub-kafka) should override.
+        """
+        pass
+
     def get_report(self) -> SinkReportType:
         return self.report
 

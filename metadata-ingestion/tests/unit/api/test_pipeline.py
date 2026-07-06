@@ -153,6 +153,49 @@ class TestPipeline:
         # ctx.graph must be populated (from the REST fallback) so stateful
         # ingestion / stale-entity soft-deletion still work under the Kafka sink.
         assert pipeline.ctx.graph is not None
+        # Producer buffer bounds are wired (OOM protection). Regression guard:
+        # a dropped/typoed key would silently revert to librdkafka's ~1 GiB.
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 131072
+        assert pc["queue.buffering.max.messages"] == 20000
+        assert pc["linger.ms"] == 100
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default_buffer_env_override(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # The producer buffer tuning knobs are overridable via env.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", "fake-broker:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", "262144")
+        monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", "50000")
+        monkeypatch.setenv("DATAHUB_KAFKA_LINGER_MS", "50")
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 262144
+        assert pc["queue.buffering.max.messages"] == 50000
+        assert pc["linger.ms"] == 50
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     def test_configure_kafka_default_without_bootstrap_raises(self, monkeypatch):

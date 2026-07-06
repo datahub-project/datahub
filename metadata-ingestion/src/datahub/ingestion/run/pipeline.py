@@ -699,6 +699,14 @@ class Pipeline:
                 # before we call process_commits.
                 self.inner_exit_stack.close()
 
+                # Flush the sink before committing state so async sinks (e.g.
+                # datahub-kafka) confirm delivery and record any failures on
+                # their report first -- process_commits() gates on
+                # sink.get_report().failures, and the sink's own close() runs
+                # later (outer exit_stack). Without this, a commit could persist
+                # checkpoints for writes that never landed.
+                self.sink.flush()
+
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
 

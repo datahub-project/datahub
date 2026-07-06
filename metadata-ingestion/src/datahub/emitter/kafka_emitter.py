@@ -255,7 +255,12 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             on_delivery=callback,
         )
 
-    def flush(self) -> int:
+    def flush(self) -> None:
+        # Emitter interface returns None; callers needing the undelivered count
+        # (the sink) use flush_with_undelivered_count().
+        self.flush_with_undelivered_count()
+
+    def flush_with_undelivered_count(self) -> int:
         """Flush all producers, bounded by max_queue_full_block_seconds so an
         unreachable broker cannot hang the run indefinitely at flush time (the
         backpressure loop only bounds produce()).
