@@ -7,10 +7,12 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CliVersionMatrixConfiguration;
 import com.linkedin.metadata.config.HttpMatrixSourceConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.S3MatrixSourceConfiguration;
 import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.version.GitVersion;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -19,8 +21,9 @@ import org.testng.annotations.Test;
 
 /**
  * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. Covers the source
- * selection contract: explicit {@code source: "none"} is a kill-switch; otherwise the HTTP source
- * is wired when {@code http.url} is set and a no-op source is wired when the URL is empty.
+ * selection contract: explicit {@code source: "none"} is a kill-switch; {@code source: "s3"} wires
+ * the S3 source when usable; otherwise the HTTP source is wired when {@code http.url} is set and a
+ * no-op source is wired when the URL is empty.
  */
 public class IngestionCliVersionMatrixServiceFactoryTest {
 
@@ -48,7 +51,7 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   }
 
   // ---------------------------------------------------------------------------
-  // URL controls HTTP vs NoOp when source is not "none"
+  // URL controls HTTP vs NoOp when source is not "none" or "s3"
   // ---------------------------------------------------------------------------
 
   @Test
@@ -123,6 +126,63 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     assertTrue(
         source instanceof NoOpIngestionCliVersionMatrixSource,
         "Operators may set NONE or none — both must short-circuit to NoOp");
+  }
+
+  // ---------------------------------------------------------------------------
+  // source="s3" wiring
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testMatrixSource_whenSourceIsS3AndUsable_wiresS3Source() {
+    ingestionConfig.getCliVersionMatrix().setSource("s3");
+    ingestionConfig.getCliVersionMatrix().setS3(s3Config("cli-version-matrix", "matrix.json"));
+    setField(factory, "s3Util", mock(S3Util.class));
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+    assertTrue(
+        source instanceof S3IngestionCliVersionMatrixSource,
+        "source=s3 with a usable S3 client wires the S3 source");
+    ((S3IngestionCliVersionMatrixSource) source).shutdown();
+  }
+
+  @Test
+  public void testMatrixSource_whenSourceIsS3ButS3Unusable_wiresNoOp() {
+    // source=s3 but no s3Util bean (AWS not configured) → application default, not a startup
+    // failure.
+    ingestionConfig.getCliVersionMatrix().setSource("s3");
+    ingestionConfig.getCliVersionMatrix().setS3(s3Config("cli-version-matrix", "matrix.json"));
+    // s3Util intentionally left null.
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "an unusable S3 (no client) wires a no-op source");
+  }
+
+  @Test
+  public void testMatrixSource_whenS3RefreshSecondsNotPositive_wiresNoOp() {
+    // A non-positive refresh interval would make scheduleAtFixedRate throw in the S3 source
+    // constructor and fail GMS startup; the factory must degrade to a no-op instead.
+    ingestionConfig.getCliVersionMatrix().setSource("s3");
+    S3MatrixSourceConfiguration s3 = s3Config("cli-version-matrix", "matrix.json");
+    s3.setRefreshSeconds(0);
+    ingestionConfig.getCliVersionMatrix().setS3(s3);
+    setField(factory, "s3Util", mock(S3Util.class));
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "source=s3 with non-positive refreshSeconds must degrade to a no-op, not fail startup");
+  }
+
+  private static S3MatrixSourceConfiguration s3Config(String bucket, String key) {
+    S3MatrixSourceConfiguration s3 = new S3MatrixSourceConfiguration();
+    s3.setBucket(bucket);
+    s3.setKey(key);
+    s3.setRefreshSeconds(600);
+    return s3;
   }
 
   // ---------------------------------------------------------------------------
