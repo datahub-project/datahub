@@ -343,14 +343,11 @@ class Pipeline:
                     if isinstance(self.sink, DatahubRestSink):
                         self.graph = self.sink.emitter.to_graph()
                     else:
-                        # The default Kafka sink exposes a to_graph() derived
-                        # from its REST fallback, so features that need a GMS
-                        # client (e.g. stateful ingestion) still work when the
-                        # Kafka default sink is active. Duck-typed to avoid a
-                        # top-level import of the Kafka sink and its deps.
-                        sink_to_graph = getattr(self.sink, "to_graph", None)
-                        if callable(sink_to_graph):
-                            self.graph = sink_to_graph()
+                        # Sink.to_graph() (default None) lets async default sinks
+                        # -- e.g. datahub-kafka via its REST fallback -- provide a
+                        # GMS client so features like stateful ingestion still
+                        # work; other sinks return None (no graph).
+                        self.graph = self.sink.to_graph()
                     if self.graph is not None:
                         self.graph.test_connection()
             self.ctx.graph = self.graph
@@ -705,7 +702,8 @@ class Pipeline:
                 # sink.get_report().failures, and the sink's own close() runs
                 # later (outer exit_stack). Without this, a commit could persist
                 # checkpoints for writes that never landed.
-                self.sink.flush()
+                if not self.dry_run:
+                    self.sink.flush()
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED

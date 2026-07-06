@@ -260,14 +260,22 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
             # the configured REST fallback; otherwise they fall through to Kafka
             # and would fail downstream. If the REST emit raises, the outer except
             # reports the failure via kafka_callback.
-            if (
-                self.config.rest_fallback is not None
-                and isinstance(
-                    record,
-                    (MetadataChangeProposal, MetadataChangeProposalWrapper),
-                )
-                and self._needs_rest_fallback(record)
-            ):
+            if isinstance(
+                record, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            ) and self._needs_rest_fallback(record):
+                if self.config.rest_fallback is None:
+                    # Not supported over async Kafka and no REST fallback to
+                    # degrade to -> fail the record loudly instead of producing a
+                    # message GMS would silently reject on the consumer side.
+                    kafka_callback.report_emit_failure(
+                        Exception(
+                            f"{record.changeType} on {record.entityUrn} is not "
+                            "supported over async Kafka ingestion and no "
+                            "rest_fallback is configured; set a rest_fallback to "
+                            "emit these (DELETE/RESTATE/non-UPSERT timeseries)."
+                        )
+                    )
+                    return
                 # Drain in-flight async Kafka messages before the synchronous
                 # REST delete, so earlier writes for the same entity reach the
                 # broker first. NOTE: this is best-effort ordering -- it flushes
@@ -357,13 +365,15 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         # committed for writes that never landed) and again from close(). Any
         # messages still undelivered are lost on process exit, so reporting them
         # is what prevents a silent success-with-data-loss.
-        self._flushed = True
         undelivered = self.emitter.flush_with_undelivered_count()
         if undelivered:
             self.report.report_failure(
                 f"{undelivered} message(s) not delivered to Kafka "
                 "(broker unreachable?); this metadata was dropped."
             )
+        # Mark flushed only after the drain completes, so a raising flush does
+        # not cause close() to skip its safety-net flush.
+        self._flushed = True
 
     def close(self) -> None:
         super().close()

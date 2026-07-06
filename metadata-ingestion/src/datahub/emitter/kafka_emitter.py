@@ -197,13 +197,16 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                 producer.produce(**produce_kwargs)
                 return
             except BufferError:
+                # Count the poll first so a single transient BufferError does not
+                # warn immediately (polls==0); the first warning fires after
+                # _QUEUE_FULL_WARN_EVERY_N_POLLS actual polls.
+                polls += 1
                 if polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
                     logger.warning(
                         "Kafka producer queue full; blocking to apply backpressure. "
                         "If this persists the broker may be unreachable."
                     )
                 producer.poll(poll_timeout_seconds)
-                polls += 1
                 # Bail out once total blocked time exceeds the deadline, so an
                 # unreachable broker fails the run instead of blocking forever.
                 if time.monotonic() >= deadline:

@@ -551,8 +551,9 @@ def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emit
 
 
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-def test_kafka_sink_delete_without_fallback_goes_to_kafka(mock_producer):
-    """Without a rest_fallback the sink stays pure Kafka: DELETE is produced too."""
+def test_kafka_sink_delete_without_fallback_fails_not_silently_produced(mock_producer):
+    """Without a rest_fallback, a DELETE is NOT produced to Kafka (GMS would
+    silently reject it) -- it is failed loudly instead."""
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
         {"connection": {"bootstrap": "foobar:9092"}},
@@ -571,7 +572,9 @@ def test_kafka_sink_delete_without_fallback_goes_to_kafka(mock_producer):
     ] = RecordEnvelope(record=mcp, metadata={})
     kafka_sink.write_record_async(re, callback)
 
-    mock_mcp_producer.produce.assert_called_once()
+    mock_mcp_producer.produce.assert_not_called()
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
     kafka_sink.close()
 
 
@@ -678,6 +681,22 @@ def test_kafka_sink_flush_reports_undelivered_as_failure(mock_producer):
     assert not kafka_sink.get_report().failures
     kafka_sink.flush()
     assert kafka_sink.get_report().failures
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_flush_then_close_does_not_double_report(mock_producer):
+    """close() must not re-report undelivered messages the pre-commit flush()
+    already reported (pipeline calls flush() then exit_stack calls close())."""
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 5
+
+    kafka_sink.flush()
+    kafka_sink.close()
+    # flush() reported once; close() skipped its redundant flush.
+    assert len(kafka_sink.get_report().failures) == 1
 
 
 @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
