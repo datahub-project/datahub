@@ -192,6 +192,7 @@ class TestPipeline:
                 },
             }
         )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
         pc = pipeline.sink.config.connection.producer_config
         assert pc["queue.buffering.max.kbytes"] == 262144
         assert pc["queue.buffering.max.messages"] == 50000

@@ -88,23 +88,40 @@ def get_kafka_bootstrap() -> Optional[str]:
     return os.getenv("DATAHUB_KAFKA_BOOTSTRAP")
 
 
+def _get_int_env(var: str, default: int) -> int:
+    """Parse an int env var, raising a clear error naming the offending variable.
+
+    Avoids a bare ValueError ("invalid literal for int()...") that operators
+    can't trace back to a specific env var / ConfigMap key.
+    """
+    raw = os.getenv(var)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(
+            f"Environment variable {var}={raw!r} is not a valid integer."
+        ) from None
+
+
 def get_kafka_queue_max_kbytes() -> int:
     """Per-producer local queue size cap (KiB) for the default Kafka sink.
 
     Bounds producer buffer memory so backpressure engages before OOM. Peak
     buffer memory ~= num_producers * this value. Default 128 MiB.
     """
-    return int(os.getenv("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", "131072"))
+    return _get_int_env("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", 131072)
 
 
 def get_kafka_queue_max_messages() -> int:
     """Per-producer local queue size cap (message count) for the default Kafka sink."""
-    return int(os.getenv("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", "20000"))
+    return _get_int_env("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", 20000)
 
 
 def get_kafka_linger_ms() -> int:
     """Producer linger.ms (send batching window) for the default Kafka sink."""
-    return int(os.getenv("DATAHUB_KAFKA_LINGER_MS", "100"))
+    return _get_int_env("DATAHUB_KAFKA_LINGER_MS", 100)
 
 
 # ============================================================================

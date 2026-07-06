@@ -180,6 +180,11 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         # Set by any record's callback on delivery/emit failure; used to refuse
         # a synchronous DELETE/RESTATE after an earlier async write failed.
         self._delivery_failed = threading.Event()
+        # Whether flush() has run (pipeline calls it pre-commit). close() skips a
+        # second flush when so, to avoid double-reporting the same undelivered
+        # messages. close() still flushes on paths that skip the pre-commit flush
+        # (e.g. an exception before process_commits).
+        self._flushed = False
 
     def _get_rest_fallback_emitter(self) -> DataHubRestEmitter:
         if self._rest_fallback_emitter is None:
@@ -352,6 +357,7 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         # committed for writes that never landed) and again from close(). Any
         # messages still undelivered are lost on process exit, so reporting them
         # is what prevents a silent success-with-data-loss.
+        self._flushed = True
         undelivered = self.emitter.flush_with_undelivered_count()
         if undelivered:
             self.report.report_failure(
@@ -361,6 +367,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
 
     def close(self) -> None:
         super().close()
-        self.flush()
+        # Skip if the pipeline already flushed pre-commit, to avoid
+        # double-reporting the same undelivered messages.
+        if not self._flushed:
+            self.flush()
         if self._rest_fallback_emitter is not None:
             self._rest_fallback_emitter.close()
