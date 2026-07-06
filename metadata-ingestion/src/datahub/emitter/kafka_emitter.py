@@ -41,6 +41,10 @@ _QUEUE_FULL_POLL_SECONDS = 1.0
 # permanently unreachable broker fails the run instead of hanging forever.
 _MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 
+# Re-emit the "queue full" warning every N polls while blocked, so a persistent
+# stall stays visible to operators instead of going silent after the first log.
+_QUEUE_FULL_WARN_EVERY_N_POLLS = 30
+
 
 class KafkaEmitterConfig(ConfigModel):
     connection: KafkaProducerConnectionConfig = pydantic.Field(
@@ -177,19 +181,21 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         the caller reports a failure instead of hanging indefinitely.
         """
         deadline = time.monotonic() + max_block_seconds
-        warned = False
+        polls = 0
         while True:
             try:
                 producer.produce(**produce_kwargs)
                 return
             except BufferError:
-                if not warned:
+                if polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
                     logger.warning(
                         "Kafka producer queue full; blocking to apply backpressure. "
                         "If this persists the broker may be unreachable."
                     )
-                    warned = True
                 producer.poll(poll_timeout_seconds)
+                polls += 1
+                # Bail out once total blocked time exceeds the deadline, so an
+                # unreachable broker fails the run instead of blocking forever.
                 if time.monotonic() >= deadline:
                     logger.error(
                         "Kafka producer queue still full after %.0fs; giving up "

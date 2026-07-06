@@ -171,6 +171,12 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     bootstrap = get_kafka_bootstrap()
     if bootstrap:
         connection["bootstrap"] = bootstrap
+    else:
+        logger.warning(
+            "DATAHUB_KAFKA_BOOTSTRAP is not set; the default Kafka sink will fall "
+            "back to the KafkaSinkConfig default bootstrap (localhost:9092), which "
+            "will likely fail at runtime. Set DATAHUB_KAFKA_BOOTSTRAP."
+        )
     sink_config = KafkaSinkConfig(
         connection=connection,
         rest_fallback=graph._make_rest_sink_config(),
@@ -245,7 +251,7 @@ class Pipeline:
                 # Kafka -- even if DATAHUB_INGESTION_DEFAULT_SINK leaks into its
                 # environment. Unset/any-other-value preserves the historical
                 # datahub-rest behavior exactly.
-                default_sink = get_ingestion_default_sink().lower()
+                default_sink = get_ingestion_default_sink().strip().lower()
                 if default_sink == "kafka" and get_executor_managed():
                     logger.info(
                         "No sink configured, using the default datahub-kafka sink "
@@ -294,10 +300,21 @@ class Pipeline:
                 flags.progress_report_max_warnings,
             )
 
-            if self.graph is None and isinstance(self.sink, DatahubRestSink):
+            if self.graph is None:
                 with _add_init_error_context("setup default datahub client"):
-                    self.graph = self.sink.emitter.to_graph()
-                    self.graph.test_connection()
+                    if isinstance(self.sink, DatahubRestSink):
+                        self.graph = self.sink.emitter.to_graph()
+                    else:
+                        # The default Kafka sink exposes a to_graph() derived
+                        # from its REST fallback, so features that need a GMS
+                        # client (e.g. stateful ingestion) still work when the
+                        # Kafka default sink is active. Duck-typed to avoid a
+                        # top-level import of the Kafka sink and its deps.
+                        sink_to_graph = getattr(self.sink, "to_graph", None)
+                        if callable(sink_to_graph):
+                            self.graph = sink_to_graph()
+                    if self.graph is not None:
+                        self.graph.test_connection()
             self.ctx.graph = self.graph
             telemetry_instance.set_context(server=self.graph)
 

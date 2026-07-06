@@ -1,11 +1,12 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from confluent_kafka import KafkaError, Message
 from pydantic import Field
 
+from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -22,13 +23,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
+
 logger = logging.getLogger(__name__)
 
-# Change types GMS accepts over async Kafka (MCP) ingestion. Mirrors
-# MCPItem.CHANGE_TYPES in the GMS entity-registry (UPSERT/UPDATE/CREATE/
-# CREATE_ENTITY), plus PATCH which GMS accepts for all aspects. Any other change
-# type -- DELETE, RESTATE, etc. -- is rejected on the async path and must be sent
-# synchronously over REST.
+# Change types GMS accepts over async Kafka ingestion for non-timeseries
+# aspects: MCPItem.CHANGE_TYPES (UPSERT/UPDATE/CREATE/CREATE_ENTITY) plus PATCH.
+# Timeseries aspects (UPSERT-only) are handled in _needs_rest_fallback.
 _KAFKA_SUPPORTED_CHANGE_TYPES = frozenset(
     {
         ChangeTypeClass.UPSERT,
@@ -161,17 +163,46 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
 
     def __post_init__(self):
         self.emitter = DatahubKafkaEmitter(self.config)
-        # Built lazily on first DELETE MCP so pure-Kafka deployments never
-        # construct a REST emitter (and never require REST connectivity).
+        # Built lazily on first fallback use so pure-Kafka deployments never
+        # construct a REST emitter (and never require REST connectivity). Guarded
+        # by a lock since write_record_async may run on multiple threads.
         self._rest_fallback_emitter: Optional[DataHubRestEmitter] = None
+        self._rest_fallback_lock = threading.Lock()
 
     def _get_rest_fallback_emitter(self) -> DataHubRestEmitter:
         if self._rest_fallback_emitter is None:
-            assert self.config.rest_fallback is not None
-            self._rest_fallback_emitter = DatahubRestSink._make_emitter(
-                self.config.rest_fallback
-            )
+            with self._rest_fallback_lock:
+                if self._rest_fallback_emitter is None:
+                    assert self.config.rest_fallback is not None
+                    self._rest_fallback_emitter = DatahubRestSink._make_emitter(
+                        self.config.rest_fallback
+                    )
         return self._rest_fallback_emitter
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        """DataHubGraph derived from the REST fallback, for features that need a
+        GMS client (e.g. stateful ingestion) when this is the default sink.
+
+        Returns None when no REST fallback is configured (pure Kafka), matching
+        the pipeline's expectation that a missing graph disables such features.
+        """
+        if self.config.rest_fallback is None:
+            return None
+        return self._get_rest_fallback_emitter().to_graph()
+
+    @staticmethod
+    def _needs_rest_fallback(
+        record: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+    ) -> bool:
+        """Whether an MCP must be sent over REST instead of async Kafka.
+
+        GMS rejects DELETE/RESTATE on the async path. Additionally, timeseries
+        aspects accept only UPSERT, so any non-UPSERT timeseries change (e.g. a
+        PATCH) must also go via REST.
+        """
+        if record.aspectName in TIMESERIES_ASPECT_MAP:
+            return record.changeType != ChangeTypeClass.UPSERT
+        return record.changeType not in _KAFKA_SUPPORTED_CHANGE_TYPES
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
@@ -205,8 +236,12 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                     record,
                     (MetadataChangeProposal, MetadataChangeProposalWrapper),
                 )
-                and record.changeType not in _KAFKA_SUPPORTED_CHANGE_TYPES
+                and self._needs_rest_fallback(record)
             ):
+                # Drain in-flight async Kafka messages before the synchronous
+                # REST delete, so earlier UPSERTs for the same entity reach GMS
+                # before this DELETE/RESTATE (preserves per-entity ordering).
+                self.emitter.flush()
                 self._get_rest_fallback_emitter().emit_mcp(record)
                 self.report.report_record_written(record_envelope)
                 write_callback.on_success(

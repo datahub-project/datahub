@@ -146,6 +146,9 @@ class TestPipeline:
         assert (
             pipeline.sink.config.rest_fallback.server == "http://fake-gms-server:8080"
         )
+        # ctx.graph must be populated (from the REST fallback) so stateful
+        # ingestion / stale-entity soft-deletion still work under the Kafka sink.
+        assert pipeline.ctx.graph is not None
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
