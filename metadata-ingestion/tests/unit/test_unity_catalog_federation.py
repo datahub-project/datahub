@@ -135,7 +135,10 @@ def test_federation_connection_detail_override():
 
 def test_resolve_three_tier_uses_database_option():
     target = fed.resolve_federation_target(
-        ConnectionType.POSTGRESQL, {"database": "my_db"}, None, None
+        ConnectionType.POSTGRESQL,
+        options={"database": "my_db"},
+        override_platform=None,
+        override_database=None,
     )
     assert target is not None
     assert target.platform == "postgres"
@@ -144,7 +147,12 @@ def test_resolve_three_tier_uses_database_option():
 
 
 def test_resolve_two_tier_has_no_database():
-    target = fed.resolve_federation_target(ConnectionType.MYSQL, None, None, None)
+    target = fed.resolve_federation_target(
+        ConnectionType.MYSQL,
+        options=None,
+        override_platform=None,
+        override_database=None,
+    )
     assert target is not None
     assert target.platform == "mysql"
     assert target.remote_database is None
@@ -153,7 +161,10 @@ def test_resolve_two_tier_has_no_database():
 
 def test_resolve_bigquery_uses_data_project_id():
     target = fed.resolve_federation_target(
-        ConnectionType.BIGQUERY, {"dataProjectId": "proj"}, None, None
+        ConnectionType.BIGQUERY,
+        options={"dataProjectId": "proj"},
+        override_platform=None,
+        override_database=None,
     )
     assert target is not None
     assert target.platform == "bigquery"
@@ -162,7 +173,10 @@ def test_resolve_bigquery_uses_data_project_id():
 
 def test_resolve_databricks_to_databricks_uses_catalog():
     target = fed.resolve_federation_target(
-        ConnectionType.DATABRICKS, {"catalog": "remote_cat"}, None, None
+        ConnectionType.DATABRICKS,
+        options={"catalog": "remote_cat"},
+        override_platform=None,
+        override_database=None,
     )
     assert target is not None
     assert target.platform == "databricks"
@@ -171,7 +185,10 @@ def test_resolve_databricks_to_databricks_uses_catalog():
 
 def test_override_wins_over_autodetect():
     target = fed.resolve_federation_target(
-        ConnectionType.POSTGRESQL, {"database": "auto_db"}, "mssql", "override_db"
+        ConnectionType.POSTGRESQL,
+        options={"database": "auto_db"},
+        override_platform="mssql",
+        override_database="override_db",
     )
     assert target is not None
     assert target.platform == "mssql"
@@ -181,14 +198,23 @@ def test_override_wins_over_autodetect():
 def test_three_tier_missing_database_returns_none():
     # three-tier connector but options lack the key and no override -> cannot resolve
     assert (
-        fed.resolve_federation_target(ConnectionType.POSTGRESQL, {}, None, None) is None
+        fed.resolve_federation_target(
+            ConnectionType.POSTGRESQL,
+            options={},
+            override_platform=None,
+            override_database=None,
+        )
+        is None
     )
 
 
 def test_unmapped_connection_type_returns_none():
     assert (
         fed.resolve_federation_target(
-            ConnectionType.UNKNOWN_CONNECTION_TYPE, None, None, None
+            ConnectionType.UNKNOWN_CONNECTION_TYPE,
+            options=None,
+            override_platform=None,
+            override_database=None,
         )
         is None
     )
@@ -196,14 +222,18 @@ def test_unmapped_connection_type_returns_none():
 
 def test_override_platform_without_connection_type():
     # connections API unavailable (connection_type None) but user supplied platform+db
-    target = fed.resolve_federation_target(None, None, "mssql", "my_db")
+    target = fed.resolve_federation_target(
+        None, options=None, override_platform="mssql", override_database="my_db"
+    )
     assert target is not None
     assert target.platform == "mssql"
     assert target.remote_database == "my_db"
 
 
 def test_none_connection_type_without_database_is_two_tier():
-    target = fed.resolve_federation_target(None, None, "mssql", None)
+    target = fed.resolve_federation_target(
+        None, options=None, override_platform="mssql", override_database=None
+    )
     assert target is not None
     assert target.platform == "mssql"
     assert target.remote_database is None

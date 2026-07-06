@@ -2,7 +2,6 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from typing import Dict, List, Optional, Union
 
 import pydantic
@@ -158,10 +157,10 @@ class UnityCatalogSQLAlchemyProfilerConfig(
     )
 
 
-class FederationLinkType(Enum):
-    SIBLINGS = "siblings"
-    LINEAGE = "lineage"
-    NONE = "none"
+class FederationLinkType(ConfigEnum):
+    SIBLINGS = "SIBLINGS"
+    LINEAGE = "LINEAGE"
+    NONE = "NONE"
 
 
 class FederationConnectionDetail(ConfigModel):

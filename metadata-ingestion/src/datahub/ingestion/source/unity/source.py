@@ -22,6 +22,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from typing_extensions import assert_never
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -1269,7 +1270,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def _federation_structured_properties(
         self, catalog: Catalog
     ) -> Optional[Dict[StructuredPropertyUrn, str]]:
-        """Structured-property assignments for a foreign catalog, or None."""
         if not (
             catalog.is_foreign_catalog
             and self.config.emit_federation_structured_properties
@@ -1285,7 +1285,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if target.remote_database:
                 values["remote_database"] = target.remote_database
         return {
-            StructuredPropertyUrn(f"{ns}.{suffix}"): value
+            federation.federation_property_urn(ns, suffix): value
             for suffix, value in values.items()
         }
 
@@ -1310,12 +1310,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_federation_link(
         self, dataset_urn: str, table: Table, catalog: Catalog
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the single configured cross-platform link (siblings XOR lineage) from
-        a foreign-catalog table to its external source dataset."""
-        if (
-            not catalog.is_foreign_catalog
-            or self.config.federation_link_type == FederationLinkType.NONE
-        ):
+        """Emit the configured cross-platform link from a foreign-catalog table to
+        its external source dataset: siblings, lineage, or no link (`none`)."""
+        if not catalog.is_foreign_catalog:
+            return
+        if self.config.federation_link_type == FederationLinkType.NONE:
             return
 
         detail, target = self._resolve_federation(catalog)
@@ -1338,8 +1337,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.report.num_federation_links_emitted += 1
         if self.config.federation_link_type == FederationLinkType.SIBLINGS:
             yield from self.gen_siblings_workunit(dataset_urn, external_urn)
-        else:
+        elif self.config.federation_link_type == FederationLinkType.LINEAGE:
             yield from self.gen_lineage_workunit(dataset_urn, external_urn)
+        else:
+            assert_never(self.config.federation_link_type)
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (

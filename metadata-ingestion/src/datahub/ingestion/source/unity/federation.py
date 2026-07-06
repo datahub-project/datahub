@@ -23,7 +23,6 @@ from datahub.metadata.urns import (
     StructuredPropertyUrn,
 )
 
-# Unity Catalog connection type -> DataHub platform id.
 CONNECTION_TYPE_TO_PLATFORM: Dict[ConnectionType, str] = {
     ConnectionType.MYSQL: "mysql",
     ConnectionType.POSTGRESQL: "postgres",
@@ -69,6 +68,7 @@ class FederationTarget:
 
 def resolve_federation_target(
     connection_type: Optional[ConnectionType],
+    *,
     options: Optional[Dict[str, str]],
     override_platform: Optional[str],
     override_database: Optional[str],
@@ -135,9 +135,13 @@ _PROPERTY_DESCRIPTION: Dict[str, str] = {
 }
 
 
+def federation_property_urn(namespace: str, suffix: str) -> StructuredPropertyUrn:
+    return StructuredPropertyUrn(f"{namespace}.{suffix}")
+
+
 def structured_property_urns(namespace: str) -> Dict[str, str]:
     return {
-        suffix: StructuredPropertyUrn(f"{namespace}.{suffix}").urn()
+        suffix: federation_property_urn(namespace, suffix).urn()
         for suffix in FEDERATION_PROPERTY_SUFFIXES
     }
 
@@ -167,7 +171,7 @@ def federation_property_definition_mcps(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=StructuredPropertyUrn(qualified_name).urn(),
+                entityUrn=federation_property_urn(namespace, suffix).urn(),
                 aspect=aspect,
                 changeType=ChangeTypeClass.CREATE,
                 headers={"If-None-Match": "*"},
