@@ -18,7 +18,7 @@ _"What was our revenue by region last quarter?" → finds the revenue table in D
 An agent that monitors and reports on the health of your data estate.
 
 1. **Find important tables** — Identify high-usage or business-critical datasets using usage stats and ownership from DataHub.
-2. **Review assertions** — Read existing data quality assertions and their latest run results. _Creating assertions is available on DataHub Cloud and via DataHub's assertion APIs — see the [DataHub Skills](./skills.md) guide._
+2. **Review assertions** — Read existing data quality assertions and their latest run results. _Creating native assertions (freshness, volume, and more) is available on DataHub Cloud; custom assertions from external tools can be created in open source too. See the [DataHub Skills](./skills.md) guide._
 3. **Generate health reports** — Daily or on-demand, broken down by domain or owning team, using assertion results and incident data.
 
 _"Show me the freshness and quality status of all tables owned by the Finance team, and send me a weekly health summary."_
