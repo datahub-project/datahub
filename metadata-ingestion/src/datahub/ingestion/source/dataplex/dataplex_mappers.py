@@ -817,7 +817,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.SERVICE,
+            subtype=DatasetContainerSubTypes.INSTANCE,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
