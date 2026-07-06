@@ -121,12 +121,20 @@ public class S3IngestionCliVersionMatrixSource implements IngestionCliVersionMat
           bucket,
           key,
           parsed.size());
-    } catch (Exception e) {
+    } catch (Throwable t) {
+      // Catch Throwable, not Exception: scheduleAtFixedRate silently cancels all future runs if a
+      // task lets anything escape, so a single bad tick — including an OutOfMemoryError or
+      // StackOverflowError from a huge or deeply-nested S3 object — must not permanently freeze the
+      // background refresh. Re-assert the interrupt flag if we were interrupted mid-fetch (e.g.
+      // shutdownNow during context teardown) since the outer swallow would otherwise drop it.
+      if (t instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       log.warn(
           "Failed to refresh ingestion version matrix from s3://{}/{}. Retaining last known matrix.",
           bucket,
           key,
-          e);
+          t);
     }
   }
 }

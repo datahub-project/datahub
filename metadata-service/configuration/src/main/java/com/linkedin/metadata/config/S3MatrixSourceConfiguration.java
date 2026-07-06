@@ -25,6 +25,10 @@ public class S3MatrixSourceConfiguration {
   /** Object key of the matrix JSON within the bucket (e.g. {@code matrix.json}). */
   private String key;
 
-  /** How often (in seconds) to re-fetch the matrix. Defaults to 600 (10 minutes). */
+  /**
+   * How often (in seconds) to re-fetch the matrix. The 600s (10 minute) default is supplied by
+   * application.yaml; the field itself has no default (a bare {@code int} is 0), and the factory
+   * treats a non-positive value as a misconfiguration and degrades to a no-op source.
+   */
   private int refreshSeconds;
 }

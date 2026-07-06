@@ -78,6 +78,74 @@ public class S3IngestionCliVersionMatrixSourceTest {
   }
 
   @Test
+  public void retainsLastKnownMatrixWhenFetchFails() {
+    // A good load followed by an S3 failure must retain the previously-loaded matrix (not blank it)
+    // and leave the last-fetched timestamp untouched — in-flight resolutions never see a flap.
+    S3Util s3Util = mock(S3Util.class);
+    when(s3Util.getObjectAsString(BUCKET, KEY))
+        .thenReturn(MATRIX_JSON)
+        .thenThrow(new RuntimeException("s3 down"));
+
+    S3IngestionCliVersionMatrixSource source =
+        new S3IngestionCliVersionMatrixSource(s3Util, BUCKET, KEY, 3600);
+    source.shutdown(); // stop the scheduler so its startup tick can't consume a stubbed result
+    try {
+      source.refresh(); // good load
+      long stampAfterGoodLoad = source.getLastFetchedAtMillis();
+      source.refresh(); // fetch throws — must retain
+
+      assertEquals(
+          source
+              .getMatrix()
+              .getEntriesForServer("1.5.0")
+              .getConnectorEntry("snowflake")
+              .getDefaultVersion(),
+          "1.5.0.5",
+          "matrix must be retained when a later fetch fails");
+      assertEquals(
+          source.getLastFetchedAtMillis(),
+          stampAfterGoodLoad,
+          "a failed fetch must not advance the last-fetched timestamp");
+    } finally {
+      source.shutdown();
+    }
+  }
+
+  @Test
+  public void retainsLastKnownMatrixWhenReparseFails() {
+    // A good load followed by a body that parses as JSON but violates the matrix schema (root is an
+    // array) hits the dedicated schema-error branch, which must retain the last-known-good matrix.
+    S3Util s3Util = mock(S3Util.class);
+    when(s3Util.getObjectAsString(BUCKET, KEY))
+        .thenReturn(MATRIX_JSON)
+        .thenReturn("[ {\"snowflake\": {}} ]");
+
+    S3IngestionCliVersionMatrixSource source =
+        new S3IngestionCliVersionMatrixSource(s3Util, BUCKET, KEY, 3600);
+    source.shutdown();
+    try {
+      source.refresh(); // good load
+      long stampAfterGoodLoad = source.getLastFetchedAtMillis();
+      source.refresh(); // schema violation — must retain
+
+      assertEquals(
+          source
+              .getMatrix()
+              .getEntriesForServer("1.5.0")
+              .getConnectorEntry("snowflake")
+              .getDefaultVersion(),
+          "1.5.0.5",
+          "matrix must be retained when a later body fails schema validation");
+      assertEquals(
+          source.getLastFetchedAtMillis(),
+          stampAfterGoodLoad,
+          "a rejected (schema-invalid) refresh must not advance the last-fetched timestamp");
+    } finally {
+      source.shutdown();
+    }
+  }
+
+  @Test
   public void getMatrixIsEmptyBeforeAnyFetch() {
     // A source whose backing object errors on every read keeps serving the EMPTY matrix rather than
     // throwing on the hot path — resolution falls through to the application default.
