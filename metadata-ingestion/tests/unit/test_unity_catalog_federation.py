@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
@@ -7,6 +7,7 @@ from databricks.sdk.service.catalog import (
     ConnectionType,
 )
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.unity import federation as fed
 from datahub.ingestion.source.unity.config import (
     FederationLinkType,
@@ -15,7 +16,11 @@ from datahub.ingestion.source.unity.config import (
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
+from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.metadata.schema_classes import (
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+)
 
 
 def _metastore() -> Metastore:
@@ -216,3 +221,85 @@ def test_property_definition_mcps_target_container_and_platform_allowed_values()
     assert "mssql" in allowed and "postgres" in allowed
     # non-enumerated property has no allowedValues
     assert by_qn["databricks.federation.connection"].allowedValues is None
+
+
+def _foreign_catalog():
+    ms = Metastore(
+        id="ms",
+        name="ms",
+        comment=None,
+        global_metastore_id=None,
+        metastore_id=None,
+        owner=None,
+        region=None,
+        cloud=None,
+    )
+    return Catalog(
+        id="c",
+        name="my_catalog",
+        metastore=ms,
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="pg_conn",
+        options={"database": "my_db"},
+    )
+
+
+def _make_source():
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {**_BASE, "include_metastore": False}
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    return src
+
+
+def test_foreign_catalog_container_has_structured_properties():
+    src = _make_source()
+    src.unity_catalog_api_proxy.connections = lambda: {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.POSTGRESQL
+        )
+    }
+    wus = list(src.gen_catalog_containers(_foreign_catalog()))
+    sp_aspects = [
+        wu.get_aspect_of_type(StructuredPropertiesClass)
+        for wu in wus
+        if wu.get_aspect_of_type(StructuredPropertiesClass) is not None
+    ]
+    assert len(sp_aspects) == 1
+    assigned = {p.propertyUrn: p.values[0] for p in sp_aspects[0].properties}
+    assert (
+        assigned["urn:li:structuredProperty:databricks.federation.platform"]
+        == "postgres"
+    )
+    assert (
+        assigned["urn:li:structuredProperty:databricks.federation.remote_database"]
+        == "my_db"
+    )
+
+
+def test_property_definitions_emitted_once_when_enabled():
+    src = _make_source()
+    src.unity_catalog_api_proxy.connections = lambda: {}
+    wus = list(src._gen_federation_property_definition_workunits())
+    qns = {
+        wu.get_aspect_of_type(StructuredPropertyDefinitionClass).qualifiedName
+        for wu in wus
+    }
+    assert qns == {
+        "databricks.federation.catalog_type",
+        "databricks.federation.platform",
+        "databricks.federation.connection",
+        "databricks.federation.remote_database",
+    }
+
+
+def test_no_property_definitions_when_disabled():
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {**_BASE, "emit_federation_structured_properties": False}
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    assert list(src._gen_federation_property_definition_workunits()) == []

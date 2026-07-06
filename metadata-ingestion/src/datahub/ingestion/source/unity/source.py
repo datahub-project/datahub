@@ -76,7 +76,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unity import proxy_types as unity_proxy_types
+from datahub.ingestion.source.unity import federation, proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
     UnityCatalogAnalyzeProfilerConfig,
@@ -150,12 +150,18 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StructuredPropertyDefinitionClass,
     SubTypesClass,
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, TagUrn
+from datahub.metadata.urns import (
+    MlModelGroupUrn,
+    MlModelUrn,
+    StructuredPropertyUrn,
+    TagUrn,
+)
 from datahub.sdk import MLModel, MLModelGroup
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -504,6 +510,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_notebooks:
             with self.report.new_stage("Ingest notebooks"):
                 yield from self.process_notebooks()
+
+        yield from self._gen_federation_property_definition_workunits()
 
         yield from self.process_metastores()
 
@@ -1198,6 +1206,68 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=self.external_url_base,
         )
 
+    def _federation_structured_properties(
+        self, catalog: Catalog
+    ) -> Optional[Dict[StructuredPropertyUrn, str]]:
+        """Structured-property assignments for a foreign catalog, or None."""
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+        ):
+            return None
+        ns = self.config.federation_structured_property_namespace
+        urns = federation.structured_property_urns(ns)
+        values: Dict[str, str] = {"catalog_type": "FOREIGN_CATALOG"}
+        if catalog.connection_name:
+            values["connection"] = catalog.connection_name
+        detail = self.config.federation_connection_details.get(
+            catalog.connection_name or ""
+        )
+        connection = self.unity_catalog_api_proxy.connections().get(
+            catalog.connection_name or ""
+        )
+        target = federation.resolve_federation_target(
+            connection.connection_type if connection else None,
+            catalog.options,
+            detail.platform if detail else None,
+            detail.database if detail else None,
+        )
+        if target:
+            values["platform"] = target.platform
+            if target.remote_database:
+                values["remote_database"] = target.remote_database
+        return {
+            StructuredPropertyUrn(f"{ns}.{suffix}"): value
+            for suffix, value in values.items()
+            if suffix in urns
+        }
+
+    def _gen_federation_property_definition_workunits(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit federation structured-property definitions once per run.
+
+        When a graph is available, skip definitions that already exist so a
+        centrally-managed definition is never clobbered.
+        """
+        if not self.config.emit_federation_structured_properties:
+            return
+        mcps = federation.federation_property_definition_mcps(
+            self.config.federation_structured_property_namespace
+        )
+        graph = self.ctx.graph
+        for mcp in mcps:
+            if graph is not None and mcp.entityUrn is not None:
+                try:
+                    existing = graph.get_aspect(
+                        mcp.entityUrn, StructuredPropertyDefinitionClass
+                    )
+                    if existing is not None:
+                        continue
+                except Exception as e:
+                    logger.debug(f"Federation property existence check failed: {e}")
+            yield mcp.as_workunit()
+
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
         catalog_tags = []
@@ -1210,6 +1280,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
+        structured_properties = self._federation_structured_properties(catalog)
+        if catalog.is_foreign_catalog:
+            self.report.num_foreign_catalogs += 1
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
@@ -1226,6 +1299,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             tags=[tag.to_datahub_tag_urn().name for tag in catalog_tags]
             if catalog_tags
             else None,
+            structured_properties=structured_properties,
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
