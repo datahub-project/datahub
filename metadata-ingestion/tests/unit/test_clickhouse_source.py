@@ -172,3 +172,41 @@ def test_is_temp_table_custom_patterns():
     assert config.is_temp_table("test_table")
     # Default patterns no longer match with custom patterns
     assert not config.is_temp_table("_temp_table")
+
+
+def test_column_info_strips_nul_bytes():
+    """Column comments from ClickHouse may contain NUL bytes due to encoding
+    issues when reading multibyte characters via the HTTP interface."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.sql.clickhouse import _get_column_info
+
+    mock_dialect = MagicMock()
+    mock_dialect._get_column_type.return_value = "String"
+
+    result = _get_column_info(
+        mock_dialect,
+        name="vat_ratio",
+        format_type="String",
+        comment="부가\ufffd\x00치세비율",
+    )
+    assert result["comment"] == "부가\ufffd치세비율"
+    assert "\x00" not in result["comment"]
+
+
+def test_column_info_preserves_normal_comment():
+    """Normal column comments should be preserved as-is."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.sql.clickhouse import _get_column_info
+
+    mock_dialect = MagicMock()
+    mock_dialect._get_column_type.return_value = "String"
+
+    result = _get_column_info(
+        mock_dialect,
+        name="vat_ratio",
+        format_type="String",
+        comment="부가가치세비율",
+    )
+    assert result["comment"] == "부가가치세비율"
