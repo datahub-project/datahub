@@ -11,7 +11,7 @@ from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
 
-def _make_api(monkeypatch, **config_overrides) -> DremioAPIOperations:
+def _make_api(monkeypatch, **config_overrides):
     mock_session = Mock()
     monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
     mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
