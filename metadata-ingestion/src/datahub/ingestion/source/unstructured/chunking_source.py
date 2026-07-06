@@ -133,6 +133,9 @@ class DocumentChunkingSource(Source):
         self.graph: Optional[DataHubGraph]
         if self.standalone:
             # Standalone mode: create our own graph client
+            # TODO(oauth): only a static token is supported here; accept a declarative
+            # AuthConfig (DatahubClientConfig.auth) so short-lived OAuth token
+            # providers work on this path too. Inline mode (parent graph) is OAuth-ready.
             graph_config = DatahubClientConfig(
                 server=self.config.datahub.server,
                 token=self.config.datahub.token.get_secret_value()

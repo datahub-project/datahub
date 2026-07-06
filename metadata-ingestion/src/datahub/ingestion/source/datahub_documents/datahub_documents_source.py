@@ -151,6 +151,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         else:
             # Fallback: Create graph from config (for standalone usage)
             # Convert TransparentSecretStr to str for DatahubClientConfig
+            # TODO(oauth): only a static token is supported on this fallback path;
+            # accept a declarative AuthConfig (DatahubClientConfig.auth) so short-lived
+            # OAuth token providers work here too. The ctx.graph path above is OAuth-ready.
             token_str = (
                 self.config.datahub.token.get_secret_value()
                 if self.config.datahub.token

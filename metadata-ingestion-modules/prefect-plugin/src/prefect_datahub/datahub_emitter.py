@@ -103,6 +103,9 @@ class DatahubEmitter(Block):
     datahub_rest_url: str = "http://localhost:8080"
     env: str = builder.DEFAULT_ENV
     platform_instance: Optional[str] = None
+    # TODO(oauth): only a static token is supported here; accept a declarative
+    # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+    # OAuth token providers work on this path too.
     token: Optional[SecretStr] = None
     # Default to ASYNC so high-volume Prefect runs don't block GMS on a
     # synchronous commit per write. Set to SYNC_WAIT/SYNC_PRIMARY for

@@ -99,6 +99,9 @@ class DatahubRestHook(BaseHook):
         extra_args = conn.extra_dejson
         return (host, token, extra_args)
 
+    # TODO(oauth): only a static token is supported here; accept a declarative
+    # AuthConfig (DatahubClientConfig.auth / datahub.ingestion.auth) so short-lived
+    # OAuth token providers work on this path too.
     def make_emitter(self) -> "DataHubRestEmitter":
         import datahub.emitter.rest_emitter
         from datahub.ingestion.graph.config import ClientMode
