@@ -155,6 +155,7 @@ def test_resolve_bigquery_uses_data_project_id():
     target = fed.resolve_federation_target(
         ConnectionType.BIGQUERY, {"dataProjectId": "proj"}, None, None
     )
+    assert target is not None
     assert target.platform == "bigquery"
     assert fed.external_dataset_name(target, "ds", "t") == "proj.ds.t"
 
@@ -163,6 +164,7 @@ def test_resolve_databricks_to_databricks_uses_catalog():
     target = fed.resolve_federation_target(
         ConnectionType.DATABRICKS, {"catalog": "remote_cat"}, None, None
     )
+    assert target is not None
     assert target.platform == "databricks"
     assert fed.external_dataset_name(target, "s", "t") == "remote_cat.s.t"
 
@@ -171,6 +173,7 @@ def test_override_wins_over_autodetect():
     target = fed.resolve_federation_target(
         ConnectionType.POSTGRESQL, {"database": "auto_db"}, "mssql", "override_db"
     )
+    assert target is not None
     assert target.platform == "mssql"
     assert target.remote_database == "override_db"
 
@@ -194,6 +197,7 @@ def test_unmapped_connection_type_returns_none():
 def test_override_platform_without_connection_type():
     # connections API unavailable (connection_type None) but user supplied platform+db
     target = fed.resolve_federation_target(None, None, "mssql", "my_db")
+    assert target is not None
     assert target.platform == "mssql"
     assert target.remote_database == "my_db"
 
@@ -216,7 +220,11 @@ def test_structured_property_urns():
 def test_property_definition_mcps_target_container_and_platform_allowed_values():
     mcps = fed.federation_property_definition_mcps("databricks.federation")
     assert len(mcps) == 4
-    by_qn = {m.aspect.qualifiedName: m.aspect for m in mcps}
+    by_qn = {
+        aspect.qualifiedName: aspect
+        for m in mcps
+        if isinstance(aspect := m.aspect, StructuredPropertyDefinitionClass)
+    }
     platform_def = by_qn["databricks.federation.platform"]
     assert isinstance(platform_def, StructuredPropertyDefinitionClass)
     assert platform_def.entityTypes == ["urn:li:entityType:datahub.container"]
