@@ -134,6 +134,7 @@ public class Constants {
   public static final String METRIC_KEY_ASPECT_NAME = "metricKey";
   public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
   public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
+  public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";

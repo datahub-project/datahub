@@ -1,5 +1,6 @@
 namespace com.linkedin.semanticmodel
 
+import com.linkedin.common.AuditStamp
 import com.linkedin.metric.AiContext
 
 /**
@@ -32,6 +33,32 @@ record SemanticModelInfo {
     "searchTier": 2
   }
   description: optional string
+
+  /**
+   * Audit stamp capturing when this semantic model was created and by whom
+   * (as reported by the source platform / ingestor).
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * Audit stamp capturing when this semantic model was last modified and by whom.
+   * Equals `created` when no modification has occurred since ingestion.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "lastModifiedAt"
+    }
+  }
+  lastModified: optional AuditStamp
 
   /**
    * The raw, native definition of this semantic model as authored on the

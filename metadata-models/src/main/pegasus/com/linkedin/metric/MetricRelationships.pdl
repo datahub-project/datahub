@@ -4,7 +4,7 @@ import com.linkedin.common.Edge
 import com.linkedin.common.Urn
 
 /**
- * Relationships from a Metric to other Metric entities (Proposal B §B.4).
+ * Relationships from a Metric to other Metric entities.
  */
 @Aspect = {
   "name": "metricRelationships"

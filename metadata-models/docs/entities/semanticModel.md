@@ -23,6 +23,10 @@ Core metadata is stored in the `semanticModelInfo` aspect:
 
 - **`name`** — human-readable display name; used for full-text search and autocomplete.
 - **`description`** — free-text description of what the model represents.
+- **`created`** -- `AuditStamp` (`time` + `actor`) capturing when the semantic model was created
+  and by whom. Search-indexed as `createdAt` (DATETIME).
+- **`lastModified`** -- `AuditStamp` capturing the most recent modification.
+  Search-indexed as `lastModifiedAt` (DATETIME).
 - **`nativeDefinition`** — optional verbatim source definition (e.g. the Snowflake
   `CREATE SEMANTIC VIEW` DDL, the dbt `semantic_model` YAML, or the Databricks
   `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
@@ -49,12 +53,10 @@ the semantic model:
 
 ### Governance
 
-The semantic model entity reuses the full set of standard governance aspects:
-
-`ownership`, `domains`, `globalTags`, `glossaryTerms`, `institutionalMemory`,
-`structuredProperties`, `status`, `deprecation`, `dataPlatformInstance`,
-`subTypes`, `forms`, `testResults`, `documentation`, `browsePaths`, `browsePathsV2`,
-`applications`, `container`, `displayProperties`, `assetSettings`.
+The semantic model entity reuses these standard governance aspects: `ownership`, `domains`,
+`globalTags`, `glossaryTerms`, `institutionalMemory`, `structuredProperties`, `status`,
+`deprecation`, `dataPlatformInstance`, `subTypes`, `documentation`, `browsePathsV2`,
+`applications`.
 
 ## Relationships with Other Entities
 

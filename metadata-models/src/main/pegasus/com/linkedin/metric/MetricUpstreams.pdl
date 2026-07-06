@@ -1,0 +1,66 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Edge
+
+/**
+ * Physical data-flow lineage from a metric to the datasets and columns it reads.
+ * Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
+ */
+@Aspect = {
+  "name": "metricUpstreams"
+}
+record MetricUpstreams {
+
+  /**
+   * Datasets this metric reads (table-level lineage).
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn":    "datasetUpstreams/*/created/time",
+      "createdActor": "datasetUpstreams/*/created/actor",
+      "updatedOn":    "datasetUpstreams/*/lastModified/time",
+      "updatedActor": "datasetUpstreams/*/lastModified/actor",
+      "properties":   "datasetUpstreams/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "datasetUpstreams",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDatasetUpstreams",
+      "queryByDefault": false
+    }
+  }
+  datasetUpstreams: optional array[Edge]
+
+  /**
+   * Specific schema fields (columns) this metric reads (column-level lineage).
+   * May be populated even when datasetUpstreams is absent, and vice versa --
+   * ingestion sources vary in what granularity they can extract.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "schemaField" ],
+      "isLineage": true,
+      "createdOn":    "fieldUpstreams/*/created/time",
+      "createdActor": "fieldUpstreams/*/created/actor",
+      "updatedOn":    "fieldUpstreams/*/lastModified/time",
+      "updatedActor": "fieldUpstreams/*/lastModified/actor",
+      "properties":   "fieldUpstreams/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "fieldUpstreams",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasFieldUpstreams",
+      "queryByDefault": false
+    }
+  }
+  fieldUpstreams: optional array[Edge]
+
+}

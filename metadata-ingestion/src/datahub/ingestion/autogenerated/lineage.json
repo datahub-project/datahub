@@ -169,42 +169,6 @@
         ]
       }
     },
-    "metric": {
-      "upstreamLineage": {
-        "aspect": "upstreamLineage",
-        "fields": [
-          {
-            "name": "dataset",
-            "path": "upstreams.dataset",
-            "isLineage": true,
-            "relationship": {
-              "name": "DownstreamOf",
-              "entityTypes": [
-                "dataset"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      },
-      "metricRelationships": {
-        "aspect": "metricRelationships",
-        "fields": [
-          {
-            "name": "derivedFrom",
-            "path": "derivedFrom",
-            "isLineage": true,
-            "relationship": {
-              "name": "DerivedFrom",
-              "entityTypes": [
-                "metric"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      }
-    },
     "chart": {
       "chartInfo": {
         "aspect": "chartInfo",
@@ -297,6 +261,54 @@
               "name": "DashboardContainsDashboard",
               "entityTypes": [
                 "dashboard"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "metric": {
+      "metricUpstreams": {
+        "aspect": "metricUpstreams",
+        "fields": [
+          {
+            "name": "datasetUpstreams",
+            "path": "datasetUpstreams",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "fieldUpstreams",
+            "path": "fieldUpstreams",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "schemaField"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "metricRelationships": {
+        "aspect": "metricRelationships",
+        "fields": [
+          {
+            "name": "derivedFrom",
+            "path": "derivedFrom",
+            "isLineage": true,
+            "relationship": {
+              "name": "DerivedFrom",
+              "entityTypes": [
+                "metric"
               ],
               "isLineage": true
             }
@@ -434,5 +446,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-07-02T00:13:22.853899+00:00"
+  "generated_at": "2026-07-06T22:53:15.446502+00:00"
 }

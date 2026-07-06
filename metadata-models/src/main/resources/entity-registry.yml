@@ -705,15 +705,9 @@ entities:
       - deprecation
       - dataPlatformInstance
       - subTypes
-      - forms
-      - testResults
       - documentation
-      - browsePaths
       - browsePathsV2
       - applications
-      - container
-      - displayProperties
-      - assetSettings
   - name: metric
     category: core
     keyAspect: metricKey
@@ -721,7 +715,7 @@ entities:
     aspects:
       - metricInfo
       - metricRelationships
-      - upstreamLineage
+      - metricUpstreams
       - ownership
       - domains
       - globalTags
@@ -732,18 +726,9 @@ entities:
       - deprecation
       - dataPlatformInstance
       - subTypes
-      - forms
-      - testResults
       - documentation
-      - browsePaths
       - browsePathsV2
       - applications
-      - container
-      - incidentsSummary
-      - displayProperties
-      - assetSettings
-      - versionProperties
-      - access
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
