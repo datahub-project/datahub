@@ -13,20 +13,21 @@ import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { DataPlatform } from '@types';
 
-const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
+const TreeItemContainer = styled.div<{ $isSelected: boolean }>`
     position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
+    /* No vertical padding: the row's full height is a hit area so the ExpandZone
+       (which stretches edge-to-edge) catches clicks in the space above/below the
+       folder icon instead of the row's navigate handler. */
+    padding: 0 2px 0 0;
     min-height: 38px;
     height: 38px;
     cursor: pointer;
     border-radius: 6px;
     transition: background-color 0.15s ease;
     margin-bottom: 2px;
-    margin-left: 2px;
-    margin-right: 2px;
 
     ${(props) =>
         props.$isSelected &&
@@ -48,17 +49,31 @@ background: ${props.theme.colors.bgHover};
 const LeftContent = styled.div`
     display: flex;
     align-items: center;
+    align-self: stretch;
     flex: 1;
     min-width: 0;
     overflow: hidden;
+`;
+
+// The whole left region — the indentation plus the icon/arrow — is the
+// expand/collapse tap target for folders. It carries the level indentation (moved
+// off the row container) and stretches to full row height so the hit area is
+// generous, while the title beyond it stays a navigation target.
+const ExpandZone = styled.div<{ $level: number; $expandable: boolean }>`
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    padding-left: ${(props) => 8 + props.$level * 16}px;
+    flex-shrink: 0;
+    cursor: ${(props) => (props.$expandable ? 'pointer' : 'inherit')};
 `;
 
 const IconSlot = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+    align-self: stretch;
     width: 24px;
-    height: 20px;
     margin-right: 8px;
     flex-shrink: 0;
 `;
@@ -212,6 +227,15 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         onClick();
     };
 
+    // The left zone (indent + icon/arrow) expands folders in place. Leaf rows have
+    // nothing to expand, so we let the click bubble up to the row and open the
+    // document instead.
+    const handleExpandZoneClick = (e: React.MouseEvent) => {
+        if (!hasChildren) return;
+        e.stopPropagation();
+        onToggleExpand();
+    };
+
     const showExpandButton = hasChildren && (isExpanded || isHovered);
 
     const renderIcon = () => {
@@ -267,14 +291,15 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         <TreeItemContainer
             className="tree-item-container"
             data-testid={`document-tree-item-${urn}`}
-            $level={level}
             $isSelected={isSelected}
             onClick={handleItemClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             <LeftContent>
-                <IconSlot>{renderIcon()}</IconSlot>
+                <ExpandZone $level={level} $expandable={hasChildren} onClick={handleExpandZoneClick}>
+                    <IconSlot>{renderIcon()}</IconSlot>
+                </ExpandZone>
 
                 <Title $isSelected={isSelected} title={title}>
                     {title}
