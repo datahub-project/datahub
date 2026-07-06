@@ -11,7 +11,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -20,11 +23,14 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -428,6 +434,39 @@ public class OperationContextTest {
             false);
 
     assertEquals(opContext.getPrimaryStorageContext(), storageContext);
+  }
+
+  @Test
+  public void getDecodedAspect_cachesPerContext() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    GenericAspect aspect = GenericRecordUtils.serializeAspect(new Status().setRemoved(true));
+
+    Status first = opContext.getDecodedAspect(aspect, Status.class);
+    Status second = opContext.getDecodedAspect(aspect, Status.class);
+
+    assertTrue(first.isRemoved());
+    assertSame(
+        first, second, "Repeat decode of the same aspect should return the cached instance");
+  }
+
+  @Test
+  public void getDecodedAspect_nullAspectReturnsNull() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    assertNull(opContext.getDecodedAspect(null, Status.class));
+  }
+
+  @Test
+  public void getDecodedAspect_distinctPayloadsDecodeSeparately() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    GenericAspect current = GenericRecordUtils.serializeAspect(new Status().setRemoved(true));
+    GenericAspect previous = GenericRecordUtils.serializeAspect(new Status().setRemoved(false));
+
+    Status decodedCurrent = opContext.getDecodedAspect(current, Status.class);
+    Status decodedPrevious = opContext.getDecodedAspect(previous, Status.class);
+
+    assertNotSame(decodedCurrent, decodedPrevious);
+    assertTrue(decodedCurrent.isRemoved());
+    assertFalse(decodedPrevious.isRemoved());
   }
 
   private OperationContext buildTraceMock() {

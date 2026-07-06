@@ -21,7 +21,6 @@ import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.IncidentsSummaryUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -100,11 +99,11 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   public void invoke(
       @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event)
       throws Exception {
-    if (isEnabled && isEligibleForProcessing(event)) {
+    if (isEnabled && isEligibleForProcessing(operationContext, event)) {
       log.debug("Urn {} received by Incident Summary Hook.", event.getEntityUrn());
       final Urn urn = HookUtils.getUrnFromEvent(event, operationContext.getEntityRegistry());
       // Handle the deletion case.
-      if (isIncidentSoftDeleted(event)) {
+      if (isIncidentSoftDeleted(operationContext, event)) {
         handleIncidentSoftDeleted(operationContext, urn);
       } else if (isIncidentUpdate(event)) {
         handleIncidentUpdated(operationContext, event, urn);
@@ -150,10 +149,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     if (event.getAspectName().equals(INCIDENT_INFO_ASPECT_NAME)
         && event.getPreviousAspectValue() != null) {
       previousInfo =
-          GenericRecordUtils.deserializeAspect(
-              event.getPreviousAspectValue().getValue(),
-              event.getPreviousAspectValue().getContentType(),
-              IncidentInfo.class);
+          operationContext.getDecodedAspect(event.getPreviousAspectValue(), IncidentInfo.class);
     } else {
       previousInfo = null;
     }
@@ -275,22 +271,23 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
    * Returns true if the event should be processed, which is only true if the change is on the
    * incident status aspect
    */
-  private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
-    return isIncidentSoftDeleted(event) || isIncidentUpdate(event);
+  private boolean isEligibleForProcessing(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
+    return isIncidentSoftDeleted(operationContext, event) || isIncidentUpdate(event);
   }
 
   /** Returns true if an incident is being soft-deleted. */
-  private boolean isIncidentSoftDeleted(@Nonnull final MetadataChangeLog event) {
+  private boolean isIncidentSoftDeleted(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
     return INCIDENT_ENTITY_NAME.equals(event.getEntityType())
         && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
-        && isSoftDeletionEvent(event);
+        && isSoftDeletionEvent(operationContext, event);
   }
 
-  private boolean isSoftDeletionEvent(@Nonnull final MetadataChangeLog event) {
+  private boolean isSoftDeletionEvent(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
     if (STATUS_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
-      final Status status =
-          GenericRecordUtils.deserializeAspect(
-              event.getAspect().getValue(), event.getAspect().getContentType(), Status.class);
+      final Status status = operationContext.getDecodedAspect(event.getAspect(), Status.class);
       return status.hasRemoved() && status.isRemoved();
     }
     return false;
