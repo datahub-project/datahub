@@ -85,6 +85,7 @@ class CachingTokenProvider(TokenProvider):
         self._refresh_buffer_seconds = refresh_buffer_seconds
         self._lock = threading.Lock()
         self._cached: Optional[Tuple[TokenResult, float]] = None
+        self._warned_nonpositive_lifetime = False
 
     def get_token(self) -> TokenResult:
         with self._lock:
@@ -109,6 +110,20 @@ class CachingTokenProvider(TokenProvider):
         # mark every token permanently stale and turn each client request into
         # a synchronous IdP round trip.
         lifetime = cached.expires_at - fetched_at
+        if lifetime <= 0:
+            # Token arrived already expired (IdP expires_in <= 0, or client
+            # clock ahead of the token response): caching cannot help, so every
+            # request degrades to a synchronous IdP round trip under the
+            # provider lock. That must be loud — once — not silent.
+            if not self._warned_nonpositive_lifetime:
+                logger.warning(
+                    "Token provider returned a token with non-positive lifetime "
+                    "(%.0fs); every request will fetch a fresh token. Check the "
+                    "IdP's token lifetime configuration and client clock skew.",
+                    lifetime,
+                )
+                self._warned_nonpositive_lifetime = True
+            return True
         buffer = min(self._refresh_buffer_seconds, lifetime / 2)
         return time.time() >= (cached.expires_at - buffer)
 
@@ -131,10 +146,23 @@ class TokenProviderAuth(requests.auth.AuthBase):
         self._provider = provider
         self._retry_on_401 = retry_on_401
         self._thread_local = threading.local()
+        self._warned_replaced_authorization = False
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         self._thread_local.retried = False
         self._thread_local.original_origin = _origin(request.url)
+        if (
+            "Authorization" in request.headers
+            and not self._warned_replaced_authorization
+        ):
+            # e.g. a proxy credential injected via extra_headers — the provider
+            # token wins, but silently breaking the proxy hop is a footgun.
+            logger.warning(
+                "Replacing a pre-existing Authorization header with the OAuth "
+                "bearer token. If that header carried proxy/gateway credentials, "
+                "requests will no longer present them."
+            )
+            self._warned_replaced_authorization = True
         request.headers["Authorization"] = f"Bearer {self._provider.get_token().token}"
         if self._retry_on_401:
             request.register_hook("response", self._handle_401)

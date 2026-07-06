@@ -81,6 +81,25 @@ def test_caching_provider_refetches_expired_token():
     assert len(calls) == 2
 
 
+def test_caching_provider_warns_once_on_nonpositive_lifetime(caplog):
+    # An IdP reporting expires_in <= 0 (or a client clock ahead of the token
+    # response) degrades to one synchronous IdP fetch per request — that must
+    # be loud, not silent, and warned only once.
+    calls = []
+
+    def fetch() -> TokenResult:
+        calls.append(1)
+        return TokenResult("t", time.time() - 10)
+
+    provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
+    with caplog.at_level("WARNING"):
+        provider.get_token()
+        provider.get_token()
+    assert len(calls) == 2  # already-expired tokens are re-fetched per request
+    warnings = [r for r in caplog.records if "lifetime" in r.message]
+    assert len(warnings) == 1
+
+
 def test_caching_provider_refetches_when_expiry_unknown():
     calls = []
 
@@ -126,6 +145,22 @@ def test_auth_sets_fresh_header_each_call():
     req = requests.Request("GET", "http://x/").prepare()
     auth(req)
     assert req.headers["Authorization"] == "Bearer t1"
+
+
+def test_auth_warns_once_when_replacing_existing_authorization_header(caplog):
+    # A pre-existing Authorization header (e.g. proxy auth injected via
+    # extra_headers) is replaced by the provider token — loudly, once.
+    provider = _SeqProvider(["t1"])
+    auth = TokenProviderAuth(provider, retry_on_401=False)
+    with caplog.at_level("WARNING"):
+        for _ in range(2):
+            req = requests.Request(
+                "GET", "http://x/", headers={"Authorization": "Basic proxy-cred"}
+            ).prepare()
+            auth(req)
+    assert req.headers["Authorization"] == "Bearer t1"
+    warnings = [r for r in caplog.records if "Authorization" in r.message]
+    assert len(warnings) == 1
 
 
 def test_auth_retries_once_on_401(requests_mock):
