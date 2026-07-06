@@ -719,6 +719,49 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
+## Cypress Tests (Deprecated)
+
+Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
+
+- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
+- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
+- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
+
+## Playwright UI E2E Tests
+
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
+
+### Seeding
+
+`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
+`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
+feature per run. Do **not** set `featureName` for suites that create their own data
+via `apiMock` or direct API calls.
+
+## Frontend CI Checklist
+
+This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
+commit, push, or hand off changes that are going into a PR. It is **not** required for
+every intermediate edit: work that is part of a larger task, a work-in-progress branch,
+or scratch experimentation that won't be committed yet can skip it. Run the relevant
+commands when the change is ready to ship:
+
+```bash
+# Full lint (eslint + prettier src + type-check) for datahub-web-react
+./gradlew :datahub-web-react:yarnLint
+
+# Targeted lint-fix on a single file
+./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Vitest unit tests (requires icon stubs — run once per clone)
+node datahub-web-react/scripts/generate-lazy-icon-stubs.js
+cd datahub-web-react && yarn test src/path/to/file.test.ts --run
+```
+
+`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
+unrelated files. Focus on errors in files **you touched** — in particular, optional
+prop calls (`prop?.(arg)`) and import aliases.
+
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`

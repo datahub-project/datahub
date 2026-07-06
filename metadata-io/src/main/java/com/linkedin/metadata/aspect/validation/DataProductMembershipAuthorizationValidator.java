@@ -53,6 +53,7 @@ public class DataProductMembershipAuthorizationValidator
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
     List<BatchItem> membershipChanges = new ArrayList<>();
     Map<Urn, Set<Urn>> changedAssetsByProduct = new HashMap<>();
+    Set<Urn> nameChangeProducts = new HashSet<>();
 
     Set<Urn> dataProductUrns = items.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
     Map<Urn, Map<String, Aspect>> currentPropertiesMap =
@@ -72,32 +73,60 @@ public class DataProductMembershipAuthorizationValidator
         membershipChanges.add(item);
         changedAssetsByProduct.put(item.getUrn(), changedAssets);
       }
+      if (hasNameChange(current, proposed)) {
+        nameChangeProducts.add(item.getUrn());
+      }
     }
 
-    if (membershipChanges.isEmpty()) {
+    if (membershipChanges.isEmpty() && nameChangeProducts.isEmpty()) {
       return List.of();
     }
 
     Map<Urn, Aspect> proposedProductDomainsAspects =
         extractProposedProductDomainsAspects(batchItems);
-    Set<Urn> unauthorized =
-        EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-            operationContext,
-            session,
-            aspectRetriever,
-            changedAssetsByProduct,
-            proposedProductDomainsAspects);
-
     List<AspectValidationException> failures = new ArrayList<>();
-    for (BatchItem item : membershipChanges) {
-      if (unauthorized.contains(item.getUrn())) {
-        failures.add(
-            authFailure(
-                item,
-                "Unauthorized to modify dataProductProperties.assets on data product: "
-                    + item.getUrn()));
+
+    if (!membershipChanges.isEmpty()) {
+      Set<Urn> unauthorizedMembership =
+          EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+              operationContext,
+              session,
+              aspectRetriever,
+              changedAssetsByProduct,
+              proposedProductDomainsAspects);
+
+      for (BatchItem item : membershipChanges) {
+        if (unauthorizedMembership.contains(item.getUrn())) {
+          failures.add(
+              authFailure(
+                  item,
+                  "Unauthorized to modify dataProductProperties.assets on data product: "
+                      + item.getUrn()));
+        }
       }
     }
+
+    if (!nameChangeProducts.isEmpty()) {
+      Set<Urn> unauthorizedRenames =
+          EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+              operationContext,
+              session,
+              aspectRetriever,
+              nameChangeProducts,
+              proposedProductDomainsAspects);
+
+      for (BatchItem item : items) {
+        if (nameChangeProducts.contains(item.getUrn())
+            && unauthorizedRenames.contains(item.getUrn())) {
+          failures.add(
+              authFailure(
+                  item,
+                  "Unauthorized to modify dataProductProperties.name on data product: "
+                      + item.getUrn()));
+        }
+      }
+    }
+
     return failures;
   }
 
@@ -139,6 +168,17 @@ public class DataProductMembershipAuthorizationValidator
       }
     }
     return urns;
+  }
+
+  private static boolean hasNameChange(
+      @Nullable DataProductProperties current, @Nullable DataProductProperties proposed) {
+    if (proposed == null || !proposed.hasName()) {
+      return false;
+    }
+    if (current == null || !current.hasName()) {
+      return true;
+    }
+    return !proposed.getName().equals(current.getName());
   }
 
   @Nullable

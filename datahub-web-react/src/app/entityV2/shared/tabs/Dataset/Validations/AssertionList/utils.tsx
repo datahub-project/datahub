@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import Fuse from 'fuse.js';
 import i18next from 'i18next';
 import React from 'react';
@@ -107,14 +107,14 @@ const getGroupNameBySummary = (record) => {
         font-size: 14px;
     `;
 
-    const Title = styled(Typography.Text)`
+    const Title = styled(Text)`
         && {
             padding-bottom: 0px;
             margin-bottom: 0px;
         }
     `;
 
-    const Message = styled(Typography.Text)`
+    const Message = styled(Text)`
         && {
             font-size: 12px;
             margin-left: 8px;
@@ -131,8 +131,10 @@ const getGroupNameBySummary = (record) => {
 
     return (
         <TextContainer>
-            <Title strong>{getStatusGroupDisplayName(record.name)}</Title>
-            <Message type="secondary">
+            <Title type="span" weight="bold">
+                {getStatusGroupDisplayName(record.name)}
+            </Title>
+            <Message type="span" color="textSecondary">
                 {i18next.t('entity.profile.validations:assertionList.groupHeaderSummaryListTemplate', {
                     listItems: list,
                 })}

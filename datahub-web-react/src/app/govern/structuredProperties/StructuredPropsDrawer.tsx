@@ -21,6 +21,7 @@ import {
     PropValueField,
     StructuredProp,
     getDisplayName,
+    getNewAllowedPlatforms,
     getNewAllowedTypes,
     getNewAllowedValues,
     getNewEntityTypes,
@@ -138,6 +139,7 @@ const StructuredPropsDrawer = ({
                         newAllowedTypes: getNewAllowedTypes(selectedProperty, updateValues),
                     },
                     newEntityTypes: getNewEntityTypes(selectedProperty, updateValues),
+                    newAllowedPlatforms: getNewAllowedPlatforms(selectedProperty, updateValues),
                     newAllowedValues: getNewAllowedValues(selectedProperty, updateValues),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                     settings: {
@@ -276,6 +278,7 @@ const StructuredPropsDrawer = ({
                 qualifiedName: entity.definition.qualifiedName,
                 valueType: typeValue,
                 entityTypes: entity.definition.entityTypes.map((entityType) => entityType.urn),
+                allowedPlatforms: entity.definition.allowedPlatforms?.map((platform) => platform.urn),
                 typeQualifier: {
                     allowedTypes: entity.definition.typeQualifier?.allowedTypes?.map((entityType) => entityType.urn),
                 },

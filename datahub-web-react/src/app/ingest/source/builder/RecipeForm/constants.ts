@@ -14,6 +14,23 @@ import {
     USER_DENY,
 } from '@app/ingest/source/builder/RecipeForm/azure';
 import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/bigid';
+import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -294,6 +311,7 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    BIGID,
     BIGQUERY_BETA,
     CONFLUENCE,
     CSV,
@@ -586,6 +604,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
+    },
     [MATILLION_DPC]: {
         fields: [
             MATILLION_CLIENT_ID,
@@ -781,5 +814,6 @@ export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
     BIGQUERY,
     DATABRICKS,
     MATILLION_DPC,
+    BIGID,
     SAC,
 ]);

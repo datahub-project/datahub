@@ -102,6 +102,18 @@ class RedshiftConfig(
         description="Whether to generate queries entities for the SQL-based lineage collector.",
     )
 
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Generate per-query popularity statistics (queryUsageStatistics) for the "
+            "Query entities emitted by the SQL-based lineage collector. This is a "
+            "sub-flag of include_usage_statistics: it only takes effect when "
+            "include_usage_statistics is enabled, and is independent of "
+            "include_column_usage_stats. Requires lineage_generate_queries (default "
+            "True) so Query entities exist to attach stats to."
+        ),
+    )
+
     include_table_lineage: bool = Field(
         default=True, description="Whether table lineage should be ingested."
     )
@@ -117,6 +129,17 @@ class RedshiftConfig(
     include_usage_statistics: bool = Field(
         default=False,
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
+    )
+
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description="Generate column-level usage statistics (`fieldCounts`) by parsing "
+        "the SQL query text instead of attributing reads to the tables reported by "
+        "Redshift's `stl_scan` system table. This is slower (every read query is parsed) "
+        "but adds per-column usage. The full query text is reconstructed from "
+        "`STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the same source used for lineage), not the "
+        "truncated `stl_query.querytxt`. Only applies when `include_usage_statistics` is "
+        "enabled.",
     )
 
     include_unload_lineage: bool = Field(
@@ -184,6 +207,19 @@ class RedshiftConfig(
     def check_database_is_set(self) -> "RedshiftConfig":
         assert self.database, "database must be set"
         return self
+
+    @property
+    def lineage_enabled(self) -> bool:
+        """True if any lineage source is enabled. Single source of truth so the
+        source-level gating and the aggregator's generate_lineage stay in sync."""
+        return (
+            self.include_table_lineage
+            or self.include_view_lineage
+            or self.include_copy_lineage
+            or self.include_unload_lineage
+            or self.include_share_lineage
+            or self.include_table_rename_lineage
+        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

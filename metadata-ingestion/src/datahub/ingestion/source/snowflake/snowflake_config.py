@@ -232,6 +232,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
         "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
         "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "If the composed filter would exceed Snowflake's per-query size limit, that filter is automatically skipped and applied client-side instead (slower). "
         "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
         "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
     )
