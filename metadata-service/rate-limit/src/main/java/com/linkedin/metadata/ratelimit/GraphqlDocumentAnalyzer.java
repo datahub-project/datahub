@@ -1,13 +1,22 @@
 package com.linkedin.metadata.ratelimit;
 
+import graphql.language.Definition;
+import graphql.language.Document;
 import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.FragmentSpread;
+import graphql.language.InlineFragment;
 import graphql.language.OperationDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.parser.InvalidSyntaxException;
 import graphql.parser.Parser;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -17,6 +26,7 @@ import org.springframework.util.StringUtils;
 public final class GraphqlDocumentAnalyzer {
 
   private static final Parser PARSER = new Parser();
+  private static final Map<String, FragmentDefinition> NO_FRAGMENTS = Map.of();
 
   private GraphqlDocumentAnalyzer() {}
 
@@ -90,8 +100,10 @@ public final class GraphqlDocumentAnalyzer {
     }
 
     try {
+      Document document = PARSER.parseDocument(queryDocument);
+      Map<String, FragmentDefinition> fragments = fragmentDefinitions(document);
       List<OperationDefinition> operationDefinitions =
-          PARSER.parseDocument(queryDocument).getDefinitions().stream()
+          document.getDefinitions().stream()
               .filter(def -> def instanceof OperationDefinition)
               .map(def -> (OperationDefinition) def)
               .toList();
@@ -106,9 +118,7 @@ public final class GraphqlDocumentAnalyzer {
         if (kind == null) {
           kind = OperationDefinition.Operation.QUERY;
         }
-        SelectionSet selectionSet = operationDefinition.getSelectionSet();
-        List<String> rootFields =
-            selectionSet == null ? List.of() : collectFieldNames(selectionSet);
+        List<String> rootFields = topLevelFieldList(operationDefinition, fragments);
         operations.add(
             new GraphqlOperationMetadata(operationDefinition.getName(), kind, rootFields));
       }
@@ -119,15 +129,64 @@ public final class GraphqlDocumentAnalyzer {
   }
 
   @Nonnull
-  private static List<String> collectFieldNames(@Nonnull SelectionSet selectionSet) {
+  private static Map<String, FragmentDefinition> fragmentDefinitions(@Nonnull Document document) {
+    Map<String, FragmentDefinition> fragments = null;
+    for (Definition<?> definition : document.getDefinitions()) {
+      if (definition instanceof FragmentDefinition fragmentDefinition) {
+        if (fragments == null) {
+          fragments = new HashMap<>();
+        }
+        fragments.put(fragmentDefinition.getName(), fragmentDefinition);
+      }
+    }
+    return fragments != null ? fragments : NO_FRAGMENTS;
+  }
+
+  /**
+   * Direct top-level field names of an operation; aliases collapsed. Top-level inline fragments and
+   * fragment spreads are descended so the fields they contribute at the root are counted as
+   * top-level; fragment reference cycles are guarded.
+   */
+  @Nonnull
+  private static List<String> topLevelFieldList(
+      @Nonnull OperationDefinition operation, @Nonnull Map<String, FragmentDefinition> fragments) {
+    SelectionSet selectionSet = operation.getSelectionSet();
+    if (selectionSet == null || selectionSet.getSelections().isEmpty()) {
+      return List.of();
+    }
     List<String> fieldNames = new ArrayList<>();
+    Set<String> visitedFragments = fragments.isEmpty() ? null : new HashSet<>();
+    collectTopLevelFields(selectionSet, fragments, visitedFragments, fieldNames);
+    return List.copyOf(fieldNames);
+  }
+
+  private static void collectTopLevelFields(
+      @Nonnull SelectionSet selectionSet,
+      @Nonnull Map<String, FragmentDefinition> fragments,
+      @Nullable Set<String> visitedFragments,
+      @Nonnull List<String> out) {
     for (Selection<?> selection : selectionSet.getSelections()) {
       if (selection instanceof Field field) {
         if (StringUtils.hasText(field.getName())) {
-          fieldNames.add(field.getName());
+          out.add(field.getName());
+        }
+      } else if (selection instanceof InlineFragment inlineFragment) {
+        SelectionSet inner = inlineFragment.getSelectionSet();
+        if (inner != null) {
+          collectTopLevelFields(inner, fragments, visitedFragments, out);
+        }
+      } else if (selection instanceof FragmentSpread fragmentSpread) {
+        if (visitedFragments == null) {
+          continue;
+        }
+        String name = fragmentSpread.getName();
+        if (visitedFragments.add(name)) {
+          FragmentDefinition definition = fragments.get(name);
+          if (definition != null && definition.getSelectionSet() != null) {
+            collectTopLevelFields(definition.getSelectionSet(), fragments, visitedFragments, out);
+          }
         }
       }
     }
-    return List.copyOf(fieldNames);
   }
 }

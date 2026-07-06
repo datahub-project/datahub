@@ -242,4 +242,39 @@ public class GraphqlDocumentAnalyzerTest {
         metadata.resolvedOperationName(), GraphqlDocumentMetadata.ANONYMOUS_OPERATION_NAME);
     assertFalse(metadata.isParsed());
   }
+
+  // Heavy-gate evasion guards: a heavy resolver hidden in a top-level fragment must still be
+  // surfaced, otherwise the per-resolver gate could be bypassed with a one-line query rewrite.
+
+  @Test
+  public void testAnalyzeResolvesInlineFragment() {
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(null, "{ ... on Query { searchAcrossEntities { urn } } }");
+    assertEquals(metadata.allRootFields(), List.of("searchAcrossEntities"));
+    assertEquals(metadata.rateLimitIdentity(), "searchAcrossEntities");
+  }
+
+  @Test
+  public void testAnalyzeResolvesNamedFragmentSpread() {
+    String document = "query { ...F } fragment F on Query { searchAcrossEntities { urn } }";
+    assertEquals(
+        GraphqlDocumentAnalyzer.analyze(null, document).allRootFields(),
+        List.of("searchAcrossEntities"));
+  }
+
+  @Test
+  public void testAnalyzeResolvesNestedFragments() {
+    String document =
+        "query { ...A } "
+            + "fragment A on Query { ... on Query { ...B } } "
+            + "fragment B on Query { searchAcrossEntities { urn } }";
+    assertEquals(
+        GraphqlDocumentAnalyzer.analyze(null, document).allRootFields(),
+        List.of("searchAcrossEntities"));
+  }
+
+  @Test
+  public void testAnalyzeUnknownFragmentSpreadIsEmpty() {
+    assertTrue(GraphqlDocumentAnalyzer.analyze(null, "{ ...Missing }").allRootFields().isEmpty());
+  }
 }
