@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+import re
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -177,6 +178,9 @@ class DremioAPIOperations:
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.max_view_definition_length = connection_args.max_view_definition_length
+        self.partition_datasets_by_container = (
+            connection_args.partition_datasets_by_container
+        )
         self.report = report
         self._chunk_size = 1000  # Sensible default to prevent OOM
         # /catalog/{id} responses are id-keyed and immutable for a run, so
@@ -830,12 +834,21 @@ class DremioAPIOperations:
 
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
         """
-        Fetch all tables and columns using a single global query.
+        Fetch all tables and columns.
 
-        Runs one SQL query across the entire catalog rather than one per container.
-        This eliminates the ~10s Dremio planning overhead that was incurred for each
-        of thousands of containers (e.g. 10,000 containers × 10s = ~30 hours).
-        Results are still chunked with LIMIT/OFFSET to prevent Dremio OOM errors.
+        By default runs one SQL query across the entire catalog rather than one per
+        container. This eliminates the ~10s Dremio planning overhead that was incurred
+        for each of thousands of containers (e.g. 10,000 containers × 10s = ~30 hours).
+        Results are chunked with LIMIT/OFFSET to prevent Dremio OOM errors.
+
+        When `partition_datasets_by_container` is set, the datasets query is instead
+        run once per root container so Dremio's join and sort only cover that
+        container — bounding server-side execution time on very large catalogs where
+        the catalog-wide query would time out. Each container is scoped two ways: a
+        pushable `TABLE_SCHEMA` predicate inside the INFORMATION_SCHEMA.COLUMNS scan
+        (bounds the dominant scan) plus the outer schema filter (bounds the system-
+        table side and the final sort).
+
         View definitions are fetched separately and merged in by path.
         """
         if self.edition == DremioEdition.ENTERPRISE:
@@ -858,12 +871,140 @@ class DremioAPIOperations:
             schema_condition, deny_schema_condition
         )
 
-        yield from self._get_all_tables_global_chunked(
-            query_template,
-            schema_condition,
-            deny_schema_condition,
-            view_definitions=view_definitions,
+        if self.partition_datasets_by_container:
+            # CE joins INFORMATION_SCHEMA.COLUMNS directly (must qualify the column);
+            # EE/Cloud wrap it in a subquery aliased C where TABLE_SCHEMA is unambiguous.
+            columns_schema_column = (
+                "C.TABLE_SCHEMA"
+                if self.edition == DremioEdition.COMMUNITY
+                else "TABLE_SCHEMA"
+            )
+            yield from self._get_all_tables_partitioned_by_container(
+                query_template,
+                schema_field,
+                columns_schema_column,
+                schema_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+            )
+        else:
+            yield from self._get_all_tables_global_chunked(
+                query_template,
+                schema_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+            )
+
+    def _get_root_container_names(self) -> List[str]:
+        """Return allowed root container (source/space/home) names.
+
+        Reads only the top-level `/catalog` listing — not the recursive tree
+        walk done by `get_all_containers` — because partitioning only needs the
+        root name to scope each `TABLE_SCHEMA` predicate.
+        """
+        names: List[str] = []
+        response = self.get(url="/catalog")
+        for source in response.get("data", []):
+            if source.get("containerType") not in (
+                DremioEntityContainerType.SOURCE.value,
+                DremioEntityContainerType.SPACE.value,
+                DremioEntityContainerType.HOME.value,
+            ):
+                continue
+            name = (
+                source.get("path", [""])[0]
+                if source.get("path")
+                else source.get("name", "")
+            )
+            if name and self.filter.should_include_container([], name):
+                names.append(name)
+        return names
+
+    def _build_container_schema_condition(
+        self, container_name: str, schema_field: str
+    ) -> str:
+        """Build an `AND REGEXP_LIKE(...)` predicate scoping to one root container.
+
+        This targets the derived (CONCAT/UPPER-wrapped) schema field in the outer
+        query, so it does NOT push into the info-schema scan — it bounds the
+        system-table side and the final sort. `_build_container_columns_filter`
+        handles the pushable half. Matches the container root and any nested schema
+        path beneath it; the name is regex-escaped so special characters match
+        literally.
+        """
+        pattern = f"{re.escape(container_name)}(\\..*)?"
+        return self.get_pattern_condition([pattern], schema_field)
+
+    def _build_container_columns_filter(self, container_name: str, column: str) -> str:
+        """Build a pushable `TABLE_SCHEMA` predicate scoping to one root container.
+
+        Emitted directly inside the INFORMATION_SCHEMA.COLUMNS scan so Dremio's
+        InfoSchemaPushFilterIntoScan rule pushes it down (bounding the dominant
+        scan). Dremio only pushes plain `=`/`LIKE` on a bare `TABLE_SCHEMA`
+        (optionally `UPPER`-wrapped) — never `REGEXP_LIKE` or CONCAT-wrapped
+        columns — so we match the container root with equality and nested schemas
+        with a `LIKE 'root.%'`. LIKE wildcards in the name are escaped.
+        """
+        literal = container_name.upper().replace("'", "''")
+        like_literal = (
+            literal.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         )
+        return (
+            f"AND (UPPER({column}) = '{literal}' "
+            f"OR UPPER({column}) LIKE '{like_literal}.%' ESCAPE '\\')"
+        )
+
+    def _get_all_tables_partitioned_by_container(
+        self,
+        query_template: str,
+        schema_field: str,
+        columns_schema_column: str,
+        schema_condition: str,
+        deny_schema_condition: str,
+        view_definitions: Dict[str, Optional[str]],
+    ) -> Iterator[Dict]:
+        """Fetch datasets one root container at a time to bound Dremio-side query time.
+
+        Each container reuses the chunked global fetch with (1) a pushable
+        `TABLE_SCHEMA` predicate inside the COLUMNS scan and (2) the outer schema
+        filter, so per-container OOM chunking still applies but offsets stay small.
+        Falls back to a single catalog-wide query if no containers resolve.
+        """
+        container_names = self._get_root_container_names()
+        if not container_names:
+            logger.warning(
+                "partition_datasets_by_container is set but no root containers "
+                "resolved; falling back to a single catalog-wide dataset query."
+            )
+            yield from self._get_all_tables_global_chunked(
+                query_template,
+                schema_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+            )
+            return
+
+        logger.info(
+            f"Fetching datasets partitioned across {len(container_names)} "
+            f"container(s) to bound Dremio-side query time."
+        )
+        for container_name in container_names:
+            container_condition = self._build_container_schema_condition(
+                container_name, schema_field
+            )
+            combined_condition = f"{schema_condition} {container_condition}".strip()
+            columns_schema_filter = self._build_container_columns_filter(
+                container_name, columns_schema_column
+            )
+
+            logger.info(f"Fetching datasets for container '{container_name}'.")
+            yield from self._get_all_tables_global_chunked(
+                query_template,
+                combined_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+                columns_schema_filter=columns_schema_filter,
+            )
 
     def _get_all_tables_global_chunked(
         self,
@@ -871,6 +1012,7 @@ class DremioAPIOperations:
         schema_condition: str,
         deny_schema_condition: str,
         view_definitions: Dict[str, Optional[str]],
+        columns_schema_filter: str = "",
     ) -> Iterator[Dict]:
         """Yield tables from the global dataset query in LIMIT/OFFSET chunks.
 
@@ -879,6 +1021,9 @@ class DremioAPIOperations:
         in-flight table across chunks and flushes on path change — the
         final table is flushed after the loop. Community uses
         `community_get_formatted_tables`, which is per-chunk complete.
+
+        `columns_schema_filter` is injected into the INFORMATION_SCHEMA.COLUMNS
+        scan for container partitioning; empty for the catalog-wide fetch.
         """
         chunk_size = self._chunk_size
         offset = 0
@@ -911,6 +1056,7 @@ class DremioAPIOperations:
             formatted_query = query_template.format(
                 schema_pattern=schema_condition,
                 deny_schema_pattern=deny_schema_condition,
+                columns_schema_filter=columns_schema_filter,
                 limit_clause=limit_clause,
             )
 

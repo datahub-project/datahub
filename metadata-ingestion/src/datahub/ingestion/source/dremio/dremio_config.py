@@ -262,6 +262,17 @@ class DremioSourceConfig(
             raise ValueError("max_view_definition_length must be a positive integer")
         return value
 
+    partition_datasets_by_container: bool = Field(
+        default=False,
+        description="Fetch table/column metadata one root container (source/space) "
+        "at a time instead of a single catalog-wide query. Each query is scoped "
+        "with a `TABLE_SCHEMA` predicate so Dremio's join and sort only cover that "
+        "container, bounding server-side execution time. Enable this when the "
+        "catalog-wide dataset query times out on very large Dremio instances. It "
+        "issues more queries (one per container), so leave it off for small "
+        "catalogs where the single-query path is faster.",
+    )
+
     @model_validator(mode="after")
     def _warn_if_stateful_time_window_without_stateful_ingestion(
         self,

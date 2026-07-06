@@ -6,6 +6,12 @@ class DremioSQLQueries:
     # VIEW_DEFINITION is fetched separately (QUERY_VIEW_DEFINITIONS_*) rather than
     # joined here: repeating it per column can push the result's VARCHAR vector
     # past Dremio's 2 GiB limit (OversizedAllocationException), dropping datasets.
+    #
+    # {columns_schema_filter} sits directly inside the INFORMATION_SCHEMA.COLUMNS
+    # scan so Dremio's InfoSchemaPushFilterIntoScan rule can push it into the scan
+    # (used by container partitioning). Only plain =/LIKE on a bare TABLE_SCHEMA
+    # push down — a filter above the join, or wrapped in REGEXP_LIKE/CONCAT, is not
+    # pushed. Left empty for the single catalog-wide fetch.
     QUERY_DATASETS_CE_GLOBAL = """
     SELECT * FROM
     (
@@ -26,6 +32,7 @@ class DremioSQLQueries:
         AND C.TABLE_NAME = T.TABLE_NAME
     WHERE
         T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
+        {columns_schema_filter}
     )
     WHERE 1=1
         {schema_pattern}
@@ -137,6 +144,8 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
+        WHERE 1=1
+            {columns_schema_filter}
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
@@ -236,6 +245,8 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
+        WHERE 1=1
+            {columns_schema_filter}
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
