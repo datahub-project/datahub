@@ -51,7 +51,7 @@ def _ctx(include_schema: bool = False) -> EntryMappingContext:
     return EntryMappingContext(config=config, location="us-west2", report=Mock())
 
 
-# (short_name, fqn, parent_entry, expected main type, expected dataset name or None)
+# (short_name, fqn, parent_entry, expected main type, expected dataset name or None, expected subtype or None)
 CASES = [
     (
         "bigquery-dataset",
