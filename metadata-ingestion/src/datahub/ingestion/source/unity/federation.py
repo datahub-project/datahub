@@ -11,11 +11,18 @@ from typing import Dict, List, Optional
 
 from databricks.sdk.service.catalog import ConnectionType
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, PropertyValueClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    PropertyValueClass,
+)
 from datahub.metadata.urns import (
     ContainerUrn,
     DataTypeUrn,
@@ -178,3 +185,32 @@ def federation_property_definition_mcps(
             )
         )
     return mcps
+
+
+def identity_column_lineage(
+    dataset_urn: str,
+    external_urn: str,
+    downstream_field_paths: List[str],
+    upstream_field_paths: List[str],
+) -> List[FineGrainedLineageClass]:
+    """1:1 identity column-level lineage from an external dataset's fields to a
+    foreign-catalog mirror's fields. A foreign catalog is a read-only copy, so
+    each column maps to the same-named external column. Matched case-insensitively
+    because the mirror and the external source may differ only in field-name case
+    (e.g. Databricks CUSTOMER_ID vs a lowercased Snowflake customer_id). Downstream
+    fields with no external match are skipped."""
+    upstream_by_casefold = {p.casefold(): p for p in upstream_field_paths}
+    result: List[FineGrainedLineageClass] = []
+    for downstream_path in downstream_field_paths:
+        upstream_path = upstream_by_casefold.get(downstream_path.casefold())
+        if upstream_path is None:
+            continue
+        result.append(
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(external_urn, upstream_path)],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(dataset_urn, downstream_path)],
+            )
+        )
+    return result

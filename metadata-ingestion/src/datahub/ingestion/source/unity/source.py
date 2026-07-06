@@ -915,7 +915,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
-        yield from self._gen_federation_link(dataset_urn, table, table.schema.catalog)
+        yield from self._gen_federation_link(
+            dataset_urn, table, table.schema.catalog, schema_metadata
+        )
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for ml_model in self.unity_catalog_api_proxy.ml_models(
@@ -1357,30 +1359,44 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.federation_resolve_columns_from_external
         ):
             return None
-        if self.ctx.graph is None:
-            return None
         external_urn = self._external_dataset_urn(
             catalog, table.schema.name, table.name
         )
         if external_urn is None:
             return None
-        external_schema = self.ctx.graph.get_aspect(external_urn, SchemaMetadataClass)
-        if not (external_schema and external_schema.fields):
+        external_fields = self._external_schema_fields(external_urn)
+        if not external_fields:
             return None
         # Backfill column structure only. Do NOT import the external source's
         # column-level governance (tags / glossary terms) onto the foreign-catalog
         # mirror — that metadata belongs to the external dataset. deepcopy so the
         # graph resolver's cached aspect is not mutated.
         fields: List[SchemaFieldClass] = []
-        for field in external_schema.fields:
+        for field in external_fields:
             field_copy = copy.deepcopy(field)
             field_copy.globalTags = None
             field_copy.glossaryTerms = None
             fields.append(field_copy)
         return fields
 
+    def _external_schema_fields(
+        self, external_urn: str
+    ) -> Optional[List[SchemaFieldClass]]:
+        """External dataset's schema fields from the DataHub graph, or None if no
+        graph is available or the dataset has no schema in the graph."""
+        if self.ctx.graph is None:
+            return None
+        external_schema = self.ctx.graph.get_aspect(external_urn, SchemaMetadataClass)
+        if external_schema and external_schema.fields:
+            return external_schema.fields
+        return None
+
     def _gen_federation_link(
-        self, dataset_urn: str, table: Table, catalog: Catalog
+        self,
+        dataset_urn: str,
+        table: Table,
+        catalog: Catalog,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit the configured cross-platform link from a foreign-catalog table to
         its external source dataset: siblings, lineage, or no link (`none`)."""
@@ -1401,12 +1417,43 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         elif self.config.federation_link_type == FederationLinkType.LINEAGE:
             # A foreign catalog is a read-only mirror (copy) of the external
             # dataset, so COPY is more accurate than the default VIEW used for the
-            # delta-lake sibling path.
+            # delta-lake sibling path. Emit identity column-level lineage (1:1,
+            # case-insensitive) when column lineage is enabled and both schemas are
+            # resolvable — the mirror's columns are copies of the external columns.
+            fine_grained_lineages = self._federation_column_lineage(
+                dataset_urn, external_urn, schema_metadata
+            )
             yield from self.gen_lineage_workunit(
-                dataset_urn, external_urn, lineage_type=DatasetLineageType.COPY
+                dataset_urn,
+                external_urn,
+                lineage_type=DatasetLineageType.COPY,
+                fine_grained_lineages=fine_grained_lineages,
             )
         else:
             assert_never(self.config.federation_link_type)
+
+    def _federation_column_lineage(
+        self,
+        dataset_urn: str,
+        external_urn: str,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[List[FineGrainedLineage]]:
+        if not (
+            self.config.include_column_lineage
+            and schema_metadata
+            and schema_metadata.fields
+        ):
+            return None
+        external_fields = self._external_schema_fields(external_urn)
+        if not external_fields:
+            return None
+        cll = federation.identity_column_lineage(
+            dataset_urn=dataset_urn,
+            external_urn=external_urn,
+            downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
+            upstream_field_paths=[f.fieldPath for f in external_fields],
+        )
+        return cll or None
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (
@@ -2511,6 +2558,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         source_dataset_urn: str,
         lineage_type: str = DatasetLineageType.VIEW,
+        fine_grained_lineages: Optional[List[FineGrainedLineage]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate dataset to source connector lineage workunit
@@ -2518,6 +2566,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
-                upstreams=[Upstream(dataset=source_dataset_urn, type=lineage_type)]
+                upstreams=[Upstream(dataset=source_dataset_urn, type=lineage_type)],
+                fineGrainedLineages=fine_grained_lineages,
             ),
         ).as_workunit()

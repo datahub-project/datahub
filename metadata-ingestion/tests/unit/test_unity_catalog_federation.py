@@ -888,3 +888,131 @@ def _audit_stamp():
     from datahub.metadata.schema_classes import AuditStampClass
 
     return AuditStampClass(time=0, actor="urn:li:corpuser:unknown")
+
+
+def test_identity_column_lineage_matches_case_insensitively():
+    from datahub.metadata.schema_classes import FineGrainedLineageClass
+
+    dbx = "urn:li:dataset:(urn:li:dataPlatform:databricks,c.s.t,PROD)"
+    ext = "urn:li:dataset:(urn:li:dataPlatform:snowflake,demo_db.s.t,PROD)"
+    cll = fed.identity_column_lineage(
+        dataset_urn=dbx,
+        external_urn=ext,
+        downstream_field_paths=["CUSTOMER_ID", "NAME", "ONLY_IN_DBX"],
+        upstream_field_paths=["customer_id", "name", "only_in_ext"],
+    )
+    assert all(isinstance(x, FineGrainedLineageClass) for x in cll)
+    # 2 matched (case-insensitive); unmatched dbx column dropped
+    pairs = [(x.upstreams, x.downstreams) for x in cll]
+    assert pairs == [
+        (
+            ["urn:li:schemaField:(%s,customer_id)" % ext],
+            ["urn:li:schemaField:(%s,CUSTOMER_ID)" % dbx],
+        ),
+        (
+            ["urn:li:schemaField:(%s,name)" % ext],
+            ["urn:li:schemaField:(%s,NAME)" % dbx],
+        ),
+    ]
+
+
+def test_identity_column_lineage_empty_when_no_overlap():
+    assert (
+        fed.identity_column_lineage(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:databricks,c.s.t,PROD)",
+            external_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,d.s.t,PROD)",
+            downstream_field_paths=["a"],
+            upstream_field_paths=["x", "y"],
+        )
+        == []
+    )
+
+
+def _lineage_cll_source():
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_link_type": "lineage",
+                "include_column_lineage": True,
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.unity_catalog_api_proxy._connections_cache = {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.SNOWFLAKE
+        )
+    }
+    return src
+
+
+def test_federation_lineage_emits_identity_column_lineage():
+    src = _lineage_cll_source()
+    graph = MagicMock()
+    # external snowflake schema has lowercase field paths
+    graph.get_aspect.return_value = _external_schema(
+        [_field("customer_id"), _field("name")]
+    )
+    src.ctx.graph = graph
+
+    catalog = _foreign_catalog()
+    table = _foreign_table(catalog)
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "datahub_snowflake.my_schema.t,PROD)"
+    )
+    # the databricks-side schema has uppercase field paths
+    dbx_schema = _external_schema([_field("CUSTOMER_ID"), _field("NAME")])
+
+    wus = list(src._gen_federation_link(dataset_urn, table, catalog, dbx_schema))
+    up = [
+        agg
+        for wu in wus
+        if isinstance(
+            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    assert up, "expected an UpstreamLineage workunit"
+    fgl = up[0].fineGrainedLineages
+    assert fgl is not None and len(fgl) == 2  # CUSTOMER_ID<-customer_id, NAME<-name
+
+
+def test_federation_lineage_no_column_lineage_when_flag_off():
+    src = _source_with_link(
+        "lineage"
+    )  # include_column_lineage defaults True? use explicit off
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_link_type": "lineage",
+                "include_column_lineage": False,
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.unity_catalog_api_proxy._connections_cache = {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.SNOWFLAKE
+        )
+    }
+    src.ctx.graph = MagicMock()
+    catalog = _foreign_catalog()
+    dbx_schema = _external_schema([_field("CUSTOMER_ID")])
+    wus = list(
+        src._gen_federation_link(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,datahub_snowflake.my_schema.t,PROD)",
+            _foreign_table(catalog),
+            catalog,
+            dbx_schema,
+        )
+    )
+    up = [
+        agg
+        for wu in wus
+        if isinstance(
+            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    assert up and not up[0].fineGrainedLineages
