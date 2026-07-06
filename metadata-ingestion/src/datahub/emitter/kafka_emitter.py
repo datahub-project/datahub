@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, Callable, Dict, Optional, Union
 
 import pydantic
@@ -35,6 +36,10 @@ MCP_KEY = "MetadataChangeProposal"
 # When the local producer queue is full, poll for up to this long to drain
 # delivery callbacks before retrying produce(). Acts as backpressure.
 _QUEUE_FULL_POLL_SECONDS = 1.0
+
+# Give up blocking on a full queue after this long and surface the error, so a
+# permanently unreachable broker fails the run instead of hanging forever.
+_MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 
 
 class KafkaEmitterConfig(ConfigModel):
@@ -153,6 +158,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
     def _produce_with_backpressure(
         producer: SerializingProducer,
         poll_timeout_seconds: float = _QUEUE_FULL_POLL_SECONDS,
+        max_block_seconds: float = _MAX_QUEUE_FULL_BLOCK_SECONDS,
         **produce_kwargs: Any,
     ) -> None:
         """Produce to Kafka, blocking on a full local queue instead of failing.
@@ -165,16 +171,32 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         backpressure: it throttles the source to Kafka's sustainable rate.
         Tune the queue bounds via producer_config (queue.buffering.max.messages,
         queue.buffering.max.kbytes).
+
+        If the queue stays full for max_block_seconds -- e.g. the broker is
+        unreachable and nothing drains -- give up and re-raise BufferError so
+        the caller reports a failure instead of hanging indefinitely.
         """
+        deadline = time.monotonic() + max_block_seconds
+        warned = False
         while True:
             try:
                 producer.produce(**produce_kwargs)
                 return
             except BufferError:
-                logger.debug(
-                    "Kafka producer queue full; polling to drain before retry."
-                )
+                if not warned:
+                    logger.warning(
+                        "Kafka producer queue full; blocking to apply backpressure. "
+                        "If this persists the broker may be unreachable."
+                    )
+                    warned = True
                 producer.poll(poll_timeout_seconds)
+                if time.monotonic() >= deadline:
+                    logger.error(
+                        "Kafka producer queue still full after %.0fs; giving up "
+                        "(broker unreachable?).",
+                        max_block_seconds,
+                    )
+                    raise
 
     def emit_mce_async(
         self,

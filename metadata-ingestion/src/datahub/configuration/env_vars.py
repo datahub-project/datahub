@@ -65,6 +65,30 @@ def get_gms_base_path() -> str:
 
 
 # ============================================================================
+# Ingestion Sink Configuration
+# ============================================================================
+
+
+def get_ingestion_default_sink() -> str:
+    """Default sink type when a recipe does not specify one (rest|kafka)."""
+    return os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", "rest")
+
+
+def get_executor_managed() -> bool:
+    """Whether this run is executed by the managed executor.
+
+    Gates the Kafka default sink together with DATAHUB_INGESTION_DEFAULT_SINK, so
+    an interactive `datahub ingest` (same entrypoint) never flips to Kafka.
+    """
+    return os.getenv("DATAHUB_EXECUTOR_MANAGED", "").lower() == "true"
+
+
+def get_kafka_bootstrap() -> Optional[str]:
+    """Kafka bootstrap servers for the default Kafka sink."""
+    return os.getenv("DATAHUB_KAFKA_BOOTSTRAP")
+
+
+# ============================================================================
 # REST Emitter Configuration
 # ============================================================================
 

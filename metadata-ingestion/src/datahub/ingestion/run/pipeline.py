@@ -21,6 +21,11 @@ from datahub.configuration.common import (
     IgnorableError,
     PipelineExecutionError,
 )
+from datahub.configuration.env_vars import (
+    get_executor_managed,
+    get_ingestion_default_sink,
+    get_kafka_bootstrap,
+)
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.global_context import set_graph_context
@@ -154,12 +159,22 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
         KafkaSinkConfig,
     )
 
-    sink_config = KafkaSinkConfig()
+    # DELETE/RESTATE change types are not supported over async Kafka ingestion.
+    # Wire a REST fallback that points at the same default GMS the REST default
+    # sink would use, so those MCPs degrade gracefully to synchronous REST
+    # instead of failing downstream. Everything else goes to Kafka.
+    graph = get_default_graph(ClientMode.INGESTION)
     # Bootstrap has no environment-based default (unlike the schema registry
-    # URL), so allow it to be supplied via env for the default-sink case.
-    bootstrap = os.environ.get("DATAHUB_KAFKA_BOOTSTRAP")
+    # URL), so allow it to be supplied via env for the default-sink case. Build
+    # the connection config up front rather than mutating after construction.
+    connection: dict = {}
+    bootstrap = get_kafka_bootstrap()
     if bootstrap:
-        sink_config.connection.bootstrap = bootstrap
+        connection["bootstrap"] = bootstrap
+    sink_config = KafkaSinkConfig(
+        connection=connection,
+        rest_fallback=graph._make_rest_sink_config(),
+    )
     return DatahubKafkaSink(ctx, sink_config)
 
 
@@ -230,14 +245,8 @@ class Pipeline:
                 # Kafka -- even if DATAHUB_INGESTION_DEFAULT_SINK leaks into its
                 # environment. Unset/any-other-value preserves the historical
                 # datahub-rest behavior exactly.
-                default_sink = os.environ.get(
-                    "DATAHUB_INGESTION_DEFAULT_SINK", "rest"
-                ).lower()
-                executor_managed = (
-                    os.environ.get("DATAHUB_EXECUTOR_MANAGED", "false").lower()
-                    == "true"
-                )
-                if default_sink == "kafka" and executor_managed:
+                default_sink = get_ingestion_default_sink().lower()
+                if default_sink == "kafka" and get_executor_managed():
                     logger.info(
                         "No sink configured, using the default datahub-kafka sink "
                         "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."

@@ -102,13 +102,27 @@ class TestPipeline:
         assert pipeline.sink.config.token is None
 
     @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-    def test_configure_without_sink_kafka_default(self, mock_producer, monkeypatch):
+    def test_configure_without_sink_kafka_default(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
         # Kafka default requires BOTH the selector and the executor-managed
         # marker (set only by the managed executor on spawned subprocesses).
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
         monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        mock_fetch_config.return_value = mock_server_config
 
         pipeline = Pipeline.create(
             {
@@ -121,6 +135,17 @@ class TestPipeline:
         assert isinstance(pipeline.sink, DatahubKafkaSink)
         assert pipeline.sink_type == "datahub-kafka"
         assert pipeline.sink.config.connection.bootstrap == "fake-broker:9092"
+        # Schema registry URL resolves from KAFKA_SCHEMAREGISTRY_URL.
+        assert (
+            pipeline.sink.config.connection.schema_registry_url
+            == "http://fake-registry:8081"
+        )
+        # DELETE/RESTATE fallback is auto-wired to the default GMS so those
+        # change types degrade to REST instead of failing over Kafka.
+        assert pipeline.sink.config.rest_fallback is not None
+        assert (
+            pipeline.sink.config.rest_fallback.server == "http://fake-gms-server:8080"
+        )
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")

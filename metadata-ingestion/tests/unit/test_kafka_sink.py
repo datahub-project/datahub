@@ -528,7 +528,13 @@ def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emit
     mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
 
     mcp = _make_delete_mcp()
-    re = RecordEnvelope(record=mcp, metadata={})
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
     kafka_sink.write_record_async(re, callback)
 
     # DELETE went to the REST fallback, not the Kafka producer.
@@ -552,10 +558,94 @@ def test_kafka_sink_delete_without_fallback_goes_to_kafka(mock_producer):
     mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
 
     mcp = _make_delete_mcp()
-    kafka_sink.write_record_async(RecordEnvelope(record=mcp, metadata={}), callback)
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
 
     mock_mcp_producer.produce.assert_called_once()
     kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emitter):
+    """RESTATE (like DELETE) is not supported over async Kafka -> REST fallback."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_make_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+        aspect=models.DatasetProfileClass(
+            rowCount=1, columnCount=1, timestampMillis=1626995099686
+        ),
+        changeType=models.ChangeTypeClass.RESTATE,
+    )
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_mcp_producer.produce.assert_not_called()
+    callback.on_success.assert_called_once()
+    kafka_sink.close()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_patch_stays_on_kafka(mock_producer):
+    """PATCH IS supported over async Kafka (GMS supportsPatch) -> must NOT fall back."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    with patch(
+        "datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter",
+        return_value=mock_rest_emitter,
+    ):
+        callback = MagicMock(spec=WriteCallback)
+        kafka_sink = DatahubKafkaSink.create(
+            {
+                "connection": {"bootstrap": "foobar:9092"},
+                "rest_fallback": {"server": "http://fake-gms:8080"},
+            },
+            PipelineContext(run_id="test"),
+        )
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+            aspect=models.GlobalTagsClass(tags=[]),
+            changeType=models.ChangeTypeClass.PATCH,
+        )
+        re: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = RecordEnvelope(record=mcp, metadata={})
+        kafka_sink.write_record_async(re, callback)
+
+        # PATCH is Kafka-supported: produced to Kafka, REST fallback untouched.
+        mock_mcp_producer.produce.assert_called_once()
+        mock_rest_emitter.emit_mcp.assert_not_called()
+        kafka_sink.close()
 
 
 def test_produce_with_backpressure_retries_on_buffer_error():
@@ -581,3 +671,23 @@ def test_produce_with_backpressure_retries_on_buffer_error():
 
     assert mock_producer.produce.call_count == 2
     mock_producer.poll.assert_called_once_with(0)
+
+
+def test_produce_with_backpressure_gives_up_when_broker_down():
+    """A permanently full queue (broker down) must raise after max_block_seconds,
+    not hang forever."""
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+
+    mock_producer = MagicMock()
+    mock_producer.produce.side_effect = BufferError("queue full")
+
+    with pytest.raises(BufferError):
+        DatahubKafkaEmitter._produce_with_backpressure(
+            mock_producer,
+            poll_timeout_seconds=0,
+            max_block_seconds=0,
+            topic="MetadataChangeProposal_v1",
+            key="urn:li:dataset:(x)",
+            value=MagicMock(),
+            on_delivery=MagicMock(),
+        )

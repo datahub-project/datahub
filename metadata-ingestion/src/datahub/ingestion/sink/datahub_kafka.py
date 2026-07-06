@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 
 from confluent_kafka import KafkaError, Message
+from pydantic import Field
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,14 +24,34 @@ from datahub.metadata.schema_classes import ChangeTypeClass
 
 logger = logging.getLogger(__name__)
 
+# Change types GMS accepts over async Kafka (MCP) ingestion. Mirrors
+# MCPItem.CHANGE_TYPES in the GMS entity-registry (UPSERT/UPDATE/CREATE/
+# CREATE_ENTITY), plus PATCH which GMS accepts for all aspects. Any other change
+# type -- DELETE, RESTATE, etc. -- is rejected on the async path and must be sent
+# synchronously over REST.
+_KAFKA_SUPPORTED_CHANGE_TYPES = frozenset(
+    {
+        ChangeTypeClass.UPSERT,
+        ChangeTypeClass.UPDATE,
+        ChangeTypeClass.CREATE,
+        ChangeTypeClass.CREATE_ENTITY,
+        ChangeTypeClass.PATCH,
+    }
+)
+
 
 class KafkaSinkConfig(KafkaEmitterConfig):
-    # DELETE change-type MCPs are not supported over Kafka async ingestion --
-    # GMS rejects them (see MCPItem.CHANGE_TYPES). When rest_fallback is set,
-    # DELETE MCPs are routed synchronously through this REST endpoint instead
-    # of being produced to Kafka. Left unset, the sink is pure Kafka and DELETE
-    # MCPs would fail downstream in GMS.
-    rest_fallback: Optional[DatahubRestSinkConfig] = None
+    rest_fallback: Optional[DatahubRestSinkConfig] = Field(
+        default=None,
+        description=(
+            "Optional REST sink configuration used as a fallback for change types "
+            "that are not supported over async Kafka ingestion (DELETE, RESTATE) -- "
+            "GMS rejects these on the Kafka path (see MCPItem.CHANGE_TYPES). When set, "
+            "such MCPs are emitted synchronously via this REST endpoint while all other "
+            "change types are produced to Kafka. When unset, the sink is pure Kafka and "
+            "DELETE/RESTATE MCPs will fail downstream in GMS."
+        ),
+    )
 
 
 def _enhance_schema_registry_error(error_str: str) -> str:
@@ -173,10 +194,10 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         try:
             record = record_envelope.record
 
-            # DELETE change-type MCPs are not supported over Kafka async
-            # ingestion (GMS rejects them). Route them synchronously through the
-            # configured REST fallback; otherwise they fall through to Kafka and
-            # would fail downstream. If the REST emit raises, the outer except
+            # Change types not supported over async Kafka ingestion (DELETE,
+            # RESTATE, ...) are rejected by GMS. Route them synchronously through
+            # the configured REST fallback; otherwise they fall through to Kafka
+            # and would fail downstream. If the REST emit raises, the outer except
             # reports the failure via kafka_callback.
             if (
                 self.config.rest_fallback is not None
@@ -184,12 +205,13 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                     record,
                     (MetadataChangeProposal, MetadataChangeProposalWrapper),
                 )
-                and record.changeType == ChangeTypeClass.DELETE
+                and record.changeType not in _KAFKA_SUPPORTED_CHANGE_TYPES
             ):
                 self._get_rest_fallback_emitter().emit_mcp(record)
                 self.report.report_record_written(record_envelope)
                 write_callback.on_success(
-                    record_envelope, {"msg": "Emitted DELETE via REST fallback"}
+                    record_envelope,
+                    {"msg": f"Emitted {record.changeType} via REST fallback"},
                 )
                 return
 
