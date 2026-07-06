@@ -149,8 +149,9 @@ def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
     the default branch cannot be resolved.
 
     "Nearest" = fewest commits from the merge-base to HEAD. On a tie with the
-    default branch, the release/hotfix branch wins (release context is
-    intentional). Fails safe toward None so the check runs when in doubt.
+    default branch, the default branch wins (a tie means HEAD shares the
+    same fork point with both, i.e. a trunk branch). Fails safe toward None
+    so the check runs when in doubt.
     """
     candidates = _list_release_hotfix_refs()
     if not candidates:
@@ -178,8 +179,10 @@ def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
 
     if nearest_ref is None:
         return None
-    # Tie → release/hotfix wins, hence <=.
-    return nearest_ref if nearest_distance <= default_distance else None
+    # Only a strictly-nearer release/hotfix branch wins. A tie means HEAD shares
+    # the same fork point with both (e.g. a feature branch off trunk and a
+    # release cut from trunk afterward) — that is a trunk branch, so run the check.
+    return nearest_ref if nearest_distance < default_distance else None
 
 
 def get_merge_base(remote_ref: str) -> str:

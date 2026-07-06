@@ -810,14 +810,15 @@ def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
     assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
 
 
-def test_nearest_ancestor_tie_prefers_release(monkeypatch):
+def test_nearest_ancestor_tie_prefers_default(monkeypatch):
     monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
                         lambda: ["origin/hotfixes/v0.3.12.1"])
     dist = {"origin/hotfixes/v0.3.12.1": 5,
             "refs/remotes/origin/acryl-main": 5, "acryl-main": 5}
     monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
-    assert (bsv.find_nearest_ancestor_release_branch("acryl-main")
-            == "origin/hotfixes/v0.3.12.1")
+    # A tie means HEAD shares the same fork point with both — that's a trunk
+    # branch, so the default branch wins and the check must run.
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
 
 
 def test_nearest_ancestor_unresolvable_default_returns_none(monkeypatch):
