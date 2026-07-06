@@ -146,6 +146,23 @@ def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
     return DatahubRestSink(ctx, sink_config)
 
 
+def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
+    # Imported lazily so the (heavier) Kafka/confluent dependencies are only
+    # loaded when the Kafka default sink is actually selected.
+    from datahub.ingestion.sink.datahub_kafka import (
+        DatahubKafkaSink,
+        KafkaSinkConfig,
+    )
+
+    sink_config = KafkaSinkConfig()
+    # Bootstrap has no environment-based default (unlike the schema registry
+    # URL), so allow it to be supplied via env for the default-sink case.
+    bootstrap = os.environ.get("DATAHUB_KAFKA_BOOTSTRAP")
+    if bootstrap:
+        sink_config.connection.bootstrap = bootstrap
+    return DatahubKafkaSink(ctx, sink_config)
+
+
 class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
@@ -199,14 +216,46 @@ class Pipeline:
                 )
 
             if self.config.sink is None:
-                logger.info(
-                    "No sink configured, attempting to use the default datahub-rest sink."
+                # The default sink is normally datahub-rest. Deployments that
+                # run ingestion close to Kafka (e.g. managed UI ingestion) can
+                # opt into a datahub-kafka default to take load off GMS.
+                #
+                # This requires BOTH env vars:
+                #   DATAHUB_INGESTION_DEFAULT_SINK=kafka  (the selector)
+                #   DATAHUB_EXECUTOR_MANAGED=true         (managed-run marker)
+                # The marker is set only by the managed executor on the
+                # ingestion subprocesses it spawns. Because managed UI ingestion
+                # and an interactive `datahub ingest` share this same entrypoint,
+                # requiring the marker guarantees a manual/CLI run never flips to
+                # Kafka -- even if DATAHUB_INGESTION_DEFAULT_SINK leaks into its
+                # environment. Unset/any-other-value preserves the historical
+                # datahub-rest behavior exactly.
+                default_sink = os.environ.get(
+                    "DATAHUB_INGESTION_DEFAULT_SINK", "rest"
+                ).lower()
+                executor_managed = (
+                    os.environ.get("DATAHUB_EXECUTOR_MANAGED", "false").lower()
+                    == "true"
                 )
-                with _add_init_error_context("configure the default rest sink"):
-                    self.sink_type = "datahub-rest"
-                    self.sink = exit_stack.enter_context(
-                        _make_default_rest_sink(self.ctx)
+                if default_sink == "kafka" and executor_managed:
+                    logger.info(
+                        "No sink configured, using the default datahub-kafka sink "
+                        "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."
                     )
+                    with _add_init_error_context("configure the default kafka sink"):
+                        self.sink_type = "datahub-kafka"
+                        self.sink = exit_stack.enter_context(
+                            _make_default_kafka_sink(self.ctx)
+                        )
+                else:
+                    logger.info(
+                        "No sink configured, attempting to use the default datahub-rest sink."
+                    )
+                    with _add_init_error_context("configure the default rest sink"):
+                        self.sink_type = "datahub-rest"
+                        self.sink = exit_stack.enter_context(
+                            _make_default_rest_sink(self.ctx)
+                        )
             else:
                 self.sink_type = self.config.sink.type
                 with _add_init_error_context(

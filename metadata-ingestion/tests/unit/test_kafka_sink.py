@@ -10,6 +10,7 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import MCP_KEY
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_kafka import (
@@ -493,3 +494,90 @@ def test_enhance_schema_registry_error_non_404():
     # Should be unchanged
     assert enhanced == error_str
     assert "HINT:" not in enhanced
+
+
+def _make_delete_mcp() -> MetadataChangeProposal:
+    return MetadataChangeProposal(
+        entityType="dataset",
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+        changeType=models.ChangeTypeClass.DELETE,
+        aspectName="datasetKey",
+    )
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emitter):
+    """DELETE MCPs must be routed to the REST fallback, not produced to Kafka.
+
+    DELETE change types are not supported over async Kafka ingestion (GMS
+    rejects them), so when rest_fallback is configured the sink emits them
+    synchronously via REST.
+    """
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_make_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    mcp = _make_delete_mcp()
+    re = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    # DELETE went to the REST fallback, not the Kafka producer.
+    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_mcp_producer.produce.assert_not_called()
+    callback.on_success.assert_called_once()
+    assert callback.on_success.call_args[0][0] == re
+
+    kafka_sink.close()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_delete_without_fallback_goes_to_kafka(mock_producer):
+    """Without a rest_fallback the sink stays pure Kafka: DELETE is produced too."""
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    assert kafka_sink.config.rest_fallback is None
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    mcp = _make_delete_mcp()
+    kafka_sink.write_record_async(RecordEnvelope(record=mcp, metadata={}), callback)
+
+    mock_mcp_producer.produce.assert_called_once()
+    kafka_sink.close()
+
+
+def test_produce_with_backpressure_retries_on_buffer_error():
+    """A full producer queue (BufferError) must block-and-retry, not crash.
+
+    This is the sink's backpressure mechanism: produce() polls to drain
+    delivery callbacks and retries instead of raising.
+    """
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+
+    mock_producer = MagicMock()
+    # First produce() call hits a full queue, second succeeds.
+    mock_producer.produce.side_effect = [BufferError("queue full"), None]
+
+    DatahubKafkaEmitter._produce_with_backpressure(
+        mock_producer,
+        poll_timeout_seconds=0,
+        topic="MetadataChangeProposal_v1",
+        key="urn:li:dataset:(x)",
+        value=MagicMock(),
+        on_delivery=MagicMock(),
+    )
+
+    assert mock_producer.produce.call_count == 2
+    mock_producer.poll.assert_called_once_with(0)

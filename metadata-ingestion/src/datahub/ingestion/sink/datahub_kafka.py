@@ -8,20 +8,29 @@ from confluent_kafka import KafkaError, Message
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.sink.datahub_rest import (
+    DatahubRestSink,
+    DatahubRestSinkConfig,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.schema_classes import ChangeTypeClass
 
 logger = logging.getLogger(__name__)
 
 
 class KafkaSinkConfig(KafkaEmitterConfig):
-    # This extra layer of indirection exists in case we need to add extra
-    # config options to the sink config.
-    pass
+    # DELETE change-type MCPs are not supported over Kafka async ingestion --
+    # GMS rejects them (see MCPItem.CHANGE_TYPES). When rest_fallback is set,
+    # DELETE MCPs are routed synchronously through this REST endpoint instead
+    # of being produced to Kafka. Left unset, the sink is pure Kafka and DELETE
+    # MCPs would fail downstream in GMS.
+    rest_fallback: Optional[DatahubRestSinkConfig] = None
 
 
 def _enhance_schema_registry_error(error_str: str) -> str:
@@ -131,6 +140,17 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
 
     def __post_init__(self):
         self.emitter = DatahubKafkaEmitter(self.config)
+        # Built lazily on first DELETE MCP so pure-Kafka deployments never
+        # construct a REST emitter (and never require REST connectivity).
+        self._rest_fallback_emitter: Optional[DataHubRestEmitter] = None
+
+    def _get_rest_fallback_emitter(self) -> DataHubRestEmitter:
+        if self._rest_fallback_emitter is None:
+            assert self.config.rest_fallback is not None
+            self._rest_fallback_emitter = DatahubRestSink._make_emitter(
+                self.config.rest_fallback
+            )
+        return self._rest_fallback_emitter
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
@@ -152,6 +172,26 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         kafka_callback = _KafkaCallback(self.report, record_envelope, write_callback)
         try:
             record = record_envelope.record
+
+            # DELETE change-type MCPs are not supported over Kafka async
+            # ingestion (GMS rejects them). Route them synchronously through the
+            # configured REST fallback; otherwise they fall through to Kafka and
+            # would fail downstream. If the REST emit raises, the outer except
+            # reports the failure via kafka_callback.
+            if (
+                self.config.rest_fallback is not None
+                and isinstance(
+                    record,
+                    (MetadataChangeProposal, MetadataChangeProposalWrapper),
+                )
+                and record.changeType == ChangeTypeClass.DELETE
+            ):
+                self._get_rest_fallback_emitter().emit_mcp(record)
+                self.report.report_record_written(record_envelope)
+                write_callback.on_success(
+                    record_envelope, {"msg": "Emitted DELETE via REST fallback"}
+                )
+                return
 
             # If the record is an MCE, unpack it into individual MCPs (one per
             # aspect) and emit each to the MCP topic. This matches the REST sink
@@ -196,3 +236,5 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
     def close(self) -> None:
         super().close()
         self.emitter.flush()
+        if self._rest_fallback_emitter is not None:
+            self._rest_fallback_emitter.close()

@@ -22,6 +22,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
@@ -99,6 +100,86 @@ class TestPipeline:
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink.config.server == "http://fake-gms-server:8080"
         assert pipeline.sink.config.token is None
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default(self, mock_producer, monkeypatch):
+        # Kafka default requires BOTH the selector and the executor-managed
+        # marker (set only by the managed executor on spawned subprocesses).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", "fake-broker:9092")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
+        assert pipeline.sink_type == "datahub-kafka"
+        assert pipeline.sink.config.connection.bootstrap == "fake-broker:9092"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_kafka_ff_without_managed_marker_stays_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Selector set but managed marker absent: a manual/CLI run must NOT flip
+        # to Kafka (managed UI ingestion and `datahub ingest` share this entry).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.delenv("DATAHUB_EXECUTOR_MANAGED", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_defaults_to_rest_when_ff_unset(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # With the FF unset the injected default must stay datahub-rest,
+        # byte-identical to historical behavior.
+        monkeypatch.delenv("DATAHUB_INGESTION_DEFAULT_SINK", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")

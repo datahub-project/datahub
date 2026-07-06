@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import pydantic
 from confluent_kafka import SerializingProducer
@@ -31,6 +31,10 @@ DEFAULT_MCE_KAFKA_TOPIC = "MetadataChangeEvent_v4"
 DEFAULT_MCP_KAFKA_TOPIC = "MetadataChangeProposal_v1"
 MCE_KEY = "MetadataChangeEvent"
 MCP_KEY = "MetadataChangeProposal"
+
+# When the local producer queue is full, poll for up to this long to drain
+# delivery callbacks before retrying produce(). Acts as backpressure.
+_QUEUE_FULL_POLL_SECONDS = 1.0
 
 
 class KafkaEmitterConfig(ConfigModel):
@@ -145,6 +149,33 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         else:
             return self.emit_mce_async(item, callback or _error_reporting_callback)
 
+    @staticmethod
+    def _produce_with_backpressure(
+        producer: SerializingProducer,
+        poll_timeout_seconds: float = _QUEUE_FULL_POLL_SECONDS,
+        **produce_kwargs: Any,
+    ) -> None:
+        """Produce to Kafka, blocking on a full local queue instead of failing.
+
+        confluent-kafka's produce() raises BufferError when the producer's
+        local queue is full -- i.e. the source is emitting faster than the
+        broker (and, downstream, the MCP consumer) can drain. Rather than
+        crashing the ingestion run, block by polling to drive delivery
+        callbacks and free queue space, then retry. This is the sink's
+        backpressure: it throttles the source to Kafka's sustainable rate.
+        Tune the queue bounds via producer_config (queue.buffering.max.messages,
+        queue.buffering.max.kbytes).
+        """
+        while True:
+            try:
+                producer.produce(**produce_kwargs)
+                return
+            except BufferError:
+                logger.debug(
+                    "Kafka producer queue full; polling to drain before retry."
+                )
+                producer.poll(poll_timeout_seconds)
+
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
@@ -160,7 +191,8 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)
-        producer.produce(
+        self._produce_with_backpressure(
+            producer,
             topic=self.config.topic_routes[MCE_KEY],
             key=mce.proposedSnapshot.urn,
             value=mce,
@@ -175,7 +207,8 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCP_KEY]
         producer.poll(0)
-        producer.produce(
+        self._produce_with_backpressure(
+            producer,
             topic=self.config.topic_routes[MCP_KEY],
             key=mcp.entityUrn,
             value=mcp,
