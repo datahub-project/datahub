@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import (
     MetadataWorkUnit,
 )
 from datahub.ingestion.source.sql.teradata import (
+    MAX_QUERY_PARTS,
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
@@ -1604,6 +1605,52 @@ class TestStreamingQueryReconstruction:
             # Verify metadata preservation (should use metadata from first row of each query)
             assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
             assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+
+    def test_reconstruct_queries_streaming_truncates_oversized_query(self):
+        """A single query_id spanning more than MAX_QUERY_PARTS rows is truncated
+        rather than buffered without bound."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # One malformed query_id with more rows than the cap allows.
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            # Only the first MAX_QUERY_PARTS single-char parts are kept.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 1
+
+    def test_reconstruct_queries_streaming_at_limit_not_truncated(self):
+        """A query with exactly MAX_QUERY_PARTS rows is kept whole (no false positive)."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 0
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
