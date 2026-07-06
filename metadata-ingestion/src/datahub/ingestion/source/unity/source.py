@@ -436,6 +436,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
 
+        # Federation property definitions are emitted lazily, the first time a
+        # foreign catalog is encountered, so non-federation workspaces never see them.
+        self._federation_defs_emitted: bool = False
+
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
@@ -511,8 +515,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_notebooks:
             with self.report.new_stage("Ingest notebooks"):
                 yield from self.process_notebooks()
-
-        yield from self._gen_federation_property_definition_workunits()
 
         yield from self.process_metastores()
 
@@ -1321,6 +1323,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.gen_lineage_workunit(dataset_urn, external_urn)
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
+        if (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+            and not self._federation_defs_emitted
+        ):
+            self._federation_defs_emitted = True
+            yield from self._gen_federation_property_definition_workunits()
+
         domain_urn = self._gen_domain_urn(catalog.name)
         catalog_tags = []
         if self.config.include_tags:

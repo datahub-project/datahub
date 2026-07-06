@@ -1,3 +1,4 @@
+from typing import List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 from databricks.sdk import WorkspaceClient
@@ -8,6 +9,7 @@ from databricks.sdk.service.catalog import (
 )
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity import federation as fed
 from datahub.ingestion.source.unity.config import (
     FederationLinkType,
@@ -305,6 +307,59 @@ def test_no_property_definitions_when_disabled():
         )
         src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
     assert list(src._gen_federation_property_definition_workunits()) == []
+
+
+def _managed_catalog() -> Catalog:
+    return Catalog(
+        id="c",
+        name="my_managed_catalog",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.MANAGED_CATALOG,
+    )
+
+
+def _definition_qns(wus: List[MetadataWorkUnit]) -> Set[Optional[str]]:
+    return {
+        aspect.qualifiedName
+        for wu in wus
+        if isinstance(
+            aspect := wu.get_aspect_of_type(StructuredPropertyDefinitionClass),
+            StructuredPropertyDefinitionClass,
+        )
+    }
+
+
+def test_property_definitions_emitted_lazily_from_gen_catalog_containers():
+    src = _make_source()
+    src.unity_catalog_api_proxy.connections = lambda: {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.POSTGRESQL
+        )
+    }
+    assert src._federation_defs_emitted is False
+
+    # First foreign catalog: definitions are emitted exactly once.
+    first_wus = list(src.gen_catalog_containers(_foreign_catalog()))
+    assert _definition_qns(first_wus) == {
+        "databricks.federation.catalog_type",
+        "databricks.federation.platform",
+        "databricks.federation.connection",
+        "databricks.federation.remote_database",
+    }
+    assert src._federation_defs_emitted is True
+
+    # A second foreign catalog in the same source instance: no more definitions.
+    second_wus = list(src.gen_catalog_containers(_foreign_catalog()))
+    assert _definition_qns(second_wus) == set()
+
+
+def test_property_definitions_not_emitted_for_managed_catalog():
+    src = _make_source()
+    wus = list(src.gen_catalog_containers(_managed_catalog()))
+    assert _definition_qns(wus) == set()
+    assert src._federation_defs_emitted is False
 
 
 def _foreign_table(catalog: Catalog) -> Table:
