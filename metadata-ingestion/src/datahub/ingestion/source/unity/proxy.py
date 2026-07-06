@@ -19,6 +19,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    ConnectionInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
     ModelVersionInfo,
@@ -316,6 +317,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.lineage_data_source = lineage_data_source
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
+        self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -551,6 +553,30 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return optional_catalog
 
         return None
+
+    def connections(self) -> Dict[str, ConnectionInfo]:
+        """Return Unity Catalog connections keyed by name (cached).
+
+        Lakehouse Federation foreign catalogs reference a connection by name; the
+        connection carries the external system's type. Listing connections requires
+        metastore-admin or connection-ownership; on permission/other errors we return
+        an empty map so the source can fall back to config overrides.
+        """
+        if self._connections_cache is not None:
+            return self._connections_cache
+        result: Dict[str, ConnectionInfo] = {}
+        try:
+            response = self._workspace_client.connections.list(
+                max_results=self.databricks_api_page_size
+            )
+            for connection in response or []:
+                if connection.name:
+                    result[connection.name] = connection
+        except Exception as e:
+            self.report.num_federation_connections_list_failed += 1
+            logger.warning(f"Failed to list Unity Catalog connections: {e}")
+        self._connections_cache = result
+        return result
 
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         if (
@@ -1379,6 +1405,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=obj.comment,
             owner=obj.owner,
             type=obj.catalog_type,
+            connection_name=obj.connection_name,
+            options=obj.options,
         )
 
     def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Optional[Schema]:

@@ -1,6 +1,15 @@
-from databricks.sdk.service.catalog import CatalogType
+from unittest.mock import MagicMock
 
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import (
+    CatalogType,
+    ConnectionInfo,
+    ConnectionType,
+)
+
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
+from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
 def _metastore() -> Metastore:
@@ -43,3 +52,33 @@ def test_managed_catalog_is_not_foreign():
     )
     assert catalog.is_foreign_catalog is False
     assert catalog.connection_name is None
+
+
+def _proxy(workspace_client: MagicMock) -> UnityCatalogApiProxy:
+    workspace_client.config.warehouse_id = "wh"
+    return UnityCatalogApiProxy(
+        workspace_client=workspace_client, report=UnityCatalogReport()
+    )
+
+
+def test_connections_returns_dict_keyed_by_name():
+    wc = MagicMock(spec=WorkspaceClient)
+    wc.connections.list.return_value = [
+        ConnectionInfo(name="pg_conn", connection_type=ConnectionType.POSTGRESQL),
+        ConnectionInfo(name="ss_conn", connection_type=ConnectionType.SQLSERVER),
+    ]
+    proxy = _proxy(wc)
+    result = proxy.connections()
+    assert set(result) == {"pg_conn", "ss_conn"}
+    assert result["ss_conn"].connection_type == ConnectionType.SQLSERVER
+    # cached: second call does not re-list
+    proxy.connections()
+    wc.connections.list.assert_called_once()
+
+
+def test_connections_returns_empty_on_error():
+    wc = MagicMock(spec=WorkspaceClient)
+    wc.connections.list.side_effect = PermissionError("no access")
+    proxy = _proxy(wc)
+    assert proxy.connections() == {}
+    assert proxy.report.num_federation_connections_list_failed == 1
