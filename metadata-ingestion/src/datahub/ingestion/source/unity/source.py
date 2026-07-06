@@ -1296,7 +1296,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         Each definition MCP uses changeType=CREATE with an If-None-Match header, so
         the server creates it only if absent — a pre-existing (e.g. centrally
-        managed) definition is left untouched, with no graph lookup needed here.
+        managed) definition is left untouched.
+
+        When a graph is available (e.g. a datahub-rest sink), the definitions are
+        registered synchronously via the graph rather than yielded into the
+        workunit stream. GMS validates a structuredProperties *assignment* against
+        an already-committed definition; emitting both in one async batch races and
+        the assignment is rejected. A synchronous graph emit commits the definitions
+        first. Without a graph (e.g. a file sink), definitions are yielded as
+        workunits — such sinks don't validate, so ordering is irrelevant.
         Callers (`gen_catalog_containers`) ensure this runs once per ingestion run.
         """
         if not self.config.emit_federation_structured_properties:
@@ -1304,6 +1312,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         mcps = federation.federation_property_definition_mcps(
             self.config.federation_structured_property_namespace
         )
+        if self.ctx.graph is not None:
+            for mcp in mcps:
+                self.ctx.graph.emit_mcp(mcp)
+            return
         for mcp in mcps:
             yield mcp.as_workunit()
 

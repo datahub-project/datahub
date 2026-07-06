@@ -403,6 +403,36 @@ def test_property_definitions_emitted_lazily_from_gen_catalog_containers():
     assert _definition_qns(second_wus) == set()
 
 
+def test_property_definitions_registered_via_graph_when_available():
+    # With a graph (e.g. a datahub-rest sink), definitions must be committed
+    # synchronously BEFORE the structuredProperties assignment (GMS validates the
+    # assignment against an existing definition). They are emitted via the graph,
+    # not yielded into the workunit stream.
+    src = _make_source()
+    graph = MagicMock()
+    src.ctx.graph = graph
+    src.unity_catalog_api_proxy.connections = lambda: {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.POSTGRESQL
+        )
+    }
+
+    wus = list(src.gen_catalog_containers(_foreign_catalog()))
+
+    # 4 definitions committed synchronously via the graph, none in the stream.
+    assert graph.emit_mcp.call_count == 4
+    assert _definition_qns(wus) == set()
+    committed = {
+        call.args[0].aspect.qualifiedName for call in graph.emit_mcp.call_args_list
+    }
+    assert committed == {
+        "databricks.federation.catalog_type",
+        "databricks.federation.platform",
+        "databricks.federation.connection",
+        "databricks.federation.remote_database",
+    }
+
+
 def test_property_definitions_not_emitted_for_managed_catalog():
     src = _make_source()
     wus = list(src.gen_catalog_containers(_managed_catalog()))
