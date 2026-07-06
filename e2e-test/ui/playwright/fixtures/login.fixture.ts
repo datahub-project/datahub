@@ -146,8 +146,11 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       await loginPage.navigateToLogin();
       await loginPage.login(user.username, user.password);
 
-      // Suppress the welcome modal for all tests that reuse this state.
-      await page.evaluate(() => localStorage.setItem('skipWelcomeModal', 'true'));
+      // Suppress onboarding UI for all tests that reuse this state.
+      await page.evaluate(() => {
+        localStorage.setItem('skipWelcomeModal', 'true');
+        localStorage.setItem('skipOnboardingTour', 'true');
+      });
 
       // Persist the authenticated session so subsequent tests skip login.
       await ctx.storageState({ path: stateFile });

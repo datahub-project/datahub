@@ -1,6 +1,7 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
@@ -66,6 +67,7 @@ interface AcrylAssertionTagColumnProps {
 }
 
 export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = ({ record, refetch }) => {
+    const { t } = useTranslation('entity.profile.validations');
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);
@@ -112,7 +114,9 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                                     />
                                 ))}
                             {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
-                                <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
+                                <TooltipMoreText>
+                                    {t('assertionList.tagsMore', { count: record.tags.length - MAX_TAGS_FOR_HOVER })}
+                                </TooltipMoreText>
                             ) : null}
                         </TooltipTitleWrapper>
                     }
@@ -155,7 +159,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(newTags, e, 'Failed to add entities.'));
+            message.error(handleBatchError(newTags, e, t('tags.failedToAddEntities')));
         }
     };
 
@@ -171,7 +175,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(removedTags, e, 'Failed to remove entities.'));
+            message.error(handleBatchError(removedTags, e, t('tags.failedToRemoveEntities')));
         }
     };
 
@@ -188,7 +192,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 }
 
                 // Notify success and refresh UI
-                message.success('Tags Updated!', 2);
+                message.success(t('tags.tagsUpdated'), 2);
                 setPopoverVisible(false);
                 refetch?.();
             } catch (e) {

@@ -1,9 +1,9 @@
 import { CaretDownOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 const DownArrow = styled(CaretDownOutlined)`
@@ -12,7 +12,7 @@ const DownArrow = styled(CaretDownOutlined)`
         font-size: 8px;
         margin-left: 2px;
         margin-top: 2px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -24,7 +24,7 @@ const DropdownWrapper = styled.div<{
     disabled: boolean;
 }>`
     cursor: ${(props) => (props.disabled ? 'normal' : 'pointer')};
-    color: ${(props) => (props.disabled ? ANTD_GRAY[7] : 'none')};
+    color: ${(props) => (props.disabled ? props.theme.colors.textSecondary : 'none')};
     display: flex;
     margin-left: 12px;
     margin-right: 12px;
@@ -42,6 +42,7 @@ type Props = {
 };
 
 export default function ActionDropdown({ name, actions, disabled }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     const items = actions.map((action, i) => ({
         key: i,
         label: (
@@ -54,7 +55,7 @@ export default function ActionDropdown({ name, actions, disabled }: Props) {
     }));
 
     return (
-        <Tooltip title={disabled ? 'This action is not supported for the selected types.' : ''}>
+        <Tooltip title={disabled ? t('action.notSupportedTooltip') : ''}>
             <Dropdown disabled={disabled} trigger={['click']} menu={{ items }}>
                 <DropdownWrapper disabled={!!disabled}>
                     {name}

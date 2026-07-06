@@ -58,6 +58,36 @@ def _sanitize_snowflake_ddl(sql: str) -> str:
     return sql
 
 
+# T-SQL temp tables whose name begins with a digit after the `#`/`##` prefix
+# (e.g. `#63114Actual`, `##2025Totals`). sqlglot's tokenizer lexes the leading
+# digit run as a NUMBER, so the parser sees `# NUMBER ...`, raises "Expected table
+# name but got NUMBER", and the ENTIRE statement's lineage is lost (including the
+# real FROM source). Wrapping the name in `[...]` (a T-SQL delimited identifier)
+# makes sqlglot read it as one identifier; the normalized name still starts with
+# `#`, so downstream temp-table detection (startswith("#")) is unaffected.
+#
+# The first alternative matches (and passes through unchanged) string literals and
+# comments, so a `#<digit>` that is data inside a string/comment is never bracketed.
+# Letter-leading names (`#temp`) already parse and are left alone.
+_TSQL_DIGIT_TEMP_TABLE = re.compile(
+    r"""
+      (?P<skip>'(?:[^']|'')*' | --[^\n]* | /\*.*?\*/)   # string / line / block comment
+    | (?<![\w$@#\[])(?P<temp>\#\#?\d[\w$@#]*)           # #<digit>... not mid-token / pre-bracketed
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
+
+def _sanitize_tsql_temp_tables(sql: str) -> str:
+    """Bracket T-SQL `#`/`##` temp-table names that start with a digit (see pattern above)."""
+
+    def _bracket(m: re.Match) -> str:
+        temp = m.group("temp")
+        return f"[{temp}]" if temp else m.group(0)
+
+    return _TSQL_DIGIT_TEMP_TABLE.sub(_bracket, sql)
+
+
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
@@ -132,6 +162,11 @@ def parse_statement(
         sanitized = _sanitize_snowflake_ddl(sql)
         if sanitized != sql:
             logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
+        sql = sanitized
+    if isinstance(sql, str) and is_dialect_instance(dialect, "tsql"):
+        sanitized = _sanitize_tsql_temp_tables(sql)
+        if sanitized != sql:
+            logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
         sql = sanitized
     return _parse_statement(sql, dialect).copy()
 
@@ -307,11 +342,27 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):
+            # A Redshift `COPY ... CREDENTIALS '<secret>'` parses the credentials
+            # as a Literal directly under a Credentials node. sqlglot's
+            # credentials_sql generator dispatches on isinstance(child, Literal)
+            # to choose the Redshift scalar form over the Snowflake key=value
+            # list; a Placeholder there routes into the list path that iterates
+            # the node and raises "TypeError: 'Placeholder' object is not
+            # iterable". Redact to a constant literal instead: serialization
+            # stays on the scalar path, the secret never lands in the generalized
+            # query text, and fingerprints stay independent of the credentials.
+            if (
+                isinstance(node.parent, sqlglot.exp.Credentials)
+                and node.arg_key == "credentials"
+            ):
+                return sqlglot.exp.Literal.string("**REDACTED**")
             return sqlglot.exp.Placeholder()
 
         return node
 
-    return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
+    transformed = expression.transform(_strip_expression, copy=True)
+    assert transformed is not None
+    return transformed.sql(dialect=dialect)
 
 
 def get_query_fingerprint_debug(
@@ -330,7 +381,11 @@ def get_query_fingerprint_debug(
             )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
-    except (ValueError, sqlglot.errors.SqlglotError) as e:
+    except (ValueError, TypeError, sqlglot.errors.SqlglotError) as e:
+        # TypeError guards against sqlglot generator bugs that fail to serialize
+        # an otherwise-parseable statement (e.g. exotic COPY / credentials
+        # forms). Fingerprinting is best-effort with a raw-text fallback, so it
+        # must never propagate and abort ingestion.
         if not isinstance(expression, str):
             raise
 

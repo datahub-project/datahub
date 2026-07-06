@@ -18,11 +18,13 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -44,6 +46,8 @@ public class IngestRetentionPoliciesUpgradeStep implements UpgradeStep {
   private final RetentionService<?> retentionService;
   private final EntityService<?> entityService;
   private final boolean applyAfterIngest;
+  private final boolean applyOnPolicyChange;
+  private final boolean overwriteNonSystemPolicies;
   private final String pluginPath;
   private final ResourcePatternResolver resolver;
 
@@ -52,12 +56,16 @@ public class IngestRetentionPoliciesUpgradeStep implements UpgradeStep {
       @Nonnull final RetentionService<?> retentionService,
       @Nonnull final EntityService<?> entityService,
       final boolean applyAfterIngest,
+      final boolean applyOnPolicyChange,
+      final boolean overwriteNonSystemPolicies,
       @Nonnull final String pluginPath,
       @Nonnull final ResourcePatternResolver resolver) {
     this.enabled = enabled;
     this.retentionService = retentionService;
     this.entityService = entityService;
     this.applyAfterIngest = applyAfterIngest;
+    this.applyOnPolicyChange = applyOnPolicyChange;
+    this.overwriteNonSystemPolicies = overwriteNonSystemPolicies;
     this.pluginPath = pluginPath;
     this.resolver = resolver;
   }
@@ -108,39 +116,96 @@ public class IngestRetentionPoliciesUpgradeStep implements UpgradeStep {
     final Urn upgradeUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
     final boolean upgradeAlreadyApplied = entityService.exists(opContext, upgradeUrn, true);
 
-    Map<DataHubRetentionKey, RetentionPolicyEntry> toApply = retentionPolicyMap;
-    if (upgradeAlreadyApplied) {
-      toApply =
-          retentionPolicyMap.entrySet().stream()
-              .filter(e -> e.getValue().forceOverwrite)
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new));
-      if (toApply.isEmpty()) {
-        log.info("Retention already applied and no entries have forceOverwrite. Skipping.");
-        return;
-      }
-      log.info("Re-applying {} retention policies with forceOverwrite", toApply.size());
-    }
-
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
-    log.info("Setting {} policies", toApply.size());
     boolean hasUpdate = false;
-    for (Map.Entry<DataHubRetentionKey, RetentionPolicyEntry> e : toApply.entrySet()) {
+    int updatedCount = 0;
+    boolean needsGlobalBatch = false;
+    final List<DataHubRetentionKey> specificBatchScopes = new ArrayList<>();
+    int skippedUnchanged = 0;
+    int skippedDrift = 0;
+
+    for (Map.Entry<DataHubRetentionKey, RetentionPolicyEntry> e : retentionPolicyMap.entrySet()) {
       DataHubRetentionKey key = e.getKey();
       RetentionPolicyEntry entry = e.getValue();
       if (!isValidEntityAspect(entityRegistry, key.getEntityName(), key.getAspectName())) {
         continue;
       }
-      if (retentionService.setRetention(
-          opContext, key.getEntityName(), key.getAspectName(), entry.config)) {
+
+      final String entityName = key.getEntityName();
+      final String aspectName = key.getAspectName();
+      final DataHubRetentionConfig desiredConfig = entry.config;
+
+      Optional<DataHubRetentionConfig> storedConfig =
+          retentionService.getRetentionConfigAtExactKey(opContext, entityName, aspectName);
+      if (storedConfig.isPresent()
+          && retentionService.retentionConfigEquals(storedConfig.get(), desiredConfig)) {
+        skippedUnchanged++;
+        continue;
+      }
+
+      final boolean mayOverwrite =
+          !upgradeAlreadyApplied
+              || storedConfig.isEmpty()
+              || retentionService.isRetentionPolicySystemManaged(opContext, entityName, aspectName)
+              || overwriteNonSystemPolicies
+              || entry.forceOverwrite;
+
+      if (!mayOverwrite) {
+        skippedDrift++;
+        final Optional<Urn> lastWriter =
+            retentionService.getRetentionPolicyLastWriter(opContext, entityName, aspectName);
+        log.warn(
+            "Retention policy for entity={}, aspect={} differs from desired config but was not "
+                + "updated because the stored policy was not system-managed (last writer: {}). "
+                + "Set ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES=true, add "
+                + "forceOverwrite: true for this entry, or update the policy via API.",
+            entityName,
+            aspectName,
+            lastWriter.map(Urn::toString).orElse("unknown"));
+        continue;
+      }
+
+      if (retentionService.setRetention(opContext, entityName, aspectName, desiredConfig)) {
         hasUpdate = true;
+        updatedCount++;
+        if (WILDCARD.equals(entityName) && WILDCARD.equals(aspectName)) {
+          needsGlobalBatch = true;
+        } else if (!needsGlobalBatch) {
+          specificBatchScopes.add(key);
+        }
       }
     }
 
-    if (hasUpdate && applyAfterIngest) {
-      log.info("Applying policies to all records");
+    if (skippedDrift > 0) {
+      log.warn(
+          "{} retention {} differ from desired config but were not updated (not system-managed). "
+              + "See warnings above for remediation.",
+          skippedDrift,
+          skippedDrift == 1 ? "policy" : "policies");
+    }
+
+    log.info(
+        "Retention ingest complete: {} updated, {} unchanged, {} skipped due to drift",
+        updatedCount,
+        skippedUnchanged,
+        skippedDrift);
+
+    if (applyAfterIngest && !hasUpdate) {
+      log.info("Applying retention policies to all records (applyOnBootstrap)");
       retentionService.batchApplyRetention(null, null);
+    } else if (hasUpdate && (applyOnPolicyChange || applyAfterIngest)) {
+      if (applyAfterIngest || needsGlobalBatch) {
+        log.info("Applying retention policies to all records");
+        retentionService.batchApplyRetention(null, null);
+      } else {
+        for (DataHubRetentionKey scope : specificBatchScopes) {
+          log.info(
+              "Applying retention policies for entity={}, aspect={}",
+              scope.getEntityName(),
+              scope.getAspectName());
+          retentionService.batchApplyRetention(scope.getEntityName(), scope.getAspectName());
+        }
+      }
     }
 
     BootstrapStep.setUpgradeResult(opContext, upgradeUrn, entityService);

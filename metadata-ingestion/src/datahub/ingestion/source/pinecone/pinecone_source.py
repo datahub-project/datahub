@@ -1,7 +1,7 @@
 """DataHub source for Pinecone vector database."""
 
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -23,7 +23,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.pinecone.config import PineconeConfig
@@ -35,9 +34,6 @@ from datahub.ingestion.source.pinecone.pinecone_client import (
 )
 from datahub.ingestion.source.pinecone.report import PineconeSourceReport
 from datahub.ingestion.source.pinecone.schema_inference import MetadataSchemaInferrer
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -112,14 +108,6 @@ class PineconeSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "PineconeSource":
         config = PineconeConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:

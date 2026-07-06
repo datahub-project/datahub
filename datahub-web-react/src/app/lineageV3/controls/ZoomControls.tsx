@@ -10,7 +10,7 @@ const StyledZoomButton = styled(Button)`
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
     box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 40px;
     width: 40px;
@@ -20,8 +20,8 @@ const StyledZoomButton = styled(Button)`
     align-items: center;
     display: flex;
     &:hover {
-        color: ${(props) => props.theme.colors.textBrand};
-        border-color: ${(props) => props.theme.colors.borderBrand};
+        color: ${(props) => props.theme.colors.iconHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
     }
     &:focus {
         color: unset;

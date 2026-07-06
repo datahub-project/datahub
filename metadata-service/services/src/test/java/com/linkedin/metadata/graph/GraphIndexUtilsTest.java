@@ -22,8 +22,10 @@ import com.linkedin.mxe.SystemMetadata;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -496,5 +498,45 @@ public class GraphIndexUtilsTest {
     when(annotation.getVia()).thenReturn(null);
 
     return spec;
+  }
+
+  @Test
+  public void testGetMergedEdgesHandlesHashCodeCollision() {
+    // "Aa" and "BB" are the classic Java String hashCode collision (both 2112).
+    // relationshipType participates in Edge#hashCode, so these two edges collide on
+    // hashCode while remaining unequal. Regression test for the
+    // "IllegalStateException: Duplicate key" that getMergedEdges threw when an
+    // aspect's edge set contained two hashCode-colliding edges.
+    final Long oldTime = 1L;
+    final Long newTime = 2L;
+    final Edge edgeAa =
+        new Edge(datasetUrn, upstreamUrn, "Aa", oldTime, actorUrn, oldTime, actorUrn, null);
+    final Edge edgeBb =
+        new Edge(datasetUrn, upstreamUrn, "BB", oldTime, actorUrn, oldTime, actorUrn, null);
+
+    // Preconditions: the two edges are distinct but their hashCodes collide.
+    assertNotEquals(edgeAa, edgeBb);
+    assertEquals(edgeAa.hashCode(), edgeBb.hashCode());
+
+    final Set<Edge> oldEdgeSet = new HashSet<>(Arrays.asList(edgeAa, edgeBb));
+    assertEquals(oldEdgeSet.size(), 2);
+
+    // newEdgeAa is a newer version of edgeAa (equal to it, updated timestamps) and so
+    // must be merged; newEdgeCc has no counterpart in oldEdgeSet and so must be ignored
+    // (exercises the no-match branch).
+    final Edge newEdgeAa =
+        new Edge(datasetUrn, upstreamUrn, "Aa", newTime, actorUrn, newTime, actorUrn, null);
+    final Edge newEdgeCc =
+        new Edge(datasetUrn, upstreamUrn, "Cc", newTime, actorUrn, newTime, actorUrn, null);
+    final Set<Edge> newEdgeSet = new HashSet<>(Arrays.asList(newEdgeAa, newEdgeCc));
+
+    // Must not throw, and must merge exactly the matching ("Aa") edge.
+    final List<Edge> mergedEdges = GraphIndexUtils.getMergedEdges(oldEdgeSet, newEdgeSet);
+
+    assertEquals(mergedEdges.size(), 1);
+    assertEquals(mergedEdges.get(0).getRelationshipType(), "Aa");
+
+    // An empty old edge set yields no merged edges (exercises the empty-map branch).
+    assertTrue(GraphIndexUtils.getMergedEdges(Collections.<Edge>emptySet(), newEdgeSet).isEmpty());
   }
 }

@@ -1,16 +1,8 @@
 #!/bin/bash
 
+source /usr/local/lib/datahub/wait_for_deps.sh
+
 : ${SKIP_KAFKA_CHECK:=true}
-
-WAIT_FOR_KAFKA=""
-if [[ $SKIP_KAFKA_CHECK != true ]]; then
-  WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
-fi
-
-WAIT_FOR_SCHEMA_REGISTRY=""
-if [[ "$KAFKA_SCHEMAREGISTRY_URL" && $SKIP_SCHEMA_REGISTRY_CHECK != true ]]; then
-  WAIT_FOR_SCHEMA_REGISTRY="-wait $KAFKA_SCHEMAREGISTRY_URL"
-fi
 
 OTEL_AGENT=""
 if [[ $ENABLE_OTEL == true ]]; then
@@ -125,8 +117,20 @@ fi
 # Hazelcast 5.x on Java 9+ needs JPMS access for JDK internals (performance; avoids startup warning).
 HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"
 
-exec dockerize \
-  $WAIT_FOR_KAFKA \
-  $WAIT_FOR_SCHEMA_REGISTRY \
-  -timeout 240s \
-  java $HAZELCAST_JVM_OPTS $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT $JAR_EXTRACTION_OPTS
+datahub_wait_begin
+
+if [[ $SKIP_KAFKA_CHECK != true ]]; then
+  IFS=',' read -ra _kbs <<< "$KAFKA_BOOTSTRAP_SERVER"
+  for _kb in "${_kbs[@]}"; do
+    _kb="$(echo "$_kb" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$_kb" ]] || continue
+    [[ "$_kb" == tcp://* ]] || _kb="tcp://${_kb}"
+    datahub_wait_tcp "$_kb"
+  done
+fi
+
+if [[ "$KAFKA_SCHEMAREGISTRY_URL" && $SKIP_SCHEMA_REGISTRY_CHECK != true ]]; then
+  datahub_wait_endpoint "$KAFKA_SCHEMAREGISTRY_URL"
+fi
+
+exec java $HAZELCAST_JVM_OPTS $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT $JAR_EXTRACTION_OPTS

@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -33,10 +34,10 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
@@ -45,6 +46,7 @@ from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RawSearchFilter,
@@ -86,6 +88,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -108,6 +111,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+
+# Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
+# survives across short-lived processes and invalidates on server upgrade.
+_ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
@@ -157,9 +164,14 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
+        resolved_auth = None
+        if self.config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
+            auth=resolved_auth,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
@@ -169,14 +181,53 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
+            client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
+            respect_mcp_sync_marker=self.config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
+        self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+        # The memoized specs paired with the commit hash they were built
+        # against, so the memo invalidates on a server upgrade.
+        self._entity_aspect_specs: Optional[
+            Tuple[Optional[str], "EntityAspectSpecs"]
+        ] = None
+
+    def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
+        if input_type not in self._graphql_input_fields_cache:
+            response = self.execute_graphql(
+                textwrap.dedent(
+                    """
+                    query inputTypeFields($name: String!) {
+                      __type(name: $name) {
+                        inputFields {
+                          name
+                        }
+                      }
+                    }
+                    """
+                ),
+                variables={"name": input_type},
+            )
+            input_fields = (response.get("__type") or {}).get("inputFields") or []
+            self._graphql_input_fields_cache[input_type] = {
+                field["name"] for field in input_fields if field.get("name")
+            }
+
+        return field_name in self._graphql_input_fields_cache[input_type]
+
+    def _ensure_search_flag_supported(self, field_name: str) -> None:
+        if not self._graphql_input_type_has_field("SearchFlags", field_name):
+            raise ValueError(
+                f"SearchFlags.{field_name} is not supported by this DataHub server. "
+                "Upgrade GMS or disable the corresponding option."
+            )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -248,10 +299,16 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_key_path=session_config.client_key_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
-            )
+                tcp_keepalive=session_config.tcp_keepalive,
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
@@ -278,6 +335,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self, url: str, payload_dict: Dict, params: Optional[Dict] = None
     ) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict, params=params)
+
+    def _paginate_offset(self, url: str, *, page_size: int = 100) -> Iterator[dict]:
+        """Yield ``elements`` from an offset-paginated GMS endpoint (start/count/total)."""
+        start = 0
+        while True:
+            data = self._get_generic(url, params={"start": start, "count": page_size})
+            yield from data.get("elements", [])
+            count = data.get("count", 0)
+            start += count
+            if count == 0 or start >= data.get("total", 0):
+                break
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
@@ -394,6 +462,59 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
+
+    def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
+        """The server's entity/aspect specs for capability detection.
+
+        Memoized in memory per client, and cached on disk keyed by server URL +
+        commit hash so it survives across short-lived processes and invalidates
+        on server upgrade. Returns ``None`` if the fetch fails.
+        """
+        commit_hash: Optional[str] = None
+        try:
+            commit_hash = self.server_config.commit_hash
+        except Exception:
+            logger.debug("Could not get commit hash for specs cache key", exc_info=True)
+
+        # Only serve the in-memory memo if it was built against the server's
+        # current commit hash; otherwise a long-running client would keep
+        # returning stale specs after a server upgrade.
+        if self._entity_aspect_specs is not None:
+            memo_hash, memo_specs = self._entity_aspect_specs
+            if memo_hash == commit_hash:
+                return memo_specs
+
+        if commit_hash:
+            cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
+            if cached is not None:
+                try:
+                    specs = EntityAspectSpecs.from_dict(cached)
+                except Exception:
+                    # Valid JSON but not a usable specs payload (e.g. shape
+                    # changed across a code upgrade) — re-fetch.
+                    logger.debug(
+                        "Ignoring unusable cached entity aspect specs",
+                        exc_info=True,
+                    )
+                else:
+                    self._entity_aspect_specs = (commit_hash, specs)
+                    return specs
+
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        try:
+            elements = list(self._paginate_offset(url))
+        except Exception:
+            logger.warning(
+                "Could not fetch entity aspect specs for capability detection.",
+                exc_info=True,
+            )
+            return None
+
+        specs = EntityAspectSpecs.from_registry_api_elements(elements)
+        if commit_hash:
+            _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
+        self._entity_aspect_specs = (commit_hash, specs)
+        return specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
@@ -920,6 +1041,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         skip_cache: bool = False,
+        include_hidden_lifecycle_stages: bool = False,
+        include_draft: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -939,6 +1062,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         :param skip_cache: Whether to bypass caching. Defaults to False.
+        :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
+        :param include_draft: Whether to include entities in DRAFT lifecycle state.
 
         :return: An iterable of urns that match the filters.
         """
@@ -959,6 +1084,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             extra_or_filters=extra_or_filters,
         )
 
+        optional_variable_defs = ""
+        optional_search_flag_fields = ""
+        optional_variables: Dict[str, bool] = {}
+        if include_hidden_lifecycle_stages:
+            self._ensure_search_flag_supported("includeHiddenLifecycleStages")
+            optional_variable_defs += (
+                "\n                $includeHiddenLifecycleStages: Boolean!,"
+            )
+            optional_search_flag_fields += (
+                "\n                        includeHiddenLifecycleStages: "
+                "$includeHiddenLifecycleStages"
+            )
+            optional_variables["includeHiddenLifecycleStages"] = True
+        if include_draft:
+            self._ensure_search_flag_supported("includeDraft")
+            optional_variable_defs += "\n                $includeDraft: Boolean!,"
+            optional_search_flag_fields += (
+                "\n                        includeDraft: $includeDraft"
+            )
+            optional_variables["includeDraft"] = True
+
         graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
@@ -968,6 +1114,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+            """
+            + optional_variable_defs
+            + """
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -980,6 +1129,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+            """
+            + optional_search_flag_fields
+            + """
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -987,6 +1139,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
@@ -1006,6 +1162,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 else status != RemovedStatusFilter.NOT_SOFT_DELETED
             ),
         }
+        variables.update(optional_variables)
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
@@ -1256,6 +1413,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 root-anchored (``searchAcrossEntities``). See
                 :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
         """
+        # Whether the query was already minified by adapt_query() above —
+        # avoids a redundant parse+print round-trip on the happy path.
+        already_minified = False
+
         if strip_unsupported_fields:
             try:
                 if self._query_projector is None:
@@ -1265,6 +1426,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 query, removed = self._query_projector.adapt_query(
                     query, self, required_fields=required_fields
                 )
+                already_minified = True
                 if removed:
                     logger.info(f"Stripped unsupported fields from query: {removed}")
             except Exception as e:
@@ -1283,6 +1445,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     f"Failed to adapt query for schema compatibility, "
                     f"falling back to original query: {e}"
                 )
+
+        # Always minify before sending — covers strip=False, the projection
+        # fallback path, and any caller that hands us a pretty-printed query.
+        # The projector's output is already minified; skip the redundant
+        # parse+print there. Falls back silently to the original query if
+        # minification raises (e.g. unparseable input from a caller).
+        if not already_minified:
+            try:
+                from datahub.utilities.graphql_query_adapter import (
+                    minify_graphql_query,
+                )
+
+                query = minify_graphql_query(query)
+            except Exception:
+                pass
 
         url = f"{self._gms_server}/api/graphql"
 
@@ -1612,6 +1789,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1897,6 +2075,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
     ) -> bool:
         graph_query: str = """
             mutation reportAssertionResult(
@@ -1906,6 +2085,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
+                $severity: AssertionResultSeverity,
             ) {
                 reportAssertionResult(urn: $assertionUrn, result: {
                     timestampMillis: $timestampMillis
@@ -1913,6 +2093,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
+                    severity: $severity
                 })
             }
         """
@@ -1926,6 +2107,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
 
         res = self.execute_graphql(

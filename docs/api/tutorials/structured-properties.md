@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for defining and applying Structured Properties to DataHub entities via the GraphQL and OpenAPI endpoints."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -1383,7 +1387,7 @@ The soft delete is 100% reversible with zero data loss. When a Structured Proper
 
 Structured Property Soft Delete Effects:
 
-- Entities with a soft deleted Structured Property value will not return the soft deleted properties
+- Entities with a soft deleted Structured Property value will not return the soft deleted properties (via the `StructuredPropertiesAssignmentMutator` read hook)
 - Updates to a soft deleted Structured Property's definition are denied
 - Adding a soft deleted Structured Property's value to an entity is denied
 - Search filters using a soft deleted Structured Property will be denied
@@ -1397,11 +1401,38 @@ The hard delete is NOT reversible.
 Structured Property Hard Delete Effects:
 
 - Structured Property entity is removed
-- Structured Property values are removed via PATCH MCPs on their respective entities
+- GMS emits a companion `propertyDefinition` DELETE metadata change log before the entity is removed, so assignment cleanup (`PropertyDefinitionDeleteSideEffect`) can scroll entities and issue PATCH REMOVE operations on their `structuredProperties` aspects
+- Structured Property values are removed from other entities asynchronously via those PATCH operations
 - Rollback is not possible
 - Elasticsearch index mappings will continue to contain references to the hard deleted property until reindex
 
 :::
+
+### Orphaned assignments and write behavior
+
+If assignment cleanup has not finished (or failed), entities can still hold values that reference a hard-deleted property definition. Upserts, patches, and other writes that include those orphaned assignments would otherwise fail validation.
+
+GMS handles this in the metadata write path via **`StructuredPropertiesValidator`** (at `validateProposed`) and **`StructuredPropertiesAssignmentMutator`** (before commit), not in GraphQL or OpenAPI resolvers:
+
+| Path      | Behavior                                                                                                                                                                                                                                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Read**  | Hides assignments whose definition is soft-deleted (`status.removed=true`).                                                                                                                                                                                                                                                                                                           |
+| **Write** | When enabled (see below), drops assignments whose definition entity does not exist or has no `propertyDefinition` aspect, logs a **warning** per dropped assignment, and continues the write. If the proposal had assignments but **none** remain valid after filtering, the write **fails**. An explicit empty `structuredProperties` aspect (clearing all values) is still allowed. |
+
+This applies to all ingestion paths (GraphQL `upsertStructuredProperties`, OpenAPI patch/upsert, MCP, etc.) because it runs in GMS before validation.
+
+**Configuration** (`application.yaml`):
+
+```yaml
+structuredProperties:
+  dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true}
+```
+
+| Environment variable                                              | Default | Description                                                                                                                                                 |
+| ----------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING` | `true`  | Drop orphaned assignments with WARN; fail if no valid assignments remain. Set to `false` for strict validation (orphaned assignments cause write failures). |
+
+Restart GMS after changing this setting.
 
 ### Soft Delete
 

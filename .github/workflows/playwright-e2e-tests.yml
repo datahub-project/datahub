@@ -1,0 +1,105 @@
+name: Playwright E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      profileName:
+        description: "Profile name for quickstart. Defaults to quickstart-consumers if not specified"
+        required: false
+        default: "quickstart-consumers"
+        type: string
+      shard_count:
+        description: "Number of parallel shards for Playwright"
+        required: false
+        default: "5"
+        type: string
+      datahub_version:
+        description: "DataHub version to pull from registry. Defaults to 'quickstart' (latest pre-release)"
+        required: false
+        default: "quickstart"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-slim
+    outputs:
+      test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      playwright_timeout: ${{ steps.set-runner.outputs.playwright_timeout }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/determine-runners
+        id: determine-runners
+        with:
+          is-community-pr: "false"
+          has-depot-label: "false"
+
+      - name: Select runner
+        id: set-runner
+        run: |
+          echo "test_runner_type=${{ steps.determine-runners.outputs.default-runner }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set shard count
+        id: set-shard-count
+        env:
+          SHARD_COUNT_INPUT: ${{ github.event.inputs.shard_count }}
+        run: |
+          if [[ -n "$SHARD_COUNT_INPUT" ]]; then
+            echo "shard_count=$SHARD_COUNT_INPUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "shard_count=4" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Playwright sharding matrix
+        id: set-matrix
+        run: |
+          shard_count=$(( ${{ steps.set-shard-count.outputs.shard_count }} ))
+          matrix=''
+          for i in $(seq 1 "$shard_count"); do
+            if [[ -n "$matrix" ]]; then
+              matrix="$matrix,"
+            fi
+            matrix="${matrix}{\"shard\":\"$i\",\"shard_count\":\"$shard_count\"}"
+          done
+          matrix_json="{\"include\":[$matrix]}"
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+          # Validate JSON before proceeding so fromJson() failures are caught early
+          echo "$matrix_json" | python3 -m json.tool > /dev/null
+          {
+            echo "## Playwright Test Matrix"
+            echo ""
+            echo "| Strategy | Total Shards |"
+            echo "|----------|--------------|"
+            echo "| playwright | $shard_count |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  playwright_test:
+    name: Playwright E2E Tests
+    needs: [setup]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
+    if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '{"include":[]}' }}
+    uses: ./.github/workflows/resusable-playwright-tests.yml
+    with:
+      shard: ${{ matrix.shard }}
+      shard_count: ${{ matrix.shard_count }}
+      test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
+      datahub_version: ${{ inputs.datahub_version }}
+      profile_name: ${{ inputs.profileName }}
+    secrets: inherit
+
+  playwright_report:
+    name: Merge Playwright HTML report
+    needs: [setup, playwright_test]
+    if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-playwright-report.yml
+    secrets: inherit

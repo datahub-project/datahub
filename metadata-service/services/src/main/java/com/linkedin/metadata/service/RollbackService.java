@@ -53,9 +53,14 @@ public class RollbackService {
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
-  public List<AspectRowSummary> rollbackTargetAspects(@Nonnull String runId, boolean hardDelete) {
+  public List<AspectRowSummary> rollbackTargetAspects(
+      @Nonnull OperationContext opContext, @Nonnull String runId, boolean hardDelete) {
     return systemMetadataService.findByRunId(
-        runId, hardDelete, 0, systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
+        opContext,
+        runId,
+        hardDelete,
+        0,
+        systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
   }
 
   public RollbackResponse rollbackIngestion(
@@ -77,7 +82,7 @@ public class RollbackService {
       updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
     }
 
-    List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(runId, hardDelete);
+    List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(opContext, runId, hardDelete);
     if (!isAuthorized(opContext, aspectRowsToDelete)) {
       throw new AuthenticationException("User is NOT unauthorized to delete entities.");
     }
@@ -115,6 +120,7 @@ public class RollbackService {
               .map(
                   (AspectRowSummary urn) ->
                       systemMetadataService.findByUrn(
+                          opContext,
                           urn.getUrn(),
                           false,
                           0,
@@ -168,6 +174,7 @@ public class RollbackService {
       sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
       aspectRowsToDelete =
           systemMetadataService.findByRunId(
+              opContext,
               runId,
               hardDelete,
               0,
@@ -212,6 +219,7 @@ public class RollbackService {
             .map(
                 (AspectRowSummary urn) ->
                     systemMetadataService.findByUrn(
+                        opContext,
                         urn.getUrn(),
                         false,
                         0,

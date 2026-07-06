@@ -10,7 +10,12 @@ from datahub.ingestion.source.azure.azure_auth import (
     AzureAuthenticationMethod,
     AzureCredentialConfig,
 )
-from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
+from datahub.ingestion.source.fabric.onelake.config import (
+    ExtractSchemaConfig,
+    FabricOneLakeSourceConfig,
+    FabricUsageConfig,
+    SqlEndpointConfig,
+)
 
 
 class TestFabricOneLakeSourceConfig:
@@ -119,3 +124,60 @@ class TestFabricOneLakeSourceConfig:
         assert config.extract_lakehouses is False
         assert config.extract_warehouses is False
         assert config.extract_schemas is False
+
+
+class TestSqlEndpointDependencyValidator:
+    """Tests for `validate_sql_endpoint_dependencies`.
+
+    The validator guards three SQL-endpoint-dependent features (view discovery,
+    column-schema extraction, usage statistics) so users get a clear config-time
+    error instead of a runtime failure.
+    """
+
+    def test_default_config_is_valid(self) -> None:
+        """Defaults enable view/schema/usage features and a default sql_endpoint, so they must agree."""
+        config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())
+        assert config.sql_endpoint is not None and config.sql_endpoint.enabled
+
+    def test_passes_when_all_sql_endpoint_features_disabled(self) -> None:
+        """When none of the SQL-endpoint features are on, sql_endpoint=None must be allowed."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            extract_views=False,
+            extract_schema=ExtractSchemaConfig(enabled=False),
+            usage=FabricUsageConfig(include_usage_statistics=False),
+            sql_endpoint=None,
+        )
+        assert config.sql_endpoint is None
+
+    def test_extract_views_requires_enabled_sql_endpoint(self) -> None:
+        with pytest.raises(ValidationError, match="extract_views=True"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                extract_views=True,
+                extract_schema=ExtractSchemaConfig(enabled=False),
+                usage=FabricUsageConfig(include_usage_statistics=False),
+                sql_endpoint=SqlEndpointConfig(enabled=False),
+            )
+
+    def test_extract_schema_requires_enabled_sql_endpoint(self) -> None:
+        with pytest.raises(ValidationError, match="extract_schema"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                extract_views=False,
+                extract_schema=ExtractSchemaConfig(
+                    enabled=True, method="sql_analytics_endpoint"
+                ),
+                usage=FabricUsageConfig(include_usage_statistics=False),
+                sql_endpoint=SqlEndpointConfig(enabled=False),
+            )
+
+    def test_usage_requires_enabled_sql_endpoint(self) -> None:
+        with pytest.raises(ValidationError, match="usage.include_usage_statistics"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                extract_views=False,
+                extract_schema=ExtractSchemaConfig(enabled=False),
+                usage=FabricUsageConfig(include_usage_statistics=True),
+                sql_endpoint=SqlEndpointConfig(enabled=False),
+            )

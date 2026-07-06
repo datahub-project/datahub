@@ -5,11 +5,31 @@ Give [Cursor](https://www.cursor.com/) access to your enterprise data context in
 ## Prerequisites
 
 - Cursor v1.1+
-- A DataHub instance ([Cloud](../../features/feature-guides/mcp.md#managed-mcp-server-usage) v0.3.12+ or [self-hosted](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage)) and a [personal access token](../../authentication/personal-access-tokens.md)
+- A DataHub instance: [Cloud](../../features/feature-guides/mcp.md#managed-mcp-server-usage) (OAuth on v1.0.2+, PAT on v0.3.12+) or [self-hosted](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage)
 
-## DataHub Cloud
+## DataHub Cloud — OAuth (Recommended, v1.0.2+)
 
-Navigate to **Cursor → Settings → Cursor Settings → MCP**, add a new server, and paste:
+On DataHub Cloud v1.0.2+, Cursor can connect via OAuth2 with Dynamic Client Registration — no token to mint or paste.
+
+Navigate to **Cursor → Settings → Cursor Settings → Tools & MCP → New MCP Server** (or edit `~/.cursor/mcp.json` globally / `.cursor/mcp.json` per project) and paste:
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "url": "https://mcp.datahub.com/mcp"
+    }
+  }
+}
+```
+
+Save. Cursor opens a browser tab for the DataHub OAuth flow (callback `cursor://anysphere.cursor-mcp/oauth/callback`) — enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`) and sign in. Tokens are stored and refreshed automatically.
+
+Prefer your tenant URL directly? Replace the URL with `https://<tenant>.acryl.io/integrations/ai/mcp`.
+
+## DataHub Cloud — Personal Access Token (Legacy)
+
+For service accounts or DataHub Cloud versions prior to v1.0.2, use a [personal access token](../../authentication/personal-access-tokens.md). Navigate to **Cursor → Settings → Cursor Settings → MCP**, add a new server, and paste:
 
 ```json
 {

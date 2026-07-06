@@ -7,11 +7,12 @@ import pytest
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 
 
@@ -216,7 +217,11 @@ def test_extract_notion_parent_urn_no_parent():
     assert parent_urn is None
 
 
-def test_should_skip_file_page_id_filter_match():
+def test_should_skip_file_does_not_drop_descendants_with_different_id_prefix():
+    """The recursive walker reaches descendants whose Notion v2 IDs diverge in
+    the first 8-13 chars from the root's ID (different time-window prefix).
+    These must not be filtered out — they're legitimate descendants emitted by
+    the indexer, in-scope by construction."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -230,7 +235,8 @@ def test_should_skip_file_page_id_filter_match():
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
 
-    # Use a page_id that matches the exact configured ID (will match prefix)
+    # A descendant with a totally divergent ID — would previously have been
+    # silently dropped by the 13-char prefix heuristic.
     data = {
         "elements": [
             {
@@ -239,39 +245,12 @@ def test_should_skip_file_page_id_filter_match():
         ],
         "metadata": {
             "data_source": {
-                "record_locator": {"page_id": "2bffc6a6-4277-8024-97c9-d0f26faa4480"}
+                "record_locator": {"page_id": "2f6fc6a6-4277-81cb-b744-d1baeec0bda5"}
             }
         },
     }
 
-    # Should NOT skip because prefix matches exactly and has enough content
     assert source._should_skip_file(data, set()) is False
-
-
-def test_should_skip_file_page_id_filter_no_match():
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    ctx = PipelineContext(run_id="test")
-    source = NotionSource(config=config, ctx=ctx)
-
-    data = {
-        "elements": [{"text": "Some content"}],
-        "metadata": {
-            "data_source": {
-                "record_locator": {"page_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
-            }
-        },
-    }
-
-    assert source._should_skip_file(data, set()) is True
 
 
 def test_should_skip_file_empty_document():
@@ -341,12 +320,29 @@ def test_should_skip_file_text_long_enough():
 # Stateful Ingestion Tests
 
 
-def test_stateful_ingestion_handler_initialized(notion_source):
-    """Verify that StaleEntityRemovalHandler is initialized."""
-    assert hasattr(notion_source, "stale_entity_removal_handler")
-    assert isinstance(
-        notion_source.stale_entity_removal_handler, StaleEntityRemovalHandler
+def test_stateful_ingestion_processor_wired_up():
+    """Verify that AutoStaleEntityRemovalProcessor is in the workunit processor chain."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
+    ctx = PipelineContext(run_id="test_run", pipeline_name="test_run")
+    ctx.graph = MagicMock()
+    source = NotionSource(config=config, ctx=ctx)
+
+    processors = source.get_workunit_processors()
+    assert any(
+        isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
+        for p in processors
+        if p
+    ), "AutoStaleEntityRemovalProcessor must be in the workunit processor chain"
 
 
 def test_report_is_notion_source_report(notion_source):
@@ -413,6 +409,110 @@ def test_extract_notion_parent_urn_with_ingested_pages():
         [], metadata, ingested_page_ids_without_parent
     )
     assert parent_urn is None
+
+
+def _make_notion_source() -> NotionSource:
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
+
+
+def test_browse_path_failure_reports_warning_and_still_emits():
+    """A browse-path failure surfaces as a report warning but never drops the doc."""
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source._should_process_document = MagicMock(return_value=True)  # type: ignore[method-assign]
+    source.chunking_source.process_elements_inline = MagicMock(return_value=[])  # type: ignore[method-assign]
+
+    data = {
+        "elements": [{"type": "Title", "text": "Child", "metadata": {}}],
+        "metadata": {"data_source": {"record_locator": {"page_id": "child"}}},
+    }
+
+    with patch(
+        "datahub.ingestion.source.notion.notion_source.NotionHierarchyExtractor.build_browse_path_v2",
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(source._create_document_entity(data, {"child", "root"}))
+
+    # Document still emitted despite the browse-path failure.
+    assert any(
+        isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DocumentInfoClass) is not None
+        for wu in workunits
+    )
+    # Failure surfaces as a structured warning -> "succeeded with warnings".
+    assert any(
+        warning.title == "Browse path generation failed"
+        for warning in source.report.warnings
+    )
+
+
+def test_build_notion_document_urn_matches_parent_urn():
+    """Browse-path URNs must match the URN derived for parent references."""
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child-page-id": {"parent": {"type": "page_id", "page_id": "parent-page-id"}}
+    }
+    metadata = {"data_source": {"record_locator": {"page_id": "child-page-id"}}}
+
+    parent_urn = source._extract_notion_parent_urn(
+        [], metadata, {"child-page-id", "parent-page-id"}
+    )
+    assert parent_urn == source._build_notion_document_urn("parent-page-id")
+
+
+def test_notion_title_for_page_falls_back_to_page_id():
+    source = _make_notion_source()
+    source.notion_page_titles = {"known": "Known Title"}
+
+    assert source._notion_title_for_page("known") == "Known Title"
+    assert source._notion_title_for_page("unknown") == "unknown"
+
+
+def test_source_emits_hierarchical_browse_path():
+    """The source wiring should produce a BrowsePathsV2 with ancestor URNs/titles."""
+    from datahub.ingestion.source.notion.notion_hierarchy import (
+        NotionHierarchyExtractor,
+    )
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "parent"}},
+        "parent": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source.notion_page_titles = {
+        "parent": "Parent Page",
+        "root": "Root Page",
+    }
+    ingested = {"child", "parent", "root"}
+
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="child",
+        parent_metadata=source.notion_parent_metadata,
+        urn_builder=source._build_notion_document_urn,
+        title_resolver=source._notion_title_for_page,
+        ingested_page_ids=ingested,
+    )
+
+    assert browse_path is not None
+    assert [e.id for e in browse_path.path] == ["Root Page", "Parent Page"]
+    assert browse_path.path[0].urn == source._build_notion_document_urn("root")
+    assert browse_path.path[1].urn == source._build_notion_document_urn("parent")
 
 
 def test_stateful_ingestion_config_disabled_by_default():
@@ -844,3 +944,112 @@ def test_embedding_stats_aggregation(notion_source):
     failures_list = list(final_report.embedding_failures)
     assert "urn:li:document:test1: Error 1" in failures_list
     assert "urn:li:document:test2: Error 2" in failures_list
+
+
+def test_notion_types_filter_unknown_fields_paragraph_icon():
+    """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
+    assert paragraph.color == "default"
+    assert not hasattr(paragraph, "icon")
+
+
+def test_notion_types_filter_unknown_fields_page_is_archived():
+    """Observed alongside AI-603: Page now includes 'is_archived'. Filter must cover Page, not just blocks."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.page import Page
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    page = Page(
+        id="abc",
+        created_time="2026-01-01T00:00:00Z",
+        created_by=None,
+        last_edited_time="2026-01-01T00:00:00Z",
+        last_edited_by=None,
+        archived=False,
+        in_trash=False,
+        properties={},
+        parent=None,
+        url="https://www.notion.so/abc",
+        public_url="",
+        is_archived=False,
+    )
+    assert page.id == "abc"
+    assert not hasattr(page, "is_archived")
+
+
+def test_notion_types_filter_unknown_fields_generic_for_future_additions():
+    """Verify the filter covers blocks AND other notion types so any future Notion field is dropped."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import (
+        Heading,
+        Quote,
+        ToDo,
+    )
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    Heading(color="default", is_toggleable=False, hypothetical_future_field="x")
+    Quote(color="default", made_up_field=42)
+    ToDo(color="default", checked=True, brand_new_2030_field=["a", "b"])
+
+
+def test_notion_types_filter_unknown_fields_is_idempotent():
+    """Applying the patch twice must not double-wrap or break valid construction."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    paragraph = Paragraph(color="default")
+    assert paragraph.color == "default"
+
+
+def test_icon_dispatcher_unknown_types_returns_none_for_named_icon():
+    """Notion's new built-in named icon type ({type: 'icon', icon: {...}})
+    must not raise — observed live breaking the indexer's page discovery."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    result = Icon.from_dict(
+        {"type": "icon", "icon": {"name": "departures", "color": "green"}}
+    )
+    assert result is None
+
+
+def test_icon_dispatcher_handles_none_payload():
+    """Callout.from_dict passes data.pop('icon') (which can be None for
+    callouts with no icon) straight into Icon.from_dict — must not crash."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    assert Icon.from_dict(None) is None
+
+
+def test_icon_dispatcher_unknown_types_preserves_known_types():
+    """Emoji and external icons must still parse correctly after the patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        EmojiIcon,
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
+    assert isinstance(emoji_result, EmojiIcon)
+    assert emoji_result.emoji == "📝"

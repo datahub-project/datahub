@@ -83,7 +83,6 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
               ImmutableList.of(
                   new FacetFilterInput(
                       SUB_TYPES_FIELD,
-                      null,
                       ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
                       true, // negated = true to exclude service accounts
                       FilterOperator.EQUAL));

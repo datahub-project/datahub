@@ -5,15 +5,16 @@ Build autonomous data agents with [LangChain](https://python.langchain.com/) tha
 ## Prerequisites
 
 - Python 3.10+
-- LangChain (`pip install langchain langchain-openai`)
 - A DataHub instance and [access token](../../authentication/personal-access-tokens.md)
 - An OpenAI API key (or another LLM provider with tool-calling support)
 
 ## Installation
 
 ```bash
-pip install datahub-agent-context[langchain]
+pip install "datahub-agent-context[langchain]" langchain-openai
 ```
+
+The `[langchain]` extra includes `langchain` and `langchain-core`. `langchain-openai` is a separate install for the OpenAI provider shown below.
 
 ## Quick Start
 
@@ -31,29 +32,40 @@ Wire the tools into a LangChain agent:
 
 ```python
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.prompts import ChatPromptTemplate
+from langchain.agents import create_agent
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)  # any tool-calling model works here
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a data catalog assistant. Use the available tools to search for datasets, get entity details, and trace lineage. Always include URNs in your answers."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
+agent = create_agent(
+    llm,
+    tools=tools,
+    system_prompt="You are a data catalog assistant. Use the available tools to search for datasets, get entity details, and trace lineage. Always include URNs in your answers.",
+)
 
-agent = create_tool_calling_agent(llm, tools, prompt)
-executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-
-result = executor.invoke({"input": "Find all datasets about customers"})
+response = agent.invoke({"messages": [{"role": "user", "content": "Find all datasets about customers"}]})
+print(response["messages"][-1].content)
 ```
 
-Full working examples: [basic_agent.py](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/basic_agent.py) · [simple_search.py](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/simple_search.py)
+**Prefer Bedrock?** Swap only the model lines — `tools`, `create_agent`, and `invoke` stay identical:
+
+```python
+import boto3
+from langchain_aws import ChatBedrock  # pip install langchain-aws boto3
+
+bedrock_runtime = boto3.client(service_name="bedrock-runtime", region_name="us-west-2")
+llm = ChatBedrock(
+    client=bedrock_runtime,
+    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    model_kwargs={"max_tokens": 2048, "temperature": 0},
+)
+```
+
+Full working example: [simple_search.py](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/simple_search.py)
 
 ## Troubleshooting
 
-- **Tool execution errors?** Verify your DataHub connection (`client.config`) and token permissions. Set `verbose=True` on the `AgentExecutor` to see tool calls.
+- **Tool execution errors?** Verify your DataHub connection with `client.test_connection()` and check token permissions.
 - **Agent not using tools?** Strengthen the system prompt, or try `temperature=0` for more deterministic tool use.
-- **Import errors?** Run `pip install datahub-agent-context[langchain] langchain langchain-openai`.
+- **Import errors?** Run `pip install "datahub-agent-context[langchain]" langchain-openai`.
 
-**Links:** [LangChain Agent Docs](https://python.langchain.com/docs/modules/agents/) · [Agent Context Kit](./agent-context.md) · [MCP Server Guide](../../features/feature-guides/mcp.md)
+**Links:** [LangChain Agent Docs](https://docs.langchain.com/oss/python/langchain/agents) · [Agent Context Kit](./agent-context.md) · [MCP Server Guide](../../features/feature-guides/mcp.md)

@@ -56,6 +56,7 @@ export function TabButtons({ tabs, activeTab: activeKey, onTabClick }: Props) {
                         onClick={(e) => onTabClickHandler(e, tab.key)}
                         variant="text"
                         key={tab.key}
+                        data-testid={tab.dataTestId}
                     >
                         {tab.label}
                     </StyledButton>

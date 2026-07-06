@@ -32,6 +32,9 @@ import { test as setup, expect } from '@playwright/test';
 import { users } from '../data/users';
 import { authStatePath, gmsTokenPath } from '../fixtures/login';
 import { LoginPage } from '../pages/login.page';
+import { createScriptLogger } from '../utils/logger';
+
+const logger = createScriptLogger('auth.setup');
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
 
@@ -40,13 +43,14 @@ setup('authenticate all users', async ({ page, playwright }) => {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
   for (const [key, user] of Object.entries(users)) {
-    console.log(`\n🔐 Authenticating user '${key}' (${user.username})...`);
+    logger.info(`Authenticating user '${key}' (${user.username})...`);
 
     // ── 1. UI login + storageState ──────────────────────────────────────────
     await page.goto('/');
     const loginPage = new LoginPage(page);
     await loginPage.login(user.username, user.password);
 
+    // eslint-disable-next-line playwright/no-standalone-expect -- setup() is `test as setup`, a valid test block; the rule doesn't recognise the alias
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({
       timeout: 15_000,
     });
@@ -56,7 +60,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
 
     const stateFile = authStatePath(user.username);
     await page.context().storageState({ path: stateFile });
-    console.log(`   ✅ storageState saved → ${stateFile}`);
+    logger.info(`storageState saved`, { path: stateFile });
 
     // ── 2. GMS personal access token via DataHub API ────────────────────────
     // Use a standalone request context (not the browser page) so that the
@@ -91,7 +95,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
               variables: { tokenId: existing.tokenId },
             },
           });
-          console.log(`   🗑️  Revoked previous token (id: ${existing.tokenId})`);
+          logger.info(`Revoked previous token`, { tokenId: existing.tokenId });
         }
       }
 
@@ -117,9 +121,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
       });
 
       if (!tokenResponse.ok()) {
-        throw new Error(
-          `Failed to generate GMS token for '${user.username}': ${tokenResponse.status()}`,
-        );
+        throw new Error(`Failed to generate GMS token for '${user.username}': ${tokenResponse.status()}`);
       }
 
       const tokenData = (await tokenResponse.json()) as {
@@ -136,7 +138,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
         tokenFile,
         JSON.stringify({ token: accessToken, tokenId, actorUrn: actorCookie.value }, null, 2),
       );
-      console.log(`   🔑 GMS token saved → ${tokenFile}`);
+      logger.info(`GMS token saved`, { path: tokenFile });
     } finally {
       await apiContext.dispose();
     }
@@ -145,5 +147,5 @@ setup('authenticate all users', async ({ page, playwright }) => {
     await page.goto('about:blank');
   }
 
-  console.log('\n✅ Auth setup complete for all users');
+  logger.info('Auth setup complete for all users');
 });

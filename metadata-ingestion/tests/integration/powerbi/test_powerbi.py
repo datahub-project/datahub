@@ -200,6 +200,172 @@ def test_powerbi_ingest(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_paginated_report_rdl_lineage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Paginated reports without a shared dataset_id must emit upstream
+    lineage via the per-report /datasources endpoint."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/paginated_report_rdl_datasources.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-paginated-rdl-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "extract_lineage": True,
+                    # "Sql" must be in dataset_type_mapping for the embedded
+                    # SQL datasource to produce lineage.
+                    "dataset_type_mapping": {
+                        "PostgreSql": "postgres",
+                        "Oracle": "oracle",
+                        "Sql": "mssql",
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_paginated_rdl_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_paginated_rdl_mces.json",
+        golden_path=f"{test_resources_dir}/golden_test_paginated_rdl_lineage.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_paginated_report_pbi_dataset_binding(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Paginated reports bound to a shared Power BI dataset via RDL (no
+    datasetId in the scan) must resolve the dataset from the AnalysisServices
+    /datasources binding and emit lineage to that dataset's tables."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/paginated_report_pbi_dataset_binding.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-paginated-pbi-dataset-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "extract_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_paginated_pbi_dataset_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_paginated_pbi_dataset_mces.json",
+        golden_path=f"{test_resources_dir}/golden_test_paginated_pbi_dataset_binding.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_paginated_report_lineage_edge_cases(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Exercise the paginated-report fallback paths that produce no lineage:
+    /datasources HTTP error, empty response, a dataset binding that resolves to
+    an unscanned dataset, and an embedded datasource type with no platform
+    mapping. None should fail ingestion; each emits a dashboard without edges."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/paginated_report_lineage_edge_cases.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-paginated-edge-cases-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    # default_source_config maps only PostgreSql + Oracle, so the
+                    # "Sql" report below exercises the dataset_type_mapping-narrowing
+                    # skip (valid platform excluded from the mapping).
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "extract_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_paginated_edge_cases_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_paginated_edge_cases_mces.json",
+        golden_path=f"{test_resources_dir}/golden_test_paginated_lineage_edge_cases.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_workspace_type_filter(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
@@ -995,6 +1161,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
         type="Workspace",
+        webUrl="https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108",
         datasets={},
         dashboards={},
         reports={},
@@ -1246,6 +1413,8 @@ def test_independent_datasets_extraction(
                             "datasets": [
                                 {
                                     "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+                                    "name": "employee-dataset",
+                                    "description": "Employee Management",
                                     "tables": [
                                         {
                                             "name": "employee_ctc",
@@ -1449,6 +1618,16 @@ def test_powerbi_cross_workspace_reference_info_message(
     pipeline.run()
     pipeline.raise_from_status()
 
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    golden_file = "golden_test_cross_workspace_dataset.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
     assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
 
     info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
@@ -1464,16 +1643,6 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     assert is_entry_present, (
         'Info message "Missing Dataset Lineage For Tile" should be present in reporter'
-    )
-
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
-
-    golden_file = "golden_test_cross_workspace_dataset.json"
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=f"{tmp_path}/powerbi_mces.json",
-        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 
@@ -1664,7 +1833,7 @@ def test_powerbi_gcc_environment(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_ingest.json"
+    golden_file = "golden_test_ingest_gcc.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
