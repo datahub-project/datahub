@@ -302,20 +302,12 @@ def test_policy_events(auth_exclude_filter):
     assert res_data["data"]["updatePolicy"] == new_urn
 
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        10,
-        ["CreatePolicyEvent", "UpdatePolicyEvent"],
-        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
-    )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert_audit_event_types_for_entity(
-        res_data["usageEvents"],
         new_urn,
         {"CreatePolicyEvent", "UpdatePolicyEvent"},
+        ["CreatePolicyEvent", "UpdatePolicyEvent"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
     )
     user_session.cookies.clear()
 
@@ -381,20 +373,12 @@ def test_ingestion_source_events(auth_exclude_filter):
     assert res_data["data"]["updateIngestionSource"]
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        10,
-        ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
-        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
-    )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert_audit_event_types_for_entity(
-        res_data["usageEvents"],
         ingestion_source_urn,
         {"CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"},
+        ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
     )
     user_session.cookies.clear()
 
@@ -502,20 +486,12 @@ def test_policy_create_delete(auth_exclude_filter):
     assert res_data["data"]["deletePolicy"] == new_urn
 
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        10,
-        ["CreatePolicyEvent", "DeletePolicyEvent"],
-        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
-    )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert_audit_event_types_for_entity(
-        res_data["usageEvents"],
         new_urn,
         {"CreatePolicyEvent", "DeletePolicyEvent"},
+        ["CreatePolicyEvent", "DeletePolicyEvent"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
     )
     user_session.cookies.clear()
 
@@ -622,3 +598,44 @@ def assert_audit_event_types_for_entity(
     entity_events = audit_events_for_entity(events, entity_urn)
     assert len(entity_events) == len(expected_types), entity_events
     assert {event["eventType"] for event in entity_events} == expected_types
+
+
+def wait_for_audit_event_types_for_entity(
+    session,
+    entity_urn: str,
+    expected_types: Set[str],
+    event_types: List[str],
+    actor_urns: List[str],
+    aspect_names: List | None = None,
+    *,
+    search_size: int = 10,
+    timeout_sec: int = 60,
+) -> None:
+    """Poll audit search until each expected event type is indexed for entity_urn.
+
+    Audit search sorts by timestamp DESC then event type ASC, so list order is not
+    stable across Kafka/pgQueue/CDC profiles or when timestamps tie. Filtering by
+    entity URN checks the contract we care about: every mutation emitted an event.
+    """
+    deadline = time.time() + timeout_sec
+    last_entity_events: List[Dict] = []
+    while time.time() < deadline:
+        res_data = searchForAuditEvents(
+            session, search_size, event_types, actor_urns, aspect_names or []
+        )
+        last_entity_events = audit_events_for_entity(
+            res_data.get("usageEvents", []), entity_urn
+        )
+        found_types = {event["eventType"] for event in last_entity_events}
+        if found_types == expected_types and len(last_entity_events) == len(
+            expected_types
+        ):
+            logger.info(
+                "Audit events ready for %s: %s",
+                entity_urn,
+                sorted(found_types),
+            )
+            return
+        time.sleep(2)
+
+    assert_audit_event_types_for_entity(last_entity_events, entity_urn, expected_types)
