@@ -15,6 +15,7 @@ from datahub.ingestion.source.unity.config import (
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 
 
 def _metastore() -> Metastore:
@@ -196,7 +197,6 @@ def test_none_connection_type_without_database_is_two_tier():
 
 
 def test_structured_property_urns():
-
     urns = fed.structured_property_urns("databricks.federation")
     assert (
         urns["platform"] == "urn:li:structuredProperty:databricks.federation.platform"
@@ -205,8 +205,6 @@ def test_structured_property_urns():
 
 
 def test_property_definition_mcps_target_container_and_platform_allowed_values():
-    from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
-
     mcps = fed.federation_property_definition_mcps("databricks.federation")
     assert len(mcps) == 4
     by_qn = {m.aspect.qualifiedName: m.aspect for m in mcps}

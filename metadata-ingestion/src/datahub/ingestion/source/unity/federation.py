@@ -124,10 +124,14 @@ _PROPERTY_DISPLAY: Dict[str, str] = {
 }
 
 _PROPERTY_DESCRIPTION: Dict[str, str] = {
-    "catalog_type": "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation).",
+    "catalog_type": (
+        "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation)."
+    ),
     "platform": "DataHub platform of the external system this foreign catalog mirrors.",
     "connection": "Unity Catalog connection backing this foreign catalog.",
-    "remote_database": "Name of the external database/project/catalog mirrored by this catalog.",
+    "remote_database": (
+        "Name of the external database/project/catalog mirrored by this catalog."
+    ),
 }
 
 
