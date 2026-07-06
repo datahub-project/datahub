@@ -49,8 +49,7 @@ public class DashboardUsageStatsUtilsTest {
                     new StringArrayArray(
                         // User 1: only viewsCount set (usageCount and execCount are NULL)
                         new StringArray(
-                            ImmutableList.of(
-                                TEST_USER_URN_1, "NULL", "30", "NULL", "0", "1", "0")),
+                            ImmutableList.of(TEST_USER_URN_1, "NULL", "30", "NULL", "0", "1", "0")),
                         // User 2: only viewsCount set
                         new StringArray(
                             ImmutableList.of(

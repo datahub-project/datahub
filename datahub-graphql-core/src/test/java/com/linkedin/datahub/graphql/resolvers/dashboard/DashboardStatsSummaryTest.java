@@ -347,10 +347,7 @@ public class DashboardStatsSummaryTest {
     TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
 
     DashboardUsageStatistics latestUsageStats =
-        new DashboardUsageStatistics()
-            .setTimestampMillis(0L)
-            .setLastViewedAt(0L)
-            .setViewsCount(20);
+        new DashboardUsageStatistics().setTimestampMillis(0L).setLastViewedAt(0L).setViewsCount(20);
     EnvelopedAspect envelopedLatestStats =
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(latestUsageStats));
 
@@ -379,12 +376,14 @@ public class DashboardStatsSummaryTest {
             new GenericTable()
                 .setRows(
                     new StringArrayArray(
-                        // User 1: viewsCount=30, usageCount=NULL, cardinalities: usage=0, views=1, exec=0
+                        // User 1: viewsCount=30, usageCount=NULL, cardinalities: usage=0, views=1,
+                        // exec=0
                         new StringArray(
                             ImmutableList.of(TEST_USER_URN_1, "NULL", "30", "NULL", "0", "1", "0")),
                         // User 2: viewsCount=12, usageCount=NULL
                         new StringArray(
-                            ImmutableList.of(TEST_USER_URN_2, "NULL", "12", "NULL", "0", "1", "0"))))
+                            ImmutableList.of(
+                                TEST_USER_URN_2, "NULL", "12", "NULL", "0", "1", "0"))))
                 .setColumnNames(new StringArray())
                 .setColumnTypes(new StringArray()));
 
