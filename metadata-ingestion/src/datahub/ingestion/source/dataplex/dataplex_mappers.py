@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from typing import Optional, Pattern, Union
 
 from google.cloud import dataplex_v1
-from typing_extensions import assert_never
+from typing_extensions import TypeAlias, assert_never
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.source import SourceReport
@@ -121,20 +121,8 @@ class EntryMappingResult:
     lineage_entry: Optional[EntryDataTuple] = None
 
 
-class DatahubIdentity:
-    """How a mapper turns parsed FQN identity fields into its main entity's id.
-
-    Shared base for the two per-family variants — see :class:`DatasetIdentity`
-    and :class:`ContainerIdentity`. The variant a mapper carries also determines
-    ``EntryMapper.datahub_main_entity_type``. It is a plain base (not an ABC): the
-    variants expose different builders (``dataset_name`` vs ``container_key``), so
-    there is no shared abstract method. New identity shapes are added by
-    subclassing this and extending the ``datahub_main_entity_type`` dispatch.
-    """
-
-
 @dataclass(frozen=True)
-class DatasetIdentity(DatahubIdentity):
+class DatasetIdentity:
     """Dataset identity: a dotted name built from FQN fields via a format string.
 
     ``name_format`` references FQN named groups, e.g.
@@ -159,7 +147,7 @@ class DatasetIdentity(DatahubIdentity):
 
 
 @dataclass(frozen=True)
-class ContainerIdentity(DatahubIdentity):
+class ContainerIdentity:
     """Container identity: a ``ContainerKey`` built directly from FQN fields.
 
     ``key_class`` fields map 1:1 to FQN named groups (project_id, dataset_id, …).
@@ -175,6 +163,13 @@ class ContainerIdentity(DatahubIdentity):
         their names must match ``key_class`` fields.
         """
         return instantiate_key(self.key_class, identity_fields)
+
+
+# A mapper's identity is exactly one of these two variants. Modeled as a union
+# (not a shared base class) — the variants expose different builders
+# (dataset_name vs container_key), so there is no shared method, and the union
+# gives assert_never exhaustiveness in datahub_main_entity_type.
+DatahubIdentity: TypeAlias = Union[DatasetIdentity, ContainerIdentity]
 
 
 @dataclass(frozen=True)
@@ -274,7 +269,7 @@ class EntryMapper(ABC):
 
     @property
     @abstractmethod
-    def datahub_identity(self) -> Union[DatasetIdentity, ContainerIdentity]:
+    def datahub_identity(self) -> DatahubIdentity:
         """How this entry's parsed FQN fields become the main entity's DataHub id.
 
         A :class:`DatasetIdentity` (name built from a format string) or a
