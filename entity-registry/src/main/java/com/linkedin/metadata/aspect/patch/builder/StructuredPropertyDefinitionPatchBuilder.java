@@ -88,7 +88,14 @@ public class StructuredPropertyDefinitionPatchBuilder
       this.pathValues.add(
           ImmutableTriple.of(
               PatchOperationType.ADD.getValue(),
-              PATH_DELIM + ALLOWED_VALUES_FIELD + PATH_DELIM + propertyValue.getValue(),
+              // The allowed value becomes a JSON Pointer path segment, so it must
+              // be RFC 6901 escaped - otherwise a value containing '/' (e.g.
+              // "SITS/eVision") is split into extra path segments and the patched
+              // allowedValues element loses its required "value" field.
+              PATH_DELIM
+                  + ALLOWED_VALUES_FIELD
+                  + PATH_DELIM
+                  + encodeValue(String.valueOf(propertyValue.getValue())),
               valueNode));
       return this;
     } catch (JsonProcessingException e) {
