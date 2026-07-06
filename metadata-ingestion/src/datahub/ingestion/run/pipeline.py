@@ -25,6 +25,9 @@ from datahub.configuration.env_vars import (
     get_executor_managed,
     get_ingestion_default_sink,
     get_kafka_bootstrap,
+    get_kafka_linger_ms,
+    get_kafka_queue_max_kbytes,
+    get_kafka_queue_max_messages,
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -181,7 +184,27 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
         **config_utils.load_client_config().model_dump()
     )
     sink_config = KafkaSinkConfig(
-        connection={"bootstrap": bootstrap},
+        connection={
+            "bootstrap": bootstrap,
+            # Cap the producer's local send buffer so backpressure (block-on-full
+            # in the emitter) engages at a bounded memory ceiling instead of
+            # librdkafka's ~1 GiB default -- prevents OOM in memory-constrained
+            # executor pods when the broker/MCP consumer can't keep up. linger
+            # batches sends for throughput.
+            #
+            # Peak buffer memory ~= num_producers * queue.buffering.max.kbytes
+            # + Python overhead. The emitter has two producers (MCE + MCP), so
+            # the worst case is 2 * 128 MiB = 256 MiB; in practice the MCE
+            # producer is idle (MCEs are unpacked to MCPs), so it's ~128 MiB.
+            # Tunable per deployment via DATAHUB_KAFKA_QUEUE_MAX_KBYTES /
+            # DATAHUB_KAFKA_QUEUE_MAX_MESSAGES / DATAHUB_KAFKA_LINGER_MS (or a
+            # custom kafka sink config).
+            "producer_config": {
+                "queue.buffering.max.kbytes": get_kafka_queue_max_kbytes(),
+                "queue.buffering.max.messages": get_kafka_queue_max_messages(),
+                "linger.ms": get_kafka_linger_ms(),
+            },
+        },
         rest_fallback=rest_fallback,
     )
     return DatahubKafkaSink(ctx, sink_config)

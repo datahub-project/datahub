@@ -79,6 +79,11 @@ class _KafkaCallback:
     reporter: SinkReport
     record_envelope: RecordEnvelope
     write_callback: WriteCallback
+    # Set on any delivery/emit failure. Shared across a sink's callbacks so the
+    # sink can refuse to apply a synchronous DELETE/RESTATE after an earlier
+    # async write failed in the same run. Invoked from librdkafka's background
+    # thread, so a threading.Event (thread-safe) is used.
+    failure_signal: Optional[threading.Event] = None
 
     def kafka_callback(self, err: Optional[KafkaError], msg: Optional[Message]) -> None:
         """
@@ -92,6 +97,8 @@ class _KafkaCallback:
             error_str = str(err)
             _log_enhanced_error(error_str)
 
+            if self.failure_signal is not None:
+                self.failure_signal.set()
             error_exception = Exception(error_str)
             self.reporter.report_failure(error_exception)
             self.write_callback.on_failure(
@@ -114,6 +121,8 @@ class _KafkaCallback:
         error_str = str(err)
         _log_enhanced_error(error_str)
 
+        if self.failure_signal is not None:
+            self.failure_signal.set()
         self.reporter.report_failure(err)
         self.write_callback.on_failure(
             self.record_envelope,
@@ -168,6 +177,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         # by a lock since write_record_async may run on multiple threads.
         self._rest_fallback_emitter: Optional[DataHubRestEmitter] = None
         self._rest_fallback_lock = threading.Lock()
+        # Set by any record's callback on delivery/emit failure; used to refuse
+        # a synchronous DELETE/RESTATE after an earlier async write failed.
+        self._delivery_failed = threading.Event()
 
     def _get_rest_fallback_emitter(self) -> DataHubRestEmitter:
         if self._rest_fallback_emitter is None:
@@ -223,7 +235,12 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
-        kafka_callback = _KafkaCallback(self.report, record_envelope, write_callback)
+        kafka_callback = _KafkaCallback(
+            self.report,
+            record_envelope,
+            write_callback,
+            failure_signal=self._delivery_failed,
+        )
         try:
             record = record_envelope.record
 
@@ -241,13 +258,24 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                 and self._needs_rest_fallback(record)
             ):
                 # Drain in-flight async Kafka messages before the synchronous
-                # REST delete, so earlier UPSERTs for the same entity reach GMS
-                # before this DELETE/RESTATE (preserves per-entity ordering).
-                # This is best-effort, not transactional: any failed prior async
-                # delivery is still reported via its own _KafkaCallback (and
-                # trips raise_from_status), matching how every DataHub sink
-                # treats per-record failures.
+                # REST delete, so earlier writes for the same entity reach GMS
+                # first (preserves per-entity ordering).
                 self.emitter.flush()
+                # If any prior async delivery failed, do NOT apply the
+                # DELETE/RESTATE -- that would delete/restate an entity whose
+                # preceding write never landed. Fail this record instead; the
+                # run already fails via the earlier failure. Conservative (any
+                # prior failure blocks any fallback), which is safe since such
+                # MCPs are rare and the run is aborting regardless.
+                if self._delivery_failed.is_set():
+                    kafka_callback.report_emit_failure(
+                        Exception(
+                            "Skipping REST fallback for "
+                            f"{record.changeType} on {record.entityUrn}: a prior "
+                            "Kafka delivery failed in this run."
+                        )
+                    )
+                    return
                 self._get_rest_fallback_emitter().emit_mcp(record)
                 self.report.report_record_written(record_envelope)
                 write_callback.on_success(

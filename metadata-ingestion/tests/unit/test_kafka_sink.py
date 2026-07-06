@@ -573,6 +573,44 @@ def test_kafka_sink_delete_without_fallback_goes_to_kafka(mock_producer):
 
 @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_delete_skipped_after_prior_delivery_failure(
+    mock_producer, mock_make_emitter
+):
+    """A DELETE must NOT be applied via REST if an earlier async Kafka delivery
+    failed in the same run (would delete an entity whose write never landed)."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_make_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    # Simulate a prior async delivery failure in this run.
+    kafka_sink._delivery_failed.set()
+
+    mcp = _make_delete_mcp()
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    # DELETE was not emitted; the record was failed instead.
+    mock_rest_emitter.emit_mcp.assert_not_called()
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emitter):
     """RESTATE (like DELETE) is not supported over async Kafka -> REST fallback."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
