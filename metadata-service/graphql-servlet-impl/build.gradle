@@ -27,6 +27,9 @@ dependencies {
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
   implementation externalDependency.opentelemetryApi
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
 }
 
 configurations.all{

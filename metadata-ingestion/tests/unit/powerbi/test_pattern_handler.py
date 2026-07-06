@@ -796,3 +796,51 @@ def test_remap_column_lineage_multi_table_shared_column_name():
             "setid",
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# OdbcLineage — view leaves and dialect-aware SQL detection
+# (reuses the _build_odbc_lineage / _nav_accessor helpers defined above)
+# ---------------------------------------------------------------------------
+
+
+def test_odbc_view_leaf_resolves_like_table():
+    # A view leaf uses Kind="View"; without handling it the upstream is dropped.
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "my_project"),
+            ("Schema", "my_dataset"),
+            ("View", "my_view"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"
+    ]
+
+
+def test_is_sql_query_uses_platform_dialect():
+    # BigQuery backtick-quoted, hyphenated project ids only parse under the
+    # bigquery dialect; the default dialect rejects them.
+    query = "SELECT t.* FROM `my-proj-1.my_dataset.my_table` t WHERE col_a IN (1, 2)"
+    assert OdbcLineage.is_sql_query(query) is False
+    assert OdbcLineage.is_sql_query(query, "bigquery") is True
+
+
+def test_is_sql_query_handles_other_platforms_without_raising():
+    # Plain SQL is recognised regardless of platform, and a platform sqlglot has
+    # no dialect for (e.g. db2) must fall back to the default dialect, not raise.
+    query = "SELECT a, b FROM my_schema.my_table"
+    assert OdbcLineage.is_sql_query(query, "databricks") is True
+    assert OdbcLineage.is_sql_query(query, "db2") is True
+    assert OdbcLineage.is_sql_query("not a query at all", "db2") is False
