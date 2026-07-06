@@ -15,7 +15,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
-from datahub.metadata.schema_classes import PropertyValueClass
+from datahub.metadata.schema_classes import ChangeTypeClass, PropertyValueClass
 from datahub.metadata.urns import (
     ContainerUrn,
     DataTypeUrn,
@@ -167,7 +167,10 @@ def federation_property_definition_mcps(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=StructuredPropertyUrn(qualified_name).urn(), aspect=aspect
+                entityUrn=StructuredPropertyUrn(qualified_name).urn(),
+                aspect=aspect,
+                changeType=ChangeTypeClass.CREATE,
+                headers={"If-None-Match": "*"},
             )
         )
     return mcps

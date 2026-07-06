@@ -151,7 +151,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    StructuredPropertyDefinitionClass,
     SubTypesClass,
     TimeStampClass,
     UpstreamClass,
@@ -1248,27 +1247,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_federation_property_definition_workunits(
         self,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit federation structured-property definitions once per run.
+        """Emit federation structured-property definitions.
 
-        When a graph is available, skip definitions that already exist so a
-        centrally-managed definition is never clobbered.
+        Each definition MCP uses changeType=CREATE with an If-None-Match header, so
+        the server creates it only if absent — a pre-existing (e.g. centrally
+        managed) definition is left untouched, with no graph lookup needed here.
+        Callers (`gen_catalog_containers`) ensure this runs once per ingestion run.
         """
         if not self.config.emit_federation_structured_properties:
             return
         mcps = federation.federation_property_definition_mcps(
             self.config.federation_structured_property_namespace
         )
-        graph = self.ctx.graph
         for mcp in mcps:
-            if graph is not None and mcp.entityUrn is not None:
-                try:
-                    existing = graph.get_aspect(
-                        mcp.entityUrn, StructuredPropertyDefinitionClass
-                    )
-                    if existing is not None:
-                        continue
-                except Exception as e:
-                    logger.debug(f"Federation property existence check failed: {e}")
             yield mcp.as_workunit()
 
     def _gen_federation_link(
