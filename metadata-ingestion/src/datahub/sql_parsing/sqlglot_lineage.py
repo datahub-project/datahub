@@ -2484,14 +2484,14 @@ def create_lineage_from_sql_statements(
         default_schema: Optional default schema for unqualified table references
         graph: Optional DataHub graph client for schema resolution
         schema_aware: Whether to use schema-aware parsing
-        is_temp_table: Optional predicate, given the table name (typically
-                       ``db.schema.table``, but the exact format is platform-
-                       dependent and differs when a platform_instance is set),
-                       returning whether it is an intermediate temp table. Use it
-                       when the dialect's own syntax does not mark them (e.g.
-                       Teradata ``CREATE VOLATILE TABLE`` parsed under another
-                       platform's dialect); such tables are then collapsed so
-                       lineage flows through to the real base tables.
+        is_temp_table: Optional predicate, given the table name in
+                       ``db.schema.table`` form (the platform instance, if any,
+                       is stripped before the predicate is called), returning
+                       whether it is an intermediate temp table. Use it when the
+                       dialect's own syntax does not mark them (e.g. Teradata
+                       ``CREATE VOLATILE TABLE`` parsed under another platform's
+                       dialect); such tables are then collapsed so lineage flows
+                       through to the real base tables.
 
     Returns:
         SqlParsingResult containing merged lineage from all statements

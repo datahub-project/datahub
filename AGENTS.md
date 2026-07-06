@@ -781,6 +781,9 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
 - Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
 - For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
+- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
+- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
+- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
 - Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
 - When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
 
@@ -789,3 +792,4 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
 - A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
 - Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
+- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.
