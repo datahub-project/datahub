@@ -179,7 +179,12 @@ export class EntityDocumentationPage extends BasePage {
     await this.openAddLinkForm();
     await this.fillLinkForm(url, label, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Added')).toBeVisible({ timeout: 15000 });
+    // Confirm success by the link surfacing in the Resources list. We deliberately do
+    // NOT assert the "Link Added" toast: toasts stack and linger (~3s), so when several
+    // links are added in quick succession getByText('Link Added') resolves to multiple
+    // nodes and fails Playwright strict mode.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async updateLink(
@@ -189,24 +194,33 @@ export class EntityDocumentationPage extends BasePage {
     newLabel: string,
     showInPreview: boolean,
   ): Promise<void> {
-    // Links render as ResourceLinkPill anchors (keyed by href) rather than AntD list
-    // items; the edit affordance is a button rendered inside the pill anchor.
+    // Each related link renders as an antd list item (<li>). The anchor and the
+    // edit/remove buttons are SIBLINGS inside that <li> — the buttons are NOT nested
+    // under the anchor — so scope the edit button by the list item holding the anchor.
     // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-    const pill = this.relatedList.locator(`a[href="${currentUrl}"]`).filter({ hasText: currentLabel });
-    await pill.getByTestId('edit-link-button').click();
+    const anchor = this.page.locator(`a[href="${currentUrl}"]`);
+    const item = this.relatedList.getByRole('listitem').filter({ has: anchor }).filter({ hasText: currentLabel });
+    await item.getByTestId('edit-link-button').click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Updated')).toBeVisible({ timeout: 15000 });
+    // Confirm via the updated link surfacing in the list rather than the stacking toast.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${newUrl}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async removeLinkByUrl(url: string): Promise<void> {
-    // Links render as ResourceLinkPill anchors (keyed by href) rather than AntD list
-    // items; the remove affordance is a button rendered inside the pill anchor.
+    // Each related link renders as an antd list item (<li>). The anchor and the
+    // edit/remove buttons are SIBLINGS inside that <li> — the buttons are NOT nested
+    // under the anchor — so scope the remove button by the list item holding the anchor.
     // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-    const pill = this.relatedList.locator(`a[href="${url}"]`);
-    await pill.getByTestId('remove-link-button').click();
-    await expect(this.page.getByText('Link Removed')).toBeVisible({ timeout: 15000 });
-    await expect(this.page.getByText('Link Removed')).not.toBeVisible({ timeout: 15000 });
+    const item = this.relatedList.getByRole('listitem').filter({ has: this.page.locator(`a[href="${url}"]`) });
+    await item.getByTestId('remove-link-button').click();
+    // Confirm removal by the link disappearing from the list. We deliberately do NOT
+    // assert the "Link Removed" toast: toasts stack and linger, so removing several links
+    // in quick succession makes getByText('Link Removed') match multiple nodes (strict-
+    // mode failure on both the visible and not-visible assertions).
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toHaveCount(0, { timeout: 15000 });
   }
 
   // ── Link verification helpers ────────────────────────────────────────────
