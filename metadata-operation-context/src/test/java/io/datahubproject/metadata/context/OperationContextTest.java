@@ -445,8 +445,7 @@ public class OperationContextTest {
     Status second = opContext.getDecodedAspect(aspect, Status.class);
 
     assertTrue(first.isRemoved());
-    assertSame(
-        first, second, "Repeat decode of the same aspect should return the cached instance");
+    assertSame(first, second, "Repeat decode of the same aspect should return the cached instance");
   }
 
   @Test
@@ -467,6 +466,24 @@ public class OperationContextTest {
     assertNotSame(decodedCurrent, decodedPrevious);
     assertTrue(decodedCurrent.isRemoved());
     assertFalse(decodedPrevious.isRemoved());
+  }
+
+  @Test
+  public void withFreshAspectDecodeCache_isolatesCachePerCopy() {
+    OperationContext base = TestOperationContexts.systemContextNoValidate();
+    GenericAspect aspect = GenericRecordUtils.serializeAspect(new Status().setRemoved(true));
+
+    OperationContext msg1 = base.withFreshAspectDecodeCache();
+    OperationContext msg2 = base.withFreshAspectDecodeCache();
+
+    Status a = msg1.getDecodedAspect(aspect, Status.class);
+    Status aAgain = msg1.getDecodedAspect(aspect, Status.class);
+    Status b = msg2.getDecodedAspect(aspect, Status.class);
+
+    assertSame(a, aAgain, "Same per-message context reuses its cached instance");
+    assertNotSame(
+        a, b, "Distinct per-message copies must have independent caches (no shared singleton)");
+    assertEquals(msg1, base, "Copy shares all identity-bearing sub-contexts with the base");
   }
 
   private OperationContext buildTraceMock() {

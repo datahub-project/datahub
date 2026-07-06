@@ -293,7 +293,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   // deserialized once and reused across hooks instead of re-parsed by each. Keyed by the raw aspect
   // ByteString (which distinguishes current vs previous values and dedups identical payloads) then
   // by target class. Per-operation and not shared across threads, so HashMap is safe.
-  @Builder.Default @Nonnull @Getter(AccessLevel.NONE)
+  @Builder.Default
+  @Nonnull
+  @Getter(AccessLevel.NONE)
   private final Map<ByteString, Map<Class<?>, RecordTemplate>> aspectDecodeCache =
       new java.util.HashMap<>();
 
@@ -669,12 +671,13 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   /**
    * Deserialize a {@link GenericAspect} into the given aspect class, caching the result for the
    * lifetime of this OperationContext. Multiple {@link com.linkedin.mxe.MetadataChangeLog} hooks
-   * that process the same event share one OperationContext instance, so this parses the aspect bytes
-   * once and returns the cached instance to subsequent callers instead of re-deserializing per hook.
+   * that process the same event share one OperationContext instance, so this parses the aspect
+   * bytes once and returns the cached instance to subsequent callers instead of re-deserializing
+   * per hook.
    *
-   * <p>Returns {@code null} when {@code aspect} is {@code null} (e.g. an absent previous value). The
-   * returned {@link RecordTemplate} is shared across callers and MUST be treated as read-only; use
-   * {@link GenericRecordUtils#copy} if a mutable copy is required.
+   * <p>Returns {@code null} when {@code aspect} is {@code null} (e.g. an absent previous value).
+   * The returned {@link RecordTemplate} is shared across callers and MUST be treated as read-only;
+   * use {@link GenericRecordUtils#copy} if a mutable copy is required.
    *
    * @param aspect the generic aspect to deserialize, or null
    * @param clazz the aspect record class to deserialize into
@@ -696,6 +699,37 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         GenericRecordUtils.deserializeAspect(aspect.getValue(), aspect.getContentType(), clazz);
     byClass.put(clazz, decoded);
     return decoded;
+  }
+
+  /**
+   * Returns a shallow copy of this context carrying a fresh, empty {@link #getDecodedAspect} cache.
+   * All other sub-contexts (including {@code pendingDeletions}) are shared by reference; only the
+   * per-message aspect-decode cache is reset.
+   *
+   * <p>The inbound event path must call this once per message so each message gets an isolated
+   * cache. The base/system OperationContext is a long-lived singleton — caching decoded aspects on
+   * it directly would accumulate for the JVM lifetime (memory leak) and be read/written by multiple
+   * consumer threads concurrently (data race). A per-message copy is thread-confined to the
+   * consumer thread processing that message and is discarded when the message completes.
+   */
+  @Nonnull
+  public OperationContext withFreshAspectDecodeCache() {
+    return new OperationContext(
+        operationContextConfig,
+        sessionActorContext,
+        systemActorContext,
+        searchContext,
+        authorizationContext,
+        entityRegistryContext,
+        servicesRegistryContext,
+        requestContext,
+        retrieverContext,
+        objectMapperContext,
+        validationContext,
+        systemTelemetryContext,
+        primaryStorageContext,
+        pendingDeletions,
+        new java.util.HashMap<>());
   }
 
   @Override

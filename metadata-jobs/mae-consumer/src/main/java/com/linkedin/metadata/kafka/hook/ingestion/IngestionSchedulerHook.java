@@ -130,8 +130,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
    */
   private DataHubIngestionSourceInfo getInfoFromEvent(
       final OperationContext operationContext, final MetadataChangeLog event) {
-    return operationContext.getDecodedAspect(
-        event.getAspect(), DataHubIngestionSourceInfo.class);
+    return operationContext.getDecodedAspect(event.getAspect(), DataHubIngestionSourceInfo.class);
   }
 
   @VisibleForTesting
