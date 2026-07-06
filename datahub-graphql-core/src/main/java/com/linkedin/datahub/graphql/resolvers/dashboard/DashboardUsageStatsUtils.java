@@ -279,7 +279,7 @@ public class DashboardUsageStatsUtils {
               "Failed to convert user usage count from ES to int", e);
         }
       }
-      if (!row.get(2).equals(ES_NULL_VALUE) && row.get(5).equals(ES_NULL_VALUE)) {
+      if (!row.get(2).equals(ES_NULL_VALUE) && !row.get(5).equals(ES_NULL_VALUE)) {
         try {
           if (Integer.valueOf(row.get(5)) != 0) {
             userUsageCount.setViewsCount(Integer.valueOf(row.get(2)));
