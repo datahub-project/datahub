@@ -81,27 +81,27 @@ When `emit_siblings` is enabled (the default), the connector emits sibling relat
 DataHub detects Unity Catalog **foreign catalogs** (Lakehouse Federation) and links their tables to the external source dataset each one mirrors (PostgreSQL, SQL Server, MySQL, Snowflake, Redshift, BigQuery, Oracle, Teradata, another Databricks workspace, or Glue/Hive).
 
 - The foreign catalog is marked with structured properties (`platform`, `remote_database`, `connection`, `catalog_type`).
-- `federation_link_type` controls the cross-platform link: `siblings` (default — merges the Databricks table and the external table into one logical dataset), `lineage` (an upstream edge), or `none` (no cross-platform link).
+- `include_federation_lineage` (default `true`) emits an upstream **COPY** lineage edge from each foreign-catalog table to the external source dataset it mirrors. Column-level lineage is added when `include_column_lineage` is set. Set it to `false` to skip the cross-platform link.
 - For the link to resolve, the external source must be ingested separately, and its `platform_instance` and `convert_urns_to_lowercase` settings must match. Use `federation_connection_details` (keyed by Unity Catalog connection name) to align them:
 
 ```yaml
 source:
   type: unity-catalog
   config:
-    federation_link_type: siblings
+    include_federation_lineage: true
     federation_connection_details:
       pg_conn:
         platform_instance: prod-pg
         env: PROD
 ```
 
-:::caution Ghost siblings with the default `siblings` link
+:::caution Dangling lineage to an un-ingested external source
 
-With the default `federation_link_type: siblings`, the sibling relationship only resolves if the external source is **also ingested into DataHub** as its own recipe, using the exact same `platform_instance` (and `convert_urns_to_lowercase`) that you set in `federation_connection_details`. If the external source is never ingested, or is ingested with a different `platform_instance` or case-folding setting, the sibling points at a dataset URN that DataHub never creates — a "ghost" external dataset that never reconciles with the real one.
+The upstream lineage edge only resolves if the external source is **also ingested into DataHub** as its own recipe, using the exact same `platform_instance` (and `convert_urns_to_lowercase`) that you set in `federation_connection_details`. If the external source is never ingested, or is ingested with a different `platform_instance` or case-folding setting, the edge points at a dataset URN that DataHub never creates — a dangling external dataset that never reconciles with the real one.
 
 :::
 
-`federation_link_type` is the only setting that controls federation links. The separate `emit_siblings` option described above governs only the Delta Lake (S3 external table) sibling path and has no effect on foreign catalog / Lakehouse Federation siblings.
+`include_federation_lineage` is the only setting that controls foreign catalog / Lakehouse Federation links. The separate `emit_siblings` option described above governs only the Delta Lake (S3 external table) sibling path.
 
 #### Advanced
 

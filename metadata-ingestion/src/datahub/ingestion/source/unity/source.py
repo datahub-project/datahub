@@ -23,7 +23,6 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
-from typing_extensions import assert_never
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -82,7 +81,6 @@ from datahub.ingestion.source.unity import federation, proxy_types as unity_prox
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
     FederationConnectionDetail,
-    FederationLinkType,
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
@@ -1398,11 +1396,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         catalog: Catalog,
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the configured cross-platform link from a foreign-catalog table to
-        its external source dataset: siblings, lineage, or no link (`none`)."""
+        """Emit the upstream lineage link from a foreign-catalog table to its
+        external source dataset, unless disabled."""
         if not catalog.is_foreign_catalog:
             return
-        if self.config.federation_link_type == FederationLinkType.NONE:
+        if not self.config.include_federation_lineage:
             return
 
         external_urn = self._external_dataset_urn(
@@ -1411,26 +1409,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if external_urn is None:
             return
 
+        # A foreign catalog is a read-only mirror (copy) of the external dataset, so
+        # COPY is more accurate than the default VIEW. Emit identity column-level
+        # lineage (1:1, case-insensitive) when column lineage is enabled and both
+        # schemas are resolvable — the mirror's columns are copies of the external.
         self.report.num_federation_links_emitted += 1
-        if self.config.federation_link_type == FederationLinkType.SIBLINGS:
-            yield from self.gen_siblings_workunit(dataset_urn, external_urn)
-        elif self.config.federation_link_type == FederationLinkType.LINEAGE:
-            # A foreign catalog is a read-only mirror (copy) of the external
-            # dataset, so COPY is more accurate than the default VIEW used for the
-            # delta-lake sibling path. Emit identity column-level lineage (1:1,
-            # case-insensitive) when column lineage is enabled and both schemas are
-            # resolvable — the mirror's columns are copies of the external columns.
-            fine_grained_lineages = self._federation_column_lineage(
-                dataset_urn, external_urn, schema_metadata
-            )
-            yield from self.gen_lineage_workunit(
-                dataset_urn,
-                external_urn,
-                lineage_type=DatasetLineageType.COPY,
-                fine_grained_lineages=fine_grained_lineages,
-            )
-        else:
-            assert_never(self.config.federation_link_type)
+        fine_grained_lineages = self._federation_column_lineage(
+            dataset_urn, external_urn, schema_metadata
+        )
+        yield from self.gen_lineage_workunit(
+            dataset_urn,
+            external_urn,
+            lineage_type=DatasetLineageType.COPY,
+            fine_grained_lineages=fine_grained_lineages,
+        )
 
     def _federation_column_lineage(
         self,

@@ -157,12 +157,6 @@ class UnityCatalogSQLAlchemyProfilerConfig(
     )
 
 
-class FederationLinkType(ConfigEnum):
-    SIBLINGS = "SIBLINGS"
-    LINEAGE = "LINEAGE"
-    NONE = "NONE"
-
-
 class FederationConnectionDetail(ConfigModel):
     platform: Optional[str] = pydantic.Field(
         default=None,
@@ -172,7 +166,7 @@ class FederationConnectionDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="platform_instance the external source was ingested under. Must match "
-        "for the sibling/lineage link to resolve.",
+        "for the lineage link to resolve.",
     )
     env: Optional[str] = pydantic.Field(
         default=None,
@@ -337,11 +331,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
-    federation_link_type: FederationLinkType = pydantic.Field(
-        default=FederationLinkType.SIBLINGS,
-        description="How to link a Lakehouse Federation foreign catalog's tables to the "
-        "external source dataset: 'siblings' (merge into one logical dataset — correct for a "
-        "read-only mirror), 'lineage' (an upstream edge), or 'none'.",
+    include_federation_lineage: bool = pydantic.Field(
+        default=True,
+        description="Emit an upstream COPY lineage edge from each Lakehouse Federation "
+        "foreign catalog table to its external source dataset (with column-level lineage "
+        "when include_column_lineage is set). Disable to skip the cross-platform link.",
     )
     emit_federation_structured_properties: bool = pydantic.Field(
         default=True,

@@ -1154,13 +1154,19 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "siblings",
+    "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
-            ],
-            "primary": false
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)",
+                    "type": "COPY"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1187,26 +1193,6 @@
                     "urn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-federation-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "unity-federation-test-pipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)"
-            ],
-            "primary": true
         }
     },
     "systemMetadata": {

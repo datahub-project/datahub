@@ -734,7 +734,7 @@ def test_federation_ingestion(pytestconfig, tmp_path, requests_mock):
                     "include_hive_metastore": False,
                     "include_usage_statistics": False,
                     "warehouse_id": "test",
-                    "federation_link_type": "siblings",
+                    "include_federation_lineage": True,
                     "federation_connection_details": {
                         "pg_conn": {"platform_instance": "prod-pg", "env": "PROD"}
                     },

@@ -12,7 +12,6 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity import federation as fed
 from datahub.ingestion.source.unity.config import (
-    FederationLinkType,
     UnityCatalogSourceConfig,
 )
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
@@ -25,7 +24,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    SiblingsClass,
     StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
@@ -112,7 +110,7 @@ def test_federation_connection_detail_override():
     cfg = UnityCatalogSourceConfig.model_validate(
         {
             **_BASE,
-            "federation_link_type": "lineage",
+            "include_federation_lineage": True,
             "federation_connection_details": {
                 "pg_conn": {
                     "platform": "postgres",
@@ -123,7 +121,7 @@ def test_federation_connection_detail_override():
             },
         }
     )
-    assert cfg.federation_link_type == FederationLinkType.LINEAGE
+    assert cfg.include_federation_lineage is True
     detail = cfg.federation_connection_details["pg_conn"]
     assert detail.platform == "postgres"
     assert detail.platform_instance == "prod-pg"
@@ -470,13 +468,15 @@ def _foreign_table(catalog: Catalog) -> Table:
     )
 
 
-def _source_with_link(link_type: str, lowercase: bool = False) -> UnityCatalogSource:
+def _source_with_link(
+    include_lineage: bool = True, lowercase: bool = False
+) -> UnityCatalogSource:
     with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
         cfg = UnityCatalogSourceConfig.model_validate(
             {
                 **_BASE,
                 "include_metastore": False,
-                "federation_link_type": link_type,
+                "include_federation_lineage": include_lineage,
                 "convert_urns_to_lowercase": lowercase,
                 "federation_connection_details": {
                     "pg_conn": {"platform_instance": "prod-pg"}
@@ -492,27 +492,8 @@ def _source_with_link(link_type: str, lowercase: bool = False) -> UnityCatalogSo
     return src
 
 
-def test_federation_siblings_emitted_for_foreign_table():
-    src = _source_with_link("siblings")
-    catalog = _foreign_catalog()
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
-    )
-    wus = list(src._gen_federation_link(dataset_urn, _foreign_table(catalog), catalog))
-    siblings = [
-        aspect
-        for wu in wus
-        if isinstance(aspect := wu.get_aspect_of_type(SiblingsClass), SiblingsClass)
-    ]
-    assert siblings, "expected sibling aspects"
-    external = (
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
-    )
-    assert any(external in s.siblings for s in siblings)
-
-
 def test_federation_lineage_mode_emits_upstream():
-    src = _source_with_link("lineage")
+    src = _source_with_link()
     catalog = _foreign_catalog()
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
@@ -531,13 +512,13 @@ def test_federation_lineage_mode_emits_upstream():
 
 
 def test_federation_link_none_emits_nothing():
-    src = _source_with_link("none")
+    src = _source_with_link(include_lineage=False)
     catalog = _foreign_catalog()
     assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
 
 
 def test_federation_link_lowercase_applied():
-    src = _source_with_link("lineage", lowercase=True)
+    src = _source_with_link(lowercase=True)
     catalog = Catalog(
         id="c",
         name="My_Catalog",
@@ -596,7 +577,7 @@ def test_federation_link_lowercase_applied():
 
 
 def test_unresolved_target_warns_once_and_caches():
-    src = _source_with_link("siblings")
+    src = _source_with_link()
     # No override in federation_connection_details for this connection, and the
     # connections API doesn't know about it either -> cannot resolve.
     src.unity_catalog_api_proxy._connections_cache = {}
@@ -633,7 +614,7 @@ def test_per_connection_lowercase_override_wins_over_global_false():
             {
                 **_BASE,
                 "include_metastore": False,
-                "federation_link_type": "lineage",
+                "include_federation_lineage": True,
                 "convert_urns_to_lowercase": False,
                 "federation_connection_details": {
                     "pg_conn": {
@@ -934,7 +915,7 @@ def _lineage_cll_source():
             {
                 **_BASE,
                 "include_metastore": False,
-                "federation_link_type": "lineage",
+                "include_federation_lineage": True,
                 "include_column_lineage": True,
             }
         )
@@ -979,15 +960,12 @@ def test_federation_lineage_emits_identity_column_lineage():
 
 
 def test_federation_lineage_no_column_lineage_when_flag_off():
-    src = _source_with_link(
-        "lineage"
-    )  # include_column_lineage defaults True? use explicit off
     with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
         cfg = UnityCatalogSourceConfig.model_validate(
             {
                 **_BASE,
                 "include_metastore": False,
-                "federation_link_type": "lineage",
+                "include_federation_lineage": True,
                 "include_column_lineage": False,
             }
         )
