@@ -178,22 +178,20 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
-    # GMS HTTP service rate limiting (disabled by default).
-    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
-    # Guide: docs/deploy/gms-rate-limiting.md
-    #
-    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
-    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
-    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
+    # GMS HTTP API rate limiting (disabled by default; not MCP ingestion or Kafka lag throttle).
+    # Bundled defaults (Tier 1), all env-overridable. Optional mounted RATE_LIMITS_CONFIG_FILE
+    # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
+    # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
+      enabled: ${RATE_LIMITS_ENABLED:false} # master kill switch
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      # Namespaces bucket keys ({tenantId}:actor:{urn}) so deployments sharing a store stay isolated; set to global.id.
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false} # select rules by browser/non-browser class
       excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      configFile:
-        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
-        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
-      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      # Adaptive in-flight limits (Netflix Gradient2), per pod.
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
         default:
@@ -208,12 +206,42 @@ datahub:
           initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
           minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
           maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        rules: []
-      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+        rules: [] # per-path rules via mounted override
+      # Cluster-wide token buckets (Bucket4j) via Hazelcast.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
         hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        rules: []
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
+        rules: [] # per-path rules via mounted override
+      # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
+      # heavyResolvers is a per-resolver map, populated via the mounted override.
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+        refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
+        # refillTokens defaults to the bucket's capacity (nested placeholder) but can be set
+        # independently; refillPeriodSeconds defaults to 60.
+        actor:
+          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
+        browser:
+          # perActor=true keys this class bucket per actor ({tenantId}:browser:{urn}); false (default)
+          # is one shared browser ceiling per tenant. Set independently from sdk.
+          perActor: ${RATE_LIMITS_SCOPED_BROWSER_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_TOKENS:${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_PERIOD_SECONDS:60}
+        sdk:
+          perActor: ${RATE_LIMITS_SCOPED_SDK_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:1000}
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
+        global:
+          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_TOKENS:${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_PERIOD_SECONDS:60}
+        heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 
@@ -815,6 +843,9 @@ elasticsearch:
     minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
+    catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
+    catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up
+    catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.

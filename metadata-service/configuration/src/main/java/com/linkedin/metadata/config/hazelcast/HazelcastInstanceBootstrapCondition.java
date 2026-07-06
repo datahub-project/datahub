@@ -23,7 +23,9 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
         env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
       return true;
     }
-    return Boolean.parseBoolean(
-        env.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "false"));
+    // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone
+    // would leave a scoped-only deployment without a Hazelcast instance, and the engine throws at
+    // startup when scoped is active but Hazelcast is null.
+    return HazelcastBootstrapProperties.rateLimitNeedsHazelcast(env);
   }
 }
