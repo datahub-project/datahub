@@ -189,25 +189,22 @@ export class EntityDocumentationPage extends BasePage {
     newLabel: string,
     showInPreview: boolean,
   ): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href='${currentUrl}']`) })
-      .filter({ hasText: currentLabel })
-      .getByTestId('edit-link-button')
-      .click();
+    // Links render as ResourceLinkPill anchors (keyed by href) rather than AntD list
+    // items; the edit affordance is a button rendered inside the pill anchor.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${currentUrl}"]`).filter({ hasText: currentLabel });
+    await pill.getByTestId('edit-link-button').click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
     await expect(this.page.getByText('Link Updated')).toBeVisible({ timeout: 15000 });
   }
 
   async removeLinkByUrl(url: string): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href="${url}"]`) })
-      .getByTestId('remove-link-button')
-      .click();
+    // Links render as ResourceLinkPill anchors (keyed by href) rather than AntD list
+    // items; the remove affordance is a button rendered inside the pill anchor.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${url}"]`);
+    await pill.getByTestId('remove-link-button').click();
     await expect(this.page.getByText('Link Removed')).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText('Link Removed')).not.toBeVisible({ timeout: 15000 });
   }
