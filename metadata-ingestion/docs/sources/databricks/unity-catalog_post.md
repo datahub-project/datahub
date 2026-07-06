@@ -76,6 +76,25 @@ The default preparsed path emits table-level usage only (no column `fieldCounts`
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
 
+#### Lakehouse Federation (foreign catalogs)
+
+DataHub detects Unity Catalog **foreign catalogs** (Lakehouse Federation) and links their tables to the external source dataset each one mirrors (PostgreSQL, SQL Server, MySQL, Snowflake, Redshift, BigQuery, Oracle, Teradata, another Databricks workspace, or Glue/Hive).
+
+- The foreign catalog is marked with structured properties (`platform`, `remote_database`, `connection`, `catalog_type`).
+- `federation_link_type` controls the cross-platform link: `siblings` (default — merges the Databricks table and the external table into one logical dataset), `lineage` (an upstream edge), or `none` (no cross-platform link).
+- For the link to resolve, the external source must be ingested separately, and its `platform_instance` and `convert_urns_to_lowercase` settings must match. Use `federation_connection_details` (keyed by Unity Catalog connection name) to align them:
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    federation_link_type: siblings
+    federation_connection_details:
+      pg_conn:
+        platform_instance: prod-pg
+        env: PROD
+```
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
