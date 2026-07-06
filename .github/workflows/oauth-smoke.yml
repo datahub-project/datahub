@@ -1,0 +1,85 @@
+name: OAuth Smoke Test
+
+# Regression canary for the DataHub OAuth chain: GMS external-OAuth validation
+# (EXTERNAL_OAUTH_*, audience accept/reject, anonymous 401) AND the Python SDK's
+# client-side auth — env-based DATAHUB_AUTH_TYPE resolution, declarative
+# recipe auth (datahub_api/sink), the credential-less-sink env-merge, and
+# static-vs-env precedence.
+#
+# Scope: GMS runs the *released* quickstart images (its OAuth validation is
+# shipped); the tester overlays the TRIGGERING REF's SDK source onto the
+# released install (see run-oauth-ci.sh), so this job gates client-side auth
+# changes. Gating GMS auth changes would still require building PR images in
+# this job first.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+  push:
+    branches:
+      - master
+    paths:
+      - "smoke-test/tests/oauth/**"
+      - ".github/workflows/oauth-smoke.yml"
+      - "metadata-ingestion/src/datahub/ingestion/auth/**"
+      - "metadata-ingestion/src/datahub/emitter/token_provider.py"
+      - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
+      - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
+  pull_request:
+    paths:
+      - "smoke-test/tests/oauth/**"
+      - ".github/workflows/oauth-smoke.yml"
+      - "metadata-ingestion/src/datahub/ingestion/auth/**"
+      - "metadata-ingestion/src/datahub/emitter/token_provider.py"
+      - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
+      - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
+
+permissions:
+  contents: read
+
+jobs:
+  oauth-smoke:
+    name: OAuth Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+
+      - name: Install datahub CLI
+        run: |
+          CLI_VERSION=$(grep 'cliVersion' gradle/versioning/cliVersion.gradle | head -1 | sed 's/.*"\([^"]*\)".*/\1/')
+          echo "Installing acryl-datahub==${CLI_VERSION}"
+          pip install "acryl-datahub==${CLI_VERSION}"
+
+      - name: Run OAuth smoke test
+        run: bash smoke-test/tests/oauth/run-oauth-ci.sh
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+
+      - name: Upload logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-${{ github.job }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5
