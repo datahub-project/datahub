@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 CLI tool to bump schemaVersion annotations on changed PDL aspect files.
