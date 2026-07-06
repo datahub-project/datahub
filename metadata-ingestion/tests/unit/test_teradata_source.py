@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from threading import Event, Thread, current_thread
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -27,11 +28,12 @@ from datahub.ingestion.source.sql.teradata import (
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
+    TeradataDialect,
     TeradataReport,
     TeradataSource,
     TeradataTable,
     ViewErrorCategory,
-    _categorize_view_error,
+    _categorize_teradata_error,
     _engine_connect_with_retry,
     _execute_with_retry,
     _fetchmany_with_retry,
@@ -2435,6 +2437,101 @@ class TestIncrementalColumnExtraction:
 
         mock_dialect.get_schema_columns.assert_called_once()
 
+    def test_optimized_get_columns_reports_table_missing_from_cache(self) -> None:
+        """A table listed during discovery but absent from the cache (e.g. dropped
+        before column extraction) is reported, not silently logged."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.report = TeradataReport()
+
+        tables_cache: Dict[str, List[TeradataTable]] = {"mydb": []}
+
+        result = optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "dropped_table",
+            "mydb",
+            tables_cache=tables_cache,
+            tables_needing_extraction=None,
+        )
+
+        # Behaviour is unchanged: still returns no columns without a hard failure.
+        assert result == []
+        # But the run report now surfaces a count and the affected name.
+        assert mock_dialect.report.num_tables_missing_from_cache == 1
+        warnings = list(mock_dialect.report.warnings)
+        assert len(warnings) == 1
+        assert "mydb.dropped_table" in str(warnings[0].context)
+        mock_dialect.get_schema_columns.assert_not_called()
+
+    def test_optimized_get_columns_logs_when_no_report(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Fallback path: when the dialect has no report attached (e.g. the source
+        wiring that attaches it didn't run), a missing table is still surfaced via
+        ``logger.warning`` rather than swallowed. A SimpleNamespace is used instead
+        of MagicMock because MagicMock auto-creates a truthy ``.report`` attribute,
+        which would silently take the report branch and never exercise this one."""
+        dialect = SimpleNamespace(default_schema_name="mydb")  # no `report` attr
+
+        with caplog.at_level(logging.WARNING):
+            result = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "dropped_table",
+                "mydb",
+                tables_cache={"mydb": []},
+                tables_needing_extraction=None,
+            )
+
+        assert result == []
+        assert any("dropped_table" in r.message for r in caplog.records)
+
+    def test_optimized_get_columns_aggregates_multiple_missing_tables(self) -> None:
+        """Two dropped tables increment the counter twice but collapse into a
+        single warning (report.warning groups by title) whose context lists both
+        affected names. Locks in the aggregate-don't-spam behaviour."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect.report = TeradataReport()
+
+        tables_cache: Dict[str, List[TeradataTable]] = {"mydb": []}
+
+        for table_name in ("dropped_a", "dropped_b"):
+            assert (
+                optimized_get_columns(
+                    mock_dialect,
+                    MagicMock(),
+                    table_name,
+                    "mydb",
+                    tables_cache=tables_cache,
+                    tables_needing_extraction=None,
+                )
+                == []
+            )
+
+        assert mock_dialect.report.num_tables_missing_from_cache == 2
+        warnings = list(mock_dialect.report.warnings)
+        assert len(warnings) == 1
+        contexts = str(list(warnings[0].context))
+        assert "mydb.dropped_a" in contexts
+        assert "mydb.dropped_b" in contexts
+
+    def test_source_report_is_reachable_from_dialect(self) -> None:
+        """The patched dialect column/PK functions run with a TeradataDialect
+        instance as ``self`` (SQLAlchemy invokes them via the Inspector), so they
+        can only record metrics if the source's report is attached to the dialect.
+        Without this wiring every ``getattr/hasattr(self, "report")`` check inside
+        those functions is False and metrics silently stay at 0 in production."""
+        source = _create_source()
+        try:
+            assert TeradataDialect.report is source.report
+        finally:
+            # The report is attached to the shared dialect class, so drop it to
+            # avoid leaking this source's report into later tests.
+            if hasattr(TeradataDialect, "report"):
+                delattr(TeradataDialect, "report")
+
 
 class TestDbcColumnsForViews:
     """#2 — bulk dbc.ColumnsV for views with HELP fallback for derived columns."""
@@ -4319,8 +4416,8 @@ class TestExecuteWithCursorFallback:
         assert result is expected
 
 
-class TestCategorizeViewError:
-    """Unit tests for _categorize_view_error."""
+class TestCategorizeTeradataError:
+    """Unit tests for _categorize_teradata_error."""
 
     @pytest.mark.parametrize(
         "exc, expected",
@@ -4436,11 +4533,11 @@ class TestCategorizeViewError:
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
-        assert _categorize_view_error(exc) == expected
+        assert _categorize_teradata_error(exc) == expected
 
 
 class TestErrorCategorizationReport:
-    """Report counters are wired correctly to _categorize_view_error categories."""
+    """Report counters are wired correctly to _categorize_teradata_error categories."""
 
     def test_increment_schema_discovery_failures(self) -> None:
         report = TeradataReport()
@@ -4626,7 +4723,7 @@ class TestViewProcessingErrorCounters:
 
     Both the single-threaded path (_process_views_single_threaded, max_workers=1)
     and the multi-threaded path (_loop_views_with_connection_pool, max_workers>1)
-    use _categorize_view_error to route failures to the right sub-counter.
+    use _categorize_teradata_error to route failures to the right sub-counter.
     """
 
     # ------------------------------------------------------------------
@@ -5795,6 +5892,47 @@ class TestGenerateProfileCandidates:
         # The warning should point at the DBC view so operators know what to grant;
         # match on a stable keyword rather than the full wording.
         assert any("DBC.TableSizeV" in w.message for w in source.report.warnings)
+        assert source.report.profiling_permission_errors == 1
+
+    def test_permission_failure_is_categorized_and_counted(self):
+        """A permission denial while sizing (e.g. [Error 3523] on DBC.TableSizeV)
+        is surfaced under the permission-specific title and counted, while still
+        falling back to no filtering so the run continues."""
+        source = self._source_with_size_limit(2)
+
+        exc = Exception(
+            "[Error 3523] user does not have SELECT access to DBC.TableSizeV"
+        )
+        with patch.object(source, "_retry_execute", side_effect=exc):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        assert source.report.profiling_permission_errors == 1
+        assert any(
+            w.title == "Unauthorized to size tables for profiling"
+            for w in source.report.warnings
+        )
+
+    def test_non_permission_failure_uses_generic_warning(self):
+        """A non-permission sizing failure (e.g. a timeout) keeps the generic
+        warning and does not increment the permission counter."""
+        source = self._source_with_size_limit(2)
+
+        with patch.object(
+            source, "_retry_execute", side_effect=Exception("request timed out")
+        ):
+            candidates = source.generate_profile_candidates(
+                MagicMock(), None, "myschema"
+            )
+
+        assert candidates is None
+        assert source.report.profiling_permission_errors == 0
+        assert any(
+            w.title == "Could not size tables for profiling"
+            for w in source.report.warnings
+        )
 
     def test_eligibility_counts_size_skip_once_not_double_counted(self):
         """A table excluded by the size-filtered candidate list is counted in

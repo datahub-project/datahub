@@ -209,6 +209,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:bigid",
+        "name": "bigid",
+        "displayName": "BigID",
+        "description": "Enrich datasets with BigID classification findings, business glossary terms, and tags as GlossaryTerms, Tags, and Dataset profiles.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/bigid/",
+        "recipe": "source:\n  type: bigid\n  config:\n    bigid_url: \"https://bigid.example.com\"\n    user_token: \"${BIGID_USER_TOKEN}\"\n    env: \"PROD\"\n    stateful_ingestion:\n      enabled: true",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:flink",
         "name": "flink",
         "displayName": "Flink",
