@@ -344,8 +344,8 @@ class UnityCatalogSourceConfig(
     )
     federation_structured_property_namespace: str = pydantic.Field(
         default="databricks.federation",
-        description="Qualified-name namespace for the federation structured properties "
-        "(e.g. '<namespace>.platform').",
+        description="Qualified-name prefix for the federation structured properties; "
+        "each property is this prefix plus its suffix (e.g. 'databricks.federation.platform').",
     )
     federation_connection_details: Dict[str, FederationConnectionDetail] = (
         pydantic.Field(
