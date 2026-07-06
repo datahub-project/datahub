@@ -255,9 +255,24 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             on_delivery=callback,
         )
 
-    def flush(self) -> None:
+    def flush(self) -> int:
+        """Flush all producers, bounded by max_queue_full_block_seconds so an
+        unreachable broker cannot hang the run indefinitely at flush time (the
+        backpressure loop only bounds produce()).
+
+        Returns the number of messages still undelivered after the timeout
+        (0 = fully drained).
+        """
+        undelivered = 0
         for producer in self.producers.values():
-            producer.flush()
+            undelivered += producer.flush(self.config.max_queue_full_block_seconds)
+        if undelivered:
+            logger.error(
+                "Kafka flush timed out with %d message(s) still queued "
+                "(broker unreachable?).",
+                undelivered,
+            )
+        return undelivered
 
     def close(self) -> None:
         self.flush()

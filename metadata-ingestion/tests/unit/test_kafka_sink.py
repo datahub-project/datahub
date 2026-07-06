@@ -262,9 +262,12 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_close(self, mock_producer, mock_context):
         mock_producer_instance = mock_producer.return_value
+        mock_producer_instance.flush.return_value = 0
         kafka_sink = DatahubKafkaSink.create({}, mock_context)
         kafka_sink.close()
-        mock_producer_instance.flush.assert_has_calls([call(), call()])
+        # flush is now bounded by a timeout (max_queue_full_block_seconds).
+        timeout = kafka_sink.config.max_queue_full_block_seconds
+        mock_producer_instance.flush.assert_has_calls([call(timeout), call(timeout)])
 
     @patch("datahub.ingestion.sink.datahub_kafka.RecordEnvelope", autospec=True)
     @patch("datahub.ingestion.sink.datahub_kafka.WriteCallback", autospec=True)
@@ -526,6 +529,7 @@ def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emit
         PipelineContext(run_id="test"),
     )
     mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+    mock_mcp_producer.flush.return_value = 0  # fully drained
 
     mcp = _make_delete_mcp()
     re: RecordEnvelope[
@@ -589,6 +593,7 @@ def test_kafka_sink_delete_skipped_after_prior_delivery_failure(
         },
         PipelineContext(run_id="test"),
     )
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 0  # drained
     # Simulate a prior async delivery failure in this run.
     kafka_sink._delivery_failed.set()
 
@@ -611,6 +616,41 @@ def test_kafka_sink_delete_skipped_after_prior_delivery_failure(
 
 @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_delete_rest_failure_is_reported(mock_producer, mock_make_emitter):
+    """If the REST fallback emit raises (e.g. GMS 500), the record is failed
+    (not silently swallowed) and success is never signalled."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_rest_emitter.emit_mcp.side_effect = Exception("GMS 500")
+    mock_make_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].flush.return_value = 0  # drained
+
+    mcp = _make_delete_mcp()
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mcp, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emitter):
     """RESTATE (like DELETE) is not supported over async Kafka -> REST fallback."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
@@ -625,6 +665,7 @@ def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emi
         PipelineContext(run_id="test"),
     )
     mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+    mock_mcp_producer.flush.return_value = 0  # fully drained
 
     mcp = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
@@ -704,6 +745,7 @@ def test_kafka_sink_timeseries_patch_routes_to_rest_fallback(
         PipelineContext(run_id="test"),
     )
     mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+    mock_mcp_producer.flush.return_value = 0  # fully drained
 
     # datasetProfile is a timeseries aspect.
     mcp = MetadataChangeProposalWrapper(

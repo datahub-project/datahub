@@ -180,6 +180,11 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     # directly (not via get_default_graph) to avoid creating and connecting a
     # second graph -- the single connection happens later when the pipeline
     # builds ctx.graph from the sink's to_graph().
+    # Spread the client config into the REST sink config. DatahubRestSinkConfig
+    # extends DatahubClientConfig, so this carries over server/token/TLS/retry/
+    # headers -- mirroring DataHubGraph._make_rest_sink_config(). Kept as a spread
+    # (not a hand-picked subset) so new client-config fields flow through here the
+    # same way they do for the REST default sink.
     rest_fallback = DatahubRestSinkConfig(
         **config_utils.load_client_config().model_dump()
     )

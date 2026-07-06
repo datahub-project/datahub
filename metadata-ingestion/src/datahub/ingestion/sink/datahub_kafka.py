@@ -258,21 +258,35 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                 and self._needs_rest_fallback(record)
             ):
                 # Drain in-flight async Kafka messages before the synchronous
-                # REST delete, so earlier writes for the same entity reach GMS
-                # first (preserves per-entity ordering).
-                self.emitter.flush()
-                # If any prior async delivery failed, do NOT apply the
-                # DELETE/RESTATE -- that would delete/restate an entity whose
-                # preceding write never landed. Fail this record instead; the
-                # run already fails via the earlier failure. Conservative (any
-                # prior failure blocks any fallback), which is safe since such
-                # MCPs are rare and the run is aborting regardless.
-                if self._delivery_failed.is_set():
+                # REST delete, so earlier writes for the same entity reach the
+                # broker first. NOTE: this is best-effort ordering -- it flushes
+                # the local producer queue, but does not wait for the MCP
+                # consumer to apply those events, so a REST DELETE can still
+                # reach GMS before an earlier Kafka UPSERT is replayed.
+                # DELETE-heavy recipes should be aware of this.
+                try:
+                    undelivered = self.emitter.flush()
+                except Exception as flush_err:
                     kafka_callback.report_emit_failure(
                         Exception(
-                            "Skipping REST fallback for "
-                            f"{record.changeType} on {record.entityUrn}: a prior "
-                            "Kafka delivery failed in this run."
+                            f"Kafka flush failed before {record.changeType} on "
+                            f"{record.entityUrn}: {flush_err}"
+                        )
+                    )
+                    return
+                # Do NOT apply the DELETE/RESTATE if a preceding write failed or
+                # is unconfirmed -- that would delete/restate an entity whose
+                # write never landed. Fail this record instead; the run already
+                # fails via the earlier failure. Conservative (any prior failure
+                # blocks any fallback), safe since such MCPs are rare and the run
+                # is aborting regardless.
+                if undelivered or self._delivery_failed.is_set():
+                    kafka_callback.report_emit_failure(
+                        Exception(
+                            f"Skipping REST fallback for {record.changeType} on "
+                            f"{record.entityUrn}: prior Kafka writes not confirmed "
+                            f"(undelivered={undelivered}, "
+                            f"delivery_failed={self._delivery_failed.is_set()})."
                         )
                     )
                     return
@@ -293,7 +307,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                     f"Unpacking MCE for {record.proposedSnapshot.urn} into individual MCPs"
                 )
                 # Materialize to a list so we know the count for the
-                # aggregating callback and can detect empty-aspect MCEs.
+                # aggregating callback and can detect empty-aspect MCEs. Bounded
+                # by a single entity's aspect count (small; large only for very
+                # lineage/schema-heavy datasets), not the whole stream.
                 mcps = list(mcps_from_mce(record))
                 if not mcps:
                     logger.warning(
