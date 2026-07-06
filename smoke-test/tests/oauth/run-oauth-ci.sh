@@ -24,12 +24,15 @@ teardown() {
   docker logs "$(docker ps -aqf name=datahub-gms)" 2>&1 | tail -100 || true
   docker logs "$(docker ps -aqf name=keycloak)" 2>&1 | tail -50 || true
   echo "::endgroup::"
-  if [ "${CI:-}" = "true" ]; then
+  # Gate on GITHUB_ACTIONS rather than CI: plain CI=true is exported by dev
+  # containers, act-style local runners, and assorted tooling, and would nuke a
+  # developer's local quickstart volumes (COMPOSE_PROJECT_NAME=datahub is the
+  # same compose project).
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
     datahub docker nuke || docker compose -p "$COMPOSE_PROJECT_NAME" down -v || true
   else
-    # Never nuke outside CI: COMPOSE_PROJECT_NAME=datahub is the same compose
-    # project as a local quickstart, and nuke irreversibly deletes its volumes.
-    echo "Not running in CI — leaving the stack up. Tear down with: datahub docker nuke"
+    # Never nuke outside CI: nuke irreversibly deletes the quickstart volumes.
+    echo "Not running in GitHub Actions — leaving the stack up. Tear down with: datahub docker nuke"
   fi
 }
 trap teardown EXIT

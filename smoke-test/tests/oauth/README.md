@@ -64,7 +64,7 @@ issuer, and the JWKS URL all on internal hostnames and consistent.
 
 > **Authorization note:** the overlay disables authorization
 > (`AUTH_POLICIES_ENABLED=false` + `REST_API_AUTHORIZATION_ENABLED=false`)
-> because this canary tests *authentication* — anonymous requests still 401.
+> because this canary tests _authentication_ — anonymous requests still 401.
 > An OAuth machine principal appears to GMS as a fresh synthetic corpuser with
 > no roles — on a real deployment you must grant it a role/policy or every
 > write fails with `403 ... is unauthorized to modify entity`.
