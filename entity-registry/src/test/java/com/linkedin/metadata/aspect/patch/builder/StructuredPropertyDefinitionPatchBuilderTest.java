@@ -100,7 +100,10 @@ public class StructuredPropertyDefinitionPatchBuilderTest {
     propertyValue.setValue(primitive);
     builder.addAllowedValue(propertyValue);
 
-    ImmutableTriple<String, String, JsonNode> op = builder.getTestPathValues().get(0);
+    List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
+    assertEquals(pathValues.size(), 1);
+
+    ImmutableTriple<String, String, JsonNode> op = pathValues.get(0);
     String prefix = "/allowedValues/";
     assertTrue(op.getMiddle().startsWith(prefix));
     String segment = op.getMiddle().substring(prefix.length());
