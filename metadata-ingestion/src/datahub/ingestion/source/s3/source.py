@@ -280,27 +280,27 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
-
             try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
-
-                self.profiler = SparkProfiler(
-                    aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
-                    report=self.report,
-                    profiling_times_taken=self.profiling_times_taken,
-                    profiling_config=config.profiling,
+                from datahub.ingestion.source.data_lake_common.duckdb_profiler import (
+                    DuckDBProfiler,
                 )
             except (ImportError, ModuleNotFoundError) as e:
+                # DuckDB ships in the `data-lake-profiling` deps, which the
+                # `s3`/`gcs`/`abs` extras pull in but `s3-slim` deliberately
+                # omits. Surface an actionable install hint instead of a bare
+                # ModuleNotFoundError that aborts the whole run.
                 raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "DuckDB is required for data-lake profiling but is not installed. "
+                    "Install it with: pip install 'acryl-datahub[data-lake-profiling]'"
                 ) from e
+
+            self.profiler = DuckDBProfiler(
+                aws_config=config.aws_config,
+                report=self.report,
+                profiling_config=config.profiling,
+                platform=self.source_config.platform,
+                times_taken=self.profiling_times_taken,
+            )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -590,7 +590,9 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.profiler.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(
+                table_data, dataset_urn, path_spec
+            )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -1238,3 +1240,8 @@ class S3Source(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
+
+    def close(self) -> None:
+        if getattr(self, "profiler", None) is not None:
+            self.profiler.close()
+        super().close()

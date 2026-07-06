@@ -98,6 +98,12 @@ def get_adapter(
         )
 
         adapter_class = ClickHouseAdapter
+    elif platform_lower == "duckdb":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.duckdb import (
+            DuckDBAdapter,
+        )
+
+        adapter_class = DuckDBAdapter
     else:
         # Fallback to generic adapter for unknown platforms
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (

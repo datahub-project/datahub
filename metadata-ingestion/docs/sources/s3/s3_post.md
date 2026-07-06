@@ -269,20 +269,21 @@ This plugin extracts:
   - minimum, maximum, mean, median, standard deviation, some quantile values
   - histograms or frequencies of unique values
 
-Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
-Enabling profiling will slow down ingestion runs.
+Profiling is computed with **DuckDB** via the SQLAlchemy profiler — no Java or Spark installation is required. S3 credentials are passed to DuckDB's `httpfs` extension automatically via a secret derived from the source's `aws_config`; the `s3://` scheme is used for access during profiling. Enabling profiling will slow down ingestion runs.
 
-:::info Compatibility
+Supported formats for profiling: Parquet, CSV/TSV, JSON/JSONL, and Avro (Parquet, CSV, and JSON readers are statically bundled in the DuckDB wheel).
 
-Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
+DuckDB loads extensions at runtime: `httpfs` (for reading remote `s3://` objects), `avro` (only when profiling Avro files), and `aws` (only for instance-profile/role-based S3 credentials, i.e. when no explicit keys are configured). By default these are downloaded from DuckDB's extension repository on first use and cached afterwards (one-time network access).
 
-For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
-:::
+**Air-gapped deployments** have two options:
 
-:::caution
+- **Docker:** the official `datahub-ingestion` image (full variant) pre-installs `httpfs`, `avro`, and `aws` at build time for its platform, so profiling works offline with no extra configuration.
+- **pip / custom installs:** pre-stage the `.duckdb_extension` binaries (matching your DuckDB version and platform) and set `profiling.duckdb_extension_directory` to that directory. A correctly staged binary then loads with no network access. Note this is **not** a hard offline switch: if a required binary is missing or does not match your DuckDB version/platform, DuckDB still attempts to download it, and the affected table is skipped with an actionable warning only if that download also fails.
 
-From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158]
-Avro files that contain such columns won't be profiled.
+:::note
+
+The `spark_driver_memory` and `spark_config` profiling options have been removed (supplying either now emits a removed-field warning and is otherwise ignored). Profile metric values such as distinct counts, quantiles, and histograms may differ slightly from previous Spark/PyDeequ-based runs because DuckDB uses different (approximate) algorithms; row, column, and null counts are unchanged.
+
 :::
 
 ### Limitations

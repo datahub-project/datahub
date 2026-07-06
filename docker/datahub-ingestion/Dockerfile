@@ -111,6 +111,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libodbc2
 USER datahub
 
+# DuckDB data-lake profiling extension directory + baked set. Declared here (the
+# common base) so every variant that installs profiling deps loads extensions
+# from the same version-keyed dir at runtime. The bake itself runs per final
+# stage after the profiling deps are installed (see bake_duckdb_extensions.py).
+ENV DATAHUB_DUCKDB_EXTENSION_DIRECTORY=/home/datahub/.duckdb-extensions
+ENV DATAHUB_DUCKDB_BAKE_EXTENSIONS="httpfs avro aws"
+
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
@@ -176,9 +183,14 @@ ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
-    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3,gcs,abs,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv
+
+# DuckDB is a lightweight (pure-wheel) dependency, so the slim image now ships
+# data-lake profiling too; bake its extensions like the full image does.
+RUN --mount=type=bind,source=./docker/datahub-ingestion/bake_duckdb_extensions.py,target=/bake_duckdb_extensions.py \
+    python /bake_duckdb_extensions.py
 
 FROM add-code-full AS final-full
 
@@ -190,6 +202,16 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
         -e "/metadata-ingestion/[all]" \
     && datahub --version
 RUN rm -rf $HOME/.config/uv
+
+# Bake the DuckDB profiling extensions into a version-keyed dir so profiling works
+# offline out of the box (see bake_duckdb_extensions.py for the full rationale):
+#   - httpfs: remote object-store reads (S3 / GCS-over-S3)
+#   - avro:   Avro files
+#   - aws:    the `credential_chain` provider for instance-profile/role-based S3
+# (Azure/abs remote profiling is not wired, so no `azure` extension is baked.)
+# Keep DATAHUB_DUCKDB_BAKE_EXTENSIONS in sync with what duckdb_profiler.py loads.
+RUN --mount=type=bind,source=./docker/datahub-ingestion/bake_duckdb_extensions.py,target=/bake_duckdb_extensions.py \
+    python /bake_duckdb_extensions.py
 
 FROM add-code-locked AS final-locked
 

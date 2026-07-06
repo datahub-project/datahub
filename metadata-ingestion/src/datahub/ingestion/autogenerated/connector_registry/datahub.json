@@ -14,12 +14,6 @@
           "supported": true
         },
         {
-          "capability": "DATA_PROFILING",
-          "description": "Optionally enabled via configuration",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
