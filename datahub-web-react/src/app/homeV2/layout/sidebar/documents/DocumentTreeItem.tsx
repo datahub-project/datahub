@@ -1,18 +1,15 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { FileDashed } from '@phosphor-icons/react/dist/csr/FileDashed';
-import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
-import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
-import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
+import { pickTreeIcon } from '@app/document/utils/documentUtils';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
-import { Button, Tooltip } from '@src/alchemy-components';
+import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { DataPlatform } from '@types';
 
@@ -136,11 +133,12 @@ const ActionButton = styled(Button)`
     }
 `;
 
-/** Resolves the Phosphor icon component for a tree row given its branch/published state. */
-function pickTreeIcon({ hasChildren, isUnpublished }: { hasChildren: boolean; isUnpublished: boolean }) {
-    if (hasChildren) return isUnpublished ? FolderDashed : Folder;
-    return isUnpublished ? FileDashed : FileText;
-}
+const CheckboxSlot = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+`;
 
 interface DocumentTreeItemProps {
     urn: string;
@@ -160,6 +158,14 @@ interface DocumentTreeItemProps {
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
     parentUrn?: string | null;
+    /**
+     * When true, renders a leading checkbox and treats the row as a multi-select
+     * target: `isSelected` drives the checkbox's checked state, and clicking anywhere
+     * on the row (or the checkbox itself) fires `onClick` so the parent can toggle
+     * the URN in its own selection set. Row actions (menu, create-child) are hidden
+     * in this mode to keep the picker focused on selection.
+     */
+    multiSelect?: boolean;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -180,6 +186,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideActionsMenu = false,
     hideCreate = false,
     parentUrn,
+    multiSelect = false,
 }) => {
     const { t } = useTranslation('home.v2');
     const { t: tc } = useTranslation('common.actions');
@@ -274,7 +281,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 </Title>
             </LeftContent>
 
-            {!hideActions && (isHovered || forceShowActions) && (
+            {multiSelect && (
+                <CheckboxSlot>
+                    <Checkbox
+                        isChecked={isSelected}
+                        setIsChecked={() => onClick()}
+                        dataTestId={`document-tree-checkbox-${urn}`}
+                    />
+                </CheckboxSlot>
+            )}
+
+            {!multiSelect && !hideActions && (isHovered || forceShowActions) && (
                 <Actions className="tree-item-actions">
                     {!hideActionsMenu && (
                         <DocumentActionsMenu
@@ -287,7 +304,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     {!hideCreate && (
                         <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton
-                                icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
+                                icon={{ icon: Plus, color: 'icon' }}
                                 variant="text"
                                 onClick={handleAddChildClick}
                             />

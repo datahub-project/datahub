@@ -150,6 +150,9 @@ export default function CompactMarkdownViewer({
                             variant="text"
                             color="gray"
                             size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
+                            // Drop the button's horizontal padding so the label left-aligns
+                            // with the content above it instead of sitting indented.
+                            style={{ paddingLeft: 0, paddingRight: 0 }}
                             onClick={(e) => {
                                 if (handleShowMore) {
                                     handleShowMore();
