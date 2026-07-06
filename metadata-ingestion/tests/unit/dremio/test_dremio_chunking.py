@@ -114,7 +114,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": "res1",
                 "LOCATION_ID": "loc1",
-                "VIEW_DEFINITION": None,
                 "OWNER": "user1",
                 "OWNER_TYPE": "USER",
                 "CREATED": "2024-01-01",
@@ -125,10 +124,14 @@ class TestDremioChunking:
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter(mock_results)
         )
+        # View definitions are now fetched by a separate query; stub it out so
+        # this test stays focused on the global-query dispatch.
+        dremio_api._get_view_definitions = Mock(return_value={})
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
         dremio_api._get_all_tables_global_chunked.assert_called_once()
+        dremio_api._get_view_definitions.assert_called_once()
         assert len(tables) == 1
 
     def test_get_all_tables_global_chunked_single_chunk(self, dremio_api):
@@ -148,7 +151,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": "res1",
                 "LOCATION_ID": "loc1",
-                "VIEW_DEFINITION": None,
                 "OWNER": None,
                 "OWNER_TYPE": None,
                 "CREATED": None,
@@ -163,6 +165,7 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 
@@ -194,7 +197,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": f"res-{table}",
                 "LOCATION_ID": f"loc-{table}",
-                "VIEW_DEFINITION": None,
                 "OWNER": None,
                 "OWNER_TYPE": None,
                 "CREATED": None,
@@ -216,6 +218,7 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 
@@ -240,6 +243,7 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 

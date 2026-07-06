@@ -176,6 +176,7 @@ class DremioAPIOperations:
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
+        self.max_view_definition_length = connection_args.max_view_definition_length
         self.report = report
         self._chunk_size = 1000  # Sensible default to prevent OOM
         # /catalog/{id} responses are id-keyed and immutable for a run, so
@@ -640,7 +641,9 @@ class DremioAPIOperations:
         return dataset_id
 
     def community_get_formatted_tables(
-        self, tables_and_columns: List[Dict[str, Any]]
+        self,
+        tables_and_columns: List[Dict[str, Any]],
+        view_definitions: Dict[str, Optional[str]],
     ) -> List[Dict[str, Any]]:
         schema_list = []
         schema_dict_lookup = []
@@ -688,7 +691,6 @@ class DremioAPIOperations:
                         "TABLE_SCHEMA",
                         "TABLE_NAME",
                         "FULL_TABLE_PATH",
-                        "VIEW_DEFINITION",
                     )
                     if key in dictionary
                 ): dictionary
@@ -701,6 +703,7 @@ class DremioAPIOperations:
 
         for table, schemas in product(distinct_tables_list, schema_dict_lookup):
             if table.get("TABLE_SCHEMA") == schemas.get("original_path"):
+                full_table_path = table.get("FULL_TABLE_PATH", "")
                 dataset_list.append(
                     {
                         "TABLE_SCHEMA": "["
@@ -712,7 +715,7 @@ class DremioAPIOperations:
                         "COLUMNS": column_dictionary.get(
                             table.get("FULL_TABLE_PATH", "")
                         ),
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
+                        "VIEW_DEFINITION": view_definitions.get(full_table_path),
                         "RESOURCE_ID": self.get_dataset_id(
                             schema=".".join(schemas.get("formatted_path")),
                             dataset=table.get("TABLE_NAME", ""),
@@ -746,6 +749,92 @@ class DremioAPIOperations:
         pattern_str = "|".join(f"({p})" for p in patterns)
         return f"AND {operator}({field}, '{pattern_str}')"
 
+    def _get_view_definition_select(self) -> str:
+        # EE/Cloud store the SQL under SYS.VIEWS.SQL_DEFINITION; Community under
+        # INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION. SUBSTR caps oversized
+        # definitions server-side before the VARCHAR vector is built.
+        source_column = (
+            "VIEW_DEFINITION"
+            if self.edition == DremioEdition.COMMUNITY
+            else "SQL_DEFINITION"
+        )
+        if self.max_view_definition_length is not None:
+            return f"SUBSTR({source_column}, 1, {self.max_view_definition_length})"
+        return source_column
+
+    def _get_view_definition_query(self) -> str:
+        if self.edition == DremioEdition.ENTERPRISE:
+            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE
+        elif self.edition == DremioEdition.CLOUD:
+            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
+        else:
+            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
+        return template.replace(
+            "{view_definition_select}", self._get_view_definition_select()
+        )
+
+    def _get_view_definitions(
+        self,
+        schema_condition: str,
+        deny_schema_condition: str,
+    ) -> Dict[str, Optional[str]]:
+        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view.
+
+        Kept out of the per-column datasets query so a large definition isn't
+        duplicated per column — that duplication overflowed Dremio's 2 GiB
+        VARCHAR vector (OversizedAllocationException) and dropped datasets.
+        """
+        query_template = self._get_view_definition_query()
+        definitions: Dict[str, Optional[str]] = {}
+
+        if self.max_view_definition_length is not None:
+            logger.info(
+                f"Truncating Dremio view definitions to "
+                f"{self.max_view_definition_length} characters."
+            )
+
+        chunk_size = self._chunk_size
+        offset = 0
+        while True:
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
+            formatted_query = query_template.format(
+                schema_pattern=schema_condition,
+                deny_schema_pattern=deny_schema_condition,
+                limit_clause=limit_clause,
+            )
+
+            logger.info(
+                f"Fetching view-definition chunk (offset: {offset}, limit: {chunk_size})"
+            )
+
+            try:
+                chunk_results = list(self.execute_query_iter(query=formatted_query))
+            except DremioAPIException as e:
+                # Fail loudly rather than silently dropping view definitions and
+                # the lineage derived from them.
+                self.report.failure(
+                    message="Failed to fetch Dremio view definitions; view "
+                    "lineage may be incomplete. Consider setting "
+                    "`max_view_definition_length` to cap oversized definitions.",
+                    context=f"offset={offset}",
+                    exc=e,
+                )
+                break
+
+            if not chunk_results:
+                break
+
+            for record in chunk_results:
+                full_path = record.get("FULL_TABLE_PATH")
+                if full_path:
+                    definitions[full_path] = record.get("VIEW_DEFINITION")
+
+            if len(chunk_results) < chunk_size:
+                break
+            offset += chunk_size
+
+        return definitions
+
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
         """
         Fetch all tables and columns using a single global query.
@@ -754,6 +843,7 @@ class DremioAPIOperations:
         This eliminates the ~10s Dremio planning overhead that was incurred for each
         of thousands of containers (e.g. 10,000 containers × 10s = ~30 hours).
         Results are still chunked with LIMIT/OFFSET to prevent Dremio OOM errors.
+        View definitions are fetched separately and merged in by path.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
@@ -771,8 +861,15 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
+        view_definitions = self._get_view_definitions(
+            schema_condition, deny_schema_condition
+        )
+
         yield from self._get_all_tables_global_chunked(
-            query_template, schema_condition, deny_schema_condition
+            query_template,
+            schema_condition,
+            deny_schema_condition,
+            view_definitions=view_definitions,
         )
 
     def _get_all_tables_global_chunked(
@@ -780,6 +877,7 @@ class DremioAPIOperations:
         query_template: str,
         schema_condition: str,
         deny_schema_condition: str,
+        view_definitions: Dict[str, Optional[str]],
     ) -> Iterator[Dict]:
         """Yield tables from the global dataset query in LIMIT/OFFSET chunks.
 
@@ -806,7 +904,7 @@ class DremioAPIOperations:
                 "TABLE_NAME": info.get("TABLE_NAME"),
                 "TABLE_SCHEMA": info.get("TABLE_SCHEMA"),
                 "COLUMNS": columns,
-                "VIEW_DEFINITION": info.get("VIEW_DEFINITION"),
+                "VIEW_DEFINITION": view_definitions.get(path),
                 "RESOURCE_ID": info.get("RESOURCE_ID"),
                 "LOCATION_ID": info.get("LOCATION_ID"),
                 "OWNER": info.get("OWNER"),
@@ -835,7 +933,9 @@ class DremioAPIOperations:
                     break
 
                 if self.edition == DremioEdition.COMMUNITY:
-                    for table in self.community_get_formatted_tables(chunk_results):
+                    for table in self.community_get_formatted_tables(
+                        chunk_results, view_definitions=view_definitions
+                    ):
                         yield table
                 else:
                     for record in chunk_results:
@@ -878,7 +978,6 @@ class DremioAPIOperations:
                             table_metadata[table_full_path] = {
                                 "TABLE_NAME": record.get("TABLE_NAME"),
                                 "TABLE_SCHEMA": record.get("TABLE_SCHEMA"),
-                                "VIEW_DEFINITION": record.get("VIEW_DEFINITION"),
                                 "RESOURCE_ID": record.get("RESOURCE_ID"),
                                 "LOCATION_ID": record.get("LOCATION_ID"),
                                 "OWNER": record.get("OWNER"),

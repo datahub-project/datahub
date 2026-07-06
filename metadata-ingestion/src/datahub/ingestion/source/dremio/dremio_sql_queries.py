@@ -3,7 +3,9 @@ from typing import Optional
 
 
 class DremioSQLQueries:
-    # Fetches all CE datasets in a single query, filtered server-side by schema_pattern.
+    # VIEW_DEFINITION is fetched separately (QUERY_VIEW_DEFINITIONS_*) rather than
+    # joined here: repeating it per column can push the result's VARCHAR vector
+    # past Dremio's 2 GiB limit (OversizedAllocationException), dropping datasets.
     QUERY_DATASETS_CE_GLOBAL = """
     SELECT * FROM
     (
@@ -11,7 +13,6 @@ class DremioSQLQueries:
         T.TABLE_SCHEMA,
         T.TABLE_NAME,
         CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
-        V.VIEW_DEFINITION,
         C.COLUMN_NAME,
         C.ORDINAL_POSITION,
         C.IS_NULLABLE,
@@ -19,10 +20,6 @@ class DremioSQLQueries:
         C.COLUMN_SIZE
     FROM
         INFORMATION_SCHEMA."TABLES" T
-        LEFT JOIN INFORMATION_SCHEMA.VIEWS V ON
-        V.TABLE_CATALOG = T.TABLE_CATALOG
-        AND V.TABLE_SCHEMA = T.TABLE_SCHEMA
-        AND V.TABLE_NAME = T.TABLE_NAME
         INNER JOIN INFORMATION_SCHEMA.COLUMNS C ON
         C.TABLE_CATALOG = T.TABLE_CATALOG
         AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
@@ -40,7 +37,26 @@ class DremioSQLQueries:
     {limit_clause}
     """
 
-    # Fetches all EE datasets in a single query, filtered server-side by schema_pattern.
+    # One row per view. {view_definition_select} is filled in by the API layer so
+    # the definition column can optionally be wrapped in SUBSTR(...) to cap size.
+    QUERY_VIEW_DEFINITIONS_CE = """
+    SELECT
+        CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) AS FULL_TABLE_PATH,
+        TABLE_SCHEMA,
+        {view_definition_select} AS VIEW_DEFINITION
+    FROM
+        INFORMATION_SCHEMA.VIEWS
+    WHERE 1=1
+        {schema_pattern}
+        {deny_schema_pattern}
+    ORDER BY
+        TABLE_SCHEMA ASC,
+        TABLE_NAME ASC
+    {limit_clause}
+    """
+
+    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_EE (see
+    # QUERY_DATASETS_CE_GLOBAL).
     QUERY_DATASETS_EE_GLOBAL = """
         SELECT * FROM
         (
@@ -55,7 +71,6 @@ class DremioSQLQueries:
                  )) AS FULL_TABLE_PATH,
             OWNER_TYPE,
             LOCATION_ID,
-            VIEW_DEFINITION,
             FORMAT_TYPE,
             COLUMN_NAME,
             ORDINAL_POSITION,
@@ -73,7 +88,6 @@ class DremioSQLQueries:
                     ELSE SCHEMA_ID
                 END AS LOCATION_ID,
                 OWNER_ID,
-                SQL_DEFINITION AS VIEW_DEFINITION,
                 '' AS FORMAT_TYPE,
                 CREATED,
                 TYPE
@@ -89,7 +103,6 @@ class DremioSQLQueries:
                     ELSE SCHEMA_ID
                 END AS LOCATION_ID,
                 OWNER_ID,
-                NULL AS VIEW_DEFINITION,
                 FORMAT_TYPE,
                 CREATED,
                 TYPE
@@ -141,7 +154,8 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # Fetches all Cloud datasets in a single query, filtered server-side by schema_pattern.
+    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_CLOUD (see
+    # QUERY_DATASETS_CE_GLOBAL).
     QUERY_DATASETS_CLOUD_GLOBAL = """
         SELECT * FROM
         (
@@ -156,7 +170,6 @@ class DremioSQLQueries:
              )) AS FULL_TABLE_PATH,
             OWNER_TYPE,
             LOCATION_ID,
-            VIEW_DEFINITION,
             FORMAT_TYPE,
             COLUMN_NAME,
             ORDINAL_POSITION,
@@ -174,7 +187,6 @@ class DremioSQLQueries:
                     ELSE SCHEMA_ID
                 END AS LOCATION_ID,
                 OWNER_ID,
-                SQL_DEFINITION AS VIEW_DEFINITION,
                 '' AS FORMAT_TYPE,
                 CREATED,
                 TYPE
@@ -190,7 +202,6 @@ class DremioSQLQueries:
                     ELSE SCHEMA_ID
                 END AS LOCATION_ID,
                 OWNER_ID,
-                NULL AS VIEW_DEFINITION,
                 FORMAT_TYPE,
                 CREATED,
                 TYPE
@@ -239,6 +250,48 @@ class DremioSQLQueries:
             TABLE_SCHEMA ASC,
             TABLE_NAME ASC,
             ORDINAL_POSITION ASC
+        {limit_clause}
+        """
+
+    # One row per view; see QUERY_VIEW_DEFINITIONS_CE for {view_definition_select}.
+    QUERY_VIEW_DEFINITIONS_EE = """
+        SELECT * FROM
+        (
+        SELECT
+            CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
+            PATH AS TABLE_SCHEMA,
+            {view_definition_select} AS VIEW_DEFINITION
+        FROM
+            SYS.VIEWS
+        WHERE
+            TYPE NOT IN ('SYSTEM_TABLE')
+        )
+        WHERE 1=1
+            {schema_pattern}
+            {deny_schema_pattern}
+        ORDER BY
+            TABLE_SCHEMA ASC
+        {limit_clause}
+        """
+
+    # One row per view; see QUERY_VIEW_DEFINITIONS_CE for {view_definition_select}.
+    QUERY_VIEW_DEFINITIONS_CLOUD = """
+        SELECT * FROM
+        (
+        SELECT
+            CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
+            PATH AS TABLE_SCHEMA,
+            {view_definition_select} AS VIEW_DEFINITION
+        FROM
+            SYS.PROJECT.VIEWS
+        WHERE
+            TYPE NOT IN ('SYSTEM_TABLE')
+        )
+        WHERE 1=1
+            {schema_pattern}
+            {deny_schema_pattern}
+        ORDER BY
+            TABLE_SCHEMA ASC
         {limit_clause}
         """
 
