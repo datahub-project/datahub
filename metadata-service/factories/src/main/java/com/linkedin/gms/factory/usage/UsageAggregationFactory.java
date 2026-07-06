@@ -169,7 +169,7 @@ public class UsageAggregationFactory {
     return registration;
   }
 
-  private static UsageAggregationConfiguration resolveAggregationConfig(
+  public static UsageAggregationConfiguration resolveAggregationConfig(
       ConfigurationProvider configurationProvider) {
     UsageConfiguration usage = configurationProvider.getDatahub().getUsage();
     if (usage == null || usage.getAggregation() == null) {

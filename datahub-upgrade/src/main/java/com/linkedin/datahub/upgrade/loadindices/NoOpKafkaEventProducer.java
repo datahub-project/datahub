@@ -149,7 +149,7 @@ public class NoOpKafkaEventProducer extends KafkaEventProducer {
   }
 
   @Override
-  public Future<?> produceMetadataChangeProposal(
+  protected Future<?> doProduceMetadataChangeProposal(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
