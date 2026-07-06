@@ -67,6 +67,31 @@ def detect_default_branch() -> str:
     return "master"
 
 
+# Branch-name prefixes for release and hotfix branches. A branch whose base is
+# one of these represents a targeted release/hotfix line, not trunk — the
+# schemaVersion bump check must not run against it (it would demand pulling
+# unrelated trunk schema churn into the release). Matches the convention in
+# .github/workflows/post-workflow-actions.yml.
+RELEASE_BRANCH_PREFIXES = ("releases/", "hotfixes/")
+
+_REMOTE_REF_PREFIXES = ("refs/remotes/origin/", "origin/")
+
+
+def is_release_or_hotfix_branch(name: str) -> bool:
+    """Return True if name refers to a releases/* or hotfixes/* branch.
+
+    Accepts bare names ('releases/x'), remote-tracking short names
+    ('origin/releases/x'), and full refs ('refs/remotes/origin/releases/x').
+    The match is a prefix on the branch portion — 'feature/releases-x' is not
+    a release branch.
+    """
+    for prefix in _REMOTE_REF_PREFIXES:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return name.startswith(RELEASE_BRANCH_PREFIXES)
+
+
 def get_merge_base(remote_ref: str) -> str:
     """Return the merge-base commit SHA between HEAD and remote_ref."""
     result = subprocess.run(

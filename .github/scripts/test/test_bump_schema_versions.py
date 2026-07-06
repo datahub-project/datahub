@@ -741,6 +741,30 @@ def test_detect_default_branch_fallback_to_master(monkeypatch):
     assert bsv.detect_default_branch() == "master"
 
 
+# ---------------------------------------------------------------------------
+# is_release_or_hotfix_branch
+# ---------------------------------------------------------------------------
+
+
+def test_is_release_or_hotfix_branch_bare_names():
+    assert bsv.is_release_or_hotfix_branch("releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch("hotfixes/v0.3.12.1") is True
+
+
+def test_is_release_or_hotfix_branch_strips_remote_prefixes():
+    assert bsv.is_release_or_hotfix_branch("origin/releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch(
+        "refs/remotes/origin/hotfixes/v0.3.12.1"
+    ) is True
+
+
+def test_is_release_or_hotfix_branch_rejects_non_release():
+    assert bsv.is_release_or_hotfix_branch("acryl-main") is False
+    assert bsv.is_release_or_hotfix_branch("master") is False
+    # Substring, not prefix — must be rejected.
+    assert bsv.is_release_or_hotfix_branch("feature/releases-thing") is False
+
+
 def test_get_merge_base_returns_sha(monkeypatch):
     monkeypatch.setattr(subprocess, "run",
                         lambda *a, **kw: _make_proc(0, "abc123def456\n"))
