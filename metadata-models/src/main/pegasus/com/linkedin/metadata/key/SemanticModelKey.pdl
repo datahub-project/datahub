@@ -1,5 +1,7 @@
 namespace com.linkedin.metadata.key
 
+import com.linkedin.common.Urn
+
 /**
  * Key for a Semantic Model
  */
@@ -8,22 +10,25 @@ namespace com.linkedin.metadata.key
 }
 record SemanticModelKey {
   /**
-  * The platform or semantic layer that owns this semantic model (e.g. "dbt", "snowflake").
-  * Used to group semantic models by platform in search facets.
-  *
-  * REQUIRED. This field is part of the metric URN and therefore
-  * immutable once written. Callers must always populate it; if the
-  * source platform is unknown at ingest time the ingestion layer is
-  * responsible for assigning a stable fallback value (e.g. "datahub"
-  * for native / SDK-authored metrics)
-  */
+   * The data platform URN that owns this semantic model
+   * (e.g. urn:li:dataPlatform:dbt, urn:li:dataPlatform:snowflake).
+   *
+   * REQUIRED. This field is part of the semantic model URN and therefore
+   * immutable once written. If the source platform is unknown at ingest
+   * time the ingestion layer is responsible for assigning a stable
+   * fallback URN (e.g. urn:li:dataPlatform:datahub for native /
+   * SDK-authored semantic models).
+   */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "URN",
+    "enableAutocomplete": true,
+    "addToFilters": true,
+    "filterNameOverride": "Platform"
   }
-  platform: string
+  platform: Urn
 
   /**
-  * Unique identifier for the semantic model within its platform.
-  */
+   * Unique identifier for the semantic model within its platform.
+   */
   id: string
 }

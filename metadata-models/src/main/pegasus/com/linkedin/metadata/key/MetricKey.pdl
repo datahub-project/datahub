@@ -1,5 +1,7 @@
 namespace com.linkedin.metadata.key
 
+import com.linkedin.common.Urn
+
 /**
  * Key for a Metric
  */
@@ -8,22 +10,25 @@ namespace com.linkedin.metadata.key
 }
 record MetricKey {
   /**
-   * The platform or semantic layer that owns this metric (e.g. "dbt",
-   * "snowflake"). Used to group metrics by platform in search facets.
+   * The data platform URN that owns this metric
+   * (e.g. urn:li:dataPlatform:dbt, urn:li:dataPlatform:snowflake).
    *
    * REQUIRED. This field is part of the metric URN and therefore
-   * immutable once written. Callers must always populate it; if the
-   * source platform is unknown at ingest time the ingestion layer is
-   * responsible for assigning a stable fallback value (e.g. "datahub"
-   * for native / SDK-authored metrics)
+   * immutable once written. If the source platform is unknown at ingest
+   * time the ingestion layer is responsible for assigning a stable
+   * fallback URN (e.g. urn:li:dataPlatform:datahub for native /
+   * SDK-authored metrics).
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "URN",
+    "enableAutocomplete": true,
+    "addToFilters": true,
+    "filterNameOverride": "Platform"
   }
-  platform: string
+  platform: Urn
 
   /**
-  * Unique identifier for the metric within its platform.
-  */
+   * Unique identifier for the metric within its platform.
+   */
   id: string
 }

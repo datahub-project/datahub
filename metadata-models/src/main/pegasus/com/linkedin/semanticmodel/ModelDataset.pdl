@@ -1,7 +1,6 @@
 namespace com.linkedin.semanticmodel
 
 import com.linkedin.common.Urn
-import com.linkedin.metric.CustomExtension
 
 /**
  * A logical dataset referenced by a SemanticModel, together with its schema
@@ -38,8 +37,4 @@ record ModelDataset {
    */
   fields: optional array[Field]
 
-  /**
-   * Vendor-namespaced extension blobs for platform-specific dataset metadata.
-   */
-  customExtensions: optional array[CustomExtension]
 }

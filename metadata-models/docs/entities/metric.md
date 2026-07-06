@@ -9,11 +9,12 @@ platform identity carried by the `dataPlatformInstance` aspect.
 
 Metrics are identified by two fields:
 
-- **`namespace`** — typically the platform or project name (e.g. `dbt`, `snowflake`, `my_project`).
-  Searchable as a keyword so the sidebar can group metrics by platform.
-- **`id`** — the metric name within that namespace (e.g. `total_revenue`, `daily_active_users`).
+- **`platform`** — the DataPlatform URN that owns this metric
+  (e.g. `urn:li:dataPlatform:dbt`, `urn:li:dataPlatform:snowflake`). Searchable as a URN field
+  with autocomplete and a "Platform" filter pill.
+- **`id`** — the metric name within that platform (e.g. `total_revenue`, `daily_active_users`).
 
-An example URN: `urn:li:metric:(dbt,total_revenue)`.
+An example URN: `urn:li:metric:(urn:li:dataPlatform:dbt,total_revenue)`.
 
 ## Important Capabilities
 
@@ -32,8 +33,6 @@ Core metadata is stored in the `metricInfo` aspect:
   value can be recomputed from raw data.
 - **`semanticModel`** — URN of the `semanticModel` entity that defines this metric's dimensional
   context. Stored as a `ModeledBy` graph edge.
-- **`customExtensions`** — array of vendor-namespaced JSON blobs for platform-specific fields not
-  covered by the core schema (e.g. `additivity`, `filters`, `metricKind`).
 
 ### Metric Relationships
 
@@ -58,25 +57,38 @@ The metric entity reuses the full set of standard governance aspects:
 
 ## Relationships with Other Entities
 
-| Relationship  | Direction | Target entity   | Aspect / edge name    |
-| ------------- | --------- | --------------- | --------------------- |
-| ModeledBy     | outbound  | `semanticModel` | `metricInfo`          |
-| IsPartOf      | outbound  | `metric`        | `metricRelationships` |
-| DerivedFrom   | outbound  | `metric`        | `metricRelationships` |
-| RelatedTo     | outbound  | `metric`        | `metricRelationships` |
-| Upstream data | outbound  | `dataset`       | `upstreamLineage`     |
+| Relationship                 | Direction | Target entity   | Aspect / edge name                    |
+| ---------------------------- | --------- | --------------- | ------------------------------------- |
+| ModeledBy                    | outbound  | `semanticModel` | `metricInfo`                          |
+| IsPartOf                     | outbound  | `metric`        | `metricRelationships`                 |
+| DerivedFrom                  | outbound  | `metric`        | `metricRelationships`                 |
+| RelatedTo                    | outbound  | `metric`        | `metricRelationships`                 |
+| Upstream data (table-level)  | outbound  | `dataset`       | `upstreamLineage.upstreams`           |
+| Upstream data (column-level) | outbound  | `schemaField`   | `upstreamLineage.fineGrainedLineages` |
+
+Both granularities live in the same standard `upstreamLineage` aspect. `upstreams[]` carries
+`metric → dataset` edges (table-level), while `fineGrainedLineages[]` carries
+`metric → schemaField` edges and supports `transformOperation` and `confidenceScore` metadata.
+Note that derived metrics reach their upstream datasets through
+`metricRelationships.derivedFrom` (with `isLineage: true`) rather than populating
+`upstreamLineage` directly; see RFC section 5.4 for details.
 
 ## Notable Exceptions
 
-### Platform-independent identity
+### Environment-independent identity
 
-Unlike datasets, metrics do not encode a platform or environment in the key. Platform identity is
-carried by the `dataPlatformInstance` aspect. This means duplicate logical metrics across platforms
-remain as separate entities — cross-platform deduplication is out of scope for this release.
+Metrics encode `platform` (a DataPlatform URN) in the key but deliberately do NOT encode
+`FabricType` (unlike datasets, which include PROD/STAGING in their URN). This means PROD and
+STAGING copies of the same logical metric resolve to the same entity and are distinguished by the
+`dataPlatformInstance` aspect instead. Cross-environment deduplication is therefore automatic,
+while cross-platform metrics (e.g. the same measure defined in both dbt and Snowflake) remain as
+separate entities.
 
-### Extensibility via customExtensions
+### Extensibility via structuredProperties
 
-Fields such as `additivity`, `filters`, `derivation`, `rowShaping`, `valueType`, `metricKind`, and
-`measureShape` are deliberately absent from the core schema. They live inside `customExtensions` as
-vendor-namespaced JSON strings, following the OSI-aligned Proposal B approach. They can be
-promoted to first-class fields in a future version without requiring an aspect version bump.
+Entity-level extensibility uses the `structuredProperties` aspect, which is already registered
+for the `metric` entity. Structured properties support typed values, governance controls, search
+facets, and PATCH semantics — they are the recommended mechanism for platform-specific metadata
+such as `additivity`, `filters`, `metricKind`, and `measureShape` that does not yet warrant a
+first-class PDL field. These fields can be promoted to the core schema in a future revision when
+usage patterns across platforms become clear.

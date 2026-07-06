@@ -1,7 +1,6 @@
 namespace com.linkedin.semanticmodel
 
 import com.linkedin.metric.AiContext
-import com.linkedin.metric.CustomExtension
 import com.linkedin.metric.MetricExpression
 
 /**
@@ -34,8 +33,4 @@ record Field {
    */
   aiContext: optional AiContext
 
-  /**
-   * Vendor-namespaced extension blobs for platform-specific field metadata.
-   */
-  customExtensions: optional array[CustomExtension]
 }

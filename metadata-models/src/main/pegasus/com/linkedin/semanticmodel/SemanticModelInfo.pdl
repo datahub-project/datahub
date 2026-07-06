@@ -1,8 +1,6 @@
 namespace com.linkedin.semanticmodel
 
-import com.linkedin.common.Urn
 import com.linkedin.metric.AiContext
-import com.linkedin.metric.CustomExtension
 
 /**
  * Core information about a SemanticModel entity.
@@ -36,20 +34,13 @@ record SemanticModelInfo {
   description: optional string
 
   /**
-   * The data platform URN that owns this semantic model (e.g.
-   * urn:li:dataPlatform:snowflake). Mirrors the `platform` field on
-   * `datasetKey` so grouping and filters behave identically across
-   * datasets and semantic models. Required. If the source platform is
-   * unknown at ingest time, callers must resolve it to a fallback
-   * platform URN before writing this aspect.
+   * The raw, native definition of this semantic model as authored on the
+   * source platform (e.g. the Snowflake `CREATE SEMANTIC VIEW` DDL, the
+   * dbt `semantic_model` YAML, or the Databricks `CREATE METRIC VIEW`
+   * DDL). Preserved verbatim so consumers can round-trip / debug against
+   * the original source; not itself parsed by DataHub.
    */
-  @Searchable = {
-    "fieldType": "URN",
-    "enableAutocomplete": true,
-    "addToFilters": true,
-    "filterNameOverride": "Platform"
-  }
-  sourcePlatform: Urn
+  nativeDefinition: optional string
 
   /**
    * AI-specific context for improved disambiguation and retrieval.
@@ -66,8 +57,4 @@ record SemanticModelInfo {
    */
   relationships: optional array[SemanticModelRelationship]
 
-  /**
-   * Vendor-namespaced extension blobs for platform-specific metadata.
-   */
-  customExtensions: optional array[CustomExtension]
 }

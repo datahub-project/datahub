@@ -8,10 +8,12 @@ between raw datasets and the business metrics calculated over them.
 
 Semantic models are identified by two fields:
 
-- **`namespace`** — typically the platform or project name (e.g. `dbt`, `snowflake`, `my_project`).
-- **`id`** — the model name within that namespace (e.g. `orders_model`, `customer_360`).
+- **`platform`** — the DataPlatform URN that owns this semantic model
+  (e.g. `urn:li:dataPlatform:dbt`, `urn:li:dataPlatform:snowflake`). Searchable as a URN field
+  with autocomplete and a "Platform" filter pill.
+- **`id`** — the model name within that platform (e.g. `orders_model`, `customer_360`).
 
-An example URN: `urn:li:semanticModel:(dbt,orders_model)`.
+An example URN: `urn:li:semanticModel:(urn:li:dataPlatform:dbt,orders_model)`.
 
 ## Important Capabilities
 
@@ -21,19 +23,17 @@ Core metadata is stored in the `semanticModelInfo` aspect:
 
 - **`name`** — human-readable display name; used for full-text search and autocomplete.
 - **`description`** — free-text description of what the model represents.
-- **`sourcePlatform`** — required data platform URN (e.g. `urn:li:dataPlatform:snowflake`)
-  indicating which platform owns this model. Mirrors the `platform` field on `datasetKey` so
-  filtering and grouping behave identically across datasets and semantic models. Stored as a
-  searchable URN field with autocomplete and a "Platform" filter.
+- **`nativeDefinition`** — optional verbatim source definition (e.g. the Snowflake
+  `CREATE SEMANTIC VIEW` DDL, the dbt `semantic_model` YAML, or the Databricks
+  `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
+  parsed by DataHub.
 - **`datasets`** — array of `ModelDataset` records, each linking a logical dataset name to a
-  source `dataset` URN. Each entry may include `primaryKey`, `uniqueKeys`, typed `fields`, and
-  `customExtensions`.
+  source `dataset` URN. Each entry may include `primaryKey`, `uniqueKeys`, and typed `fields`.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-table, to-table, join columns, optional
-  name, AI context, and custom extensions).
+  name, and AI context).
 - **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
   few-shot examples, and custom instructions.
-- **`customExtensions`** — array of vendor-namespaced JSON blobs for platform-specific fields.
 
 ### Fields and Dimensions
 
@@ -46,7 +46,6 @@ the semantic model:
   time dimensions used for date-range filtering.
 - **`description`** — free-text documentation for the field.
 - **`aiContext`** — AI hints specific to this field.
-- **`customExtensions`** — vendor-specific extensions for this field.
 
 ### Governance
 
@@ -74,8 +73,12 @@ so every referenced dataset automatically appears as an upstream dependency in t
 The join-path record is named `SemanticModelRelationship` (rather than `Relationship`) to avoid a
 name collision with DataHub's `com.linkedin.common.Relationship` model.
 
-### Extensibility via customExtensions
+### Extensibility via structuredProperties
 
-Platform-specific fields (e.g. filter predicates, grain definitions, certified status) ride in
-`customExtensions` as vendor-namespaced JSON strings, keeping the core schema lean and
-OSI-aligned.
+Entity-level extensibility uses the `structuredProperties` aspect, which is already registered
+for the `semanticModel` entity. Structured properties support typed values, governance controls,
+search facets, and PATCH semantics — they are the recommended mechanism for any platform-specific
+metadata that does not warrant a first-class PDL field.
+
+Ingestion sources that need to store per-field vendor blobs should hoist the data into entity-level
+`structuredProperties` keyed by field name.

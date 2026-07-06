@@ -65,8 +65,4 @@ record MetricInfo {
   }
   recoverability: optional Recoverability
 
-  /**
-   * Vendor-namespaced extension blobs for platform-specific metadata.
-   */
-  customExtensions: optional array[CustomExtension]
 }
