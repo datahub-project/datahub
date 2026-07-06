@@ -101,6 +101,9 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
     // 1. Get the new form assignment
     DynamicFormAssignment formFilters =
         operationContext.getDecodedAspect(event.getAspect(), DynamicFormAssignment.class);
+    if (formFilters == null) {
+      return;
+    }
 
     // 2. Register a automation to assign it.
     formService.upsertFormAssignmentRunner(operationContext, event.getEntityUrn(), formFilters);

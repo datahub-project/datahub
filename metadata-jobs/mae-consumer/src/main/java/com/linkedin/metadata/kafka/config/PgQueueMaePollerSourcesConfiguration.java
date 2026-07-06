@@ -272,9 +272,14 @@ public class PgQueueMaePollerSourcesConfiguration {
             // wired here by design. Multi-affinity deployments use Kafka; pgQueue users are
             // single-context single-deployment and invokeBatch under systemOperationContext is
             // the intended behavior.
+            // Fresh per-batch aspect-decode cache: hooks must not cache decoded aspects on the
+            // shared system singleton (JVM-lifetime leak + cross-thread race). Mirrors the Kafka
+            // ingress paths. See OperationContext#withFreshAspectDecodeCache.
+            final OperationContext batchContext =
+                systemOperationContext.withFreshAspectDecodeCache();
             for (MetadataChangeLogHook hook : initHooks) {
               try {
-                hook.invokeBatch(systemOperationContext, mcls);
+                hook.invokeBatch(batchContext, mcls);
               } catch (Exception ex) {
                 log.error(
                     "MCL pgQueue batch hook {} failed for group {}",
