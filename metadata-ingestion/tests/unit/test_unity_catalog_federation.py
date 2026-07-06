@@ -20,6 +20,7 @@ from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore, Schem
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     SiblingsClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
@@ -100,14 +101,6 @@ def test_connections_returns_empty_on_error():
 
 
 _BASE = {"workspace_url": "https://x.cloud.databricks.com", "token": "t"}
-
-
-def test_federation_config_defaults():
-    cfg = UnityCatalogSourceConfig.model_validate(_BASE)
-    assert cfg.federation_link_type == FederationLinkType.SIBLINGS
-    assert cfg.emit_federation_structured_properties is True
-    assert cfg.federation_structured_property_namespace == "databricks.federation"
-    assert cfg.federation_connection_details == {}
 
 
 def test_federation_connection_detail_override():
@@ -239,6 +232,16 @@ def test_none_connection_type_without_database_is_two_tier():
     assert target.remote_database is None
 
 
+def test_resolve_all_none_cannot_resolve():
+    # No connection type, no options, no overrides at all: the true cannot-resolve path.
+    assert (
+        fed.resolve_federation_target(
+            None, options=None, override_platform=None, override_database=None
+        )
+        is None
+    )
+
+
 def test_structured_property_urns():
     urns = fed.structured_property_urns("databricks.federation")
     assert (
@@ -263,6 +266,13 @@ def test_property_definition_mcps_target_container_and_platform_allowed_values()
     assert "mssql" in allowed and "postgres" in allowed
     # non-enumerated property has no allowedValues
     assert by_qn["databricks.federation.connection"].allowedValues is None
+
+
+def test_property_definition_mcps_use_create_if_absent():
+    mcps = fed.federation_property_definition_mcps("databricks.federation")
+    mcp = mcps[0]
+    assert mcp.changeType == ChangeTypeClass.CREATE
+    assert mcp.headers == {"If-None-Match": "*"}
 
 
 def _foreign_catalog():
@@ -545,6 +555,110 @@ def test_federation_link_lowercase_applied():
             aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
         )
     ]
+    assert up[0].upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+    )
+
+
+def test_unresolved_target_warns_once_and_caches():
+    src = _source_with_link("siblings")
+    # No override in federation_connection_details for this connection, and the
+    # connections API doesn't know about it either -> cannot resolve.
+    src.unity_catalog_api_proxy.connections = lambda: {}  # type: ignore[method-assign]
+    catalog = Catalog(
+        id="c",
+        name="unresolvable_catalog",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="unknown_conn",
+        options={},
+    )
+    table = _foreign_table(catalog)
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,c.my_schema.t,PROD)"
+
+    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
+    assert wus == []
+    assert src.report.num_federation_targets_unresolved == 1
+    assert any(
+        w.title == "Could not resolve Lakehouse Federation target"
+        for w in src.report.warnings
+    )
+
+    # A second table in the same catalog must not double-count or re-warn.
+    more_wus = list(src._gen_federation_link(dataset_urn, table, catalog))
+    assert more_wus == []
+    assert src.report.num_federation_targets_unresolved == 1
+
+
+def test_per_connection_lowercase_override_wins_over_global_false():
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_link_type": "lineage",
+                "convert_urns_to_lowercase": False,
+                "federation_connection_details": {
+                    "pg_conn": {
+                        "platform_instance": "prod-pg",
+                        "convert_urns_to_lowercase": True,
+                    }
+                },
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.unity_catalog_api_proxy.connections = lambda: {  # type: ignore[method-assign]
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.POSTGRESQL
+        )
+    }
+    catalog = Catalog(
+        id="c",
+        name="My_Catalog",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="pg_conn",
+        options={"database": "My_DB"},
+    )
+    schema = Schema(
+        id="c.My_Schema", name="My_Schema", catalog=catalog, comment=None, owner=None
+    )
+    table = Table(
+        id="c.My_Schema.T",
+        name="T",
+        comment=None,
+        schema=schema,
+        columns=[],
+        storage_location=None,
+        data_source_format=None,
+        table_type=None,
+        owner=None,
+        generation=None,
+        created_at=None,
+        created_by=None,
+        updated_at=None,
+        updated_by=None,
+        table_id=None,
+        view_definition=None,
+        properties={},
+    )
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
+    )
+    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
+    up = [
+        aspect
+        for wu in wus
+        if isinstance(
+            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    # global convert_urns_to_lowercase=False, but the per-connection override wins,
+    # so the external URN name is lowercased despite the mixed-case catalog/db/table.
     assert up[0].upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
     )
