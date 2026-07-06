@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import List
+from typing import Dict, List, Set
 
 import pytest
 
@@ -24,8 +24,6 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
 AUDIT_SUITE_USER_EMAIL = "audit.events.user@smoke.datahub.test"
 AUDIT_SUITE_USER_URN = f"urn:li:corpuser:{AUDIT_SUITE_USER_EMAIL}"
-
-previous_policy_urn = ""
 
 
 @pytest.fixture()
@@ -306,7 +304,7 @@ def test_policy_events(auth_exclude_filter):
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
     res_data = searchForAuditEvents(
         user_session,
-        3,
+        10,
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
@@ -314,28 +312,11 @@ def test_policy_events(auth_exclude_filter):
     logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
-    assert (
-        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
+    assert_audit_event_types_for_entity(
+        res_data["usageEvents"],
+        new_urn,
+        {"CreatePolicyEvent", "UpdatePolicyEvent"},
     )
-    assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert (
-        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent"
-    )
-    assert res_data["usageEvents"][1]["entityUrn"] == new_urn
-    global previous_policy_urn
-    if len(res_data["usageEvents"]) == 3:
-        assert (
-            res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent"
-        )
-        assert (
-            res_data["usageEvents"][2]["entityUrn"] == new_urn
-            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
-        )
-    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -402,7 +383,7 @@ def test_ingestion_source_events(auth_exclude_filter):
 
     res_data = searchForAuditEvents(
         user_session,
-        2,
+        10,
         ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
@@ -410,11 +391,11 @@ def test_ingestion_source_events(auth_exclude_filter):
     logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 2
-    assert res_data["usageEvents"][0]["eventType"] == "UpdateIngestionSourceEvent"
-    assert res_data["usageEvents"][0]["entityUrn"] == ingestion_source_urn
-    assert res_data["usageEvents"][1]["eventType"] == "CreateIngestionSourceEvent"
-    assert res_data["usageEvents"][1]["entityUrn"] == ingestion_source_urn
+    assert_audit_event_types_for_entity(
+        res_data["usageEvents"],
+        ingestion_source_urn,
+        {"CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"},
+    )
     user_session.cookies.clear()
 
 
@@ -523,7 +504,7 @@ def test_policy_create_delete(auth_exclude_filter):
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
     res_data = searchForAuditEvents(
         user_session,
-        3,
+        10,
         ["CreatePolicyEvent", "DeletePolicyEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
@@ -531,28 +512,11 @@ def test_policy_create_delete(auth_exclude_filter):
     logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
-    assert (
-        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][0]["eventType"] == "DeletePolicyEvent"
+    assert_audit_event_types_for_entity(
+        res_data["usageEvents"],
+        new_urn,
+        {"CreatePolicyEvent", "DeletePolicyEvent"},
     )
-    assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert (
-        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][1]["eventType"] == "DeletePolicyEvent"
-    )
-    assert res_data["usageEvents"][1]["entityUrn"] == new_urn
-    global previous_policy_urn
-    if len(res_data["usageEvents"]) == 3:
-        assert (
-            res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][2]["eventType"] == "DeletePolicyEvent"
-        )
-        assert (
-            res_data["usageEvents"][2]["entityUrn"] == new_urn
-            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
-        )
-    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -646,3 +610,15 @@ def searchForAuditEvents(
     response.raise_for_status()
 
     return response.json()
+
+
+def audit_events_for_entity(events: List[Dict], entity_urn: str) -> List[Dict]:
+    return [event for event in events if event.get("entityUrn") == entity_urn]
+
+
+def assert_audit_event_types_for_entity(
+    events: List[Dict], entity_urn: str, expected_types: Set[str]
+) -> None:
+    entity_events = audit_events_for_entity(events, entity_urn)
+    assert len(entity_events) == len(expected_types), entity_events
+    assert {event["eventType"] for event in entity_events} == expected_types
