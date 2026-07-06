@@ -573,8 +573,21 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if connection.name:
                     result[connection.name] = connection
         except Exception as e:
+            # Federation is supplemental: never let a connections-listing failure
+            # crash ingestion, but surface it in the report since it silently
+            # degrades federation links/structured properties for this run.
             self.report.num_federation_connections_list_failed += 1
-            logger.warning(f"Failed to list Unity Catalog connections: {e}")
+            self.report.report_warning(
+                title="Failed to list Unity Catalog connections",
+                message=(
+                    "Lakehouse Federation links and structured properties will be "
+                    "degraded this run; grant the service principal metastore-admin "
+                    "or connection ownership, or set federation_connection_details "
+                    "overrides."
+                ),
+                context=f"{e}",
+                exc=e,
+            )
         self._connections_cache = result
         return result
 

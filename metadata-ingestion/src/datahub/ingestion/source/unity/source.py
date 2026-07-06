@@ -79,6 +79,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.unity import federation, proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
+    FederationConnectionDetail,
     FederationLinkType,
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
@@ -438,6 +439,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Federation property definitions are emitted lazily, the first time a
         # foreign catalog is encountered, so non-federation workspaces never see them.
         self._federation_defs_emitted: bool = False
+        # Federation target resolution is identical for every table in a catalog;
+        # caching by connection name avoids re-resolving (and re-warning) per table.
+        self._federation_resolution_cache: Dict[
+            Optional[str],
+            Tuple[
+                Optional[FederationConnectionDetail],
+                Optional[federation.FederationTarget],
+            ],
+        ] = {}
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -1210,6 +1220,52 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=self.external_url_base,
         )
 
+    def _resolve_federation(
+        self, catalog: Catalog
+    ) -> Tuple[
+        Optional[FederationConnectionDetail], Optional[federation.FederationTarget]
+    ]:
+        """Resolve (and cache) the federation target for a foreign catalog's connection.
+
+        Cached by connection name because every table in the catalog resolves to the
+        same target; this also ensures the unresolved-target warning/counter below
+        fire once per catalog rather than once per table.
+        """
+        if catalog.connection_name in self._federation_resolution_cache:
+            return self._federation_resolution_cache[catalog.connection_name]
+
+        detail = (
+            self.config.federation_connection_details.get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        connection = (
+            self.unity_catalog_api_proxy.connections().get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        target = federation.resolve_federation_target(
+            connection.connection_type if connection else None,
+            options=catalog.options,
+            override_platform=detail.platform if detail else None,
+            override_database=detail.database if detail else None,
+        )
+        if target is None:
+            self.report.num_federation_targets_unresolved += 1
+            self.report.report_warning(
+                title="Could not resolve Lakehouse Federation target",
+                message=(
+                    "Foreign-catalog tables will not be linked to their external "
+                    "source dataset; set federation_connection_details "
+                    "(platform/database) or grant the service principal permission "
+                    "to list Unity Catalog connections."
+                ),
+                context=f"catalog={catalog.name}, connection={catalog.connection_name}",
+            )
+
+        self._federation_resolution_cache[catalog.connection_name] = (detail, target)
+        return detail, target
+
     def _federation_structured_properties(
         self, catalog: Catalog
     ) -> Optional[Dict[StructuredPropertyUrn, str]]:
@@ -1223,18 +1279,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         values: Dict[str, str] = {"catalog_type": "FOREIGN_CATALOG"}
         if catalog.connection_name:
             values["connection"] = catalog.connection_name
-        detail = self.config.federation_connection_details.get(
-            catalog.connection_name or ""
-        )
-        connection = self.unity_catalog_api_proxy.connections().get(
-            catalog.connection_name or ""
-        )
-        target = federation.resolve_federation_target(
-            connection.connection_type if connection else None,
-            catalog.options,
-            detail.platform if detail else None,
-            detail.database if detail else None,
-        )
+        _, target = self._resolve_federation(catalog)
         if target:
             values["platform"] = target.platform
             if target.remote_database:
@@ -1272,24 +1317,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             or self.config.federation_link_type == FederationLinkType.NONE
         ):
             return
-        detail = self.config.federation_connection_details.get(
-            catalog.connection_name or ""
-        )
-        connection = self.unity_catalog_api_proxy.connections().get(
-            catalog.connection_name or ""
-        )
-        target = federation.resolve_federation_target(
-            connection.connection_type if connection else None,
-            catalog.options,
-            detail.platform if detail else None,
-            detail.database if detail else None,
-        )
+
+        detail, target = self._resolve_federation(catalog)
         if target is None:
-            self.report.num_federation_targets_unresolved += 1
-            logger.warning(
-                f"Could not resolve federation target for catalog {catalog.name} "
-                f"(connection {catalog.connection_name}); skipping link."
-            )
             return
 
         name = federation.external_dataset_name(target, table.schema.name, table.name)
