@@ -270,8 +270,8 @@ class TestProcessTermAssociations:
                 dataplex_entry_type_short_name="bigquery-table",
                 dataplex_entry_fqn="bigquery:my-project.dataset.table1",
                 datahub_platform="bigquery",
-                datahub_dataset_name="my-project.dataset.table1",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.table1,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.table1,PROD)",
             )
         ]
 
@@ -411,8 +411,8 @@ class TestProcessTermAssociations:
                 dataplex_entry_type_short_name="bigquery-table",
                 dataplex_entry_fqn="bigquery:my-project.dataset.table1",
                 datahub_platform="bigquery",
-                datahub_dataset_name="my-project.dataset.table1",
-                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.table1,PROD)",
+                datahub_entity_type="Dataset",
+                datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.table1,PROD)",
             )
         ]
 
