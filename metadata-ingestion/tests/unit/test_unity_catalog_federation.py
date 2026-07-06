@@ -7,6 +7,7 @@ from databricks.sdk.service.catalog import (
     ConnectionType,
 )
 
+from datahub.ingestion.source.unity import federation as fed
 from datahub.ingestion.source.unity.config import (
     FederationLinkType,
     UnityCatalogSourceConfig,
@@ -122,9 +123,6 @@ def test_federation_connection_detail_override():
     assert detail.convert_urns_to_lowercase is None
 
 
-from datahub.ingestion.source.unity import federation as fed
-
-
 def test_resolve_three_tier_uses_database_option():
     target = fed.resolve_federation_target(
         ConnectionType.POSTGRESQL, {"database": "my_db"}, None, None
@@ -188,3 +186,10 @@ def test_override_platform_without_connection_type():
     target = fed.resolve_federation_target(None, None, "mssql", "my_db")
     assert target.platform == "mssql"
     assert target.remote_database == "my_db"
+
+
+def test_none_connection_type_without_database_is_two_tier():
+    target = fed.resolve_federation_target(None, None, "mssql", None)
+    assert target is not None
+    assert target.platform == "mssql"
+    assert target.remote_database is None

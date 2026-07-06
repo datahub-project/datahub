@@ -44,7 +44,9 @@ DATABASE_OPTION_KEY: Dict[ConnectionType, Optional[str]] = {
     ConnectionType.HIVE_METASTORE: None,
 }
 
-KNOWN_FEDERATION_PLATFORMS: List[str] = sorted(set(CONNECTION_TYPE_TO_PLATFORM.values()))
+KNOWN_FEDERATION_PLATFORMS: List[str] = sorted(
+    set(CONNECTION_TYPE_TO_PLATFORM.values())
+)
 
 
 @dataclass
