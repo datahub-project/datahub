@@ -334,6 +334,11 @@ def _get_column_info(self, name, format_type, comment):
         col_type = col_type.nested_type
         nullable = True
 
+    # Strip NUL bytes that may appear in column comments due to encoding
+    # issues when reading from ClickHouse system.columns via HTTP interface.
+    if comment:
+        comment = comment.replace("\x00", "")
+
     result = {
         "name": name,
         "type": col_type,
