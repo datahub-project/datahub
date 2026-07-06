@@ -13,6 +13,8 @@ import pydantic
 import requests
 from pydantic import field_validator
 
+from datahub.cli.cli_utils import fixup_gms_url
+from datahub.cli.config_utils import get_url_from_env
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -32,7 +34,7 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RestSinkEndpoint,
 )
-from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.emitter.token_provider import TokenProviderAuth, _origin
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -233,12 +235,39 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             # `sink: datahub-rest` block silently bypasses env auth and emits
             # unauthenticated. Explicit credentials in the sink block always win
             # over the environment.
-            auth_config = build_auth_config_from_env()
-            if auth_config is not None:
-                logger.info(
-                    "datahub-rest sink has no credentials configured; using "
-                    "OAuth auth from DATAHUB_AUTH_TYPE."
-                )
+            env_auth = build_auth_config_from_env()
+            if env_auth is not None:
+                # Env OAuth applies only to the env-configured server: merging it
+                # into a sink pointing at a different origin would mint fresh
+                # bearer tokens and send them to that other host (audience
+                # scoping limits use, not disclosure). Strict (scheme, host,
+                # port) equality, matching the 401-retry guard — a benign
+                # normalization mismatch only costs a skipped merge, loudly.
+                env_url = get_url_from_env()
+                if env_url is not None and _origin(fixup_gms_url(env_url)) == (
+                    _origin(fixup_gms_url(config.server))
+                ):
+                    auth_config = env_auth
+                    logger.info(
+                        "datahub-rest sink has no credentials configured; using "
+                        "OAuth auth from DATAHUB_AUTH_TYPE for %s.",
+                        config.server,
+                    )
+                elif env_url is None:
+                    logger.warning(
+                        "DATAHUB_AUTH_TYPE is set but DATAHUB_GMS_URL is not; "
+                        "not applying env OAuth to the explicit datahub-rest "
+                        "sink. Set DATAHUB_GMS_URL to the sink's server to "
+                        "inherit env auth."
+                    )
+                else:
+                    logger.warning(
+                        "Not applying env OAuth (DATAHUB_AUTH_TYPE) to the "
+                        "datahub-rest sink pointing at %s — it does not match "
+                        "the env-configured server %s.",
+                        config.server,
+                        env_url,
+                    )
         if auth_config is None:
             return None
         return TokenProviderAuth(build_token_provider(auth_config))

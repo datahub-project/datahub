@@ -158,7 +158,9 @@ def test_rest_sink_emitter_carries_auth(monkeypatch):
 def test_explicit_sink_without_credentials_inherits_env_auth(monkeypatch):
     # A recipe with an explicit `sink: datahub-rest` block that carries no
     # credentials must not silently bypass env OAuth — the sink inherits
-    # DATAHUB_AUTH_TYPE just like the default (sink-less) path does.
+    # DATAHUB_AUTH_TYPE just like the default (sink-less) path does, provided
+    # it points at the env-configured server.
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -166,6 +168,36 @@ def test_explicit_sink_without_credentials_inherits_env_auth(monkeypatch):
 
     sink_config = DatahubRestSinkConfig(server="http://gms:8080")
     assert isinstance(DatahubRestSink._resolve_auth(sink_config), TokenProviderAuth)
+
+
+def test_explicit_sink_env_auth_requires_matching_server(monkeypatch, caplog):
+    # Env OAuth applies only to the env-configured server: a credential-less
+    # sink pointing at a different origin must not receive env-minted bearer
+    # tokens (audience scoping limits use, not disclosure).
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    sink_config = DatahubRestSinkConfig(server="http://other-host:8080")
+    with caplog.at_level(logging.WARNING):
+        assert DatahubRestSink._resolve_auth(sink_config) is None
+    assert any("http://other-host:8080" in r.message for r in caplog.records)
+
+
+def test_explicit_sink_env_auth_skipped_without_env_server(monkeypatch, caplog):
+    # Without DATAHUB_GMS_URL there is no env-configured server to match, so
+    # env OAuth is not merged into an explicit sink — loudly.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    sink_config = DatahubRestSinkConfig(server="http://gms:8080")
+    with caplog.at_level(logging.WARNING):
+        assert DatahubRestSink._resolve_auth(sink_config) is None
+    assert any("DATAHUB_GMS_URL" in r.message for r in caplog.records)
 
 
 def test_explicit_sink_token_wins_over_env_auth(monkeypatch):
@@ -182,6 +214,7 @@ def test_sink_resolves_one_provider_shared_across_thread_emitters(monkeypatch):
     # One token provider per sink, shared by all worker-thread emitters — a
     # provider per thread would each hit the IdP independently (max_threads
     # token requests at startup and per refresh window).
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -224,6 +257,24 @@ def test_from_env_emitter_resolves_env_auth(monkeypatch):
     emitter = DataHubRestEmitter("__from_env__")
     assert isinstance(emitter._session.auth, TokenProviderAuth)
     # Env auth wins over the static env token — no baked Authorization header.
+    assert "Authorization" not in emitter._session.headers
+
+
+def test_from_env_server_resolved_when_auth_passed_in(monkeypatch):
+    # A sink that resolved env auth itself passes auth= into the emitter; the
+    # `__from_env__` server sentinel must still resolve instead of being fed
+    # literally into fixup_gms_url.
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "https://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "s3cret-value")
+
+    resolved = TokenProviderAuth(StaticTokenProvider("provider-token"))
+    emitter = DataHubRestEmitter("__from_env__", auth=resolved)
+    assert emitter._gms_server == "http://gms:8080"
+    # The explicitly passed auth wins; the env static token is not baked in.
+    assert emitter._session.auth is resolved
     assert "Authorization" not in emitter._session.headers
 
 

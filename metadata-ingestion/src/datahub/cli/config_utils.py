@@ -129,6 +129,12 @@ def require_config_from_env() -> Tuple[str, Optional[str]]:
     return host, token
 
 
+def get_url_from_env() -> Optional[str]:
+    """The env-configured GMS URL, or None when the environment does not set one."""
+    url, _ = _get_config_from_env()
+    return url
+
+
 def load_client_config() -> DatahubClientConfig:
     # DATAHUB_AUTH_TYPE engages an env-configured OAuth token provider and takes
     # precedence over a static DATAHUB_GMS_TOKEN (the two are mutually exclusive
