@@ -120,3 +120,71 @@ def test_federation_connection_detail_override():
     assert detail.platform_instance == "prod-pg"
     assert detail.database == "my_db"
     assert detail.convert_urns_to_lowercase is None
+
+
+from datahub.ingestion.source.unity import federation as fed
+
+
+def test_resolve_three_tier_uses_database_option():
+    target = fed.resolve_federation_target(
+        ConnectionType.POSTGRESQL, {"database": "my_db"}, None, None
+    )
+    assert target is not None
+    assert target.platform == "postgres"
+    assert target.remote_database == "my_db"
+    assert fed.external_dataset_name(target, "my_schema", "t") == "my_db.my_schema.t"
+
+
+def test_resolve_two_tier_has_no_database():
+    target = fed.resolve_federation_target(ConnectionType.MYSQL, None, None, None)
+    assert target is not None
+    assert target.platform == "mysql"
+    assert target.remote_database is None
+    assert fed.external_dataset_name(target, "my_schema", "t") == "my_schema.t"
+
+
+def test_resolve_bigquery_uses_data_project_id():
+    target = fed.resolve_federation_target(
+        ConnectionType.BIGQUERY, {"dataProjectId": "proj"}, None, None
+    )
+    assert target.platform == "bigquery"
+    assert fed.external_dataset_name(target, "ds", "t") == "proj.ds.t"
+
+
+def test_resolve_databricks_to_databricks_uses_catalog():
+    target = fed.resolve_federation_target(
+        ConnectionType.DATABRICKS, {"catalog": "remote_cat"}, None, None
+    )
+    assert target.platform == "databricks"
+    assert fed.external_dataset_name(target, "s", "t") == "remote_cat.s.t"
+
+
+def test_override_wins_over_autodetect():
+    target = fed.resolve_federation_target(
+        ConnectionType.POSTGRESQL, {"database": "auto_db"}, "mssql", "override_db"
+    )
+    assert target.platform == "mssql"
+    assert target.remote_database == "override_db"
+
+
+def test_three_tier_missing_database_returns_none():
+    # three-tier connector but options lack the key and no override -> cannot resolve
+    assert (
+        fed.resolve_federation_target(ConnectionType.POSTGRESQL, {}, None, None) is None
+    )
+
+
+def test_unmapped_connection_type_returns_none():
+    assert (
+        fed.resolve_federation_target(
+            ConnectionType.UNKNOWN_CONNECTION_TYPE, None, None, None
+        )
+        is None
+    )
+
+
+def test_override_platform_without_connection_type():
+    # connections API unavailable (connection_type None) but user supplied platform+db
+    target = fed.resolve_federation_target(None, None, "mssql", "my_db")
+    assert target.platform == "mssql"
+    assert target.remote_database == "my_db"
