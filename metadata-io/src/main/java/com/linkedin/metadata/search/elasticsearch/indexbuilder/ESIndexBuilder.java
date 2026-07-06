@@ -2506,6 +2506,15 @@ public class ESIndexBuilder {
       @Nonnull OperationContext opContext,
       ElasticSearchConfiguration esConfig,
       ReindexConfig indexState) {
+    cleanOrphanedIndices(searchClient, opContext, esConfig, indexState, Set.of());
+  }
+
+  public static void cleanOrphanedIndices(
+      SearchClientShim<?> searchClient,
+      @Nonnull OperationContext opContext,
+      ElasticSearchConfiguration esConfig,
+      ReindexConfig indexState,
+      @Nonnull Set<String> excludePhysicalIndices) {
     log.info(
         "Checking for orphan index pattern {} older than {} {}",
         indexState.indexPattern(),
@@ -2513,7 +2522,7 @@ public class ESIndexBuilder {
         esConfig.getBuildIndices().getRetentionUnit());
 
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
-    getOrphanedIndices(searchClient, opContext, esConfig, indexState)
+    getOrphanedIndices(searchClient, opContext, esConfig, indexState, excludePhysicalIndices)
         .forEach(
             orphanIndex -> {
               log.warn("Deleting orphan index {}.", orphanIndex);
@@ -2529,7 +2538,8 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       @Nonnull OperationContext opContext,
       ElasticSearchConfiguration esConfig,
-      ReindexConfig indexState) {
+      ReindexConfig indexState,
+      @Nonnull Set<String> excludePhysicalIndices) {
     List<String> orphanedIndices = new ArrayList<>();
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
     try {
@@ -2546,6 +2556,11 @@ public class ESIndexBuilder {
               opContext, new GetIndexRequest(indexState.indexCleanPattern()), requestOptions);
 
       for (String index : response.getIndices()) {
+        if (excludePhysicalIndices.contains(index)) {
+          log.info("Skipping protected index {} referenced by incremental reindex state", index);
+          continue;
+        }
+
         var creationDateStr = response.getSetting(index, "index.creation_date");
         var creationDateEpoch = Long.parseLong(creationDateStr);
         var creationDate = new Date(creationDateEpoch);
