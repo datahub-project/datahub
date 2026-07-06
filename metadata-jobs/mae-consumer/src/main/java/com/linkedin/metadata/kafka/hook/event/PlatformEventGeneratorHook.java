@@ -318,10 +318,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     } else if (logEvent.getEntityUrn() == null) {
       log.warn("Log event does not have an entity urn: {}", logEvent);
       return Collections.emptyList();
-    } else if (aspectSpec.getRelationshipFieldSpecs().isEmpty()) {
-      // The aspect declares no relationships, so it can never produce edge changes. Skip
-      // deserialization and the edge diff entirely — this is the common case on the MCL stream.
-      return Collections.emptyList();
     }
 
     final RecordTemplate oldAspect =

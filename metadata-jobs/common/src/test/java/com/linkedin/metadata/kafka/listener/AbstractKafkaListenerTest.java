@@ -46,6 +46,9 @@ public class AbstractKafkaListenerTest {
     meterRegistry = new SimpleMeterRegistry();
     when(metricUtils.getRegistry()).thenReturn(meterRegistry);
     when(operationContext.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+    // consumeEnvelope derives a per-message copy via withFreshAspectDecodeCache(); on a mock it
+    // must return the mock itself so the resolved context still threads through to the hooks.
+    when(operationContext.withFreshAspectDecodeCache()).thenReturn(operationContext);
     doAnswer(
             inv -> {
               inv.getArgument(3, Runnable.class).run();
@@ -188,6 +191,7 @@ public class AbstractKafkaListenerTest {
     InboundContextResolver pgQueueResolver = mock(InboundContextResolver.class);
     when(pgQueueResolver.resolve(any(InboundMetadataEnvelope.class), eq(operationContext)))
         .thenReturn(perEventContext);
+    when(perEventContext.withFreshAspectDecodeCache()).thenReturn(perEventContext);
     listener.init(
         operationContext,
         CONSUMER_GROUP,
