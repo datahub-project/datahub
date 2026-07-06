@@ -83,5 +83,5 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
             for mcp in patch_builder.build():
                 yield MetadataWorkUnit(
                     id=f"{urn}-auto-status",
-                    mcp=mcp,
+                    mcp_raw=mcp,
                 )
