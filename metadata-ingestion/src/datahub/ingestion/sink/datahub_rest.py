@@ -211,6 +211,16 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
 
     @classmethod
+    def make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+        """Build a REST emitter from sink config.
+
+        Public entry point so other sinks (e.g. the Kafka sink's REST fallback)
+        can reuse the exact emitter construction without reaching into a private
+        method.
+        """
+        return cls._make_emitter(config)
+
+    @classmethod
     def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             config.server,

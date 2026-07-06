@@ -154,32 +154,35 @@ def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
 def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     # Imported lazily so the (heavier) Kafka/confluent dependencies are only
     # loaded when the Kafka default sink is actually selected.
+    from datahub.cli import config_utils
     from datahub.ingestion.sink.datahub_kafka import (
         DatahubKafkaSink,
         KafkaSinkConfig,
     )
+    from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
+
+    # Bootstrap has no environment-based default (unlike the schema registry
+    # URL). Fail fast rather than silently defaulting to localhost:9092 and
+    # exploding at produce-time after a "successful"-looking run.
+    bootstrap = get_kafka_bootstrap()
+    if not bootstrap:
+        raise PipelineInitError(
+            "DATAHUB_KAFKA_BOOTSTRAP must be set to use the Kafka default sink "
+            "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."
+        )
 
     # DELETE/RESTATE change types are not supported over async Kafka ingestion.
-    # Wire a REST fallback that points at the same default GMS the REST default
-    # sink would use, so those MCPs degrade gracefully to synchronous REST
-    # instead of failing downstream. Everything else goes to Kafka.
-    graph = get_default_graph(ClientMode.INGESTION)
-    # Bootstrap has no environment-based default (unlike the schema registry
-    # URL), so allow it to be supplied via env for the default-sink case. Build
-    # the connection config up front rather than mutating after construction.
-    connection: dict = {}
-    bootstrap = get_kafka_bootstrap()
-    if bootstrap:
-        connection["bootstrap"] = bootstrap
-    else:
-        logger.warning(
-            "DATAHUB_KAFKA_BOOTSTRAP is not set; the default Kafka sink will fall "
-            "back to the KafkaSinkConfig default bootstrap (localhost:9092), which "
-            "will likely fail at runtime. Set DATAHUB_KAFKA_BOOTSTRAP."
-        )
+    # Wire a REST fallback from the same client config the REST default sink
+    # would use, so those MCPs degrade to synchronous REST. We build the config
+    # directly (not via get_default_graph) to avoid creating and connecting a
+    # second graph -- the single connection happens later when the pipeline
+    # builds ctx.graph from the sink's to_graph().
+    rest_fallback = DatahubRestSinkConfig(
+        **config_utils.load_client_config().model_dump()
+    )
     sink_config = KafkaSinkConfig(
-        connection=connection,
-        rest_fallback=graph._make_rest_sink_config(),
+        connection={"bootstrap": bootstrap},
+        rest_fallback=rest_fallback,
     )
     return DatahubKafkaSink(ctx, sink_config)
 
@@ -252,6 +255,13 @@ class Pipeline:
                 # environment. Unset/any-other-value preserves the historical
                 # datahub-rest behavior exactly.
                 default_sink = get_ingestion_default_sink().strip().lower()
+                if default_sink not in ("rest", "kafka"):
+                    logger.warning(
+                        "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; "
+                        "falling back to the datahub-rest default. Expected "
+                        "'rest' or 'kafka'.",
+                        default_sink,
+                    )
                 if default_sink == "kafka" and get_executor_managed():
                     logger.info(
                         "No sink configured, using the default datahub-kafka sink "

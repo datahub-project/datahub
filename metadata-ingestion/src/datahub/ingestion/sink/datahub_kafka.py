@@ -174,7 +174,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
             with self._rest_fallback_lock:
                 if self._rest_fallback_emitter is None:
                     assert self.config.rest_fallback is not None
-                    self._rest_fallback_emitter = DatahubRestSink._make_emitter(
+                    # Reuse the REST sink's public emitter factory so the
+                    # fallback is built exactly like a real REST sink.
+                    self._rest_fallback_emitter = DatahubRestSink.make_emitter(
                         self.config.rest_fallback
                     )
         return self._rest_fallback_emitter
@@ -241,6 +243,10 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                 # Drain in-flight async Kafka messages before the synchronous
                 # REST delete, so earlier UPSERTs for the same entity reach GMS
                 # before this DELETE/RESTATE (preserves per-entity ordering).
+                # This is best-effort, not transactional: any failed prior async
+                # delivery is still reported via its own _KafkaCallback (and
+                # trips raise_from_status), matching how every DataHub sink
+                # treats per-record failures.
                 self.emitter.flush()
                 self._get_rest_fallback_emitter().emit_mcp(record)
                 self.report.report_record_written(record_envelope)

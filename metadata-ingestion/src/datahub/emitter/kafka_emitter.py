@@ -37,8 +37,9 @@ MCP_KEY = "MetadataChangeProposal"
 # delivery callbacks before retrying produce(). Acts as backpressure.
 _QUEUE_FULL_POLL_SECONDS = 1.0
 
-# Give up blocking on a full queue after this long and surface the error, so a
+# Default time to block on a full queue before surfacing the error, so a
 # permanently unreachable broker fails the run instead of hanging forever.
+# Overridable per-deployment via KafkaEmitterConfig.max_queue_full_block_seconds.
 _MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 
 # Re-emit the "queue full" warning every N polls while blocked, so a persistent
@@ -54,6 +55,15 @@ class KafkaEmitterConfig(ConfigModel):
         MCE_KEY: DEFAULT_MCE_KAFKA_TOPIC,
         MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC,
     }
+
+    max_queue_full_block_seconds: float = pydantic.Field(
+        default=_MAX_QUEUE_FULL_BLOCK_SECONDS,
+        description=(
+            "Max time to block on a full local producer queue (backpressure) "
+            "before failing the run, so an unreachable broker does not hang "
+            "ingestion indefinitely."
+        ),
+    )
 
     _topic_field_compat = pydantic_renamed_field(
         "topic",
@@ -221,6 +231,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         producer.poll(0)
         self._produce_with_backpressure(
             producer,
+            max_block_seconds=self.config.max_queue_full_block_seconds,
             topic=self.config.topic_routes[MCE_KEY],
             key=mce.proposedSnapshot.urn,
             value=mce,
@@ -237,6 +248,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         producer.poll(0)
         self._produce_with_backpressure(
             producer,
+            max_block_seconds=self.config.max_queue_full_block_seconds,
             topic=self.config.topic_routes[MCP_KEY],
             key=mcp.entityUrn,
             value=mcp,

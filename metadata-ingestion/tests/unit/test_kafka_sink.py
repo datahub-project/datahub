@@ -689,6 +689,47 @@ def test_kafka_sink_timeseries_patch_routes_to_rest_fallback(
     kafka_sink.close()
 
 
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_timeseries_upsert_stays_on_kafka(mock_producer):
+    """UPSERT on a timeseries aspect (the primary managed workload -- profiles,
+    usage) stays on Kafka; only non-UPSERT timeseries changes fall back to REST."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    with patch(
+        "datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter",
+        return_value=mock_rest_emitter,
+    ):
+        callback = MagicMock(spec=WriteCallback)
+        kafka_sink = DatahubKafkaSink.create(
+            {
+                "connection": {"bootstrap": "foobar:9092"},
+                "rest_fallback": {"server": "http://fake-gms:8080"},
+            },
+            PipelineContext(run_id="test"),
+        )
+        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+        # datasetProfile is a timeseries aspect; UPSERT is Kafka-supported.
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+            aspect=models.DatasetProfileClass(
+                rowCount=1, columnCount=1, timestampMillis=1626995099686
+            ),
+            changeType=models.ChangeTypeClass.UPSERT,
+        )
+        re: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ] = RecordEnvelope(record=mcp, metadata={})
+        kafka_sink.write_record_async(re, callback)
+
+        mock_mcp_producer.produce.assert_called_once()
+        mock_rest_emitter.emit_mcp.assert_not_called()
+        kafka_sink.close()
+
+
 def test_produce_with_backpressure_retries_on_buffer_error():
     """A full producer queue (BufferError) must block-and-retry, not crash.
 

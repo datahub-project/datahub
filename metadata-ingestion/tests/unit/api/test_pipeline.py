@@ -21,7 +21,11 @@ from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import (
+    Pipeline,
+    PipelineContext,
+    PipelineInitError,
+)
 from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
@@ -149,6 +153,24 @@ class TestPipeline:
         # ctx.graph must be populated (from the REST fallback) so stateful
         # ingestion / stale-entity soft-deletion still work under the Kafka sink.
         assert pipeline.ctx.graph is not None
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    def test_configure_kafka_default_without_bootstrap_raises(self, monkeypatch):
+        # Missing DATAHUB_KAFKA_BOOTSTRAP must fail fast at init, not silently
+        # default to localhost:9092 and explode at produce-time.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.delenv("DATAHUB_KAFKA_BOOTSTRAP", raising=False)
+
+        with pytest.raises(PipelineInitError, match="DATAHUB_KAFKA_BOOTSTRAP"):
+            Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_file.json"},
+                    },
+                }
+            )
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
