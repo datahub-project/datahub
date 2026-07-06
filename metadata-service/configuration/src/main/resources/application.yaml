@@ -108,8 +108,8 @@ ingestion:
   # basis. Update the matrix file externally (S3/CDN/gist) without redeploying GMS to change
   # connector versions. Set source=none (or leave url empty) to disable.
   cliVersionMatrix:
-    # Source backend: "http" (default) or "none". Setting "none" is an explicit kill-switch even
-    # when an http.url is configured. With "http" but no url, the factory wires a no-op source.
+    # Source backend: "http" (default), "s3", or "none". Setting "none" is an explicit kill-switch
+    # even when an http.url is configured. With "http" but no url, the factory wires a no-op source.
     source: "${INGESTION_VERSION_MATRIX_SOURCE:http}"
     http:
       url: "${INGESTION_VERSION_MATRIX_URL:}"
@@ -122,6 +122,10 @@ ingestion:
       # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
       # system-info.
       authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
+    s3:
+      bucket: "${INGESTION_VERSION_MATRIX_S3_BUCKET:}"
+      key: "${INGESTION_VERSION_MATRIX_S3_KEY:matrix.json}"
+      refreshSeconds: ${INGESTION_VERSION_MATRIX_S3_REFRESH_SECONDS:600}
   # Identifier for this deployment, used for matching against `deployments` allowlists in the
   # version matrix. Sourced from DATAHUB_EXECUTOR_CUSTOMER_ID, which the Acryl Cloud Helm chart
   # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
