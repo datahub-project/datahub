@@ -11,6 +11,18 @@ from typing import Dict, List, Optional
 
 from databricks.sdk.service.catalog import ConnectionType
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
+from datahub.metadata.schema_classes import PropertyValueClass
+from datahub.metadata.urns import (
+    ContainerUrn,
+    DataTypeUrn,
+    EntityTypeUrn,
+    StructuredPropertyUrn,
+)
+
 # Unity Catalog connection type -> DataHub platform id.
 CONNECTION_TYPE_TO_PLATFORM: Dict[ConnectionType, str] = {
     ConnectionType.MYSQL: "mysql",
@@ -95,3 +107,63 @@ def external_dataset_name(target: FederationTarget, schema: str, table: str) -> 
     if target.remote_database:
         return f"{target.remote_database}.{schema}.{table}"
     return f"{schema}.{table}"
+
+
+FEDERATION_PROPERTY_SUFFIXES: List[str] = [
+    "catalog_type",
+    "platform",
+    "connection",
+    "remote_database",
+]
+
+_PROPERTY_DISPLAY: Dict[str, str] = {
+    "catalog_type": "Catalog Type",
+    "platform": "Federation Platform",
+    "connection": "Federation Connection",
+    "remote_database": "Federation Remote Database",
+}
+
+_PROPERTY_DESCRIPTION: Dict[str, str] = {
+    "catalog_type": "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation).",
+    "platform": "DataHub platform of the external system this foreign catalog mirrors.",
+    "connection": "Unity Catalog connection backing this foreign catalog.",
+    "remote_database": "Name of the external database/project/catalog mirrored by this catalog.",
+}
+
+
+def structured_property_urns(namespace: str) -> Dict[str, str]:
+    return {
+        suffix: StructuredPropertyUrn(f"{namespace}.{suffix}").urn()
+        for suffix in FEDERATION_PROPERTY_SUFFIXES
+    }
+
+
+def federation_property_definition_mcps(
+    namespace: str,
+) -> List[MetadataChangeProposalWrapper]:
+    container_entity_type = EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn()
+    value_type = DataTypeUrn("datahub.string").urn()
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for suffix in FEDERATION_PROPERTY_SUFFIXES:
+        qualified_name = f"{namespace}.{suffix}"
+        allowed_values = None
+        if suffix == "platform":
+            allowed_values = [
+                PropertyValueClass(value=platform)
+                for platform in KNOWN_FEDERATION_PLATFORMS
+            ]
+        aspect = StructuredPropertyDefinition(
+            qualifiedName=qualified_name,
+            displayName=_PROPERTY_DISPLAY[suffix],
+            description=_PROPERTY_DESCRIPTION[suffix],
+            valueType=value_type,
+            entityTypes=[container_entity_type],
+            cardinality="SINGLE",
+            allowedValues=allowed_values,
+        )
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=StructuredPropertyUrn(qualified_name).urn(), aspect=aspect
+            )
+        )
+    return mcps

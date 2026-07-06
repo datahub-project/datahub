@@ -193,3 +193,28 @@ def test_none_connection_type_without_database_is_two_tier():
     assert target is not None
     assert target.platform == "mssql"
     assert target.remote_database is None
+
+
+def test_structured_property_urns():
+
+    urns = fed.structured_property_urns("databricks.federation")
+    assert (
+        urns["platform"] == "urn:li:structuredProperty:databricks.federation.platform"
+    )
+    assert set(urns) == {"catalog_type", "platform", "connection", "remote_database"}
+
+
+def test_property_definition_mcps_target_container_and_platform_allowed_values():
+    from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
+
+    mcps = fed.federation_property_definition_mcps("databricks.federation")
+    assert len(mcps) == 4
+    by_qn = {m.aspect.qualifiedName: m.aspect for m in mcps}
+    platform_def = by_qn["databricks.federation.platform"]
+    assert isinstance(platform_def, StructuredPropertyDefinitionClass)
+    assert platform_def.entityTypes == ["urn:li:entityType:datahub.container"]
+    assert platform_def.valueType == "urn:li:dataType:datahub.string"
+    allowed = {av.value for av in (platform_def.allowedValues or [])}
+    assert "mssql" in allowed and "postgres" in allowed
+    # non-enumerated property has no allowedValues
+    assert by_qn["databricks.federation.connection"].allowedValues is None
