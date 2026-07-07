@@ -18,4 +18,5 @@ export const REMIRROR_LOCALE_LOADERS: Record<string, () => Promise<{ default: Me
     es: () => import('@src/i18n/remirror/es.json'),
     'pt-BR': () => import('@src/i18n/remirror/pt-BR.json'),
     fr: () => import('@src/i18n/remirror/fr.json'),
+    it: () => import('@src/i18n/remirror/it.json'),
 };
