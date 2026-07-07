@@ -24,10 +24,11 @@ from datahub.configuration.common import (
 from datahub.configuration.env_vars import (
     get_executor_managed,
     get_ingestion_default_sink,
-    get_kafka_bootstrap,
-    get_kafka_linger_ms,
-    get_kafka_queue_max_kbytes,
-    get_kafka_queue_max_messages,
+    get_kafka_sink_bootstrap,
+    get_kafka_sink_init_probe_timeout,
+    get_kafka_sink_linger_ms,
+    get_kafka_sink_queue_max_kbytes,
+    get_kafka_sink_queue_max_messages,
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -154,6 +155,60 @@ def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
     return DatahubRestSink(ctx, sink_config)
 
 
+def _kafka_endpoints_reachable(bootstrap: str, schema_registry_url: str) -> bool:
+    """Bounded reachability check for the broker and schema registry.
+
+    The Kafka clients connect lazily -- without this, a wrong/unreachable
+    bootstrap or schema-registry URL isn't noticed until flush() stalls for
+    ~max_queue_full_block_seconds (~300s) at the end of an otherwise
+    healthy-looking run. This checks at init so the caller can fall back to REST
+    instead.
+
+    Returns True if both endpoints answer within the timeout, else False (and
+    logs why). Does NOT close the reachable-but-wrong-broker case (a valid broker
+    on the wrong cluster still answers) -- that's a coordinator-side concern.
+    """
+    timeout_s = get_kafka_sink_init_probe_timeout()
+
+    # Broker: a metadata fetch round-trips to the bootstrap server and raises
+    # within `timeout_s` if it's unreachable.
+    try:
+        from confluent_kafka import Producer
+
+        Producer(
+            {
+                "bootstrap.servers": bootstrap,
+                "socket.timeout.ms": timeout_s * 1000,
+            }
+        ).list_topics(timeout=timeout_s)
+    except Exception as e:
+        logger.warning(
+            f"Kafka broker at {bootstrap!r} is not reachable within {timeout_s}s "
+            f"(KAFKA_BOOTSTRAP_SERVER for the Kafka default sink): {e}"
+        )
+        return False
+
+    # Schema registry: a bounded GET against the subjects endpoint. MCP schemas
+    # can't be registered if this is wrong.
+    try:
+        import requests
+
+        resp = requests.get(
+            f"{schema_registry_url.rstrip('/')}/subjects",
+            timeout=timeout_s,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        logger.warning(
+            f"Kafka schema registry at {schema_registry_url!r} is not reachable "
+            f"within {timeout_s}s (KAFKA_SCHEMAREGISTRY_URL for the Kafka default "
+            f"sink): {e}"
+        )
+        return False
+
+    return True
+
+
 def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     # Imported lazily so the (heavier) Kafka/confluent dependencies are only
     # loaded when the Kafka default sink is actually selected.
@@ -165,53 +220,54 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 
     # Bootstrap defaults to localhost:9092 in KafkaSinkConfig, which is wrong in
-    # a container. Fail fast rather than silently using it and exploding at
-    # produce-time after a "successful"-looking run.
-    bootstrap = get_kafka_bootstrap()
+    # a container. If it's unset, the Kafka default was selected without a broker
+    # configured -- degrade to REST rather than using a bogus default and failing
+    # the run.
+    bootstrap = get_kafka_sink_bootstrap()
     if not bootstrap:
-        raise PipelineInitError(
-            "KAFKA_BOOTSTRAP_SERVER must be set to use the Kafka default sink "
-            "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."
+        logger.warning(
+            "DATAHUB_INGESTION_DEFAULT_SINK=kafka but KAFKA_BOOTSTRAP_SERVER is "
+            "not set; falling back to the REST default sink for this run."
         )
+        return _make_default_rest_sink(ctx)
 
-    # DELETE/RESTATE change types are not supported over async Kafka ingestion.
-    # Wire a REST fallback from the same client config the REST default sink
-    # would use, so those MCPs degrade to synchronous REST. We build the config
-    # directly (not via get_default_graph) to avoid creating and connecting a
-    # second graph -- the single connection happens later when the pipeline
-    # builds ctx.graph from the sink's to_graph().
-    # Spread the client config into the REST sink config. DatahubRestSinkConfig
-    # extends DatahubClientConfig, so this carries over server/token/TLS/retry/
-    # headers -- mirroring DataHubGraph._make_rest_sink_config(). Kept as a spread
-    # (not a hand-picked subset) so new client-config fields flow through here the
-    # same way they do for the REST default sink.
+    # DELETE/RESTATE change types aren't supported over async Kafka; wire a REST
+    # fallback from the same client config the REST default sink uses so those
+    # MCPs degrade to synchronous REST. Spread (not a hand-picked subset) so new
+    # client-config fields flow through as they do for the REST default sink.
     rest_fallback = DatahubRestSinkConfig(
         **config_utils.load_client_config().model_dump()
     )
     sink_config = KafkaSinkConfig(
         connection={
             "bootstrap": bootstrap,
-            # Cap the producer's local send buffer so backpressure (block-on-full
-            # in the emitter) engages at a bounded memory ceiling instead of
-            # librdkafka's ~1 GiB default -- prevents OOM in memory-constrained
-            # executor pods when the broker/MCP consumer can't keep up. linger
-            # batches sends for throughput.
-            #
-            # Peak buffer memory ~= num_producers * queue.buffering.max.kbytes
-            # + Python overhead. The emitter has two producers (MCE + MCP), so
-            # the worst case is 2 * 128 MiB = 256 MiB; in practice the MCE
-            # producer is idle (MCEs are unpacked to MCPs), so it's ~128 MiB.
-            # Tunable per deployment via DATAHUB_KAFKA_QUEUE_MAX_KBYTES /
-            # DATAHUB_KAFKA_QUEUE_MAX_MESSAGES / DATAHUB_KAFKA_LINGER_MS (or a
-            # custom kafka sink config).
+            # Cap the producer's local send buffer so backpressure engages at a
+            # bounded memory ceiling instead of librdkafka's ~1 GiB default
+            # (OOM protection in memory-constrained executor pods). Tunable via
+            # DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES / _QUEUE_MAX_MESSAGES / _LINGER_MS.
             "producer_config": {
-                "queue.buffering.max.kbytes": get_kafka_queue_max_kbytes(),
-                "queue.buffering.max.messages": get_kafka_queue_max_messages(),
-                "linger.ms": get_kafka_linger_ms(),
+                "queue.buffering.max.kbytes": get_kafka_sink_queue_max_kbytes(),
+                "queue.buffering.max.messages": get_kafka_sink_queue_max_messages(),
+                "linger.ms": get_kafka_sink_linger_ms(),
             },
         },
         rest_fallback=rest_fallback,
     )
+    # Kafka default is an infra optimization the recipe didn't opt into; if the
+    # broker / schema registry is unreachable (e.g. the flag reached an executor
+    # with no in-cluster Kafka access), degrade to REST rather than fail the run.
+    # WARNING not error so ops can alert on sustained fallback -- which quietly
+    # restores the GMS load we were offloading.
+    if not _kafka_endpoints_reachable(
+        bootstrap, sink_config.connection.schema_registry_url
+    ):
+        logger.warning(
+            "Kafka default sink endpoints unreachable; falling back to the REST "
+            "default sink for this run. Metadata is still written to GMS over "
+            "REST. Sustained fallback across runs indicates a Kafka / schema-"
+            "registry outage or misconfiguration -- alert on this."
+        )
+        return _make_default_rest_sink(ctx)
     return DatahubKafkaSink(ctx, sink_config)
 
 

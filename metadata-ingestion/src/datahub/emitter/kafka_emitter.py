@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import pydantic
 from confluent_kafka import SerializingProducer
@@ -172,9 +172,17 @@ class DatahubKafkaEmitter(Closeable, Emitter):
     @staticmethod
     def _produce_with_backpressure(
         producer: SerializingProducer,
+        *,
+        topic: str,
+        key: Optional[str],
+        value: Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ],
+        on_delivery: Callable[[Exception, str], None],
         poll_timeout_seconds: float = _QUEUE_FULL_POLL_SECONDS,
         max_block_seconds: float = _MAX_QUEUE_FULL_BLOCK_SECONDS,
-        **produce_kwargs: Any,
     ) -> None:
         """Produce to Kafka, blocking on a full local queue instead of failing.
 
@@ -195,12 +203,11 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         polls = 0
         while True:
             try:
-                producer.produce(**produce_kwargs)
+                producer.produce(
+                    topic=topic, key=key, value=value, on_delivery=on_delivery
+                )
                 return
             except BufferError:
-                # Count the poll first so a single transient BufferError does not
-                # warn immediately (polls==0); the first warning fires after
-                # _QUEUE_FULL_WARN_EVERY_N_POLLS actual polls.
                 polls += 1
                 if polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
                     logger.warning(
@@ -208,8 +215,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                         "If this persists the broker may be unreachable."
                     )
                 producer.poll(poll_timeout_seconds)
-                # Bail out once total blocked time exceeds the deadline, so an
-                # unreachable broker fails the run instead of blocking forever.
                 if time.monotonic() >= deadline:
                     logger.error(
                         "Kafka producer queue still full after %.0fs; giving up "

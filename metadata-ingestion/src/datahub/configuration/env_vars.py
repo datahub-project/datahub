@@ -83,8 +83,13 @@ def get_executor_managed() -> bool:
     return os.getenv("DATAHUB_EXECUTOR_MANAGED", "").lower() == "true"
 
 
-def get_kafka_bootstrap() -> Optional[str]:
-    """Kafka bootstrap servers for the default Kafka sink."""
+def get_kafka_sink_bootstrap() -> Optional[str]:
+    """Kafka bootstrap servers for the default Kafka ingestion sink.
+
+    Reuses the DataHub-wide KAFKA_BOOTSTRAP_SERVER convention (same broker GMS /
+    consumers use) rather than a sink-specific var, so ingestion targets the
+    same cluster as the rest of the platform.
+    """
     return os.getenv("KAFKA_BOOTSTRAP_SERVER")
 
 
@@ -105,23 +110,34 @@ def _get_int_env(var: str, default: int) -> int:
         ) from None
 
 
-def get_kafka_queue_max_kbytes() -> int:
-    """Per-producer local queue size cap (KiB) for the default Kafka sink.
+def get_kafka_sink_queue_max_kbytes() -> int:
+    """Per-producer local queue size cap (KiB) for the default Kafka ingestion sink.
 
     Bounds producer buffer memory so backpressure engages before OOM. Peak
     buffer memory ~= num_producers * this value. Default 128 MiB.
     """
-    return _get_int_env("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", 131072)
+    return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", 131072)
 
 
-def get_kafka_queue_max_messages() -> int:
-    """Per-producer local queue size cap (message count) for the default Kafka sink."""
-    return _get_int_env("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", 20000)
+def get_kafka_sink_queue_max_messages() -> int:
+    """Per-producer local queue size cap (msg count) for the default Kafka ingestion sink."""
+    return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", 20000)
 
 
-def get_kafka_linger_ms() -> int:
-    """Producer linger.ms (send batching window) for the default Kafka sink."""
-    return _get_int_env("DATAHUB_KAFKA_LINGER_MS", 100)
+def get_kafka_sink_linger_ms() -> int:
+    """Producer linger.ms (send batching window) for the default Kafka ingestion sink."""
+    return _get_int_env("DATAHUB_KAFKA_SINK_LINGER_MS", 100)
+
+
+def get_kafka_sink_init_probe_timeout() -> int:
+    """Per-check timeout (seconds) for the Kafka ingestion sink's init reachability probe.
+
+    The probe runs whenever the Kafka default sink is selected
+    (DATAHUB_INGESTION_DEFAULT_SINK=kafka) -- no separate on/off flag. Bounds
+    both the broker metadata fetch and the schema-registry request so a
+    misconfigured endpoint dies in seconds at startup. Default 10s.
+    """
+    return _get_int_env("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", 10)
 
 
 # ============================================================================

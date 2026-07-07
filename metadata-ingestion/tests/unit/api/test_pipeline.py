@@ -25,7 +25,6 @@ from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import (
     Pipeline,
     PipelineContext,
-    PipelineInitError,
 )
 from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
@@ -127,6 +126,12 @@ class TestPipeline:
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        # This test asserts sink config, not connectivity; stub the init probe
+        # so it doesn't try to reach the fake broker/registry.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
         mock_fetch_config.return_value = mock_server_config
 
         pipeline = Pipeline.create(
@@ -180,9 +185,14 @@ class TestPipeline:
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
-        monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", "262144")
-        monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", "50000")
-        monkeypatch.setenv("DATAHUB_KAFKA_LINGER_MS", "50")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", "262144")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", "50000")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_LINGER_MS", "50")
+        # Config-only test; stub the connectivity probe.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
         mock_fetch_config.return_value = mock_server_config
 
         pipeline = Pipeline.create(
@@ -200,22 +210,106 @@ class TestPipeline:
         assert pc["linger.ms"] == 50
 
     @time_machine.travel(FROZEN_TIME, tick=False)
-    def test_configure_kafka_default_without_bootstrap_raises(self, monkeypatch):
-        # Missing KAFKA_BOOTSTRAP_SERVER must fail fast at init, not silently
-        # default to localhost:9092 and explode at produce-time.
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_kafka_default_without_bootstrap_falls_back_to_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Kafka default selected but no broker configured: don't fail the run --
+        # degrade to REST so metadata still lands.
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
         monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVER", raising=False)
+        mock_fetch_config.return_value = mock_server_config
 
-        with pytest.raises(PipelineInitError, match="KAFKA_BOOTSTRAP_SERVER"):
-            Pipeline.create(
-                {
-                    "source": {
-                        "type": "file",
-                        "config": {"path": "test_file.json"},
-                    },
-                }
-            )
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_broker_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # A broker that never answers the metadata fetch: fall back to REST
+        # rather than buffering silently and stalling ~300s at flush().
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "unreachable:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        mock_producer.return_value.list_topics.side_effect = Exception("broker down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("requests.get")
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_registry_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_requests_get,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Broker reachable, schema registry not: fall back to REST, since MCP
+        # schemas can't be registered against an unreachable registry.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        # Broker probe succeeds (default MagicMock), registry GET fails.
+        mock_requests_get.side_effect = Exception("registry down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
