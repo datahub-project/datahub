@@ -189,6 +189,78 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
+  public void testAliasSwapTimePreferredOverDualWriteStartTime() {
+    // aliasSwapTime is the exact end of the T0 window and takes precedence over dualWriteStartTime
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    phase1State = IncrementalReindexState.setAliasSwapTime(phase1State, INDEX_NAME, 3000L);
+    setupPhase1Result(phase1State);
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
+    assertEquals(capturedArgs.gePitEpochMs, 1000L);
+    assertEquals(capturedArgs.lePitEpochMs, 3000L);
+  }
+
+  @Test
+  public void testFallsBackToReindexCompleteTimePlusBufferWhenNoSwapOrDualWriteTime() {
+    // Legacy records lack aliasSwapTime and dualWriteStartTime: the window upper bound falls back
+    // to
+    // reindexCompleteTime + (2 x slowOperationTimeoutSeconds) so it stays bounded near the real
+    // swap
+    // instead of running to now.
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setReindexCompleteTime(phase1State, INDEX_NAME, 5000L);
+    setupPhase1Result(phase1State);
+
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    long expectedBufferMs =
+        2L * new BuildIndicesConfiguration().getSlowOperationTimeoutSeconds() * 1000L;
+
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
+    assertEquals(capturedArgs.gePitEpochMs, 1000L);
+    assertEquals(capturedArgs.lePitEpochMs, 5000L + expectedBufferMs);
+  }
+
+  @Test
   public void testShouldFlushTriggersOnRowOrByteThreshold() {
     assertTrue(IncrementalReindexCatchUpStep.shouldFlush(500, 0, 500, 0));
     assertFalse(IncrementalReindexCatchUpStep.shouldFlush(499, 0, 500, 0));

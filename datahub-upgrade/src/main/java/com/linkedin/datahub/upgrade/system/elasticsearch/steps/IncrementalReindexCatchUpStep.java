@@ -47,13 +47,17 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.tasks.TaskInfo;
 
 /**
- * Phase 2 non-blocking upgrade step that closes the T0 gap created during Phase 1. Queries aspects
- * modified between {@code reindexStartTime} and {@code dualWriteStartTime} and emits MCLs via
- * Kafka. The dual-write strategy (already active in the MAE consumer) handles writing these MCLs to
- * both current and next indices.
+ * Phase 2 non-blocking upgrade step that closes the T0 gap created during Phase 1. For each
+ * reindexed index it queries aspects modified in the window {@code [reindexStartTime,
+ * catchUpEndTime)} and emits MCLs via Kafka, so both the current and next indices receive the
+ * writes that landed on the old backing index during the reindex but were absent from the frozen
+ * _reindex snapshot. Applies to every reindexed index (including settings-only reindexes): the T0
+ * gap is a set of missing <em>documents</em> written during the reindex window, independent of
+ * whether any field mapping changed.
  *
- * <p>Only processes indices where {@code requiresDataBackfill=true} — settings-only changes don't
- * need this since the ES _reindex already copied all docs correctly.
+ * <p>The window's upper bound is resolved by {@link #resolveCatchUpEndTime} with a
+ * most-precise-first fallback (aliasSwapTime → dualWriteStartTime → reindexCompleteTime + buffer →
+ * now), always erring late so no T0-window write is missed.
  *
  * <p>Uses {@link ChangeType#RESTATE} so the consumer re-processes the full aspect state regardless
  * of diff mode optimizations.
@@ -220,12 +224,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     }
 
     long reindexStartTime = Long.parseLong(reindexStartTimeStr);
-    long dualWriteStartTime =
-        dualWriteStartTimeStr != null
-            ? Long.parseLong(dualWriteStartTimeStr)
-            : System.currentTimeMillis();
+    long catchUpEndTime = resolveCatchUpEndTime(indexName, indexState, dualWriteStartTimeStr);
 
-    if (reindexStartTime >= dualWriteStartTime) {
+    if (reindexStartTime >= catchUpEndTime) {
       return CatchUpStatus.SKIPPED;
     }
 
@@ -240,9 +241,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           indexName,
           entityName,
           reindexStartTime,
-          dualWriteStartTime);
+          catchUpEndTime);
       emitMCLsForTimeRange(
-          context, indexName, "urn:li:" + entityName + ":%", reindexStartTime, dualWriteStartTime);
+          context, indexName, "urn:li:" + entityName + ":%", reindexStartTime, catchUpEndTime);
       return CatchUpStatus.COMPLETED;
     }
 
@@ -257,9 +258,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           indexName,
           oldBackingIndexName,
           reindexStartTime,
-          dualWriteStartTime);
+          catchUpEndTime);
       return reindexTimeseriesGap(
-          indexName, oldBackingIndexName, nextIndexName, reindexStartTime, dualWriteStartTime);
+          indexName, oldBackingIndexName, nextIndexName, reindexStartTime, catchUpEndTime);
     }
 
     if (isGlobalIndex(indexName)) {
@@ -267,13 +268,58 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           "Catch-up for global index {}: window [{}, {}]",
           indexName,
           reindexStartTime,
-          dualWriteStartTime);
-      emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, dualWriteStartTime);
+          catchUpEndTime);
+      emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, catchUpEndTime);
       return CatchUpStatus.COMPLETED;
     }
 
     log.warn("Could not resolve index '{}' as entity, timeseries, or global, skipping", indexName);
     return CatchUpStatus.SKIPPED;
+  }
+
+  /**
+   * Resolves the exclusive upper bound of the T0 catch-up window, most-precise source first:
+   *
+   * <ol>
+   *   <li>{@code aliasSwapTime} — the exact moment Phase 1 swapped the alias to the next index
+   *       (only present on records written by the aliasSwapTime-aware Phase 1).
+   *   <li>{@code dualWriteStartTime} — when the MAE consumer first dual-wrote; recorded at/after
+   *       the swap, so a safe (never-early) over-estimate.
+   *   <li>{@code reindexCompleteTime + buffer} — for legacy records lacking both timestamps above.
+   *       The swap happens shortly after reindex completion, gated by up to two blocking {@code
+   *       getCount} refreshes each bounded by {@code slowOperationTimeoutSeconds}; a buffer of
+   *       {@code 2 × slowOperationTimeoutSeconds} guarantees the bound is at/after the real swap.
+   *   <li>{@code now} — last resort if reindex completion was never recorded.
+   * </ol>
+   *
+   * <p>Every fallback deliberately errs late: over-estimating only replays already-present writes
+   * (RESTATE is idempotent), whereas under-estimating would leave T0-window writes missing from the
+   * next index.
+   */
+  private long resolveCatchUpEndTime(
+      String indexName, Map<String, String> indexState, @Nullable String dualWriteStartTimeStr) {
+    String aliasSwapTimeStr = indexState.get(IncrementalReindexState.ALIAS_SWAP_TIME);
+    if (aliasSwapTimeStr != null) {
+      return Long.parseLong(aliasSwapTimeStr);
+    }
+    if (dualWriteStartTimeStr != null) {
+      return Long.parseLong(dualWriteStartTimeStr);
+    }
+    String reindexCompleteTimeStr = indexState.get(IncrementalReindexState.REINDEX_COMPLETE_TIME);
+    if (reindexCompleteTimeStr != null) {
+      long bufferMs = 2L * buildIndicesConfig.getSlowOperationTimeoutSeconds() * 1000L;
+      long end = Long.parseLong(reindexCompleteTimeStr) + bufferMs;
+      log.info(
+          "Index {} has no aliasSwapTime/dualWriteStartTime; using reindexCompleteTime + {}ms buffer as catch-up end ({})",
+          indexName,
+          bufferMs,
+          end);
+      return end;
+    }
+    log.warn(
+        "Index {} has no aliasSwapTime/dualWriteStartTime/reindexCompleteTime; falling back to now for catch-up end",
+        indexName);
+    return System.currentTimeMillis();
   }
 
   private void persistCatchUpCheckpoint(

@@ -34,6 +34,26 @@ public class IncrementalReindexStateTest {
   }
 
   @Test
+  public void testAliasSwapTimeRoundTripsThroughGetAllIndexStates() {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            ENTITY_INDEX,
+            NEXT_INDEX,
+            OLD_BACKING,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    state = IncrementalReindexState.setAliasSwapTime(state, ENTITY_INDEX, 4242L);
+
+    Map<String, String> indexState =
+        IncrementalReindexState.getAllIndexStates(state).get(ENTITY_INDEX);
+    assertEquals(indexState.get(IncrementalReindexState.ALIAS_SWAP_TIME), "4242");
+  }
+
+  @Test
   public void testCatchUpStatusTerminal() {
     assertTrue(IncrementalReindexState.CatchUpStatus.COMPLETED.isTerminal());
     assertTrue(IncrementalReindexState.CatchUpStatus.SKIPPED.isTerminal());

@@ -45,6 +45,14 @@ public final class IncrementalReindexState {
   public static final String STATUS = "status";
 
   /**
+   * Epoch millis when the alias was atomically swapped to the next index during Phase 1 — the exact
+   * moment the next index began serving live writes, and therefore the precise upper bound of the
+   * T0 catch-up window. Writes before this went to the old backing index and may be missing from
+   * next; writes after it already land in next.
+   */
+  public static final String ALIAS_SWAP_TIME = "aliasSwapTime";
+
+  /**
    * Epoch millis when the MAE consumer first performed a dual-write to the next index. Set at
    * runtime by the upgrade strategy, not during Phase 1.
    */
@@ -252,6 +260,16 @@ public final class IncrementalReindexState {
     return result;
   }
 
+  /**
+   * Record when the alias was swapped to the next index — the exact end of the T0 catch-up window.
+   */
+  public static Map<String, String> setAliasSwapTime(
+      @Nonnull Map<String, String> existing, @Nonnull String indexName, long swapTime) {
+    Map<String, String> result = new HashMap<>(existing);
+    result.put(key(indexName, ALIAS_SWAP_TIME), String.valueOf(swapTime));
+    return result;
+  }
+
   /** Record when dual-write started for this index. */
   public static Map<String, String> setDualWriteStartTime(
       @Nonnull Map<String, String> existing, @Nonnull String indexName, long startTime) {
@@ -305,6 +323,7 @@ public final class IncrementalReindexState {
               OLD_BACKING_INDEX_NAME,
               REINDEX_START_TIME,
               REINDEX_COMPLETE_TIME,
+              ALIAS_SWAP_TIME,
               STATUS,
               DUAL_WRITE_START_TIME,
               REQUIRES_DATA_BACKFILL,

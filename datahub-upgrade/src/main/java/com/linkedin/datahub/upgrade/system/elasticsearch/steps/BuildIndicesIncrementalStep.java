@@ -202,6 +202,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
             log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
+            upgradeState = recordAliasSwap(context, upgradeState, config.name());
             continue;
           }
 
@@ -248,6 +249,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             }
             log.info(
                 "Index {} had 0 docs, next index created as empty, alias swapped", config.name());
+            upgradeState = recordAliasSwap(context, upgradeState, config.name());
             continue;
           }
 
@@ -287,6 +289,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
           log.info("Alias swapped: {} -> {}", config.name(), result.nextIndexName());
+          upgradeState = recordAliasSwap(context, upgradeState, config.name());
         }
 
         // Also handle indices that don't need reindex but need mapping/settings updates, note that
@@ -350,6 +353,20 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             e.getMessage());
       }
     }
+    return upgradeState;
+  }
+
+  /**
+   * Records the alias-swap time for an index and checkpoints it. This is the exact end of the T0
+   * catch-up window (the moment the next index began serving live writes), consumed by Phase 2 as
+   * the preferred upper bound for the catch-up query.
+   */
+  private Map<String, String> recordAliasSwap(
+      UpgradeContext context, Map<String, String> upgradeState, String indexName) {
+    upgradeState =
+        IncrementalReindexState.setAliasSwapTime(
+            upgradeState, indexName, System.currentTimeMillis());
+    checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;
   }
 
