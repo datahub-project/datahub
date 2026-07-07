@@ -64,6 +64,8 @@
     "context.sourceFilter.label": "Quelle",
     "context.sourceFilter.placeholder": "Quellen filtern",
     "context.tree.dataHubSection": "DataHub",
+    "context.tree.expandAll": "Alle erweitern",
+    "context.tree.collapseAll": "Alle reduzieren",
     "context.statusFilter.all": "Alle",
     "context.statusFilter.placeholder": "Alle",
     "context.statusFilter.published": "Veröffentlicht",
