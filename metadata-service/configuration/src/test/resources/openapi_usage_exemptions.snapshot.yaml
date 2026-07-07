@@ -1,0 +1,5 @@
+---
+exemptions:
+- source_file: "metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/operations/messaging/PgQueueMessagingOperationsController.java"
+  line_number: 115
+  exemption_reason: "pgQueue internal messaging admin — not usage-tracked"

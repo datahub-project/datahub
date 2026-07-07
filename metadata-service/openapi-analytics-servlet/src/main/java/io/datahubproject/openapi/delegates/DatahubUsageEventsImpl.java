@@ -42,7 +42,7 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of())
-                .withUsageOperation(UsageOperation.OTHER_WRITE),
+                .withUsageOperation(UsageOperation.OTHER_READ),
             _authorizationChain,
             authentication,
             true);

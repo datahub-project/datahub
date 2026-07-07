@@ -112,7 +112,7 @@ public class ExternalEventsController {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of())
-                  .withUsageOperation(UsageOperation.METADATA_QUERY),
+                  .withUsageOperation(UsageOperation.OTHER_READ),
               authorizationChain,
               authentication,
               true);

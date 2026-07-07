@@ -93,7 +93,7 @@ public class TraceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getTrace", List.of())
-                .withUsageOperation(UsageOperation.METADATA_READ),
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);

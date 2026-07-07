@@ -12,7 +12,6 @@ import com.linkedin.metadata.queue.ConsumerOffsetResetSpec;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -113,9 +112,7 @@ public class PgQueueMessagingOperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, operation, List.of())
-                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
+            RequestContext.builder().buildOpenapi(actorUrnStr, request, operation, List.of()),
             authorizerChain,
             authentication,
             true);
