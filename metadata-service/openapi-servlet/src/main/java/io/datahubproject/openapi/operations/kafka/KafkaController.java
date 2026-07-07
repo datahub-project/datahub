@@ -115,7 +115,7 @@ public class KafkaController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of())
-                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
@@ -189,7 +189,7 @@ public class KafkaController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
-                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
@@ -265,7 +265,7 @@ public class KafkaController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
-                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);

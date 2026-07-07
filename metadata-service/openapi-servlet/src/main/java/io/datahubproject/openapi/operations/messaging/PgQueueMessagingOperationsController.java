@@ -67,7 +67,7 @@ public class PgQueueMessagingOperationsController {
   public ResponseEntity<?> resetConsumerOffsets(
       HttpServletRequest httpServletRequest,
       @RequestBody(required = false) ConsumerOffsetResetRequest request) {
-    if (!authorize(httpServletRequest, "resetConsumerOffsets")) {
+    if (!authorize(httpServletRequest, "resetConsumerOffsets", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     ConsumerOffsetResetRequest body = request != null ? request : new ConsumerOffsetResetRequest();
@@ -107,7 +107,8 @@ public class PgQueueMessagingOperationsController {
         .build();
   }
 
-  private boolean authorize(HttpServletRequest request, String operation) {
+  private boolean authorize(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
     OperationContext opContext =
@@ -115,7 +116,7 @@ public class PgQueueMessagingOperationsController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, operation, List.of())
-                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
+                .withUsageOperation(usageOperation),
             authorizerChain,
             authentication,
             true);

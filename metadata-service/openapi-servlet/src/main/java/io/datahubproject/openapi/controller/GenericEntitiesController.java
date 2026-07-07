@@ -239,7 +239,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "getEntities", entityName)
-                .withUsageOperation(UsageOperation.METADATA_READ),
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             authorizationChain,
             authentication,
             true);
