@@ -1524,6 +1524,15 @@ cache:
   homepage:
     entityCounts:
       ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}
+  entityCounts:
+    keyAspect:
+      enabled: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_ENABLED:true}
+      ttlSeconds: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_TTL_SECONDS:3600}
+      maxEntityTypes: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_MAX_ENTITY_TYPES:200}
+      singleFlight:
+        staleBuildingMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_STALE_BUILDING_MS:120000}
+        waiterMaxMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_WAITER_MAX_MS:60000}
+        pollIntervalMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_POLL_INTERVAL_MS:100}
   search:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
