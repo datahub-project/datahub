@@ -67,6 +67,7 @@ export default function useDescriptionRenderer(
                 isPropagated={isPropagated}
                 attribution={attribution}
                 dataTestId={`schema-field-${record.fieldPath}-description`}
+                hideShowMore
             />
         );
     };

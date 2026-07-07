@@ -13,6 +13,8 @@ export interface TypeData {
 export interface PropertyRow {
     displayName: string;
     qualifiedName: string;
+    // Alias of qualifiedName used as the expansion key by the alchemy Table (keys expansion off `name`).
+    name?: string;
     values?: ValueColumnData[];
     children?: PropertyRow[];
     childrenCount?: number;

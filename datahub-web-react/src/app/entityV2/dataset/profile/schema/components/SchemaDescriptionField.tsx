@@ -101,6 +101,18 @@ const DescriptionWrapper = styled.span`
     width: 100%;
 `;
 
+const TruncatedDescription = styled.div`
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 24px;
+    color: ${(props) => props.theme.colors.text};
+`;
+
 const AddModalWrapper = styled.div``;
 
 type Props = {
@@ -116,6 +128,9 @@ type Props = {
     isPropagated?: boolean;
     attribution?: MetadataAttribution | null;
     dataTestId?: string;
+    // When true, collapsed descriptions truncate to a single line with an ellipsis + tooltip
+    // instead of exposing a "show more" toggle.
+    hideShowMore?: boolean;
 };
 
 export default function DescriptionField({
@@ -129,6 +144,7 @@ export default function DescriptionField({
     isPropagated,
     attribution,
     dataTestId,
+    hideShowMore,
 }: Props) {
     const { t } = useTranslation('entity.types');
     const { t: tc } = useTranslation('common.actions');
@@ -197,42 +213,38 @@ export default function DescriptionField({
                     )}
                 </>
             ) : (
-                description && (
-                    <>
-                        {/* <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        // readMore={
-                        //     <>
-                        //         <Typography.Link
-                        //             onClick={(e) => {
-                        //                 e.stopPropagation();
-                        //                 handleExpanded(true);
-                        //             }}
-                        //         >
-                        //             Read More
-                        //         </Typography.Link>
-                        //     </>
-                        // }
-                        suffix={EditButton}
-                        shouldWrap
-                    > */}
-                        <Tooltip
-                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
-                        >
-                            <DescriptionWrapper>
-                                <CompactMarkdownViewer
-                                    content={description}
-                                    lineLimit={1}
-                                    fixedLineHeight
-                                    customStyle={{ fontSize: '12px' }}
-                                    scrollableY={false}
-                                />
-                                {isSchemaEditable && isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
-                            </DescriptionWrapper>
-                        </Tooltip>
-                        {/* </StripMarkdownText> */}
-                    </>
-                )
+                description &&
+                (hideShowMore ? (
+                    <Tooltip
+                        title={
+                            isPropagated ? (
+                                <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+                            ) : (
+                                removeMarkdown(description)
+                            )
+                        }
+                    >
+                        <DescriptionWrapper>
+                            <TruncatedDescription>{removeMarkdown(description)}</TruncatedDescription>
+                            {isSchemaEditable && isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
+                        </DescriptionWrapper>
+                    </Tooltip>
+                ) : (
+                    <Tooltip
+                        title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                    >
+                        <DescriptionWrapper>
+                            <CompactMarkdownViewer
+                                content={description}
+                                lineLimit={1}
+                                fixedLineHeight
+                                customStyle={{ fontSize: '12px' }}
+                                scrollableY={false}
+                            />
+                            {isSchemaEditable && isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
+                        </DescriptionWrapper>
+                    </Tooltip>
+                ))
             )}
             {showAddModal && (
                 <AddModalWrapper onClick={(e) => e.stopPropagation()}>
