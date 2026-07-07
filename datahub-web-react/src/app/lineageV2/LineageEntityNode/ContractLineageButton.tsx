@@ -1,4 +1,4 @@
-import { KeyboardArrowLeft } from '@mui/icons-material';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import React, { useContext } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -41,7 +41,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
                 onMouseLeave={(e) => e.stopPropagation()}
                 data-testid={`contract-${urn}-button`}
             >
-                <KeyboardArrowLeft viewBox="4 3 18 18" fontSize="inherit" />
+                <CaretLeft size="1em" />
             </Button>
         </Wrapper>
     );
