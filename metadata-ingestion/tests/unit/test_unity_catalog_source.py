@@ -2746,6 +2746,17 @@ class TestUnityCatalogExternalS3Lineage:
                 "s3a://bucket/a/b/{d1,d2}",
                 "s3a://bucket/a/b",
             ),
+            # Brace-list as a suffix of a component -> the whole component is
+            # dropped (parent dir), the prefix stem is not kept.
+            (
+                "s3://bucket/topics/event/part_{d1,d2,d3}",
+                "s3://bucket/topics/event",
+            ),
+            # Illegal char in a middle component -> truncate there.
+            (
+                "s3://bucket/a/b={x,y}/c",
+                "s3://bucket/a",
+            ),
         ],
     )
     def test_strip_s3_partition_from_path(self, raw: str, expected: str) -> None:
