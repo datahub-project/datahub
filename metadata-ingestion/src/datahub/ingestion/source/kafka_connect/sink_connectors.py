@@ -515,31 +515,11 @@ class IcebergSinkConnector(BaseConnector):
         )
         tables = parse_comma_separated_list(tables_config)
 
-        # Resolve topics (same intersection logic as ClickHouse)
-        available_topics = set(
-            self.all_cluster_topics or connector_manifest.topic_names
+        # Resolve topics using shared helper
+        subscribed_topics = self._get_topics_from_sink_config()
+        topic_list = self._resolve_subscribed_topics(
+            connector_manifest, subscribed_topics
         )
-        subscribed_topics = set(self.get_topics_from_config())
-
-        if subscribed_topics and available_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
-            logger.debug(
-                f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                f"(intersection of {len(available_topics)} runtime topics and "
-                f"{len(subscribed_topics)} configured topics)"
-            )
-        elif subscribed_topics:
-            topic_list = list(subscribed_topics)
-            logger.debug(
-                f"Runtime topics empty for {connector_manifest.name}, "
-                f"using {len(topic_list)} topics from connector config"
-            )
-        else:
-            topic_list = list(available_topics)
-            logger.debug(
-                f"No subscription config found for {connector_manifest.name}, "
-                f"using all {len(topic_list)} available topics"
-            )
 
         # All-to-all mapping: each topic → all configured tables
         topics_to_tables: Dict[str, List[str]] = {topic: tables for topic in topic_list}
@@ -557,24 +537,6 @@ class IcebergSinkConnector(BaseConnector):
                 )
 
         return self.IcebergParser(topics_to_tables=topics_to_tables)
-
-    def get_topics_from_config(self) -> List[str]:
-        config = self.connector_manifest.config
-
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         sensitive_markers = ("secret", "token", "credential", "password", ".key")
