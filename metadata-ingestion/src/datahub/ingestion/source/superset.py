@@ -553,11 +553,16 @@ class SupersetSource(StatefulIngestionSourceBase):
         return owners_info
 
     def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
-        return [
-            make_user_urn(self.owner_info.get(owner.get("id"), ""))
-            for owner in data.get("owners", [])
-            if owner.get("id")
-        ]
+        # owner_info can be empty if the related/owners API is unavailable
+        # (e.g. 404 on newer Superset builds); skip unresolvable owners
+        # rather than emitting an invalid urn:li:corpuser: with no username.
+        owner_urns = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            username = self.owner_info.get(owner_id) if owner_id else None
+            if username:
+                owner_urns.append(make_user_urn(username))
+        return owner_urns
 
     # Permissive ``something@something.something`` matcher for redacting
     # email addresses out of log previews. NOT an RFC validator.
@@ -980,17 +985,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(dashboard_info)
 
         dashboard_owners_list = self.build_owner_urn(dashboard_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dashboard_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        dashboard_snapshot.aspects.append(owners_info)
+        if dashboard_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dashboard_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            dashboard_snapshot.aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
         tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
@@ -1663,17 +1669,18 @@ class SupersetSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
         chart_owners_list = self.build_owner_urn(chart_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (chart_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        chart_snapshot.aspects.append(owners_info)
+        if chart_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in chart_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            chart_snapshot.aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
         tags = self._merge_tags_with_existing(chart_urn, superset_tags)
@@ -2124,17 +2131,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
         dataset_owners_list = self.build_owner_urn(dataset_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dataset_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        aspects_items.append(owners_info)
+        if dataset_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dataset_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            aspects_items.append(owners_info)
 
         return dataset_snapshot
 

@@ -123,6 +123,64 @@ def test_superset_build_owners_info(requests_mock):
     }
 
 
+def test_superset_build_owner_urn_skips_unresolved_owners(requests_mock):
+    login_url = "http://localhost:8088/api/v1/security/login"
+    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
+
+    dashboard_url = "http://localhost:8088/api/v1/dashboard/"
+    requests_mock.get(dashboard_url, json={}, status_code=200)
+
+    # Simulate Superset 6.x/converged builds where related/owners 404s,
+    # leaving owner_info empty.
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={"message": "Not found"},
+            status_code=404,
+        )
+
+    source = SupersetSource(
+        ctx=PipelineContext(run_id="superset-source-build-owner-urn-test"),
+        config=SupersetConfig(),
+    )
+    assert source.owner_info == {}
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}) == []
+
+
+def test_superset_build_owner_urn_resolved_owners(requests_mock):
+    login_url = "http://localhost:8088/api/v1/security/login"
+    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
+
+    dashboard_url = "http://localhost:8088/api/v1/dashboard/"
+    requests_mock.get(dashboard_url, json={}, status_code=200)
+
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={
+                "count": 1,
+                "result": [
+                    {
+                        "extra": {"active": "false", "email": "test_user1@example.com"},
+                        "text": "Test User1",
+                        "value": 1,
+                    }
+                ],
+            },
+            status_code=200,
+        )
+
+    source = SupersetSource(
+        ctx=PipelineContext(run_id="superset-source-build-owner-urn-resolved-test"),
+        config=SupersetConfig(),
+    )
+    # id 2 is unresolvable and must be skipped rather than producing an
+    # empty-username urn.
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}) == [
+        "urn:li:corpuser:test_user1@example.com"
+    ]
+
+
 def test_column_level_lineage(requests_mock):
     login_url = "http://localhost:8088/api/v1/security/login"
     requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
