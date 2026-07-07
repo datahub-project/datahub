@@ -848,6 +848,8 @@ def test_resolve_external_schema_fields_backfills_from_external():
     assert [f.fieldPath for f in fields] == ["invoice_id", "total_amount"]
     # native type is carried from the external source's schema
     assert fields[1].nativeDataType == "DECIMAL"
+    assert src.report.num_federation_columns_backfilled == 1
+    assert src.report.num_federation_columns_backfill_failed == 0
 
 
 def test_resolve_external_schema_fields_none_for_managed_catalog():
@@ -865,10 +867,34 @@ def test_resolve_external_schema_fields_none_for_managed_catalog():
 
 
 def test_resolve_external_schema_fields_none_without_graph():
+    # No graph -> backfill can't run. Counted, but NOT warned: warning here would
+    # double-report a cause that isn't "external source not ingested".
     src = _snowflake_conn_source()  # ctx.graph is None by default
     assert (
         src._resolve_external_schema_fields(_foreign_table(_foreign_catalog())) is None
     )
+    assert src.report.num_federation_columns_backfill_failed == 1
+    assert src.report.num_federation_columns_backfilled == 0
+    assert "Could not backfill foreign-catalog columns" not in [
+        w.title for w in src.report.warnings
+    ]
+
+
+def test_resolve_external_schema_fields_warns_when_scope_loaded_but_table_absent():
+    # The external schemas loaded, but this specific table isn't among them (e.g. not
+    # ingested / wrong platform_instance) -> count AND emit the actionable warning.
+    src = _snowflake_conn_source()
+    catalog = _foreign_catalog()
+    # seed the scope's resolver but with a DIFFERENT table's schema
+    _seed_external_schema(src, catalog, "my_schema", "other_table", {"id": "NUMBER"})
+
+    result = src._resolve_external_schema_fields(_foreign_table(catalog))
+
+    assert result is None
+    assert src.report.num_federation_columns_backfill_failed == 1
+    assert src.report.num_federation_columns_backfilled == 0
+    warning_titles = [w.title for w in src.report.warnings]
+    assert "Could not backfill foreign-catalog columns" in warning_titles
 
 
 def test_resolve_external_schema_fields_none_when_disabled():
@@ -1108,6 +1134,37 @@ def test_external_schema_fetch_scoped_to_remote_database():
     src._external_schema_resolver(key)
 
     # scoped by an exact id prefix on the database segment, not a free-text query
+    provider.get.assert_called_once_with(
+        platform="snowflake",
+        platform_instance=None,
+        env="PROD",
+        id_starts_with="my_db.",
+    )
+
+
+def test_external_schema_fetch_lowercases_uppercase_database_in_prefix():
+    # An uppercase remote database (as UC stores it in OPTIONS) must produce a
+    # lower-cased id prefix so it matches the lower-cased external URN — end-to-end
+    # through _external_platform_key -> _external_schema_resolver, not just id_prefix()
+    # in isolation. Guards against relying on the graph's case-insensitive matching.
+    src = _snowflake_conn_source()
+    provider = MagicMock()
+    src._schema_resolver_provider = provider
+    catalog = Catalog(
+        id="c",
+        name="uc_cat",
+        metastore=_metastore(),
+        comment=None,
+        owner=None,
+        type=CatalogType.FOREIGN_CATALOG,
+        connection_name="pg_conn",
+        options={"database": "MY_DB"},
+    )
+    key = src._external_platform_key(catalog)
+    assert key is not None and key.remote_database == "MY_DB"
+
+    src._external_schema_resolver(key)
+
     provider.get.assert_called_once_with(
         platform="snowflake",
         platform_instance=None,

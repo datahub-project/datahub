@@ -1444,16 +1444,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.include_federation_column_backfill
         ):
             return None
-        key = self._external_platform_key(catalog)
-        resolver = self._external_schema_resolver(key) if key is not None else None
         external_urn = self._external_dataset_urn(
             catalog, table.schema.name, table.name
         )
-        schema_info = (
-            resolver.resolve_urn(external_urn)[1]
-            if resolver is not None and external_urn is not None
-            else None
-        )
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
         if schema_info:
             self.report.num_federation_columns_backfilled += 1
             # Column structure only (field path + native type). Governance (tags /
@@ -1488,21 +1482,30 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         return None
 
+    def _external_schema_lookup(
+        self, catalog: Catalog, external_urn: Optional[str]
+    ) -> Tuple[Optional[SchemaResolver], Optional[SchemaInfo]]:
+        """Resolve an external federated schema: the bulk-loaded SchemaResolver for
+        the catalog's scope and the {field path: native type} for `external_urn`
+        (None if no graph, the scope is unresolved, or the dataset has no schema in
+        DataHub). Shared by column backfill and column-level lineage so the two can't
+        drift on scope/case-folding. Returning the resolver lets the backfill caller
+        distinguish "scope loaded but table absent" from "scope unavailable"."""
+        key = self._external_platform_key(catalog)
+        resolver = self._external_schema_resolver(key) if key is not None else None
+        schema_info = (
+            resolver.resolve_urn(external_urn)[1]
+            if resolver is not None and external_urn is not None
+            else None
+        )
+        return resolver, schema_info
+
     def _external_schema_info(
         self, catalog: Catalog, external_urn: str
     ) -> Optional[SchemaInfo]:
-        """External dataset's {field path: native type} from a SchemaResolver that
-        bulk-loads the external database's schemas once, then resolves in memory.
-        Returns None if no graph is available or the dataset has no schema in
-        DataHub."""
-        key = self._external_platform_key(catalog)
-        if key is None:
-            return None
-        resolver = self._external_schema_resolver(key)
-        if resolver is None:
-            return None
-        _, schema_info = resolver.resolve_urn(external_urn)
-        return schema_info
+        """External dataset's {field path: native type}, or None if unresolvable.
+        Thin wrapper over _external_schema_lookup for the column-lineage path."""
+        return self._external_schema_lookup(catalog, external_urn)[1]
 
     def _external_schema_resolver(
         self, key: _ExternalSchemaKey
