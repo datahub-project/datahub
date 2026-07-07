@@ -32,16 +32,19 @@ def _gms_supports_status_patch() -> bool:
         get_gms_config,
     )
 
-    config = get_gms_config()
-    if not config:
+    raw_config = get_gms_config()
+    if not raw_config:
         return False
-    if not isinstance(config, RestServiceConfig):
-        config = RestServiceConfig(raw_config=config)
+    service_config: RestServiceConfig = (
+        raw_config
+        if isinstance(raw_config, RestServiceConfig)
+        else RestServiceConfig(raw_config=raw_config)
+    )
 
-    if config.is_datahub_cloud:
-        return config.is_version_at_least(2, 1, 0)
+    if service_config.is_datahub_cloud:
+        return service_config.is_version_at_least(2, 1, 0)
     else:
-        return config.is_version_at_least(1, 7, 0)
+        return service_config.is_version_at_least(1, 7, 0)
 
 
 @dataclass
