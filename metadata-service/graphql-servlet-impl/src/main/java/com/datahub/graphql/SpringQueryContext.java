@@ -17,7 +17,6 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.Getter;
-import org.springframework.util.StringUtils;
 
 @Getter
 public class SpringQueryContext implements QueryContext {
