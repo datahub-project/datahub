@@ -1369,10 +1369,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if target is None:
             return None
         name = federation.external_dataset_name(target, schema_name, table_name)
-        lowercase = self.config.convert_urns_to_lowercase
-        if detail is not None and detail.convert_urns_to_lowercase is not None:
-            lowercase = detail.convert_urns_to_lowercase
-        if lowercase:
+        # The external URN must match how the external source was ingested — a
+        # concern independent of this source's own convert_urns_to_lowercase (which
+        # governs the Databricks URNs). DataHub SQL connectors lower-case by default,
+        # so default to lower-casing here; override per connection when needed.
+        if detail is None or detail.convert_urns_to_lowercase:
             name = name.lower()
         return make_dataset_urn_with_platform_instance(
             platform=target.platform,

@@ -128,7 +128,7 @@ def test_federation_connection_detail_override():
     assert detail.platform == "postgres"
     assert detail.platform_instance == "prod-pg"
     assert detail.database == "my_db"
-    assert detail.convert_urns_to_lowercase is None
+    assert detail.convert_urns_to_lowercase is True
 
 
 def test_federation_connection_detail_env_normalized_and_validated():
@@ -524,16 +524,13 @@ def _foreign_table(catalog: Catalog) -> Table:
     )
 
 
-def _source_with_link(
-    include_lineage: bool = True, lowercase: bool = False
-) -> UnityCatalogSource:
+def _source_with_link(include_lineage: bool = True) -> UnityCatalogSource:
     with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
         cfg = UnityCatalogSourceConfig.model_validate(
             {
                 **_BASE,
                 "include_metastore": False,
                 "include_federation_lineage": include_lineage,
-                "convert_urns_to_lowercase": lowercase,
                 "federation_connection_details": {
                     "pg_conn": {"platform_instance": "prod-pg"}
                 },
@@ -611,7 +608,7 @@ def test_federation_resolution_distinguishes_catalogs_sharing_a_connection():
 
 
 def test_federation_link_lowercase_applied():
-    src = _source_with_link(lowercase=True)
+    src = _source_with_link()  # external URN is lower-cased by default
     catalog = Catalog(
         id="c",
         name="My_Catalog",
@@ -701,18 +698,18 @@ def test_unresolved_target_warns_once_and_caches():
     assert src.report.num_federation_targets_unresolved == 1
 
 
-def test_per_connection_lowercase_override_wins_over_global_false():
+def test_per_connection_lowercase_false_preserves_case():
     with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
         cfg = UnityCatalogSourceConfig.model_validate(
             {
                 **_BASE,
                 "include_metastore": False,
                 "include_federation_lineage": True,
-                "convert_urns_to_lowercase": False,
                 "federation_connection_details": {
                     "pg_conn": {
                         "platform_instance": "prod-pg",
-                        "convert_urns_to_lowercase": True,
+                        # opt out of the default lower-casing for this connection
+                        "convert_urns_to_lowercase": False,
                     }
                 },
             }
@@ -766,10 +763,10 @@ def test_per_connection_lowercase_override_wins_over_global_false():
             aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
         )
     ]
-    # global convert_urns_to_lowercase=False, but the per-connection override wins,
-    # so the external URN name is lowercased despite the mixed-case catalog/db/table.
+    # convert_urns_to_lowercase=False on the connection preserves the mixed case of
+    # the external URN, to match an external source ingested case-sensitively.
     assert up[0].upstreams[0].dataset == (
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.My_DB.My_Schema.T,PROD)"
     )
 
 

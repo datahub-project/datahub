@@ -177,10 +177,11 @@ class FederationConnectionDetail(ConfigModel):
         description="Override the remote database name (falls back to the foreign catalog's "
         "connection options).",
     )
-    convert_urns_to_lowercase: Optional[bool] = pydantic.Field(
-        default=None,
-        description="Override case-folding of the external URN (defaults to the source's "
-        "convert_urns_to_lowercase). Must match how the external source was ingested.",
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description="Lower-case the external URN's name. Enabled by default because "
+        "DataHub SQL connectors lower-case identifiers; set to false for a connection "
+        "whose external source was ingested case-sensitively so the URN still matches.",
     )
 
     @field_validator("env", mode="after")

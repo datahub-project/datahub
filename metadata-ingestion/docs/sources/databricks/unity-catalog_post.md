@@ -80,9 +80,10 @@ When `emit_siblings` is enabled (the default), the connector emits sibling relat
 
 DataHub detects Unity Catalog **foreign catalogs** (Lakehouse Federation) and links their tables to the external source dataset each one mirrors (PostgreSQL, SQL Server, MySQL, Snowflake, Redshift, BigQuery, Oracle, Teradata, another Databricks workspace, or Glue/Hive).
 
-- The foreign catalog is marked with structured properties (`platform`, `remote_database`, `connection`, `catalog_type`).
 - `include_federation_lineage` (default `true`) emits an upstream **COPY** lineage edge from each foreign-catalog table to the external source dataset it mirrors. Column-level lineage is added when `include_column_lineage` is set. Set it to `false` to skip the cross-platform link.
-- For the link to resolve, the external source must be ingested separately, and its `platform_instance` and `convert_urns_to_lowercase` settings must match. Use `federation_connection_details` (keyed by Unity Catalog connection name) to align them:
+- `emit_federation_structured_properties` (default `true`) marks the foreign catalog with structured properties (`platform`, `remote_database`, `connection`, `catalog_type`) so federated catalogs are facetable in the UI.
+- `include_federation_column_backfill` (default `true`) fills in a foreign-catalog table's columns from the external source when Unity Catalog has not synced them yet (structure only — governance is not copied).
+- For the link to resolve, the external source must be ingested separately, and its `platform_instance` and case-folding must match. Use `federation_connection_details` (keyed by Unity Catalog connection name) to align them:
 
 ```yaml
 source:
@@ -101,7 +102,7 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 :::
 
-`include_federation_lineage` is the only setting that controls foreign catalog / Lakehouse Federation links. The separate `emit_siblings` option described above governs only the Delta Lake (S3 external table) sibling path.
+The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
 #### Advanced
 
