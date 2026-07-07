@@ -577,9 +577,8 @@ class IcebergSinkConnector(BaseConnector):
 
             for topic, target_tables in parser.topics_to_tables.items():
                 for target_dataset in target_tables:
-                    fine_grained = self._extract_fine_grained_lineage(
-                        source_dataset=topic,
-                        source_platform=KAFKA,
+                    fine_grained = self._extract_sink_fine_grained_lineage(
+                        source_topic=topic,
                         target_dataset=target_dataset,
                         target_platform="iceberg",
                     )
