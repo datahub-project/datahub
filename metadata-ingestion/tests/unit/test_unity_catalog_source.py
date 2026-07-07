@@ -2769,7 +2769,7 @@ class TestUnityCatalogExternalS3Lineage:
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
     def test_external_lineage_with_braces_produces_valid_urn(
         self, mock_hive_proxy, mock_unity_proxy, mock_ws
-    ) -> None:
+    ):
         from datahub.ingestion.source.unity.proxy_types import (
             Catalog,
             ExternalTableReference,
