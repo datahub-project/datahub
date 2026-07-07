@@ -913,14 +913,11 @@ def test_disabled_when_flag_off():
     )
 
 
-def test_disabled_when_no_upstream_platforms():
-    # Enabled but unconfigured = active no-op; should_enable guards against it.
-    assert (
-        AutoResolveLineageUrnsProcessor.should_enable(
-            _ctx(True, mock.MagicMock(), upstream_platforms=[])
-        )
-        is False
-    )
+def test_enabled_without_upstream_platforms_is_a_config_error():
+    # Enabled with no upstream_platforms has nothing to reconcile against -> fail fast at
+    # config parse rather than silently no-op.
+    with pytest.raises(pydantic.ValidationError, match="upstream_platforms"):
+        AutoResolveLineageUrnsConfig(enabled=True, upstream_platforms=[])
 
 
 def test_enabled_when_flag_on_with_graph():
