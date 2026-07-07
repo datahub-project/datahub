@@ -294,12 +294,30 @@ def _parse_metric_view_source(
 class _ExternalSchemaKey:
     """Identity of an external federated source's schema scope. Used as the cache
     key for the bulk-loaded SchemaResolver; a frozen dataclass (not a bare tuple) so
-    the two ``str`` slots can't be silently transposed."""
+    its string-typed slots can't be silently transposed."""
 
     platform: str
     platform_instance: Optional[str]
     env: str
     remote_database: Optional[str]
+    # Whether the external URN's name is lower-cased (the external source's own
+    # convert_urns_to_lowercase). The id-prefix scope must fold the same way.
+    lowercase_urns: bool = True
+
+    def id_prefix(self) -> Optional[str]:
+        """Prefix of the external dataset id (`[platform_instance.]database.`) used
+        to scope the bulk schema fetch, or None for two-tier platforms (no database).
+        The database segment is folded to match how the URN name was built; the
+        platform_instance segment is not (the URN doesn't fold it)."""
+        if not self.remote_database:
+            return None
+        database = (
+            self.remote_database.lower()
+            if self.lowercase_urns
+            else self.remote_database
+        )
+        parts = [p for p in (self.platform_instance, database) if p]
+        return ".".join(parts) + "."
 
 
 @platform_name("Databricks")
@@ -1383,6 +1401,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=detail.platform_instance if detail else None,
             env=detail.env if (detail and detail.env) else self.config.env,
             remote_database=target.remote_database,
+            # Mirror the URN case-folding decision in _external_dataset_urn below.
+            lowercase_urns=detail is None or detail.convert_urns_to_lowercase,
         )
 
     def _external_dataset_urn(
@@ -1415,36 +1435,58 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[List[SchemaFieldClass]]:
         """Backfill a foreign-catalog table's columns from the already-ingested
         external source, for the common case where Unity Catalog has not synced the
-        foreign table's schema yet. Returns None unless the catalog is foreign, the
-        feature is enabled, and the external dataset's schema is resolvable."""
+        foreign table's schema yet. Returns None (and records the reason) unless the
+        catalog is foreign, the feature is enabled, and the external dataset's schema
+        is resolvable. Owns the backfill report counters and warning."""
         catalog = table.schema.catalog
         if not (
             catalog.is_foreign_catalog
             and self.config.include_federation_column_backfill
         ):
             return None
+        key = self._external_platform_key(catalog)
+        resolver = self._external_schema_resolver(key) if key is not None else None
         external_urn = self._external_dataset_urn(
             catalog, table.schema.name, table.name
         )
-        if external_urn is None:
-            return None
-        schema_info = self._external_schema_info(catalog, external_urn)
-        if not schema_info:
-            return None
-        # Build columns from the bulk resolver's output, which carries only field
-        # path + native type — so the mirror gets column structure without the
-        # external dataset's governance (tags / glossary terms), which is what we
-        # want since that metadata belongs to the external dataset. The DataHub
-        # logical type is left as NullType because the bulk fetch doesn't return it;
-        # the authoritative types live on the external dataset.
-        return [
-            SchemaFieldClass(
-                fieldPath=field_path,
-                type=SchemaFieldDataTypeClass(type=NullTypeClass()),
-                nativeDataType=native_type,
+        schema_info = (
+            resolver.resolve_urn(external_urn)[1]
+            if resolver is not None and external_urn is not None
+            else None
+        )
+        if schema_info:
+            self.report.num_federation_columns_backfilled += 1
+            # Column structure only (field path + native type). Governance (tags /
+            # glossary terms) is not copied — it belongs to the external dataset, not
+            # this read-only mirror. The DataHub logical type is left as NullType
+            # because the bulk fetch doesn't return it; authoritative types live on
+            # the external dataset.
+            return [
+                SchemaFieldClass(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                    nativeDataType=native_type,
+                )
+                for field_path, native_type in schema_info.items()
+            ]
+        # Backfill produced nothing. Count it so the empty schema isn't a silent
+        # drop, but only warn when the external schemas loaded and this table simply
+        # wasn't among them — a missing/failed scope is already reported at the
+        # platform level (num_federation_external_schema_fetch_failed) or the
+        # unresolved-target level, so warning here would double-report.
+        self.report.num_federation_columns_backfill_failed += 1
+        if resolver is not None:
+            self.report.warning(
+                title="Could not backfill foreign-catalog columns",
+                message=(
+                    "The foreign-catalog table has no columns from Unity Catalog and "
+                    "its schema was not found in the external source. Ingest the "
+                    "external source into DataHub (matching platform_instance and "
+                    "env) so its schema is available on the graph."
+                ),
+                context=table.id,
             )
-            for field_path, native_type in schema_info.items()
-        ]
+        return None
 
     def _external_schema_info(
         self, catalog: Catalog, external_urn: str
@@ -1474,20 +1516,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             return self._external_schema_resolvers[key]
         if self._schema_resolver_provider is None:
             return None
-        # The external dataset id is `[platform_instance.]database.schema.table`, so a
-        # `START_WITH` prefix on the database segment scopes the fetch exactly (a
-        # free-text query would over-match databases sharing a name prefix).
-        id_prefix: Optional[str] = None
-        if key.remote_database:
-            parts = [p for p in (key.platform_instance, key.remote_database) if p]
-            id_prefix = ".".join(parts) + "."
         resolver: Optional[SchemaResolver] = None
         try:
             resolver = self._schema_resolver_provider.get(
                 platform=key.platform,
                 platform_instance=key.platform_instance,
                 env=key.env,
-                id_starts_with=id_prefix,
+                # Scope by an exact prefix on the dataset id, built with the same
+                # case-folding as the URN so it matches the persisted id (a free-text
+                # query would over-match databases sharing a name prefix).
+                id_starts_with=key.id_prefix(),
             )
         except Exception as e:
             # Bulk fetch is a known failure point (network / GMS 5xx / auth).
@@ -1559,8 +1597,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             # Unity Catalog gave us columns but the external source's schema isn't
             # resolvable (not ingested, or wrong platform_instance/env) — the COPY
             # link is still emitted, only the column-level detail is skipped. Count
-            # it so the drop is observable.
+            # it so the drop is observable, and log the URN to aid live debugging
+            # (this path has no companion warning).
             self.report.num_federation_cll_skipped += 1
+            logger.debug(
+                f"Skipping federation column-level lineage: external schema not "
+                f"found for {external_urn}"
+            )
             return None
         cll = federation.identity_column_lineage(
             dataset_urn=dataset_urn,
@@ -2375,32 +2418,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             backfilled = self._resolve_external_schema_fields(table)
             if backfilled:
                 schema_fields = backfilled
-                self.report.num_federation_columns_backfilled += 1
-            elif (
-                table.schema.catalog.is_foreign_catalog
-                and self.config.include_federation_column_backfill
-            ):
-                # Backfill was requested for a schema-less foreign table but produced
-                # nothing. Count it either way so the empty schema isn't a silent
-                # drop, but only emit the "ingest the external source" guidance when
-                # the external schemas were actually loaded and this table simply
-                # wasn't among them. When the bulk fetch failed or no graph is
-                # configured, that's already reported at the platform level — don't
-                # double-report here with a misattributed cause.
-                self.report.num_federation_columns_backfill_failed += 1
-                key = self._external_platform_key(table.schema.catalog)
-                if key is not None and self._external_schema_resolver(key) is not None:
-                    self.report.warning(
-                        title="Could not backfill foreign-catalog columns",
-                        message=(
-                            "The foreign-catalog table has no columns from Unity "
-                            "Catalog and its schema was not found in the external "
-                            "source. Ingest the external source into DataHub "
-                            "(matching platform_instance and env) so its schema is "
-                            "available on the graph."
-                        ),
-                        context=table.id,
-                    )
 
         platform_resources = self.gen_platform_resources(list(unique_tags))
         return (

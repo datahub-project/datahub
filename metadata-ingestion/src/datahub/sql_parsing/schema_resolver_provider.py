@@ -2,7 +2,7 @@ import functools
 import logging
 from typing import TYPE_CHECKING, List, Optional
 
-from datahub.ingestion.graph.filters import RawSearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilterRule, SearchFilterRule
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
@@ -81,11 +81,16 @@ class SchemaResolverProvider:
             report=self._report,
         )
         extra_filters: Optional[List[RawSearchFilterRule]] = (
-            [{"field": "id", "condition": "START_WITH", "values": [id_starts_with]}]
+            [
+                SearchFilterRule(
+                    field="id", condition="START_WITH", values=[id_starts_with]
+                ).to_raw()
+            ]
             if id_starts_with
             else None
         )
-        logger.info(f"Fetching schemas for platform {platform}, env {env}")
+        scope = f", id_starts_with {id_starts_with}" if id_starts_with else ""
+        logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
         count = 0
         with PerfTimer() as timer:
             for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(

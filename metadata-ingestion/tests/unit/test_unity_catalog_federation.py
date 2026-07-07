@@ -19,7 +19,10 @@ from datahub.ingestion.source.unity.config import (
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore, Schema, Table
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.ingestion.source.unity.source import (
+    UnityCatalogSource,
+    _ExternalSchemaKey,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     MySqlDDLClass,
@@ -1111,6 +1114,46 @@ def test_external_schema_fetch_scoped_to_remote_database():
         env="PROD",
         id_starts_with="my_db.",
     )
+
+
+def test_external_schema_key_id_prefix_casefolding():
+    # The id prefix must fold the database segment the same way the external URN does
+    # (convert_urns_to_lowercase), so it matches the persisted dataset id — not rely
+    # on the graph's case-insensitive matching.
+    lower = _ExternalSchemaKey(
+        platform="snowflake",
+        platform_instance=None,
+        env="PROD",
+        remote_database="DEMO_DB",
+        lowercase_urns=True,
+    )
+    assert lower.id_prefix() == "demo_db."
+    # the platform_instance segment is not folded (the URN doesn't fold it)
+    with_instance = _ExternalSchemaKey(
+        platform="snowflake",
+        platform_instance="Prod_Inst",
+        env="PROD",
+        remote_database="DEMO_DB",
+        lowercase_urns=True,
+    )
+    assert with_instance.id_prefix() == "Prod_Inst.demo_db."
+    # a case-sensitive external source preserves case
+    preserved = _ExternalSchemaKey(
+        platform="mssql",
+        platform_instance=None,
+        env="PROD",
+        remote_database="MyDb",
+        lowercase_urns=False,
+    )
+    assert preserved.id_prefix() == "MyDb."
+    # two-tier platform (no database) -> no prefix, whole-platform fetch
+    two_tier = _ExternalSchemaKey(
+        platform="mysql",
+        platform_instance=None,
+        env="PROD",
+        remote_database=None,
+    )
+    assert two_tier.id_prefix() is None
 
 
 def test_external_schema_fetch_uses_platform_and_instance_overrides():
