@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
+    _CatalogWideQueryFailed,
 )
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
@@ -27,7 +28,6 @@ class TestDremioPartitioning:
             authentication_method="password",
             username="dummy-user",
             password="dummy-password",
-            partition_datasets_by_container=True,
         )
         report = Mock(spec=DremioSourceReport)
         api = DremioAPIOperations(config, report)
@@ -37,18 +37,33 @@ class TestDremioPartitioning:
         api.deny_schema_pattern = []
         return api
 
-    def test_flag_routes_to_partitioned_fetch(self, dremio_api):
+    def test_global_success_does_not_fall_back(self, dremio_api):
         dremio_api._get_view_definitions = Mock(return_value={})
-        dremio_api._get_all_tables_partitioned_by_container = Mock(
+        dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter([{"TABLE_NAME": "t1"}])
         )
-        dremio_api._get_all_tables_global_chunked = Mock(return_value=iter([]))
+        dremio_api._get_all_tables_partitioned_by_container = Mock(
+            return_value=iter([])
+        )
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
-        dremio_api._get_all_tables_partitioned_by_container.assert_called_once()
-        dremio_api._get_all_tables_global_chunked.assert_not_called()
         assert [t["TABLE_NAME"] for t in tables] == ["t1"]
+        dremio_api._get_all_tables_partitioned_by_container.assert_not_called()
+
+    def test_first_chunk_failure_falls_back_to_partitioned(self, dremio_api):
+        dremio_api._get_view_definitions = Mock(return_value={})
+        dremio_api._get_all_tables_global_chunked = Mock(
+            side_effect=_CatalogWideQueryFailed("timeout")
+        )
+        dremio_api._get_all_tables_partitioned_by_container = Mock(
+            return_value=iter([{"TABLE_NAME": "fallback"}])
+        )
+
+        tables = list(dremio_api.get_all_tables_and_columns())
+
+        assert [t["TABLE_NAME"] for t in tables] == ["fallback"]
+        dremio_api._get_all_tables_partitioned_by_container.assert_called_once()
 
     def test_one_scoped_query_per_container(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=["src_a", "src_b"])
@@ -64,7 +79,6 @@ class TestDremioPartitioning:
                 "SELECT 1 {schema_pattern} {deny_schema_pattern} "
                 "{columns_schema_filter} {limit_clause}",
                 "UPPER(TABLE_SCHEMA)",
-                "TABLE_SCHEMA",
                 "",
                 "",
                 view_definitions={},
@@ -88,31 +102,24 @@ class TestDremioPartitioning:
         assert "UPPER(TABLE_SCHEMA) = 'SRC_B'" in pushable[1]
         assert "SRC_A" not in pushable[1]
 
-    def test_falls_back_to_global_when_no_containers(self, dremio_api):
+    def test_no_containers_reports_failure(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=[])
-        dremio_api._get_all_tables_global_chunked = Mock(
-            return_value=iter([{"TABLE_NAME": "t1"}])
-        )
+        dremio_api._get_all_tables_global_chunked = Mock()
 
         tables = list(
             dremio_api._get_all_tables_partitioned_by_container(
                 "SELECT 1 {schema_pattern} {deny_schema_pattern} "
                 "{columns_schema_filter} {limit_clause}",
                 "UPPER(TABLE_SCHEMA)",
-                "TABLE_SCHEMA",
-                "AND REGEXP_LIKE(x, 'Y')",
+                "",
                 "",
                 view_definitions={},
             )
         )
 
-        assert [t["TABLE_NAME"] for t in tables] == ["t1"]
-        dremio_api._get_all_tables_global_chunked.assert_called_once()
-        # Fallback keeps the original user schema condition, unscoped by container.
-        assert (
-            dremio_api._get_all_tables_global_chunked.call_args.args[1]
-            == "AND REGEXP_LIKE(x, 'Y')"
-        )
+        assert tables == []
+        dremio_api._get_all_tables_global_chunked.assert_not_called()
+        dremio_api.report.failure.assert_called_once()
 
     def test_outer_condition_matches_root_and_nested_paths(self):
         condition = DremioSQLQueries.container_schema_condition(

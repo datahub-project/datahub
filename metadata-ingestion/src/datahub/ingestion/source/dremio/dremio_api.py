@@ -44,6 +44,12 @@ class DremioAPIException(Exception):
     pass
 
 
+class _CatalogWideQueryFailed(Exception):
+    """Raised internally when the single catalog-wide datasets query can't run
+    (Dremio-side planning/exec timeout or OOM) before any rows are emitted, so
+    the fetch can safely retry one root container at a time."""
+
+
 class DremioEdition(Enum):
     CLOUD = "CLOUD"
     ENTERPRISE = "ENTERPRISE"
@@ -176,9 +182,6 @@ class DremioAPIOperations:
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
-        self.partition_datasets_by_container = (
-            connection_args.partition_datasets_by_container
-        )
         self.report = report
         self._chunk_size = 1000  # Sensible default to prevent OOM
         # /catalog/{id} responses are id-keyed and immutable for a run, so
@@ -790,11 +793,11 @@ class DremioAPIOperations:
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
         """Fetch all tables and columns; view definitions are fetched separately and merged by path.
 
-        Default: one catalog-wide query (chunked with LIMIT/OFFSET), avoiding the
-        ~10s per-container planning cost that made per-container fetches unusable at
-        scale. With `partition_datasets_by_container`, runs one scoped query per root
-        container instead, to bound Dremio-side execution on catalogs where the
-        catalog-wide query times out.
+        Runs a single catalog-wide query (chunked with LIMIT/OFFSET) — the cheapest
+        option since it plans once. If Dremio can't execute it (planning/exec timeout
+        or OOM, which happens on very large catalogs), automatically retries one root
+        container at a time so the join and sort only cover a single container. The
+        fallback only triggers before any rows are emitted, so it never double-counts.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
@@ -816,24 +819,22 @@ class DremioAPIOperations:
             schema_condition, deny_schema_condition
         )
 
-        if self.partition_datasets_by_container:
-            # CE joins COLUMNS directly (qualify the column); EE/Cloud alias it as C.
-            columns_schema_column = (
-                "C.TABLE_SCHEMA"
-                if self.edition == DremioEdition.COMMUNITY
-                else "TABLE_SCHEMA"
+        try:
+            yield from self._get_all_tables_global_chunked(
+                query_template,
+                schema_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+                signal_first_chunk_failure=True,
+            )
+        except _CatalogWideQueryFailed as e:
+            logger.warning(
+                f"Catalog-wide dataset query failed ({e}); retrying one root "
+                "container at a time to bound Dremio-side query cost."
             )
             yield from self._get_all_tables_partitioned_by_container(
                 query_template,
                 schema_field,
-                columns_schema_column,
-                schema_condition,
-                deny_schema_condition,
-                view_definitions=view_definitions,
-            )
-        else:
-            yield from self._get_all_tables_global_chunked(
-                query_template,
                 schema_condition,
                 deny_schema_condition,
                 view_definitions=view_definitions,
@@ -868,32 +869,33 @@ class DremioAPIOperations:
         self,
         query_template: str,
         schema_field: str,
-        columns_schema_column: str,
         schema_condition: str,
         deny_schema_condition: str,
         view_definitions: Dict[str, Optional[str]],
     ) -> Iterator[Dict]:
-        """Fetch datasets one root container at a time via the chunked global fetch,
-        each scoped by a pushable COLUMNS-scan filter plus the outer schema filter.
-        Falls back to a single catalog-wide query if no containers resolve.
+        """Fallback fetch used when the catalog-wide query can't run: one root
+        container at a time, so Dremio's join and sort only cover a single container.
+        Each container is scoped by a pushable COLUMNS-scan filter plus the outer
+        schema filter.
         """
         container_names = self._get_root_container_names()
         if not container_names:
-            logger.warning(
-                "partition_datasets_by_container is set but no root containers "
-                "resolved; falling back to a single catalog-wide dataset query."
-            )
-            yield from self._get_all_tables_global_chunked(
-                query_template,
-                schema_condition,
-                deny_schema_condition,
-                view_definitions=view_definitions,
+            self.report.failure(
+                message="Catalog-wide dataset query failed and no root containers "
+                "resolved to retry per container; tables/views may be missing.",
+                context="dataset_fetch_fallback",
             )
             return
 
+        # CE joins COLUMNS directly (qualify the column); EE/Cloud alias it as C.
+        columns_schema_column = (
+            "C.TABLE_SCHEMA"
+            if self.edition == DremioEdition.COMMUNITY
+            else "TABLE_SCHEMA"
+        )
+
         logger.info(
-            f"Fetching datasets partitioned across {len(container_names)} "
-            f"container(s) to bound Dremio-side query time."
+            f"Retrying dataset fetch across {len(container_names)} root container(s)."
         )
         for container_name in container_names:
             container_condition = DremioSQLQueries.container_schema_condition(
@@ -920,6 +922,7 @@ class DremioAPIOperations:
         deny_schema_condition: str,
         view_definitions: Dict[str, Optional[str]],
         columns_schema_filter: str = "",
+        signal_first_chunk_failure: bool = False,
     ) -> Iterator[Dict]:
         """Yield tables from the global dataset query in LIMIT/OFFSET chunks.
 
@@ -930,7 +933,11 @@ class DremioAPIOperations:
         `community_get_formatted_tables`, which is per-chunk complete.
 
         `columns_schema_filter` is injected into the INFORMATION_SCHEMA.COLUMNS
-        scan for container partitioning; empty for the catalog-wide fetch.
+        scan when fetching per container; empty for the catalog-wide fetch.
+
+        When `signal_first_chunk_failure` is set, a failure on the very first
+        chunk (nothing emitted yet) raises `_CatalogWideQueryFailed` so the caller
+        can retry per container instead.
         """
         chunk_size = self._chunk_size
         offset = 0
@@ -1040,6 +1047,11 @@ class DremioAPIOperations:
                 offset += chunk_size
 
             except DremioAPIException as e:
+                if offset == 0 and signal_first_chunk_failure:
+                    # Catalog-wide query couldn't even start (planning/exec timeout
+                    # or OOM). Nothing emitted yet, so let the caller retry per
+                    # container instead of silently returning no datasets.
+                    raise _CatalogWideQueryFailed(str(e)) from e
                 logger.error(f"Error in global dataset query at offset {offset}: {e}")
                 if "'rows'" in str(e):
                     self.report.report_warning(

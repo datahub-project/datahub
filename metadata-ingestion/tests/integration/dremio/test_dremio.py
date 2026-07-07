@@ -498,38 +498,6 @@ def test_dremio_ingest(
 
 @time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
-def test_dremio_partition_by_container(
-    test_resources_dir,
-    dremio_setup,
-    pytestconfig,
-    tmp_path,
-):
-    # Partitioning datasets per root container must yield exactly the same
-    # metadata as the single catalog-wide query, just fetched in per-container
-    # slices. Reusing the default golden (check_golden_file is order-insensitive)
-    # proves the pushable per-container TABLE_SCHEMA filter neither drops nor
-    # duplicates any dataset/column across sources, spaces and homes.
-    config_file = (
-        test_resources_dir / "dremio_partition_by_container_to_file.yml"
-    ).resolve()
-    output_path = tmp_path / "dremio_mces.json"
-
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=output_path,
-        golden_path=test_resources_dir / "dremio_mces_golden.json",
-        ignore_paths=[
-            # Dremio service timestamps can't be frozen (PATCH format: aspect is a list of ops)
-            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['created'\]\['time'\]",
-        ],
-    )
-
-
-@time_machine.travel(FROZEN_TIME)
-@pytest.mark.integration
 def test_dremio_platform_instance_urns(
     test_resources_dir,
     dremio_setup,

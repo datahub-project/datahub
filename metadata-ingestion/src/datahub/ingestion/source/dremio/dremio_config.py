@@ -244,15 +244,6 @@ class DremioSourceConfig(
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
 
-    partition_datasets_by_container: bool = Field(
-        default=False,
-        description="Fetch table/column metadata one root container (source/space) "
-        "at a time instead of a single catalog-wide query, scoping each query with "
-        "a `TABLE_SCHEMA` predicate to bound Dremio-side execution time. Enable when "
-        "the catalog-wide query times out on very large instances; it issues one "
-        "query per container, so leave off for small catalogs.",
-    )
-
     @model_validator(mode="after")
     def _warn_if_stateful_time_window_without_stateful_ingestion(
         self,
