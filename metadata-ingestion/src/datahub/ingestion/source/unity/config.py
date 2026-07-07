@@ -457,6 +457,13 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    include_ml_models: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest ML models (MLModelGroups and MLModels) "
+        "registered in Unity Catalog. Set to False to skip ML model discovery "
+        "entirely — no calls are made to the registered-models API.",
+    )
+
     include_ml_model_aliases: bool = pydantic.Field(
         default=False,
         description="Whether to include ML model aliases in the ingestion.",
@@ -465,7 +472,9 @@ class UnityCatalogSourceConfig(
     ml_model_max_results: int = pydantic.Field(
         default=1000,
         ge=0,
-        description="Maximum number of ML models to ingest.",
+        description="Maximum total number of ML models to ingest per schema. "
+        "Set to 0 to ingest none. To disable ML model ingestion entirely "
+        "(including API calls), use `include_ml_models: false` instead.",
     )
 
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
