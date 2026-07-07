@@ -58,6 +58,7 @@ class KafkaEmitterConfig(ConfigModel):
 
     max_queue_full_block_seconds: float = pydantic.Field(
         default=_MAX_QUEUE_FULL_BLOCK_SECONDS,
+        ge=0,
         description=(
             "Max time to block on a full local producer queue (backpressure) "
             "before failing the run, so an unreachable broker does not hang "

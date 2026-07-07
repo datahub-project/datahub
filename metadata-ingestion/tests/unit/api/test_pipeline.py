@@ -1,4 +1,5 @@
 import json
+import logging
 import pathlib
 import tempfile
 import time
@@ -215,6 +216,40 @@ class TestPipeline:
                     },
                 }
             )
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_unrecognized_selector_warns_and_uses_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+        caplog,
+    ):
+        # A garbage selector value must warn and fall back to REST (fail-safe).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafak")  # typo
+        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        mock_fetch_config.return_value = mock_server_config
+
+        with caplog.at_level(logging.WARNING):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_file.json"},
+                    },
+                }
+            )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+        assert any(
+            "DATAHUB_INGESTION_DEFAULT_SINK" in r.message for r in caplog.records
+        )
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")

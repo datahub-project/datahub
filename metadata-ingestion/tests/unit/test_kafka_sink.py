@@ -3,6 +3,7 @@ import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
+import pydantic
 import pytest
 
 import datahub.emitter.mce_builder as builder
@@ -697,6 +698,33 @@ def test_kafka_sink_flush_then_close_does_not_double_report(mock_producer):
     kafka_sink.close()
     # flush() reported once; close() skipped its redundant flush.
     assert len(kafka_sink.get_report().failures) == 1
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_handle_work_unit_end_does_not_flush(mock_producer):
+    """Per-work-unit flush was removed for throughput (delivery is confirmed by
+    the pipeline's pre-commit sink.flush()); guards against a re-added flush."""
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    kafka_sink.handle_work_unit_end(MagicMock())
+
+    mock_mcp_producer.flush.assert_not_called()
+
+
+def test_kafka_sink_config_rejects_negative_block_seconds():
+    """max_queue_full_block_seconds < 0 is rejected (would make the backpressure
+    deadline already in the past)."""
+    with pytest.raises(pydantic.ValidationError):
+        KafkaSinkConfig.model_validate(
+            {
+                "connection": {"bootstrap": "foobar:9092"},
+                "max_queue_full_block_seconds": -1,
+            }
+        )
 
 
 @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")

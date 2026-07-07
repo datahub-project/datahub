@@ -164,13 +164,13 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     )
     from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 
-    # Bootstrap has no environment-based default (unlike the schema registry
-    # URL). Fail fast rather than silently defaulting to localhost:9092 and
-    # exploding at produce-time after a "successful"-looking run.
+    # Bootstrap defaults to localhost:9092 in KafkaSinkConfig, which is wrong in
+    # a container. Fail fast rather than silently using it and exploding at
+    # produce-time after a "successful"-looking run.
     bootstrap = get_kafka_bootstrap()
     if not bootstrap:
         raise PipelineInitError(
-            "DATAHUB_KAFKA_BOOTSTRAP must be set to use the Kafka default sink "
+            "KAFKA_BOOTSTRAP_SERVER must be set to use the Kafka default sink "
             "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."
         )
 

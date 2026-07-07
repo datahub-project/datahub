@@ -215,9 +215,10 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
     ) -> bool:
         """Whether an MCP must be sent over REST instead of async Kafka.
 
-        GMS rejects DELETE/RESTATE on the async path. Additionally, timeseries
-        aspects accept only UPSERT, so any non-UPSERT timeseries change (e.g. a
-        PATCH) must also go via REST.
+        Allow-list based: only change types GMS accepts on the async path stay
+        on Kafka; anything else (DELETE, RESTATE, any future/unknown change type)
+        goes via REST. Additionally, timeseries aspects accept only UPSERT, so
+        any non-UPSERT timeseries change (e.g. a PATCH) also goes via REST.
         """
         if record.aspectName in TIMESERIES_ASPECT_MAP:
             return record.changeType != ChangeTypeClass.UPSERT
@@ -325,6 +326,11 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                 logger.debug(
                     f"Unpacking MCE for {record.proposedSnapshot.urn} into individual MCPs"
                 )
+                # Unpacked MCPs go straight to Kafka without _needs_rest_fallback:
+                # an MCE is an entity snapshot, whose aspects are always UPSERTs
+                # and never timeseries aspects, so it structurally cannot carry a
+                # change type that needs the REST fallback.
+                #
                 # Materialize to a list so we know the count for the
                 # aggregating callback and can detect empty-aspect MCEs. Bounded
                 # by a single entity's aspect count (small; large only for very
