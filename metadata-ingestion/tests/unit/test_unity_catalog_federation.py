@@ -806,23 +806,24 @@ def _seed_external_schema(
     schema_name: str,
     table_name: str,
     schema_info: dict,
-    *,
-    platform: str = "snowflake",
-    platform_instance: Optional[str] = None,
-    env: str = "PROD",
 ) -> str:
-    """Seed a bulk-initialized SchemaResolver for the external platform so backfill /
-    column-lineage resolve the external schema in-memory, and return the external URN.
-    Mirrors what SchemaResolverProvider does at runtime (one scroll per platform)."""
+    """Seed a bulk-initialized SchemaResolver under the catalog's external schema
+    scope so backfill / column-lineage resolve the external schema in-memory, and
+    return the external URN. Mirrors what SchemaResolverProvider does at runtime (one
+    scroll per external database)."""
     from datahub.sql_parsing.schema_resolver import SchemaResolver
 
     urn = src._external_dataset_urn(catalog, schema_name, table_name)
-    assert urn is not None
+    key = src._external_platform_key(catalog)
+    assert urn is not None and key is not None
     resolver = SchemaResolver(
-        platform=platform, platform_instance=platform_instance, env=env, graph=None
+        platform=key.platform,
+        platform_instance=key.platform_instance,
+        env=key.env,
+        graph=None,
     )
     resolver.add_raw_schema_info(urn, schema_info)
-    src._external_schema_resolvers[(platform, platform_instance, env)] = resolver
+    src._external_schema_resolvers[key] = resolver
     return urn
 
 
@@ -1089,3 +1090,49 @@ def test_federation_lineage_no_column_lineage_when_flag_off():
         )
     ]
     assert up and not up[0].fineGrainedLineages
+
+
+def test_external_schema_fetch_scoped_to_remote_database():
+    # The bulk fetch must be scoped to the mirrored remote database, not the whole
+    # external platform — otherwise federating a few tables from a huge source pulls
+    # the entire platform's schemas.
+    src = _snowflake_conn_source()
+    provider = MagicMock()
+    src._schema_resolver_provider = provider
+    key = src._external_platform_key(_foreign_catalog())
+    assert key is not None and key.remote_database == "my_db"
+
+    src._external_schema_resolver(key)
+
+    provider.get.assert_called_once_with(
+        platform="snowflake",
+        platform_instance=None,
+        env="PROD",
+        query="my_db",
+    )
+
+
+def test_federation_cll_skipped_counted_when_external_schema_missing():
+    # UC supplies columns but the external schema can't be resolved (no graph here):
+    # the COPY link is still emitted, column-level lineage is skipped and counted.
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "datahub_snowflake.my_schema.t,PROD)"
+    )
+    dbx_schema = _external_schema([_field("CUSTOMER_ID")])
+    wus = list(
+        src._gen_federation_link(
+            dataset_urn, _foreign_table(catalog), catalog, dbx_schema
+        )
+    )
+    up = [
+        agg
+        for wu in wus
+        if isinstance(
+            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
+        )
+    ]
+    assert up and not up[0].fineGrainedLineages
+    assert src.report.num_federation_cll_skipped == 1

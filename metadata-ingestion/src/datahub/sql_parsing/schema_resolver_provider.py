@@ -21,16 +21,21 @@ def provide_schema_resolver(
     platform_instance: Optional[str],
     env: str,
     batch_size: int = 100,
+    query: Optional[str] = None,
 ) -> SchemaResolver:
-    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env).
+    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, query).
 
     Using a module-level cache ensures deduplication across all callers in the same
     process, even when different SchemaResolverProvider instances are created.
+
+    `query` narrows the bulk fetch (e.g. to a single database's datasets) so callers
+    that only need a subset of a large platform don't load the whole platform.
     """
     return SchemaResolverProvider(graph=graph, batch_size=batch_size).get(
         platform=platform,
         platform_instance=platform_instance,
         env=env,
+        query=query,
     )
 
 
@@ -57,8 +62,14 @@ class SchemaResolverProvider:
         platform: str,
         platform_instance: Optional[str],
         env: str,
+        query: Optional[str] = None,
     ) -> SchemaResolver:
-        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env)."""
+        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, query).
+
+        `query` narrows the bulk fetch to matching datasets (e.g. a single database's
+        name) so a caller that needs only a subset of a large platform doesn't load
+        the whole platform.
+        """
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
@@ -73,6 +84,7 @@ class SchemaResolverProvider:
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
+                query=query,
                 batch_size=self._batch_size,
             ):
                 try:
