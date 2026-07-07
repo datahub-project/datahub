@@ -181,7 +181,11 @@ const TreeContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px;
+    /* Trimmed right padding: scrollbar-gutter already reserves space on the right,
+       so the rows/labels can sit closer to the edge without shifting. */
+    padding: 8px 2px 8px 8px;
+    /* Reserve the scrollbar's space so rows don't shift left when it appears. */
+    scrollbar-gutter: stable;
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -189,20 +193,20 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: transparent;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} ${(props) => props.theme.colors.scrollbarTrack};
 `;
 
 type Props = {

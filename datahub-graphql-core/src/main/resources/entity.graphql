@@ -3162,6 +3162,11 @@ enum FabricType {
   Alternative spelling for sandbox
   """
   SBX
+
+  """
+  Designates certification fabrics
+  """
+  CERT
 }
 
 """
