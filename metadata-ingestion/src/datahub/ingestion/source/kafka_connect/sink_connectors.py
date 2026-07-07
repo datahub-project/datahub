@@ -542,9 +542,19 @@ class IcebergSinkConnector(BaseConnector):
             )
 
         # All-to-all mapping: each topic → all configured tables
-        topics_to_tables: Dict[str, List[str]] = {}
-        for topic in topic_list:
-            topics_to_tables[topic] = tables if tables else []
+        topics_to_tables: Dict[str, List[str]] = {topic: tables for topic in topic_list}
+
+        # Warn if no tables are configured for topics (valid only with dynamic routing)
+        if topic_list and not tables:
+            is_dynamic_enabled = connector_manifest.config.get(
+                ConnectorConfigKeys.ICEBERG_TABLES_DYNAMIC_ENABLED, ""
+            ).lower() in ("true", "yes")
+            if not is_dynamic_enabled:
+                self.report.warning(
+                    "No 'iceberg.tables' configured but topics are subscribed; no lineage will be emitted. "
+                    "This is expected only if iceberg.tables.dynamic-enabled=true (routing determined at record time).",
+                    context=connector_manifest.name,
+                )
 
         return self.IcebergParser(topics_to_tables=topics_to_tables)
 
