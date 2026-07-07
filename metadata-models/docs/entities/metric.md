@@ -41,7 +41,9 @@ Hierarchical and derivation relationships are stored in the `metricRelationships
 
 - **`parentMetric`** -- URN of the parent metric. Used to build a hierarchical tree of
   metrics. Stored as an `IsPartOf` graph edge.
-- **`derivedFrom`** — array of `Edge` records pointing to source metrics; edges are flagged
+- **`derivedFrom`** — array of `DerivedMetricInput` records pointing to source metrics.
+  `DerivedMetricInput includes Edge`, so the payload is Edge-shaped
+  (`destinationUrn`, audit stamps, `properties` bag). Edges are flagged
   `isLineage: true` so they appear in the DataHub lineage graph.
 - **`relatedMetrics`** — array of `Edge` records pointing to semantically related metrics (no
   lineage flag).

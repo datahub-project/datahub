@@ -37,7 +37,7 @@ record MetricRelationships {
       "isLineage": true
     }
   }
-  derivedFrom: array[Edge] = [ ]
+  derivedFrom: array[DerivedMetricInput] = [ ]
 
   /**
    * Non-lineage edges to semantically related metrics
