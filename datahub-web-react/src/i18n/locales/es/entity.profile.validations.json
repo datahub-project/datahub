@@ -467,5 +467,6 @@
     "volumeDescription.changeBetweenRows": "La tabla debería crecer entre {{parameter}} filas",
     "volumeDescription.totalAtLeast": "La tabla tiene al menos {{parameter}} filas",
     "volumeDescription.totalAtMost": "La tabla tiene como máximo {{parameter}} filas",
-    "volumeDescription.totalBetween": "La tabla tiene entre {{parameter}} filas"
+    "volumeDescription.totalBetween": "La tabla tiene entre {{parameter}} filas",
+    "volumeDescription.unknown": "La tabla tiene una Assertion de volumen"
 }

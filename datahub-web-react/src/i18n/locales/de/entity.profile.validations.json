@@ -467,5 +467,6 @@
     "volumeDescription.changeBetweenRows": "Tabelle sollte um zwischen {{parameter}} Zeilen wachsen",
     "volumeDescription.totalAtLeast": "Tabelle hat mindestens {{parameter}} Zeilen",
     "volumeDescription.totalAtMost": "Tabelle hat höchstens {{parameter}} Zeilen",
-    "volumeDescription.totalBetween": "Tabelle hat zwischen {{parameter}} Zeilen"
+    "volumeDescription.totalBetween": "Tabelle hat zwischen {{parameter}} Zeilen",
+    "volumeDescription.unknown": "Tabelle hat eine Volumen-Assertion"
 }

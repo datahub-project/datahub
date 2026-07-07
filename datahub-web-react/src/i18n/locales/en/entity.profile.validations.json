@@ -467,5 +467,6 @@
     "volumeDescription.changeBetweenRows": "Table should grow by between {{parameter}} rows",
     "volumeDescription.totalAtLeast": "Table has at least {{parameter}} rows",
     "volumeDescription.totalAtMost": "Table has at most {{parameter}} rows",
-    "volumeDescription.totalBetween": "Table has between {{parameter}} rows"
+    "volumeDescription.totalBetween": "Table has between {{parameter}} rows",
+    "volumeDescription.unknown": "Table has a volume assertion"
 }

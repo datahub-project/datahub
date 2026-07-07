@@ -331,6 +331,20 @@ describe('VolumeAssertionDescription', () => {
             },
             'Table should grow by between 5 and 10 %',
         ],
+        [
+            // Volume assertions only ever use GreaterThanOrEqualTo/LessThanOrEqualTo/Between, but the
+            // operator type allows any AssertionStdOperator. An out-of-range operator must degrade to
+            // a generic description rather than throw and crash the Validation tab.
+            'unexpected operator falls back',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has a volume assertion',
+        ],
     ];
 
     it.each(cases)('%s', (_name, info, expected) => {
@@ -658,6 +672,7 @@ describe('description key completeness', () => {
         'changeAtLeastPercent',
         'changeAtMostPercent',
         'changeBetweenPercent',
+        'unknown',
     ];
 
     it('has a key for every Dataset aggregation × operator combination', () => {
