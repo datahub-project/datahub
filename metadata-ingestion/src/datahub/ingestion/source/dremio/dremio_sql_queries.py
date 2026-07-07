@@ -45,13 +45,12 @@ class DremioSQLQueries:
     {limit_clause}
     """
 
-    # One row per view. {view_definition_select} is filled in by the API layer so
-    # the definition column can optionally be wrapped in SUBSTR(...) to cap size.
+    # One row per view (INFORMATION_SCHEMA.VIEWS exposes the SQL as VIEW_DEFINITION).
     QUERY_VIEW_DEFINITIONS_CE = """
     SELECT
         CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) AS FULL_TABLE_PATH,
         TABLE_SCHEMA,
-        {view_definition_select} AS VIEW_DEFINITION
+        VIEW_DEFINITION
     FROM
         INFORMATION_SCHEMA.VIEWS
     WHERE 1=1
@@ -265,14 +264,14 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # One row per view; see QUERY_VIEW_DEFINITIONS_CE for {view_definition_select}.
+    # One row per view (SYS.VIEWS exposes the SQL as SQL_DEFINITION).
     QUERY_VIEW_DEFINITIONS_EE = """
         SELECT * FROM
         (
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
-            {view_definition_select} AS VIEW_DEFINITION
+            SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.VIEWS
         WHERE
@@ -286,14 +285,14 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # One row per view; see QUERY_VIEW_DEFINITIONS_CE for {view_definition_select}.
+    # One row per view (SYS.PROJECT.VIEWS exposes the SQL as SQL_DEFINITION).
     QUERY_VIEW_DEFINITIONS_CLOUD = """
         SELECT * FROM
         (
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
-            {view_definition_select} AS VIEW_DEFINITION
+            SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.PROJECT.VIEWS
         WHERE
@@ -358,13 +357,6 @@ class DremioSQLQueries:
             f"AND (UPPER({column}) = '{literal}' "
             f"OR UPPER({column}) LIKE '{like_literal}.%' ESCAPE '\\')"
         )
-
-    @staticmethod
-    def view_definition_select(source_column: str, max_length: Optional[int]) -> str:
-        """VIEW_DEFINITION select, optionally SUBSTR-capped to bound VARCHAR size."""
-        if max_length is not None:
-            return f"SUBSTR({source_column}, 1, {max_length})"
-        return source_column
 
     @staticmethod
     def _get_default_start_timestamp_millis() -> str:

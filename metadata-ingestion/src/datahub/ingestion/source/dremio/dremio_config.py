@@ -244,22 +244,6 @@ class DremioSourceConfig(
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
 
-    max_view_definition_length: Optional[int] = Field(
-        default=None,
-        description="Maximum characters to fetch for a view's SQL definition; when "
-        "set, definitions are truncated server-side (Dremio `SUBSTR`). Leave unset "
-        "for full definitions. Use this when large view definitions trigger Dremio "
-        "`OversizedAllocationException`. Truncation may reduce column-level lineage "
-        "accuracy for the affected views.",
-    )
-
-    @field_validator("max_view_definition_length", mode="after")
-    @classmethod
-    def validate_max_view_definition_length(cls, value: Optional[int]) -> Optional[int]:
-        if value is not None and value <= 0:
-            raise ValueError("max_view_definition_length must be a positive integer")
-        return value
-
     partition_datasets_by_container: bool = Field(
         default=False,
         description="Fetch table/column metadata one root container (source/space) "

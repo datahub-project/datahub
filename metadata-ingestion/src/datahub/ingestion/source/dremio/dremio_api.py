@@ -176,7 +176,6 @@ class DremioAPIOperations:
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
-        self.max_view_definition_length = connection_args.max_view_definition_length
         self.partition_datasets_by_container = (
             connection_args.partition_datasets_by_container
         )
@@ -732,28 +731,12 @@ class DremioAPIOperations:
 
         return dataset_list
 
-    def _get_view_definition_select(self) -> str:
-        # EE/Cloud expose the SQL as SYS.VIEWS.SQL_DEFINITION; Community as
-        # INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION.
-        source_column = (
-            "VIEW_DEFINITION"
-            if self.edition == DremioEdition.COMMUNITY
-            else "SQL_DEFINITION"
-        )
-        return DremioSQLQueries.view_definition_select(
-            source_column, self.max_view_definition_length
-        )
-
     def _get_view_definition_query(self) -> str:
         if self.edition == DremioEdition.ENTERPRISE:
-            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE
+            return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE
         elif self.edition == DremioEdition.CLOUD:
-            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
-        else:
-            template = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
-        return template.replace(
-            "{view_definition_select}", self._get_view_definition_select()
-        )
+            return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
+        return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
     def _get_view_definitions(
         self,
@@ -763,12 +746,6 @@ class DremioAPIOperations:
         """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view."""
         query_template = self._get_view_definition_query()
         definitions: Dict[str, Optional[str]] = {}
-
-        if self.max_view_definition_length is not None:
-            logger.info(
-                f"Truncating Dremio view definitions to "
-                f"{self.max_view_definition_length} characters."
-            )
 
         chunk_size = self._chunk_size
         offset = 0
@@ -790,8 +767,7 @@ class DremioAPIOperations:
                 # Fail loudly rather than silently dropping view definitions.
                 self.report.failure(
                     message="Failed to fetch Dremio view definitions; view "
-                    "lineage may be incomplete. Consider setting "
-                    "`max_view_definition_length` to cap oversized definitions.",
+                    "lineage may be incomplete.",
                     context=f"offset={offset}",
                     exc=e,
                 )

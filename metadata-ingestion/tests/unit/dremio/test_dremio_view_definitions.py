@@ -54,26 +54,17 @@ class TestViewDefinitionQueries:
             assert "INFORMATION_SCHEMA.COLUMNS" not in query
 
 
-class TestViewDefinitionSelect:
-    def test_community_uses_information_schema_column(self, monkeypatch):
-        api = _make_api(monkeypatch)
-        api.edition = DremioEdition.COMMUNITY
-        assert api._get_view_definition_select() == "VIEW_DEFINITION"
+class TestViewDefinitionQueryColumn:
+    def test_community_selects_information_schema_column(self):
+        assert "VIEW_DEFINITION" in DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
+        assert "SQL_DEFINITION" not in DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
-    def test_enterprise_uses_sql_definition(self, monkeypatch):
-        api = _make_api(monkeypatch)
-        api.edition = DremioEdition.ENTERPRISE
-        assert api._get_view_definition_select() == "SQL_DEFINITION"
-
-    def test_truncation_wraps_in_substr(self, monkeypatch):
-        api = _make_api(monkeypatch, max_view_definition_length=100)
-        api.edition = DremioEdition.ENTERPRISE
-        assert api._get_view_definition_select() == "SUBSTR(SQL_DEFINITION, 1, 100)"
-
-    def test_truncation_applies_to_community_column(self, monkeypatch):
-        api = _make_api(monkeypatch, max_view_definition_length=50)
-        api.edition = DremioEdition.COMMUNITY
-        assert api._get_view_definition_select() == "SUBSTR(VIEW_DEFINITION, 1, 50)"
+    def test_enterprise_and_cloud_alias_sql_definition(self):
+        for query in (
+            DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE,
+            DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD,
+        ):
+            assert "SQL_DEFINITION AS VIEW_DEFINITION" in query
 
 
 class TestGetViewDefinitions:
@@ -91,7 +82,6 @@ class TestGetViewDefinitions:
 
         assert result == {"space.view_a": "SELECT 1", "space.view_b": "SELECT 2"}
         query_arg = api.execute_query_iter.call_args[1]["query"]
-        assert "SUBSTR" not in query_arg
         assert "LIMIT 1000 OFFSET 0" in query_arg
 
     def test_paginates_across_chunks(self, monkeypatch):
