@@ -887,7 +887,48 @@ class TestErrorHandling:
             ):
                 mock_aggregator.gen_metadata.return_value = []
                 source._populate_aggregator_from_audit_logs()
-                # Method doesn't return a value, just populates the aggregator
+
+            # A 0-row fetch must surface as a report warning (it often signals a
+            # mis-scoped filter, wrong time range, or missing DBC.QryLogV grants),
+            # not silently pass at info level.
+            warning_titles = [w.title for w in source.report.warnings]
+            assert "No lineage entries found" in warning_titles
+            assert mock_aggregator.add.call_count == 0
+
+    def test_non_empty_lineage_entries_emit_no_empty_warning(self):
+        """A normal fetch that yields entries must NOT emit the empty-result warning."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                mock_entry = MagicMock()
+                mock_entry.query_text = "SELECT 1"
+                mock_entry.session_id = "s1"
+                mock_entry.timestamp = "2024-01-01 10:00:00"
+                mock_entry.user = "test_user"
+                mock_entry.default_database = "test_db"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            warning_titles = [w.title for w in source.report.warnings]
+            assert "No lineage entries found" not in warning_titles
+            assert mock_aggregator.add.call_count == 1
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""

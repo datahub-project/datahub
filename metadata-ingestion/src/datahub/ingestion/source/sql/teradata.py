@@ -3457,7 +3457,22 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             )
 
                     if queries_processed == 0:
-                        logger.info("No lineage entries found")
+                        # 0 rows over a configured window is legitimate on a quiet
+                        # cluster, but it just as often means the fetch was scoped or
+                        # gated wrong (or DBC was mid-maintenance). Surface it to the
+                        # operator rather than hiding it at info level.
+                        self.report.warning(
+                            title="No lineage entries found",
+                            message=(
+                                "The audit-log query returned 0 rows for the configured window. "
+                                "This is expected if no queries ran in that period, but can also "
+                                "indicate an over-narrow databases_filter/database_pattern, a "
+                                "start_time/end_time that misses activity, missing SELECT grants on "
+                                "DBC.QryLogV, or a DBC maintenance window. Verify the scope and grants "
+                                "if you expected lineage."
+                            ),
+                            context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                        )
                         return
 
                     logger.info(
