@@ -2,8 +2,6 @@ name: Vercel Preview Cleanup
 
 # Deletes the Vercel preview deployments tied to a PR's head branch when the PR
 # is closed or merged, so stale previews (and their aliases/DNS) don't linger.
-# See SEC-884. Vercel's own "delete on branch deletion" setting is the primary
-# safeguard; this gives immediate, deterministic teardown on PR close.
 
 on:
   pull_request:
