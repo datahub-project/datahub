@@ -12,6 +12,7 @@ from typing import List, Optional, Tuple, Union
 import pydantic
 import requests
 from pydantic import field_validator
+from requests.sessions import SessionRedirectMixin
 
 from datahub.cli.cli_utils import fixup_gms_url
 from datahub.cli.config_utils import get_url_from_env
@@ -34,7 +35,7 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RestSinkEndpoint,
 )
-from datahub.emitter.token_provider import TokenProviderAuth, _origin
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -240,12 +241,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 # Env OAuth applies only to the env-configured server: merging it
                 # into a sink pointing at a different origin would mint fresh
                 # bearer tokens and send them to that other host (audience
-                # scoping limits use, not disclosure). Strict (scheme, host,
-                # port) equality, matching the 401-retry guard — a benign
-                # normalization mismatch only costs a skipped merge, loudly.
+                # scoping limits use, not disclosure). Delegates to requests'
+                # should_strip_auth — the same rule the 401-retry guard uses —
+                # so same-origin (and the benign http->https upgrade) inherit
+                # env auth, while any other origin change skips it, loudly.
                 env_url = get_url_from_env()
-                if env_url is not None and _origin(fixup_gms_url(env_url)) == (
-                    _origin(fixup_gms_url(config.server))
+                if env_url is not None and not SessionRedirectMixin().should_strip_auth(
+                    fixup_gms_url(env_url), fixup_gms_url(config.server)
                 ):
                     auth_config = env_auth
                     logger.info(
