@@ -3457,20 +3457,32 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             )
 
                     if queries_processed == 0:
-                        # 0 rows over a configured window is legitimate on a quiet
-                        # cluster, but it just as often means the fetch was scoped or
-                        # gated wrong (or DBC was mid-maintenance). Surface it to the
-                        # operator rather than hiding it at info level.
-                        self.report.warning(
-                            title="No lineage entries found",
-                            message=(
+                        # No queries made it into the aggregator, but that can mean two
+                        # very different things. num_audit_query_entries_processed counts
+                        # raw DBC.QryLogV rows; queries_processed counts queries that
+                        # survived reconstruction. If rows arrived but reconstructed to
+                        # nothing, pointing the operator at grants/scope would be wrong —
+                        # so branch the guidance on which stage actually came up empty.
+                        rows_fetched = self.report.num_audit_query_entries_processed
+                        if rows_fetched > 0:
+                            message = (
+                                f"Fetched {rows_fetched} audit-log row(s) but reconstructed 0 "
+                                "queries, so no lineage was produced. This usually means the rows "
+                                "lacked a usable query_id or query text (e.g. malformed/empty "
+                                "DBC.QryLogV entries), not a scope or permissions problem."
+                            )
+                        else:
+                            message = (
                                 "The audit-log query returned 0 rows for the configured window. "
                                 "This is expected if no queries ran in that period, but can also "
                                 "indicate an over-narrow databases_filter/database_pattern, a "
                                 "start_time/end_time that misses activity, missing SELECT grants on "
                                 "DBC.QryLogV, or a DBC maintenance window. Verify the scope and grants "
                                 "if you expected lineage."
-                            ),
+                            )
+                        self.report.warning(
+                            title="No lineage entries found",
+                            message=message,
                             context=f"time_range={self.config.start_time}–{self.config.end_time}",
                         )
                         return

@@ -891,8 +891,15 @@ class TestErrorHandling:
             # A 0-row fetch must surface as a report warning (it often signals a
             # mis-scoped filter, wrong time range, or missing DBC.QryLogV grants),
             # not silently pass at info level.
-            warning_titles = [w.title for w in source.report.warnings]
-            assert "No lineage entries found" in warning_titles
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            # No raw rows were fetched, so the message must point at scope/grants,
+            # not at reconstruction.
+            assert "returned 0 rows" in empty_warnings[0].message
             assert mock_aggregator.add.call_count == 0
 
     def test_non_empty_lineage_entries_emit_no_empty_warning(self):
@@ -913,6 +920,7 @@ class TestErrorHandling:
 
             def mock_generator():
                 mock_entry = MagicMock()
+                mock_entry.query_id = "q1"
                 mock_entry.query_text = "SELECT 1"
                 mock_entry.session_id = "s1"
                 mock_entry.timestamp = "2024-01-01 10:00:00"
@@ -929,6 +937,53 @@ class TestErrorHandling:
             warning_titles = [w.title for w in source.report.warnings]
             assert "No lineage entries found" not in warning_titles
             assert mock_aggregator.add.call_count == 1
+
+    def test_rows_fetched_but_zero_reconstructed_warns_with_row_count(self):
+        """Rows that arrive but reconstruct to 0 queries must NOT blame scope/grants.
+
+        Entries without a usable query_id are counted in
+        num_audit_query_entries_processed but never yielded by reconstruction, so
+        queries_processed stays 0. The warning must reflect "fetched N rows but
+        reconstructed 0" rather than the misleading "returned 0 rows".
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                # query_id=None means reconstruction can never yield this row, but it
+                # is still counted as a fetched audit-log row.
+                mock_entry = MagicMock()
+                mock_entry.query_id = None
+                mock_entry.query_text = "SELECT 1"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            assert "reconstructed 0" in empty_warnings[0].message
+            assert "returned 0 rows" not in empty_warnings[0].message
+            assert source.report.num_audit_query_entries_processed == 1
+            assert mock_aggregator.add.call_count == 0
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
