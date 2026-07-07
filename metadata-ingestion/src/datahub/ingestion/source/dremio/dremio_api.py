@@ -887,7 +887,9 @@ class DremioAPIOperations:
             )
             return
 
-        # CE joins COLUMNS directly (qualify the column); EE/Cloud alias it as C.
+        # CE filters in the outer join where COLUMNS is aliased C, so qualify the
+        # column; EE/Cloud filter inside the COLUMNS subquery (before the C alias
+        # applies), so use the bare column.
         columns_schema_column = (
             "C.TABLE_SCHEMA"
             if self.edition == DremioEdition.COMMUNITY

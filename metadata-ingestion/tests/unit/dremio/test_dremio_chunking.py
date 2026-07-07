@@ -124,12 +124,21 @@ class TestDremioChunking:
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter(mock_results)
         )
-        dremio_api._get_view_definitions = Mock(return_value={})
+        view_definitions = {"source.schema.table1": "SELECT 1"}
+        dremio_api._get_view_definitions = Mock(return_value=view_definitions)
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
         dremio_api._get_all_tables_global_chunked.assert_called_once()
         dremio_api._get_view_definitions.assert_called_once()
+        # The separately-fetched view definitions must be threaded through to the
+        # fetch so they can be merged back by path.
+        assert (
+            dremio_api._get_all_tables_global_chunked.call_args.kwargs[
+                "view_definitions"
+            ]
+            is view_definitions
+        )
         assert len(tables) == 1
 
     def test_get_all_tables_global_chunked_single_chunk(self, dremio_api):

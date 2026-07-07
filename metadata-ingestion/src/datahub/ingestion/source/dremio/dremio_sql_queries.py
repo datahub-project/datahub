@@ -62,8 +62,9 @@ class DremioSQLQueries:
     {limit_clause}
     """
 
-    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_EE (see
-    # QUERY_DATASETS_CE_GLOBAL).
+    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_EE. See
+    # QUERY_DATASETS_CE_GLOBAL above for why, and for the {columns_schema_filter}
+    # pushdown rationale.
     QUERY_DATASETS_EE_GLOBAL = """
         SELECT * FROM
         (
@@ -163,8 +164,9 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_CLOUD (see
-    # QUERY_DATASETS_CE_GLOBAL).
+    # VIEW_DEFINITION omitted here; fetched by QUERY_VIEW_DEFINITIONS_CLOUD. See
+    # QUERY_DATASETS_CE_GLOBAL above for why, and for the {columns_schema_filter}
+    # pushdown rationale.
     QUERY_DATASETS_CLOUD_GLOBAL = """
         SELECT * FROM
         (
