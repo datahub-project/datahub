@@ -1112,6 +1112,52 @@ def test_external_schema_fetch_scoped_to_remote_database():
     )
 
 
+def test_external_schema_fetch_uses_platform_and_instance_overrides():
+    # The bulk fetch must filter by the same platform / platform_instance / env the
+    # external URN is built with — including per-connection overrides — so the search
+    # matches how the external source was actually ingested.
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        cfg = UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "include_metastore": False,
+                "federation_connection_details": {
+                    "pg_conn": {
+                        "platform": "mssql",  # override the auto-detected platform
+                        "platform_instance": "prod-sql",
+                        "env": "DEV",
+                    }
+                },
+            }
+        )
+        src = UnityCatalogSource(ctx=PipelineContext(run_id="t"), config=cfg)
+    src.unity_catalog_api_proxy._connections_cache = {
+        "pg_conn": ConnectionInfo(
+            name="pg_conn", connection_type=ConnectionType.SNOWFLAKE
+        )
+    }
+    provider = MagicMock()
+    src._schema_resolver_provider = provider
+
+    key = src._external_platform_key(_foreign_catalog())
+    assert key is not None
+    assert (key.platform, key.platform_instance, key.env, key.remote_database) == (
+        "mssql",
+        "prod-sql",
+        "DEV",
+        "my_db",
+    )
+
+    src._external_schema_resolver(key)
+
+    provider.get.assert_called_once_with(
+        platform="mssql",
+        platform_instance="prod-sql",
+        env="DEV",
+        query="my_db",
+    )
+
+
 def test_federation_cll_skipped_counted_when_external_schema_missing():
     # UC supplies columns but the external schema can't be resolved (no graph here):
     # the COPY link is still emitted, column-level lineage is skipped and counted.
