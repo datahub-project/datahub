@@ -90,11 +90,8 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
     num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
-    # Workunit-level observability: how many workunits carried a lineage aspect vs. how
-    # many actually had a reference rewritten. The gap is the no-op share (references
-    # already correct / out of scope).
-    num_workunits_with_lineage: int = 0  # Carried a lineage aspect
-    num_workunits_modified: int = 0  # A lineage aspect was actually mutated
+    num_workunits_with_lineage_aspect: int = 0
+    num_workunits_modified: int = 0
 
 
 @dataclass
@@ -181,39 +178,21 @@ class AutoResolveLineageUrnsProcessor(
             ctx.pipeline_context.flags.auto_resolve_lineage_urns.upstream_platforms
         )
         # Resolve the sqlglot-backed schema_resolver callables once, here — a single
-        # honest chokepoint rather than imports buried in two leaf methods. __init__
-        # runs only after should_enable() confirmed the feature is on and a graph
-        # exists, so this stays off the module-load path (test_module_import_does_not_
-        # pull_sqlglot still passes) while making "this processor needs sqlglot once
-        # constructed" explicit and cached.
-        #
-        # sqlglot ships with the intended BI / dashboard connector extras but is NOT in
-        # framework_common, and this processor is gated only by a pipeline-level flag any
-        # recipe can set. A pure-API source that enables the flag would otherwise hit
-        # ModuleNotFoundError deep in a leaf method and — because process() swallows
-        # per-workunit exceptions — fail silently on every work unit. Instead we surface
-        # one actionable failure and disable the processor (lineage emitted unchanged).
-        self._enabled = True
-        self._provide_schema_resolver: Callable[..., SchemaResolver]
-        self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]]
-        try:
-            from datahub.sql_parsing.schema_resolver import match_columns_to_schema
-            from datahub.sql_parsing.schema_resolver_provider import (
-                provide_schema_resolver,
-            )
-        except ImportError as e:
-            self._enabled = False
-            self.ctx.source_report.failure(
-                title="auto_resolve_lineage_urns could not run",
-                message="Reconciling lineage URN casing requires the sqlglot-based SQL "
-                "parser, which this source's install does not include. Install the SQL "
-                "parsing extra (`pip install acryl-datahub[sql-parser]`) or a connector "
-                "extra that bundles it; lineage is emitted unchanged until then.",
-                exc=e,
-            )
-        else:
-            self._provide_schema_resolver = provide_schema_resolver
-            self._match_columns_to_schema = match_columns_to_schema
+        # honest chokepoint rather than imports buried in two leaf methods. Deferred into
+        # __init__ (not module level) so importing this module stays sqlglot-free
+        # (guarded by test_module_import_does_not_pull_sqlglot); __init__ runs only after
+        # should_enable() confirmed the feature is on. The sqlglot dependency itself is
+        # validated up front by AutoResolveLineageUrnsConfig (fail-fast at config parse
+        # when enabled), so these imports are guaranteed to succeed here.
+        from datahub.sql_parsing.schema_resolver import match_columns_to_schema
+        from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
+
+        self._provide_schema_resolver: Callable[..., SchemaResolver] = (
+            provide_schema_resolver
+        )
+        self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]] = (
+            match_columns_to_schema
+        )
         # Per-platform state, lazily bulk-initialized on first reference. The
         # SchemaResolvers are the source of truth for schema + membership; the casing
         # index is a derived lowercase(urn) -> real URNs map used to reconcile arbitrary
@@ -272,11 +251,6 @@ class AutoResolveLineageUrnsProcessor(
         return getattr(ctx.pipeline_context, "graph", None) is not None
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
-        if not self._enabled:
-            # sqlglot unavailable (failure already reported in __init__): pass every
-            # work unit through untouched so lineage is emitted, just unreconciled.
-            yield from stream
-            return
         for wu in stream:
             try:
                 self._resolve_workunit(wu)
@@ -317,7 +291,7 @@ class AutoResolveLineageUrnsProcessor(
                 self._write_back_if_mcp(wu, aspect)
                 modified = True
         if had_lineage:
-            self.report.num_workunits_with_lineage += 1
+            self.report.num_workunits_with_lineage_aspect += 1
         if modified:
             self.report.num_workunits_modified += 1
 

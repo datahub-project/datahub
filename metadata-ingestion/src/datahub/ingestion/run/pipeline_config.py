@@ -87,7 +87,10 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
         description="Whether to reconcile the casing of upstream warehouse URN "
-        "references in lineage against the casing stored in DataHub.",
+        "references in lineage against the casing stored in DataHub. Requires the "
+        "SQL-parser dependency (`sqlglot`) — install `acryl-datahub[sql-parser]` or a "
+        "connector extra that bundles it. Every intended BI/dashboard connector already "
+        "does, so the target use case needs no extra install.",
     )
     upstream_platforms: List[UpstreamPlatformCasing] = Field(
         default_factory=list,
@@ -95,6 +98,24 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
         "lineage references against. References to platforms not listed here are "
         "left unchanged.",
     )
+
+    @model_validator(mode="after")
+    def _require_sql_parser_when_enabled(self) -> "AutoResolveLineageUrnsConfig":
+        # Fail fast at config parse (only when enabled) if the SQL parser is missing,
+        # rather than deep in the processor at run time. Resolution reuses the
+        # SchemaResolver, which depends on sqlglot; sqlglot is not in the ingestion core,
+        # so a source whose extra doesn't bundle it would otherwise fail mid-run.
+        if self.enabled:
+            try:
+                import sqlglot  # noqa: F401
+            except ImportError as e:
+                raise ValueError(
+                    "auto_resolve_lineage_urns is enabled but the SQL parser it relies "
+                    "on is not installed. Install it with "
+                    "`pip install acryl-datahub[sql-parser]` (or a connector extra that "
+                    "bundles it), or set enabled: false."
+                ) from e
+        return self
 
 
 class FlagsConfig(ConfigModel):
