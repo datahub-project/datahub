@@ -283,18 +283,6 @@
               ],
               "isLineage": true
             }
-          },
-          {
-            "name": "fieldUpstreams",
-            "path": "fieldUpstreams",
-            "isLineage": true,
-            "relationship": {
-              "name": "Consumes",
-              "entityTypes": [
-                "schemaField"
-              ],
-              "isLineage": true
-            }
           }
         ]
       },
@@ -446,5 +434,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-07-06T22:53:15.446502+00:00"
+  "generated_at": "2026-07-07T21:00:47.994417+00:00"
 }

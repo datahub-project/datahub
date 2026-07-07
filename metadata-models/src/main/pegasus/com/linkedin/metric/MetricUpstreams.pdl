@@ -45,7 +45,6 @@ record MetricUpstreams {
     "/*/destinationUrn": {
       "name": "Consumes",
       "entityTypes": [ "schemaField" ],
-      "isLineage": true,
       "createdOn":    "fieldUpstreams/*/created/time",
       "createdActor": "fieldUpstreams/*/created/actor",
       "updatedOn":    "fieldUpstreams/*/lastModified/time",
