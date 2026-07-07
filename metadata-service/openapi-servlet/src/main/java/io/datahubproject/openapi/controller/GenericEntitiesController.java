@@ -53,6 +53,7 @@ import com.linkedin.timeseries.TimeseriesAspectBase;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericAspect;
@@ -237,7 +238,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "getEntities", entityName),
+                    authentication.getActor().toUrnStr(), request, "getEntities", entityName)
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -327,7 +329,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "getEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "getEntity", entityName)
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -368,7 +371,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "headEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "headEntity", entityName)
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -405,7 +409,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "getAspect", entityName),
+                    authentication.getActor().toUrnStr(), request, "getAspect", entityName)
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -465,7 +470,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "headAspect", entityName),
+                    authentication.getActor().toUrnStr(), request, "headAspect", entityName)
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -499,7 +505,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "deleteEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "deleteEntity", entityName)
+                .withUsageOperation(UsageOperation.ENTITY_DELETE),
             authorizationChain,
             authentication,
             true);
@@ -544,12 +551,16 @@ public abstract class GenericEntitiesController<
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+    int usageQuantity = RequestContext.resolveIngestUsageQuantity(jsonEntityList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "createEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "createEntity", entityName)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(usageQuantity)
+                .withMaterializedInputUtf8Bytes(jsonEntityList),
             authorizationChain,
             authentication,
             true);
@@ -587,7 +598,8 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "deleteAspect", entityName),
+                    authentication.getActor().toUrnStr(), request, "deleteAspect", entityName)
+                .withUsageOperation(UsageOperation.ASPECT_DELETE),
             authorizationChain,
             authentication,
             true);
@@ -653,7 +665,9 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "createAspect", entityName),
+                    authentication.getActor().toUrnStr(), request, "createAspect", entityName)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withMaterializedInputUtf8Bytes(jsonAspect),
             authorizationChain,
             authentication,
             true);
@@ -729,7 +743,8 @@ public abstract class GenericEntitiesController<
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actor.toUrnStr(), request, "patchAspect", entityName),
+                .buildOpenapi(actor.toUrnStr(), request, "patchAspect", entityName)
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);

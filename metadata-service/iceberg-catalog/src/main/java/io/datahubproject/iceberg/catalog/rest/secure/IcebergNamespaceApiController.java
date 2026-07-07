@@ -5,6 +5,7 @@ import static io.datahubproject.iceberg.catalog.Utils.*;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
@@ -35,7 +36,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
       @PathVariable("namespace") String namespace) {
     log.info("GET NAMESPACE REQUEST {}.{}", platformInstance, namespace);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     // not authorizing get/use namespace operation currently
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
@@ -62,7 +63,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
         platformInstance,
         createNamespaceRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     Namespace namespace = createNamespaceRequest.namespace();
@@ -101,7 +102,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
         namespace,
         updateNamespacePropertiesRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -133,7 +134,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
       @PathVariable("namespace") String namespace) {
     log.info("DROP NAMESPACE REQUEST {}.{}", platformInstance, namespace);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -163,7 +164,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
       @RequestParam(value = "pageSize", required = false) Integer pageSize) {
     log.info("LIST NAMESPACES REQUEST for {}.{}", platformInstance, parent);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     if (StringUtils.isEmpty(parent)) {

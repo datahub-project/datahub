@@ -20,6 +20,7 @@ import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.event.models.v1.ExternalEventsResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -110,7 +111,8 @@ public class ExternalEventsController {
           OperationContext.asSession(
               systemOperationContext,
               RequestContext.builder()
-                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
+                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of())
+                  .withUsageOperation(UsageOperation.METADATA_QUERY),
               authorizationChain,
               authentication,
               true);
@@ -223,7 +225,8 @@ public class ExternalEventsController {
                     authentication.getActor().toUrnStr(),
                     request,
                     "search",
-                    DATAHUB_USAGE_EVENT_INDEX),
+                    DATAHUB_USAGE_EVENT_INDEX)
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             authorizationChain,
             authentication,
             true);
