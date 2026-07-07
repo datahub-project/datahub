@@ -100,6 +100,20 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
     )
 
     @model_validator(mode="after")
+    def _require_upstream_platforms_when_enabled(
+        self,
+    ) -> "AutoResolveLineageUrnsConfig":
+        # Enabled with no upstream_platforms has nothing to reconcile against — every
+        # reference would no-op. Fail fast rather than silently doing nothing.
+        if self.enabled and not self.upstream_platforms:
+            raise ValueError(
+                "auto_resolve_lineage_urns is enabled but no upstream_platforms are "
+                "configured; there is nothing to reconcile against. List the upstream "
+                "warehouse platform(s) this source references, or set enabled: false."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _require_sql_parser_when_enabled(self) -> "AutoResolveLineageUrnsConfig":
         # Fail fast at config parse (only when enabled) if the SQL parser is missing,
         # rather than deep in the processor at run time. Resolution reuses the
