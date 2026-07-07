@@ -682,8 +682,9 @@ def test_configured_platform_that_matches_does_not_warn(caplog):
     assert not any("matched no lineage references" in r.message for r in caplog.records)
 
 
-def test_exception_is_recorded_and_workunit_passed_through():
-    # If resolution raises, the workunit is passed through unchanged and counted.
+def test_catalog_load_failure_is_reported_and_passes_through():
+    # If bulk-loading a platform's catalog fails, the failure is surfaced to the pipeline
+    # report and lineage is emitted unchanged rather than crashing the pipeline.
     provide_mock = mock.MagicMock(side_effect=RuntimeError("boom"))
     cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
@@ -699,10 +700,8 @@ def test_exception_is_recorded_and_workunit_passed_through():
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
-    assert _stored_upstream(out) == UPPER  # unchanged
-    assert processor.report.num_exceptions == 1  # counter kept
-    # ...and surfaced to the pipeline report, not just the sub-report/logger.
-    ctx.source_report.warning.assert_called_once()
+    assert _stored_upstream(out) == UPPER  # unchanged (platform left unindexed)
+    cast(mock.MagicMock, ctx.source_report).warning.assert_called_once()
 
 
 def test_unresolved_refs_surface_one_aggregated_warning():
@@ -742,13 +741,15 @@ def test_entity_urn_is_never_rewritten():
 
 
 def test_non_lineage_workunits_pass_through_without_resolution():
-    processor, provide_mock, patcher = _make_processor({LOWER: {"amount": "int"}})
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
         status_wu = MetadataChangeProposalWrapper(
             entityUrn=DOWNSTREAM, aspect=StatusClass(removed=False)
         ).as_workunit()
-        assert len(list(processor.process(iter([status_wu])))) == 1
-        provide_mock.assert_not_called()
+        [out] = list(processor.process(iter([status_wu])))
+        assert out is status_wu  # passed through untouched
+        assert processor.report.num_workunits_with_lineage_aspect == 0
+        assert processor.report.num_workunits_modified == 0
     finally:
         patcher.stop()
 
