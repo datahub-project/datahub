@@ -2,6 +2,7 @@ import io
 import time
 
 import requests
+import time_machine
 
 from datahub.emitter.token_provider import (
     CachingTokenProvider,
@@ -53,18 +54,17 @@ def test_caching_provider_refetches_within_clamped_buffer():
 
     def fetch() -> TokenResult:
         calls.append(1)
-        # 100s lifetime -> clamped 50s buffer; pretend it was fetched 60s ago
-        # by reporting an expiry only 40s away.
-        return TokenResult("t", time.time() + 40)
+        # 100s lifetime -> clamped 50s buffer.
+        return TokenResult("t", time.time() + 100)
 
-    provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
-    provider.get_token()
-    # Simulate the passage of time: shift the recorded fetch time back so the
-    # cached token sits inside its clamped refresh window.
-    assert provider._cached is not None
-    result, fetched_at = provider._cached
-    provider._cached = (result, fetched_at - 60)
-    provider.get_token()
+    with time_machine.travel(time.time(), tick=False) as traveller:
+        provider = CachingTokenProvider(fetch, refresh_buffer_seconds=300)
+        provider.get_token()
+        traveller.shift(40)  # still outside the 50s refresh window
+        provider.get_token()
+        assert len(calls) == 1
+        traveller.shift(20)  # now 60s in: inside the clamped refresh window
+        provider.get_token()
     assert len(calls) == 2
 
 
@@ -234,9 +234,10 @@ def test_auth_does_not_retry_401_across_hosts():
 
 def test_auth_does_not_retry_401_after_scheme_or_port_change():
     # requests strips Authorization not only across hosts but also on same-host
-    # scheme downgrades and port changes (should_strip_auth); the retry hook
-    # must not re-attach the token in those cases either — e.g. an https->http
-    # redirect would otherwise get the fresh bearer token over plaintext.
+    # scheme downgrades and port changes (should_strip_auth, which the guard
+    # delegates to); the retry hook must not re-attach the token in those cases
+    # — e.g. an https->http redirect would otherwise get the fresh bearer token
+    # over plaintext.
     provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
     auth = TokenProviderAuth(provider)
 
@@ -254,6 +255,38 @@ def test_auth_does_not_retry_401_after_scheme_or_port_change():
 
         result = auth._handle_401(response)
         assert result is response  # returned untouched, no retry
+
+
+def test_auth_retries_401_after_http_to_https_upgrade():
+    # requests keeps Authorization on a same-host http->https default-port
+    # upgrade (should_strip_auth); the retry guard mirrors that rule, so the
+    # 401 retry still happens after such a redirect.
+    provider = CachingTokenProvider(lambda: TokenResult("tok", time.time() + 3600))
+    auth = TokenProviderAuth(provider)
+
+    original = requests.PreparedRequest()
+    original.prepare(method="GET", url="http://gms/config")
+    auth(original)
+
+    upgraded = requests.PreparedRequest()
+    upgraded.prepare(method="GET", url="https://gms/config", headers={})
+
+    class _FakeConnection:
+        def send(self, prepared, **kwargs):
+            ok = requests.Response()
+            ok.status_code = 200
+            ok.request = prepared
+            ok._content = b""
+            return ok
+
+    response = requests.Response()
+    response.status_code = 401
+    response.request = upgraded
+    response._content = b""
+    response.connection = _FakeConnection()  # type: ignore[attr-defined]
+
+    result = auth._handle_401(response)
+    assert result.status_code == 200  # retried: upgrade keeps credentials
 
 
 def test_auth_does_not_retry_401_with_streamed_body():
