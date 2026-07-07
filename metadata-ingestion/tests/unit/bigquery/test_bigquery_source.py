@@ -1466,6 +1466,23 @@ def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
         )
 
 
+def test_bigquery_config_top_level_max_query_duration_warns_under_queries_v2(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Setting max_query_duration directly at the top level (as the deprecation
+    # message for usage.max_query_duration instructs) is a no-op under the default
+    # use_queries_v2=True, since queries_extractor.py never reads it - warn about that too.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "max_query_duration": "PT30M"}
+        )
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
 def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
     config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
     assert config.usage.max_query_duration == timedelta(minutes=15)  # default
@@ -1495,6 +1512,8 @@ def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
                 "include_top_n_queries": False,
                 "queries_character_limit": 1000,
                 "top_n_queries": 5,
+                "include_operational_stats": False,
+                "user_email_pattern": {"allow": ["^analyst_.*@example\\.com$"]},
             }
         }
     )
@@ -1506,6 +1525,10 @@ def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
     assert queries_config.include_top_n_queries is False
     assert queries_config.queries_character_limit == 1000
     assert queries_config.top_n_queries == 5
+    assert queries_config.include_operations is False
+    assert queries_config.user_email_pattern == AllowDenyPattern(
+        allow=["^analyst_.*@example\\.com$"]
+    )
 
 
 def test_bigquery_source_reports_legacy_only_usage_fields_under_queries_v2():
@@ -1563,6 +1586,7 @@ def test_bigquery_config_legacy_only_usage_fields_no_warning_under_legacy_path(
         BigQueryV2Config.model_validate(
             {
                 "use_queries_v2": False,
+                "max_query_duration": "PT30M",
                 "usage": {
                     "apply_view_usage_to_tables": True,
                     "include_read_operational_stats": True,

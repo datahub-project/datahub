@@ -128,19 +128,19 @@ class BigQueryUsageConfig(BaseUsageConfig):
     # See forward_deprecated_usage_fields on BigQueryV2Config for the runtime behavior.
     start_time: datetime = Field(
         default=None,  # type: ignore
-        description=f"{BaseTimeWindowConfig.model_fields['start_time'].description} "
+        description=f"{BaseTimeWindowConfig.model_fields['start_time'].description or ''} "
         "**Deprecated**: set the top-level `start_time` instead - it governs lineage, "
         "usage, and operations together.",
     )
     end_time: datetime = Field(
         default_factory=lambda: datetime.now(tz=timezone.utc),
-        description=f"{BaseTimeWindowConfig.model_fields['end_time'].description} "
+        description=f"{BaseTimeWindowConfig.model_fields['end_time'].description or ''} "
         "**Deprecated**: set the top-level `end_time` instead - it governs lineage, "
         "usage, and operations together.",
     )
     bucket_duration: BucketDuration = Field(
         default=BucketDuration.DAY,
-        description=f"{BaseTimeWindowConfig.model_fields['bucket_duration'].description} "
+        description=f"{BaseTimeWindowConfig.model_fields['bucket_duration'].description or ''} "
         "**Deprecated**: set the top-level `bucket_duration` instead - it governs "
         "lineage, usage, and operations together.",
     )
@@ -690,11 +690,12 @@ class BigQueryV2Config(
 
     @model_validator(mode="after")
     def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
-        # `include_read_operational_stats` and `apply_view_usage_to_tables` are only
-        # implemented in the legacy (non-queries-v2) usage extraction path; qv2 attributes
-        # usage purely via SQL parsing and has no equivalent mechanism. We can't tell
-        # whether the user "explicitly" set a field post-validation, so we pragmatically
-        # warn whenever it differs from its (both False) default.
+        # `include_read_operational_stats`, `apply_view_usage_to_tables`, and
+        # `max_query_duration` are only read by the legacy (non-queries-v2) extraction
+        # path; qv2 either has no equivalent mechanism (the first two) or simply never
+        # references the field (`max_query_duration` - see queries_extractor.py). We
+        # can't tell whether the user "explicitly" set a field post-validation, so we
+        # pragmatically warn whenever it differs from its default.
         if self.use_queries_v2:
             if self.usage.include_read_operational_stats:
                 logger.warning(
@@ -705,6 +706,11 @@ class BigQueryV2Config(
                 logger.warning(
                     "`usage.apply_view_usage_to_tables` is only supported with the legacy "
                     "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.max_query_duration != timedelta(minutes=15):
+                logger.warning(
+                    "`max_query_duration` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2."
                 )
         return self
 
