@@ -22,7 +22,6 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import javax.annotation.Nonnull;
@@ -62,7 +61,7 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_PRODUCE_PLATFORM_EVENT).withUsageOperation(UsageOperation.METADATA_INGEST), _authorizer,
+                    ACTION_PRODUCE_PLATFORM_EVENT), _authorizer,
             auth, true);
 
     if (!isAPIOperationsAuthorized(
