@@ -55,7 +55,11 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -161,6 +165,7 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config

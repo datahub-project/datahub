@@ -315,7 +315,6 @@ public abstract class GenericRelationshipController {
         sliceId,
         sliceMax,
         pitKeepAlive,
-        body,
-        null);
+        body);
   }
 }
