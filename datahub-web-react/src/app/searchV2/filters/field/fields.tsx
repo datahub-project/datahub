@@ -13,9 +13,9 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { TimerOutlined } from '@mui/icons-material';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Timer } from '@phosphor-icons/react/dist/csr/Timer';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -220,7 +220,7 @@ export const LAST_MODIFIED_FILTER: FilterField = {
     field: LAST_MODIFIED_FILTER_NAME,
     displayName: FIELD_TO_LABEL[LAST_MODIFIED_FILTER_NAME],
     type: FieldType.BUCKETED_TIMESTAMP,
-    icon: <TimerOutlined fontSize="inherit" color="inherit" />,
+    icon: <Timer size="1em" />,
     useDatePicker: true,
     get options() {
         return [
