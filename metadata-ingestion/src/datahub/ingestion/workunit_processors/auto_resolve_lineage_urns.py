@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -92,6 +92,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_exceptions: int = 0  # Failed to process a workunit
     num_workunits_with_lineage_aspect: int = 0
     num_workunits_modified: int = 0
+    # Bounded sample of references left UNRESOLVED, alongside the num_refs_unresolved
+    # count, so the report shows *which* lineage looks broken, not just how much.
+    unresolved_refs_sample: LossyList[str] = field(default_factory=LossyList)
 
 
 @dataclass
@@ -210,9 +213,6 @@ class AutoResolveLineageUrnsProcessor(
         # _warn_unmatched_platforms can flag configured platforms that no reference used
         # (usually a case/spelling typo in the config).
         self._seen_reference_platforms: Set[str] = set()
-        # A bounded sample of URNs left UNRESOLVED, for the aggregated end-of-run
-        # warning (the counter num_refs_unresolved gives the full total).
-        self._unresolved_sample: LossyList[str] = LossyList()
         # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
         # These are the aspects a BI / orchestration source emits that carry *upstream
         # dataset* references — the only refs affected by cross-source casing mismatch:
@@ -336,7 +336,7 @@ class AutoResolveLineageUrnsProcessor(
             "single existing entity (no case-insensitive match, or an ambiguous casing "
             "collision) and were left unchanged; that lineage may be broken.",
             context=f"{self.report.num_refs_unresolved} reference(s); "
-            f"sample: {list(self._unresolved_sample)}",
+            f"sample: {list(self.report.unresolved_refs_sample)}",
         )
 
     @staticmethod
@@ -503,7 +503,7 @@ class AutoResolveLineageUrnsProcessor(
         # collision): leave the URN unchanged but flag it UNRESOLVED so potentially
         # broken lineage is visible rather than indistinguishable from a clean edge.
         # Sampled here (the single UNRESOLVED site) for the aggregated end-of-run warning.
-        self._unresolved_sample.append(urn)
+        self.report.unresolved_refs_sample.append(urn)
         return _Resolution(urn, None, _UNRESOLVED)
 
     # --- aspect rewriters -------------------------------------------------------
