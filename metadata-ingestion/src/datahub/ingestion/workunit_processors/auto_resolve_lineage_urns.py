@@ -297,10 +297,12 @@ class AutoResolveLineageUrnsProcessor(
                 self.report.num_workunits_modified += 1
 
     def _warn_unmatched_platforms(self) -> None:
-        """Warn about configured platforms that no reference used this run.
+        """Surface configured platforms that no reference used, in the pipeline report.
 
         The usual cause is a case/spelling mismatch in the config (platform names are
-        compared case-sensitively), which would otherwise silently heal nothing.
+        compared case-sensitively). Emitting it as a structured (UI-visible) warning lets
+        the operator either fix the platform name or drop the platform if it isn't
+        actually referenced by this source.
         """
         # Defense in depth: this runs outside the per-workunit try/except, so guard
         # against a non-list config (should_enable already fails closed on a mock ctx).
@@ -309,13 +311,18 @@ class AutoResolveLineageUrnsProcessor(
         unmatched = {
             entry.platform for entry in self._config
         } - self._seen_reference_platforms
-        if unmatched:
-            logger.warning(
-                f"auto_resolve_lineage_urns: configured upstream platform(s) "
-                f"{sorted(unmatched)} matched no lineage references in this run. If "
-                f"unexpected, check the platform name — it must match the dataset URN's "
-                f"platform exactly (case-sensitive), e.g. 'snowflake', not 'Snowflake'."
-            )
+        if not unmatched:
+            return
+        self.ctx.source_report.warning(
+            title="Configured upstream platform matched no lineage references",
+            message="An upstream platform configured under auto_resolve_lineage_urns was "
+            "not referenced by any lineage in this run, so nothing was reconciled for it. "
+            "Platform names are matched case-sensitively against the dataset URN's "
+            "platform (e.g. 'snowflake', not 'Snowflake') — fix the name if it's a typo, "
+            "or remove the platform from upstream_platforms if this source doesn't "
+            "reference it.",
+            context=f"{sorted(unmatched)}",
+        )
 
     def _warn_unresolved_refs(self) -> None:
         """Surface UNRESOLVED references in the pipeline report, once, aggregated.
