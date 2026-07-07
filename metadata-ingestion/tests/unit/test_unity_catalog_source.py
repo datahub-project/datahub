@@ -2724,7 +2724,7 @@ class TestUnityCatalogMlModelControls:
             yield
 
     @staticmethod
-    def _schema_and_models(n: int):
+    def _schema_and_models(n: int) -> tuple:
         from datetime import datetime
 
         from datahub.ingestion.source.unity.proxy_types import (
@@ -2767,7 +2767,7 @@ class TestUnityCatalogMlModelControls:
         ]
         return schema, models
 
-    def _build_source(self, **extra) -> UnityCatalogSource:
+    def _build_source(self, **extra: object) -> UnityCatalogSource:
         config = UnityCatalogSourceConfig.model_validate(
             {
                 "token": "test_token",
@@ -2780,36 +2780,56 @@ class TestUnityCatalogMlModelControls:
         return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
 
     def test_include_ml_models_false_skips_all_processing(self) -> None:
-        from unittest.mock import MagicMock
-
         source = self._build_source(include_ml_models=False)
         schema, _ = self._schema_and_models(3)
-        source.unity_catalog_api_proxy.ml_models = MagicMock()
 
-        workunits = list(source.process_ml_models(schema))
+        with patch.object(
+            source.unity_catalog_api_proxy, "ml_models"
+        ) as mock_ml_models:
+            workunits = list(source.process_ml_models(schema))
 
         assert workunits == []
         # No API call should be made when ML models are disabled
-        source.unity_catalog_api_proxy.ml_models.assert_not_called()
+        mock_ml_models.assert_not_called()
         assert len(source.report.ml_models.processed_entities) == 0
 
     def test_ml_model_max_results_zero_ingests_nothing(self) -> None:
         source = self._build_source(ml_model_max_results=0)
         schema, models = self._schema_and_models(3)
-        source.unity_catalog_api_proxy.ml_models = lambda **kw: iter(models)
-        source.unity_catalog_api_proxy.ml_model_versions = lambda *a, **k: iter([])
 
-        list(source.process_ml_models(schema))
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
 
         assert len(source.report.ml_models.processed_entities) == 0
 
     def test_ml_model_max_results_caps_total(self) -> None:
         source = self._build_source(ml_model_max_results=1)
         schema, models = self._schema_and_models(3)
-        source.unity_catalog_api_proxy.ml_models = lambda **kw: iter(models)
-        source.unity_catalog_api_proxy.ml_model_versions = lambda *a, **k: iter([])
 
-        list(source.process_ml_models(schema))
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
 
         assert len(source.report.ml_models.processed_entities) == 1
 
