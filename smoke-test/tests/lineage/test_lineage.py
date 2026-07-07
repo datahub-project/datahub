@@ -340,26 +340,57 @@ class ScenarioExpectation:
             )
 
         if query.upconvert_schema_fields_to_datasets:
-            entries_to_add: Dict[str, List[Path]] = {}
-            entries_to_remove = []
-            for impacted_entity in lineage_expectation.impacted_entities:
-                if impacted_entity.startswith("urn:li:schemaField"):
-                    impacted_dataset_entity = Urn.create_from_string(
-                        impacted_entity
-                    ).entity_ids[0]
-                    if impacted_dataset_entity in entries_to_add:
-                        entries_to_add[impacted_dataset_entity].extend(
-                            lineage_expectation.impacted_entities[impacted_entity]
-                        )
-                    else:
-                        entries_to_add[impacted_dataset_entity] = (
-                            lineage_expectation.impacted_entities[impacted_entity]
-                        )
-                    entries_to_remove.append(impacted_entity)
-            for impacted_entity in entries_to_remove:
-                del lineage_expectation.impacted_entities[impacted_entity]
-            lineage_expectation.impacted_entities.update(entries_to_add)
+            self._upconvert_fields_to_datasets(lineage_expectation, query.direction)
         return lineage_expectation
+
+    def _upconvert_fields_to_datasets(
+        self,
+        lineage_expectation: LineageExpectation,
+        direction: Direction,
+    ) -> None:
+        """Replace schemaField impacted entities with their parent datasets.
+
+        Also adds the coarse-grained DataJob→dataset path alongside the
+        fine-grained field path: when schemaField is a registered lineage entity
+        type, searchAcrossLineage returns both paths for the same downstream
+        dataset.
+        """
+        entries_to_add: Dict[str, List[Path]] = {}
+        entries_to_remove = []
+        for impacted_entity in lineage_expectation.impacted_entities:
+            if not impacted_entity.startswith("urn:li:schemaField"):
+                continue
+            impacted_dataset_entity = Urn.create_from_string(
+                impacted_entity
+            ).entity_ids[0]
+            field_paths = lineage_expectation.impacted_entities[impacted_entity]
+            if impacted_dataset_entity in entries_to_add:
+                entries_to_add[impacted_dataset_entity].extend(field_paths)
+            else:
+                entries_to_add[impacted_dataset_entity] = field_paths
+            if direction == Direction.DOWNSTREAM:
+                self._add_datajob_dataset_paths(
+                    field_paths, impacted_dataset_entity, entries_to_add
+                )
+            entries_to_remove.append(impacted_entity)
+        for impacted_entity in entries_to_remove:
+            del lineage_expectation.impacted_entities[impacted_entity]
+        lineage_expectation.impacted_entities.update(entries_to_add)
+
+    @staticmethod
+    def _add_datajob_dataset_paths(
+        field_paths: List[Path],
+        dataset_entity: str,
+        entries_to_add: Dict[str, List[Path]],
+    ) -> None:
+        """Add coarse-grained [dataJob, dataset] paths for each dataJob in the field paths."""
+        for path in field_paths:
+            for node in path.path:
+                if node.startswith("urn:li:dataJob"):
+                    extra_path = Path(path=[node, dataset_entity])
+                    target = entries_to_add.setdefault(dataset_entity, [])
+                    if extra_path not in target:
+                        target.append(extra_path)
 
 
 class Scenario(BaseModel):
