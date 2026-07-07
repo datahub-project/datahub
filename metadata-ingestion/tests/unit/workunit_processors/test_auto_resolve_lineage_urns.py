@@ -807,7 +807,7 @@ def test_workunit_level_counters_track_lineage_and_modified():
     finally:
         patcher.stop()
 
-    assert processor.report.num_workunits_with_lineage == 2
+    assert processor.report.num_workunits_with_lineage_aspect == 2
     assert processor.report.num_workunits_modified == 1
 
 
@@ -946,27 +946,20 @@ def test_disabled_under_bare_mock_ctx():
     assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
 
 
-def test_fails_loudly_when_sqlglot_missing(monkeypatch):
-    # sqlglot is not in framework_common — a pure-API source that sets this flag but
-    # whose extra doesn't bundle sqlglot must report ONE actionable failure and pass
-    # work units through unchanged, not crash or (since process() swallows per-workunit
-    # errors) fail silently on every one. Simulate the missing dependency by nulling the
-    # provider module so the deferred import in __init__ raises ImportError.
-    monkeypatch.setitem(
-        sys.modules, "datahub.sql_parsing.schema_resolver_provider", None
-    )
-    cfg = AutoResolveLineageUrnsConfig(
-        enabled=True,
-        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
-    )
-    pipeline_ctx = mock.MagicMock()
-    pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    ctx = mock.MagicMock()
-    ctx.pipeline_context = pipeline_ctx
+def test_config_requires_sql_parser_only_when_enabled(monkeypatch):
+    # sqlglot is not in the ingestion core. Enabling the feature without it must fail
+    # fast at config parse (only when enabled), with an actionable message — not deep in
+    # the processor at run time. Simulate the missing dependency by nulling the module.
+    monkeypatch.setitem(sys.modules, "sqlglot", None)
 
-    processor = AutoResolveLineageUrnsProcessor.create(ctx)
-    [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
+    # Disabled: no requirement, config validates fine.
+    AutoResolveLineageUrnsConfig(enabled=False)
 
-    assert _stored_upstream(out) == LOWER  # emitted unchanged
-    cast(mock.MagicMock, ctx.source_report).failure.assert_called_once()
+    # Enabled: the SQL parser is required, so config validation fails.
+    with pytest.raises(pydantic.ValidationError, match="sql-parser"):
+        AutoResolveLineageUrnsConfig(
+            enabled=True,
+            upstream_platforms=[
+                UpstreamPlatformCasing(platform="snowflake", env="PROD")
+            ],
+        )
