@@ -64,6 +64,8 @@
     "context.sourceFilter.label": "Origem",
     "context.sourceFilter.placeholder": "Filtrar origens",
     "context.tree.dataHubSection": "DataHub",
+    "context.tree.expandAll": "Expandir tudo",
+    "context.tree.collapseAll": "Recolher tudo",
     "context.statusFilter.all": "Todos",
     "context.statusFilter.placeholder": "Todos",
     "context.statusFilter.published": "Publicado",
