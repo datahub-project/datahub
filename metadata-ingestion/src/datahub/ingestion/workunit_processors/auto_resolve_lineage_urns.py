@@ -233,22 +233,16 @@ class AutoResolveLineageUrnsProcessor(
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
-        # This processor is in the shared chain for *every* source, and some tests build
-        # a source with a bare Mock() ctx where cfg.enabled / cfg.upstream_platforms are
-        # truthy Mocks. Fail closed on a degenerate/mock config: require enabled to be
-        # exactly True and upstream_platforms to be a real, non-empty list — otherwise
-        # the processor would initialize with a Mock self._config and crash mid-run.
+        # Fail closed on a degenerate/mock config: this processor is in the shared chain
+        # for *every* source, and some connector tests build a source with a bare Mock()
+        # ctx where cfg.enabled / cfg.upstream_platforms are truthy Mocks that bypass
+        # pydantic validation. Require enabled to be exactly True and upstream_platforms a
+        # real, non-empty list. (A real enabled config is guaranteed a non-empty
+        # upstream_platforms list by AutoResolveLineageUrnsConfig's validator, which fails
+        # config parse otherwise.)
         if cfg.enabled is not True:
             return False
         if not isinstance(cfg.upstream_platforms, list) or not cfg.upstream_platforms:
-            if isinstance(cfg.upstream_platforms, list):
-                # Genuinely enabled but unconfigured (empty list): every reference would
-                # no-op — skip the bulk catalog load entirely and tell the operator why.
-                logger.warning(
-                    "auto_resolve_lineage_urns is enabled but no upstream_platforms "
-                    "are configured; the processor will not run. Configure the warehouse "
-                    "platform(s) this source references to enable casing reconciliation."
-                )
             return False
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
