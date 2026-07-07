@@ -193,7 +193,7 @@ class AutoResolveLineageUrnsProcessor(
         self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]] = (
             match_columns_to_schema
         )
-        # Per-platform state, lazily bulk-initialized on first reference. The
+        # Per-platform state, bulk-initialized up front by _load_catalogs(). The
         # SchemaResolvers are the source of truth for schema + membership; the casing
         # index is a derived lowercase(urn) -> real URNs map used to reconcile arbitrary
         # casings and detect ambiguous collisions. NOTE: this local index duplicates
@@ -201,11 +201,10 @@ class AutoResolveLineageUrnsProcessor(
         # gains casing-aware resolution (tracked follow-up), at which point it is deleted.
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         self._casing_index_by_platform: Dict[str, Dict[str, List[str]]] = {}
-        # Platforms whose catalog load has been attempted. Doubles as the set of
-        # platforms actually referenced this run (every reference routes through
-        # _ensure_platform_loaded), so _warn_unmatched_platforms uses it to flag
-        # configured platforms that no reference matched.
-        self._loaded_platforms: Set[str] = set()
+        # Platforms actually referenced by this source's lineage, so
+        # _warn_unmatched_platforms can flag configured platforms that no reference used
+        # (usually a case/spelling typo in the config).
+        self._seen_reference_platforms: Set[str] = set()
         # A bounded sample of URNs left UNRESOLVED, for the aggregated end-of-run
         # warning (the counter num_refs_unresolved gives the full total).
         self._unresolved_sample: LossyList[str] = LossyList()
@@ -224,6 +223,7 @@ class AutoResolveLineageUrnsProcessor(
             (DataJobInputOutputClass, self._normalize_datajob_io),
             (ChartInfoClass, self._normalize_chart_info),
         ]
+        self._load_catalogs()
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -305,7 +305,9 @@ class AutoResolveLineageUrnsProcessor(
         # against a non-list config (should_enable already fails closed on a mock ctx).
         if not isinstance(self._config, list):
             return
-        unmatched = {entry.platform for entry in self._config} - self._loaded_platforms
+        unmatched = {
+            entry.platform for entry in self._config
+        } - self._seen_reference_platforms
         if unmatched:
             logger.warning(
                 f"auto_resolve_lineage_urns: configured upstream platform(s) "
@@ -346,77 +348,84 @@ class AutoResolveLineageUrnsProcessor(
 
     # --- resolution -------------------------------------------------------------
 
-    def _ensure_platform_loaded(self, platform: str) -> None:
-        """Bulk-load every configured entry on this platform, once.
+    def _load_catalogs(self) -> None:
+        """Bulk-load every configured platform's catalog once, up front.
 
-        Built from what ``SchemaResolver`` already provides — ``get_urns()``, i.e. the
-        platform's **schema-bearing** entities — so resolution uses the resolver's
-        existing single bulk scroll and adds no framework changes. Entities that exist
-        in DataHub without a schema are therefore not reconciled (a tracked follow-up to
-        enrich SchemaResolver with membership).
+        ``provide_schema_resolver`` already does a single bulk scroll per
+        (platform, instance, env) and is globally cached; we group the configured entries
+        by platform and fold each resolver's schema-bearing URNs (``get_urns()``) into a
+        lowercase(urn) -> real URNs index used to reconcile arbitrary casings and detect
+        ambiguous collisions. Entities that exist in DataHub without a schema are
+        therefore not reconciled (a tracked follow-up to enrich SchemaResolver).
 
         Keyed by platform only: ``platform_instance`` and ``env`` are fused into each
         dataset URN's name, so the lowercase index distinguishes them at full-URN
-        granularity. A reference for a platform instance / env that isn't configured
+        granularity. A reference for a platform / instance / env that isn't configured
         simply won't appear in the index and resolves to UNRESOLVED.
         """
-        # Load a platform's catalog at most once. Recording the platform here (before
-        # the entries check) also means _loaded_platforms captures every referenced
-        # platform, which _warn_unmatched_platforms relies on.
-        if platform in self._loaded_platforms:
-            return
-        self._loaded_platforms.add(platform)
+        entries_by_platform: Dict[str, List["UpstreamPlatformCasing"]] = {}
+        for entry in self._config:
+            entries_by_platform.setdefault(entry.platform, []).append(entry)
 
-        # `platform` here is the normalized platform name parsed from the dataset URN;
-        # entry.platform is normalized to the same bare-name form by the config
-        # validator, so compare like-for-like.
-        entries = [entry for entry in self._config if entry.platform == platform]
-        if not entries:
-            # Platform not configured: references to it are out of scope.
-            return
-        # Emitted before the (potentially long, paginated) fetch so operators see a
-        # signal during the stall on the first lineage work unit, not only after.
-        logger.info(
-            f"Loading '{platform}' catalog from DataHub for lineage casing "
-            f"reconciliation; this may take a while on large warehouses..."
-        )
-        index: Dict[str, List[str]] = {}
-        resolvers: List[SchemaResolver] = []
-        for entry in entries:
-            resolver = self._provide_schema_resolver(
-                graph=self._graph,
-                platform=entry.platform,
-                platform_instance=entry.platform_instance,
-                env=entry.env,
+        for platform, entries in entries_by_platform.items():
+            # Emitted before the (potentially long, paginated) fetch so operators see a
+            # signal during the stall, not only after.
+            logger.info(
+                f"Loading '{platform}' catalog from DataHub for lineage casing "
+                f"reconciliation; this may take a while on large warehouses..."
             )
-            resolvers.append(resolver)
-            # get_urns() is the schema-bearing entity set the resolver already
-            # loaded; fold it into a lowercase index. A URN is "present exactly" iff
-            # it appears in its own lowercase bucket, so no separate set is needed.
-            for existing in resolver.get_urns():
-                try:
-                    bucket = index.setdefault(lowercase_dataset_urn(existing), [])
-                except Exception:
-                    continue
-                if existing not in bucket:
-                    bucket.append(existing)
-        # The index is held in memory for the pipeline's lifetime; log its size,
-        # escalating to WARNING once it's large enough to matter.
-        count = sum(len(bucket) for bucket in index.values())
-        message = (
-            f"Loaded {count} '{platform}' dataset URNs for lineage casing "
-            f"reconciliation."
-        )
-        if count > _CATALOG_SIZE_WARN_THRESHOLD:
-            logger.warning(
-                f"{message} This is a large catalog and may use significant memory; "
-                f"consider narrowing upstream_platforms (platform_instance / env) to "
-                f"the assets this source references."
+            index: Dict[str, List[str]] = {}
+            resolvers: List[SchemaResolver] = []
+            try:
+                for entry in entries:
+                    resolver = self._provide_schema_resolver(
+                        graph=self._graph,
+                        platform=entry.platform,
+                        platform_instance=entry.platform_instance,
+                        env=entry.env,
+                    )
+                    resolvers.append(resolver)
+                    # get_urns() is the schema-bearing entity set the resolver already
+                    # loaded; fold it into a lowercase index. A URN is "present exactly"
+                    # iff it appears in its own lowercase bucket, so no separate set is
+                    # needed.
+                    for existing in resolver.get_urns():
+                        try:
+                            bucket = index.setdefault(
+                                lowercase_dataset_urn(existing), []
+                            )
+                        except Exception:
+                            continue
+                        if existing not in bucket:
+                            bucket.append(existing)
+            except Exception as e:
+                # A catalog-load failure must not crash the pipeline: report it and leave
+                # the platform unindexed, so its references are emitted unchanged.
+                self.ctx.source_report.warning(
+                    title="Lineage URN casing: upstream catalog not loaded",
+                    message="Failed to bulk-load an upstream platform's catalog from "
+                    "DataHub; references to it are emitted unchanged.",
+                    context=platform,
+                    exc=e,
+                )
+                continue
+            # The index is held in memory for the pipeline's lifetime; log its size,
+            # escalating to WARNING once it's large enough to matter.
+            count = sum(len(bucket) for bucket in index.values())
+            message = (
+                f"Loaded {count} '{platform}' dataset URNs for lineage casing "
+                f"reconciliation."
             )
-        else:
-            logger.info(message)
-        self._resolvers_by_platform[platform] = resolvers
-        self._casing_index_by_platform[platform] = index
+            if count > _CATALOG_SIZE_WARN_THRESHOLD:
+                logger.warning(
+                    f"{message} This is a large catalog and may use significant memory; "
+                    f"consider narrowing upstream_platforms (platform_instance / env) to "
+                    f"the assets this source references."
+                )
+            else:
+                logger.info(message)
+            self._resolvers_by_platform[platform] = resolvers
+            self._casing_index_by_platform[platform] = index
 
     @staticmethod
     def _schema_for(
@@ -451,7 +460,9 @@ class AutoResolveLineageUrnsProcessor(
             ).platform_name
         except Exception:
             return _Resolution(urn, None, None)
-        self._ensure_platform_loaded(platform)
+        # Track referenced platforms so _warn_unmatched_platforms can flag configured
+        # platforms that no reference used (usually a case/spelling typo in the config).
+        self._seen_reference_platforms.add(platform)
         resolvers = self._resolvers_by_platform.get(platform)
         if not resolvers:
             return _Resolution(urn, None, None)
