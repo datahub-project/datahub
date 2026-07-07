@@ -716,6 +716,88 @@ class TestSnowflakeAdapter:
         # Should quote both parts
         assert '"schema"."table"' in quoted or "schema.table" in quoted
 
+    def test_setup_profiling_without_custom_sql_profiles_full_table(self, adapter):
+        """Without a sampling custom_sql, profile the base table directly."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            custom_sql=None,
+            pretty_name="MY_DB.MY_SCHEMA.MY_TABLE",
+        )
+        source = sa.Table(
+            "MY_TABLE", sa.MetaData(), sa.Column("C1", sa.Integer), schema="MY_SCHEMA"
+        )
+        conn = MagicMock()
+        with patch.object(adapter, "_create_sqlalchemy_table", return_value=source):
+            result = adapter.setup_profiling(context, conn)
+
+        assert result.sql_table is source
+        assert result.is_sampled is False
+        conn.exec_driver_sql.assert_not_called()
+
+    def test_setup_profiling_with_custom_sql_materializes_sample(self, adapter):
+        """A sampling custom_sql is materialized into a session temp table."""
+        custom_sql = (
+            'select * from "MY_DB"."MY_SCHEMA"."MY_TABLE" TABLESAMPLE BERNOULLI (1.0)'
+        )
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            custom_sql=custom_sql,
+            pretty_name="MY_DB.MY_SCHEMA.MY_TABLE",
+        )
+        source = sa.Table(
+            "MY_TABLE",
+            sa.MetaData(),
+            sa.Column("C1", sa.Integer),
+            sa.Column("C2", sa.String),
+            schema="MY_SCHEMA",
+        )
+        conn = MagicMock()
+        with patch.object(adapter, "_create_sqlalchemy_table", return_value=source):
+            result = adapter.setup_profiling(context, conn)
+
+        # The temp table is created on the SAME connection used for profiling,
+        # since Snowflake TEMPORARY tables are session-scoped.
+        conn.exec_driver_sql.assert_called_once()
+        ddl = conn.exec_driver_sql.call_args[0][0]
+        assert ddl.startswith("CREATE OR REPLACE TEMPORARY TABLE")
+        assert custom_sql in ddl
+
+        # We profile the sample, not the base table, but keep its columns.
+        assert result.is_sampled is True
+        assert result.sql_table is not source
+        assert result.sql_table.name.startswith("GE_TMP_SAMPLE_")
+        assert result.sql_table.name in ddl
+        assert result.sql_table.schema is None
+        assert [c.name for c in result.sql_table.columns] == ["C1", "C2"]
+
+    def test_setup_profiling_falls_back_when_sample_creation_fails(self, adapter):
+        """If temp-table creation fails, fall back to full-table profiling."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            custom_sql=(
+                'select * from "MY_DB"."MY_SCHEMA"."MY_TABLE" '
+                "TABLESAMPLE BERNOULLI (1.0)"
+            ),
+            pretty_name="MY_DB.MY_SCHEMA.MY_TABLE",
+        )
+        source = sa.Table(
+            "MY_TABLE", sa.MetaData(), sa.Column("C1", sa.Integer), schema="MY_SCHEMA"
+        )
+        conn = MagicMock()
+        conn.exec_driver_sql.side_effect = sa.exc.SQLAlchemyError("temp table denied")
+        with (
+            patch.object(adapter, "_create_sqlalchemy_table", return_value=source),
+            patch.object(adapter.report, "warning") as mock_warning,
+        ):
+            result = adapter.setup_profiling(context, conn)
+
+        assert result.sql_table is source
+        assert result.is_sampled is False
+        mock_warning.assert_called_once()
+
 
 class TestBigQueryAdapter:
     """Test cases for BigQueryAdapter."""
