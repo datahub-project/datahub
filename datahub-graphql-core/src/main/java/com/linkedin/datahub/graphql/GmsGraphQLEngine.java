@@ -978,7 +978,9 @@ public class GmsGraphQLEngine {
         "Container",
         typeWiring ->
             typeWiring
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -1496,7 +1498,7 @@ public class GmsGraphQLEngine {
                   "updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
                   "updateDisplayProperties",
-                  new UpdateDisplayPropertiesResolver(this.entityService))
+                  new UpdateDisplayPropertiesResolver(this.entityService, this.entityClient))
               .dataFetcher(
                   "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
@@ -2447,7 +2449,20 @@ public class GmsGraphQLEngine {
                             ((StructuredPropertyDefinition) env.getSource())
                                 .getEntityTypes().stream()
                                     .map(entityTypeType.getKeyProvider())
-                                    .collect(Collectors.toList()))));
+                                    .collect(Collectors.toList())))
+                .dataFetcher(
+                    "allowedPlatforms",
+                    new LoadableTypeBatchResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final StructuredPropertyDefinition def =
+                              (StructuredPropertyDefinition) env.getSource();
+                          return def.getAllowedPlatforms() == null
+                              ? Collections.emptyList()
+                              : def.getAllowedPlatforms().stream()
+                                  .map(dataPlatformType.getKeyProvider())
+                                  .collect(Collectors.toList());
+                        })));
     builder.type(
         "TypeQualifier",
         typeWiring ->
@@ -3095,12 +3110,14 @@ public class GmsGraphQLEngine {
             "GlossaryTerm",
             typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService)))
         .type(
             "GlossaryNode",
             typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)));
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService)));
   }
 
   private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
@@ -3109,10 +3126,12 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
-                .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+                .dataFetcher("parentDomains", new ParentDomainsResolver())
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -3143,6 +3162,7 @@ public class GmsGraphQLEngine {
             this.graphClient,
             entityRegistry,
             this.timelineService,
+            this.viewService,
             this.documentImportService)
         .configureResolvers(builder);
   }

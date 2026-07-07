@@ -13,6 +13,7 @@ describe('useRelatedDocuments - type extraction', () => {
                 __typename: 'Document',
                 urn: 'urn:li:document:1',
                 type: 'DOCUMENT' as any,
+                platform: null as any,
                 info: {
                     __typename: 'DocumentInfo',
                     title: 'Test Document 1',

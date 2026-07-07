@@ -704,6 +704,42 @@ class TestClickHouseSinkConnector:
         assert "user_updates" in source_datasets
         assert "deprecated_topic" not in source_datasets
 
+    def test_clickhouse_sink_uses_sink_direction_fine_grained_lineage(self) -> None:
+        """ClickHouse sink CLL must use the sink-direction helper (Kafka topic → table).
+
+        Regression test: the connector previously called the source-direction
+        ``_extract_fine_grained_lineage`` helper, which hard-returns ``None`` for a
+        Kafka ``source_platform``, so column-level lineage was silently never emitted.
+        It must call ``_extract_sink_fine_grained_lineage`` instead, like the other
+        sink connectors (Snowflake, BigQuery, JDBC).
+        """
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "database": "analytics",
+            "topics": "events",
+        }
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+
+        sentinel_cll: List = [Mock()]
+        with patch.object(
+            connector,
+            "_extract_sink_fine_grained_lineage",
+            return_value=sentinel_cll,
+        ) as mock_sink_cll:
+            lineages: List = connector.extract_lineages()
+
+        mock_sink_cll.assert_called_once_with(
+            source_topic="events",
+            target_dataset="analytics.events",
+            target_platform="clickhouse",
+        )
+        assert len(lineages) == 1
+        assert lineages[0].fine_grained_lineages is sentinel_cll
+
 
 class TestIcebergSinkConnector:
     """Test Iceberg sink connector lineage extraction."""

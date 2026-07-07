@@ -60,6 +60,9 @@ export default function useStructuredProp({
 
         if (field === 'entityTypes') initialValues = entity?.definition?.entityTypes?.map((type) => type.urn) || [];
 
+        if (field === 'allowedPlatforms')
+            initialValues = entity?.definition?.allowedPlatforms?.map((platform) => platform.urn) || [];
+
         if (field.includes('typeQualifier'))
             initialValues = entity?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
 
@@ -129,6 +132,10 @@ export default function useStructuredProp({
         return selectedProperty?.definition?.entityTypes?.map((type) => type.urn);
     }, [selectedProperty]);
 
+    const disabledAllowedPlatformValues = useMemo(() => {
+        return selectedProperty?.definition?.allowedPlatforms?.map((platform) => platform.urn);
+    }, [selectedProperty]);
+
     const disabledTypeQualifierValues = useMemo(() => {
         return selectedProperty?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn);
     }, [selectedProperty]);
@@ -139,6 +146,7 @@ export default function useStructuredProp({
         handleTypeUpdate,
         getEntitiesListOptions,
         disabledEntityTypeValues,
+        disabledAllowedPlatformValues,
         disabledTypeQualifierValues,
         handleDisplaySettingChange,
     };

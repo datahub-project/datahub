@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -494,8 +495,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 data-testid="expand-contract-columns"
                             >
                                 {t('node.columnsCount', { count: numColumnsTotal })}
-                                {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                {showColumns && <CaretUp size="1em" style={{ marginLeft: 3 }} />}
+                                {!showColumns && <CaretDown size="1em" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
                         )}
                         {isGhost ? (
@@ -505,7 +506,10 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         )}
                         {entity && (
                             <PropertyBadgeWrapper>
-                                <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
+                                <StructuredPropertyBadge
+                                    structuredProperties={entity.structuredProperties}
+                                    platformUrn={entity?.platform?.urn}
+                                />
                             </PropertyBadgeWrapper>
                         )}
                     </MainTextWrapper>

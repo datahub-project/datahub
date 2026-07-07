@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useUserContext } from '@app/context/useUserContext';
+
 import { useSearchDocumentsQuery } from '@graphql/document.generated';
 import { Document, DocumentSourceType, DocumentState } from '@types';
 
@@ -24,6 +26,12 @@ export interface SearchDocumentsInput {
      * If true, skip the query execution.
      */
     skip?: boolean;
+    /**
+     * Whether to scope results to the currently active View (defaults to true).
+     * Set to false for pickers (e.g. move / link-document popovers) so users can
+     * still find any document they have access to, regardless of the active View.
+     */
+    applyView?: boolean;
 }
 
 /**
@@ -41,6 +49,9 @@ function getSourceTypeForQuery(sourceTypes: DocumentSourceType[]): DocumentSourc
 
 export function useSearchDocuments(input: SearchDocumentsInput) {
     const sourceType = getSourceTypeForQuery(input.sourceTypes);
+    const userContext = useUserContext();
+    const applyView = input.applyView ?? true;
+    const viewUrn = applyView ? (userContext.localState?.selectedViewUrn ?? undefined) : undefined;
 
     const { data, loading, error, refetch } = useSearchDocumentsQuery({
         variables: {
@@ -52,6 +63,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 rootOnly: input.rootOnly,
                 types: input.types,
                 sourceType,
+                viewUrn,
             },
             includeParentDocuments: input.includeParentDocuments || false,
         },

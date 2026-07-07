@@ -11,11 +11,14 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
+import {
+    getStructuredPropertiesSearchInputs,
+    matchesAllowedPlatforms,
+} from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
+import { DataPlatform, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
 
 const AddButton = styled.div<{ isV1Drawer?: boolean }>`
     border-radius: 200px;
@@ -108,6 +111,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         (prop) => prop.structuredProperty.urn,
     );
     const fieldPropertiesUrns = fieldProperties?.properties?.map((prop) => prop.structuredProperty.urn);
+    const platformUrn = (entityData?.platform as DataPlatform | undefined)?.urn;
 
     // filter out the existing properties when displaying in the list of add button
     const properties = useMemo(
@@ -118,6 +122,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         ? !fieldPropertiesUrns?.includes(result.entity.urn)
                         : !entityPropertiesUrns?.includes(result.entity.urn),
                 )
+                .filter((result) => matchesAllowedPlatforms(result.entity as StructuredPropertyEntity, platformUrn))
                 .map((prop) => {
                     const entity = prop.entity as StructuredPropertyEntity;
                     const name = entityRegistry.getDisplayName(entity.type, entity);
@@ -133,7 +138,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         name: name || entity.urn,
                     };
                 }),
-        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry],
+        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry, platformUrn],
     );
 
     const canEditProperties =

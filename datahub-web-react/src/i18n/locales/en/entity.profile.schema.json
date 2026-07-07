@@ -10,6 +10,8 @@
     "changeEventString.addedToApplication": "Added to application \"{{appName}}\".",
     "changeEventString.addedToDomain": "Added to domain \"{{domainName}}\".",
     "changeEventString.assetDocEmpty": "Asset documentation is empty.",
+    "changeEventString.defaultFieldPath": "A new field",
+    "changeEventString.defaultRelationship": "related",
     "changeEventString.fieldDocEmpty": "Field documentation for {{fieldPath}} is empty.",
     "changeEventString.modifiedColumn": "Modified column {{column}}.",
     "changeEventString.removedAsset": "Removed asset \"{{assetName}}\".",

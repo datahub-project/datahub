@@ -122,6 +122,7 @@ dependencies {
   implementation spec.product.pegasus.generator
 
   implementation externalDependency.guava
+  implementation externalDependency.jgrapht
   implementation externalDependency.reflections
 
   // XXHash64 JNI for graph/search id fingerprints (XXHashFactory.nativeInstance — no Java fallback)
@@ -180,6 +181,7 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.hazelcast
   testImplementation externalDependency.iStackCommons
   testImplementation externalDependency.resilience4j
   testImplementation externalDependency.testContainers
