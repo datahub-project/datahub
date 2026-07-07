@@ -142,6 +142,7 @@ Requirements:
 - **(GMS / search indexing)** Inline Elasticsearch indexing and entity-graph cache invalidation on ingest now require explicit `systemMetadata.properties.appSource = ui` (or the sync-index header), not merely a GraphQL request context. `GroupService` and `RoleService` stamp UI source via `AspectUtils.buildSynchronousMetadataChangeProposal`; other GraphQL resolvers that bypass `MutationUtils` revert to async MAE indexing. See [GMS Entity Graph Cache — Invalidation (sync writes)](../deploy/gms-entity-graph-cache.md#invalidation-sync-writes).
 
 - **(Ingestion / Unity Catalog)** ML model ingestion controls were fixed. Two things changed:
+
   - There is now an `include_ml_models` flag (default `true`). Set it to `false` to skip ML model ingestion entirely — no calls are made to the Databricks registered-models API. Previously there was no way to turn ML models off short of catalog/schema deny patterns.
   - `ml_model_max_results` is now enforced as a real per-schema cap on the number of ML models ingested, matching its description. `0` now ingests none. Previously the value was passed through to the API only as a page-size hint and did not bound the total, so it silently returned every model (and `0` did not disable anything). **If you have more than `ml_model_max_results` (default 1000) ML models in a single schema and were relying on all of them being ingested, raise the limit** or set `include_ml_models: false` to opt out.
 
