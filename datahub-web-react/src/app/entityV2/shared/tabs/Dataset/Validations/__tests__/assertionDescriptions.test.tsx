@@ -651,7 +651,21 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe(' profileId Values are greater than 5');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('profileId is greater than 5');
+    });
+    it('field falls back to a generic description on unsupported operator', () => {
+        const info = {
+            type: AssertionType.Field,
+            fieldAssertion: {
+                type: FieldAssertionType.FieldValues,
+                fieldValuesAssertion: {
+                    field: { path: 'profileId' },
+                    operator: AssertionStdOperator.Native,
+                    parameters: { value: numberParam(5) },
+                },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Custom check on profileId');
     });
     it('freshness', () => {
         const info = {
