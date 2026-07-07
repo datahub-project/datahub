@@ -195,10 +195,15 @@ class AutoResolveLineageUrnsProcessor(
         )
         # Per-platform state, bulk-initialized up front by _load_catalogs(). The
         # SchemaResolvers are the source of truth for schema + membership; the casing
-        # index is a derived lowercase(urn) -> real URNs map used to reconcile arbitrary
-        # casings and detect ambiguous collisions. NOTE: this local index duplicates
-        # membership the SchemaResolver could own and only exists until SchemaResolver
-        # gains casing-aware resolution (tracked follow-up), at which point it is deleted.
+        # index is a derived lowercase(urn) -> real URNs map that does the actual
+        # case-insensitive matching and ambiguous-collision detection.
+        #
+        # This local index is an interim, client-side stand-in for casing-aware
+        # resolution owned by DataHub itself — the planned `normalizedUrn` aspect (a
+        # lowercased-URN keyword field) queried through SchemaResolver. Once that lands,
+        # a single indexed lookup replaces this per-run index and it is deleted; until
+        # then it is what makes bidirectional casing reconciliation possible at all.
+        # Prioritizing that fix in SchemaResolver is a tracked follow-up.
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         self._casing_index_by_platform: Dict[str, Dict[str, List[str]]] = {}
         # Platforms actually referenced by this source's lineage, so
