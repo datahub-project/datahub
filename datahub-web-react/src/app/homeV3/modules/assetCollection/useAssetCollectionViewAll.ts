@@ -1,6 +1,12 @@
+import { useCallback, useMemo } from 'react';
+import { useHistory } from 'react-router';
+
+import { ModuleProps } from '@app/homeV3/module/types';
 import { ENTITY_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { isLogicalPredicate, mapOperator } from '@app/sharedV2/queryBuilder/builder/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType, FacetFilterInput, FilterOperator } from '@types';
 
@@ -80,4 +86,42 @@ export function convertLogicalPredicateToViewAllParams(
     if (filters === null || !filters.length) return null;
 
     return { filters, unionType };
+}
+
+/**
+ * Returns a "View all" navigation callback for dynamic-filter collections,
+ * or undefined when the collection's contents can't be faithfully reproduced
+ * on the search page (manual urn lists, nested/unsupported predicates) —
+ * in which case the button is hidden.
+ */
+export default function useAssetCollectionViewAll(module: ModuleProps['module']): (() => void) | undefined {
+    const history = useHistory();
+    const entityRegistry = useEntityRegistryV2();
+    const params = module.properties.params.assetCollectionParams;
+
+    const searchParams = useMemo(() => {
+        // Manual collections are hand-ordered urn lists; the search page can't reproduce them faithfully.
+        if (params?.assetUrns?.length) return null;
+        if (!params?.dynamicFilterJson) return null;
+        try {
+            const predicate = JSON.parse(params.dynamicFilterJson);
+            return convertLogicalPredicateToViewAllParams(predicate, (name) =>
+                entityRegistry.getTypeFromGraphName(name),
+            );
+        } catch (e) {
+            return null;
+        }
+    }, [params?.assetUrns, params?.dynamicFilterJson, entityRegistry]);
+
+    const onClickViewAll = useCallback(() => {
+        if (!searchParams) return;
+        navigateToSearchUrl({
+            history,
+            query: '*',
+            filters: searchParams.filters,
+            unionType: searchParams.unionType,
+        });
+    }, [searchParams, history]);
+
+    return searchParams ? onClickViewAll : undefined;
 }
