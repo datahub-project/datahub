@@ -436,15 +436,14 @@ def extract_dbt_entities(
 
             dbt_entities.append(dbtNode)
         except Exception as e:
-            context = f"{key} ({manifest_node.get('original_file_path')})"
-            report.warning(
+            file_path = manifest_node.get("original_file_path") or "unknown path"
+            report.record_node_failure(
+                f"{key} ({file_path})",
+                e,
                 title="Failed to parse dbt node",
                 message="Failed to parse this node from the manifest; it will be dropped from ingestion.",
-                context=context,
-                exc=e,
+                kind="extraction",
             )
-            report.node_extraction_failures += 1
-            report.node_extraction_failures_list.append(context)
             continue
 
     return dbt_entities

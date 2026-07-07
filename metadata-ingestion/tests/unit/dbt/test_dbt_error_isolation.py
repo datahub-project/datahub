@@ -4,6 +4,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_common
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_PLATFORM,
+    DBTColumn,
     DBTNode,
     DBTSourceReport,
 )
@@ -142,6 +143,62 @@ def test_infer_schemas_and_update_cll_all_nodes_failing_does_not_abort(monkeypat
     source._infer_schemas_and_update_cll(all_nodes_map)
 
     assert source.report.node_cll_failures == 2
+
+
+def test_infer_schemas_and_update_cll_failure_preserves_existing_columns(monkeypatch):
+    """A CLL-only failure degrades (keeps the node's already-known table-level
+    columns) rather than dropping the node or clearing its schema."""
+    source = _make_source()
+    bad = _make_sql_model_node("model.pkg.bad_model", "models/bad_model.sql")
+    bad.columns = [
+        DBTColumn(name="col_a", comment="", description="", index=0, data_type="text")
+    ]
+    all_nodes_map = {bad.dbt_name: bad}
+
+    def always_raise(node, cte_mapping, schema_resolver):
+        raise RuntimeError("simulated crash")
+
+    monkeypatch.setattr(source, "_parse_cll", always_raise)
+
+    source._infer_schemas_and_update_cll(all_nodes_map)
+
+    assert source.report.node_cll_failures == 1
+    # Degraded, not dropped: the node keeps its pre-existing table-level columns.
+    assert [c.name for c in bad.columns] == ["col_a"]
+
+
+def test_infer_schemas_and_update_cll_downstream_node_still_processes_after_upstream_failure(
+    monkeypatch,
+):
+    """Failure isolation must not corrupt topological-order processing: a node
+    downstream of a node whose CLL processing failed is still processed."""
+    source = _make_source()
+    upstream = _make_sql_model_node("model.pkg.upstream", "models/upstream.sql")
+    downstream = _make_sql_model_node(
+        "model.pkg.downstream",
+        "models/downstream.sql",
+        compiled_code="select col1 from upstream",
+    )
+    downstream.upstream_nodes = [upstream.dbt_name]
+    all_nodes_map = {upstream.dbt_name: upstream, downstream.dbt_name: downstream}
+
+    original_parse_cll = source._parse_cll
+
+    def fake_parse_cll(node, cte_mapping, schema_resolver):
+        if node.dbt_name == upstream.dbt_name:
+            raise RuntimeError("simulated crash")
+        return original_parse_cll(node, cte_mapping, schema_resolver)
+
+    monkeypatch.setattr(source, "_parse_cll", fake_parse_cll)
+
+    source._infer_schemas_and_update_cll(all_nodes_map)
+
+    assert source.report.node_cll_failures == 1
+    [failure_entry] = source.report.node_cll_failures_list
+    assert upstream.dbt_name in failure_entry
+
+    # The downstream node was still processed despite its upstream's failure.
+    assert downstream.cll_debug_info is not None
 
 
 def test_extract_dbt_entities_isolates_malformed_node():

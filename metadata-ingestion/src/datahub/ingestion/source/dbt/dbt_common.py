@@ -366,6 +366,26 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
 
+    def record_node_failure(
+        self,
+        context: str,
+        exc: Exception,
+        *,
+        title: str,
+        message: str,
+        kind: Literal["extraction", "cll", "emission"],
+    ) -> None:
+        self.warning(title=title, message=message, context=context, exc=exc)
+        if kind == "extraction":
+            self.node_extraction_failures += 1
+            self.node_extraction_failures_list.append(context)
+        elif kind == "cll":
+            self.node_cll_failures += 1
+            self.node_cll_failures_list.append(context)
+        elif kind == "emission":
+            self.node_emission_failures += 1
+            self.node_emission_failures_list.append(context)
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -1475,14 +1495,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         message: str,
         kind: Literal["cll", "emission"],
     ) -> None:
-        context = self._node_context(node)
-        self.report.warning(title=title, message=message, context=context, exc=exc)
-        if kind == "cll":
-            self.report.node_cll_failures += 1
-            self.report.node_cll_failures_list.append(context)
-        elif kind == "emission":
-            self.report.node_emission_failures += 1
-            self.report.node_emission_failures_list.append(context)
+        self.report.record_node_failure(
+            self._node_context(node), exc, title=title, message=message, kind=kind
+        )
 
     def get_excluded_workunit_processors(self):
         from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
@@ -1679,11 +1694,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self._record_node_failure(
                     node,
                     e,
-                    title="Failed to emit metadata for model",
-                    message="Failed to emit test assertion metadata for this model; some or all of its workunits may be missing.",
+                    title="Failed to emit test-assertion metadata",
+                    message="Failed to emit test assertion metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
-                continue
 
     def create_freshness_assertion_mcps(
         self,
@@ -2226,14 +2240,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             f"Starting schema inference and column-level lineage for {total_nodes} nodes"
         )
         for i, dbt_name in enumerate(all_node_order):
-            if dbt_name not in schema_required_nodes:
-                logger.debug(
-                    f"Skipping {dbt_name} because it is filtered out by patterns"
-                )
-                continue
-
             node = all_nodes_map[dbt_name]
             try:
+                if dbt_name not in schema_required_nodes:
+                    logger.debug(
+                        f"Skipping {dbt_name} because it is filtered out by patterns"
+                    )
+                    continue
+
                 logger.debug(f"Processing CLL/schemas for {self._node_context(node)}")
 
                 target_node_urn = None
@@ -2457,8 +2471,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     kind="cll",
                 )
             finally:
-                # In a `finally` block (rather than after the try/except) so a
-                # failure on a milestone index doesn't silently skip this log line.
+                # In a `finally` block (rather than after the try/except, and
+                # covering the pattern-filter skip too) so a node landing on a
+                # milestone index never silently skips this log line, whether
+                # it was filtered out, failed, or processed successfully.
                 if (i + 1) % 1000 == 0:
                     logger.info(
                         f"Processed {i + 1}/{total_nodes} models for schema+lineage"
@@ -2710,11 +2726,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self._record_node_failure(
                     node,
                     e,
-                    title="Failed to emit metadata for model",
-                    message="Failed to emit dbt-platform metadata for this model; some or all of its workunits may be missing.",
+                    title="Failed to emit dbt-platform metadata",
+                    message="Failed to emit dbt-platform metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
-                continue
 
     def _create_dataprocess_instance_mcps(
         self,
@@ -3005,11 +3020,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self._record_node_failure(
                     node,
                     e,
-                    title="Failed to emit metadata for model",
-                    message="Failed to emit target-platform metadata for this model; some or all of its workunits may be missing.",
+                    title="Failed to emit target-platform metadata",
+                    message="Failed to emit target-platform metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
-                continue
 
     def extract_query_tag_aspects(
         self,
