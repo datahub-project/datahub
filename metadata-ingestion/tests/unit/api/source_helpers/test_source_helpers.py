@@ -82,6 +82,7 @@ def test_auto_workunit():
 
 
 def test_auto_status_aspect():
+    """Default (no GMS config) emits UPSERT status aspects."""
     initial_wu = list(auto_workunit(_base_metadata))
 
     expected = [
@@ -103,6 +104,63 @@ def test_auto_status_aspect():
     ]
     processor = AutoStatusAspectProcessor.create(mock.MagicMock())
     assert list(processor.process(initial_wu)) == expected
+
+
+def test_auto_status_aspect_patch_mode():
+    """When GMS supports status PATCH, emit PATCH MCPs instead of UPSERT."""
+    initial_wu = list(auto_workunit(_base_metadata))
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=True,
+    ):
+        result = list(processor.process(initial_wu))
+
+    # First N items are the original workunits passed through unchanged.
+    assert result[: len(initial_wu)] == initial_wu
+
+    # The processor should emit PATCH MCPs for URNs that didn't already have a
+    # status aspect in the stream.
+    auto_status_wus = result[len(initial_wu) :]
+    assert len(auto_status_wus) == 2
+
+    auto_status_urns = [wu.get_urn() for wu in auto_status_wus]
+    assert auto_status_urns == [
+        "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.staffing,PROD)",
+    ]
+
+    for wu in auto_status_wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, models.MetadataChangeProposalClass)
+        assert mcp.changeType == models.ChangeTypeClass.PATCH
+        assert mcp.aspectName == "status"
+
+    assert processor.report.status_patch_mode is True
+
+
+def test_auto_status_aspect_upsert_fallback():
+    """When GMS does not support status PATCH, fall back to UPSERT."""
+    initial_wu = list(auto_workunit(_base_metadata))
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=False,
+    ):
+        result = list(processor.process(initial_wu))
+
+    auto_status_wus = result[len(initial_wu) :]
+    assert len(auto_status_wus) == 2
+
+    for wu in auto_status_wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, models.StatusClass)
+        assert mcp.aspect.removed is False
+
+    assert processor.report.status_patch_mode is False
 
 
 def test_auto_lowercase_aspects():
