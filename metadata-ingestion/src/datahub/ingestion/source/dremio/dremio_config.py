@@ -246,13 +246,11 @@ class DremioSourceConfig(
 
     max_view_definition_length: Optional[int] = Field(
         default=None,
-        description="Maximum number of characters to fetch for a view's SQL "
-        "definition. When set, definitions are truncated server-side (Dremio "
-        "`SUBSTR`) before the result is returned. Leave unset to fetch full "
-        "definitions. Useful when very large view definitions cause Dremio "
-        "`OversizedAllocationException` errors during metadata extraction. "
-        "Truncated definitions may reduce column-level lineage accuracy for the "
-        "affected views.",
+        description="Maximum characters to fetch for a view's SQL definition; when "
+        "set, definitions are truncated server-side (Dremio `SUBSTR`). Leave unset "
+        "for full definitions. Use this when large view definitions trigger Dremio "
+        "`OversizedAllocationException`. Truncation may reduce column-level lineage "
+        "accuracy for the affected views.",
     )
 
     @field_validator("max_view_definition_length", mode="after")
@@ -265,12 +263,10 @@ class DremioSourceConfig(
     partition_datasets_by_container: bool = Field(
         default=False,
         description="Fetch table/column metadata one root container (source/space) "
-        "at a time instead of a single catalog-wide query. Each query is scoped "
-        "with a `TABLE_SCHEMA` predicate so Dremio's join and sort only cover that "
-        "container, bounding server-side execution time. Enable this when the "
-        "catalog-wide dataset query times out on very large Dremio instances. It "
-        "issues more queries (one per container), so leave it off for small "
-        "catalogs where the single-query path is faster.",
+        "at a time instead of a single catalog-wide query, scoping each query with "
+        "a `TABLE_SCHEMA` predicate to bound Dremio-side execution time. Enable when "
+        "the catalog-wide query times out on very large instances; it issues one "
+        "query per container, so leave off for small catalogs.",
     )
 
     @model_validator(mode="after")

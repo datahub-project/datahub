@@ -812,23 +812,13 @@ class DremioAPIOperations:
         return definitions
 
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
-        """
-        Fetch all tables and columns.
+        """Fetch all tables and columns; view definitions are fetched separately and merged by path.
 
-        By default runs one SQL query across the entire catalog rather than one per
-        container. This eliminates the ~10s Dremio planning overhead that was incurred
-        for each of thousands of containers (e.g. 10,000 containers × 10s = ~30 hours).
-        Results are chunked with LIMIT/OFFSET to prevent Dremio OOM errors.
-
-        When `partition_datasets_by_container` is set, the datasets query is instead
-        run once per root container so Dremio's join and sort only cover that
-        container — bounding server-side execution time on very large catalogs where
-        the catalog-wide query would time out. Each container is scoped two ways: a
-        pushable `TABLE_SCHEMA` predicate inside the INFORMATION_SCHEMA.COLUMNS scan
-        (bounds the dominant scan) plus the outer schema filter (bounds the system-
-        table side and the final sort).
-
-        View definitions are fetched separately and merged in by path.
+        Default: one catalog-wide query (chunked with LIMIT/OFFSET), avoiding the
+        ~10s per-container planning cost that made per-container fetches unusable at
+        scale. With `partition_datasets_by_container`, runs one scoped query per root
+        container instead, to bound Dremio-side execution on catalogs where the
+        catalog-wide query times out.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
@@ -851,8 +841,7 @@ class DremioAPIOperations:
         )
 
         if self.partition_datasets_by_container:
-            # CE joins INFORMATION_SCHEMA.COLUMNS directly (must qualify the column);
-            # EE/Cloud wrap it in a subquery aliased C where TABLE_SCHEMA is unambiguous.
+            # CE joins COLUMNS directly (qualify the column); EE/Cloud alias it as C.
             columns_schema_column = (
                 "C.TABLE_SCHEMA"
                 if self.edition == DremioEdition.COMMUNITY
@@ -908,11 +897,8 @@ class DremioAPIOperations:
         deny_schema_condition: str,
         view_definitions: Dict[str, Optional[str]],
     ) -> Iterator[Dict]:
-        """Fetch datasets one root container at a time to bound Dremio-side query time.
-
-        Each container reuses the chunked global fetch with (1) a pushable
-        `TABLE_SCHEMA` predicate inside the COLUMNS scan and (2) the outer schema
-        filter, so per-container OOM chunking still applies but offsets stay small.
+        """Fetch datasets one root container at a time via the chunked global fetch,
+        each scoped by a pushable COLUMNS-scan filter plus the outer schema filter.
         Falls back to a single catalog-wide query if no containers resolve.
         """
         container_names = self._get_root_container_names()
