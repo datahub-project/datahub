@@ -29,11 +29,31 @@ def sync_elastic() -> None:
     wait_for_writes_to_sync()
 
 
+_TRANSIENT_LOGIN_EXCEPTIONS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
+
+
+def _is_transient_login_error(exception: BaseException) -> bool:
+    if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
+        return True
+    if isinstance(exception, requests.HTTPError) and exception.response is not None:
+        return exception.response.status_code >= 500
+    return False
+
+
 def get_frontend_session():
     username, password = get_admin_credentials()
     return login_as(username, password)
 
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_is_transient_login_error),
+    stop=tenacity.stop_after_attempt(5),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 def login_as(username: str, password: str):
     return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
