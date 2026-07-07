@@ -1883,6 +1883,30 @@ public class ESIndexBuilderTest {
     ESIndexBuilder.extractTargetShards(config);
   }
 
+  @Test(dataProvider = "estimateMinutesRemainingData")
+  void testEstimateMinutesRemaining(
+      long docsIndexedSinceStart,
+      long elapsedMillisSinceStart,
+      long remainingDocs,
+      long expectedMinutes) {
+    assertEquals(
+        ESIndexBuilder.estimateMinutesRemaining(
+            docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs),
+        expectedMinutes);
+  }
+
+  @DataProvider(name = "estimateMinutesRemainingData")
+  public Object[][] provideEstimateMinutesRemainingData() {
+    return new Object[][] {
+      // docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs, expectedMinutes
+      {1000L, 60_000L, 9000L, 9L}, // steady cumulative rate
+      {100L, 0L, 500L, 0L}, // zero elapsed time guards divide-by-zero
+      {0L, 30_000L, 1000L, 0L}, // no progress yet
+      {1000L, 60_000L, 0L, 0L}, // already complete
+      {10_000L, 60_000L, 100L, 0L}, // sub-minute ETA truncates to 0
+    };
+  }
+
   @Test
   void testGetIncrementalNextIndexNameSanitizesVersion() {
     String result = ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
