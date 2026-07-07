@@ -1,6 +1,5 @@
 import { Skeleton, Timeline } from 'antd';
 import React from 'react';
-import { range } from 'remirror';
 import styled from 'styled-components';
 
 import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -18,7 +17,7 @@ const ItemSkeleton = styled(Skeleton.Input)`
 export const AssertionResultsLoadingItems = () => {
     return (
         <>
-            {range(0, 3).map((index) => (
+            {[0, 1, 2].map((index) => (
                 <Timeline.Item
                     key={index}
                     dot={<div style={{ opacity: 0.3 }}>{getResultDotIcon(AssertionResultType.Success)}</div>}
