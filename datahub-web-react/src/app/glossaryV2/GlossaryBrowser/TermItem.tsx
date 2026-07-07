@@ -2,8 +2,8 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
@@ -24,10 +24,21 @@ import { EntityType } from '@types';
 // Row chrome (RowContainer/LeftContent/IconSlot/Title) lives in `treeRow.styles.ts`
 // — shared with `NodeItem` so the two leaf-row types stay visually identical.
 
+const TitleContent = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+`;
+
 const DeprecationSlot = styled.span`
     display: inline-flex;
     align-items: center;
-    margin-left: 6px;
+    flex-shrink: 0;
+    line-height: 0;
+
     & svg {
         width: 12px;
         height: 12px;
@@ -109,10 +120,10 @@ function TermItem(props: Props) {
                 <TreeRowIconSlot>
                     <GlossaryColoredIcon color={resolvedIconColor} icon={TermIcon} size={20} iconSize={12} />
                 </TreeRowIconSlot>
-                <TreeRowTitle $isSelected={isRowSelected}>
-                    {displayName}
+                <TitleContent>
+                    <TreeRowTitle $isSelected={isRowSelected}>{displayName}</TreeRowTitle>
                     {deprecationBadge}
-                </TreeRowTitle>
+                </TitleContent>
             </TreeRowLeftContent>
             {isMultiSelected && <SelectedMark />}
         </TreeRowContainer>

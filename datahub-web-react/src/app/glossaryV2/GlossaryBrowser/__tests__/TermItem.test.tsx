@@ -75,7 +75,10 @@ describe('TermItem — live deprecation state when this row is the open entity',
         vi.mocked(useGlossaryEntityData).mockReturnValueOnce({
             entityData: { urn: baseTerm.urn, deprecation: { deprecated: true, note: '', decommissionTime: null } },
         } as any);
-        renderTermItem({ ...baseTerm, deprecation: { deprecated: false, note: null, actor: null, decommissionTime: null } });
+        renderTermItem({
+            ...baseTerm,
+            deprecation: { deprecated: false, note: null, actor: null, decommissionTime: null },
+        });
         expect(screen.getByTestId('deprecation-icon')).toBeInTheDocument();
     });
 
@@ -83,7 +86,10 @@ describe('TermItem — live deprecation state when this row is the open entity',
         vi.mocked(useGlossaryEntityData).mockReturnValueOnce({
             entityData: { urn: baseTerm.urn, deprecation: { deprecated: false, note: null, decommissionTime: null } },
         } as any);
-        renderTermItem({ ...baseTerm, deprecation: { deprecated: true, note: 'stale', actor: null, decommissionTime: null } });
+        renderTermItem({
+            ...baseTerm,
+            deprecation: { deprecated: true, note: 'stale', actor: null, decommissionTime: null },
+        });
         expect(screen.queryByTestId('deprecation-icon')).not.toBeInTheDocument();
     });
 
@@ -94,7 +100,10 @@ describe('TermItem — live deprecation state when this row is the open entity',
                 deprecation: { deprecated: false, note: null, decommissionTime: null },
             },
         } as any);
-        renderTermItem({ ...baseTerm, deprecation: { deprecated: true, note: null, actor: null, decommissionTime: null } });
+        renderTermItem({
+            ...baseTerm,
+            deprecation: { deprecated: true, note: null, actor: null, decommissionTime: null },
+        });
         expect(screen.getByTestId('deprecation-icon')).toBeInTheDocument();
     });
 });
