@@ -85,7 +85,7 @@ def get_executor_managed() -> bool:
 
 def get_kafka_bootstrap() -> Optional[str]:
     """Kafka bootstrap servers for the default Kafka sink."""
-    return os.getenv("DATAHUB_KAFKA_BOOTSTRAP")
+    return os.getenv("KAFKA_BOOTSTRAP_SERVER")
 
 
 def _get_int_env(var: str, default: int) -> int:

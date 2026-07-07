@@ -29,7 +29,7 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
         # Both markers required to enable the managed Kafka default.
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
-        monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", get_kafka_broker_url())
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", get_kafka_broker_url())
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", get_kafka_schema_registry())
     get_default_graph.cache_clear()
     return Pipeline.create(

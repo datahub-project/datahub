@@ -125,7 +125,7 @@ class TestPipeline:
         # marker (set only by the managed executor on spawned subprocesses).
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
-        monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
         mock_fetch_config.return_value = mock_server_config
 
@@ -179,7 +179,7 @@ class TestPipeline:
         # The producer buffer tuning knobs are overridable via env.
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
-        monkeypatch.setenv("DATAHUB_KAFKA_BOOTSTRAP", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_KBYTES", "262144")
         monkeypatch.setenv("DATAHUB_KAFKA_QUEUE_MAX_MESSAGES", "50000")
         monkeypatch.setenv("DATAHUB_KAFKA_LINGER_MS", "50")
@@ -201,13 +201,13 @@ class TestPipeline:
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     def test_configure_kafka_default_without_bootstrap_raises(self, monkeypatch):
-        # Missing DATAHUB_KAFKA_BOOTSTRAP must fail fast at init, not silently
+        # Missing KAFKA_BOOTSTRAP_SERVER must fail fast at init, not silently
         # default to localhost:9092 and explode at produce-time.
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
         monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
-        monkeypatch.delenv("DATAHUB_KAFKA_BOOTSTRAP", raising=False)
+        monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVER", raising=False)
 
-        with pytest.raises(PipelineInitError, match="DATAHUB_KAFKA_BOOTSTRAP"):
+        with pytest.raises(PipelineInitError, match="KAFKA_BOOTSTRAP_SERVER"):
             Pipeline.create(
                 {
                     "source": {
