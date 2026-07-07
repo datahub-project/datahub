@@ -1,7 +1,7 @@
 from typing import Any, Dict
-from unittest import mock
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt import dbt_common
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_PLATFORM,
     DBTNode,
@@ -12,8 +12,7 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     extract_dbt_entities,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest
 
 
 def _make_source(target_platform: str = "postgres") -> DBTCoreSource:
@@ -55,6 +54,33 @@ def _make_sql_model_node(
         missing_from_catalog=False,
         owner=None,
         compiled_code=compiled_code,
+    )
+
+
+def _make_test_node(dbt_name: str, file_path: str, upstream_dbt_name: str) -> DBTNode:
+    return DBTNode(
+        database="mydb",
+        schema="myschema",
+        name=dbt_name.rsplit(".", 1)[-1],
+        alias=None,
+        comment="",
+        description="",
+        language=None,
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=file_path,
+        dbt_package_name="mypackage",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        upstream_nodes=[upstream_dbt_name],
+        test_info=DBTTest(
+            qualified_test_name="not_null", column_name="col_a", kw_args={}
+        ),
     )
 
 
@@ -116,25 +142,6 @@ def test_infer_schemas_and_update_cll_all_nodes_failing_does_not_abort(monkeypat
     source._infer_schemas_and_update_cll(all_nodes_map)
 
     assert source.report.node_cll_failures == 2
-
-
-def test_parse_cll_catches_sqlglot_lineage_crash(monkeypatch):
-    """A native sqlglot_lineage crash is caught and degrades to an error result
-    instead of propagating and aborting the run."""
-    source = _make_source()
-    node = _make_sql_model_node("model.pkg.my_model", "models/my_model.sql")
-    schema_resolver = SchemaResolver(platform="postgres")
-
-    monkeypatch.setattr(
-        "datahub.ingestion.source.dbt.dbt_common.sqlglot_lineage",
-        mock.Mock(side_effect=RuntimeError("native crash")),
-    )
-
-    result = source._parse_cll(node, cte_mapping={}, schema_resolver=schema_resolver)
-
-    assert isinstance(result, SqlParsingResult)
-    assert result.debug_info.table_error is not None
-    assert source.report.sql_parser_table_errors == 1
 
 
 def test_extract_dbt_entities_isolates_malformed_node():
@@ -214,3 +221,124 @@ def test_create_dbt_platform_mces_isolates_node_emission_failure(monkeypatch):
     [failure_entry] = source.report.node_emission_failures_list
     assert bad.dbt_name in failure_entry
     assert "models/bad_model.sql" in failure_entry
+
+
+def test_create_dbt_platform_mces_partial_emission_before_failure(monkeypatch):
+    """Per the locked design, isolation does NOT buffer-and-rollback: if a
+    node's failure occurs after some of its workunits were already yielded,
+    those workunits stay in the output rather than being discarded."""
+    source = _make_source()
+    bad = _make_sql_model_node("model.pkg.bad_model", "models/bad_model.sql")
+
+    def fake_get_patched_mce(mce):
+        # Fires after the DataPlatformInstance aspect (and any subtype/standalone
+        # aspects) have already been yielded for this node, but before its main
+        # MCE snapshot would be.
+        raise RuntimeError("simulated crash after partial emission")
+
+    monkeypatch.setattr(source, "get_patched_mce", fake_get_patched_mce)
+
+    workunits = list(
+        source.create_dbt_platform_mces(
+            dbt_nodes=[bad],
+            additional_custom_props_filtered={},
+            all_nodes_map={bad.dbt_name: bad},
+        )
+    )
+
+    bad_urn = bad.get_urn(
+        DBT_PLATFORM, source.config.env, source.config.platform_instance
+    )
+    assert workunits, "partial workunits from before the failure should survive"
+    assert all(wu.get_urn() == bad_urn for wu in workunits)
+    assert source.report.node_emission_failures == 1
+
+
+def test_create_target_platform_mces_isolates_node_emission_failure(monkeypatch):
+    """One node's target-platform emission crashes; the other node's
+    workunits are still produced and the failure is recorded."""
+    source = _make_source()
+    good = _make_sql_model_node("model.pkg.good_model", "models/good_model.sql")
+    bad = _make_sql_model_node("model.pkg.bad_model", "models/bad_model.sql")
+
+    original_create_query_entity_mcps = source._create_query_entity_mcps
+
+    def fake_create_query_entity_mcps(node, node_datahub_urn):
+        if node.dbt_name == bad.dbt_name:
+            raise RuntimeError("simulated emission crash")
+        return original_create_query_entity_mcps(node, node_datahub_urn)
+
+    monkeypatch.setattr(
+        source, "_create_query_entity_mcps", fake_create_query_entity_mcps
+    )
+
+    workunits = list(source.create_target_platform_mces(dbt_nodes=[good, bad]))
+
+    good_urn = good.get_urn(
+        source.config.target_platform,
+        source.config.env,
+        source.config.target_platform_instance,
+    )
+    bad_urn = bad.get_urn(
+        source.config.target_platform,
+        source.config.env,
+        source.config.target_platform_instance,
+    )
+    emitted_urns = {wu.get_urn() for wu in workunits}
+
+    assert good_urn in emitted_urns
+    assert bad_urn not in emitted_urns
+    assert source.report.node_emission_failures == 1
+
+    [failure_entry] = source.report.node_emission_failures_list
+    assert bad.dbt_name in failure_entry
+    assert "models/bad_model.sql" in failure_entry
+
+
+def test_create_test_entity_mcps_isolates_node_emission_failure(monkeypatch):
+    """One test node's emission crashes; the other test node's assertion
+    MCPs are still produced and the failure is recorded."""
+    source = _make_source()
+    upstream = _make_sql_model_node("model.pkg.upstream", "models/upstream.sql")
+    good = _make_test_node(
+        "test.pkg.good_test", "tests/good_test.sql", upstream.dbt_name
+    )
+    bad = _make_test_node("test.pkg.bad_test", "tests/bad_test.sql", upstream.dbt_name)
+    all_nodes_map = {
+        upstream.dbt_name: upstream,
+        good.dbt_name: good,
+        bad.dbt_name: bad,
+    }
+
+    original_get_upstreams_for_test = dbt_common.get_upstreams_for_test
+
+    def fake_get_upstreams_for_test(
+        test_node, all_nodes_map, platform_instance, environment
+    ):
+        if test_node.dbt_name == bad.dbt_name:
+            raise RuntimeError("simulated emission crash")
+        return original_get_upstreams_for_test(
+            test_node=test_node,
+            all_nodes_map=all_nodes_map,
+            platform_instance=platform_instance,
+            environment=environment,
+        )
+
+    monkeypatch.setattr(
+        dbt_common, "get_upstreams_for_test", fake_get_upstreams_for_test
+    )
+
+    mcps = list(
+        source.create_test_entity_mcps(
+            test_nodes=[good, bad],
+            extra_custom_props={},
+            all_nodes_map=all_nodes_map,
+        )
+    )
+
+    assert mcps, "good test's assertion MCPs should still be produced"
+    assert source.report.node_emission_failures == 1
+
+    [failure_entry] = source.report.node_emission_failures_list
+    assert bad.dbt_name in failure_entry
+    assert "tests/bad_test.sql" in failure_entry

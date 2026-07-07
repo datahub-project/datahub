@@ -309,6 +309,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Per-model failure isolation counters. A model that hits one of these
     # boundaries is skipped (or degraded), but ingestion continues.
+    # node_emission_failures counts failed emission attempts, not unique
+    # models: a node can independently fail in more than one emission loop
+    # (dbt platform, target platform, test assertions) and be counted once
+    # per loop it failed in.
     node_extraction_failures: int = 0
     node_extraction_failures_list: LossyList[str] = field(default_factory=LossyList)
     node_cll_failures: int = 0
@@ -1469,13 +1473,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         *,
         title: str,
         message: str,
-        counter_attr: str,
-        list_attr: str,
+        kind: Literal["cll", "emission"],
     ) -> None:
         context = self._node_context(node)
         self.report.warning(title=title, message=message, context=context, exc=exc)
-        setattr(self.report, counter_attr, getattr(self.report, counter_attr) + 1)
-        getattr(self.report, list_attr).append(context)
+        if kind == "cll":
+            self.report.node_cll_failures += 1
+            self.report.node_cll_failures_list.append(context)
+        elif kind == "emission":
+            self.report.node_emission_failures += 1
+            self.report.node_emission_failures_list.append(context)
 
     def get_excluded_workunit_processors(self):
         from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
@@ -1674,8 +1681,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     e,
                     title="Failed to emit metadata for model",
                     message="Failed to emit test assertion metadata for this model; some or all of its workunits may be missing.",
-                    counter_attr="node_emission_failures",
-                    list_attr="node_emission_failures_list",
+                    kind="emission",
                 )
                 continue
 
@@ -2226,8 +2232,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 continue
 
+            node = all_nodes_map[dbt_name]
             try:
-                node = all_nodes_map[dbt_name]
                 logger.debug(f"Processing CLL/schemas for {self._node_context(node)}")
 
                 target_node_urn = None
@@ -2448,15 +2454,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     e,
                     title="Failed to infer schema/lineage for model",
                     message="Failed to infer schema or column-level lineage for this model; it will keep whatever columns/lineage it already had.",
-                    counter_attr="node_cll_failures",
-                    list_attr="node_cll_failures_list",
+                    kind="cll",
                 )
-                continue
-
-            if (i + 1) % 1000 == 0:
-                logger.info(
-                    f"Processed {i + 1}/{total_nodes} models for schema+lineage"
-                )
+            finally:
+                # In a `finally` block (rather than after the try/except) so a
+                # failure on a milestone index doesn't silently skip this log line.
+                if (i + 1) % 1000 == 0:
+                    logger.info(
+                        f"Processed {i + 1}/{total_nodes} models for schema+lineage"
+                    )
 
         logger.info(
             f"Completed schema inference and column-level lineage for {total_nodes} nodes"
@@ -2502,20 +2508,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
-        try:
-            sql_result = sqlglot_lineage(
-                preprocessed_sql,
-                schema_resolver=schema_resolver,
-                override_dialect=sql_dialect,
-            )
-        except Exception as e:
-            self.report.sql_parser_table_errors += 1
-            logger.debug(
-                f"sqlglot_lineage crashed while parsing {node.dbt_name}: {e}",
-                exc_info=True,
-            )
-            return SqlParsingResult.make_from_error(e)
-
+        # sqlglot_lineage already catches Exception internally (returning a
+        # degraded SqlParsingResult) and special-cases the native Rust-tokenizer
+        # PanicException, so no wrapper is needed here. Any other failure in this
+        # method's surrounding code (CTE mapping, post-processing, etc.) is still
+        # caught one level up by the per-node try/except in
+        # _infer_schemas_and_update_cll.
+        sql_result = sqlglot_lineage(
+            preprocessed_sql,
+            schema_resolver=schema_resolver,
+            override_dialect=sql_dialect,
+        )
         if sql_result.debug_info.table_error:
             self.report.sql_parser_table_errors += 1
             logger.info(
@@ -2709,8 +2712,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     e,
                     title="Failed to emit metadata for model",
                     message="Failed to emit dbt-platform metadata for this model; some or all of its workunits may be missing.",
-                    counter_attr="node_emission_failures",
-                    list_attr="node_emission_failures_list",
+                    kind="emission",
                 )
                 continue
 
@@ -3005,8 +3007,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     e,
                     title="Failed to emit metadata for model",
                     message="Failed to emit target-platform metadata for this model; some or all of its workunits may be missing.",
-                    counter_attr="node_emission_failures",
-                    list_attr="node_emission_failures_list",
+                    kind="emission",
                 )
                 continue
 
