@@ -1652,6 +1652,41 @@ class TestStreamingQueryReconstruction:
             assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
             assert source.report.num_queries_truncated == 0
 
+    def test_reconstruct_queries_streaming_truncation_does_not_leak_into_next_query(
+        self,
+    ):
+        """A truncated query must not corrupt the query that follows it: the per-query
+        buffer and the truncated flag are reset on the next query_id, so a normal query
+        after an oversized one reconstructs fully and is not counted as truncated."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+            # A normal multi-row query following the oversized one.
+            entries += [
+                self._create_mock_entry("Q2", "SELECT a ", 1, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "FROM t", 2, "2024-01-01 10:01:00"),
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 2
+            # Q1 truncated to the cap; Q2 reconstructed whole with its own metadata.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert reconstructed_queries[1].query == "SELECT a FROM t"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+            # Only Q1 counts as truncated - the flag reset for Q2.
+            assert source.report.num_queries_truncated == 1
+
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
         config = TeradataConfig.model_validate(_base_config())
