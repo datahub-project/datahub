@@ -21,7 +21,8 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.ratelimit.ClientClass;
 import com.linkedin.metadata.ratelimit.ClientClassifier;
-import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitHeaderWriter;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
@@ -228,9 +229,9 @@ public class GraphQLController {
     // Single parse of the query for the entire rate-limit path: the query/display name, the
     // rate-limit identity, and the top-level resolver names all come from this one analyze() call —
     // no re-parsing the document per consumer.
-    final GraphQLOperationNameResolver.RateLimitQuery rlq =
-        GraphQLOperationNameResolver.analyze(operationName, query);
-    final String resolvedOperationName = rlq.queryName();
+    final GraphqlDocumentMetadata documentMetadata =
+        GraphqlDocumentAnalyzer.analyze(operationName, query, null);
+    final String resolvedOperationName = documentMetadata.resolvedOperationName();
 
     /*
      * Extract "variables" map
@@ -287,7 +288,7 @@ public class GraphQLController {
         rateLimitEngine.evaluateAndAcquireGraphQL(
             request.getRequestURI(),
             request.getMethod(),
-            rlq.identity(),
+            documentMetadata.rateLimitIdentity(),
             rateLimitActorUrn,
             clientClass);
     if (!rateLimitDecision.isAllowed()) {
@@ -301,7 +302,7 @@ public class GraphQLController {
         applyHeavyResolverGate(
             rateLimitEngine,
             rateLimitDecision,
-            rlq.topLevelFields(),
+            documentMetadata.allRootFields(),
             systemActor,
             rateLimitActorUrn,
             clientClass);

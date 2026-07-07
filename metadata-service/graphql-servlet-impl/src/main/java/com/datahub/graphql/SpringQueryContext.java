@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
-import com.linkedin.metadata.ratelimit.GraphQLOperationNameResolver;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +17,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import org.springframework.util.StringUtils;
 
 @Getter
 public class SpringQueryContext implements QueryContext {
@@ -44,8 +45,11 @@ public class SpringQueryContext implements QueryContext {
     this.authentication = authentication;
     this.authorizer = authorizer;
 
-    // operationName is an optional field only required if multiple operations are present
-    this.queryName = GraphQLOperationNameResolver.resolve(operationName, jsonQuery);
+    // GraphQLController already parsed the document once; operationName is the resolved name.
+    this.queryName =
+        StringUtils.hasText(operationName)
+            ? operationName
+            : GraphqlDocumentMetadata.ANONYMOUS_OPERATION_NAME;
 
     GraphQLConfiguration graphQL =
         Objects.requireNonNull(
