@@ -2,6 +2,7 @@ import { SelectOption } from '@components';
 import deDE from 'antd/lib/locale/de_DE';
 import enUS from 'antd/lib/locale/en_US';
 import esES from 'antd/lib/locale/es_ES';
+import frFR from 'antd/lib/locale/fr_FR';
 import itIT from 'antd/lib/locale/it_IT';
 import ptBR from 'antd/lib/locale/pt_BR';
 
@@ -35,6 +36,13 @@ export const PT_BR_LOCALE_CONFIG: LocaleConfig = {
     label: 'Português (Brasil) (Beta)',
 };
 
+export const FR_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'fr',
+    antd: frFR,
+    dayjs: 'fr',
+    label: 'Français (Beta)',
+};
+
 export const IT_LOCALE_CONFIG: LocaleConfig = {
     lang: 'it',
     antd: itIT,
@@ -47,6 +55,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     de: DE_LOCALE_CONFIG,
     es: ES_LOCALE_CONFIG,
     'pt-BR': PT_BR_LOCALE_CONFIG,
+    fr: FR_LOCALE_CONFIG,
     it: IT_LOCALE_CONFIG,
 };
 
@@ -55,6 +64,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     DE_LOCALE_CONFIG,
     ES_LOCALE_CONFIG,
     PT_BR_LOCALE_CONFIG,
+    FR_LOCALE_CONFIG,
     IT_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
