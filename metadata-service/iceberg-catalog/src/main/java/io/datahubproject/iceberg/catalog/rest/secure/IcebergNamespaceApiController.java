@@ -134,7 +134,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
       @PathVariable("namespace") String namespace) {
     log.info("DROP NAMESPACE REQUEST {}.{}", platformInstance, namespace);
 
-    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
+    OperationContext operationContext = opContext(request, UsageOperation.ENTITY_DELETE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(

@@ -138,7 +138,7 @@ public class IcebergViewApiController extends AbstractIcebergController {
       @PathVariable("view") String view) {
     log.info("DROP VIEW REQUEST {}.{}.{}", platformInstance, namespace, view);
 
-    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
+    OperationContext operationContext = opContext(request, UsageOperation.ENTITY_DELETE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(

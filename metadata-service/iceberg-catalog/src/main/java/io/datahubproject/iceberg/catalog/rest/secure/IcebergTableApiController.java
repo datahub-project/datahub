@@ -209,7 +209,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
         table,
         purgeRequested);
 
-    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
+    OperationContext operationContext = opContext(request, UsageOperation.ENTITY_DELETE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
