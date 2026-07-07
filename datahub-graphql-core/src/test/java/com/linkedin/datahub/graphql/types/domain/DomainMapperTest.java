@@ -10,8 +10,10 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.CustomPropertiesEntry;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.domain.DomainProperties;
@@ -23,7 +25,9 @@ import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.mockito.MockedStatic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -124,6 +128,35 @@ public class DomainMapperTest {
       assertNotNull(result.getStructuredProperties());
       assertNotNull(result.getForms());
       assertNotNull(result.getDisplayProperties());
+    }
+  }
+
+  @Test
+  public void testMapDomainCustomProperties() throws URISyntaxException {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    DomainProperties domainProperties = new DomainProperties();
+    domainProperties.setName(TEST_DOMAIN_NAME);
+    StringMap customProperties = new StringMap();
+    customProperties.put("tier", "gold");
+    customProperties.put("team", "growth");
+    domainProperties.setCustomProperties(customProperties);
+    addAspectToResponse(entityResponse, DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn))).thenReturn(true);
+
+      Domain result = DomainMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getProperties());
+      List<CustomPropertiesEntry> mappedProperties = result.getProperties().getCustomProperties();
+      assertNotNull(mappedProperties);
+      Map<String, String> asMap =
+          mappedProperties.stream()
+              .collect(
+                  Collectors.toMap(CustomPropertiesEntry::getKey, CustomPropertiesEntry::getValue));
+      assertEquals(asMap.get("tier"), "gold");
+      assertEquals(asMap.get("team"), "growth");
     }
   }
 
