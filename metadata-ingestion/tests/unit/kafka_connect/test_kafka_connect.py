@@ -871,20 +871,33 @@ class TestIcebergSinkConnector:
         tables = {lin.target_dataset for lin in lineages}
         assert tables == {"mydb.events", "mydb.users"}
 
-    def test_platform_is_iceberg(self) -> None:
-        """Test that get_platform returns 'iceberg'."""
+    def test_iceberg_sink_stale_topic_excluded_when_runtime_topics_available(
+        self,
+    ) -> None:
+        """When runtime topics are available, intersect to exclude stale topics."""
         connector_config: Dict[str, str] = {
             "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
             "iceberg.tables": "mydb.events",
-            "topics": "events",
+            "topics": "events,user_updates",
         }
 
-        manifest = self.create_mock_manifest(connector_config)
+        manifest = ConnectorManifest(
+            name="iceberg-sink-with-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["events", "user_updates", "deprecated_topic"],
+        )
         config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector = IcebergSinkConnector(manifest, config, report)
-        assert connector.get_platform() == "iceberg"
+        lineages: List = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "events" in source_datasets
+        assert "user_updates" in source_datasets
+        assert "deprecated_topic" not in source_datasets
 
 
 class TestJDBCSourceConnector:
