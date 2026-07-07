@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import logging
-import re
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -733,26 +732,6 @@ class DremioAPIOperations:
 
         return dataset_list
 
-    def get_pattern_condition(
-        self, patterns: Union[str, List[str]], field: str, allow: bool = True
-    ) -> str:
-        if not patterns:
-            return ""
-
-        if isinstance(patterns, str):
-            patterns = [patterns.upper()]
-
-        if ".*" in patterns and allow:
-            return ""
-
-        patterns = [p.upper() for p in patterns if p != ".*"]
-        if not patterns:
-            return ""
-
-        operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        pattern_str = "|".join(f"({p})" for p in patterns)
-        return f"AND {operator}({field}, '{pattern_str}')"
-
     def _get_view_definition_select(self) -> str:
         # EE/Cloud expose the SQL as SYS.VIEWS.SQL_DEFINITION; Community as
         # INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION.
@@ -761,9 +740,9 @@ class DremioAPIOperations:
             if self.edition == DremioEdition.COMMUNITY
             else "SQL_DEFINITION"
         )
-        if self.max_view_definition_length is not None:
-            return f"SUBSTR({source_column}, 1, {self.max_view_definition_length})"
-        return source_column
+        return DremioSQLQueries.view_definition_select(
+            source_column, self.max_view_definition_length
+        )
 
     def _get_view_definition_query(self) -> str:
         if self.edition == DremioEdition.ENTERPRISE:
@@ -858,12 +837,12 @@ class DremioAPIOperations:
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE_GLOBAL
 
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+        schema_field = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
-        schema_condition = self.get_pattern_condition(
+        schema_condition = DremioSQLQueries.pattern_condition(
             self.allow_schema_pattern, schema_field
         )
-        deny_schema_condition = self.get_pattern_condition(
+        deny_schema_condition = DremioSQLQueries.pattern_condition(
             self.deny_schema_pattern, schema_field, allow=False
         )
 
@@ -920,40 +899,6 @@ class DremioAPIOperations:
                 names.append(name)
         return names
 
-    def _build_container_schema_condition(
-        self, container_name: str, schema_field: str
-    ) -> str:
-        """Build an `AND REGEXP_LIKE(...)` predicate scoping to one root container.
-
-        This targets the derived (CONCAT/UPPER-wrapped) schema field in the outer
-        query, so it does NOT push into the info-schema scan — it bounds the
-        system-table side and the final sort. `_build_container_columns_filter`
-        handles the pushable half. Matches the container root and any nested schema
-        path beneath it; the name is regex-escaped so special characters match
-        literally.
-        """
-        pattern = f"{re.escape(container_name)}(\\..*)?"
-        return self.get_pattern_condition([pattern], schema_field)
-
-    def _build_container_columns_filter(self, container_name: str, column: str) -> str:
-        """Build a pushable `TABLE_SCHEMA` predicate scoping to one root container.
-
-        Emitted directly inside the INFORMATION_SCHEMA.COLUMNS scan so Dremio's
-        InfoSchemaPushFilterIntoScan rule pushes it down (bounding the dominant
-        scan). Dremio only pushes plain `=`/`LIKE` on a bare `TABLE_SCHEMA`
-        (optionally `UPPER`-wrapped) — never `REGEXP_LIKE` or CONCAT-wrapped
-        columns — so we match the container root with equality and nested schemas
-        with a `LIKE 'root.%'`. LIKE wildcards in the name are escaped.
-        """
-        literal = container_name.upper().replace("'", "''")
-        like_literal = (
-            literal.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        )
-        return (
-            f"AND (UPPER({column}) = '{literal}' "
-            f"OR UPPER({column}) LIKE '{like_literal}.%' ESCAPE '\\')"
-        )
-
     def _get_all_tables_partitioned_by_container(
         self,
         query_template: str,
@@ -989,11 +934,11 @@ class DremioAPIOperations:
             f"container(s) to bound Dremio-side query time."
         )
         for container_name in container_names:
-            container_condition = self._build_container_schema_condition(
+            container_condition = DremioSQLQueries.container_schema_condition(
                 container_name, schema_field
             )
             combined_condition = f"{schema_condition} {container_condition}".strip()
-            columns_schema_filter = self._build_container_columns_filter(
+            columns_schema_filter = DremioSQLQueries.container_columns_filter(
                 container_name, columns_schema_column
             )
 

@@ -114,8 +114,8 @@ class TestDremioPartitioning:
             == "AND REGEXP_LIKE(x, 'Y')"
         )
 
-    def test_outer_condition_matches_root_and_nested_paths(self, dremio_api):
-        condition = dremio_api._build_container_schema_condition(
+    def test_outer_condition_matches_root_and_nested_paths(self):
+        condition = DremioSQLQueries.container_schema_condition(
             "my.source", "UPPER(TABLE_SCHEMA)"
         )
         # Dot in the name is regex-escaped; nested paths are matched via (\..*)?.
@@ -123,19 +123,19 @@ class TestDremioPartitioning:
         assert "MY\\.SOURCE" in condition
         assert "(\\..*)?" in condition
 
-    def test_columns_filter_is_pushdown_shaped(self, dremio_api):
+    def test_columns_filter_is_pushdown_shaped(self):
         # Dremio only pushes plain =/LIKE on a bare (UPPER-wrapped) TABLE_SCHEMA
         # into the info-schema scan; REGEXP_LIKE / CONCAT wrapping is not pushed.
-        f = dremio_api._build_container_columns_filter("My_Source", "TABLE_SCHEMA")
+        f = DremioSQLQueries.container_columns_filter("My_Source", "TABLE_SCHEMA")
         assert "REGEXP_LIKE" not in f
         assert "UPPER(TABLE_SCHEMA) = 'MY_SOURCE'" in f
         # LIKE captures nested schemas; the '_' wildcard in the name is escaped.
         assert "LIKE 'MY\\_SOURCE.%'" in f
         assert "ESCAPE '\\'" in f
 
-    def test_columns_filter_qualifies_community_column(self, dremio_api):
+    def test_columns_filter_qualifies_community_column(self):
         # Community joins COLUMNS directly, so the column must be qualified (C.).
-        f = dremio_api._build_container_columns_filter("src", "C.TABLE_SCHEMA")
+        f = DremioSQLQueries.container_columns_filter("src", "C.TABLE_SCHEMA")
         assert "UPPER(C.TABLE_SCHEMA) = 'SRC'" in f
 
     def test_root_container_names_filters_and_maps(self, dremio_api):

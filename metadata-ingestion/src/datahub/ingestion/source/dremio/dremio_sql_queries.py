@@ -1,5 +1,6 @@
+import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional, Union
 
 
 class DremioSQLQueries:
@@ -305,6 +306,77 @@ class DremioSQLQueries:
             TABLE_SCHEMA ASC
         {limit_clause}
         """
+
+    # Normalized schema field for the pattern filters below: strips Dremio's
+    # array-style "[a, b]" path formatting down to dotted, UPPER-cased text so
+    # REGEXP_LIKE patterns can match it consistently.
+    SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+
+    @staticmethod
+    def pattern_condition(
+        patterns: Union[str, List[str]], field: str, allow: bool = True
+    ) -> str:
+        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
+        if not patterns:
+            return ""
+
+        if isinstance(patterns, str):
+            patterns = [patterns.upper()]
+
+        if ".*" in patterns and allow:
+            return ""
+
+        patterns = [p.upper() for p in patterns if p != ".*"]
+        if not patterns:
+            return ""
+
+        operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
+        pattern_str = "|".join(f"({p})" for p in patterns)
+        return f"AND {operator}({field}, '{pattern_str}')"
+
+    @staticmethod
+    def container_schema_condition(container_name: str, field: str) -> str:
+        """Build an `AND REGEXP_LIKE(...)` predicate scoping to one root container.
+
+        Targets the derived (CONCAT/UPPER-wrapped) schema field in the outer
+        query, so it does NOT push into the info-schema scan — it bounds the
+        system-table side and the final sort. `container_columns_filter` handles
+        the pushable half. Matches the container root and any nested schema path
+        beneath it; the name is regex-escaped so special characters match literally.
+        """
+        pattern = f"{re.escape(container_name)}(\\..*)?"
+        return DremioSQLQueries.pattern_condition([pattern], field)
+
+    @staticmethod
+    def container_columns_filter(container_name: str, column: str) -> str:
+        """Build a pushable `TABLE_SCHEMA` predicate scoping to one root container.
+
+        Emitted directly inside the INFORMATION_SCHEMA.COLUMNS scan so Dremio's
+        InfoSchemaPushFilterIntoScan rule pushes it down (bounding the dominant
+        scan). Dremio only pushes plain `=`/`LIKE` on a bare `TABLE_SCHEMA`
+        (optionally `UPPER`-wrapped) — never `REGEXP_LIKE` or CONCAT-wrapped
+        columns — so we match the container root with equality and nested schemas
+        with a `LIKE 'root.%'`. LIKE wildcards in the name are escaped.
+        """
+        literal = container_name.upper().replace("'", "''")
+        like_literal = (
+            literal.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        return (
+            f"AND (UPPER({column}) = '{literal}' "
+            f"OR UPPER({column}) LIKE '{like_literal}.%' ESCAPE '\\')"
+        )
+
+    @staticmethod
+    def view_definition_select(source_column: str, max_length: Optional[int]) -> str:
+        """Return the VIEW_DEFINITION select expression, optionally SUBSTR-capped.
+
+        Capping happens server-side so an oversized single definition can't blow
+        the result's VARCHAR vector past Dremio's 2 GiB limit.
+        """
+        if max_length is not None:
+            return f"SUBSTR({source_column}, 1, {max_length})"
+        return source_column
 
     @staticmethod
     def _get_default_start_timestamp_millis() -> str:
