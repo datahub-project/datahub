@@ -1155,10 +1155,23 @@ class BaseConnector:
             Extracted table name (e.g., "database.schema.table") or None if parsing fails
         """
         try:
-            return DatasetUrn.from_string(urn).name
+            name = DatasetUrn.from_string(urn).name
         except Exception as e:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
+
+        # DataHub bakes the platform_instance into the URN name as a leading
+        # `{platform_instance}.` segment. Strip it so callers see the logical
+        # db.schema.table name; otherwise table discovery and pattern matching
+        # break for sources ingested with a platform_instance.
+        # platform_instance is not part of SchemaResolverInterface, so read it
+        # defensively for interface-only implementations that omit it.
+        platform_instance = getattr(self.schema_resolver, "platform_instance", None)
+        if platform_instance:
+            prefix = f"{platform_instance}."
+            if name.lower().startswith(prefix.lower()):
+                name = name[len(prefix) :]
+        return name
 
     def _extract_lineages_from_schema_resolver(
         self,
