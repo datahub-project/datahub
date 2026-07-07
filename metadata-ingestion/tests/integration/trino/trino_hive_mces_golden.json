@@ -24,12 +24,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -129,12 +133,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3145,12 +3153,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3161,12 +3173,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3177,12 +3193,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3193,12 +3213,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3209,12 +3233,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3225,12 +3253,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3241,12 +3273,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3257,12 +3293,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3273,12 +3313,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3289,12 +3333,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3305,12 +3353,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,

@@ -25,12 +25,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -137,12 +141,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3368,12 +3376,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3384,12 +3396,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3400,12 +3416,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3416,12 +3436,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3432,12 +3456,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3448,12 +3476,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3464,12 +3496,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3480,12 +3516,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3496,12 +3536,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3512,12 +3556,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3528,12 +3576,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_7cc0ca7322ce130c18da2dd375eb840cb2be4b06189cc699f5e03f97efb9841e",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,

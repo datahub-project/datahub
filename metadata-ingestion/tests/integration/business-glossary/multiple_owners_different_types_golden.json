@@ -106,12 +106,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Different-Owner-Types",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -122,12 +126,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Different-Owner-Types.Mixed-Ownership",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

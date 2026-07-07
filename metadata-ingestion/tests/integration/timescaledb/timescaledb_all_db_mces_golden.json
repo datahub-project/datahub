@@ -24,12 +24,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800359,
@@ -129,12 +133,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:15565829339a965a2cee204fabcba176",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800369,
@@ -3941,12 +3949,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:4a782e1759c9cc22659299aac910bce8",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800467,
@@ -4046,12 +4058,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:bb241af4f113ba30234dc8b93bbdb9bc",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800477,
@@ -7277,12 +7293,16 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7293,12 +7313,16 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7309,12 +7333,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),add_columnstore_policy_ca33884f60fb51fe9a739553fbed4d79)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7325,12 +7353,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),add_process_hypertable_invalidations_policy_c389aaf349634bdb1092eeb1879ba920)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7341,12 +7373,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),attach_chunk_9268c5f07ac034f9b9bdc3a557ae865e)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7357,12 +7393,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),cagg_migrate_9f216394e1622362a0796b239e263198)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7373,12 +7413,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),convert_to_columnstore_f32de62d595db0e53c8472b79c148ba1)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7389,12 +7433,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),convert_to_rowstore_d20462fb79f98ec761c24f7cf06377f8)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800529,
@@ -7405,12 +7453,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),detach_chunk_9341d0ce03dc364f2fcf98f8319612d7)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7421,12 +7473,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),merge_chunks_7fb0bf25a4c513e303d926ceaefddded)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7437,12 +7493,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),merge_chunks_c0b5e9add8a366c7a6e3c3f80ee24bc5)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7453,12 +7513,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),recompress_chunk_1b884815450825afea791fafaccb8805)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7469,12 +7533,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),refresh_all_aggregates)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7485,12 +7553,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),refresh_continuous_aggregate_5df2375a1a4b3bed1c370d53bcc069ed)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7501,12 +7573,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),remove_columnstore_policy_581f6e4400361f9cccc595df23869eab)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7517,12 +7593,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),remove_process_hypertable_invalidations_policy_581f6e4400361f9cccc595df23869eab)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800530,
@@ -7533,12 +7613,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),run_job_6fa8b11c51c874ff216c34935b2674bc)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7549,12 +7633,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.stored_procedures,PROD),split_chunk_1fc5aedfff3bf9d5c63a178a74fe5a78)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7565,12 +7653,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),add_columnstore_policy_ca33884f60fb51fe9a739553fbed4d79)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7581,12 +7673,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),add_process_hypertable_invalidations_policy_c389aaf349634bdb1092eeb1879ba920)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7597,12 +7693,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),attach_chunk_9268c5f07ac034f9b9bdc3a557ae865e)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7613,12 +7713,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),cagg_migrate_9f216394e1622362a0796b239e263198)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7629,12 +7733,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),convert_to_columnstore_f32de62d595db0e53c8472b79c148ba1)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7645,12 +7753,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),convert_to_rowstore_d20462fb79f98ec761c24f7cf06377f8)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800531,
@@ -7661,12 +7773,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),detach_chunk_9341d0ce03dc364f2fcf98f8319612d7)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7677,12 +7793,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),merge_chunks_7fb0bf25a4c513e303d926ceaefddded)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7693,12 +7813,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),merge_chunks_c0b5e9add8a366c7a6e3c3f80ee24bc5)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7709,12 +7833,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),recompress_chunk_1b884815450825afea791fafaccb8805)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7725,12 +7853,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),refresh_continuous_aggregate_5df2375a1a4b3bed1c370d53bcc069ed)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7741,12 +7873,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),remove_columnstore_policy_581f6e4400361f9cccc595df23869eab)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7757,12 +7893,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),remove_process_hypertable_invalidations_policy_581f6e4400361f9cccc595df23869eab)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7773,12 +7913,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),run_job_6fa8b11c51c874ff216c34935b2674bc)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7789,12 +7933,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb_secondary.public.stored_procedures,PROD),split_chunk_1fc5aedfff3bf9d5c63a178a74fe5a78)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800532,
@@ -7805,12 +7953,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_3a678ff3e8260ec7d8c70739c0145ec9fe4c4e13677ac882d4bb8908b94341a6",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,
@@ -7821,12 +7973,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_441efe6093076a91d4e0084e9bb8c5491a22256ec322aa31e15310a6fb9ac1a0",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,
@@ -7837,12 +7993,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_5732d9d70921915869ec0c07d4a685f55b97928b44c404dfd17f3d211f02865e",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,
@@ -7853,12 +8013,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_80d8840bb7f19bf9bea20af906c6474d99c42191ebc0294ccd0b2891ab2f1753",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,
@@ -7869,12 +8033,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_cf82e9c3bdf9a34e55648c4e6c0e16361a1507f2d3aaf7232ff549669e0887e0",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,
@@ -7885,12 +8053,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_e7166e876aeac89cb9652e0d8296a3d83a46a20d0d3ab7093403fdcf9340461c",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705312800533,

@@ -24,12 +24,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:3fff16246779511c39a4c24e01a74004",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -129,12 +133,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -337,12 +345,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,_sys_bic.acme.analytics.salesoverview,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -470,12 +482,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,_sys_bic.acme.scripts.salesscript,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -846,12 +862,16 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -862,12 +882,16 @@
 {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -878,12 +902,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:553967ddefe953894eaa7ffd460f3ccacf8777c4e500a688b4fea8296a2b6448",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
@@ -894,12 +922,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:aa38dd2ea7a551f9aef3d93d9ec6faab177ca39f1c699e65186b178ebb71da8e",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,

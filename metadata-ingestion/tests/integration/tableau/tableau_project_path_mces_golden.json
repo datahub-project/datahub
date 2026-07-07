@@ -22,12 +22,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -129,12 +133,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -219,12 +227,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,

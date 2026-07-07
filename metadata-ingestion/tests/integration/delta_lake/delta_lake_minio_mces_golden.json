@@ -153,12 +153,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,
@@ -257,12 +261,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1672531200000,

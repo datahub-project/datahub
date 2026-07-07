@@ -320,12 +320,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:Finance Department",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -336,12 +340,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:HR Department",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -352,12 +360,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:simpons-group",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -368,12 +380,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:bsimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -384,12 +400,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:ehaas",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -400,12 +420,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:hbevan",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -416,12 +440,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:hsimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -432,12 +460,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:lsimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -448,12 +480,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:msimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

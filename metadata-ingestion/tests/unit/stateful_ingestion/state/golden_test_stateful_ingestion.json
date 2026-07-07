@@ -89,31 +89,40 @@
 {
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:478810e859f870a54f72c681f41af619",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586862000000,
         "runId": "dummy-test-stateful-ingestion",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "dummy_stateful"
     }
 },
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:query1",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586862000000,
         "runId": "dummy-test-stateful-ingestion",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "dummy_stateful"

@@ -29,12 +29,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:d5f80b232b35c1ee7e6933dd8aa1123c",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,

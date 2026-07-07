@@ -88,12 +88,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:bsimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1660478400000,
@@ -105,12 +109,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:hsimpson",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1660478400000,

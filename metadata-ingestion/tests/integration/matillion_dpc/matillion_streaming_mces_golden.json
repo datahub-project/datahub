@@ -26,12 +26,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1704067200107,
@@ -131,12 +135,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:709029303555c6af1711e8a33aeaad86",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1704067200447,
@@ -147,12 +155,16 @@
 {
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(matillion,CDC Project.a04b086dec9c11e04694560c90426346,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1704067200449,

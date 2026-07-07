@@ -46,12 +46,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:Finance Department",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
@@ -63,12 +67,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:HR Department",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,

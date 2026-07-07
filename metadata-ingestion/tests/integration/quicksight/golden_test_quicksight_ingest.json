@@ -799,12 +799,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:sales-team",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142215,
@@ -1070,12 +1074,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:jane@acme.com",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142216,
@@ -1102,12 +1110,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:76bbe3ad5b43145bd94b9987081af882",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142217,
@@ -1155,12 +1167,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:9de10872c74b460e3ba66c5c811445ef",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142217,
@@ -1309,12 +1325,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-orders,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142217,
@@ -1351,12 +1371,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-revenue,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142218,
@@ -1450,12 +1474,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:quicksight,123456789012.dataset-upload,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1780922142218,
@@ -1798,12 +1826,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(quicksight,123456789012.analysis-sales_v-bar)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111139,
@@ -1876,12 +1908,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(quicksight,123456789012.dashboard-sales_v-table)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111139,
@@ -1985,12 +2021,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(quicksight,123456789012.analysis-sales)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111140,
@@ -2001,12 +2041,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(quicksight,123456789012.analysis-sales_v-kpi)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111139,
@@ -2017,12 +2061,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(quicksight,123456789012.analysis-customer_v-line)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111139,
@@ -2033,12 +2081,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(quicksight,123456789012.dashboard-sales_v-pie)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111139,
@@ -2049,12 +2101,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(quicksight,123456789012.analysis-customer)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111140,
@@ -2065,12 +2121,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(quicksight,123456789012.dashboard-sales)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1781621111140,

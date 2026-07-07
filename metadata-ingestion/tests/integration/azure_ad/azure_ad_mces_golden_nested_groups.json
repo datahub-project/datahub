@@ -42,12 +42,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:nestedgroupDisplayName1",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,
@@ -117,12 +121,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:foobar@acryl.io",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,
@@ -192,12 +200,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,
@@ -267,12 +279,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,
@@ -342,12 +358,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,
@@ -417,12 +437,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629813600000,

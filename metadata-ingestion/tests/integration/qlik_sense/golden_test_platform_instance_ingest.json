@@ -32,12 +32,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:c2b8d174a817b41fbbd501fd4a84248f",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546103,
@@ -160,12 +164,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:3a7e869ba9041a0b4a4185df655b4c22",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546122,
@@ -263,12 +271,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:784b26286a16989c6329d372ccc2f97e",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546127,
@@ -381,12 +393,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(qlik-sense,qlik_sense_platform.f4f57386-263a-4ec9-b40c-abcd2467f423)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546132,
@@ -520,12 +536,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(qlik-sense,qlik_sense_platform.QYUUb)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546137,
@@ -620,12 +640,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qlik_sense_platform.qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#jokg8u7cvizvgxwrfsyxru0ykr2rl2wfd5djph9bj5q#rrg6-1cerbo4ews9o--qup3toxhm5molizgy6_wcxje,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546139,
@@ -823,12 +847,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qlik_sense_platform.qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#_s2ws5rvxaarzazlmghwjhngq8znjagxptal6jlzoaw#fcj-h2tvmayi--l6fn0vqgpthf8kb2rj7sj0_ysrhgc,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546147,
@@ -1049,12 +1077,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qlik_sense_platform.659d0e41d1b0ecce6eebc9b1.ipl_matches_2022.csv,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546155,
@@ -1283,12 +1315,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qlik_sense_platform.personal-space-id.test_tabl,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1707327546163,

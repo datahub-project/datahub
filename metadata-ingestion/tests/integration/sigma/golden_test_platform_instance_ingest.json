@@ -2,12 +2,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523763,
@@ -64,12 +68,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,cloud_instance.Ml9C5ezT5W)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523833,
@@ -143,12 +151,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.5LqGLu14qUnqh3cN6wRJBd,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523781,
@@ -330,12 +342,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523784,
@@ -498,12 +514,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523787,
@@ -776,12 +796,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,cloud_instance.kH0MeihtGs)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523803,
@@ -1161,12 +1185,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.DFSieiAcgo)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523838,
@@ -1298,12 +1326,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523872,
@@ -1522,12 +1554,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,cloud_instance.tQJu5N1l81)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1732608523866,

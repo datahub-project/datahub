@@ -42,12 +42,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:All%20Employees",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -98,12 +102,16 @@
 {
     "entityType": "corpGroup",
     "entityUrn": "urn:li:corpGroup:Engineering",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -177,12 +185,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:bad.boyjones",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -261,12 +273,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:mary.jane",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -345,12 +361,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:mary.jane",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -424,12 +444,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:good.test",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -508,12 +532,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:bad.girlriri",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,
@@ -587,12 +615,16 @@
 {
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:john.doe",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586865600000,

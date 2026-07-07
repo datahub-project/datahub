@@ -198,12 +198,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Single-Owner-Types",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -214,12 +218,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Data-Owner-Owned",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -230,12 +238,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Developer-Owned",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -246,12 +258,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Producer-Owned",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -262,12 +278,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Stakeholder-Owned",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

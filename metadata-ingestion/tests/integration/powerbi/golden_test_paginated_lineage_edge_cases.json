@@ -46,12 +46,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643851800000,
@@ -178,12 +182,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643851800000,
@@ -310,12 +318,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643851800000,
@@ -442,12 +454,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643851800000,
@@ -590,12 +606,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1643851800000,

@@ -5480,8 +5480,12 @@ class TestStatefulStaleRemovalIntegration:
 
         # Map status-bearing URNs by entity type. Every liveboard, answer,
         # and dataset URN we emit must have at least one status aspect.
+        # Auto-status workunits are now PATCH MCPs (MetadataChangeProposalClass),
+        # not MetadataChangeProposalWrapper, so check aspectName on both types.
         status_urns = {
-            wu.get_urn() for wu in workunits if _mcp(wu).aspectName == "status"
+            wu.get_urn()
+            for wu in workunits
+            if getattr(wu.metadata, "aspectName", None) == "status"
         }
         assert any("dashboard:(thoughtspot,lb-1)" in u for u in status_urns), (
             f"Liveboard status aspect missing — got URNs {status_urns}"

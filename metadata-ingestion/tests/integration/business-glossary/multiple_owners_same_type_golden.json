@@ -110,12 +110,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Multiple-Owners",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -126,12 +130,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Multiple-Owners.Multiple-Dev-Owners",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

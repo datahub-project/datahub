@@ -608,12 +608,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Classification",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -624,12 +628,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Clients-And-Accounts",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -640,12 +648,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:KPIs",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -656,12 +668,16 @@
 {
     "entityType": "glossaryNode",
     "entityUrn": "urn:li:glossaryNode:Personal-Information",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -672,12 +688,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Classification.Confidential",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -688,12 +708,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Classification.Highly-Confidential",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -704,12 +728,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Classification.Sensitive",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -720,12 +748,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Account",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -736,12 +768,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Balance",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -752,12 +788,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:KPIs.CSAT",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -768,12 +808,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Personal-Information.Address",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -784,12 +828,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Personal-Information.Email",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
@@ -800,12 +848,16 @@
 {
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Personal-Information.Gender",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,

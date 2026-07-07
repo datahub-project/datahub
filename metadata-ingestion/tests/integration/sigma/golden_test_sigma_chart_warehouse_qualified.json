@@ -2,12 +2,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,c4c4c4c4-0000-0000-0000-000000000001)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1778093627321,
@@ -116,12 +120,16 @@
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,chart-wh-page-01)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1778101862170,
@@ -132,12 +140,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,dmFedElem01)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1778093627323,
@@ -297,12 +309,16 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,legacySdElem01)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1778093627324,
@@ -428,12 +444,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1778093627326,

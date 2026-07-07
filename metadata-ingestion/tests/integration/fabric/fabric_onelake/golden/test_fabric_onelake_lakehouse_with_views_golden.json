@@ -530,12 +530,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:4cd19b5ecd3323c3e546bc983a6befb1",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705300200000,
@@ -597,12 +601,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705300200000,
@@ -613,12 +621,16 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:ebf61ea16adf27fdb96dbbb043307e36",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705300200000,
@@ -629,12 +641,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.lh-456.dbo.v_active_customers,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705300200000,
@@ -645,12 +661,16 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_b11da4266e24de154bd688e0ac7b1e2a8917ecd10adbd69af017548856aa2f32",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "status",
     "aspect": {
-        "json": {
-            "removed": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/removed",
+                "value": false
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
