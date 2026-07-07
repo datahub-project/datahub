@@ -567,7 +567,12 @@ class IcebergSinkConnector(BaseConnector):
         return []
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
-        return dict(self.connector_manifest.config)
+        sensitive_markers = ("secret", "token", "credential", "password", ".key")
+        return {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if not any(marker in k.lower() for marker in sensitive_markers)
+        }
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         try:
