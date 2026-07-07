@@ -506,7 +506,6 @@ class ClickHouseSinkConnector(BaseConnector):
 class IcebergSinkConnector(BaseConnector):
     @dataclass
     class IcebergParser:
-        tables: List[str]
         topics_to_tables: Dict[str, List[str]]
 
     def get_parser(self, connector_manifest: ConnectorManifest) -> IcebergParser:
@@ -547,7 +546,7 @@ class IcebergSinkConnector(BaseConnector):
         for topic in topic_list:
             topics_to_tables[topic] = tables if tables else []
 
-        return self.IcebergParser(tables=tables, topics_to_tables=topics_to_tables)
+        return self.IcebergParser(topics_to_tables=topics_to_tables)
 
     def get_topics_from_config(self) -> List[str]:
         config = self.connector_manifest.config
