@@ -219,6 +219,11 @@ class AutoResolveLineageUrnsProcessor(
         # upstreamLineage (table + fineGrained columns), dashboardInfo / chartInfo inputs,
         # and dataJobInputOutput inputs (dbt / Airflow / Spark). Other lineage aspects
         # don't target datasets or are the entity's own outputs (see the dev guide).
+        # Covering four aspects is cheap per work unit: get_aspect_of_type is one type
+        # check for MCE/MCPW (live aspect) and, for a raw MCP, short-circuits on aspectName
+        # before any deserialization — so a work unit is deserialized at most once (for the
+        # aspect it actually carries), and covering four vs. one adds only three constant
+        # comparisons. The one real cost, the up-front catalog load, is independent of this.
         # Callable[..., bool] (not Callable[[_Aspect], bool]): each normalizer takes a
         # specific aspect subtype, and function args are contravariant, so the precise
         # signature won't accept them in a heterogeneous table (mypy list-item error).
@@ -279,20 +284,17 @@ class AutoResolveLineageUrnsProcessor(
         a raw MCP is deserialized to inspect, and re-serialized (via _write_back_if_mcp)
         only when something actually changed.
         """
-        had_lineage = False
-        modified = False
+        # At most one of the four aspects is present per work unit (each belongs to a
+        # different entity type — dataset / dashboard / chart / dataJob — and a work unit
+        # targets one entity), so incrementing inside the loop still counts work units.
         for aspect_cls, normalize in self._normalizers:
             aspect = wu.get_aspect_of_type(aspect_cls)
             if aspect is None:
                 continue
-            had_lineage = True
+            self.report.num_workunits_with_lineage_aspect += 1
             if normalize(aspect):
                 self._write_back_if_mcp(wu, aspect)
-                modified = True
-        if had_lineage:
-            self.report.num_workunits_with_lineage_aspect += 1
-        if modified:
-            self.report.num_workunits_modified += 1
+                self.report.num_workunits_modified += 1
 
     def _warn_unmatched_platforms(self) -> None:
         """Warn about configured platforms that no reference used this run.
