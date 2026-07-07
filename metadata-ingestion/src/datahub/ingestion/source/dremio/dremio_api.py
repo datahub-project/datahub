@@ -937,9 +937,8 @@ class DremioAPIOperations:
         `columns_schema_filter` is injected into the INFORMATION_SCHEMA.COLUMNS
         scan when fetching per container; empty for the catalog-wide fetch.
 
-        When `signal_first_chunk_failure` is set, a failure on the very first
-        chunk (nothing emitted yet) raises `_CatalogWideQueryFailed` so the caller
-        can retry per container instead.
+        When `signal_first_chunk_failure` is set, a first-chunk failure raises
+        `_CatalogWideQueryFailed` so the caller can fall back to per-container fetching.
         """
         chunk_size = self._chunk_size
         offset = 0
@@ -1050,9 +1049,8 @@ class DremioAPIOperations:
 
             except DremioAPIException as e:
                 if offset == 0 and signal_first_chunk_failure:
-                    # Catalog-wide query couldn't even start (planning/exec timeout
-                    # or OOM). Nothing emitted yet, so let the caller retry per
-                    # container instead of silently returning no datasets.
+                    # Nothing emitted yet, so fall back instead of silently
+                    # returning no datasets (the original bug).
                     raise _CatalogWideQueryFailed(str(e)) from e
                 logger.error(f"Error in global dataset query at offset {offset}: {e}")
                 if "'rows'" in str(e):
