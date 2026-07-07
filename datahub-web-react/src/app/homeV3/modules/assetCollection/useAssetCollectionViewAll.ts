@@ -40,8 +40,9 @@ function convertLeaf(
         if (condition === FilterOperator.Exists) return null;
     }
 
-    // A property with no values constrains nothing — skip it.
-    if (!leaf.values?.length) return undefined;
+    // The tile's backend query turns a valueless property into a match-nothing terms
+    // query; skipping it here would make "View all" show MORE than the tile. Abort.
+    if (!leaf.values?.length) return null;
 
     if (leaf.property === ENTITY_FILTER_NAME) {
         const entityTypes = leaf.values.map((value) => getTypeFromGraphName(value));
@@ -72,18 +73,26 @@ export function convertLogicalPredicateToViewAllParams(
 
     const operands = predicate.operands as PropertyPredicate[];
 
-    let filters: FacetFilterInput[] | null = [];
-    operands.forEach((leaf) => {
-        if (filters === null) return;
+    const filters: FacetFilterInput[] = [];
+    const ok = operands.every((leaf) => {
         const filter = convertLeaf(leaf, getTypeFromGraphName);
-        if (filter === null) {
-            filters = null;
-        } else if (filter) {
-            (filters as FacetFilterInput[]).push(filter);
-        }
+        if (filter === null) return false;
+        if (filter) filters.push(filter);
+        return true;
     });
 
-    if (filters === null || !filters.length) return null;
+    if (!ok || !filters.length) return null;
+
+    // The search page's generateOrFilters fans each entity-type filter's values into
+    // separate OR'd and-clauses, so AND [Type=A, Type=B] would become A-OR-B there —
+    // but the tile's query ANDs both into one clause (an entity can't be two types),
+    // so it's zero results. Only allowed under OR, where the semantics stay equivalent.
+    if (unionType === UnionType.AND) {
+        const entitySubTypeFilterCount = filters.filter(
+            (filter) => filter.field === ENTITY_SUB_TYPE_FILTER_NAME,
+        ).length;
+        if (entitySubTypeFilterCount > 1) return null;
+    }
 
     return { filters, unionType };
 }

@@ -171,6 +171,40 @@ describe('convertLogicalPredicateToViewAllParams', () => {
         );
         expect(result).toBeNull();
     });
+
+    it('returns null for AND with two entity-type leaves (tile ANDs into one clause, search page would OR them)', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.AND, [
+                { type: 'property', property: '_entityType', operator: 'equals', values: ['dataset'] },
+                { type: 'property', property: '_entityType', operator: 'equals', values: ['dataProduct'] },
+            ]),
+            getTypeFromGraphName,
+        );
+        expect(result).toBeNull();
+    });
+
+    it('allows OR with two entity-type leaves', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.OR, [
+                { type: 'property', property: '_entityType', operator: 'equals', values: ['dataset'] },
+                { type: 'property', property: '_entityType', operator: 'equals', values: ['dataProduct'] },
+            ]),
+            getTypeFromGraphName,
+        );
+        expect(result).not.toBeNull();
+        expect(result?.filters).toHaveLength(2);
+    });
+
+    it('returns null for AND with a valid tags leaf plus an owners leaf with empty values', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.AND, [
+                { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:golden'] },
+                { type: 'property', property: 'owners', operator: 'equals', values: [] },
+            ]),
+            getTypeFromGraphName,
+        );
+        expect(result).toBeNull();
+    });
 });
 
 describe('useAssetCollectionViewAll', () => {
