@@ -1,13 +1,20 @@
 namespace com.linkedin.metric
 
 /**
- * The SQL dialect or semantic layer platform that produced a metric expression.
+ * The SQL or expression-language dialect that produced a metric expression.
+ * Value set is aligned 1:1 with the OSI (Open Semantic Interchange) spec.
  */
 enum Dialect {
-  SNOWFLAKE
-  DATABRICKS
-  DBT
+  /** Standard SQL dialect. */
   ANSI_SQL
-  DATAHUB
-  UNKNOWN
+  /** Snowflake SQL. */
+  SNOWFLAKE
+  /** Multi-Dimensional Expressions (OLAP cubes). */
+  MDX
+  /** Tableau calculations. */
+  TABLEAU
+  /** Databricks SQL. */
+  DATABRICKS
+  /** GoodData MAQL (Metric Analysis and Query Language). */
+  MAQL
 }

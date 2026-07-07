@@ -1,12 +1,7 @@
 # Metric
 
 The metric entity represents a named, reusable business measurement defined in a semantic
-layer or metric store. Each metric URN includes the DataPlatform that owns the metric
-(e.g. dbt, Snowflake, Databricks), so the same logical measure defined in two different
-platforms yields two distinct metric entities. Environment (PROD vs. STAGING) is not part
-of the URN, however -- those copies reconcile into a single entity and are distinguished
-by the `dataPlatformInstance` aspect. See the "Environment-independent identity" note
-below for details.
+layer or metric store.
 
 ## Identity
 
@@ -31,15 +26,12 @@ Core metadata is stored in the `metricInfo` aspect:
   and by whom. Search-indexed as `createdAt` (DATETIME).
 - **`lastModified`** -- `AuditStamp` capturing the most recent modification.
   Search-indexed as `lastModifiedAt` (DATETIME).
-- **`expression`** — the metric formula expressed in one or more SQL dialects (SNOWFLAKE,
-  DATABRICKS, DBT, ANSI_SQL, DATAHUB, UNKNOWN). Each `DialectExpression` pairs a `Dialect` enum
-  value with the raw SQL string.
+- **`expression`** — the metric formula expressed in one or more SQL dialects. Each `DialectExpression` pairs
+  a `Dialect` enum value with the raw SQL string.
 - **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
   few-shot examples, and custom instructions.
-- **`recoverability`** — searchable enum (FULL / PARTIAL / NONE) indicating whether the metric
-  value can be recomputed from raw data.
 - **`semanticModel`** -- URN of the `semanticModel` entity that defines this metric's
-  dimensional context. Stored as a `ModeledBy` graph edge. Optional: null when the metric
+  dimensional context. Optional: null when the metric
   was ingested without a semantic model context (e.g. thin catalog-only metrics from BI
   tools like Tableau) or is a native / SDK-authored metric awaiting a model.
 
@@ -83,11 +75,10 @@ not folded into `metricUpstreams`.
 ### Environment-independent identity
 
 Metrics encode `platform` (a DataPlatform URN) in the key but deliberately do NOT encode
-`FabricType` (unlike datasets, which include PROD/STAGING in their URN). This means PROD and
-STAGING copies of the same logical metric resolve to the same entity and are distinguished by the
-`dataPlatformInstance` aspect instead. Cross-environment deduplication is therefore automatic,
-while cross-platform metrics (e.g. the same measure defined in both dbt and Snowflake) remain as
-separate entities.
+`FabricType` (unlike datasets, which include PROD/STAGING in their URN). Metrics are modeled
+as environment-independent business definitions: `total_revenue` in PROD and STAGING is the
+same concept, so both resolve to the same URN. Cross-platform metrics (e.g. the same measure in both dbt and
+Snowflake) remain as separate entities because `platform` is part of the URN.
 
 ### Extensibility via structuredProperties
 

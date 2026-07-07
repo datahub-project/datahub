@@ -84,12 +84,4 @@ record MetricInfo {
    */
   aiContext: optional AiContext
 
-  /**
-   * Whether this metric's values can be reconstructed from its upstream sources.
-   */
-  @Searchable = {
-    "fieldType": "KEYWORD"
-  }
-  recoverability: optional Recoverability
-
 }
