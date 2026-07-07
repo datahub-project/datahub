@@ -1,7 +1,8 @@
 import functools
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
@@ -21,21 +22,22 @@ def provide_schema_resolver(
     platform_instance: Optional[str],
     env: str,
     batch_size: int = 100,
-    query: Optional[str] = None,
+    id_starts_with: Optional[str] = None,
 ) -> SchemaResolver:
-    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, query).
+    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, id_starts_with).
 
     Using a module-level cache ensures deduplication across all callers in the same
     process, even when different SchemaResolverProvider instances are created.
 
-    `query` narrows the bulk fetch (e.g. to a single database's datasets) so callers
-    that only need a subset of a large platform don't load the whole platform.
+    `id_starts_with` narrows the bulk fetch to datasets whose id (fully-qualified
+    name) starts with the given prefix (e.g. a single database), so callers that only
+    need a subset of a large platform don't load the whole platform.
     """
     return SchemaResolverProvider(graph=graph, batch_size=batch_size).get(
         platform=platform,
         platform_instance=platform_instance,
         env=env,
-        query=query,
+        id_starts_with=id_starts_with,
     )
 
 
@@ -62,13 +64,14 @@ class SchemaResolverProvider:
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        query: Optional[str] = None,
+        id_starts_with: Optional[str] = None,
     ) -> SchemaResolver:
-        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, query).
+        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, id_starts_with).
 
-        `query` narrows the bulk fetch to matching datasets (e.g. a single database's
-        name) so a caller that needs only a subset of a large platform doesn't load
-        the whole platform.
+        `id_starts_with` narrows the bulk fetch to datasets whose id (fully-qualified
+        name) starts with the given prefix (e.g. a single database), so a caller that
+        needs only a subset of a large platform doesn't load the whole platform. A
+        prefix is exact (unlike a free-text query, which over-matches shared prefixes).
         """
         resolver = SchemaResolver(
             platform=platform,
@@ -77,6 +80,11 @@ class SchemaResolverProvider:
             graph=None,
             report=self._report,
         )
+        extra_filters: Optional[List[RawSearchFilterRule]] = (
+            [{"field": "id", "condition": "START_WITH", "values": [id_starts_with]}]
+            if id_starts_with
+            else None
+        )
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
         count = 0
         with PerfTimer() as timer:
@@ -84,7 +92,7 @@ class SchemaResolverProvider:
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
-                query=query,
+                extraFilters=extra_filters,
                 batch_size=self._batch_size,
             ):
                 try:

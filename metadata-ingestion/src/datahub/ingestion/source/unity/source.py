@@ -1466,20 +1466,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, key: _ExternalSchemaKey
     ) -> Optional[SchemaResolver]:
         """Bulk-initialized SchemaResolver for an external schema scope, cached (None
-        on failure) so a scope is scroll-fetched at most once. The fetch is scoped to
-        the mirrored remote database, so a foreign catalog that mirrors a subset of a
-        large external platform doesn't load the entire platform."""
+        on failure) so a scope is scroll-fetched at most once. The fetch is scoped by
+        an exact prefix on the dataset id — ``[platform_instance.]remote_database.`` —
+        so a foreign catalog that mirrors a subset of a large external platform loads
+        only that database's schemas, not the entire platform."""
         if key in self._external_schema_resolvers:
             return self._external_schema_resolvers[key]
         if self._schema_resolver_provider is None:
             return None
+        # The external dataset id is `[platform_instance.]database.schema.table`, so a
+        # `START_WITH` prefix on the database segment scopes the fetch exactly (a
+        # free-text query would over-match databases sharing a name prefix).
+        id_prefix: Optional[str] = None
+        if key.remote_database:
+            parts = [p for p in (key.platform_instance, key.remote_database) if p]
+            id_prefix = ".".join(parts) + "."
         resolver: Optional[SchemaResolver] = None
         try:
             resolver = self._schema_resolver_provider.get(
                 platform=key.platform,
                 platform_instance=key.platform_instance,
                 env=key.env,
-                query=key.remote_database,
+                id_starts_with=id_prefix,
             )
         except Exception as e:
             # Bulk fetch is a known failure point (network / GMS 5xx / auth).

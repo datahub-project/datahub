@@ -1104,11 +1104,12 @@ def test_external_schema_fetch_scoped_to_remote_database():
 
     src._external_schema_resolver(key)
 
+    # scoped by an exact id prefix on the database segment, not a free-text query
     provider.get.assert_called_once_with(
         platform="snowflake",
         platform_instance=None,
         env="PROD",
-        query="my_db",
+        id_starts_with="my_db.",
     )
 
 
@@ -1150,11 +1151,13 @@ def test_external_schema_fetch_uses_platform_and_instance_overrides():
 
     src._external_schema_resolver(key)
 
+    # the id prefix includes the platform_instance segment, matching the external
+    # URN name `platform_instance.database.schema.table`
     provider.get.assert_called_once_with(
         platform="mssql",
         platform_instance="prod-sql",
         env="DEV",
-        query="my_db",
+        id_starts_with="prod-sql.my_db.",
     )
 
 
