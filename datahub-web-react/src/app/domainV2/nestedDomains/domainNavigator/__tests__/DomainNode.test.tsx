@@ -149,9 +149,7 @@ describe('DomainNode — child rendering', () => {
         expect(screen.getAllByTestId('domain-options-list')).toHaveLength(4);
 
         // No React duplicate-key warning should have fired
-        const keyWarning = consoleError.mock.calls.find((args) =>
-            String(args[0]).toLowerCase().includes('key'),
-        );
+        const keyWarning = consoleError.mock.calls.find((args) => String(args[0]).toLowerCase().includes('key'));
         expect(keyWarning).toBeUndefined();
 
         consoleError.mockRestore();
