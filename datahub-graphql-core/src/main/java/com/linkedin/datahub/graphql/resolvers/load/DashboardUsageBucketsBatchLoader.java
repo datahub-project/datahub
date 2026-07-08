@@ -93,6 +93,26 @@ public class DashboardUsageBucketsBatchLoader {
               .distinct()
               .collect(Collectors.toList());
 
+      if (urns.size() == 1) {
+        // A single URN has no fan-out to collapse: the outer terms(batch_urn_outer) wrap and the
+        // DataLoader dispatch would be pure overhead (measured ~+50% p50 on the single-dashboard
+        // detail view, which is the only caller pattern this field sees today). Use the per-URN
+        // path — identical to the flag-off fallback. This mirrors TimeseriesAspectBatchLoader's
+        // `indices.size() == 1` guard. A higher floor is environment-dependent (per-query
+        // round-trip
+        // cost, data volume) and would need a config knob measured in the target cluster, not a
+        // constant derived from a local benchmark, so 1 is the only portable threshold.
+        final String urn = entry.getValue().get(0).getUrn();
+        final Filter urnFilter =
+            createUsageFilter(urn, window.getStartTimeMillis(), window.getEndTimeMillis(), true);
+        final List<DashboardUsageAggregation> buckets =
+            getBuckets(context.getOperationContext(), urnFilter, urn, timeseriesAspectService);
+        for (Key key : entry.getValue()) {
+          resultsByKey.put(key, buckets);
+        }
+        continue;
+      }
+
       // URN-free filter; batchGetAggregatedStats adds the `urn IN [...]` criterion itself.
       final Filter sharedFilter =
           buildSharedUsageFilter(window.getStartTimeMillis(), window.getEndTimeMillis(), true);
