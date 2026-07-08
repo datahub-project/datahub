@@ -1050,12 +1050,6 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     return fk_dicts
 
 
-# optimized_get_view_definition was removed: the cached "view definition" from
-# dbc.TablesV is the last statement executed against the object, not necessarily
-# the true view DDL, so it was never wired up as a TeradataDialect override. See
-# git history if a disk-backed view-definition override is ever revived.
-
-
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Column extraction metrics
