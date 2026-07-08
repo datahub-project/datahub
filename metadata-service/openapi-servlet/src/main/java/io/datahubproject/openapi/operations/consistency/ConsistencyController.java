@@ -612,6 +612,8 @@ public class ConsistencyController {
           .lePitEpochMs(lePitEpochMs)
           .aspectFilters(requestFilter.getAspectFilters())
           .includeSoftDeleted(requestFilter.isIncludeSoftDeleted())
+          .keyAspectOnly(requestFilter.isKeyAspectOnly())
+          .entityTypes(requestFilter.getEntityTypes())
           .build();
     } else {
       // Create new filter with just the grace period
