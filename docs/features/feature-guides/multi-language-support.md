@@ -21,6 +21,7 @@ most comfortable with.
 - Portuguese, Brazil (Português) — Beta
 - French (Français) — Beta
 - Italian (Italiano) — Beta
+- Swedish (Svenska) — Beta
 
 Languages marked _Beta_ are still being refined and may have untranslated strings.
 
