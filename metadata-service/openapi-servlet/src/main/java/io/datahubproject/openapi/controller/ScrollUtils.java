@@ -75,6 +75,7 @@ public final class ScrollUtils {
             authorizationChain,
             request,
             operationName,
+            UsageOperation.METADATA_READ,
             includeSoftDelete,
             sliceId,
             sliceMax);
@@ -162,6 +163,7 @@ public final class ScrollUtils {
             authorizationChain,
             request,
             operationName,
+            UsageOperation.LINEAGE_QUERY,
             includeSoftDelete,
             sliceId,
             sliceMax);
@@ -212,6 +214,7 @@ public final class ScrollUtils {
       AuthorizerChain authorizationChain,
       HttpServletRequest request,
       String operationName,
+      UsageOperation usageOperation,
       Boolean includeSoftDelete,
       Integer sliceId,
       Integer sliceMax) {
@@ -221,7 +224,7 @@ public final class ScrollUtils {
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, operationName, List.of())
-                .withUsageOperation(UsageOperation.METADATA_READ),
+                .withUsageOperation(usageOperation),
             authorizationChain,
             authentication,
             true)

@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -179,8 +180,10 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
     when(mockGraphService.getLineageRegistry()).thenReturn(lineageRegistry);
 
     ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     when(mockGraphService.scrollRelatedEntities(
-            any(),
+            opContextCaptor.capture(),
             graphFiltersCaptor.capture(),
             any(),
             isNull(),
@@ -198,6 +201,11 @@ public class LineageControllerTest extends AbstractTestNGSpringContextTests {
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("lineage-scroll"));
+
+    // scrollLineage should build its OperationContext with the LINEAGE_QUERY usage operation
+    assertEquals(
+        opContextCaptor.getValue().getRequestContext().getUsageOperation(),
+        UsageOperation.LINEAGE_QUERY.key());
 
     GraphFilters captured = graphFiltersCaptor.getValue();
     // scrollLineage should populate allowedEdgeTriplets from the lineage registry

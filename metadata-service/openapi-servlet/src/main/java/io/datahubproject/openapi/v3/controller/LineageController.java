@@ -84,7 +84,6 @@ public class LineageController {
         graphService,
         request,
         "scrollLineage",
-        UsageOperation.LINEAGE_QUERY,
         relationshipTypes,
         body.getUrns(),
         lineageDirection,
