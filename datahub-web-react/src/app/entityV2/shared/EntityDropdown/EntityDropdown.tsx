@@ -151,7 +151,12 @@ const EntityDropdown = (props: Props) => {
                 },
             });
             toast.destroy();
-            toast.success(t('deprecation.updated'), { duration: 2 });
+            toast.success(
+                deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                { duration: 2 },
+            );
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],

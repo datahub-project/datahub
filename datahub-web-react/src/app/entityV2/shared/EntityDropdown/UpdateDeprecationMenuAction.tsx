@@ -38,7 +38,12 @@ export default function UpdateDeprecationMenuAction() {
                 },
             });
             toast.destroy();
-            toast.success(t('deprecation.updated'), { duration: 2 });
+            toast.success(
+                deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                { duration: 2 },
+            );
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
@@ -54,25 +59,27 @@ export default function UpdateDeprecationMenuAction() {
     };
 
     return (
-        <Tooltip
-            placement="bottom"
-            title={
-                !entityData?.deprecation?.deprecated
-                    ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-                    : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-            }
-        >
-            <ActionMenuItem
-                key="deprecation"
-                onClick={() =>
+        <>
+            <Tooltip
+                placement="bottom"
+                title={
                     !entityData?.deprecation?.deprecated
-                        ? setIsDeprecationModalVisible(true)
-                        : handleUpdateDeprecation(false)
+                        ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
+                        : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
                 }
-                data-testid="entity-menu-deprecate-button"
             >
-                <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
-            </ActionMenuItem>
+                <ActionMenuItem
+                    key="deprecation"
+                    onClick={() =>
+                        !entityData?.deprecation?.deprecated
+                            ? setIsDeprecationModalVisible(true)
+                            : handleUpdateDeprecation(false)
+                    }
+                    data-testid="entity-menu-deprecate-button"
+                >
+                    <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                </ActionMenuItem>
+            </Tooltip>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
@@ -80,6 +87,6 @@ export default function UpdateDeprecationMenuAction() {
                     refetch={refetchForEntity}
                 />
             )}
-        </Tooltip>
+        </>
     );
 }

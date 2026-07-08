@@ -41,6 +41,8 @@
     "deprecation.replacementSearchTitle": "Select one entity to replace the deprecated entity with.",
     "deprecation.selectReplacement": "Select Replacement",
     "deprecation.setReplacement": "Set Replacement",
+    "deprecation.markedDeprecatedSuccess": "Marked as deprecated",
+    "deprecation.markedUnDeprecatedSuccess": "Marked as un-deprecated",
     "deprecation.updateError": "Failed to update Deprecation: \n {{errorMessage}}",
     "deprecation.updated": "Deprecation Updated",
     "domainSelect.notFound": "No Domains Found",

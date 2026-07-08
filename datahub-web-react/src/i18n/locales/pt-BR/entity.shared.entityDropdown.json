@@ -42,6 +42,8 @@
     "deprecation.selectReplacement": "Selecionar Substituto",
     "deprecation.setReplacement": "Definir Substituto",
     "deprecation.updated": "Descontinuação Atualizada",
+    "deprecation.markedDeprecatedSuccess": "Marcado como descontinuado",
+    "deprecation.markedUnDeprecatedSuccess": "Marcado como não descontinuado",
     "deprecation.updateError": "Falha ao atualizar a Descontinuação: \n {{errorMessage}}",
     "domainSelect.notFound": "Nenhum Domain Encontrado",
     "domainSelect.placeholder": "Selecionar",

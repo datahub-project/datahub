@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import DomainNode from '@app/domainV2/nestedDomains/domainNavigator/DomainNode';
 import themeV2 from '@conf/theme/themeV2';
 
@@ -19,7 +20,7 @@ vi.mock('@app/useEntityRegistry', () => ({
 }));
 
 vi.mock('@app/domainV2/DomainsContext', () => ({
-    useDomainsContext: () => ({ entityData: null }),
+    useDomainsContext: vi.fn(() => ({ entityData: null })),
 }));
 
 vi.mock('react-router', () => ({
@@ -91,7 +92,18 @@ const renderDomainNode = (domain: any, props: Record<string, any> = {}) =>
     );
 
 describe('DomainNode — deprecation badge', () => {
-    it('renders deprecation icon when domain is deprecated and sidebar is not collapsed', () => {
+    it('renders deprecation icon in the sidebar tree when domain is deprecated', () => {
+        renderDomainNode(
+            {
+                ...baseDomain,
+                deprecation: { deprecated: true, note: 'Replaced', actor: null, decommissionTime: null },
+            },
+            { variant: 'sidebar' },
+        );
+        expect(screen.getByTestId('deprecation-icon')).toBeInTheDocument();
+    });
+
+    it('renders deprecation icon in the select picker when domain is deprecated', () => {
         renderDomainNode({
             ...baseDomain,
             deprecation: { deprecated: true, note: 'Replaced', actor: null, decommissionTime: null },
@@ -118,9 +130,28 @@ describe('DomainNode — deprecation badge', () => {
                 ...baseDomain,
                 deprecation: { deprecated: true, note: null, actor: null, decommissionTime: null },
             },
-            { isCollapsed: true },
+            { isCollapsed: true, variant: 'sidebar' },
         );
         expect(screen.queryByTestId('deprecation-icon')).not.toBeInTheDocument();
+    });
+
+    it('prefers live entity deprecation state for the open domain row', () => {
+        vi.mocked(useDomainsContext).mockReturnValueOnce({
+            entityData: {
+                urn: baseDomain.urn,
+                deprecation: { deprecated: true, note: '', decommissionTime: null },
+            },
+        } as any);
+
+        renderDomainNode(
+            {
+                ...baseDomain,
+                deprecation: { deprecated: false, note: null, actor: null, decommissionTime: null },
+            },
+            { variant: 'sidebar' },
+        );
+
+        expect(screen.getByTestId('deprecation-icon')).toBeInTheDocument();
     });
 });
 

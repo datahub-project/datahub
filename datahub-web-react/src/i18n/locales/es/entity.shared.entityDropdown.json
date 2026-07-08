@@ -42,6 +42,8 @@
     "deprecation.selectReplacement": "Seleccionar reemplazo",
     "deprecation.setReplacement": "Establecer reemplazo",
     "deprecation.updated": "Obsolescencia actualizada",
+    "deprecation.markedDeprecatedSuccess": "Marcado como obsoleto",
+    "deprecation.markedUnDeprecatedSuccess": "Marcado como no obsoleto",
     "deprecation.updateError": "No se pudo actualizar la obsolescencia: \n {{errorMessage}}",
     "domainSelect.notFound": "No se encontraron dominios",
     "domainSelect.placeholder": "Seleccionar",

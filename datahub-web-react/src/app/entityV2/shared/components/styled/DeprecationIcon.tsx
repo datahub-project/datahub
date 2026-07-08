@@ -1,11 +1,10 @@
-import { Tooltip, toast } from '@components';
+import { Text, Tooltip, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
@@ -26,29 +25,29 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textError};
 `;
 
-const DeprecatedTitle = styled.span`
+const DeprecatedTitle = styled(Text).attrs({
+    size: 'lg',
+    weight: 'bold',
+    color: 'text',
+    type: 'div',
+})`
     display: block;
-    font-size: 16px;
     margin-bottom: 5px;
-    font-weight: bold;
-    color: ${(props) => props.theme.colors.text};
 `;
 
-const DeprecatedSubTitle = styled.span`
+const DeprecatedSubTitle = styled.div`
     display: block;
     margin-bottom: 5px;
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.text};
     max-width: 100%;
 `;
 
-const LastEvaluatedAtLabel = styled.div`
-    padding: 0;
-    margin: 0;
+const LastEvaluatedAtLabel = styled(Text).attrs({
+    size: 'sm',
+    color: 'textSecondary',
+    type: 'div',
+})`
     display: flex;
     align-items: center;
-    color: ${(props) => props.theme.colors.textTertiary};
-    font-size: 14px;
 `;
 
 const ReplacementContainer = styled.span`
@@ -66,7 +65,6 @@ const ThinDivider = styled.hr`
 `;
 
 const IconGroup = styled.div`
-    padding-top: 10px;
     font-size: 12px;
     color: ${(props) => props.theme.colors.text};
 
@@ -168,24 +166,26 @@ export const DeprecationIcon = ({
                         </DeprecatedTitle>
                         {deprecation.replacement && (
                             <DeprecatedSubTitle>
+                                <Text size="sm" weight="bold" color="text" type="div">
+                                    {t('deprecation.replacementLabel')}
+                                </Text>
                                 {isReplacementSchemaField ? (
-                                    <>
-                                        <b>{t('deprecation.replacementLabel')} </b>
-                                        <ReplacementContainer>
-                                            {getV1FieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
-                                        </ReplacementContainer>
-                                    </>
+                                    <ReplacementContainer>
+                                        {getV1FieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
+                                    </ReplacementContainer>
                                 ) : (
-                                    <>
-                                        <b>{t('deprecation.replacementLabel')}</b>{' '}
-                                        <EntityLink entity={deprecation.replacement} />
-                                    </>
+                                    <EntityLink entity={deprecation.replacement} />
                                 )}
                             </DeprecatedSubTitle>
                         )}
                         {deprecation?.note && (
                             <DeprecatedSubTitle>
-                                <CompactMarkdownViewer content={deprecation.note} />
+                                <Text size="sm" weight="bold" color="text" type="div">
+                                    {t('deprecation.reasonLabel')}
+                                </Text>
+                                <Text size="md" color="text" type="p">
+                                    {deprecation.note}
+                                </Text>
                             </DeprecatedSubTitle>
                         )}
                         {deprecation?.decommissionTime !== null && (
@@ -201,7 +201,9 @@ export const DeprecationIcon = ({
                         )}
                     </>
                 ) : (
-                    t('deprecation.noAdditionalDetails')
+                    <Text size="md" color="text" type="p">
+                        {t('deprecation.noAdditionalDetails')}
+                    </Text>
                 )
             }
         >
