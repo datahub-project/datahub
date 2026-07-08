@@ -1112,9 +1112,10 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -1162,9 +1163,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2446,9 +2448,10 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2496,9 +2499,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2780,9 +2784,10 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2830,9 +2835,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -4692,9 +4698,10 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -4742,9 +4749,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
