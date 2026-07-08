@@ -40,6 +40,17 @@ class TestQueriedDatasetsArrayQuery:
         assert "LENGTH(queried_datasets)>0" in query
         assert "ARRAY_SIZE(queried_datasets)" not in query
 
+    def test_all_jobs_queries_support_chunking(self):
+        # Every jobs query is run through _get_queries_chunked, which formats in a
+        # LIMIT/OFFSET via {limit_clause}. Without the placeholder the LIMIT is
+        # dropped and the chunk loop re-runs the same unbounded query forever.
+        for query in (
+            DremioSQLQueries.get_query_all_jobs(),
+            DremioSQLQueries.get_query_all_jobs_array(),
+            DremioSQLQueries.get_query_all_jobs_cloud(),
+        ):
+            assert "{limit_clause}" in query
+
 
 class TestSupportsArrayQueriedDatasetsProbe:
     @pytest.fixture

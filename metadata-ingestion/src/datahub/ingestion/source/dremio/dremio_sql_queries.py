@@ -321,6 +321,7 @@ class DremioSQLQueries:
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
         ORDER BY submitted_ts ASC
+        {{limit_clause}}
         """
 
     @staticmethod
