@@ -166,7 +166,8 @@ usage_operations:
       messaging queue lag/transport GETs (/openapi/operations/messaging), ingestion
       run list/describe (Rest.li BatchIngestionRunResource), Kubernetes GET
       introspection (/openapi/operations/k8), dev tooling feature-flag inspection
-      (GET /openapi/operations/dev), Elasticsearch debug/raw reads and Rest.li
+      (GET /openapi/operations/dev), SCIM Users/Groups GET/list (/openapi/scim/v2),
+      Elasticsearch debug/raw reads and Rest.li
       getEsTaskStatus/getIndexSizes (GET /openapi/operations/elasticSearch/* query
       explain, index sizes, task status; POST */raw document fetches), AI
       conversation list/get (OpenAPI, GraphQL ai.graphql), and GraphQL searchConfiguration,

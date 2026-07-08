@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.messaging.KafkaOrPgQueueMessagingTransportCo
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;
@@ -90,7 +91,9 @@ public class TraceController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, "getTrace", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getTrace", List.of())
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizerChain,
             authentication,
             true);

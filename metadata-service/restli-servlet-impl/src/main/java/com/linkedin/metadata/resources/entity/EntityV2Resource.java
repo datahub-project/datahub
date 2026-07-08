@@ -24,6 +24,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -87,7 +88,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getEntityV2", urn.getEntityType()), _authorizer, auth, true);
+                    "getEntityV2", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAuthorizedToReadEntities(opContext, List.of(urn))) {
       throw new RestLiServiceException(
@@ -130,7 +131,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+                    "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAuthorizedToReadEntities(opContext, urns)) {
       throw new RestLiServiceException(
