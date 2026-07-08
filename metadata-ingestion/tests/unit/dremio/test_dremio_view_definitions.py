@@ -9,6 +9,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 def _make_api(monkeypatch, **config_overrides):
@@ -113,9 +114,12 @@ class TestGetViewDefinitions:
 
         result = api._get_view_definitions("", "")
 
+        # Backed by on-disk SQLite so the catalog's view SQL isn't all held in RAM.
+        assert isinstance(result, FileBackedDict)
         assert result == {"space.view_a": "SELECT 1", "space.view_b": "SELECT 2"}
         query_arg = api.execute_query_iter.call_args[1]["query"]
         assert "LIMIT 1000 OFFSET 0" in query_arg
+        result.close()
 
     def test_paginates_across_chunks(self, monkeypatch):
         api = _make_api(monkeypatch)
@@ -133,6 +137,7 @@ class TestGetViewDefinitions:
 
         assert result == {"s.v1": "d1", "s.v2": "d2"}
         assert api.execute_query_iter.call_count == 3
+        result.close()
 
     def test_failure_is_reported_loudly(self, monkeypatch):
         api = _make_api(monkeypatch)
@@ -145,6 +150,7 @@ class TestGetViewDefinitions:
 
         assert result == {}
         api.report.failure.assert_called_once()
+        result.close()
 
 
 class TestViewDefinitionMerge:

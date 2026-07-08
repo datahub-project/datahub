@@ -3,11 +3,12 @@ import json
 import logging
 import warnings
 from collections import defaultdict
+from contextlib import closing
 from datetime import datetime
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -28,6 +29,7 @@ from datahub.ingestion.source.dremio.dremio_models import (
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -654,7 +656,7 @@ class DremioAPIOperations:
     def community_get_formatted_tables(
         self,
         tables_and_columns: List[Dict[str, Any]],
-        view_definitions: Optional[Dict[str, Optional[str]]] = None,
+        view_definitions: Optional[Mapping[str, Optional[str]]] = None,
     ) -> List[Dict[str, Any]]:
         view_definitions = view_definitions or {}
         schema_list = []
@@ -752,10 +754,16 @@ class DremioAPIOperations:
         self,
         schema_condition: str,
         deny_schema_condition: str,
-    ) -> Dict[str, Optional[str]]:
-        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view."""
+    ) -> "FileBackedDict[Optional[str]]":
+        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view.
+
+        Backed by on-disk SQLite: view SQL is the known-large payload (it's what
+        overflows the 2 GiB vector), so buffering every definition in RAM for the
+        whole run — including the memory-constrained fallback — would reintroduce
+        the pressure this fix removes. The caller must close the returned dict.
+        """
         query_template = self._get_view_definition_query()
-        definitions: Dict[str, Optional[str]] = {}
+        definitions: "FileBackedDict[Optional[str]]" = FileBackedDict()
 
         chunk_size = self._chunk_size
         offset = 0
@@ -824,30 +832,29 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        view_definitions = self._get_view_definitions(
-            schema_condition, deny_schema_condition
-        )
-
-        try:
-            yield from self._get_all_tables_global_chunked(
-                query_template,
-                schema_condition,
-                deny_schema_condition,
-                view_definitions=view_definitions,
-                signal_first_chunk_failure=True,
-            )
-        except _CatalogWideQueryFailed as e:
-            logger.warning(
-                f"Catalog-wide dataset query failed ({e}); retrying one root "
-                "container at a time to bound Dremio-side query cost."
-            )
-            yield from self._get_all_tables_partitioned_by_container(
-                query_template,
-                schema_field,
-                schema_condition,
-                deny_schema_condition,
-                view_definitions=view_definitions,
-            )
+        with closing(
+            self._get_view_definitions(schema_condition, deny_schema_condition)
+        ) as view_definitions:
+            try:
+                yield from self._get_all_tables_global_chunked(
+                    query_template,
+                    schema_condition,
+                    deny_schema_condition,
+                    view_definitions=view_definitions,
+                    signal_first_chunk_failure=True,
+                )
+            except _CatalogWideQueryFailed as e:
+                logger.warning(
+                    f"Catalog-wide dataset query failed ({e}); retrying one root "
+                    "container at a time to bound Dremio-side query cost."
+                )
+                yield from self._get_all_tables_partitioned_by_container(
+                    query_template,
+                    schema_field,
+                    schema_condition,
+                    deny_schema_condition,
+                    view_definitions=view_definitions,
+                )
 
     def _get_root_container_names(self) -> List[str]:
         """Return allowed root container (source/space/home) names.
@@ -880,7 +887,7 @@ class DremioAPIOperations:
         schema_field: str,
         schema_condition: str,
         deny_schema_condition: str,
-        view_definitions: Dict[str, Optional[str]],
+        view_definitions: Mapping[str, Optional[str]],
     ) -> Iterator[Dict]:
         """Fallback fetch used when the catalog-wide query can't run: one root
         container at a time, so Dremio's join and sort only cover a single container.
@@ -922,7 +929,7 @@ class DremioAPIOperations:
         query_template: str,
         schema_condition: str,
         deny_schema_condition: str,
-        view_definitions: Dict[str, Optional[str]],
+        view_definitions: Mapping[str, Optional[str]],
         columns_schema_filter: str = "",
         signal_first_chunk_failure: bool = False,
     ) -> Iterator[Dict]:

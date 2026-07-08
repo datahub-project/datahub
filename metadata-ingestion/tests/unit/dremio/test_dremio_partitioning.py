@@ -10,6 +10,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 class TestDremioPartitioning:
@@ -38,7 +39,7 @@ class TestDremioPartitioning:
         return api
 
     def test_global_success_does_not_fall_back(self, dremio_api):
-        dremio_api._get_view_definitions = Mock(return_value={})
+        dremio_api._get_view_definitions = Mock(return_value=FileBackedDict())
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter([{"TABLE_NAME": "t1"}])
         )
@@ -52,7 +53,7 @@ class TestDremioPartitioning:
         dremio_api._get_all_tables_partitioned_by_container.assert_not_called()
 
     def test_first_chunk_failure_falls_back_to_partitioned(self, dremio_api):
-        dremio_api._get_view_definitions = Mock(return_value={})
+        dremio_api._get_view_definitions = Mock(return_value=FileBackedDict())
         dremio_api._get_all_tables_global_chunked = Mock(
             side_effect=_CatalogWideQueryFailed("timeout")
         )

@@ -11,6 +11,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 class TestDremioChunking:
@@ -124,7 +125,8 @@ class TestDremioChunking:
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter(mock_results)
         )
-        view_definitions = {"source.schema.table1": "SELECT 1"}
+        view_definitions: FileBackedDict[str] = FileBackedDict()
+        view_definitions["source.schema.table1"] = "SELECT 1"
         dremio_api._get_view_definitions = Mock(return_value=view_definitions)
 
         tables = list(dremio_api.get_all_tables_and_columns())
