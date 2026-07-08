@@ -301,6 +301,28 @@ def test_general_log_learns_db_from_connect_event(mock_create_engine):
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_connect_without_db_leaves_session_unknown(mock_create_engine):
+    # A Connect that selects no default database ("... on  using ...") sets no
+    # schema, so a later query on that session has nothing to filter on and is
+    # dropped.
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row(
+                "root[root] @ localhost []",
+                6,
+                "Connect",
+                "root@localhost on  using Socket",
+            ),
+            _glog_row("root[root] @ localhost []", 6, "Query", "SELECT id FROM orders"),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    assert observed == []
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
 def test_general_log_drops_query_from_unknown_session(mock_create_engine):
     # A Query on a thread with no preceding Init DB/USE has no known schema, so
     # the system-schema / database_pattern filters can't apply. It must be

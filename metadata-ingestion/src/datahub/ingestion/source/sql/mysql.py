@@ -416,7 +416,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
             generate_queries=True,
             generate_query_usage_statistics=True,
             generate_usage_statistics=True,
-            # Digests carry no actor, so write-operation stats would be low value.
+            # Operations stay off for both usage sources. performance_schema
+            # digests carry no actor (actorless operations are low value); for
+            # general_log an actor is available, but we keep the behavior uniform
+            # rather than emit an operation aspect per logged statement.
             generate_operations=False,
             usage_config=self.config.usage,
             eager_graph_load=False,
@@ -461,11 +464,13 @@ class MySQLSource(TwoTierSQLAlchemySource):
     @contextmanager
     def _usage_connection(self) -> Iterator["Connection"]:
         """Yield a UTC-pinned connection from a single-use, disposed-on-exit engine."""
-        # NullPool + dispose() so this fetch never leaves connections open; a
-        # caller-supplied poolclass in options still wins.
+        # NullPool + dispose() so this one-shot fetch never leaves connections
+        # open. poolclass is forced last so a pooled class in options (intended
+        # for the long-lived inspection engine) can't silently re-pool this
+        # ephemeral engine.
         engine = create_engine(
             self.config.get_sql_alchemy_url(),
-            **{"poolclass": NullPool, **self.config.options},
+            **{**self.config.options, "poolclass": NullPool},
         )
         self._setup_rds_iam_event_listener(engine)
         try:
