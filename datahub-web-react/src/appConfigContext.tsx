@@ -65,6 +65,8 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        browserTracingEnabled: false,
+        browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
