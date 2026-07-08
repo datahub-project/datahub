@@ -190,7 +190,7 @@
                             },
                             {
                                 "fieldPath": "last_order_date",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -202,7 +202,7 @@
                             },
                             {
                                 "fieldPath": "processed_at",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -378,7 +378,7 @@
                             },
                             {
                                 "fieldPath": "processed_at",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -542,7 +542,7 @@
                             },
                             {
                                 "fieldPath": "created_at",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -694,7 +694,7 @@
                             },
                             {
                                 "fieldPath": "created_at",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
