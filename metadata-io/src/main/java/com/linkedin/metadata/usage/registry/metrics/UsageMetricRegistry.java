@@ -94,6 +94,7 @@ public class UsageMetricRegistry {
       MergeKind mergeKind,
       String distinctKey,
       ValueUnit valueUnit,
+      boolean metronomeBatch,
       EmitWhen emitWhen) {
 
     public static MetricDefinition fromYamlDefinition(
@@ -103,6 +104,7 @@ public class UsageMetricRegistry {
           MergeKind.fromYaml(def.getMergeKind()),
           def.getDistinctKey(),
           ValueUnit.fromYaml(def.getValueUnit()),
+          def.isMetronomeBatch(),
           EmitWhen.fromYaml(def.getEmitWhen()));
     }
   }

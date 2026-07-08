@@ -23,4 +23,9 @@ Configuration YAML loaders and manifests live in `com.linkedin.metadata.config.u
 - `USAGE_AGGREGATION_ENABLED` — GMS aggregation + flush coordinator
 - `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED` — Micrometer sink (default on)
 
+**Queue-path ingest** (`metadata_ingest` with `request_api=messaging`) is recorded on the MCE
+consumer when `USAGE_AGGREGATION_ENABLED=true` there — see `UsageQueueIngestRecorder` and
+`MceUsageAggregationFactory`. Async REST ingest dedup uses MCP `headers` (`X-DataHub-Usage-PreRecorded`)
+via `UsageMetadataChangeProposalEnricher` on publish.
+
 See [`store/README.md`](store/README.md) for store-level types.

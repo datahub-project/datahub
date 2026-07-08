@@ -32,6 +32,7 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -84,6 +85,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @MockitoBean MetricUtils metricUtils;
 
   private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
+  private static final int SERVER_PORT = allocateFreePort();
 
   static KafkaContainer kafka =
       new KafkaContainer(
@@ -95,9 +97,21 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
     kafka.start();
+    registry.add("server.port", () -> SERVER_PORT);
+    registry.add("local.server.port", () -> SERVER_PORT);
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/api/");
+    registry.add(
+        "kafka.schemaRegistry.url",
+        () -> "http://localhost:" + SERVER_PORT + "/schema-registry/api/");
+  }
+
+  private static int allocateFreePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to allocate free port for schema registry test", e);
+    }
   }
 
   @Autowired EventProducer _producer;
