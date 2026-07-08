@@ -172,11 +172,13 @@ class SnowflakeAdapter(PlatformAdapter):
 
             # Query INFORMATION_SCHEMA for instant row count
             # This is approximate but sufficient for sampling decisions
+            # Must filter by TABLE_CATALOG (database) to avoid ambiguity
             query = sa.text(
                 """
                 SELECT ROW_COUNT
                 FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = :schema_name
+                WHERE TABLE_CATALOG = CURRENT_DATABASE()
+                AND TABLE_SCHEMA = :schema_name
                 AND TABLE_NAME = :table_name
                 """
             )
