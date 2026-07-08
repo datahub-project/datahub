@@ -18,6 +18,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from datahub.ingestion.api.report import Report
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -339,9 +340,15 @@ class SQLAlchemyQueryCombiner:
             for cte in ctes.values():
                 combined_query.append_from(cte)
 
-            logger.debug(f"Executing combined query: {str(combined_query)}")
             self.report.combined_queries_issued += 1
-            sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+
+            with PerfTimer() as timer:
+                sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+
+            logger.info(
+                f"Combined query executed in {timer.elapsed_seconds():.3f}s "
+                f"({len(pending_queue)} queries combined): {str(combined_query)}"
+            )
 
             # Fetch the results and ensure that exactly one row is returned.
             results = sa_res.fetchall()
@@ -377,24 +384,34 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
-            logger.debug(f"Executing query via fallback: {str(query_future.query)}")
             self.report.uncombined_queries_issued += 1
-            try:
-                res = _sa_execute_underlying_method(
-                    query_future.conn,
-                    query_future.query,
-                    *query_future.multiparams,
-                    **query_future.params,
-                )
 
-                # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
-                # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
-                # by _ResultProxyFake.
-                query_future.res = cast(_ResultProxyFake, res)
-            except Exception as e:
-                query_future.exc = e
-            finally:
-                query_future.done = True
+            with PerfTimer() as timer:
+                try:
+                    res = _sa_execute_underlying_method(
+                        query_future.conn,
+                        query_future.query,
+                        *query_future.multiparams,
+                        **query_future.params,
+                    )
+
+                    # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
+                    # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
+                    # by _ResultProxyFake.
+                    query_future.res = cast(_ResultProxyFake, res)
+
+                    logger.info(
+                        f"Fallback query executed in {timer.elapsed_seconds():.3f}s: "
+                        f"{str(query_future.query)}"
+                    )
+                except Exception as e:
+                    query_future.exc = e
+                    logger.warning(
+                        f"Fallback query failed in {timer.elapsed_seconds():.3f}s "
+                        f"({type(e).__name__}): {str(query_future.query)}"
+                    )
+                finally:
+                    query_future.done = True
 
     def flush(self) -> None:
         """Executes until the queue and pool are empty."""
