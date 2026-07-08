@@ -33,9 +33,11 @@ import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
+import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -60,6 +62,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
@@ -1348,5 +1351,63 @@ public class TimeseriesAspectServiceUnitTest {
 
     Assert.assertEquals(result.size(), 2);
     verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsNestsDateHistogramUnderUrnBucket() throws IOException {
+    // Guards the daily-buckets batch path (DashboardUsageBucketsBatchLoader): a DATE grouping
+    // bucket
+    // must be emitted as a date_histogram nested inside the outer terms(batch_urn_outer). #18131
+    // only exercised STRING groupings, so this covers the date-histogram nesting the buckets loader
+    // relies on.
+    when(indexConvention.getTimeseriesAspectIndexName(
+            eq("dashboard"), eq("dashboardUsageStatistics")))
+        .thenReturn("dashboard_dashboardusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    GroupingBucket dailyBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+            .setKey("timestampMillis")
+            .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+    AggregationSpec viewsSum =
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount");
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dashboard:(looker,d1)"),
+            UrnUtils.getUrn("urn:li:dashboard:(looker,d2)"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dashboard",
+            "dashboardUsageStatistics",
+            new AggregationSpec[] {viewsSum},
+            urns,
+            null,
+            new GroupingBucket[] {dailyBucket},
+            "urn");
+
+    // Every URN gets a table entry even though the mocked outer terms response is empty.
+    Assert.assertEquals(result.size(), 2);
+
+    // Capture the emitted request and assert the date_histogram lives inside the URN terms agg.
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(searchClient, times(1)).search(any(), captor.capture(), any());
+    String source = captor.getValue().source().toString();
+    Assert.assertTrue(source.contains("batch_urn_outer"), source);
+    Assert.assertTrue(source.contains("date_histogram"), source);
+    Assert.assertTrue(source.contains("timestampMillis"), source);
+    Assert.assertTrue(source.contains("1d"), source);
+    // The date_histogram is serialized after the outer terms agg → nested under it, not a sibling.
+    Assert.assertTrue(source.indexOf("date_histogram") > source.indexOf("batch_urn_outer"), source);
   }
 }

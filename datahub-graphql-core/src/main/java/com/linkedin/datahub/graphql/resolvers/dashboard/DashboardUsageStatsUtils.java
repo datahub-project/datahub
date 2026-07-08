@@ -118,47 +118,51 @@ public class DashboardUsageStatsUtils {
       Filter filter,
       String dashboardUrn,
       TimeseriesAspectService timeseriesAspectService) {
-    AggregationSpec usersCountAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec viewsCountAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount");
-    AggregationSpec executionsCountAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("executionsCount");
-
-    AggregationSpec usersCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec viewsCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("viewsCount");
-    AggregationSpec executionsCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("executionsCount");
-
-    AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {
-          usersCountAggregation,
-          viewsCountAggregation,
-          executionsCountAggregation,
-          usersCountCardinalityAggregation,
-          viewsCountCardinalityAggregation,
-          executionsCountCardinalityAggregation
-        };
     GenericTable dailyStats =
         timeseriesAspectService.getAggregatedStats(
             opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
-            aggregationSpecs,
+            getUsageBucketAggSpecs(),
             filter,
-            createUsageGroupingBuckets(CalendarInterval.DAY));
+            getDailyUsageGroupingBuckets());
+    return mapUsageAggregations(dailyStats, dashboardUrn);
+  }
+
+  /**
+   * The SUM + CARDINALITY aggregation specs for the daily-usage time buckets. Column order is load
+   * bearing: {@link #mapUsageAggregations} reads SUM values at rows 1-3 and CARDINALITY guards at
+   * rows 4-6.
+   */
+  public static AggregationSpec[] getUsageBucketAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("uniqueUserCount"),
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount"),
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("executionsCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("uniqueUserCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("viewsCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("executionsCount")
+    };
+  }
+
+  /** Daily ({@code CalendarInterval.DAY}) date-histogram grouping for the usage time buckets. */
+  public static GroupingBucket[] getDailyUsageGroupingBuckets() {
+    return createUsageGroupingBuckets(CalendarInterval.DAY);
+  }
+
+  /**
+   * Maps one dashboard's daily-usage aggregation table (from either {@code getAggregatedStats} or
+   * the per-URN slice of {@code batchGetAggregatedStats}) into usage aggregation buckets. Assumes
+   * the column layout produced by {@link #getUsageBucketAggSpecs} under a daily date-histogram.
+   */
+  public static List<DashboardUsageAggregation> mapUsageAggregations(
+      @Nonnull GenericTable dailyStats, String dashboardUrn) {
     List<DashboardUsageAggregation> buckets = new ArrayList<>();
 
     for (StringArray row : dailyStats.getRows()) {
@@ -444,4 +448,12 @@ public class DashboardUsageStatsUtils {
   }
 
   private DashboardUsageStatsUtils() {}
+
+  /** Maps raw timeseries documents (e.g. from the batch loader) into dashboard usage metrics. */
+  public static List<DashboardUsageMetrics> mapDashboardUsageMetrics(
+      @Nullable QueryContext context, @Nonnull List<EnvelopedAspect> aspects) {
+    return aspects.stream()
+        .map(m -> DashboardUsageMetricMapper.map(context, m))
+        .collect(Collectors.toList());
+  }
 }
