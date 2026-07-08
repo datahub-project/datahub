@@ -252,6 +252,37 @@ def test_call_with_no_default_context_is_skipped():
     assert result is None
 
 
+def test_unresolvable_call_dropped_but_dml_lineage_survives():
+    """A CALL that can't be resolved (no default db/schema, no qualifier) is
+    dropped from ``inputDatajobs`` without erroring or discarding the DML
+    lineage that shares the body. Exercises ``_build_call_datajob_urn``
+    returning ``None`` while the overall result is still non-``None``."""
+    schema_resolver = SchemaResolver(platform="mariadb", env="PROD")
+
+    code = """
+    INSERT INTO reportdb.target (id) SELECT id FROM reportdb.source;
+    CALL orphan();
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db=None,
+        default_schema=None,
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    # The orphan CALL is silently dropped, not raised on.
+    assert not result.inputDatajobs
+    # Fully-qualified DML still yields table lineage.
+    assert result.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,reportdb.source,PROD)"
+    ]
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,reportdb.target,PROD)"
+    ]
+
+
 def test_call_inside_view_or_function_does_not_match():
     """A SELECT that references a column literally named ``CALL`` must not be
     mistaken for a procedure invocation."""

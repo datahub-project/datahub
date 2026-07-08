@@ -3,7 +3,11 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.mysql import (
+    MySQLConfig,
+    MySQLSource,
+    _parse_general_log_user,
+)
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -255,6 +259,64 @@ def test_general_log_tracks_use_and_skips_non_dml(mock_create_engine):
     # database set by the preceding USE statement.
     assert [q.query for q in observed] == ["INSERT INTO summary SELECT * FROM orders"]
     assert observed[0].default_schema == "sales"
+
+
+def test_parse_general_log_user_handles_user_at_server_login():
+    # A login whose account name embeds `@` (e.g. `user@server`) appears inside
+    # the brackets and must be captured verbatim.
+    assert (
+        _parse_general_log_user("analyst@prod[analyst@prod] @ localhost []")
+        == "analyst@prod"
+    )
+
+
+def test_general_log_user_urn_preserves_at_and_skips_email_domain():
+    # When the captured login already contains `@`, the configured email_domain
+    # must not be appended (it already looks like an address / has a server part).
+    source = _source(usage_source="general_log", email_domain="corp.com")
+    urn = source._general_log_user_urn("svc@host[svc@host] @ localhost []")
+    assert str(urn) == str(CorpUserUrn("svc@host"))
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_learns_db_from_connect_event(mock_create_engine):
+    # Clients that connect with a default database emit a `Connect` event
+    # ("<user>@<host> on <db> using <proto>") rather than an explicit `Init DB`.
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row(
+                "root[root] @ localhost []",
+                4,
+                "Connect",
+                "root@localhost on appdb using Socket",
+            ),
+            _glog_row("root[root] @ localhost []", 4, "Query", "SELECT id FROM orders"),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    assert len(observed) == 1
+    assert observed[0].default_schema == "appdb"
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_general_log_drops_query_from_unknown_session(mock_create_engine):
+    # A Query on a thread with no preceding Init DB/USE has no known schema, so
+    # the system-schema / database_pattern filters can't apply. It must be
+    # dropped rather than emitted unfiltered.
+    mock_create_engine.return_value = _patch_rows(
+        [
+            _glog_row(
+                "root[root] @ localhost []", 9, "Query", "SELECT * FROM mysql.user"
+            ),
+            _glog_row("root[root] @ localhost []", 9, "Query", "SELECT id FROM orders"),
+        ]
+    )
+
+    observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
+
+    assert observed == []
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")

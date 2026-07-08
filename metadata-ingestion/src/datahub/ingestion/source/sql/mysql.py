@@ -79,9 +79,11 @@ ORDER BY LAST_SEEN
 """
 
 # Each row is a single executed statement with literal text, the executing user,
-# and a real timestamp. Requires general_log=ON and log_output=TABLE. `Init DB`
-# rows carry the session's current database (the missing piece in general_log),
-# so they are read alongside `Query` rows to resolve unqualified table names.
+# and a real timestamp. Requires general_log=ON and log_output=TABLE. `Connect`
+# and `Init DB` rows carry the session's current database (the missing piece in
+# general_log), so they are read alongside `Query` rows to resolve unqualified
+# table names. `Connect` matters because clients that select a database at
+# connection time never emit an explicit `Init DB`.
 _GENERAL_LOG_QUERY = """
 SELECT
     event_time,
@@ -90,7 +92,7 @@ SELECT
     command_type,
     CONVERT(argument USING utf8mb4) AS argument
 FROM mysql.general_log
-WHERE command_type IN ('Query', 'Init DB')
+WHERE command_type IN ('Query', 'Init DB', 'Connect')
   AND event_time >= :start_time
   AND event_time <= :end_time
 ORDER BY event_time, thread_id
@@ -101,6 +103,12 @@ _USER_HOST_RE = re.compile(r"^[^\[]*\[([^\]]+)\]")
 
 # Leading `USE <db>` switches the session's current database.
 _USE_STATEMENT_RE = re.compile(r"^\s*USE\s+`?([^\s`;]+)`?", re.IGNORECASE)
+
+# `Connect` events record the session's initial default schema as
+# "<user>@<host> on <db> using <protocol>". When the client connects without
+# selecting a database the `<db>` slot is empty ("... on  using ...") and this
+# does not match, leaving the session's schema unknown until a USE/Init DB.
+_CONNECT_DB_RE = re.compile(r"\bon\s+(\S+)\s+using\b", re.IGNORECASE)
 
 # Statement kinds worth parsing for lineage/usage; everything else (SET, SHOW,
 # COMMIT, administrative commands) carries no dataset usage and is skipped.
@@ -200,8 +208,11 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
         default=MySQLUsageSource.PERFORMANCE_SCHEMA,
         description="Where to read query history from. `performance_schema` (default) reads "
         "normalized digests from `events_statements_summary_by_digest` (no setup, no per-user "
-        "attribution). `general_log` reads literal statements with user and timestamp from "
-        "`mysql.general_log` (requires `general_log=ON` and `log_output=TABLE`).",
+        "attribution). Its `COUNT_STAR` is cumulative since the last counter reset (server "
+        "restart or table truncation), so the first ingestion after enabling usage can report "
+        "a large one-day spike attributing all history-to-date to a single timestamp. "
+        "`general_log` reads literal statements with user and timestamp from `mysql.general_log` "
+        "(requires `general_log=ON` and `log_output=TABLE`).",
     )
 
     usage: BaseUsageConfig = Field(
@@ -509,8 +520,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 },
             )
             # general_log has no schema column; track each session's current db
-            # from Init DB / USE to resolve unqualified table names. LRU-capped
-            # (see _MAX_TRACKED_SESSIONS), refreshing recency on writes and reads.
+            # from Connect / Init DB / USE to resolve unqualified table names.
+            # LRU-capped (see _MAX_TRACKED_SESSIONS), refreshing recency on writes
+            # and reads.
             session_db: OrderedDict[str, str] = OrderedDict()
 
             def _remember_db(session_id: str, db: str) -> None:
@@ -522,6 +534,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
             for row in rows:
                 session_id = str(row.thread_id)
                 argument = row.argument or ""
+
+                if row.command_type == "Connect":
+                    connect_match = _CONNECT_DB_RE.search(argument)
+                    if connect_match:
+                        _remember_db(session_id, connect_match.group(1).strip("`"))
+                    continue
 
                 if row.command_type == "Init DB":
                     _remember_db(session_id, argument.strip().strip("`"))
@@ -537,21 +555,24 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
                 schema_name = session_db.get(session_id)
                 if schema_name is None:
-                    # No Init DB/USE seen for this session; unqualified tables
-                    # won't resolve. Emit anyway (qualified refs may) but log it.
+                    # No Init DB/USE seen for this session, so the system-schema and
+                    # database_pattern filters below cannot be applied. Skip rather
+                    # than emit an unfiltered query (unqualified tables wouldn't
+                    # resolve without a schema anyway).
                     logger.debug(
                         "general_log statement on thread %s has no known database; "
-                        "unqualified tables will not resolve: %s",
+                        "skipping: %s",
                         session_id,
                         argument,
                     )
-                else:
-                    # Refresh recency so long-lived active sessions aren't evicted.
-                    session_db.move_to_end(session_id)
-                    if schema_name.lower() in _SYSTEM_SCHEMAS:
-                        continue
-                    if not self.config.database_pattern.allowed(schema_name):
-                        continue
+                    continue
+
+                # Refresh recency so long-lived active sessions aren't evicted.
+                session_db.move_to_end(session_id)
+                if schema_name.lower() in _SYSTEM_SCHEMAS:
+                    continue
+                if not self.config.database_pattern.allowed(schema_name):
+                    continue
 
                 timestamp = row.event_time
                 if timestamp is not None and timestamp.tzinfo is None:

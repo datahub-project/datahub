@@ -2,7 +2,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
 import sqlglot
 from sqlglot.dialects.dialect import Dialect
@@ -377,7 +377,7 @@ def parse_procedure_code(
     # Resolve procedure calls to DataJob URNs. Deduplicate while preserving
     # first-call order so the output is deterministic for golden files.
     input_datajobs: List[str] = []
-    seen_input_datajobs: set = set()
+    seen_input_datajobs: Set[str] = set()
     for call in procedure_calls:
         urn = _build_call_datajob_urn(
             call=call,

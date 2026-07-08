@@ -1,16 +1,12 @@
-import json
 import subprocess
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
-import pymysql
 import pytest
 import time_machine
 
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLSource
 from datahub.testing import mce_helpers
-from tests.test_helpers import test_connection_helpers
+from tests.test_helpers import mysql_usage_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -85,41 +81,6 @@ def test_mysql_ingest_no_db(
     )
 
 
-# The transform avoids variadic functions (e.g. SUBSTRING_INDEX): digest text
-# truncates such argument lists to `...`, which the SQL parser cannot read, so
-# performance_schema-mode lineage would be lost. general_log keeps literal SQL.
-_USAGE_WORKLOAD = [
-    "SELECT id, name FROM raw_customer_data WHERE id = 1",
-    "SELECT id, name FROM raw_customer_data WHERE id = 2",
-    "SELECT id, name FROM raw_customer_data WHERE id = 3",
-    "SELECT COUNT(*) FROM raw_customer_data",
-    "INSERT INTO processed_customers (customer_id, full_name) "
-    "SELECT id, name FROM raw_customer_data",
-]
-
-
-def _execute_usage_workload() -> None:
-    # Run against the live server (not setup.sql): the init scripts run on a
-    # temporary server that is replaced, wiping the in-memory performance_schema
-    # digests.
-    conn = pymysql.connect(
-        host="localhost",
-        port=MYSQL_USAGE_PORT,
-        user="root",
-        password="example",
-        database="test_usage_db",
-    )
-    try:
-        with conn.cursor() as cursor:
-            for _ in range(3):
-                for statement in _USAGE_WORKLOAD:
-                    cursor.execute(statement)
-                    cursor.fetchall()
-        conn.commit()
-    finally:
-        conn.close()
-
-
 @pytest.fixture(scope="module")
 def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
@@ -132,78 +93,43 @@ def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_mysql_up("testmysqlusage", MYSQL_PORT),
         )
-        _execute_usage_workload()
-        yield docker_services
-
-
-def _run_usage_pipeline(usage_source: str, output_path: Path) -> list:
-    # The workload runs with the server's real clock, so pin an explicit wide window
-    # around now instead of the default rolling one — a small gap between workload and
-    # assertion can't push queries out of range.
-    now = datetime.now(timezone.utc)
-    pipeline = Pipeline.create(
-        {
-            "run_id": f"mysql-usage-{usage_source}",
-            "source": {
-                "type": "mysql",
-                "config": {
-                    "host_port": f"localhost:{MYSQL_USAGE_PORT}",
-                    "database": "test_usage_db",
-                    "username": "root",
-                    "password": "example",
-                    "include_usage_statistics": True,
-                    "usage_source": usage_source,
-                    "usage": {
-                        "start_time": (now - timedelta(days=1)).isoformat(),
-                        "end_time": (now + timedelta(days=1)).isoformat(),
-                    },
-                    "profiling": {"enabled": False},
-                },
-            },
-            "sink": {"type": "file", "config": {"filename": str(output_path)}},
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-    return json.loads(output_path.read_text())
-
-
-def _aspects(mcps: list, aspect_name: str) -> list:
-    return [m for m in mcps if m.get("aspectName") == aspect_name]
-
-
-def _assert_query_lineage_present(mcps: list) -> None:
-    lineages = _aspects(mcps, "upstreamLineage")
-    found = any(
-        "processed_customers" in m["entityUrn"]
-        and any(
-            "raw_customer_data" in upstream["dataset"]
-            for upstream in m["aspect"]["json"]["upstreams"]
+        mysql_usage_helpers.execute_usage_workload(
+            port=MYSQL_USAGE_PORT, password="example"
         )
-        for m in lineages
-    )
-    assert found, "expected query lineage processed_customers <- raw_customer_data"
+        yield docker_services
 
 
 @pytest.mark.integration
 def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
-    mcps = _run_usage_pipeline("performance_schema", tmp_path / "perf.json")
+    mcps = mysql_usage_helpers.run_usage_pipeline(
+        platform="mysql",
+        usage_source="performance_schema",
+        port=MYSQL_USAGE_PORT,
+        password="example",
+        output_path=tmp_path / "perf.json",
+    )
 
-    usage = _aspects(mcps, "datasetUsageStatistics")
+    usage = mysql_usage_helpers.aspects(mcps, "datasetUsageStatistics")
     assert any("raw_customer_data" in m["entityUrn"] for m in usage), (
         "expected usage statistics for raw_customer_data"
     )
     # performance_schema digests are aggregated across users: no per-user breakdown.
     assert all(not m["aspect"]["json"].get("userCounts") for m in usage)
 
-    _assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_query_lineage_present(mcps)
 
 
 @pytest.mark.integration
 def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
-    mcps = _run_usage_pipeline("general_log", tmp_path / "glog.json")
+    mcps = mysql_usage_helpers.run_usage_pipeline(
+        platform="mysql",
+        usage_source="general_log",
+        port=MYSQL_USAGE_PORT,
+        password="example",
+        output_path=tmp_path / "glog.json",
+    )
 
-    usage = _aspects(mcps, "datasetUsageStatistics")
+    usage = mysql_usage_helpers.aspects(mcps, "datasetUsageStatistics")
     assert any("raw_customer_data" in m["entityUrn"] for m in usage), (
         "expected usage statistics for raw_customer_data"
     )
@@ -217,7 +143,7 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
         f"expected per-user attribution for root, got {user_urns}"
     )
 
-    _assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_query_lineage_present(mcps)
 
 
 @pytest.mark.parametrize(
