@@ -13,23 +13,10 @@ Semantic models are identified by three fields:
   with autocomplete and a "Platform" filter pill.
 - **`path`** — the namespace path that scopes this semantic model within its platform, preventing
   name collisions when two teams define models with the same `id` on the same platform.
-  Searchable as TEXT_PARTIAL with a "Path" filter pill.
-  Metric ingestors rely on this value to satisfy the compositional invariant: a child metric's
-  `path` is derived as `semanticModel.path + "." + semanticModel.id`.
 - **`id`** — the model name within that platform and path
   (e.g. `orders_model`, `customer_360`).
 
 An example URN: `urn:li:semanticModel:(urn:li:dataPlatform:dbt,analytics,orders_model)`.
-
-### Per-platform `path` conventions
-
-| Platform              | `path` value for a semantic model  |
-| --------------------- | ---------------------------------- |
-| Snowflake (SV)        | `<database>.<schema>`              |
-| dbt                   | `<package_name>`                   |
-| Cube                  | `""` (empty string, one per proj.) |
-| Looker                | `<model>`                          |
-| Native / SDK-authored | `""` (empty string)                |
 
 ## Important Capabilities
 
@@ -48,7 +35,7 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
   parsed by DataHub.
 - **`datasets`** — array of `ModelDataset` records, each linking a logical dataset name to a
-  source `dataset` URN. Each entry may include `primaryKey`, `uniqueKeys`, and typed `fields`.
+  source `dataset` URN. Each entry may include typed `fields`.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-table, to-table, join columns, optional
   name, and AI context).
@@ -57,14 +44,17 @@ Core metadata is stored in the `semanticModelInfo` aspect:
 
 ### Fields and Dimensions
 
-Each `ModelDataset` entry can carry a list of `Field` records that describe the columns exposed by
-the semantic model:
+Each `ModelDataset` entry can carry a list of `SemanticField` records that describe the columns
+exposed by the semantic model:
 
+- **`type`** — required `SemanticFieldType` enum identifying the kind of field: `DIMENSION` (grouping /
+  filtering attribute), `MEASURE` (aggregatable numeric value), `FILTER` (named boolean predicate),
+  or `OTHER` (forward-compat escape hatch for source constructs that do not map cleanly to the
+  three named kinds).
 - **`name`** — the field name as used in metric expressions.
 - **`expression`** — the underlying SQL expression(s) in one or more dialects.
-- **`dimension`** — optional `Dimension` record; currently exposes `isTime: boolean` to flag
-  time dimensions used for date-range filtering.
-- **`description`** — free-text documentation for the field.
+- **`dimension`** — optional `Dimension` record; populated only when `type == DIMENSION`. Currently
+  exposes `isTime: boolean` to flag time dimensions used for date-range filtering.
 - **`aiContext`** — AI hints specific to this field.
 
 ### Governance

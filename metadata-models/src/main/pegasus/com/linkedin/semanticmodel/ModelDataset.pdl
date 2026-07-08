@@ -3,8 +3,7 @@ namespace com.linkedin.semanticmodel
 import com.linkedin.common.Urn
 
 /**
- * A logical dataset referenced by a SemanticModel, together with its schema
- * and primary/unique key definitions.
+ * A logical dataset referenced by a SemanticModel, together with its exposed fields.
  */
 record ModelDataset {
 
@@ -23,18 +22,8 @@ record ModelDataset {
   source: Urn
 
   /**
-   * Column names that form the primary key of this dataset.
+   * Fields (dimensions, measures, filters) defined over this dataset.
    */
-  primaryKey: optional array[string]
-
-  /**
-   * Sets of column names that form unique keys of this dataset.
-   */
-  uniqueKeys: optional array[array[string]]
-
-  /**
-   * Fields (measures and dimensions) defined over this dataset.
-   */
-  fields: optional array[Field]
+  fields: optional array[SemanticField]
 
 }
