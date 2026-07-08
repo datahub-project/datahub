@@ -176,3 +176,40 @@ def test_get_retention_partial_override_falls_back_to_global() -> None:
     assert default.min_count == 10
     assert default.max_count == 1000
     assert default.max_milliseconds == 90 * DAY_MS
+
+
+def test_ingestion_sources_are_bucketed_independently() -> None:
+    # Each ingestion source keeps its own min_count; one source must not evict
+    # another's history. Guards against collapsing buckets by source.type instead
+    # of by ingestion source URN.
+    config = DatahubExecutionRequestCleanupConfig(keep_history_min_count=3)
+    records = [
+        _record(
+            "urn:li:dataHubExecutionRequest:a-0",
+            days_ago=0,
+            ingestion_source="urn:li:dataHubIngestionSource:a",
+            source_type="SCHEDULED_INGESTION_SOURCE",
+        ),
+        _record(
+            "urn:li:dataHubExecutionRequest:b-0",
+            days_ago=1,
+            ingestion_source="urn:li:dataHubIngestionSource:b",
+            source_type="SCHEDULED_INGESTION_SOURCE",
+        ),
+        _record(
+            "urn:li:dataHubExecutionRequest:a-old",
+            days_ago=400,
+            ingestion_source="urn:li:dataHubIngestionSource:a",
+            source_type="SCHEDULED_INGESTION_SOURCE",
+        ),
+        _record(
+            "urn:li:dataHubExecutionRequest:b-old",
+            days_ago=400,
+            ingestion_source="urn:li:dataHubIngestionSource:b",
+            source_type="SCHEDULED_INGESTION_SOURCE",
+        ),
+    ]
+
+    # Each source has 2 records (< min_count 3), so nothing is deleted despite the
+    # 400-day age — the two sources are retained in independent buckets.
+    assert _deleted_urns(config, records) == []
