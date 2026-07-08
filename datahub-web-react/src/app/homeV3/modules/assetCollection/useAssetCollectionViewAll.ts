@@ -5,8 +5,12 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { ENTITY_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 import { excludeEmptyAndFilters } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
-import { convertLogicalPredicateToOrFilters, isEmptyLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
+import { LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import {
+    convertLogicalPredicateToOrFilters,
+    isEmptyLogicalPredicate,
+    isLogicalPredicate,
+} from '@app/sharedV2/queryBuilder/builder/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType, FacetFilterInput, FilterOperator } from '@types';
@@ -101,23 +105,42 @@ export function convertLogicalPredicateToViewAllParams(
     return { filters, unionType };
 }
 
+export type ViewAllSupport = 'supported' | 'incomplete' | 'unsupported';
+
+const EXISTS_OPERATOR = 'exists';
+
+/** A condition row with a property picked but no values yet (and an operator that needs values). */
+function hasIncompleteConditions(predicate: LogicalPredicate | PropertyPredicate): boolean {
+    if (isLogicalPredicate(predicate)) {
+        return predicate.operands.some((operand) => hasIncompleteConditions(operand));
+    }
+    const needsValues = predicate.operator?.toLowerCase().replace(/[_\s]/g, '') !== EXISTS_OPERATOR;
+    return !!predicate.property && needsValues && !predicate.values?.length;
+}
+
 /**
- * Whether a (draft) dynamic filter supports the "View all" affordance. Used by the
- * collection builder to hint authors when their filter won't get the button.
- * Predicates with no effective conditions (empty, or blank rows only) count as
- * supported — there is nothing to warn about yet.
+ * How a (draft) dynamic filter relates to the "View all" affordance. Used by the
+ * collection builder to hint authors when their filter won't get the button:
+ * - 'supported': the button will show (or there is nothing to warn about yet —
+ *   empty drafts and blank rows count here).
+ * - 'incomplete': a condition is missing its values; finishing it may make the
+ *   filter supported, and saving it as-is leaves the tile matching nothing.
+ * - 'unsupported': the filter is complete but has no faithful search-URL
+ *   representation, so the button will stay hidden.
  */
-export function isViewAllSupported(
+export function getViewAllSupport(
     predicate: LogicalPredicate | null | undefined,
     getTypeFromGraphName: (name: string) => EntityType | undefined,
-): boolean {
-    if (!predicate || isEmptyLogicalPredicate(predicate)) return true;
-    if (convertLogicalPredicateToViewAllParams(predicate, getTypeFromGraphName) !== null) return true;
+): ViewAllSupport {
+    if (!predicate || isEmptyLogicalPredicate(predicate)) return 'supported';
+    if (convertLogicalPredicateToViewAllParams(predicate, getTypeFromGraphName) !== null) return 'supported';
+    if (hasIncompleteConditions(predicate)) return 'incomplete';
     try {
         const orFilters = excludeEmptyAndFilters(convertLogicalPredicateToOrFilters(predicate));
-        return !orFilters?.length;
+        // Blank rows only — no effective conditions, nothing to warn about.
+        return orFilters?.length ? 'unsupported' : 'supported';
     } catch (e) {
-        return false;
+        return 'unsupported';
     }
 }
 

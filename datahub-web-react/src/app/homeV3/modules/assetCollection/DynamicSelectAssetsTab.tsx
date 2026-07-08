@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { isViewAllSupported } from '@app/homeV3/modules/assetCollection/useAssetCollectionViewAll';
+import { getViewAllSupport } from '@app/homeV3/modules/assetCollection/useAssetCollectionViewAll';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
@@ -29,8 +29,8 @@ const DynamicSelectAssetsTab = ({ dynamicFilter, setDynamicFilter }: Props) => {
     const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
 
-    const supportsViewAll = useMemo(
-        () => isViewAllSupported(dynamicFilter, (name) => entityRegistry.getTypeFromGraphName(name)),
+    const viewAllSupport = useMemo(
+        () => getViewAllSupport(dynamicFilter, (name) => entityRegistry.getTypeFromGraphName(name)),
         [dynamicFilter, entityRegistry],
     );
 
@@ -41,11 +41,15 @@ const DynamicSelectAssetsTab = ({ dynamicFilter, setDynamicFilter }: Props) => {
                 onChangeFilters={setDynamicFilter}
                 properties={properties}
             />
-            {!supportsViewAll && (
+            {viewAllSupport !== 'supported' && (
                 <HintWrapper>
                     <Alert
                         variant="info"
-                        title={t('assetCollection.viewAllUnsupportedHint')}
+                        title={t(
+                            viewAllSupport === 'incomplete'
+                                ? 'assetCollection.viewAllIncompleteHint'
+                                : 'assetCollection.viewAllUnsupportedHint',
+                        )}
                         data-testid="view-all-unsupported-hint"
                     />
                 </HintWrapper>

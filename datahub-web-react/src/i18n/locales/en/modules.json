@@ -38,6 +38,8 @@
     "assetCollection.selectAssetsTab": "Select Assets",
     "assetCollection.selectedAssetsHeader": "Selected Assets",
     "assetCollection.subtitle": "Create a module by selecting assets and information that will be shown to your users",
+    "assetCollection.viewAllIncompleteHint": "Some filter conditions are incomplete — the “View all” link won't show on this collection until every condition has a value.",
+    "assetCollection.viewAllManualHint": "Manually selected collections don't support the “View all” link yet.",
     "assetCollection.viewAllUnsupportedHint": "This collection won't show a “View all” link — its filter is too complex to open on the search page.",
     "assets.moduleName": "Assets",
     "assets.moduleDescription": "Related Assets tagged with the parent entity",

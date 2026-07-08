@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useAssetCollectionViewAll, {
     convertLogicalPredicateToViewAllParams,
-    isViewAllSupported,
+    getViewAllSupport,
 } from '@app/homeV3/modules/assetCollection/useAssetCollectionViewAll';
 import { ENTITY_SUB_TYPE_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
@@ -248,37 +248,57 @@ describe('convertLogicalPredicateToViewAllParams', () => {
     });
 });
 
-describe('isViewAllSupported', () => {
+describe('getViewAllSupport', () => {
     it('treats empty and blank-row-only drafts as supported (no hint)', () => {
-        expect(isViewAllSupported(undefined, getTypeFromGraphName)).toBe(true);
-        expect(isViewAllSupported(predicate(LogicalOperatorType.AND, []), getTypeFromGraphName)).toBe(true);
+        expect(getViewAllSupport(undefined, getTypeFromGraphName)).toBe('supported');
+        expect(getViewAllSupport(predicate(LogicalOperatorType.AND, []), getTypeFromGraphName)).toBe('supported');
         expect(
-            isViewAllSupported(predicate(LogicalOperatorType.AND, [{ type: 'property' }]), getTypeFromGraphName),
-        ).toBe(true);
+            getViewAllSupport(predicate(LogicalOperatorType.AND, [{ type: 'property' }]), getTypeFromGraphName),
+        ).toBe('supported');
     });
 
     it('treats representable filters as supported', () => {
         expect(
-            isViewAllSupported(
+            getViewAllSupport(
                 predicate(LogicalOperatorType.AND, [
                     { type: 'property', property: '_entityType', operator: 'equals', values: ['dataProduct'] },
                 ]),
                 getTypeFromGraphName,
             ),
-        ).toBe(true);
+        ).toBe('supported');
     });
 
-    it('flags unrepresentable filters', () => {
-        // exists condition — executes on the tile but has no URL representation
+    it('classifies conditions with a property but no values yet as incomplete', () => {
+        // Mid-edit: property picked, no operator/values yet
         expect(
-            isViewAllSupported(
+            getViewAllSupport(
+                predicate(LogicalOperatorType.AND, [{ type: 'property', property: 'owners' }]),
+                getTypeFromGraphName,
+            ),
+        ).toBe('incomplete');
+        // A valueless condition alongside a complete one
+        expect(
+            getViewAllSupport(
+                predicate(LogicalOperatorType.AND, [
+                    { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:golden'] },
+                    { type: 'property', property: 'owners', operator: 'equals', values: [] },
+                ]),
+                getTypeFromGraphName,
+            ),
+        ).toBe('incomplete');
+    });
+
+    it('flags complete but unrepresentable filters as unsupported', () => {
+        // exists condition — complete (needs no values), but has no URL representation
+        expect(
+            getViewAllSupport(
                 predicate(LogicalOperatorType.AND, [{ type: 'property', property: 'tags', operator: 'exists' }]),
                 getTypeFromGraphName,
             ),
-        ).toBe(false);
+        ).toBe('unsupported');
         // nesting with no flat representation
         expect(
-            isViewAllSupported(
+            getViewAllSupport(
                 predicate(LogicalOperatorType.OR, [
                     predicate(LogicalOperatorType.AND, [
                         { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] },
@@ -288,7 +308,7 @@ describe('isViewAllSupported', () => {
                 ]),
                 getTypeFromGraphName,
             ),
-        ).toBe(false);
+        ).toBe('unsupported');
     });
 });
 
