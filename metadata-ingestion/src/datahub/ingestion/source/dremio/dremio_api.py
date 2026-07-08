@@ -53,8 +53,7 @@ class _CatalogWideQueryFailed(Exception):
 
 
 # execute_query_iter wraps setup failures as DremioAPIException, but transport
-# errors (timeout, connection reset) raised while lazily streaming result pages
-# propagate raw from requests. A chunked fetch must treat both as a failed chunk.
+# errors raised while lazily streaming result pages propagate raw from requests.
 _QUERY_FETCH_ERRORS = (DremioAPIException, requests.RequestException)
 
 
@@ -757,10 +756,8 @@ class DremioAPIOperations:
     ) -> "FileBackedDict[Optional[str]]":
         """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view.
 
-        Backed by on-disk SQLite: view SQL is the known-large payload (it's what
-        overflows the 2 GiB vector), so buffering every definition in RAM for the
-        whole run — including the memory-constrained fallback — would reintroduce
-        the pressure this fix removes. The caller must close the returned dict.
+        On-disk (FileBackedDict) because view SQL is large; keeping it all in RAM
+        would reintroduce the memory pressure this fix targets. Caller must close.
         """
         query_template = self._get_view_definition_query()
         definitions: "FileBackedDict[Optional[str]]" = FileBackedDict()
@@ -782,9 +779,8 @@ class DremioAPIOperations:
             try:
                 chunk_results = list(self.execute_query_iter(query=formatted_query))
             except _QUERY_FETCH_ERRORS as e:
-                # Fail loudly rather than silently dropping view definitions: the
-                # returned dict is partial, so the caller would otherwise treat
-                # missing views as having no definition.
+                # Partial result: missing views would otherwise look like views
+                # with no definition, so fail loudly.
                 self.report.failure(
                     message="Failed to fetch Dremio view definitions; view "
                     "lineage may be incomplete.",
@@ -810,10 +806,9 @@ class DremioAPIOperations:
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
         """Fetch all tables and columns; view definitions are fetched separately and merged by path.
 
-        Runs a single catalog-wide query (chunked with LIMIT/OFFSET) — the cheapest
-        option since it plans once. If Dremio can't execute it (planning/exec timeout
-        or OOM, which happens on very large catalogs), automatically retries one root
-        container at a time so the join and sort only cover a single container. The
+        Runs a single catalog-wide query (chunked with LIMIT/OFFSET) since it plans
+        once. If Dremio can't execute it (timeout or OOM on very large catalogs),
+        retries one root container at a time so the join and sort cover less. The
         fallback only triggers before any rows are emitted, so it never double-counts.
         """
         if self.edition == DremioEdition.ENTERPRISE:
