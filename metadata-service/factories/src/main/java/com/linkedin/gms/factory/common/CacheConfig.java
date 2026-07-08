@@ -364,4 +364,30 @@ public class CacheConfig {
     }
     return MaxSizePolicy.PER_NODE;
   }
+
+  public static final String KEY_ASPECT_ENTITY_COUNTS_MAP = "keyAspectEntityCounts";
+  public static final String KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP =
+      "keyAspectEntityCountsInFlight";
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig keyAspectEntityCountsMapConfig(
+      @Value("${cache.entityCounts.keyAspect.ttlSeconds:3600}") int ttlSeconds,
+      @Value("${cache.primary.maxSize:10000}") int cacheMaxSize) {
+    MapConfig mapConfig = new MapConfig(KEY_ASPECT_ENTITY_COUNTS_MAP);
+    mapConfig.setTimeToLiveSeconds(ttlSeconds);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(cacheMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig keyAspectEntityCountsInFlightMapConfig() {
+    return new MapConfig(KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP);
+  }
 }

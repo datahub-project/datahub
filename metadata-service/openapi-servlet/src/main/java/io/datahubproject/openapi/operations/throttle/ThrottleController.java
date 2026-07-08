@@ -11,6 +11,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,7 +66,8 @@ public class ThrottleController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    actorUrnStr, httpServletRequest, "getManualAPIRequestsThrottle", List.of()),
+                    actorUrnStr, httpServletRequest, "getManualAPIRequestsThrottle", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -97,7 +99,8 @@ public class ThrottleController {
                     authentication.getActor().toUrnStr(),
                     httpServletRequest,
                     "getManualAPIRequestsThrottle",
-                    List.of()),
+                    List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);

@@ -545,6 +545,11 @@ module.exports = {
           id: "docs/features/feature-guides/mcp",
         },
         {
+          label: "Multi-Language Support",
+          type: "doc",
+          id: "docs/features/feature-guides/multi-language-support",
+        },
+        {
           label: "Ownership",
           type: "doc",
           id: "docs/ownership/ownership-types",

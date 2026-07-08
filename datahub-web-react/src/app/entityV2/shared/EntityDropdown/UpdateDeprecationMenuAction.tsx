@@ -1,16 +1,24 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { message } from 'antd';
+import { Button, Tooltip, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
+
+const DeprecationActionButton = styled(Button)`
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+`;
 
 export default function UpdateDeprecationMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
@@ -22,7 +30,7 @@ export default function UpdateDeprecationMenuAction() {
     const [updateDeprecation] = useUpdateDeprecationMutation();
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: tcf('updating') });
+        toast.loading(tcf('updating'));
         try {
             await updateDeprecation({
                 variables: {
@@ -34,20 +42,17 @@ export default function UpdateDeprecationMenuAction() {
                     },
                 },
             });
-            message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            toast.destroy();
+            toast.success(t('deprecation.updated'), { duration: 2 });
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
                 deprecated: deprecatedStatus,
             });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({
-                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
             }
         }
         refetchForEntity?.();
@@ -62,8 +67,12 @@ export default function UpdateDeprecationMenuAction() {
                     : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
             }
         >
-            <ActionMenuItem
+            <DeprecationActionButton
                 key="deprecation"
+                variant="outline"
+                color="gray"
+                size="sm"
+                isCircle
                 onClick={() =>
                     !entityData?.deprecation?.deprecated
                         ? setIsDeprecationModalVisible(true)
@@ -71,8 +80,8 @@ export default function UpdateDeprecationMenuAction() {
                 }
                 data-testid="entity-menu-deprecate-button"
             >
-                <ExclamationCircleOutlined style={{ display: 'flex' }} />
-            </ActionMenuItem>
+                <DeprecatedIcon style={{ width: 16, height: 16 }} />
+            </DeprecationActionButton>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}

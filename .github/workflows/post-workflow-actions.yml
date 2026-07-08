@@ -38,6 +38,7 @@ on:
       - "Release Tests"
       - "Release Validation"
       - "spark smoke test"
+      - "Vercel Preview Cleanup"
       - "Verify Quickstart Compose"
     types:
       - completed

@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
     parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
@@ -725,6 +726,72 @@ class BaseConnector:
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from connector configuration. Override in subclasses."""
         return []
+
+    def _get_topics_from_sink_config(self) -> List[str]:
+        """
+        Extract topics from sink connector configuration (shared helper).
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
+        config = self.connector_manifest.config
+
+        # Priority 1: Explicit 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
+
+        return []
+
+    def _resolve_subscribed_topics(
+        self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
+    ) -> List[str]:
+        """
+        Resolve topic list from subscribed config + runtime Kafka API (shared helper).
+
+        Applies three-way fallback logic:
+        1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
+        2. Use subscribed topics if runtime data unavailable
+        3. Use all runtime topics if no subscription config
+        """
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+        subscribed_topics_set = set(subscribed_topics)
+
+        if subscribed_topics_set:
+            if available_topics:
+                topic_list = list(available_topics.intersection(subscribed_topics_set))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
+            else:
+                topic_list = list(subscribed_topics_set)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
+        else:
+            topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
+
+        return topic_list
 
     @staticmethod
     def supports_connector_class(connector_class: str) -> bool:
