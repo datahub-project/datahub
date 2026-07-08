@@ -1,6 +1,8 @@
 """Snowflake-specific profiling adapter."""
 
 import logging
+import random
+import string
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
@@ -26,52 +28,285 @@ class SnowflakeAdapter(PlatformAdapter):
     Snowflake optimizations:
     1. APPROX_COUNT_DISTINCT for fast unique counts
     2. Native MEDIAN() function for median calculation
-
-    TODO: While Snowflake supports TABLESAMPLE SYSTEM for sampling large tables,
-    it's not implemented yet to maintain alignment with GE profiler behavior
-    (GE profiler only uses TABLESAMPLE for BigQuery, not Snowflake).
+    3. Temporary tables with TABLESAMPLE for large table profiling
     """
 
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
         """
-        Snowflake setup - create SQL table object.
+        Setup Snowflake profiling with temp tables and sampling.
+
+        For large tables (> sample_size rows), creates a temporary table
+        with sampled data to avoid massive cross-join queries on production tables.
 
         Args:
             context: Current profiling context
             conn: Active database connection
 
         Returns:
-            Updated context with sql_table populated
+            Updated context ready for profiling
         """
-        if not context.table:
-            raise ValueError(
-                f"Cannot profile {context.pretty_name}: table name required"
-            )
+        logger.debug(f"Snowflake setup for {context.pretty_name}")
+
+        # Setup sampling for large tables
+        if self._should_sample_table(context, conn):
+            context = self._setup_sampling(context, conn)
 
         # Create SQLAlchemy table object
-        context.sql_table = self._create_sqlalchemy_table(
-            schema=context.schema,
-            table=context.table,
-        )
-
-        logger.debug(
-            f"Snowflake setup for {context.pretty_name}: "
-            f"schema={context.schema}, table={context.table}"
-        )
+        if context.temp_table:
+            # Use temp table
+            context.sql_table = self._create_sqlalchemy_table(
+                schema=context.temp_schema,
+                table=context.temp_table,
+            )
+        else:
+            # Use original table
+            if not context.table:
+                raise ValueError(
+                    f"Cannot profile {context.pretty_name}: table name required"
+                )
+            context.sql_table = self._create_sqlalchemy_table(
+                schema=context.schema,
+                table=context.table,
+            )
 
         return context
 
     def cleanup(self, context: ProfilingContext) -> None:
         """
-        Snowflake cleanup - nothing to clean up.
+        Cleanup Snowflake temp resources.
+
+        Drops temporary tables created during profiling.
 
         Args:
             context: Profiling context
         """
-        # No temp resources created in Snowflake setup
+        if context.temp_table:
+            try:
+                # Drop temp table using raw connection
+                raw_conn = self.base_engine.raw_connection()
+                cursor = raw_conn.cursor()
+
+                # Build fully qualified temp table name
+                temp_table_fqn = (
+                    f"{context.temp_schema}.{context.temp_table}"
+                    if context.temp_schema
+                    else context.temp_table
+                )
+
+                drop_sql = f"DROP TABLE IF EXISTS {temp_table_fqn}"
+                logger.debug(f"Dropping Snowflake temp table: {drop_sql}")
+                cursor.execute(drop_sql)  # type: ignore[call-arg]
+                cursor.close()
+                raw_conn.close()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to drop Snowflake temp table {context.temp_table}: "
+                    f"{type(e).__name__}: {str(e)}"
+                )
         pass
+
+    # =========================================================================
+    # Sampling
+    # =========================================================================
+
+    def _should_sample_table(self, context: ProfilingContext, conn: Connection) -> bool:
+        """
+        Check if table should be sampled based on size and configuration.
+
+        Args:
+            context: Current profiling context
+            conn: Active database connection
+
+        Returns:
+            True if table should be sampled
+        """
+        if not self.config.use_sampling:
+            return False
+
+        if context.custom_sql:
+            # Don't sample custom SQL
+            return False
+
+        if not context.table:
+            # Can't sample without a table
+            return False
+
+        # Check if table is large enough to warrant sampling
+        # Get row count (only if not already cached in context)
+        if context.row_count is None:
+            context.row_count = self._get_quick_row_count(context, conn)
+
+        if context.row_count is None:
+            return False
+
+        return context.row_count > self.config.sample_size
+
+    def _get_quick_row_count(
+        self, context: ProfilingContext, conn: Connection
+    ) -> Optional[int]:
+        """
+        Get row count for sampling decision.
+
+        Note: Despite the name, this executes SELECT COUNT(*) which is NOT quick
+        on large tables (full table scan).
+
+        TODO: Use Snowflake's metadata-based approximate counts
+        (INFORMATION_SCHEMA.TABLES.ROW_COUNT) for faster row count estimation.
+        Currently using exact counts to match GE profiler behavior.
+
+        Args:
+            context: Current profiling context
+            conn: Active database connection
+
+        Returns:
+            Exact row count, or None if unavailable
+        """
+        try:
+            if not context.table:
+                return None
+
+            # Create SQLAlchemy Table object for query construction
+            table_obj = sa.Table(
+                context.table,
+                sa.MetaData(),
+                schema=context.schema,
+            )
+            query = sa.select([sa.func.count()]).select_from(table_obj)
+
+            result = conn.execute(query).scalar()
+            return int(result) if result is not None else None
+        except SQLAlchemyError as e:
+            logger.debug(f"Failed to get quick row count: {type(e).__name__}: {str(e)}")
+            return None
+
+    def _setup_sampling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Setup Snowflake TABLESAMPLE for large tables.
+
+        Creates a temporary table with sampled data using Snowflake's
+        TABLESAMPLE syntax. Matches GE profiler's conditional logic:
+        - BLOCK + BERNOULLI for very large tables (>50M rows)
+        - BERNOULLI only for smaller tables
+
+        Args:
+            context: Current profiling context
+            conn: Active database connection
+
+        Returns:
+            Updated context with sampled temp table
+        """
+        # Get row count for calculating sample percentage
+        row_count = context.row_count or self._get_quick_row_count(context, conn)
+        if not row_count or row_count <= self.config.sample_size:
+            return context
+
+        # Table must be present for sampling
+        if not context.table:
+            raise ValueError(
+                f"Cannot sample {context.pretty_name}: table name is required"
+            )
+
+        # Build fully qualified table name
+        table_fqn = (
+            f'"{context.schema}"."{context.table}"'
+            if context.schema
+            else f'"{context.table}"'
+        )
+
+        # Generate unique temp table name
+        random_suffix = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=8)
+        )
+        temp_table_name = f"datahub_profiling_sample_{random_suffix}"
+
+        # GE's sampling strategy: use BLOCK + BERNOULLI for very large tables
+        # to improve performance, otherwise use BERNOULLI only
+        estimated_block_row_count = 500_000
+        block_profiling_min_rows = 100 * estimated_block_row_count  # 50M rows
+        overgeneration_factor = 1000
+
+        # Calculate base sample percentage
+        sample_pc = self.config.sample_size / row_count
+
+        # Decide sampling strategy based on table size
+        if (
+            row_count > block_profiling_min_rows
+            and row_count > self.config.sample_size * overgeneration_factor
+        ):
+            # Very large table: use BLOCK + BERNOULLI
+            # First pass with BLOCK to get 1000x the target sample size,
+            # then BERNOULLI to reduce to final size
+            block_sample_pc = 100 * overgeneration_factor * sample_pc
+            bernoulli_sample_pc = 100 / overgeneration_factor
+
+            create_sql = (
+                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name} AS "
+                f"SELECT * FROM ("
+                f"  SELECT * FROM {table_fqn} "
+                f"  TABLESAMPLE BLOCK ({block_sample_pc:.8f})"
+                f") TABLESAMPLE BERNOULLI ({bernoulli_sample_pc:.8f})"
+            )
+            sampling_strategy = f"BLOCK ({block_sample_pc:.2f}%) + BERNOULLI ({bernoulli_sample_pc:.2f}%)"
+        else:
+            # Smaller table: use BERNOULLI only
+            bernoulli_sample_pc = 100 * sample_pc
+
+            create_sql = (
+                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name} AS "
+                f"SELECT * FROM {table_fqn} "
+                f"TABLESAMPLE BERNOULLI ({bernoulli_sample_pc:.8f})"
+            )
+            sampling_strategy = f"BERNOULLI ({bernoulli_sample_pc:.2f}%)"
+
+        logger.info(
+            f"Creating Snowflake temp table for {context.pretty_name} "
+            f"({row_count:,} rows, target sample: {self.config.sample_size:,}, "
+            f"strategy: {sampling_strategy})"
+        )
+        logger.debug(f"Snowflake sampling SQL: {create_sql}")
+
+        try:
+            # Execute using raw connection
+            raw_conn = self.base_engine.raw_connection()
+            cursor = raw_conn.cursor()
+            cursor.execute(create_sql)  # type: ignore[call-arg]
+            cursor.close()
+            raw_conn.close()
+
+            # Update context to use temp table
+            context.temp_table = temp_table_name
+            context.temp_schema = context.schema  # Temp table inherits schema
+            context.is_sampled = True
+            context.sample_percentage = sample_pc * 100  # Store as percentage
+            context.add_temp_resource("snowflake_temp_table", temp_table_name)
+
+            logger.debug(
+                f"Created Snowflake temp table: "
+                f"{context.temp_schema}.{context.temp_table}"
+            )
+
+            return context
+
+        except SQLAlchemyError as e:
+            error_msg = (
+                f"Cannot profile {context.pretty_name}: Snowflake temp table creation failed. "
+                f"{type(e).__name__}: {str(e)}"
+            )
+            self.report.warning(
+                title="Failed to create Snowflake temporary table",
+                message="Profiling will continue on full table (may have memory issues)",
+                context=f"{context.pretty_name}: {type(e).__name__}: {str(e)}",
+                exc=e,
+            )
+            if not self.config.catch_exceptions:
+                raise
+            # Continue without sampling (fallback to full table)
+            logger.warning(error_msg)
+            return context
 
     # =========================================================================
     # Table Creation
