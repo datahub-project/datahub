@@ -323,7 +323,7 @@ def test_scroll_relationships_with_direction_incoming(
 def test_scroll_relationships_with_entity_urn_incoming(
     graph_client: DataHubGraph,
 ) -> None:
-    """entity_urn + INCOMING uses walker mode (pin destination, UNDIRECTED).
+    """entity_urn + INCOMING uses walker mode (pin destination literal edge end).
 
     Unlike direction remapping without entity_urn, destination is the focal URN —
     do not also pass destination_urns with INCOMING (that double-applies "incoming").

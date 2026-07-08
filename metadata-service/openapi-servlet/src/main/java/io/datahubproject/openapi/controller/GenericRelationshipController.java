@@ -206,6 +206,8 @@ public abstract class GenericRelationshipController {
               + RELATIONSHIP);
     }
 
+    // API direction selects which edge end is pinned. RelationshipFilter uses OUTGOING so
+    // GraphQueryUtils maps source/destination filters onto document fields without remapping.
     switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
       case INCOMING -> result =
           graphService.scrollRelatedEntities(
@@ -218,7 +220,7 @@ public abstract class GenericRelationshipController {
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
               QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -236,7 +238,7 @@ public abstract class GenericRelationshipController {
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
               QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,

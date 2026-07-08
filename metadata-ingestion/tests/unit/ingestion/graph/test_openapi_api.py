@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional, cast
 from unittest.mock import MagicMock
 from urllib.parse import quote
 
@@ -6,7 +6,7 @@ from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
 
 
 def _openapi(session: Optional[MagicMock] = None) -> OpenApiAPI:
-    api = OpenApiAPI.__new__(OpenApiAPI)
+    api = cast(Any, OpenApiAPI).__new__(OpenApiAPI)
     api._gms_server = "http://localhost:8080"
     api._session = session or MagicMock()
     api._get_generic = MagicMock()  # type: ignore[method-assign]
