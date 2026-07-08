@@ -31,6 +31,7 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RestSinkEndpoint,
 )
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -39,6 +40,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -212,9 +214,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
     @classmethod
     def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+        resolved_auth = None
+        if config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(config.auth))
         return DataHubRestEmitter(
             config.server,
             config.token,
+            auth=resolved_auth,
             connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
