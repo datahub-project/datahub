@@ -255,10 +255,10 @@ class TestDremioChunking:
         )
 
         assert len(tables) == 0
-        dremio_api.report.report_warning.assert_called_once()
-        warning_call = dremio_api.report.report_warning.call_args
-        assert "Dremio crash detected" in warning_call[0][0]
-        assert warning_call[1]["context"] == "global_dataset_fetch"
+        # A dropped chunk must be reported as a failure, not silently swallowed.
+        dremio_api.report.failure.assert_called_once()
+        failure_call = dremio_api.report.failure.call_args
+        assert "'rows'" in failure_call.kwargs["context"]
 
     def test_extract_all_queries_uses_chunking(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE

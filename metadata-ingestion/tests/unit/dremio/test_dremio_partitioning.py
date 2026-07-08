@@ -140,11 +140,6 @@ class TestDremioPartitioning:
         assert "LIKE 'MY\\_SOURCE.%'" in f
         assert "ESCAPE '\\'" in f
 
-    def test_columns_filter_qualifies_community_column(self):
-        # Community joins COLUMNS directly, so the column must be qualified (C.).
-        f = DremioSQLQueries.container_columns_filter("src", "C.TABLE_SCHEMA")
-        assert "UPPER(C.TABLE_SCHEMA) = 'SRC'" in f
-
     def test_root_container_names_filters_and_maps(self, dremio_api):
         dremio_api.get = Mock(
             return_value={

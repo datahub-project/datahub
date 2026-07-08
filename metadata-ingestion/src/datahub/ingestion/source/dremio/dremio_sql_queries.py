@@ -27,13 +27,26 @@ class DremioSQLQueries:
         C.COLUMN_SIZE
     FROM
         INFORMATION_SCHEMA."TABLES" T
-        INNER JOIN INFORMATION_SCHEMA.COLUMNS C ON
+        INNER JOIN (
+            SELECT
+                TABLE_CATALOG,
+                TABLE_SCHEMA,
+                TABLE_NAME,
+                COLUMN_NAME,
+                ORDINAL_POSITION,
+                IS_NULLABLE,
+                DATA_TYPE,
+                COLUMN_SIZE
+            FROM
+                INFORMATION_SCHEMA.COLUMNS
+            WHERE 1=1
+                {columns_schema_filter}
+        ) C ON
         C.TABLE_CATALOG = T.TABLE_CATALOG
         AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
         AND C.TABLE_NAME = T.TABLE_NAME
     WHERE
         T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
-        {columns_schema_filter}
     )
     WHERE 1=1
         {schema_pattern}
@@ -345,11 +358,15 @@ class DremioSQLQueries:
         return DremioSQLQueries.pattern_condition([pattern], field)
 
     @staticmethod
-    def container_columns_filter(container_name: str, column: str) -> str:
+    def container_columns_filter(
+        container_name: str, column: str = "TABLE_SCHEMA"
+    ) -> str:
         """Pushable per-container `TABLE_SCHEMA` predicate for the COLUMNS scan.
 
-        Uses `=` / `LIKE 'root.%'` (never REGEXP_LIKE/CONCAT) so Dremio pushes it
-        into the scan; see QUERY_DATASETS_CE_GLOBAL. LIKE wildcards are escaped.
+        Every edition injects this inside the INFORMATION_SCHEMA.COLUMNS subquery,
+        so the column is unqualified. Uses `=` / `LIKE 'root.%'` (never
+        REGEXP_LIKE/CONCAT) so Dremio pushes it into the scan; see
+        QUERY_DATASETS_CE_GLOBAL. LIKE wildcards are escaped.
         """
         literal = container_name.upper().replace("'", "''")
         like_literal = (

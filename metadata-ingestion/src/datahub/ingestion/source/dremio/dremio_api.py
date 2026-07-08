@@ -654,8 +654,9 @@ class DremioAPIOperations:
     def community_get_formatted_tables(
         self,
         tables_and_columns: List[Dict[str, Any]],
-        view_definitions: Dict[str, Optional[str]],
+        view_definitions: Optional[Dict[str, Optional[str]]] = None,
     ) -> List[Dict[str, Any]]:
+        view_definitions = view_definitions or {}
         schema_list = []
         schema_dict_lookup = []
         dataset_list = []
@@ -895,15 +896,6 @@ class DremioAPIOperations:
             )
             return
 
-        # CE filters in the outer join where COLUMNS is aliased C, so qualify the
-        # column; EE/Cloud filter inside the COLUMNS subquery (before the C alias
-        # applies), so use the bare column.
-        columns_schema_column = (
-            "C.TABLE_SCHEMA"
-            if self.edition == DremioEdition.COMMUNITY
-            else "TABLE_SCHEMA"
-        )
-
         logger.info(
             f"Retrying dataset fetch across {len(container_names)} root container(s)."
         )
@@ -913,7 +905,7 @@ class DremioAPIOperations:
             )
             combined_condition = f"{schema_condition} {container_condition}".strip()
             columns_schema_filter = DremioSQLQueries.container_columns_filter(
-                container_name, columns_schema_column
+                container_name
             )
 
             logger.info(f"Fetching datasets for container '{container_name}'.")
@@ -1060,14 +1052,18 @@ class DremioAPIOperations:
                     # Nothing emitted yet, so fall back instead of silently
                     # returning no datasets (the original bug).
                     raise _CatalogWideQueryFailed(str(e)) from e
-                logger.error(f"Error in global dataset query at offset {offset}: {e}")
-                if "'rows'" in str(e):
-                    self.report.report_warning(
-                        f"Dremio crash detected during global dataset fetch "
-                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
-                        f"Consider reducing chunk size if this persists.",
-                        context="global_dataset_fetch",
-                    )
+                # A later chunk (or a per-container fetch) failed: rows past this
+                # offset are dropped, so fail loudly rather than truncating quietly.
+                oom_hint = (
+                    " KeyError 'rows' suggests a Dremio OOM; try a smaller chunk size."
+                    if "'rows'" in str(e)
+                    else ""
+                )
+                self.report.failure(
+                    message="Dremio dataset fetch failed; some tables/views may be missing.",
+                    context=f"offset={offset}, chunk_size={chunk_size}.{oom_hint}",
+                    exc=e,
+                )
                 break
 
         # Final flush for the EE/Cloud path (Community already emitted).
