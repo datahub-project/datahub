@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -259,7 +259,7 @@ def generate_procedure_lineage(
             # procedure body. Both paths are authoritative, so we merge them
             # but deduplicate to keep ``inputDatajobs`` a true set.
             existing = list(datajob_input_output.inputDatajobs or [])
-            seen = set(existing)
+            seen: Set[str] = set(existing)
             for urn in additional_input_jobs:
                 if urn not in seen:
                     existing.append(urn)

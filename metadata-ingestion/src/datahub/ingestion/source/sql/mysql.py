@@ -1,6 +1,7 @@
 # This import verifies that the dependencies are available.
 import logging
 import re
+from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import timezone
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional
@@ -11,6 +12,7 @@ from sqlalchemy import create_engine, event, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import NullPool
 
 if TYPE_CHECKING:
@@ -30,6 +32,7 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
@@ -104,6 +107,18 @@ _USE_STATEMENT_RE = re.compile(r"^\s*USE\s+`?([^\s`;]+)`?", re.IGNORECASE)
 _DML_LEADING_KEYWORDS = frozenset(
     {"SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE", "WITH", "CALL", "MERGE"}
 )
+
+# Cap the per-session current-db map so a large general_log on a busy server
+# can't grow it without bound (LRU eviction in _fetch_general_log_queries).
+_MAX_TRACKED_SESSIONS = 10_000
+
+
+def _parse_general_log_user(user_host: Optional[str]) -> Optional[str]:
+    if not user_host:
+        return None
+    match = _USER_HOST_RE.match(user_host)
+    return match.group(1) if match else None
+
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -213,6 +228,25 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     "Optionally enabled via `include_usage_statistics`. Reads query history from "
     "`performance_schema` digests (default) or `mysql.general_log` "
     "(`usage_source: general_log`), which also yields query-based table lineage.",
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default for views via `include_view_lineage`. Table-level lineage is "
+    "also derived from query history when `include_usage_statistics` is enabled.",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default for views via `include_view_column_lineage`. Column-level "
+    "lineage is also derived from query history when `include_usage_statistics` is "
+    "enabled.",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 class MySQLSource(TwoTierSQLAlchemySource):
     """
@@ -402,14 +436,15 @@ class MySQLSource(TwoTierSQLAlchemySource):
         try:
             # Materialize so fetch()'s connection closes before we feed the
             # aggregator; otherwise an aggregator error leaks the open connection.
-            # ponytail: whole result set held in memory; use a server-side cursor
-            # if a huge general_log ever OOMs.
+            # The whole result set is held in memory; use a server-side cursor if a
+            # huge general_log ever OOMs.
             queries = list(fetch())
             for observed_query in queries:
                 self.aggregator.add(observed_query)
-        except Exception as e:
-            # Metadata is already emitted; a query-history failure (consumer
-            # disabled, missing grant) must not abort the run.
+        except SQLAlchemyError as e:
+            # Metadata is already emitted; a query-history read failure (disabled
+            # consumer, missing grant) must not abort the run. Catch only DB errors
+            # so programming bugs still surface.
             self.report.warning(title=failure_title, message=failure_hint, exc=e)
 
     @contextmanager
@@ -474,21 +509,27 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 },
             )
             # general_log has no schema column; track each session's current db
-            # from Init DB / USE to resolve unqualified table names.
-            # ponytail: session_db grows with distinct thread ids, bounded by the
-            # window we already hold in memory; add an LRU cap if it ever dominates.
-            session_db: dict[str, str] = {}
+            # from Init DB / USE to resolve unqualified table names. LRU-capped
+            # (see _MAX_TRACKED_SESSIONS), refreshing recency on writes and reads.
+            session_db: OrderedDict[str, str] = OrderedDict()
+
+            def _remember_db(session_id: str, db: str) -> None:
+                session_db[session_id] = db
+                session_db.move_to_end(session_id)
+                if len(session_db) > _MAX_TRACKED_SESSIONS:
+                    session_db.popitem(last=False)
+
             for row in rows:
                 session_id = str(row.thread_id)
                 argument = row.argument or ""
 
                 if row.command_type == "Init DB":
-                    session_db[session_id] = argument.strip().strip("`")
+                    _remember_db(session_id, argument.strip().strip("`"))
                     continue
 
                 use_match = _USE_STATEMENT_RE.match(argument)
                 if use_match:
-                    session_db[session_id] = use_match.group(1)
+                    _remember_db(session_id, use_match.group(1))
                     continue
 
                 if not self._is_dml_statement(argument):
@@ -505,6 +546,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
                         argument,
                     )
                 else:
+                    # Refresh recency so long-lived active sessions aren't evicted.
+                    session_db.move_to_end(session_id)
                     if schema_name.lower() in _SYSTEM_SCHEMAS:
                         continue
                     if not self.config.database_pattern.allowed(schema_name):
@@ -531,15 +574,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         leading_keyword = re.split(r"[\s(]", stripped, maxsplit=1)[0].upper()
         return leading_keyword in _DML_LEADING_KEYWORDS
 
-    @staticmethod
-    def _parse_general_log_user(user_host: Optional[str]) -> Optional[str]:
-        if not user_host:
-            return None
-        match = _USER_HOST_RE.match(user_host)
-        return match.group(1) if match else None
-
     def _general_log_user_urn(self, user_host: Optional[str]) -> Optional[CorpUserUrn]:
-        user = self._parse_general_log_user(user_host)
+        user = _parse_general_log_user(user_host)
         if not user:
             return None
         # LDAP/db logins are not emails; append the configured domain so usage maps

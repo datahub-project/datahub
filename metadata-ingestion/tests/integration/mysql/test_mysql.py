@@ -1,6 +1,6 @@
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pymysql
@@ -137,6 +137,10 @@ def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 
 
 def _run_usage_pipeline(usage_source: str, output_path: Path) -> list:
+    # The workload runs with the server's real clock, so pin an explicit wide window
+    # around now instead of the default rolling one — a small gap between workload and
+    # assertion can't push queries out of range.
+    now = datetime.now(timezone.utc)
     pipeline = Pipeline.create(
         {
             "run_id": f"mysql-usage-{usage_source}",
@@ -149,6 +153,10 @@ def _run_usage_pipeline(usage_source: str, output_path: Path) -> list:
                     "password": "example",
                     "include_usage_statistics": True,
                     "usage_source": usage_source,
+                    "usage": {
+                        "start_time": (now - timedelta(days=1)).isoformat(),
+                        "end_time": (now + timedelta(days=1)).isoformat(),
+                    },
                     "profiling": {"enabled": False},
                 },
             },
