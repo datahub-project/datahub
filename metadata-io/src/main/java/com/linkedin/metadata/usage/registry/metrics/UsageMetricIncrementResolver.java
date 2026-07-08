@@ -92,6 +92,9 @@ public final class UsageMetricIncrementResolver {
     if ("billed_bytes".equals(metric.metricName())) {
       return Optional.of(BILLED_BYTES_METRIC);
     }
+    if (metric.metronomeBatch()) {
+      return Optional.empty();
+    }
     return switch (metric.valueUnit()) {
       case COUNT -> Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT);
       case INPUT_BYTES -> Optional.of(INPUT_BYTES_METRIC);
