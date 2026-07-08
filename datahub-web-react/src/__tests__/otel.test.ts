@@ -12,8 +12,7 @@ describe('redactUrl', () => {
     });
 
     it('resolves relative URLs against the current origin', () => {
-        // jsdom origin is http://localhost
-        expect(redactUrl('/api/v2/graphql?x=1')).toBe('http://localhost/api/v2/graphql');
+        expect(redactUrl('/api/v2/graphql?x=1')).toBe(`${window.location.origin}/api/v2/graphql`);
     });
 
     it('leaves an already-clean URL unchanged', () => {
