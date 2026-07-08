@@ -34,7 +34,7 @@
     "deprecation.markUnTooltip": "Marcar este(a) {{entityName}} como não descontinuado(a)",
     "deprecation.modalTitle": "Definir como Descontinuado",
     "deprecation.noteLabel": "Nota",
-    "deprecation.ok": "Ok",
+    "deprecation.ok": "Descontinuar",
     "deprecation.reasonLabel": "Motivo",
     "deprecation.reasonPlaceholder": "Adicionar Motivo",
     "deprecation.replacementLabel": "Substituto",

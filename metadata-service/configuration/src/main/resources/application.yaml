@@ -304,6 +304,18 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+  usage:
+    aggregation:
+      enabled: ${USAGE_AGGREGATION_ENABLED:false}
+      micrometerExport:
+        enabled: ${USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED:true}
+      flush:
+        maxWindowSeconds: ${USAGE_AGGREGATION_MAX_WINDOW_SECONDS:300}
+        maxCardinality: ${USAGE_AGGREGATION_MAX_CARDINALITY:10000}
+        scheduledIntervalSeconds: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:60}
+        retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
+        retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
+
   validation:
     aspectSize:
       prePatch:
@@ -1339,20 +1351,49 @@ systemUpdate:
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
   entityConsistency:
     enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
-    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    # Job-level safety ceiling. False so per-check mode controls writes (assertion checks default dry-run).
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:false}
     batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
     delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
     gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
     limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
-    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    entityTypes: []  # Job-level override of entity types for default checks. Empty = types with registered default checks.
     checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
     reprocess:
       enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    # Per-check mode/schedule for datahub-upgrade only. Modes: disabled | dry-run | active.
+    # Schedules: every-run | daily | weekly | monthly. Cadence advances on completed pass (active or dry-run).
+    checks:
+      orphan-index-document:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_MODE:active}
+        schedule: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_SCHEDULE:monthly}
+      assertion-invalid-type:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_INVALID_TYPE_MODE:dry-run}
+      assertion-type-mismatch:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_TYPE_MISMATCH_MODE:dry-run}
     systemMetadataFilterConfig:  # Optional filtering via system metadata index
       gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+      # Scroll only key-aspect system-metadata docs (e.g. datasetKey). Cuts orphan / large-type scan volume.
+      keyAspectOnly: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_KEY_ASPECT_ONLY:true}
+      # Entity types to include in system-metadata discovery (orphan / SM-filtered scans). Empty = all registry types.
+      entityTypes:
+        - dataset
+        - dashboard
+        - chart
+        - dataFlow
+        - dataJob
+        - mlModel
+        - mlFeature
+        - mlFeatureTable
+        - notebook
+        - container
+        - dataProduct
+        - query
+        - schemaField
+        - dataProcessInstance
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
   restoreDbtSiblingsIndices:
@@ -1524,6 +1565,15 @@ cache:
   homepage:
     entityCounts:
       ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}
+  entityCounts:
+    keyAspect:
+      enabled: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_ENABLED:true}
+      ttlSeconds: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_TTL_SECONDS:3600}
+      maxEntityTypes: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_MAX_ENTITY_TYPES:200}
+      singleFlight:
+        staleBuildingMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_STALE_BUILDING_MS:120000}
+        waiterMaxMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_WAITER_MAX_MS:60000}
+        pollIntervalMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_POLL_INTERVAL_MS:100}
   search:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day

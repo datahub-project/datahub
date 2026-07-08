@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
@@ -77,7 +78,8 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByType",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
@@ -180,7 +182,8 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByEntity",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
@@ -204,42 +207,44 @@ public abstract class GenericRelationshipController {
     }
 
     switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
-      case INCOMING -> result =
-          graphService.scrollRelatedEntities(
-              opContext,
-              null,
-              QueryUtils.EMPTY_FILTER,
-              null,
-              QueryUtils.newFilter("urn", entityUrn),
-              relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
-                  : Set.of(),
-              QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
-              Edge.EDGE_SORT_CRITERION,
-              scrollId,
-              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
-              count,
-              null,
-              null);
-      case OUTGOING -> result =
-          graphService.scrollRelatedEntities(
-              opContext,
-              null,
-              QueryUtils.newFilter("urn", entityUrn),
-              null,
-              QueryUtils.EMPTY_FILTER,
-              relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
-                  : Set.of(),
-              QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
-              Edge.EDGE_SORT_CRITERION,
-              scrollId,
-              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
-              count,
-              null,
-              null);
+      case INCOMING ->
+          result =
+              graphService.scrollRelatedEntities(
+                  opContext,
+                  null,
+                  QueryUtils.EMPTY_FILTER,
+                  null,
+                  QueryUtils.newFilter("urn", entityUrn),
+                  relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
+                      ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                      : Set.of(),
+                  QueryUtils.newRelationshipFilter(
+                      QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  Edge.EDGE_SORT_CRITERION,
+                  scrollId,
+                  pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
+                  count,
+                  null,
+                  null);
+      case OUTGOING ->
+          result =
+              graphService.scrollRelatedEntities(
+                  opContext,
+                  null,
+                  QueryUtils.newFilter("urn", entityUrn),
+                  null,
+                  QueryUtils.EMPTY_FILTER,
+                  relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
+                      ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                      : Set.of(),
+                  QueryUtils.newRelationshipFilter(
+                      QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  Edge.EDGE_SORT_CRITERION,
+                  scrollId,
+                  pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
+                  count,
+                  null,
+                  null);
       default -> throw new IllegalArgumentException("Direction must be INCOMING or OUTGOING");
     }
 

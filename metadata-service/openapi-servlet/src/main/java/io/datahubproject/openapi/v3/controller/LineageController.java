@@ -5,6 +5,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.ScrollUtils;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v3.models.LineageRelationship;
@@ -83,6 +84,7 @@ public class LineageController {
         graphService,
         request,
         "scrollLineage",
+        UsageOperation.LINEAGE_QUERY,
         relationshipTypes,
         body.getUrns(),
         lineageDirection,

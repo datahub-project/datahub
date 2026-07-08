@@ -1532,8 +1532,8 @@
     "duration": "0.076s"
   },
   {
-    "testId": "tests.metrics.test_metrics::test_datahub_request_count_metric_present",
-    "duration": "0.076s"
+    "testId": "tests.metrics.test_metrics::test_usage_aggregation_micrometer_export",
+    "duration": "12.000s"
   },
   {
     "testId": "tests.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_minimal_projection_urn_only",
