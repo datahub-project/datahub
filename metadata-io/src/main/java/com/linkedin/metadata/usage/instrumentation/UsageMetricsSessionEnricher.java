@@ -135,8 +135,8 @@ public class UsageMetricsSessionEnricher implements SessionContextEnricher {
   }
 
   /**
-   * Records usage for servlet paths without {@link OperationContext#asSession}. Uses the system
-   * context's {@code Authorizer.SYSTEM} instead of running the full authorizer chain.
+   * Records usage for servlet paths (e.g. SCIM) without {@link OperationContext#asSession}. Uses
+   * the system context's {@code Authorizer.SYSTEM} instead of running the full authorizer chain.
    */
   public void recordTaggedServletRequest(
       @Nonnull OperationContext systemOperationContext,

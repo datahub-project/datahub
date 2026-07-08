@@ -18,6 +18,7 @@ import com.linkedin.metadata.usage.registry.metrics.UsageMetricContributor;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import com.linkedin.metadata.usage.registry.operations.UsageOperationsRegistry;
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -145,6 +146,19 @@ public class UsageAggregationFactory {
   }
 
   @Bean
+  @Order(Ordered.LOWEST_PRECEDENCE - 11)
+  public FilterRegistrationBean<ScimUsageSessionFilter> scimUsageSessionFilterRegistration(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      UsageMetricsSessionEnricher usageMetricsSessionEnricher) {
+    FilterRegistrationBean<ScimUsageSessionFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(
+        new ScimUsageSessionFilter(systemOperationContext, usageMetricsSessionEnricher));
+    registration.addUrlPatterns(ScimUsageSessionFilter.SCIM_PATH_PREFIX + "/*");
+    registration.setOrder(Ordered.LOWEST_PRECEDENCE - 11);
+    return registration;
+  }
+
+  @Bean
   @Order(Ordered.LOWEST_PRECEDENCE - 10)
   public FilterRegistrationBean<UsageRecordingFilter> usageRecordingFilterRegistration(
       UsageMetricsSessionEnricher usageMetricsSessionEnricher) {
@@ -155,7 +169,7 @@ public class UsageAggregationFactory {
     return registration;
   }
 
-  private static UsageAggregationConfiguration resolveAggregationConfig(
+  public static UsageAggregationConfiguration resolveAggregationConfig(
       ConfigurationProvider configurationProvider) {
     UsageConfiguration usage = configurationProvider.getDatahub().getUsage();
     if (usage == null || usage.getAggregation() == null) {
