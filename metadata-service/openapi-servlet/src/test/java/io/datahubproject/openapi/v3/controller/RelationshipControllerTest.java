@@ -24,6 +24,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -1325,9 +1326,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     when(mockGraphService.getLineageRegistry()).thenReturn(lineageRegistry);
 
     ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
 
     when(mockGraphService.scrollRelatedEntities(
-            any(),
+            opContextCaptor.capture(),
             graphFiltersCaptor.capture(),
             any(),
             isNull(),
@@ -1346,6 +1349,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("lineage-scroll"));
 
+    assertEquals(
+        UsageOperation.LINEAGE_QUERY.key(),
+        opContextCaptor.getValue().getRequestContext().getUsageOperation());
     GraphFilters captured = graphFiltersCaptor.getValue();
     // scrollLineage should populate allowedEdgeTriplets from the lineage registry
     assertNotNull(captured.getAllowedEdgeTriplets());
@@ -1407,9 +1413,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
     ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
 
     when(mockGraphService.scrollRelatedEntities(
-            any(),
+            opContextCaptor.capture(),
             graphFiltersCaptor.capture(),
             any(),
             isNull(),
@@ -1427,6 +1435,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
+    assertEquals(
+        UsageOperation.METADATA_READ.key(),
+        opContextCaptor.getValue().getRequestContext().getUsageOperation());
     // Regular scroll should NOT set triplets
     assertNull(graphFiltersCaptor.getValue().getAllowedEdgeTriplets());
   }

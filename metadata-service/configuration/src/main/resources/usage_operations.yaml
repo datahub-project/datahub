@@ -1,0 +1,267 @@
+# API usage operation taxonomy (OSS).
+# Keys align with UsageOperation enum in metadata-operation-context.
+# Recording is instrumentation-only: only call sites with withUsageOperation (or GraphQL
+# resolver mapping) produce metrics. Untagged routes are not aggregated.
+# default_cost_units: weight for api_cost_units and active_writers eligibility (0 = zero-cost).
+
+usage_operations:
+  # --- Core metadata: read ---
+
+  metadata_read:
+    description: >
+      Entity, aspect, relationship, and Iceberg catalog reads — single/batch get,
+      exists, versioned batch get, single-aspect GET, relationship graph reads,
+      Iceberg namespace/table/view GET (including /iceberg and billable
+      /public-iceberg/v1 public read), dataHubFile download (GET /openapi/v1/files,
+      presigned redirect), and async-write trace polling (POST
+      /openapi/v1/trace/write/{traceId}) (OpenAPI, Rest.li, GraphQL).
+    request_apis: [openapi, restli, graphql]
+    activity_class: read
+    default_cost_units: 1
+    ingestion_endpoint: false
+
+  # --- Core metadata: write / ingestion ---
+
+  metadata_ingest:
+    description: >
+      MetadataChangeProposal ingestion — any call to EntityService ingestProposal or
+      ingestBatchProposal (sync or async): OpenAPI/Rest.li MCP batch entity upsert,
+      aspect POST/PATCH, platform entities ingest, logical model proposals, entity
+      versioning link/unlink, OpenLineage, platform event production (PlatformEvent_v1
+      via Rest.li PlatformResource), Rest.li EntityResource/AspectResource ingest and
+      batchIngest, and usage statistics batch ingest (Rest.li UsageStats). Direct Kafka/pgQueue
+      MCP consumption on the MCE consumer is recorded with request_api messaging. Replaces Tier A
+      ingest_proposal usage events from EntityServiceImpl.
+    request_apis: [openapi, restli, messaging]
+    activity_class: write
+    default_cost_units: 1
+    ingestion_endpoint: true
+
+  metadata_write:
+    description: >
+      Synchronous catalog writes that do not go through ingestProposal — all GraphQL
+      Mutations (including patchEntity/patchEntities), default for unmatched Mutation
+      ops; direct aspect persistence outside MCP ingest paths; and Iceberg catalog
+      register/create/rename/update/delete (OpenAPI, Rest.li, GraphQL). Map delete
+      mutations to entity_delete or aspect_delete when recognized.
+    request_apis: [openapi, restli, graphql]
+    activity_class: write
+    default_cost_units: 1
+    ingestion_endpoint: false
+
+  entity_delete:
+    description: >
+      Full entity deletion and reference cleanup — delete entity, delete all versions,
+      Rest.li deleteReferences and deleteAll, Rest.li Relationships delete (graph node
+      removal), and GraphQL entity delete mutations (OpenAPI, Rest.li, GraphQL).
+    request_apis: [openapi, restli, graphql]
+    activity_class: write
+    default_cost_units: 1
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - deleteEntity
+
+  aspect_delete:
+    description: >
+      Aspect-only deletion — DELETE a single aspect on an entity without removing
+      the entity (OpenAPI, Rest.li, GraphQL).
+    request_apis: [openapi, restli, graphql]
+    activity_class: write
+    default_cost_units: 1
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - deleteAspect
+
+  # --- Search, browse, lineage ---
+
+  search_query:
+    description: >
+      Full-text search, scroll, autocomplete, browse, semantic search, browse-path
+      lookup (Rest.li EntityResource getBrowsePaths, GraphQL browsePaths / browseV2),
+      audit log search (POST /openapi/v1/events/audit/search), and Rest.li
+      Analytics.getTimeseriesStats (Elasticsearch aggregations).
+    request_apis: [openapi, restli, graphql]
+    activity_class: read
+    default_cost_units: 1
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - search
+        - scroll
+        - autocomplete
+        - autoComplete
+        - getAutoCompleteResults
+        - getAutoCompleteMultipleResults
+        - browse
+        - browsePaths
+        - browseV2
+        - getQuickFilters
+        - listUsersAndGroups
+        - listDataProductAssets
+        - listApplicationAssets
+        - searchUsers
+        - searchDocuments
+
+  lineage_query:
+    description: >
+      Upstream/downstream lineage and lineage scroll queries (Rest.li
+      searchAcrossLineage and scrollAcrossLineage, OpenAPI v3 lineage scroll).
+    request_apis: [openapi, restli, graphql]
+    activity_class: read
+    default_cost_units: 1
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - getLineage
+        - scrollAcrossLineage
+
+  # GraphQL classification (GraphqlUsageClassificationRegistry):
+  #   - Entity GraphQL queries (dataset, dashboard, getDataset, etc.) → metadata_query
+  #     because selections may nest schema, lineage, assertions, and siblings.
+  #   - metadata_read on GraphQL in this yaml is for OpenAPI/Rest.li withUsageOperation;
+  #     the GraphQL HTTP entry point does not emit metadata_read.
+  #   - Anonymous requests (no operation name → resolver key "graphql") skip operation-name
+  #     lookup; classification uses graphql.names / graphql.patterns, then code heuristics.
+  #   - graphql.names and graphql.patterns apply to both HTTP operation names and top-level
+  #     root fields. Named operations: exact → patterns (short-circuit). Root fields:
+  #     per-field exact → patterns → heuristics; most-expensive-wins across fields.
+
+  metadata_query:
+    description: >
+      Query-style reads — default for unmatched GraphQL Query operations and all
+      GraphQL entity-root queries (dataset, dashboard, getDataset, etc.); also
+      timeseries aspect values, entity timeline and schema blame/version history
+      (/openapi/v2/timeline/v1), usage/analytics (GraphQL analytics.graphql, Rest.li
+      UsageStats query), external events poll, and Rest.li AspectResource getCount. Map search/lineage GraphQL ops to search_query or lineage_query when
+      recognized by operation name or root field. Audit log search (POST
+      /openapi/v1/events/audit/search) is search_query (Elasticsearch). Entity GraphQL
+      reads remain metadata_query.
+    request_apis: [openapi, restli, graphql]
+    activity_class: read
+    default_cost_units: 1
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - me
+        - getTimeline
+        - getSchemaBlame
+        - getSchemaVersionList
+        - getAnalyticsCharts
+        - getMetadataAnalyticsCharts
+        - getHighlights
+        - isAnalyticsEnabled
+
+  # --- Zero-cost other (instrumentation / UQ-2 coverage; read / write / operations) ---
+  # Health/liveness/readiness/debug and Grafana admin are untagged and not recorded.
+
+  other_read:
+    description: >
+      Zero-cost reads — entity/lineage registry, schema registry GET/HEAD,
+      auth session introspection (POST /auth/getSsoSettings, POST
+      /auth/verifyNativeUserCredentials), OAuth client GET (/auth/oauth2/clients), usage
+      credits query, system info / configuration introspection, rate limit
+      status, identity debug (GET /openapi/operations/identity/user/urn), internal
+      messaging queue lag/transport GETs (/openapi/operations/messaging), ingestion
+      run list/describe (Rest.li BatchIngestionRunResource), Kubernetes GET
+      introspection (/openapi/operations/k8), dev tooling feature-flag inspection
+      (GET /openapi/operations/dev), SCIM Users/Groups GET/list (/openapi/scim/v2),
+      Elasticsearch debug/raw reads and Rest.li
+      getEsTaskStatus/getIndexSizes (GET /openapi/operations/elasticSearch/* query
+      explain, index sizes, task status; POST */raw document fetches), AI
+      conversation list/get (OpenAPI, GraphQL ai.graphql), and GraphQL searchConfiguration,
+      toolAudit, getGrantedPrivileges, listPolicies.
+    request_apis: [openapi, restli, graphql]
+    activity_class: read
+    default_cost_units: 0
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - searchConfiguration
+        - toolAudit
+        - getGrantedPrivileges
+        - listPolicies
+        - appConfig
+        - listAccessTokens
+        - getAccessToken
+        - getAccessTokenMetadata
+        - listServiceAccounts
+        - getServiceAccount
+        - debugAccess
+
+  other_write:
+    description: >
+      Zero-cost writes — schema registry register/config, auth signup/OAuth/token exchange (POST
+      /auth/signUp, /auth/resetNativeUserCredentials, /auth/generateSessionTokenForUser),
+      OAuth client POST/DELETE and DCR registration
+      token (/auth/oauth2/clients, /auth/oauth2/registration-token), product analytics
+      tracking (POST /openapi/v1/tracking/track and POST /auth/track), internal usage
+      fan-in endpoint, Elasticsearch index config mutations (POST
+      /openapi/operations/elasticSearch/incrementalReindex/*/dualWrite/disable), AI
+      conversation create/update/delete and streaming chat (OpenAPI
+      DataHubAiConversationController, GraphQL ai.graphql; bytes omitted v1), and GraphQL
+      product/UI mutations that do not change catalog metadata on assets (saved Views,
+      page modules/templates, platform settings, identity admin, homepage posts, AI
+      memory). Deployment-specific GraphQL mutations may be classified via configuration
+      overlays.
+    request_apis: [openapi, restli, graphql]
+    activity_class: write
+    default_cost_units: 0
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - getInviteToken
+        - batchDismissUserSuggestions
+        - dismissUserSuggestion
+      patterns:
+        - '^update\w+Settings$'
+        - '^(create|update|delete)View$'
+        - '^(upsert|delete)(PageModule|PageTemplate|AiPlugin)$'
+        - '^(create|update|delete)Post(V2)?$'
+        - '^(create|delete)ServiceAccount$'
+        - '^updateServiceAccountDefaultView$'
+        - '^(create|remove)Group$'
+        - '^(add|remove)GroupMembers$'
+        - '^removeUser$'
+        - '^updateUserStatus$'
+        - '^(reset|update)LinkedIdentities$'
+        - '^revokeUserInvitation$'
+        - '^updateHelpLink$'
+        - '^updateOrganizationDisplayPreferences$'
+        - '^(clear|update)AiMemory(Content)?$'
+        - '^deleteMcpServer$'
+
+  other_operations:
+    description: >
+      Zero-cost operation execution — metadata test evaluate (OpenAPI
+      /operations/metadataTests, Rest.li MetadataTestResource evaluate/batchEvaluate/
+      testEvaluate), ingestion run rollback (Rest.li BatchIngestionRunResource),
+      storage consistency check/repair (/openapi/operations/consistency), GMS
+      maintenance tasks, throttle configuration admin (/openapi/operations/throttle),
+      index restore/rebuild and timeseries truncate (OpenAPI
+      /openapi/operations/elasticSearch/restoreIndices, Rest.li restoreIndices and
+      truncateTimeseriesAspect), Rest.li EntityResource setWritable and applyRetention,
+      Kafka topic/admin, pgQueue messaging offset reset (POST /openapi/operations/messaging),
+      messaging consumer PUT/DELETE admin, Kubernetes mutating admin (PATCH/POST/DELETE
+      /openapi/operations/k8), platform entities cache invalidation, and GraphQL
+      runTestDefinition, runTests, validateTest, createAccessToken, and
+      revokeAccessToken (login/session PAT lifecycle). Neither catalog reads nor persistent
+      metadata writes. For MAU, activity_class operation counts as reader (active_readers).
+    request_apis: [openapi, restli, graphql]
+    activity_class: operation
+    default_cost_units: 0
+    ingestion_endpoint: false
+    graphql:
+      names:
+        - runTestDefinition
+        - runTests
+        - validateTest
+        - createAccessToken
+        - revokeAccessToken
+
+  mcp_query:
+    description: MCP request reported by integrations-service usage fan-in API.
+    activity_class: read
+    default_cost_units: 1
+    ingestion_endpoint: false
