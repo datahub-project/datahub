@@ -17,6 +17,7 @@ from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
     EnsureAspectSizeProcessor,
     EnsureAspectSizeProcessorReport,
+    _largest_fitting_prefix,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -1078,6 +1079,39 @@ def test_ensure_size_of_proper_query_properties(processor):
     assert len(processor.ctx.source_report.warnings) == 0
 
 
+def test_largest_fitting_prefix_returns_maximal_boundary():
+    # Predicate "prefix length <= budget" is monotonic; the helper must return
+    # exactly the budget, not budget-1 (stops short) or budget+1 (overshoots).
+    def at_most(bound: int) -> Callable[[int], bool]:
+        return lambda n: n <= bound
+
+    text = "x" * 100
+    for budget in (0, 1, 37, 99, 100):
+        assert _largest_fitting_prefix(text, at_most(budget)) == budget
+
+
+def test_largest_fitting_prefix_caps_at_text_length():
+    # If everything fits, the answer is the full length (never longer).
+    text = "abc"
+    assert _largest_fitting_prefix(text, lambda n: True) == len(text)
+
+
+def test_largest_fitting_prefix_returns_zero_when_nothing_fits():
+    assert _largest_fitting_prefix("abc", lambda n: False) == 0
+
+
+def test_largest_fitting_prefix_accounts_for_variable_byte_cost():
+    # Astral characters cost far more JSON bytes than raw chars (e.g. an emoji
+    # encodes to a \uXXXX\uXXXX surrogate pair). A byte-budget predicate must
+    # yield fewer retained chars than a naive char-count would suggest.
+    text = "\U0001f600" * 50  # each is 12 JSON bytes ("\ud83d\ude00")
+    byte_budget = 120  # room for exactly 10 chars
+    retained = _largest_fitting_prefix(
+        text, lambda n: len(json.dumps(text[:n])) - len(json.dumps("")) <= byte_budget
+    )
+    assert retained == 10
+
+
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_properties(processor):
     query_properties = too_big_query_properties()
@@ -1146,6 +1180,13 @@ def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
     assert "... [original value was" in query_properties.statement.value
     assert len(processor.ctx.source_report.warnings) == 1
     assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+    # Tightness: the retained prefix must be maximal. The final aspect is under
+    # the limit, but appending one more encoded char (a newline is 2 JSON bytes)
+    # must tip it over — otherwise the search stopped short.
+    assert (
+        final_size + len(json.dumps("\n")) - len(json.dumps(""))
+        >= QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
 
 
 def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
@@ -1174,6 +1215,36 @@ def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
     assert query_properties.description is None
     assert len(json.dumps(query_properties.to_obj())) < processor.payload_constraint
     assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+
+def test_ensure_query_properties_reports_when_untruncatable(processor_ctx):
+    # A field other than statement/name/description (here customProperties) can
+    # dominate the budget. Dropping name/description then doesn't make the aspect
+    # fit, so we must NOT claim a successful truncation — instead surface a
+    # distinct warning so the (likely GMS 400) failure is visible, not silent.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="short",
+        customProperties={"blob": "x" * 5000},
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:stuck", query_properties)
+
+    # Not recorded as a successful truncation.
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 0
+    assert len(processor.ctx.source_report.warnings) == 1
+    warning = next(iter(processor.ctx.source_report.warnings))
+    assert warning.title is not None
+    assert "could not be truncated" in warning.title.lower()
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -1351,6 +1422,35 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
     # Final size should be within constraints
     final_size = len(json.dumps(view_properties.to_obj()))
     assert final_size < INGEST_MAX_PAYLOAD_BYTES
+
+
+def test_ensure_view_properties_truncates_heavily_escaped_logic(processor):
+    # Same regression class as the queryProperties escape test: a viewLogic made
+    # of characters that inflate under JSON encoding (each newline is 2 bytes)
+    # would previously slip past the raw-vs-byte size math and leave an oversized
+    # aspect. Verify the serialized size stays under the payload constraint.
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic="\n" * (INGEST_MAX_PAYLOAD_BYTES),
+        viewLanguage="SQL",
+    )
+    assert len(json.dumps(view_properties.to_obj())) > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, escaped_model, PROD)",
+        view_properties,
+    )
+
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped viewLogic so the aspect fits under the limit"
+    )
+    assert view_properties.viewLogic is not None
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+    assert processor.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
 
 
 @patch(

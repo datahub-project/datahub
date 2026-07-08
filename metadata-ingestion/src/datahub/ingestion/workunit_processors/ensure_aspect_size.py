@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -43,6 +43,25 @@ QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     )
 )
 QUERY_STATEMENT_TRUNCATION_BUFFER = 100
+
+
+def _largest_fitting_prefix(text: str, fits: Callable[[int], bool]) -> int:
+    """Binary-search the largest prefix length ``n`` of ``text`` for which
+    ``fits(n)`` is True.
+
+    ``fits`` must be monotonic: ``fits(k)`` True implies ``fits(k - 1)`` True
+    (holds for size predicates, since a shorter prefix is never larger). Returns
+    0 if even ``fits(0)`` is False.
+    """
+    lo, hi, retained = 0, len(text), 0
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if fits(mid):
+            retained = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return retained
 
 
 @dataclass
@@ -333,30 +352,6 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
             )
 
-    def _truncate_or_remove_field(
-        self, field_value: Optional[str], reduction_needed: int
-    ) -> Optional[_TruncationResult]:
-        if not field_value:
-            return None
-        field_size = len(field_value)
-        if field_size > reduction_needed > 0:
-            retained_length = field_size - reduction_needed
-            truncated_content = field_value[:retained_length]
-            truncation_msg = (
-                f"... [truncated from {field_size} to {retained_length} chars]"
-            )
-            return _TruncationResult(
-                truncated_value=truncated_content + truncation_msg,
-                original_size=field_size,
-                retained_length=retained_length,
-            )
-        else:
-            return _TruncationResult(
-                truncated_value=f"[removed due to size - original was {field_size} chars]",
-                original_size=field_size,
-                retained_length=0,
-            )
-
     def ensure_upstream_lineage_size(  # noqa: C901
         self, entity_urn: str, upstream_lineage: UpstreamLineageClass
     ) -> None:
@@ -511,16 +506,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             )
             return serialized < max_payload_size
 
-        # Largest statement prefix that keeps the whole aspect under the limit.
-        lo, hi, retained_length = 0, len(full_statement), 0
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            if fits(mid):
-                retained_length = mid
-                lo = mid + 1
-            else:
-                hi = mid - 1
-
+        retained_length = _largest_fitting_prefix(full_statement, fits)
         query_properties.statement.value = candidate_value(retained_length)
 
         # If even an empty statement can't make it fit, the other fields are over
@@ -533,6 +519,21 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             if query_properties.description:
                 query_properties.description = None
                 dropped_fields.append("description")
+
+        # Re-verify: if another field (e.g. a large customProperties) still keeps
+        # the aspect over the limit, don't claim a successful truncation — warn
+        # instead so the likely GMS 400 is visible rather than silent.
+        if self._query_properties_serialized_size(query_properties) >= max_payload_size:
+            self.ctx.source_report.warning(
+                title="Query properties could not be truncated below size constraint",
+                message="Query properties remained too large after truncation and may be rejected by GMS",
+                context=(
+                    f"Query properties for {entity_urn} still exceed the "
+                    f"{max_payload_size} byte limit after truncating the statement "
+                    f"and dropping name/description"
+                ),
+            )
+            return
 
         context = (
             f"Query statement was truncated from {original_statement_size} to "
@@ -547,50 +548,95 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         self._record_truncation("queryProperties")
 
+    def _view_properties_serialized_size(
+        self, view_properties: ViewPropertiesClass
+    ) -> int:
+        return len(json.dumps(pre_json_transform(view_properties.to_obj())))
+
+    def _shrink_view_properties_field(
+        self,
+        view_properties: ViewPropertiesClass,
+        field_name: str,
+    ) -> Optional[_TruncationResult]:
+        # Measure serialized size (not raw chars) when trimming: escaping (\n, \",
+        # non-ASCII) inflates the wire size past the raw length, so a raw-vs-byte
+        # comparison undercounts and lets oversized aspects through.
+        original_value: Optional[str] = getattr(view_properties, field_name)
+        if not original_value:
+            return None
+        original_size = len(original_value)
+
+        # Overhead of the aspect with this field emptied, so each search step only
+        # has to re-encode the candidate string, not re-serialize the whole aspect.
+        setattr(view_properties, field_name, "")
+        empty_overhead = self._view_properties_serialized_size(view_properties)
+        overhead_without_value = empty_overhead - len(json.dumps(""))
+
+        def candidate_value(retained: int) -> str:
+            if retained == 0:
+                return f"[removed due to size - original was {original_size} chars]"
+            return (
+                original_value[:retained]
+                + f"... [truncated from {original_size} to {retained} chars]"
+            )
+
+        def fits(retained: int) -> bool:
+            serialized = overhead_without_value + len(
+                json.dumps(candidate_value(retained))
+            )
+            return serialized < self.payload_constraint
+
+        retained_length = _largest_fitting_prefix(original_value, fits)
+        new_value = candidate_value(retained_length)
+        setattr(view_properties, field_name, new_value)
+        if retained_length == 0:
+            logger.warning(
+                f"Cannot fit {field_name} within payload_constraint "
+                f"{self.payload_constraint}; removing content entirely "
+                f"(original was {original_size} chars)."
+            )
+        return _TruncationResult(
+            truncated_value=new_value,
+            original_size=original_size,
+            retained_length=retained_length,
+        )
+
     def ensure_view_properties_size(
         self, entity_urn: str, view_properties: ViewPropertiesClass
     ) -> None:
         if not view_properties.viewLogic and not view_properties.formattedViewLogic:
             return
 
-        current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
-        if current_size < self.payload_constraint:
+        if (
+            self._view_properties_serialized_size(view_properties)
+            < self.payload_constraint
+        ):
             return
 
         truncated = False
-        reduction_needed = (
-            current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
-        )
-        result = self._truncate_or_remove_field(
-            view_properties.formattedViewLogic, reduction_needed
+
+        # Trim the compiled view first — it's the derived form; the raw viewLogic
+        # is the source of truth and only truncated if trimming the compiled form
+        # isn't enough.
+        result = self._shrink_view_properties_field(
+            view_properties, "formattedViewLogic"
         )
         if result:
-            view_properties.formattedViewLogic = result.truncated_value
             self._warn_view_properties_truncation(
                 entity_urn, "formattedViewLogic", result
             )
             truncated = True
 
-        current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
-        if current_size < self.payload_constraint:
+        if (
+            self._view_properties_serialized_size(view_properties)
+            < self.payload_constraint
+        ):
             if truncated:
                 self._record_truncation("viewProperties")
             return
 
-        reduction_needed = (
-            current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
-        )
-        result = self._truncate_or_remove_field(
-            view_properties.viewLogic, reduction_needed
-        )
+        result = self._shrink_view_properties_field(view_properties, "viewLogic")
         if result:
-            if result.retained_length == 0:
-                logger.warning(
-                    f"Cannot truncate viewLogic for {entity_urn} as it is smaller than "
-                    f"or equal to the required reduction size {reduction_needed}. "
-                    f"Removing viewLogic entirely."
-                )
-            view_properties.viewLogic = result.truncated_value
             self._warn_view_properties_truncation(entity_urn, "viewLogic", result)
             truncated = True
 
