@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import (
     MetadataWorkUnit,
 )
 from datahub.ingestion.source.sql.teradata import (
+    MAX_QUERY_PARTS,
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
@@ -886,7 +887,103 @@ class TestErrorHandling:
             ):
                 mock_aggregator.gen_metadata.return_value = []
                 source._populate_aggregator_from_audit_logs()
-                # Method doesn't return a value, just populates the aggregator
+
+            # A 0-row fetch must surface as a report warning (it often signals a
+            # mis-scoped filter, wrong time range, or missing DBC.QryLogV grants),
+            # not silently pass at info level.
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            # No raw rows were fetched, so the message must point at scope/grants,
+            # not at reconstruction.
+            assert "returned 0 rows" in empty_warnings[0].message
+            assert mock_aggregator.add.call_count == 0
+
+    def test_non_empty_lineage_entries_emit_no_empty_warning(self):
+        """A normal fetch that yields entries must NOT emit the empty-result warning."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                mock_entry = MagicMock()
+                mock_entry.query_id = "q1"
+                mock_entry.query_text = "SELECT 1"
+                mock_entry.session_id = "s1"
+                mock_entry.timestamp = "2024-01-01 10:00:00"
+                mock_entry.user = "test_user"
+                mock_entry.default_database = "test_db"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            warning_titles = [w.title for w in source.report.warnings]
+            assert "No lineage entries found" not in warning_titles
+            assert mock_aggregator.add.call_count == 1
+
+    def test_rows_fetched_but_zero_reconstructed_warns_with_row_count(self):
+        """Rows that arrive but reconstruct to 0 queries must NOT blame scope/grants.
+
+        Entries without a usable query_id are counted in
+        num_audit_query_entries_processed but never yielded by reconstruction, so
+        queries_processed stays 0. The warning must reflect "fetched N rows but
+        reconstructed 0" rather than the misleading "returned 0 rows".
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                # query_id=None means reconstruction can never yield this row, but it
+                # is still counted as a fetched audit-log row.
+                mock_entry = MagicMock()
+                mock_entry.query_id = None
+                mock_entry.query_text = "SELECT 1"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            assert "reconstructed 0" in empty_warnings[0].message
+            assert "returned 0 rows" not in empty_warnings[0].message
+            assert source.report.num_audit_query_entries_processed == 1
+            assert mock_aggregator.add.call_count == 0
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
@@ -1604,6 +1701,87 @@ class TestStreamingQueryReconstruction:
             # Verify metadata preservation (should use metadata from first row of each query)
             assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
             assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+
+    def test_reconstruct_queries_streaming_truncates_oversized_query(self):
+        """A single query_id spanning more than MAX_QUERY_PARTS rows is truncated
+        rather than buffered without bound."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # One malformed query_id with more rows than the cap allows.
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            # Only the first MAX_QUERY_PARTS single-char parts are kept.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 1
+
+    def test_reconstruct_queries_streaming_at_limit_not_truncated(self):
+        """A query with exactly MAX_QUERY_PARTS rows is kept whole (no false positive)."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 0
+
+    def test_reconstruct_queries_streaming_truncation_does_not_leak_into_next_query(
+        self,
+    ):
+        """A truncated query must not corrupt the query that follows it: the per-query
+        buffer and the truncated flag are reset on the next query_id, so a normal query
+        after an oversized one reconstructs fully and is not counted as truncated."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+            # A normal multi-row query following the oversized one.
+            entries += [
+                self._create_mock_entry("Q2", "SELECT a ", 1, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "FROM t", 2, "2024-01-01 10:01:00"),
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 2
+            # Q1 truncated to the cap; Q2 reconstructed whole with its own metadata.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert reconstructed_queries[1].query == "SELECT a FROM t"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+            # Only Q1 counts as truncated - the flag reset for Q2.
+            assert source.report.num_queries_truncated == 1
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""

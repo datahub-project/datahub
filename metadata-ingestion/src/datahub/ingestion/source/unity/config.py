@@ -228,6 +228,9 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    # view_pattern and include_views are inherited from SQLCommonConfig and applied
+    # in process_tables; not redeclared here to avoid drift from the base defaults.
+
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(

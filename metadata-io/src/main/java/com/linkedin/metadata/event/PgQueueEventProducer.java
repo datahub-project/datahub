@@ -132,7 +132,7 @@ public class PgQueueEventProducer extends EventProducer {
   }
 
   @Override
-  public Future<?> produceMetadataChangeProposal(
+  protected Future<?> doProduceMetadataChangeProposal(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
