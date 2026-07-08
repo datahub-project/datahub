@@ -287,9 +287,7 @@ public class AuthServiceController {
     String systemClientUser =
         new CorpuserUrn(_configProvider.getAuthentication().getSystemClientId()).toString();
 
-    if (userUrnString.equals(systemClientUser)
-        || userUrnString.equals(DATAHUB_ACTOR)
-        || userUrnString.equals(UNKNOWN_ACTOR)) {
+    if (userUrnString.equals(systemClientUser) || userUrnString.equals(UNKNOWN_ACTOR)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     String fullNameString = fullName.asText();
