@@ -3,7 +3,18 @@
 
 from typing import Any, Dict, Optional
 
+import requests
+
 from tests.utils import execute_graphql, with_test_retry
+
+
+def get_prometheus_metrics(auth_session, gms_url: str) -> str:
+    """Fetch raw Prometheus text from the GMS management endpoint."""
+    prometheus_url = f"{gms_url}/actuator/prometheus"
+    headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+    response = requests.get(prometheus_url, headers=headers)
+    response.raise_for_status()
+    return response.text
 
 
 def add_tag(
