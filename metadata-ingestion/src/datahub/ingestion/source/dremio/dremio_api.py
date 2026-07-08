@@ -50,6 +50,12 @@ class _CatalogWideQueryFailed(Exception):
     the fetch can safely retry one root container at a time."""
 
 
+# execute_query_iter wraps setup failures as DremioAPIException, but transport
+# errors (timeout, connection reset) raised while lazily streaming result pages
+# propagate raw from requests. A chunked fetch must treat both as a failed chunk.
+_QUERY_FETCH_ERRORS = (DremioAPIException, requests.RequestException)
+
+
 class DremioEdition(Enum):
     CLOUD = "CLOUD"
     ENTERPRISE = "ENTERPRISE"
@@ -760,18 +766,20 @@ class DremioAPIOperations:
                 limit_clause=limit_clause,
             )
 
-            logger.info(
+            logger.debug(
                 f"Fetching view-definition chunk (offset: {offset}, limit: {chunk_size})"
             )
 
             try:
                 chunk_results = list(self.execute_query_iter(query=formatted_query))
-            except DremioAPIException as e:
-                # Fail loudly rather than silently dropping view definitions.
+            except _QUERY_FETCH_ERRORS as e:
+                # Fail loudly rather than silently dropping view definitions: the
+                # returned dict is partial, so the caller would otherwise treat
+                # missing views as having no definition.
                 self.report.failure(
                     message="Failed to fetch Dremio view definitions; view "
                     "lineage may be incomplete.",
-                    context=f"offset={offset}",
+                    context=f"retrieved {len(definitions)} before failing at offset={offset}",
                     exc=e,
                 )
                 break
@@ -975,7 +983,7 @@ class DremioAPIOperations:
                 limit_clause=limit_clause,
             )
 
-            logger.info(
+            logger.debug(
                 f"Fetching global dataset chunk (offset: {offset}, limit: {chunk_size})"
             )
 
@@ -1047,7 +1055,7 @@ class DremioAPIOperations:
 
                 offset += chunk_size
 
-            except DremioAPIException as e:
+            except _QUERY_FETCH_ERRORS as e:
                 if offset == 0 and signal_first_chunk_failure:
                     # Nothing emitted yet, so fall back instead of silently
                     # returning no datasets (the original bug).

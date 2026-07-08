@@ -67,6 +67,39 @@ class TestViewDefinitionQueryColumn:
             assert "SQL_DEFINITION AS VIEW_DEFINITION" in query
 
 
+class TestViewDefinitionOrdering:
+    # Paginated queries must sort on a key unique per row, otherwise views with a
+    # tied sort key can be skipped or duplicated across LIMIT/OFFSET boundaries.
+    def test_ee_and_cloud_order_by_unique_full_path(self):
+        for query in (
+            DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE,
+            DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD,
+        ):
+            order_by = query.rsplit("ORDER BY", 1)[1]
+            assert "FULL_TABLE_PATH" in order_by
+
+    def test_community_order_by_disambiguates_by_name(self):
+        order_by = DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE.rsplit("ORDER BY", 1)[1]
+        assert "TABLE_NAME" in order_by
+
+
+class TestFullTablePathConsistency:
+    # The datasets query and the view-definition query must flatten Dremio's
+    # bracketed PATH (e.g. "[space, sub folder, view]") to the same dotted
+    # FULL_TABLE_PATH, or view definitions won't merge back onto their datasets.
+    _PATH_NORMALISATION_FRAGMENTS = ("', ', '.'", "'[', ''", "']', ''")
+
+    def test_enterprise_paths_normalised_consistently(self):
+        for fragment in self._PATH_NORMALISATION_FRAGMENTS:
+            assert fragment in DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
+            assert fragment in DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE
+
+    def test_cloud_paths_normalised_consistently(self):
+        for fragment in self._PATH_NORMALISATION_FRAGMENTS:
+            assert fragment in DremioSQLQueries.QUERY_DATASETS_CLOUD_GLOBAL
+            assert fragment in DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
+
+
 class TestGetViewDefinitions:
     def test_builds_map_keyed_by_full_path(self, monkeypatch):
         api = _make_api(monkeypatch)

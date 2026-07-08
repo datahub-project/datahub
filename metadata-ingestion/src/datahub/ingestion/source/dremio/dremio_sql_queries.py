@@ -283,7 +283,7 @@ class DremioSQLQueries:
             {schema_pattern}
             {deny_schema_pattern}
         ORDER BY
-            TABLE_SCHEMA ASC
+            FULL_TABLE_PATH ASC
         {limit_clause}
         """
 
@@ -304,7 +304,7 @@ class DremioSQLQueries:
             {schema_pattern}
             {deny_schema_pattern}
         ORDER BY
-            TABLE_SCHEMA ASC
+            FULL_TABLE_PATH ASC
         {limit_clause}
         """
 
