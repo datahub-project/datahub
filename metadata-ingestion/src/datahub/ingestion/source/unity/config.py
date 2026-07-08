@@ -228,6 +228,16 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for views to filter in ingestion."
+            " Specify regex to match the entire view name in `catalog.schema.view` format."
+            " Defaults to `table_pattern` if not specified."
+            " Only applies when `include_views` is True; set `include_views: false` to skip all views."
+        ),
+    )
+
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(

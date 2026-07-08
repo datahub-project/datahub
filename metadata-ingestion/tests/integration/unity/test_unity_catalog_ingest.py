@@ -1547,3 +1547,116 @@ def test_unity_catalog_usage_via_aggregator(pytestconfig, tmp_path, requests_moc
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/unity_catalog_usage_aggregator_mces_golden.json",
         )
+
+
+def _view_filter_tables():
+    """One managed table and one view in quickstart_catalog.quickstart_schema."""
+    columns = [
+        {
+            "name": "columnA",
+            "type_text": "int",
+            "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+            "type_name": "INT",
+            "type_precision": 0,
+            "type_scale": 0,
+            "position": 0,
+            "nullable": True,
+        }
+    ]
+    return [
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "my_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": columns,
+                "full_name": "quickstart_catalog.quickstart_schema.my_table",
+                "table_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            }
+        ),
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "my_view",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "VIEW",
+                "view_definition": "SELECT columnA FROM quickstart_catalog.quickstart_schema.my_table",
+                "columns": columns,
+                "full_name": "quickstart_catalog.quickstart_schema.my_view",
+                "table_id": "aaaaaaaa-0000-0000-0000-000000000002",
+            }
+        ),
+    ]
+
+
+def _run_view_filter_pipeline(tmp_path, requests_mock, source_extra):
+    """Run a minimal UC ingestion over one table + one view; return emitted dataset URNs."""
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_view_filter_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+        # Override the schema's objects with exactly one table and one view.
+        workspace_client.tables.list = lambda *args, **kwargs: _view_filter_tables()
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-view-filter-test",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": False,
+                    **source_extra,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"/{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    import json
+
+    with open(f"/{tmp_path}/{output_file_name}") as f:
+        mcps = json.load(f)
+    return {
+        mcp["entityUrn"]
+        for mcp in mcps
+        if mcp.get("entityUrn", "").startswith("urn:li:dataset:")
+    }
+
+
+def test_views_ingested_by_default(pytestconfig, tmp_path, requests_mock):
+    urns = _run_view_filter_pipeline(tmp_path, requests_mock, {})
+    assert any("my_table" in urn for urn in urns)
+    assert any("my_view" in urn for urn in urns)
+
+
+def test_include_views_false_skips_views(pytestconfig, tmp_path, requests_mock):
+    urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_views": False})
+    assert any("my_table" in urn for urn in urns)
+    assert not any("my_view" in urn for urn in urns)
+
+
+def test_view_pattern_deny_skips_views(pytestconfig, tmp_path, requests_mock):
+    urns = _run_view_filter_pipeline(
+        tmp_path, requests_mock, {"view_pattern": {"deny": [".*"]}}
+    )
+    assert any("my_table" in urn for urn in urns)
+    assert not any("my_view" in urn for urn in urns)
