@@ -785,7 +785,7 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
 - Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
 - Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
-- When drafting deliverables on the user's behalf (prose, review comments, business/customer-facing docs like RFIs or Notion, and specs/plans), write in his own direct, human voice and keep it professional: no emojis, avoid AI tells (e.g. "confirmed these are real gaps"), use the customer's own terminology, and don't expose internal implementation details (e.g. Java file names). For specs/plans, be holistic and thorough — cover the full scope with explicit phasing (in scope / not feasible / needs post-investigation), the source-side "how" (export/SDK/API), and a tracker to iterate.
+- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
 
 ## Learned Workspace Facts
 
@@ -793,4 +793,3 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
 - Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
 - Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.
-- When building a DataHub demo, emit realistic metadata rather than a single table per platform: land multiple tables plus container, usage, operational-state, and query aspects so it looks real. Native DQ assertions require platforms that support them (e.g. Snowflake or Databricks).
