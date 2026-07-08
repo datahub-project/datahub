@@ -182,6 +182,11 @@ class SQLAlchemyQueryCombiner:
         # Adapted from https://stackoverflow.com/a/30779367/5004662.
         return "".join(random.choices(string.ascii_lowercase, k=16))
 
+    @staticmethod
+    def _generate_query_id() -> str:
+        # Short 5-character ID for correlating query execution logs.
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
         while let.parent is not None:
@@ -340,14 +345,16 @@ class SQLAlchemyQueryCombiner:
             for cte in ctes.values():
                 combined_query.append_from(cte)
 
+            query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.combined_queries_issued += 1
-
+            logger.info(
+                f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined): {str(combined_query)}"
+            )
             with PerfTimer() as timer:
                 sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
             logger.info(
-                f"Combined query executed in {timer.elapsed_seconds():.3f}s "
-                f"({len(pending_queue)} queries combined): {str(combined_query)}"
+                f"[{query_id}] Combined query executed in {timer.elapsed_seconds():.3f}s"
             )
 
             # Fetch the results and ensure that exactly one row is returned.
@@ -384,7 +391,12 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
+            query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.uncombined_queries_issued += 1
+
+            logger.info(
+                f"[{query_id}] Executing fallback query: {str(query_future.query)}"
+            )
 
             with PerfTimer() as timer:
                 try:
@@ -401,14 +413,13 @@ class SQLAlchemyQueryCombiner:
                     query_future.res = cast(_ResultProxyFake, res)
 
                     logger.info(
-                        f"Fallback query executed in {timer.elapsed_seconds():.3f}s: "
-                        f"{str(query_future.query)}"
+                        f"[{query_id}] Fallback query executed in {timer.elapsed_seconds():.3f}s"
                     )
                 except Exception as e:
                     query_future.exc = e
                     logger.warning(
-                        f"Fallback query failed in {timer.elapsed_seconds():.3f}s "
-                        f"({type(e).__name__}): {str(query_future.query)}"
+                        f"[{query_id}] Fallback query failed in {timer.elapsed_seconds():.3f}s "
+                        f"({type(e).__name__})"
                     )
                 finally:
                     query_future.done = True
