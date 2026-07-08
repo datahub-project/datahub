@@ -43,7 +43,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                 },
             });
             toast.destroy();
-            toast.success(t('deprecation.updated'), { duration: 2 });
+            toast.success(t('deprecation.markedDeprecatedSuccess'), { duration: 2 });
         } catch (e: unknown) {
             toast.destroy();
             if (e instanceof Error) {

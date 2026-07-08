@@ -41,6 +41,8 @@
     "deprecation.replacementSearchTitle": "Wähle eine Entität als Ersatz für die veraltete Entität aus.",
     "deprecation.selectReplacement": "Nachfolger auswählen",
     "deprecation.setReplacement": "Nachfolger festlegen",
+    "deprecation.markedDeprecatedSuccess": "Als veraltet markiert",
+    "deprecation.markedUnDeprecatedSuccess": "Als nicht veraltet markiert",
     "deprecation.updateError": "Aktualisierung der Veraltungsmarkierung fehlgeschlagen: \n {{errorMessage}}",
     "deprecation.updated": "Veraltungsmarkierung aktualisiert",
     "domainSelect.notFound": "Keine Domänen gefunden",

@@ -296,7 +296,7 @@ export const TagActionsColumn = React.memo(
                     },
                 });
                 message.destroy();
-                message.success({ content: te('deprecation.updated'), duration: 2 });
+                message.success({ content: te('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
                 refetch();
             } catch (e: unknown) {
                 message.destroy();

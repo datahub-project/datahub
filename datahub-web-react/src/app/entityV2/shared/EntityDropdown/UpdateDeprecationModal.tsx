@@ -92,7 +92,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 resources: isDeprecatingFields ? resourceRefs : undefined,
             });
             toast.destroy();
-            toast.success(t('deprecation.updated'), { duration: 2 });
+            toast.success(t('deprecation.markedDeprecatedSuccess'), { duration: 2 });
         } catch (e: unknown) {
             toast.destroy();
             if (e instanceof Error) {

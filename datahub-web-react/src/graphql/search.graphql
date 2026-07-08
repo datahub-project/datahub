@@ -974,6 +974,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on Container {
         properties {
