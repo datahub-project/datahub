@@ -497,12 +497,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     return isEnabledInConfig && _isS3Enabled;
   }
 
-  // Supported UI locales -- keep in sync with SupportedLanguage in
-  // datahub-web-react/src/app/i18n/types.ts. Used only to warn operators about an
-  // unrecognized I18N_DEFAULT_LOCALE value; the web app performs the authoritative
-  // validation and falls back to English, so a stale entry here only affects the warning.
-  private static final Set<String> SUPPORTED_UI_LOCALES =
-      Set.of("en", "de", "es", "pt-BR", "fr", "it");
+  // The set of UI locales the frontend can render, used ONLY to warn operators when
+  // I18N_DEFAULT_LOCALE is set to an unrecognized value. The web app performs the authoritative
+  // validation and fallback, so a stale entry here can only affect the warning, never override a
+  // valid locale. This MUST mirror the frontend's SupportedLanguage union in
+  // datahub-web-react/src/app/i18n/types.ts (the source of truth);
+  // AppConfigResolverTest#testSupportedUiLocalesMatchFrontendSupportedLanguage fails on drift.
+  // Package-private so that guard test can read it without reflection.
+  static final Set<String> SUPPORTED_UI_LOCALES = Set.of("en", "de", "es", "pt-BR", "fr", "it");
 
   private static String resolveI18nDefaultLocale(final String configuredLocale) {
     if (configuredLocale == null || configuredLocale.isBlank()) {

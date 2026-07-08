@@ -23,10 +23,15 @@ import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.settings.global.ApplicationsSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -1059,5 +1064,51 @@ public class AppConfigResolverTest {
           expectedModelEmbeddingKey,
           "Model embedding key derivation failed for model ID: " + modelId);
     }
+  }
+
+  @Test
+  public void testSupportedUiLocalesMatchFrontendSupportedLanguage() throws Exception {
+    // Drift guard: AppConfigResolver.SUPPORTED_UI_LOCALES (used only to warn on an unrecognized
+    // I18N_DEFAULT_LOCALE) must mirror the frontend's authoritative SupportedLanguage union in
+    // datahub-web-react/src/app/i18n/types.ts, which is what the UI actually validates against.
+    Path typesFile = locateFrontendI18nTypesFile();
+    String contents = Files.readString(typesFile);
+
+    Matcher union = Pattern.compile("SupportedLanguage\\s*=\\s*([^;]+);").matcher(contents);
+    assertTrue(union.find(), "Could not find the SupportedLanguage union in " + typesFile);
+
+    Set<String> frontendLocales = new HashSet<>();
+    Matcher codes = Pattern.compile("'([^']+)'").matcher(union.group(1));
+    while (codes.find()) {
+      frontendLocales.add(codes.group(1));
+    }
+    assertFalse(
+        frontendLocales.isEmpty(), "Parsed no locale codes from the SupportedLanguage union");
+
+    assertTrue(
+        AppConfigResolver.SUPPORTED_UI_LOCALES.equals(frontendLocales),
+        "AppConfigResolver.SUPPORTED_UI_LOCALES "
+            + AppConfigResolver.SUPPORTED_UI_LOCALES
+            + " is out of sync with the frontend SupportedLanguage union "
+            + frontendLocales
+            + " (datahub-web-react/src/app/i18n/types.ts). Update the backend set to match.");
+  }
+
+  private static Path locateFrontendI18nTypesFile() {
+    Path relative = Paths.get("datahub-web-react", "src", "app", "i18n", "types.ts");
+    Path dir = Paths.get("").toAbsolutePath();
+    for (int i = 0; i < 6 && dir != null; i++) {
+      Path candidate = dir.resolve(relative);
+      if (Files.exists(candidate)) {
+        return candidate;
+      }
+      dir = dir.getParent();
+    }
+    throw new IllegalStateException(
+        "Could not locate "
+            + relative
+            + " by walking up from "
+            + Paths.get("").toAbsolutePath()
+            + "; the frontend source is required for this drift-guard test.");
   }
 }
