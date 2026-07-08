@@ -414,6 +414,25 @@ import {
     VERTICA_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
+    WORKDAY_BASE_URL,
+    WORKDAY_CLIENT_ID,
+    WORKDAY_CLIENT_SECRET,
+    WORKDAY_EXTRACT_DATASETS,
+    WORKDAY_EXTRACT_DATA_SOURCES,
+    WORKDAY_EXTRACT_LINEAGE,
+    WORKDAY_EXTRACT_REPORTS,
+    WORKDAY_EXTRACT_TABLES,
+    WORKDAY_INCLUDE_EXTERNAL,
+    WORKDAY_INGEST_OWNER,
+    WORKDAY_PLATFORM_INSTANCE,
+    WORKDAY_REPORT_ALLOW,
+    WORKDAY_REPORT_DENY,
+    WORKDAY_TABLE_ALLOW,
+    WORKDAY_TABLE_DENY,
+    WORKDAY_TENANT,
+    WORKDAY_VERIFY_SSL,
+} from '@app/ingestV2/source/builder/RecipeForm/workday';
+import {
     AZURE,
     BIGID,
     CONFLUENCE,
@@ -430,6 +449,7 @@ import {
     RDF,
     SAC,
     VERTICA,
+    WORKDAY,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
 import { HEX } from '@app/ingestV2/source/conf/hex/hex';
@@ -826,6 +846,22 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip:
             'Include or exclude specific Projects, Folders, Dashboards, and Reports from MicroStrategy ingestion.',
+    },
+    [WORKDAY]: {
+        fields: [WORKDAY_BASE_URL, WORKDAY_TENANT, WORKDAY_CLIENT_ID, WORKDAY_CLIENT_SECRET, WORKDAY_PLATFORM_INSTANCE],
+        filterFields: [WORKDAY_TABLE_ALLOW, WORKDAY_TABLE_DENY, WORKDAY_REPORT_ALLOW, WORKDAY_REPORT_DENY],
+        advancedFields: [
+            WORKDAY_EXTRACT_TABLES,
+            WORKDAY_EXTRACT_DATASETS,
+            WORKDAY_EXTRACT_DATA_SOURCES,
+            WORKDAY_EXTRACT_REPORTS,
+            WORKDAY_EXTRACT_LINEAGE,
+            WORKDAY_INCLUDE_EXTERNAL,
+            WORKDAY_INGEST_OWNER,
+            WORKDAY_VERIFY_SSL,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Prism tables and Workday-sourced reports from ingestion.',
     },
     [VERTICA]: {
         fields: [VERTICA_HOST_PORT, VERTICA_DATABASE, VERTICA_USERNAME, VERTICA_PASSWORD],

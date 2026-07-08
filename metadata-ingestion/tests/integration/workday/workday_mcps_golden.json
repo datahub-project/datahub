@@ -1,0 +1,671 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "workday",
+                "instance": "prod",
+                "env": "PROD",
+                "tenant": "acme"
+            },
+            "name": "acme",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536170,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536170,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:workday",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536170,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Tenant"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536170,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536170,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workday_id": "tbl-1",
+                "source_type": "Workday"
+            },
+            "name": "Worker_Headcount",
+            "qualifiedName": "acme.Worker_Headcount",
+            "description": "Headcount by organization",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536171,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Prism Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536171,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+            "platform": "urn:li:dataPlatform:workday",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "organization_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:PrimaryKey"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "headcount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "numeric",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "as_of_date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536171,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:hr_analyst",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1783523536169,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1783523536169,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.headcount,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1783523536169,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+                },
+                {
+                    "id": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+                    "urn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workday_id": "dset-1",
+                "source_type": "Workday"
+            },
+            "name": "Headcount Pipeline",
+            "qualifiedName": "acme.Headcount Pipeline",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Prism Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536172,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1783523536171,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+                },
+                {
+                    "id": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+                    "urn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workday_id": "ds-1",
+                "source_type": "Workday"
+            },
+            "name": "Headcount Report",
+            "qualifiedName": "acme.Headcount Report",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Report"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536173,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+                },
+                {
+                    "id": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+                    "urn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workday_id": "ds-2",
+                "source_type": "External"
+            },
+            "name": "External Snowflake",
+            "qualifiedName": "acme.External Snowflake",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:workday,prod)"
+                },
+                {
+                    "id": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2",
+                    "urn": "urn:li:container:a95ba76c7fdf08f3a5321036b44cdcd2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.dataset.dset-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.source.ds-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536174,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:workday,prod.acme.table.tbl-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536175,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:PrimaryKey",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "PrimaryKey"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783523536175,
+        "runId": "workday-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

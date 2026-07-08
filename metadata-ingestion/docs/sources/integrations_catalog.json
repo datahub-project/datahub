@@ -785,6 +785,13 @@
     "description": "Enterprise analytics and mobility platform for business intelligence, dashboards, and reporting.",
     "img_path": "img/logos/platforms/microstrategy.svg"
   },
+  "workday": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "title": "Workday",
+    "description": "Cloud HR, finance, and analytics platform. Ingests Prism Analytics tables, datasets, data sources, schemas, RaaS reports, and lineage.",
+    "img_path": "img/logos/platforms/workday.svg"
+  },
   "quicksight": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",

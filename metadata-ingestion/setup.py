@@ -832,6 +832,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib,
     "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "cube": {"requests<3.0.0"} | sqlglot_lib,
+    "workday": {"requests<3.0.0"},
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -1043,6 +1044,7 @@ base_dev_requirements = {
             "pinecone",
             "mssql-odbc",
             "omni",
+            "workday",
             "aws-secret-manager",
             "gcp-secret-manager",
         ]
@@ -1193,6 +1195,7 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
+        "workday = datahub.ingestion.source.workday.source:WorkdaySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "thoughtspot = datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource",
