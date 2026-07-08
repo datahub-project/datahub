@@ -304,6 +304,18 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+  usage:
+    aggregation:
+      enabled: ${USAGE_AGGREGATION_ENABLED:false}
+      micrometerExport:
+        enabled: ${USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED:true}
+      flush:
+        maxWindowSeconds: ${USAGE_AGGREGATION_MAX_WINDOW_SECONDS:300}
+        maxCardinality: ${USAGE_AGGREGATION_MAX_CARDINALITY:10000}
+        scheduledIntervalSeconds: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:60}
+        retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
+        retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
+
   validation:
     aspectSize:
       prePatch:

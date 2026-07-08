@@ -17,10 +17,12 @@ from urllib.parse import urlparse
 
 import click
 import requests
+from typing_extensions import NotRequired, TypedDict
 
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
+from datahub.ingestion.auth.registry import AuthConfig
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
@@ -626,15 +628,32 @@ def _check_referential_integrity(
         click.echo(f"  {ref_urn} (referenced by {len(referrers)} entities)")
 
 
-def _build_datapack_sink_config(client_config: DatahubClientConfig) -> dict[str, str]:
+class _DatapackSinkConfig(TypedDict):
+    """The datahub-rest sink config the datapack loader feeds to Pipeline.create."""
+
+    server: str
+    endpoint: str
+    mode: str
+    token: NotRequired[str]
+    auth: NotRequired[AuthConfig]
+
+
+def _build_datapack_sink_config(
+    client_config: DatahubClientConfig,
+) -> _DatapackSinkConfig:
     """Sink config for datapack ingest: OpenAPI endpoint with async_batch mode."""
-    sink_config: dict[str, str] = {
+    sink_config: _DatapackSinkConfig = {
         "server": str(client_config.server),
         "endpoint": "openapi",
         "mode": "async_batch",
     }
     if client_config.token:
         sink_config["token"] = client_config.token
+    if client_config.auth:
+        # Carry the OAuth token-provider config through — token and auth are
+        # mutually exclusive, and dropping auth here would make the datapack
+        # sink emit unauthenticated in OAuth mode.
+        sink_config["auth"] = client_config.auth
     return sink_config
 
 
@@ -656,7 +675,7 @@ def _datapack_emit_mode(wait_for_completion: bool) -> Iterator[str]:
 def _run_pipeline_for_file(
     file_path: pathlib.Path,
     run_id: str,
-    sink_config: dict[str, str],
+    sink_config: _DatapackSinkConfig,
     wait_for_completion: bool = False,
 ) -> None:
     """Run an ingestion pipeline for a single data file."""

@@ -223,6 +223,15 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   }
 
   @Test
+  public void testCorpUserPrivilegedFlagsValidatorBeanCreation() {
+    assertTrue(context.containsBean("corpUserPrivilegedFlagsValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("corpUserPrivilegedFlagsValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof CorpUserPrivilegedFlagsValidator);
+  }
+
+  @Test
   public void testModifyIngestionSourceAuthValidatorBeanCreation() {
     assertTrue(context.containsBean("ModifyIngestionSourceAuthValidator"));
     AspectPayloadValidator validator =

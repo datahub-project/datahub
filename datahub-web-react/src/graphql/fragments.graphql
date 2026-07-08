@@ -9,6 +9,9 @@ fragment globalTagsFields on GlobalTags {
                 name
                 colorHex
             }
+            deprecation {
+                ...deprecationFields
+            }
         }
         associatedUrn
         attribution {
