@@ -1,14 +1,14 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components/macro';
 
 import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { resolveDomainEntityColor } from '@app/entityV2/domain/utils/displayProperties';
 import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
-import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
@@ -99,19 +99,8 @@ const HeaderIconsWrapper = styled.span`
     margin-right: 8px;
 `;
 
-const IconWrapper = styled.div<{ $clickable: boolean }>`
+const IconWrapper = styled.div`
     margin-right: 12px;
-    border-radius: 10px;
-    ${(props) =>
-        props.$clickable &&
-        `
-        cursor: pointer;
-        transition: opacity 0.15s ease;
-
-        &:hover {
-            opacity: 0.85;
-        }
-    `}
 `;
 
 type Props = {
@@ -125,8 +114,6 @@ type Props = {
     headerDropdownItems?: Set<EntityMenuItems>;
     subHeader?: EntitySubHeaderSection;
     showEditName?: boolean;
-    isColorEditable?: boolean;
-    isIconEditable?: boolean;
     displayProperties?: DisplayProperties;
 };
 
@@ -141,11 +128,8 @@ export const DefaultEntityHeader = ({
     headerActionItems, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     showEditName,
-    isColorEditable,
-    isIconEditable,
     displayProperties,
 }: Props) => {
-    const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const generateDomainColor = useGenerateDomainColorFromPalette();
@@ -174,7 +158,7 @@ export const DefaultEntityHeader = ({
             generateGlossaryColor,
         );
     } else if (isDomainEntity) {
-        resolvedCurrentColor = displayProperties?.colorHex || generateDomainColor(urn);
+        resolvedCurrentColor = resolveDomainEntityColor({ urn, displayProperties }, generateDomainColor);
     } else {
         resolvedCurrentColor = displayProperties?.colorHex || undefined;
     }
@@ -195,14 +179,7 @@ export const DefaultEntityHeader = ({
                                     />
                                 </HeaderIconsWrapper>
                                 {(isGlossaryEntity || isDomainEntity) && (
-                                    <IconWrapper
-                                        $clickable={!!(isIconEditable || isColorEditable)}
-                                        onClick={
-                                            isIconEditable || isColorEditable
-                                                ? () => setShowIconPicker(true)
-                                                : undefined
-                                        }
-                                    >
+                                    <IconWrapper>
                                         {isGlossaryEntity ? (
                                             <GlossaryColoredIcon
                                                 color={resolvedCurrentColor || ''}
@@ -213,16 +190,6 @@ export const DefaultEntityHeader = ({
                                             <DomainColoredIcon domain={entityData as Domain} />
                                         )}
                                     </IconWrapper>
-                                )}
-                                {showIconPicker && (
-                                    <IconColorPicker
-                                        name={entityRegistry.getDisplayName(entityType, entityData)}
-                                        open={showIconPicker}
-                                        onClose={() => setShowIconPicker(false)}
-                                        color={resolvedCurrentColor}
-                                        icon={displayProperties?.icon?.name}
-                                        showIcon={!!isIconEditable}
-                                    />
                                 )}
                                 <EntityDetailsContainer>
                                     <TitleRow>

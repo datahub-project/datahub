@@ -22,4 +22,5 @@ export function makeLoadIcon(iconModules: GlobMap) {
 }
 
 // Glob lives in this lazy chunk (not in lazyIconRegistry.tsx / main bundle).
+// For a side-effect-free list of icon names, import from `./lazyIconNames` instead.
 export const loadIcon = makeLoadIcon(import.meta.glob('./lazy-icons/*.ts') as GlobMap);

@@ -64,6 +64,7 @@
     "linkVersion.selectPlaceholder": "Selecione um(a) {{entityName}} para vincular",
     "linkVersion.success": "{{entityName}} vinculado(a)!",
     "linkVersion.title": "Vincular uma Versão Mais Recente",
+    "menuAction.editDomainTooltip": "Editar domínio",
     "menuAction.moveTooltip": "Mover este(a) {{entityName}}",
     "menuAction.raiseIncidentTooltip": "Registrar um incident",
     "menuItem.addTerm": "Adicionar Term",

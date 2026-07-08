@@ -92,8 +92,6 @@ type Props<T, U> = {
     headerDropdownItems?: Set<EntityMenuItems>;
     headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
-    isIconEditable?: boolean;
-    isColorEditable?: boolean;
 };
 
 const ContentContainer = styled.div`
@@ -191,8 +189,6 @@ export const EntityProfile = <T, U>({
     headerDropdownItems,
     headerActionItems,
     isNameEditable,
-    isColorEditable,
-    isIconEditable,
     subHeader,
 }: Props<T, U>): JSX.Element => {
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
@@ -406,8 +402,6 @@ export const EntityProfile = <T, U>({
                                                     headerDropdownItems={headerDropdownItems}
                                                     headerActionItems={headerActionItems}
                                                     isNameEditable={isNameEditable}
-                                                    isIconEditable={isIconEditable}
-                                                    isColorEditable={isColorEditable}
                                                     displayProperties={entityData?.displayProperties || undefined}
                                                     subHeader={subHeader}
                                                 />

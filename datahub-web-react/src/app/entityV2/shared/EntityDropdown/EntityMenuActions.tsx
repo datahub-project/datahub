@@ -6,6 +6,7 @@ import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
 import ChangeHistoryMenuAction from '@app/entityV2/shared/EntityDropdown/ChangeHistoryMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
+import EditDomainMenuAction from '@app/entityV2/shared/EntityDropdown/EditDomainMenuAction';
 import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
@@ -83,6 +84,7 @@ function EntityMenuActions(props: Props) {
             {isClosed ? (
                 <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
+                    {menuItems.has(EntityMenuItems.EDIT) && <EditDomainMenuAction />}
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
                     {menuItems.has(EntityMenuItems.ANNOUNCE) && <AnnounceMenuAction />}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}

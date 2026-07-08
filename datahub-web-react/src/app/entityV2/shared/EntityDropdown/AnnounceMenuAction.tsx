@@ -21,7 +21,7 @@ export default function AnnounceMenuAction() {
                     disabled={false}
                     onClick={() => setIsEntityAnnouncementModalVisible(true)}
                 >
-                    <MegaphoneSimple size={16} />
+                    <MegaphoneSimple size={16} weight="regular" />
                 </ActionMenuItem>
             </Tooltip>
             {isEntityAnnouncementModalVisible && (

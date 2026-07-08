@@ -1,28 +1,76 @@
-import { Input } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FixedSizeGrid as Grid } from 'react-window';
 import styled from 'styled-components';
 
-import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
+import {
+    DOMAIN_ICONS,
+    DOMAIN_ICON_LIBRARY,
+} from '@app/entityV2/shared/containers/profile/header/IconPicker/domainIconLibrary';
+import {
+    DEFAULT_MIN_CELL_SIZE,
+    buildEffectiveDomainIconList,
+    computeIconGridLayout,
+    filterDomainIconsBySearch,
+} from '@app/entityV2/shared/containers/profile/header/IconPicker/iconPickerUtils';
+import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
+import { SearchBar } from '@src/alchemy-components';
 
-const columnCount = 5; // Number of columns in the grid
+const GRID_HEIGHT = 200;
+const ICON_SIZE = 24;
 
 type Props = {
     onIconPick: (icon: string) => void;
     color?: string | null;
+    selectedIcon?: string;
+    // Optional icons to pin to the top of the grid (before the curated library). Used to
+    // preserve visibility of a domain's currently-stored icon when it lives outside our
+    // 138-name curated set — e.g. a pre-migration MUI icon that mapped to a rare Phosphor
+    // one, or an icon a customer picked before the curated set was introduced. Without
+    // this, the picker would show "no selection" for that domain and the user would think
+    // their icon disappeared (it hasn't — the domain page still renders it correctly).
+    pinnedIcons?: readonly string[];
 };
 
-const CellContainer = styled.div<{ color?: string; selected?: boolean }>`
+type CellData = {
+    iconNames: readonly string[];
+    onSelect: (name: string) => void;
+    selectedIcon: string;
+    color?: string | null;
+    columnCount: number;
+    cellSize: number;
+};
+
+const Container = styled.div`
     display: flex;
-    justify-content: center;
-    align-items: center;
-    color: ${({ color, theme }) => color || theme.colors.icon};
-    border: ${({ selected, theme }) =>
-        selected ? `2px solid ${theme.colors.borderBrand}` : `1px solid ${theme.colors.border}`};
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
 `;
 
-const Cell = ({
+const GridContainer = styled.div`
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+`;
+
+const IconCell = styled.div<{ $color?: string | null; $selected: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 8px;
+    color: ${({ $color, theme }) => $color || theme.colors.icon};
+    background-color: ${({ $selected, theme }) => ($selected ? theme.colors.bgHover : 'transparent')};
+    box-shadow: ${({ $selected, theme }) => ($selected ? `inset 0 0 0 2px ${theme.colors.borderBrand}` : 'none')};
+
+    &:hover {
+        background-color: ${({ theme }) => theme.colors.bgHover};
+    }
+`;
+
+function Cell({
     columnIndex,
     rowIndex,
     style,
@@ -30,93 +78,116 @@ const Cell = ({
 }: {
     columnIndex: number;
     rowIndex: number;
-    style: any;
-    data: any;
-}) => {
-    const { icons, iconNames, onIconPick, selectedIcon, setSelectedIcon, color } = data;
-    const index = rowIndex * columnCount + columnIndex;
-    const iconName = iconNames[index];
-    const Icon = icons?.[iconName];
+    style: React.CSSProperties;
+    data: CellData;
+}) {
+    const index = rowIndex * data.columnCount + columnIndex;
+    const iconName = data.iconNames[index];
 
-    if (!Icon) return <div style={style} />;
+    if (!iconName) return <div style={style} />;
+
+    // Curated icons are statically imported — no Suspense, no chunk fetch (see domainIconLibrary.ts).
+    // A pinned icon (customer's pre-existing pick outside the curated set) falls back to the
+    // one-off lazy loader so we can still show + preserve their selection.
+    const CuratedIcon = DOMAIN_ICONS[iconName];
 
     return (
-        <CellContainer
-            color={color}
-            selected={selectedIcon === iconName}
-            style={{
-                ...style,
-            }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                    onIconPick(iconName);
-                    setSelectedIcon(iconName);
-                }
-            }}
-            onClick={() => {
-                onIconPick(iconName);
-                setSelectedIcon(iconName);
-            }}
-        >
-            <Icon />
-        </CellContainer>
+        <div style={style}>
+            <IconCell
+                $color={data.color}
+                $selected={data.selectedIcon === iconName}
+                role="button"
+                tabIndex={0}
+                aria-label={iconName}
+                onClick={() => data.onSelect(iconName)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        data.onSelect(iconName);
+                    }
+                }}
+                style={{ width: data.cellSize - 8, height: data.cellSize - 8, margin: 4 }}
+            >
+                {CuratedIcon ? (
+                    <CuratedIcon size={ICON_SIZE} weight="regular" />
+                ) : (
+                    getLazyIcon(iconName, { size: ICON_SIZE, weight: 'regular' })
+                )}
+            </IconCell>
+        </div>
     );
-};
+}
 
-const GridContainer = styled.div`
-    height: 400px;
-    width: 100%;
-    margin-top: 15px;
-    border: 1px solid lightgray;
-`;
-
-export const ChatIconPicker = ({ onIconPick, color }: Props) => {
+export const ChatIconPicker = ({ onIconPick, color, selectedIcon: controlledSelected, pinnedIcons }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
-    const icons = useMuiIcons();
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedIcon, setSelectedIcon] = useState<string>('');
-    const [filteredIcons, setFilteredIcons] = useState<string[]>([]);
+    const [uncontrolledSelected, setUncontrolledSelected] = useState<string>('');
+    const selectedIcon = controlledSelected ?? uncontrolledSelected;
 
-    useEffect(() => {
-        if (!icons) return;
-        const filtered = Object.keys(icons).filter((iconName) =>
-            iconName.toLowerCase().includes(searchTerm.toLowerCase()),
-        );
-        setFilteredIcons(filtered);
-    }, [searchTerm, icons]);
+    const gridWrapperRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
-    const cellData = {
-        icons,
-        iconNames: filteredIcons,
-        onIconPick,
-        selectedIcon,
-        setSelectedIcon,
-        color,
+    useLayoutEffect(() => {
+        const el = gridWrapperRef.current;
+        if (!el) return undefined;
+        const observer = new ResizeObserver((entries) => {
+            const w = entries[0]?.contentRect.width ?? 0;
+            setContainerWidth(w);
+        });
+        observer.observe(el);
+        setContainerWidth(el.clientWidth);
+        return () => observer.disconnect();
+    }, []);
+
+    // Preserve visibility of any pinned icon that (a) is a real Phosphor icon and (b) isn't
+    // already in the curated set. Deduped so we never render the same cell twice.
+    const effectiveIcons = useMemo(
+        () => buildEffectiveDomainIconList(DOMAIN_ICON_LIBRARY, DOMAIN_ICONS, pinnedIcons),
+        [pinnedIcons],
+    );
+
+    const filteredIconNames = useMemo(
+        () => filterDomainIconsBySearch(effectiveIcons, searchTerm),
+        [searchTerm, effectiveIcons],
+    );
+
+    const handleSelect = (name: string) => {
+        onIconPick(name);
+        setUncontrolledSelected(name);
     };
 
+    const { columnCount, cellSize } = computeIconGridLayout(containerWidth, DEFAULT_MIN_CELL_SIZE);
+
     return (
-        <div>
-            <Input
-                type="text"
+        <Container>
+            <SearchBar
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={setSearchTerm}
                 placeholder={t('iconPicker.searchPlaceholder')}
+                allowClear
             />
-            <GridContainer>
-                <Grid
-                    columnCount={columnCount}
-                    columnWidth={91} // Adjust the width as needed
-                    height={400}
-                    rowCount={Math.ceil(filteredIcons.length / columnCount)}
-                    rowHeight={70} // Adjust the height as needed
-                    itemData={cellData}
-                    width={470}
-                >
-                    {Cell}
-                </Grid>
+            <GridContainer ref={gridWrapperRef}>
+                {containerWidth > 0 && (
+                    <Grid
+                        columnCount={columnCount}
+                        columnWidth={cellSize}
+                        height={GRID_HEIGHT}
+                        rowCount={Math.ceil(filteredIconNames.length / columnCount)}
+                        rowHeight={cellSize}
+                        width={containerWidth}
+                        itemData={{
+                            iconNames: filteredIconNames,
+                            onSelect: handleSelect,
+                            selectedIcon,
+                            color,
+                            columnCount,
+                            cellSize,
+                        }}
+                    >
+                        {Cell}
+                    </Grid>
+                )}
             </GridContainer>
-        </div>
+        </Container>
     );
 };

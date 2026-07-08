@@ -35,8 +35,6 @@ type Props = {
     headerDropdownItems?: Set<EntityMenuItems>;
     headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
-    isIconEditable?: boolean;
-    isColorEditable?: boolean;
     displayProperties?: DisplayProperties;
     subHeader?: EntitySubHeaderSection;
 };
@@ -45,8 +43,6 @@ export const EntityHeader = ({
     headerDropdownItems,
     headerActionItems,
     isNameEditable,
-    isIconEditable,
-    isColorEditable,
     displayProperties,
     subHeader,
 }: Props) => {
@@ -69,8 +65,6 @@ export const EntityHeader = ({
                 entityData={entityData}
                 refetch={refetch}
                 showEditName={showEditName}
-                isColorEditable={isColorEditable}
-                isIconEditable={isIconEditable}
                 displayProperties={displayProperties}
                 headerActionItems={headerActionItems}
                 headerDropdownItems={headerDropdownItems}

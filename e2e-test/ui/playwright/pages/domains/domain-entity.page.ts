@@ -50,6 +50,11 @@ export class DomainEntityPage extends BasePage {
   readonly urlInput: Locator;
   readonly labelInput: Locator;
   readonly linkFormSubmitButton: Locator;
+  readonly editDomainHeaderButton: Locator;
+  readonly editDomainMenuButton: Locator;
+  readonly editDomainNameInput: Locator;
+  readonly editDomainSaveButton: Locator;
+  readonly entityNameDisplay: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -86,6 +91,11 @@ export class DomainEntityPage extends BasePage {
     this.urlInput = page.getByTestId('url-input');
     this.labelInput = page.getByTestId('label-input');
     this.linkFormSubmitButton = page.getByTestId('link-form-modal-submit-button');
+    this.editDomainHeaderButton = page.getByTestId('entity-header-edit-domain-button');
+    this.editDomainMenuButton = page.getByTestId('entity-menu-edit-button');
+    this.editDomainNameInput = page.getByTestId('edit-domain-name').getByRole('textbox');
+    this.editDomainSaveButton = page.getByTestId('edit-domain-save-button');
+    this.entityNameDisplay = page.getByTestId('entity-name-display');
   }
 
   // Private helper methods for dynamic selectors
@@ -97,17 +107,16 @@ export class DomainEntityPage extends BasePage {
     return this.page.getByTestId(/^option-/).filter({ hasText: displayName });
   }
 
-  private getEditableContainer(): Locator {
-    return this.page.getByTestId('entity-name-editable');
-  }
+  private async openEditDomainModal(): Promise<void> {
+    if (await this.editDomainHeaderButton.isVisible({ timeout: TIMEOUTS.SHORT }).catch(() => false)) {
+      await this.editDomainHeaderButton.click();
+    } else {
+      await this.page.getByTestId('view-more-button').click();
+      await this.editDomainMenuButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
+      await this.editDomainMenuButton.click();
+    }
 
-  private getEditButton(container: Locator): Locator {
-    return container.getByRole('button', { name: 'Edit', exact: true });
-  }
-
-  private getEditInput(): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design textarea dynamically created without semantic role
-    return this.page.locator('.ant-typography-edit-content textarea');
+    await this.editDomainNameInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
   }
 
   async createDomain(domainName: string): Promise<string> {
@@ -235,29 +244,19 @@ export class DomainEntityPage extends BasePage {
   }
 
   async editDomainName(newName: string): Promise<void> {
-    // Ensure page is fully loaded before manipulating DOM
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    const editableContainer = this.getEditableContainer();
-    await editableContainer.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await this.openEditDomainModal();
+    await this.editDomainNameInput.fill(newName);
 
-    const editButton = this.getEditButton(editableContainer);
-    await editButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
-    await editButton.click();
+    const responsePromise = this.graphqlHelper.waitForGraphQLResponse('updateName');
+    await this.editDomainSaveButton.click();
 
-    const editInput = this.getEditInput();
-    await editInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
-    await editInput.fill(newName);
-    await editInput.press(KEYS.ENTER);
-
-    // Wait for mutation to complete and verify the new name is applied.
-    // antd's Typography.Text ellipsizes the visible text in the header (the
-    // available width shrunk after icon/color chrome was added), so the visible
-    // textContent may be a truncated form like "EditedXXXX...". The full name is
-    // mirrored in `aria-label` (antd adds it when the ellipsis tooltip is on),
-    // which is what we assert against.
+    await expect(this.page.getByText('Domain updated')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await responsePromise;
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await expect(editableContainer).toHaveAttribute('aria-label', newName, { timeout: TIMEOUTS.MEDIUM });
+    // Domain names are read-only in the header; antd ellipsis mirrors the full value in aria-label.
+    await expect(this.entityNameDisplay).toHaveAttribute('aria-label', newName, { timeout: TIMEOUTS.MEDIUM });
   }
 }

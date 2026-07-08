@@ -1,5 +1,5 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -71,7 +71,7 @@ export default function UpdateDeprecationMenuAction() {
                 }
                 data-testid="entity-menu-deprecate-button"
             >
-                <ExclamationCircleOutlined style={{ display: 'flex' }} />
+                <WarningCircle size={16} weight="regular" />
             </ActionMenuItem>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal

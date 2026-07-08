@@ -148,7 +148,11 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             style={{ cursor: 'pointer', marginLeft: '4px' }}
                         />
                     )}
-                    {!(hideParentCheckbox && option.isParent) && (
+                    {/* Checkbox rendering: single-select consumers convey selection via the */}
+                    {/* highlighted row (see `isSelected={!isMultiSelect && isSelected}` above), */}
+                    {/* so the checkbox column is both redundant and visually misleading — users */}
+                    {/* read a checkbox tree as "pick many". Suppress it in single-select mode. */}
+                    {isMultiSelect && !(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
                             <Checkbox
                                 isChecked={isImplicitlySelected || isSelected}
