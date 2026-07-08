@@ -1,24 +1,19 @@
-import { Button, Tooltip, toast } from '@components';
+import { Tooltip, toast } from '@components';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
-
-const DeprecationActionButton = styled(Button)`
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    padding: 0;
-`;
 
 export default function UpdateDeprecationMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
@@ -67,12 +62,8 @@ export default function UpdateDeprecationMenuAction() {
                     : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
             }
         >
-            <DeprecationActionButton
+            <ActionMenuItem
                 key="deprecation"
-                variant="outline"
-                color="gray"
-                size="sm"
-                isCircle
                 onClick={() =>
                     !entityData?.deprecation?.deprecated
                         ? setIsDeprecationModalVisible(true)
@@ -80,8 +71,8 @@ export default function UpdateDeprecationMenuAction() {
                 }
                 data-testid="entity-menu-deprecate-button"
             >
-                <DeprecatedIcon style={{ width: 16, height: 16 }} />
-            </DeprecationActionButton>
+                <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+            </ActionMenuItem>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
