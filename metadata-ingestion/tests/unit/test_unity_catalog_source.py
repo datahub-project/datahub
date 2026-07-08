@@ -2834,3 +2834,23 @@ class TestUnityCatalogViewFiltering:
         process_table.assert_called_once()
         assert table.id not in list(source.report.tables.dropped_entities)
         assert table.ref in source.table_refs
+
+    def test_include_tables_false_drops_only_regular_tables(self):
+        """include_tables gates regular tables only; views and metric views keep their own toggles."""
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+        source = self._build_source(include_tables=False, include_metric_views=True)
+        table, schema = self._build_table("my_table", TableType.MANAGED)
+        view, _ = self._build_table("my_view", TableType.VIEW)
+        metric_view, _ = self._build_table("my_metric", TableType.METRIC_VIEW)
+
+        def _stub_tables(schema, _objs=(table, view, metric_view)):
+            return iter(_objs)
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        with patch.object(source, "process_table", return_value=iter([])):
+            list(source.process_tables(schema))
+        dropped = list(source.report.tables.dropped_entities)
+        assert dropped == [table.id]
+        assert view.ref in source.view_refs
+        assert metric_view.ref in source.table_refs

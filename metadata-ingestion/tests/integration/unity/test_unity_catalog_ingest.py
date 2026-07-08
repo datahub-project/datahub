@@ -1660,3 +1660,9 @@ def test_view_pattern_deny_skips_views(pytestconfig, tmp_path, requests_mock):
     )
     assert any("my_table" in urn for urn in urns)
     assert not any("my_view" in urn for urn in urns)
+
+
+def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock):
+    urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
+    assert not any("my_table" in urn for urn in urns)
+    assert any("my_view" in urn for urn in urns)

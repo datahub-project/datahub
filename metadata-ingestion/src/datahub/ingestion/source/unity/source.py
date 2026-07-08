@@ -747,6 +747,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.metric_views.dropped(table.id)
                 continue
 
+            # Regular tables (neither view nor metric view) are honored via
+            # include_tables; views and metric views keep their own toggles above.
+            if (
+                not table.is_view
+                and not table.is_metric_view
+                and not self.config.include_tables
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                continue
+
             if (
                 self.config.is_profiling_enabled()
                 and self.config.uses_table_level_profiler()
