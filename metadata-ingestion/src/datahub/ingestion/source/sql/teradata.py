@@ -102,6 +102,13 @@ NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
 # Teradata uses a two-tier database.table naming approach without default database prefixing
 DEFAULT_NO_DATABASE_TERADATA = None
 
+# Upper bound on the number of audit rows we buffer when reconstructing a single
+# multi-row query. Teradata caps a request's SQL text at ~1 MB and each SqlRowNo
+# fragment holds up to ~31 KB, so a well-formed query needs only a few dozen rows.
+# A query_id accumulating far more than that means malformed/corrupt audit data;
+# capping the buffer keeps one bad query_id from growing memory without bound.
+MAX_QUERY_PARTS = 10000
+
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
     "All",
@@ -1100,6 +1107,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
+
+    # Number of reconstructed queries whose row count exceeded MAX_QUERY_PARTS and
+    # were truncated to protect memory (malformed/corrupt audit data).
+    num_queries_truncated: int = 0
 
     # Retry statistics
     num_db_retries: int = 0
@@ -2857,8 +2868,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         by concatenating rows with the same query_id.
         """
         current_query_id = None
-        current_query_parts = []
+        current_query_parts: List[str] = []
         current_query_metadata = None
+        current_query_truncated = False
 
         for entry in entries:
             # Count each audit query entry processed
@@ -2878,10 +2890,24 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 current_query_id = query_id
                 current_query_parts = [query_text] if query_text else []
                 current_query_metadata = entry
+                current_query_truncated = False
             else:
-                # Same query - append the text
-                if query_text:
+                # Same query - append the text, unless we've already hit the safety cap.
+                if query_text and len(current_query_parts) < MAX_QUERY_PARTS:
                     current_query_parts.append(query_text)
+                elif query_text and not current_query_truncated:
+                    # Warn once per query, then keep draining the remaining rows for
+                    # this query_id without buffering them.
+                    current_query_truncated = True
+                    self.report.num_queries_truncated += 1
+                    self.report.warning(
+                        title="Truncated oversized reconstructed query",
+                        message=(
+                            "A query spanned more audit rows than expected and was "
+                            "truncated to protect memory. Its lineage may be incomplete."
+                        ),
+                        context=f"query_id={current_query_id}, kept {MAX_QUERY_PARTS} parts",
+                    )
 
         # Yield the last query if it exists
         if current_query_id is not None and current_query_parts:
@@ -3431,7 +3457,34 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             )
 
                     if queries_processed == 0:
-                        logger.info("No lineage entries found")
+                        # No queries made it into the aggregator, but that can mean two
+                        # very different things. num_audit_query_entries_processed counts
+                        # raw DBC.QryLogV rows; queries_processed counts queries that
+                        # survived reconstruction. If rows arrived but reconstructed to
+                        # nothing, pointing the operator at grants/scope would be wrong —
+                        # so branch the guidance on which stage actually came up empty.
+                        rows_fetched = self.report.num_audit_query_entries_processed
+                        if rows_fetched > 0:
+                            message = (
+                                f"Fetched {rows_fetched} audit-log row(s) but reconstructed 0 "
+                                "queries, so no lineage was produced. This usually means the rows "
+                                "lacked a usable query_id or query text (e.g. malformed/empty "
+                                "DBC.QryLogV entries), not a scope or permissions problem."
+                            )
+                        else:
+                            message = (
+                                "The audit-log query returned 0 rows for the configured window. "
+                                "This is expected if no queries ran in that period, but can also "
+                                "indicate an over-narrow databases_filter/database_pattern, a "
+                                "start_time/end_time that misses activity, missing SELECT grants on "
+                                "DBC.QryLogV, or a DBC maintenance window. Verify the scope and grants "
+                                "if you expected lineage."
+                            )
+                        self.report.warning(
+                            title="No lineage entries found",
+                            message=message,
+                            context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                        )
                         return
 
                     logger.info(

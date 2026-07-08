@@ -6,15 +6,18 @@ import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -29,6 +32,9 @@ import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -50,7 +56,10 @@ public class DashboardStatsSummaryTest {
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
-    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(false);
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient, featureFlags);
     QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -133,6 +142,42 @@ public class DashboardStatsSummaryTest {
 
     // Summary should be null
     Assert.assertNull(result);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testGetBatchPathUsesDataLoader() throws Exception {
+    TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
+
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(true);
+
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockAspectService, featureFlags);
+
+    DashboardStatsSummary expectedSummary = new DashboardStatsSummary();
+    expectedSummary.setViewCount(42);
+    expectedSummary.setUniqueUserCountLast30Days(3);
+
+    DataLoader<Urn, DashboardStatsSummary> mockLoader = Mockito.mock(DataLoader.class);
+    Mockito.when(mockLoader.load(UrnUtils.getUrn(TEST_DASHBOARD_URN)))
+        .thenReturn(CompletableFuture.completedFuture(expectedSummary));
+
+    DataLoaderRegistry mockRegistry = Mockito.mock(DataLoaderRegistry.class);
+    Mockito.doReturn(mockLoader)
+        .when(mockRegistry)
+        .getDataLoader(DashboardStatsSummaryBatchLoader.LOADER_NAME);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(mockRegistry);
+
+    DashboardStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals(result, expectedSummary);
+    Mockito.verifyNoInteractions(mockAspectService);
   }
 
   private TimeseriesAspectService initTestAspectService() {

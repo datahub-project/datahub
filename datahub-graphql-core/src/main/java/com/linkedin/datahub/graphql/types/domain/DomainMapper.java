@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -62,6 +63,7 @@ public class DomainMapper {
       result.setProperties(
           mapDomainProperties(
               new DomainProperties(envelopedDomainProperties.getValue().data()),
+              entityUrn,
               createdAuditStampFromKeyAspect));
     }
 
@@ -121,11 +123,14 @@ public class DomainMapper {
 
   private static com.linkedin.datahub.graphql.generated.DomainProperties mapDomainProperties(
       final DomainProperties gmsProperties,
+      final Urn entityUrn,
       final ResolvedAuditStamp createdAuditStampFromKeyAspect) {
     final com.linkedin.datahub.graphql.generated.DomainProperties propertiesResult =
         new com.linkedin.datahub.graphql.generated.DomainProperties();
     propertiesResult.setName(gmsProperties.getName());
     propertiesResult.setDescription(gmsProperties.getDescription());
+    propertiesResult.setCustomProperties(
+        CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
 
     // Map created audit stamp
     if (gmsProperties.getCreated() != null) {
