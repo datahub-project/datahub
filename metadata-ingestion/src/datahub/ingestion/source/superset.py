@@ -553,15 +553,22 @@ class SupersetSource(StatefulIngestionSourceBase):
         return owners_info
 
     def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
-        # owner_info can be empty if the related/owners API is unavailable
-        # (e.g. 404 on newer Superset builds); skip unresolvable owners
-        # rather than emitting an invalid urn:li:corpuser: with no username.
+        # owner_info can be missing an entry (e.g. the related/owners API is
+        # unavailable, as on newer Superset builds, or the owner has no email);
+        # skip unresolvable owners rather than emitting an invalid
+        # urn:li:corpuser: with no username.
         owner_urns = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
-            username = self.owner_info.get(owner_id) if owner_id else None
-            if username:
-                owner_urns.append(make_user_urn(username))
+            owner_email = self.owner_info.get(owner_id) if owner_id else None
+            if owner_email:
+                owner_urns.append(make_user_urn(owner_email))
+            elif owner_id:
+                self.report.warning(
+                    title="Unresolvable Superset owner",
+                    message="Skipped an owner with no resolvable email; ownership may be incomplete",
+                    context=f"Owner ID: {owner_id}, Entity: {data.get('id', 'unknown')}",
+                )
         return owner_urns
 
     # Permissive ``something@something.something`` matcher for redacting

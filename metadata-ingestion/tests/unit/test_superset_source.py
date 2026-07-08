@@ -15,7 +15,7 @@ from datahub.ingestion.source.superset import (
     get_filter_name,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass
+from datahub.metadata.schema_classes import DashboardInfoClass, OwnershipClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
@@ -179,6 +179,81 @@ def test_superset_build_owner_urn_resolved_owners(requests_mock):
     assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}) == [
         "urn:li:corpuser:test_user1@example.com"
     ]
+    warning_titles = [w.title for w in source.report.warnings]
+    assert "Unresolvable Superset owner" in warning_titles
+
+
+def test_superset_dashboard_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    dashboard_data = {
+        "id": 7,
+        "dashboard_title": "Sales",
+        "owners": [{"id": 99}],
+    }
+    dashboard_snapshot = source.construct_dashboard_from_api_data(
+        dashboard_data, position_data={}
+    )
+
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in dashboard_snapshot.aspects
+    )
+
+
+def test_superset_chart_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    chart_data = {
+        "id": 42,
+        "slice_name": "Markdown",
+        "url": "/chart/42",
+        "viz_type": "markdown",
+        "datasource_id": None,
+        "params": "{}",
+        "owners": [{"id": 99}],
+        "tags": [],
+    }
+    workunits = list(source.construct_chart_from_chart_data(chart_data))
+
+    chart_snapshot = next(
+        wu.metadata.proposedSnapshot
+        for wu in workunits
+        if hasattr(wu.metadata, "proposedSnapshot")
+    )
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in chart_snapshot.aspects
+    )
+
+
+def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dataset/77",
+        json={
+            "result": {
+                "id": 77,
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {
+                    "id": 1,
+                    "database_name": "my_database",
+                    "backend": "postgresql",
+                },
+                "columns": [],
+                "metrics": [],
+            }
+        },
+        status_code=200,
+    )
+
+    dataset_snapshot = source.construct_dataset_from_dataset_data(
+        {"id": 77, "owners": [{"id": 99}]}
+    )
+
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in dataset_snapshot.aspects
+    )
 
 
 def test_column_level_lineage(requests_mock):
