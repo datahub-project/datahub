@@ -36,7 +36,12 @@ def test_rest_sink_emitter_carries_auth():
     auth = AuthConfig(type="static", config={"token": "t"})
     sink_config = DatahubRestSinkConfig(server="http://gms:8080", auth=auth)
     emitter = DatahubRestSink._make_emitter(sink_config)
-    assert isinstance(emitter._session.auth, TokenProviderAuth)
+    session_auth = emitter._session.auth
+    assert isinstance(session_auth, TokenProviderAuth)
+    # Assert the token from *this* config reached the emitter, not merely that
+    # some TokenProviderAuth was installed (which would pass even if the config
+    # were ignored).
+    assert session_auth._provider.get_token().token == "t"
 
 
 def test_datapack_sink_config_carries_auth():
