@@ -514,7 +514,7 @@ const EntityDropdown = (props: Props) => {
     return (
         <>
             <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
-                <DotsThreeVertical size={20} weight="bold" />
+                <DotsThreeVertical data-testid="MoreVertOutlinedIcon" size={20} weight="bold" />
             </Menu>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
