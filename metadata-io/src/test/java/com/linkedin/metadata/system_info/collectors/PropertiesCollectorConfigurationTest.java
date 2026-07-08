@@ -134,6 +134,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "consistencyChecks.checks.*.*",
           "consistencyChecks.gracePeriodSeconds",
 
+          // Entity consistency per-check upgrade config
+          "systemUpdate.entityConsistency.checks.*.*",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.displayName",
@@ -885,8 +888,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.entityConsistency.entityTypes",
           "systemUpdate.entityConsistency.gracePeriodSeconds",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.includeSoftDeleted",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.keyAspectOnly",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.lePitEpochMs",
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
