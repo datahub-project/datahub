@@ -228,15 +228,8 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    view_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns for views to filter in ingestion."
-            " Specify regex to match the entire view name in `catalog.schema.view` format."
-            " Defaults to `table_pattern` if not specified."
-            " Only applies when `include_views` is True; set `include_views: false` to skip all views."
-        ),
-    )
+    # view_pattern and include_views are inherited from SQLCommonConfig and applied
+    # in process_tables; not redeclared here to avoid drift from the base defaults.
 
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
