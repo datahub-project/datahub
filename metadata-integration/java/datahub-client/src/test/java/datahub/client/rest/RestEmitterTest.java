@@ -626,4 +626,50 @@ public class RestEmitterTest {
                 .withHeader("Content-type", "application/json"),
             VerificationTimes.once());
   }
+
+  @Test
+  public void testEmitOpenApiSendsMappedMcpBodyWithBearerToken()
+      throws IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter =
+        RestEmitter.create(b -> b.server("http://localhost:" + port).token("test-token"));
+
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)";
+    UpsertAspectRequest request =
+        UpsertAspectRequest.builder()
+            .entityType("dataset")
+            .entityUrn(urn)
+            .aspect(Status.builder().removed(false).build())
+            .build();
+
+    testDataHubServer.getMockServer().reset();
+    testDataHubServer
+        .getMockServer()
+        .when(
+            request()
+                .withMethod("POST")
+                .withPath("/openapi/v2/platform/entities/v1/")
+                .withHeader("Content-type", "application/json")
+                .withHeader("Authorization", "Bearer test-token"),
+            Times.once())
+        .respond(org.mockserver.model.HttpResponse.response().withStatusCode(200));
+
+    MetadataWriteResponse response = emitter.emit(Collections.singletonList(request), null).get();
+    Assert.assertTrue(response.isSuccess());
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request()
+                .withMethod("POST")
+                .withPath("/openapi/v2/platform/entities/v1/")
+                .withHeader("Authorization", "Bearer test-token")
+                .withBody(
+                    org.mockserver.model.JsonBody.json(
+                        "[{\"entityType\":\"dataset\",\"entityUrn\":\""
+                            + urn
+                            + "\",\"changeType\":\"UPSERT\",\"aspectName\":\"status\","
+                            + "\"aspect\":{\"contentType\":\"application/json\",\"value\":{\"removed\":false}}}]")),
+            VerificationTimes.once());
+  }
 }
