@@ -127,6 +127,7 @@ query appConfig {
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
+            i18nDefaultLocale
         }
         chromeExtensionConfig {
             enabled

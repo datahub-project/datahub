@@ -890,6 +890,12 @@ type FeatureFlagsConfig {
   If enabled, internationalization (i18n) features are active.
   """
   i18nEnabled: Boolean!
+
+  """
+  The default UI locale (BCP-47 code) applied when a user has not selected a supported
+  language. Falls back to English if unset or not a supported locale.
+  """
+  i18nDefaultLocale: String!
 }
 
 """

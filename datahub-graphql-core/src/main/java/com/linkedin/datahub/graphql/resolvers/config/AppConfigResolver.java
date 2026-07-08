@@ -16,6 +16,7 @@ import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -290,6 +291,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
+            .setI18nDefaultLocale(resolveI18nDefaultLocale(_featureFlags.getI18nDefaultLocale()))
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -493,5 +495,26 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private boolean isDocumentationFileUploadV1Enabled() {
     boolean isEnabledInConfig = _featureFlags.isDocumentationFileUploadV1();
     return isEnabledInConfig && _isS3Enabled;
+  }
+
+  // Supported UI locales -- keep in sync with SupportedLanguage in
+  // datahub-web-react/src/app/i18n/types.ts. Used only to warn operators about an
+  // unrecognized I18N_DEFAULT_LOCALE value; the web app performs the authoritative
+  // validation and falls back to English, so a stale entry here only affects the warning.
+  private static final Set<String> SUPPORTED_UI_LOCALES =
+      Set.of("en", "de", "es", "pt-BR", "fr", "it");
+
+  private static String resolveI18nDefaultLocale(final String configuredLocale) {
+    if (configuredLocale == null || configuredLocale.isBlank()) {
+      return "en";
+    }
+    if (!SUPPORTED_UI_LOCALES.contains(configuredLocale)) {
+      log.warn(
+          "I18N_DEFAULT_LOCALE '{}' is not a supported UI locale {}; users without a language "
+              + "preference will fall back to English.",
+          configuredLocale,
+          SUPPORTED_UI_LOCALES);
+    }
+    return configuredLocale;
   }
 }
