@@ -1,5 +1,4 @@
 import { SpanStatusCode } from '@opentelemetry/api';
-import { ZoneContextManager } from '@opentelemetry/context-zone';
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
@@ -7,7 +6,12 @@ import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-docu
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
 import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
 import { Resource } from '@opentelemetry/resources';
-import { AlwaysOnSampler, BatchSpanProcessor, WebTracerProvider } from '@opentelemetry/sdk-trace-web';
+import {
+    AlwaysOnSampler,
+    BatchSpanProcessor,
+    StackContextManager,
+    WebTracerProvider,
+} from '@opentelemetry/sdk-trace-web';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { getCLS, getFCP, getFID, getLCP, getTTFB } from 'web-vitals';
 
@@ -202,6 +206,12 @@ export function initOtel(otelConfig: BrowserOtelConfig): void {
             ...browserResourceAttributes(),
         }),
         sampler: new AlwaysOnSampler(),
+        // Circuit breakers so a single span can't bloat memory/payload (e.g. a very long page.url):
+        // cap attribute value length and count per span.
+        spanLimits: {
+            attributeValueLengthLimit: 2048,
+            attributeCountLimit: 64,
+        },
         spanProcessors: [
             new BatchSpanProcessor(new OTLPTraceExporter({ url: exportUrl }), {
                 maxQueueSize: MAX_QUEUE_SIZE,
@@ -213,7 +223,12 @@ export function initOtel(otelConfig: BrowserOtelConfig): void {
     });
 
     provider.register({
-        contextManager: new ZoneContextManager(),
+        // StackContextManager (web default), NOT ZoneContextManager. zone.js globally patches
+        // Promise/setTimeout and has documented React problems — Promise leaks with FetchInstrumentation
+        // (opentelemetry-js#3030) and it can't track native async/await on ES2017+ targets
+        // (opentelemetry-js#1502), so it wouldn't reliably nest anyway. Context still propagates across
+        // Apollo's synchronous link chain, so fetch spans nest under their operation span.
+        contextManager: new StackContextManager(),
         propagator: new W3CTraceContextPropagator(),
     });
 
@@ -223,6 +238,10 @@ export function initOtel(otelConfig: BrowserOtelConfig): void {
             new FetchInstrumentation({
                 propagateTraceHeaderCorsUrls: [sameOrigin],
                 ignoreUrls: [new RegExp(OTLP_TRACES_PATH)],
+                // Clear each Performance API resource-timing entry after capture. The browser buffer
+                // is capped (~250 Chrome / ~150 Safari); in a long high-volume session it would fill,
+                // silently stop collecting timings, and retain entries. Needed for SPAs.
+                clearTimingResources: true,
                 applyCustomAttributesOnSpan: (span, request, result) => {
                     // Redact URL (even when none is derivable on a failed fetch), tag route, flag 4xx/5xx.
                     const response = result as Response | undefined;
@@ -232,6 +251,9 @@ export function initOtel(otelConfig: BrowserOtelConfig): void {
             new XMLHttpRequestInstrumentation({
                 propagateTraceHeaderCorsUrls: [sameOrigin],
                 ignoreUrls: [new RegExp(OTLP_TRACES_PATH)],
+                // See fetch note: clear resource-timing entries so the capped browser buffer doesn't
+                // fill and stop collecting in long sessions.
+                clearTimingResources: true,
                 applyCustomAttributesOnSpan: (span, xhr) => {
                     // responseURL is empty on aborted/failed XHRs → placeholder overwrites any full URL.
                     annotateHttpSpan(span, xhr.responseURL || undefined, xhr.status);

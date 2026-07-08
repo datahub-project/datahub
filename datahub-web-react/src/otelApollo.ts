@@ -4,8 +4,9 @@ import { SpanStatusCode, context, trace } from '@opentelemetry/api';
 /**
  * Apollo link that wraps each GraphQL operation in an OpenTelemetry span named by operation, so
  * traces read `graphql <operationName>` instead of an opaque `POST /api/graphql`, and so a UI query
- * can be found by name. The underlying HTTP fetch span nests under this span — the ZoneContextManager
- * registered in `otel.ts` propagates the active context into Apollo's async fetch.
+ * can be found by name. The underlying HTTP fetch span nests under this span because Apollo runs the
+ * link chain (and the fetch) synchronously within `context.with` below, so the StackContextManager
+ * registered in `otel.ts` has the operation span active when the fetch span is created.
  *
  * The span is marked ERROR when the response carries GraphQL `errors` (which return HTTP 200, so the
  * fetch span alone looks successful) — this also lets the gateway's error-trace sampling policy catch
@@ -18,10 +19,9 @@ const tracer = trace.getTracer('datahub-web-react-graphql');
 
 export const otelOperationLink = new ApolloLink((operation, forward) => {
     const operationName = operation.operationName || 'anonymous';
-    // root: true — each GraphQL operation is its own trace. Without it, an operation started while
-    // another is in-flight inherits the in-flight operation's active context (ZoneContextManager
-    // keeps it live across the async fetch) and nests under it, so one slow query becomes the false
-    // parent of every concurrent query. The fetch still nests under this span via context.with below.
+    // root: true — each GraphQL operation is its own trace, never nested under a sibling operation
+    // that happens to be active when this one starts. The fetch span still nests under this span via
+    // context.with below.
     const span = tracer.startSpan(`graphql ${operationName}`, {
         root: true,
         attributes: {
