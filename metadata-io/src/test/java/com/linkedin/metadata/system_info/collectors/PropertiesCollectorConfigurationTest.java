@@ -136,6 +136,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Entity consistency per-check upgrade config
           "systemUpdate.entityConsistency.checks.*.*",
+          // Indexed list binding when systemMetadataFilterConfig.entityTypes (or sibling lists)
+          // have non-empty defaults; bare keys alone do not match entityTypes[0] etc.
+          "systemUpdate.entityConsistency.entityTypes[*]",
+          "systemUpdate.entityConsistency.checkIds[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes[*]",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
