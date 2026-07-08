@@ -13,11 +13,18 @@ record ModelDataset {
   name: string
 
   /**
-   * URN of the DataHub Dataset entity that backs this logical dataset.
+   * URN of the DataHub entity that backs this logical dataset. Accepts either:
+   *  - a `dataset` URN — when the semantic model reads from a physical table or persisted view
+   *    (the common case).
+   *  - a `query` URN — when the source is an inline SQL query with no persistent backing table
+   *    (e.g. Databricks metric views that use `source: <SELECT ...>`). Ingestion emits a `query`
+   *    entity carrying the SQL text (`queryProperties.statement`) and its upstream tables
+   *    (`querySubjects`), then points this field at that URN. The `query`'s `origin` field
+   *    should point back at the enclosing SemanticModel URN.
    */
   @Relationship = {
     "name": "SourcedBy",
-    "entityTypes": [ "dataset" ]
+    "entityTypes": [ "dataset", "query" ]
   }
   source: Urn
 

@@ -35,12 +35,24 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
   parsed by DataHub.
 - **`datasets`** — array of `ModelDataset` records, each linking a logical dataset name to a
-  source `dataset` URN. Each entry may include typed `fields`.
+  source URN. The source is normally a `dataset` URN, but may be a `query` URN when the semantic
+  model uses an inline SQL query with no backing table.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-table, to-table, join columns, optional
   name, and AI context).
 - **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
   few-shot examples, and custom instructions.
+
+### Inline Query Sources
+
+Some semantic-layer platforms allow a metric view or model to source from an inline SQL query
+rather than a persistent table (e.g. Databricks metric views with `source: <SELECT ...>`).
+DataHub represents these using the `query` entity:
+
+1. **Emit the `query` entity.** The ingestion source constructs a `query` URN whose id is a
+   content-hash of the normalized SQL
+2. **Point `ModelDataset.source` at the query URN.** No other change is needed on the
+   SemanticModel side; the `SourcedBy` edge is emitted the same way for both target kinds.
 
 ### Fields and Dimensions
 
@@ -66,13 +78,14 @@ The semantic model entity reuses these standard governance aspects: `ownership`,
 
 ## Relationships with Other Entities
 
-| Relationship | Direction | Target entity | Aspect / edge name  |
-| ------------ | --------- | ------------- | ------------------- |
-| SourcedBy    | outbound  | `dataset`     | `semanticModelInfo` |
-| ModeledBy    | inbound   | `metric`      | `metricInfo`        |
+| Relationship | Direction | Target entity      | Aspect / edge name  |
+| ------------ | --------- | ------------------ | ------------------- |
+| SourcedBy    | outbound  | `dataset`, `query` | `semanticModelInfo` |
+| ModeledBy    | inbound   | `metric`           | `metricInfo`        |
 
 The `SourcedBy` edges are derived from the `datasets[].source` URN fields in `semanticModelInfo`,
-so every referenced dataset automatically appears as an upstream dependency in the lineage graph.
+so every referenced dataset or query automatically appears as an upstream dependency in the
+lineage graph.
 
 ## Notable Exceptions
 
