@@ -40,7 +40,7 @@ import io.datahubproject.openapi.generated.StringType;
 import io.datahubproject.openapi.generated.SubTypes;
 import io.datahubproject.openapi.generated.TagAssociation;
 import io.datahubproject.openapi.generated.ViewProperties;
-import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesApiService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Transaction;
 import java.util.ArrayList;
@@ -54,7 +54,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class EntitiesControllerTest {
+public class EntitiesApiServiceTest {
 
   public static final String S = "somerandomstring";
   public static final String DATASET_URN =
@@ -96,8 +96,8 @@ public class EntitiesControllerTest {
     MockEntityService mockEntityService =
         new MockEntityService(aspectDao, mockEntityEventProducer, preProcessHooks);
     AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
-    _entitiesController =
-        new EntitiesController(opContext, mockEntityService, new ObjectMapper(), authorizerChain);
+    _entitiesApiService =
+        new EntitiesApiService(opContext, mockEntityService, new ObjectMapper(), authorizerChain);
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     when(authorizerChain.authorize(any()))
@@ -105,7 +105,7 @@ public class EntitiesControllerTest {
     AuthenticationContext.setAuthentication(authentication);
   }
 
-  EntitiesController _entitiesController;
+  EntitiesApiService _entitiesApiService;
 
   @Test
   public void testIngestDataset() {
@@ -226,12 +226,12 @@ public class EntitiesControllerTest {
             .build();
     datasetAspects.add(glossaryTerms);
 
-    _entitiesController.postEntities(null, datasetAspects, false, false, false);
+    _entitiesApiService.postEntities(null, datasetAspects, false, false, false);
   }
 
   //  @Test
   //  public void testGetDataset() {
-  //    _entitiesController.getEntities(new String[] {DATASET_URN},
+  //    _entitiesApiService.getEntities(new String[] {DATASET_URN},
   //        new String[] {
   //            SCHEMA_METADATA_ASPECT_NAME
   //    });

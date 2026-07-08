@@ -29,7 +29,7 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.generated.DatasetEntityRequestV2;
 import io.datahubproject.openapi.generated.DatasetEntityResponseV2;
 import io.datahubproject.openapi.generated.ScrollDatasetEntityResponseV2;
-import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesApiService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,8 +89,8 @@ public class EntityApiDelegateImplDeleteAspectUsageTest {
     when(entityService.deleteUrn(any(), any())).thenReturn(mock(RollbackRunResult.class));
 
     AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
-    EntitiesController entitiesController =
-        new EntitiesController(
+    EntitiesApiService entitiesApiService =
+        new EntitiesApiService(
             systemOperationContext, entityService, new ObjectMapper(), authorizerChain);
 
     EntityApiDelegateImpl<
@@ -101,7 +101,7 @@ public class EntityApiDelegateImplDeleteAspectUsageTest {
                 request,
                 entityService,
                 mock(SearchService.class),
-                entitiesController,
+                entitiesApiService,
                 authorizerChain,
                 DatasetEntityRequestV2.class,
                 DatasetEntityResponseV2.class,

@@ -18,6 +18,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -29,17 +30,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/*
- Use v2 or v3 controllers instead
-*/
-@Deprecated
 @RestController
 @AllArgsConstructor
-@RequestMapping("/openapi/timeline/v1")
 @Tag(
     name = "Timeline",
     description =
@@ -53,17 +48,9 @@ public class TimelineControllerV1 {
   @Value("${authorization.restApiAuthorization:false}")
   private Boolean restApiAuthorizationEnabled;
 
-  /**
-   * @param rawUrn
-   * @param startTime
-   * @param endTime
-   * @param raw
-   * @param categories
-   * @return
-   * @throws URISyntaxException
-   * @throws JsonProcessingException
-   */
-  @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
+  /** Preferred OpenAPI timeline path (aligned with other `/openapi/v1/...` ops APIs). */
+  @GetMapping(path = "/openapi/v1/timeline/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Get timeline change history for an entity.")
   public ResponseEntity<List<ChangeTransaction>> getTimeline(
       HttpServletRequest request,
       @PathVariable("urn") String rawUrn,
@@ -72,7 +59,36 @@ public class TimelineControllerV1 {
       @RequestParam(name = "raw", defaultValue = "false") boolean raw,
       @RequestParam(name = "categories") Set<ChangeCategory> categories)
       throws URISyntaxException, JsonProcessingException {
-    // Make request params when implemented
+    return doGetTimeline(request, rawUrn, startTime, endTime, raw, categories);
+  }
+
+  /**
+   * Legacy path retained for compatibility. Prefer {@code GET /openapi/v1/timeline/{urn}}.
+   *
+   * @deprecated use {@link #getTimeline}
+   */
+  @Deprecated
+  @GetMapping(path = "/openapi/timeline/v1/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(deprecated = true, summary = "Deprecated; use GET /openapi/v1/timeline/{urn}")
+  public ResponseEntity<List<ChangeTransaction>> getTimelineLegacy(
+      HttpServletRequest request,
+      @PathVariable("urn") String rawUrn,
+      @RequestParam(name = "startTime", defaultValue = "-1") long startTime,
+      @RequestParam(name = "endTime", defaultValue = "0") long endTime,
+      @RequestParam(name = "raw", defaultValue = "false") boolean raw,
+      @RequestParam(name = "categories") Set<ChangeCategory> categories)
+      throws URISyntaxException, JsonProcessingException {
+    return doGetTimeline(request, rawUrn, startTime, endTime, raw, categories);
+  }
+
+  private ResponseEntity<List<ChangeTransaction>> doGetTimeline(
+      HttpServletRequest request,
+      String rawUrn,
+      long startTime,
+      long endTime,
+      boolean raw,
+      Set<ChangeCategory> categories)
+      throws URISyntaxException, JsonProcessingException {
     String startVersionStamp = null;
     String endVersionStamp = null;
     Urn urn = Urn.createFromString(rawUrn);

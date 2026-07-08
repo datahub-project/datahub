@@ -12,6 +12,7 @@ from typing import (
     Tuple,
     TypedDict,
 )
+from urllib.parse import quote
 
 import requests
 from typing_extensions import deprecated
@@ -25,6 +26,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -202,29 +204,44 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         relationship_types: List[str],
         direction: RelationshipDirection,
     ) -> Iterable[RelatedEntity]:
-        url = f"{self._gms_server}/openapi/relationships/v1/"
-        done = False
-        start = 0
-        while not done:
-            response = self._get_generic(
-                url=url,
-                params={
-                    "urn": entity_urn,
-                    "direction": direction.value,
-                    "relationshipTypes": relationship_types,
-                    "start": start,
-                },
-            )
-            for related_entity in response.get("entities", []):
+        """Fetch related entities via OpenAPI v3 by-entity relationship GET.
+
+        Replaces the removed /openapi/relationships/v1 endpoint using
+        ``GET /openapi/v3/relationship/{entityName}/{entityUrn}``, which has
+        walker-relative direction semantics.
+        """
+        entity_name = guess_entity_type(entity_urn)
+        encoded_urn = quote(entity_urn, safe="")
+        url = f"{self._gms_server}/openapi/v3/relationship/{entity_name}/{encoded_urn}"
+        scroll_id: Optional[str] = None
+        count = 200
+        while True:
+            params: Dict[str, Any] = {
+                "direction": direction.value,
+                "count": count,
+            }
+            if relationship_types:
+                params["relationshipType[]"] = relationship_types
+            if scroll_id is not None:
+                params["scrollId"] = scroll_id
+
+            response = self._get_generic(url=url, params=params)
+            results = response.get("results", [])
+            if not results:
+                break
+            for rel in results:
+                if direction == RelationshipDirection.OUTGOING:
+                    related_urn = rel["destination"]["urn"]
+                else:
+                    related_urn = rel["source"]["urn"]
                 yield RelatedEntity(
-                    urn=related_entity["urn"],
-                    relationship_type=related_entity["relationshipType"],
-                    via=related_entity.get("via"),
+                    urn=related_urn,
+                    relationship_type=rel["relationshipType"],
                 )
-            done = response.get("count", 0) == 0 or response.get("count", 0) < len(
-                response.get("entities", [])
-            )
-            start = start + response.get("count", 0)
+            next_scroll_id = response.get("scrollId")
+            if next_scroll_id is None or len(results) < count:
+                break
+            scroll_id = next_scroll_id
 
     def scroll_entities(
         self,
@@ -341,6 +358,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         source_types: Optional[List[str]] = None,
         destination_types: Optional[List[str]] = None,
         direction: Optional[RelationshipDirection] = None,
+        entity_urn: Optional[str] = None,
         source_urns: Optional[List[str]] = None,
         destination_urns: Optional[List[str]] = None,
         source_filter: Optional[RawSearchFilter] = None,
@@ -369,7 +387,11 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             source_types: Entity types to filter source nodes (e.g. ["dataset"]).
             destination_types: Entity types to filter destination nodes.
             direction: Direction of relationships to include (INCOMING or OUTGOING).
-                Defaults to OUTGOING if not specified.
+                Defaults to OUTGOING if not specified. When ``entity_urn`` is set,
+                direction is walker-relative to that URN (same as GET by entity).
+                Without ``entity_urn``, direction remaps how source/destination
+                filters bind to edge fields.
+            entity_urn: Focal entity URN for walker-relative direction semantics.
             source_urns: URNs to filter source entities (OR logic across values).
                 Combined with source_filter via AND if both are provided.
             destination_urns: URNs to filter destination entities (OR logic across values).
@@ -397,6 +419,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             source_types=source_types,
             destination_types=destination_types,
             direction=direction,
+            entity_urn=entity_urn,
             source_urns=source_urns,
             destination_urns=destination_urns,
             source_filter=source_filter,
@@ -513,6 +536,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         source_types: Optional[List[str]] = None,
         destination_types: Optional[List[str]] = None,
         direction: Optional[RelationshipDirection] = None,
+        entity_urn: Optional[str] = None,
         source_urns: Optional[List[str]] = None,
         destination_urns: Optional[List[str]] = None,
         source_filter: Optional[RawSearchFilter] = None,
@@ -534,6 +558,8 @@ class OpenApiAPI(OpenAPIGraphProtocol):
             params["destinationTypes"] = destination_types
         if direction is not None:
             params["direction"] = direction.value
+        if entity_urn is not None:
+            params["entityUrn"] = entity_urn
         if count is not None:
             params["count"] = count
         if scroll_id is not None:

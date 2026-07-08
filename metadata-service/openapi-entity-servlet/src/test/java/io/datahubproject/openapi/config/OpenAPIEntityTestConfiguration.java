@@ -27,7 +27,7 @@ import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.generated.EntityResponse;
-import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesApiService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -97,9 +97,9 @@ public class OpenAPIEntityTestConfiguration {
   /* Controllers not under this module */
   @Bean
   @Primary
-  public EntitiesController entitiesController() {
-    EntitiesController entitiesController = mock(EntitiesController.class);
-    when(entitiesController.getEntities(nullable(HttpServletRequest.class), any(), any()))
+  public EntitiesApiService entitiesApiService() {
+    EntitiesApiService entitiesApiService = mock(EntitiesApiService.class);
+    when(entitiesApiService.getEntities(nullable(HttpServletRequest.class), any(), any()))
         .thenAnswer(
             params -> {
               String[] urns = params.getArgument(1);
@@ -113,7 +113,7 @@ public class OpenAPIEntityTestConfiguration {
                       .build());
             });
 
-    return entitiesController;
+    return entitiesApiService;
   }
 
   @Bean(name = "systemOperationContext")
