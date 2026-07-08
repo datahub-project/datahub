@@ -9,7 +9,11 @@ import com.linkedin.dataset.DatasetProperties;
 import datahub.client.Callback;
 import datahub.client.MetadataWriteResponse;
 import datahub.event.MetadataChangeProposalWrapper;
+import datahub.event.UpsertAspectRequest;
 import datahub.server.TestDataHubServer;
+import io.datahubproject.openapi.generated.DatasetKey;
+import io.datahubproject.openapi.generated.FabricType;
+import io.datahubproject.openapi.generated.Status;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -534,5 +538,92 @@ public class RestEmitterTest {
       Assert.assertTrue(((ExecutionException) e).getCause() instanceof SSLHandshakeException);
     }
     restEmitter.close();
+  }
+
+  @Test
+  public void testToOpenApiMcpsMapsAspectAndKey() {
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)";
+    UpsertAspectRequest request =
+        UpsertAspectRequest.builder()
+            .entityType("dataset")
+            .entityUrn(urn)
+            .aspect(Status.builder().removed(false).build())
+            .entityKeyAspect(
+                DatasetKey.builder()
+                    .platform("urn:li:dataPlatform:hive")
+                    .name("foo.bar")
+                    .origin(FabricType.PROD)
+                    .build())
+            .build();
+
+    List<Map<String, Object>> mcps = RestEmitter.toOpenApiMcps(Collections.singletonList(request));
+    Assert.assertEquals(1, mcps.size());
+    Map<String, Object> mcp = mcps.get(0);
+    Assert.assertEquals("dataset", mcp.get("entityType"));
+    Assert.assertEquals(urn, mcp.get("entityUrn"));
+    Assert.assertEquals("UPSERT", mcp.get("changeType"));
+    Assert.assertEquals("status", mcp.get("aspectName"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspect = (Map<String, Object>) mcp.get("aspect");
+    Assert.assertEquals("application/json", aspect.get("contentType"));
+    Assert.assertNotNull(aspect.get("value"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> keyAspect = (Map<String, Object>) mcp.get("entityKeyAspect");
+    Assert.assertEquals("application/json", keyAspect.get("contentType"));
+    Assert.assertNotNull(keyAspect.get("value"));
+  }
+
+  @Test
+  public void testToOpenApiMcpsOmitsNullUrnAndAspect() {
+    UpsertAspectRequest request =
+        UpsertAspectRequest.builder().entityType("dataset").aspect(null).build();
+
+    List<Map<String, Object>> mcps = RestEmitter.toOpenApiMcps(Collections.singletonList(request));
+    Assert.assertEquals(1, mcps.size());
+    Map<String, Object> mcp = mcps.get(0);
+    Assert.assertEquals("dataset", mcp.get("entityType"));
+    Assert.assertEquals("UPSERT", mcp.get("changeType"));
+    Assert.assertFalse(mcp.containsKey("entityUrn"));
+    Assert.assertFalse(mcp.containsKey("aspectName"));
+    Assert.assertFalse(mcp.containsKey("aspect"));
+    Assert.assertFalse(mcp.containsKey("entityKeyAspect"));
+  }
+
+  @Test
+  public void testEmitOpenApiUsesPlatformEntitiesV2Url()
+      throws IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
+
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)";
+    UpsertAspectRequest request =
+        UpsertAspectRequest.builder()
+            .entityType("dataset")
+            .entityUrn(urn)
+            .aspect(Status.builder().removed(false).build())
+            .build();
+
+    testDataHubServer.getMockServer().reset();
+    testDataHubServer
+        .getMockServer()
+        .when(
+            request()
+                .withMethod("POST")
+                .withPath("/openapi/v2/platform/entities/v1/")
+                .withHeader("Content-type", "application/json"),
+            Times.once())
+        .respond(org.mockserver.model.HttpResponse.response().withStatusCode(200));
+
+    MetadataWriteResponse response = emitter.emit(Collections.singletonList(request), null).get();
+    Assert.assertTrue(response.isSuccess());
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request()
+                .withMethod("POST")
+                .withPath("/openapi/v2/platform/entities/v1/")
+                .withHeader("Content-type", "application/json"),
+            VerificationTimes.once());
   }
 }
