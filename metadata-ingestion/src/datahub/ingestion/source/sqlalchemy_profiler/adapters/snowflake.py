@@ -139,46 +139,60 @@ class SnowflakeAdapter(PlatformAdapter):
             context.row_count = self._get_quick_row_count(context, conn)
 
         if context.row_count is None:
-            return False
+            # Failed to get row count - default to sampling (conservative approach)
+            # This prevents profiling failures on large tables where metadata is unavailable
+            logger.info(
+                f"Row count unavailable for {context.pretty_name}, "
+                f"defaulting to sampling"
+            )
+            return True
 
+        # Only skip sampling if we successfully determined the table is small
         return context.row_count > self.config.sample_size
 
     def _get_quick_row_count(
         self, context: ProfilingContext, conn: Connection
     ) -> Optional[int]:
         """
-        Get row count for sampling decision.
+        Get row count for sampling decision using Snowflake metadata.
 
-        Note: Despite the name, this executes SELECT COUNT(*) which is NOT quick
-        on large tables (full table scan).
-
-        TODO: Use Snowflake's metadata-based approximate counts
-        (INFORMATION_SCHEMA.TABLES.ROW_COUNT) for faster row count estimation.
-        Currently using exact counts to match GE profiler behavior.
+        Uses INFORMATION_SCHEMA.TABLES.ROW_COUNT for instant approximate counts
+        instead of SELECT COUNT(*) which requires full table scans.
 
         Args:
             context: Current profiling context
             conn: Active database connection
 
         Returns:
-            Exact row count, or None if unavailable
+            Approximate row count from Snowflake metadata, or None if unavailable
         """
         try:
             if not context.table:
                 return None
 
-            # Create SQLAlchemy Table object for query construction
-            table_obj = sa.Table(
-                context.table,
-                sa.MetaData(),
-                schema=context.schema,
+            # Query INFORMATION_SCHEMA for instant row count
+            # This is approximate but sufficient for sampling decisions
+            query = sa.text(
+                """
+                SELECT ROW_COUNT
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = :schema_name
+                AND TABLE_NAME = :table_name
+                """
             )
-            query = sa.select([sa.func.count()]).select_from(table_obj)
 
-            result = conn.execute(query).scalar()
+            result = conn.execute(
+                query,
+                {"schema_name": context.schema, "table_name": context.table},
+            ).scalar()
+
             return int(result) if result is not None else None
         except SQLAlchemyError as e:
-            logger.debug(f"Failed to get quick row count: {type(e).__name__}: {str(e)}")
+            self.report.warning(
+                title="Failed to get row count from metadata",
+                message=f"Could not retrieve row count for sampling decision: {type(e).__name__}",
+                context=f"{context.pretty_name}: {str(e)}",
+            )
             return None
 
     def _setup_sampling(
