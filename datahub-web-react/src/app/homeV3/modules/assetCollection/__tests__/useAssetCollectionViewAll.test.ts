@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useAssetCollectionViewAll, {
     convertLogicalPredicateToViewAllParams,
+    isViewAllSupported,
 } from '@app/homeV3/modules/assetCollection/useAssetCollectionViewAll';
 import { ENTITY_SUB_TYPE_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
@@ -100,7 +101,7 @@ describe('convertLogicalPredicateToViewAllParams', () => {
         ]);
     });
 
-    it('returns null for nested groups', () => {
+    it('converts nested groups that flatten to a representable shape', () => {
         const result = convertLogicalPredicateToViewAllParams(
             predicate(LogicalOperatorType.OR, [
                 predicate(LogicalOperatorType.AND, [
@@ -109,17 +110,37 @@ describe('convertLogicalPredicateToViewAllParams', () => {
             ]),
             getTypeFromGraphName,
         );
+        expect(result).toEqual({
+            unionType: UnionType.AND,
+            filters: [{ field: 'tags', values: ['urn:li:tag:a'], condition: FilterOperator.Equal }],
+        });
+    });
+
+    it('returns null for nested groups with no flat representation', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.OR, [
+                predicate(LogicalOperatorType.AND, [
+                    { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] },
+                    { type: 'property', property: 'owners', operator: 'equals', values: ['urn:li:corpuser:b'] },
+                ]),
+                { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:c'] },
+            ]),
+            getTypeFromGraphName,
+        );
         expect(result).toBeNull();
     });
 
-    it('returns null for NOT predicates', () => {
+    it('converts NOT predicates into negated URL filters', () => {
         const result = convertLogicalPredicateToViewAllParams(
             predicate(LogicalOperatorType.NOT, [
                 { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] },
             ]),
             getTypeFromGraphName,
         );
-        expect(result).toBeNull();
+        expect(result).toEqual({
+            unionType: UnionType.AND,
+            filters: [{ field: 'tags', values: ['urn:li:tag:a'], condition: FilterOperator.Equal, negated: true }],
+        });
     });
 
     it('returns null for exists operator', () => {
@@ -155,6 +176,26 @@ describe('convertLogicalPredicateToViewAllParams', () => {
         const result = convertLogicalPredicateToViewAllParams(
             predicate(LogicalOperatorType.AND, [
                 { type: 'property', property: '_entityType', operator: 'equals', values: ['notARealType'] },
+            ]),
+            getTypeFromGraphName,
+        );
+        expect(result).toBeNull();
+    });
+
+    it('returns null for negated entity-type conditions (the URL rebuild drops the negation)', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.NOT, [
+                { type: 'property', property: '_entityType', operator: 'equals', values: ['dataProduct'] },
+            ]),
+            getTypeFromGraphName,
+        );
+        expect(result).toBeNull();
+    });
+
+    it('returns null for non-equality entity-type conditions (the URL rebuild drops the condition)', () => {
+        const result = convertLogicalPredicateToViewAllParams(
+            predicate(LogicalOperatorType.AND, [
+                { type: 'property', property: '_entityType', operator: 'contains', values: ['dataProduct'] },
             ]),
             getTypeFromGraphName,
         );
@@ -204,6 +245,50 @@ describe('convertLogicalPredicateToViewAllParams', () => {
             getTypeFromGraphName,
         );
         expect(result).toBeNull();
+    });
+});
+
+describe('isViewAllSupported', () => {
+    it('treats empty and blank-row-only drafts as supported (no hint)', () => {
+        expect(isViewAllSupported(undefined, getTypeFromGraphName)).toBe(true);
+        expect(isViewAllSupported(predicate(LogicalOperatorType.AND, []), getTypeFromGraphName)).toBe(true);
+        expect(
+            isViewAllSupported(predicate(LogicalOperatorType.AND, [{ type: 'property' }]), getTypeFromGraphName),
+        ).toBe(true);
+    });
+
+    it('treats representable filters as supported', () => {
+        expect(
+            isViewAllSupported(
+                predicate(LogicalOperatorType.AND, [
+                    { type: 'property', property: '_entityType', operator: 'equals', values: ['dataProduct'] },
+                ]),
+                getTypeFromGraphName,
+            ),
+        ).toBe(true);
+    });
+
+    it('flags unrepresentable filters', () => {
+        // exists condition — executes on the tile but has no URL representation
+        expect(
+            isViewAllSupported(
+                predicate(LogicalOperatorType.AND, [{ type: 'property', property: 'tags', operator: 'exists' }]),
+                getTypeFromGraphName,
+            ),
+        ).toBe(false);
+        // nesting with no flat representation
+        expect(
+            isViewAllSupported(
+                predicate(LogicalOperatorType.OR, [
+                    predicate(LogicalOperatorType.AND, [
+                        { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] },
+                        { type: 'property', property: 'owners', operator: 'equals', values: ['urn:li:corpuser:b'] },
+                    ]),
+                    { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:c'] },
+                ]),
+                getTypeFromGraphName,
+            ),
+        ).toBe(false);
     });
 });
 
@@ -258,8 +343,12 @@ describe('useAssetCollectionViewAll', () => {
                 {
                     type: 'logical',
                     operator: 'and',
-                    operands: [{ type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] }],
+                    operands: [
+                        { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:a'] },
+                        { type: 'property', property: 'owners', operator: 'equals', values: ['urn:li:corpuser:b'] },
+                    ],
                 },
+                { type: 'property', property: 'tags', operator: 'equals', values: ['urn:li:tag:c'] },
             ],
         });
         const { result } = renderHook(() => useAssetCollectionViewAll(buildModule({ dynamicFilterJson: nested })));

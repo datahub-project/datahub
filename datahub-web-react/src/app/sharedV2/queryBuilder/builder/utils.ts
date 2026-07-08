@@ -13,7 +13,7 @@ export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredica
     return (logicalPredicate.operator && LOGICAL_OPERATORS.has(logicalPredicate.operator)) || false;
 };
 
-export function mapOperator(operator: string): FilterOperator {
+function mapOperator(operator: string): FilterOperator {
     const operatorMap: { [key: string]: FilterOperator } = {
         contains: FilterOperator.Contain,
         equals: FilterOperator.Equal,
