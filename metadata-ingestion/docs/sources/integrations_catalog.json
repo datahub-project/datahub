@@ -790,7 +790,7 @@
     "connection_type": "Pull",
     "title": "Workday",
     "description": "Cloud HR, finance, and analytics platform. Ingests Prism Analytics tables, datasets, data sources, schemas, RaaS reports, and lineage.",
-    "img_path": "img/logos/platforms/workday.svg"
+    "img_path": "img/logos/platforms/workday.png"
   },
   "quicksight": {
     "platform_type": "BI Tool",

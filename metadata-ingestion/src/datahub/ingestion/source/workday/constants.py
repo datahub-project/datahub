@@ -7,6 +7,9 @@ WORKDAY_PLATFORM = "workday"
 # knob so a tenant pinned to an older API can override it without code changes.
 PRISM_API_VERSION_DEFAULT = "v3"
 
+# WQL metadata API version segment. Independent of the Prism API version.
+WQL_API_VERSION_DEFAULT = "v1"
+
 # Endpoint path templates. Every path that is referenced in more than one place
 # (the request plus its response-shape check or error message) is centralized so
 # the uses cannot drift apart. `{tenant}` and `{version}` are filled once by the
@@ -19,6 +22,16 @@ PRISM_DATASETS_PATH = "/datasets"
 PRISM_DATASET_PATH = "/datasets/{id}"
 PRISM_DATA_SOURCES_PATH = "/dataSources"
 PRISM_DATA_SOURCE_PATH = "/dataSources/{id}"
+# Prism buckets are the staging areas uploads land in before being published to
+# a table; listing them exposes the upload path feeding each table.
+PRISM_BUCKETS_PATH = "/buckets"
+
+# Workday Query Language (WQL) metadata API. `GET /dataSources` lists WQL data
+# sources (Workday business objects) and `/dataSources/{id}/fields` lists their
+# fields — the source of the business-object catalog and RaaS report enumeration.
+WQL_BASE_PATH = "/api/wql/v1/{tenant}"
+WQL_DATA_SOURCES_PATH = "/dataSources"
+WQL_DATA_SOURCE_FIELDS_PATH = "/dataSources/{id}/fields"
 
 # OAuth 2.0 client-credentials grant. Workday does not issue a refresh token for
 # this grant, so the client re-requests a token from the client_id/secret when
@@ -36,9 +49,15 @@ SUBTYPE_PRISM_TABLE = "Prism Table"
 SUBTYPE_PRISM_DATASET = "Prism Dataset"
 SUBTYPE_DATA_SOURCE = "Data Source"
 SUBTYPE_REPORT = "Report"
+# A WQL data source is a Workday business object exposed for querying.
+SUBTYPE_BUSINESS_OBJECT = "Business Object"
+# A Prism bucket is the staging area an upload lands in before it becomes a table.
+SUBTYPE_BUCKET = "Bucket"
 
-# Container subtype for the tenant-level grouping.
+# Container subtypes: the tenant-level grouping and the optional functional-area
+# (subject-area) sub-group that business objects and reports can carry.
 SUBTYPE_TENANT = "Tenant"
+SUBTYPE_FUNCTIONAL_AREA = "Functional Area"
 
 # Field tags: Prism marks fields that participate in a table's business key.
 PRIMARY_KEY_TAG_URN = "urn:li:tag:PrimaryKey"
@@ -75,6 +94,50 @@ WORKDAY_KEYS_ID = ("id", "wid", "objectId")
 WORKDAY_KEYS_NAME = ("name", "displayName", "label")
 WORKDAY_KEYS_DESCRIPTION = ("description", "descriptor")
 WORKDAY_KEYS_OWNER = ("createdBy", "owner", "updatedBy")
+# A security group that owns the object, distinct from the individual owner.
+WORKDAY_KEYS_OWNER_GROUP = ("ownerGroup", "securityGroup", "ownerSecurityGroup")
+# Catalog classifications surfaced as tags, and business-glossary term links.
+WORKDAY_KEYS_TAGS = ("tags", "labels", "classifications")
+WORKDAY_KEYS_TERMS = ("glossaryTerms", "businessGlossaryTerms", "terms")
+# Functional / subject area an object belongs to (HCM, Financials, Recruiting).
+WORKDAY_KEYS_CATEGORY = ("category", "subjectArea", "functionalArea")
+# Creation / last-change timestamps. Prism reports these under several keys
+# across object shapes; values are ISO-8601 strings.
+WORKDAY_KEYS_CREATED = ("created", "creationDate", "createdDate", "createdOn")
+WORKDAY_KEYS_UPDATED = (
+    "updated",
+    "lastRefreshed",
+    "lastRefreshDate",
+    "lastModified",
+    "updatedDate",
+    "modifiedOn",
+)
+# Row-count aliases on a Prism table detail response (used for profiling).
+WORKDAY_KEYS_ROW_COUNT = ("rows", "rowCount", "recordCount", "totalRows", "numRows")
+
+# Prism dataset detail: the transformation pipeline text (Data Prep Language)
+# and the per-output-field source mappings that drive column-level lineage.
+WORKDAY_KEYS_TRANSFORM_LOGIC = ("dpl", "pipeline", "transformationLogic", "logic")
+WORKDAY_KEYS_FIELD_MAPPINGS = (
+    "fieldMappings",
+    "columnMappings",
+    "mappings",
+    "outputFields",
+)
+
+# Other business objects a WQL data source references, for object-to-object lineage.
+WORKDAY_KEYS_RELATED_OBJECTS = (
+    "relatedBusinessObjects",
+    "relatedDataSources",
+    "relatedObjects",
+    "references",
+)
+# The output columns a custom report exposes (report schema + report CLL).
+WORKDAY_KEYS_REPORT_FIELDS = ("outputFields", "reportFields", "fields", "columns")
+
+# WQL: the business object whose rows are custom-report definitions. Querying it
+# enumerates RaaS reports without a bespoke per-tenant endpoint.
+WQL_CUSTOM_REPORTS_DATA_SOURCE = "allCustomReports"
 
 # Tenant names and Prism object ids appear in URNs; a permissive validator keeps
 # obviously malformed ids from producing broken URNs. Prism ids are 32-char hex

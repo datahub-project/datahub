@@ -66,7 +66,7 @@ import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
-import workdayLogo from '@images/workdaylogo.svg';
+import workdayLogo from '@images/workdaylogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;

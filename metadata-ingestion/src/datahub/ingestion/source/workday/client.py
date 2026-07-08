@@ -11,6 +11,7 @@ from datahub.ingestion.source.workday.constants import (
     OAUTH_ACCESS_TOKEN_KEY,
     OAUTH_EXPIRES_IN_KEY,
     PRISM_BASE_PATH,
+    PRISM_BUCKETS_PATH,
     PRISM_DATA_SOURCES_PATH,
     PRISM_DATASET_PATH,
     PRISM_DATASETS_PATH,
@@ -19,11 +20,19 @@ from datahub.ingestion.source.workday.constants import (
     TOKEN_EXPIRY_SKEW_SECONDS,
     WORKDAY_GRANT_TYPE_CLIENT_CREDENTIALS,
     WORKDAY_OAUTH_TOKEN_PATH,
+    WQL_BASE_PATH,
+    WQL_CUSTOM_REPORTS_DATA_SOURCE,
+    WQL_DATA_SOURCE_FIELDS_PATH,
+    WQL_DATA_SOURCES_PATH,
 )
 from datahub.ingestion.source.workday.models import (
+    CustomReport,
+    PrismBucket,
     PrismDataset,
     PrismDataSource,
+    PrismField,
     PrismTable,
+    WqlDataSource,
 )
 from datahub.ingestion.source.workday.report import WorkdayReport
 
@@ -85,6 +94,13 @@ class WorkdayClient:
         base = PRISM_BASE_PATH.format(
             version=self.config.prism_api_version, tenant=self.config.tenant
         )
+        return f"{self.base_url}{base}{path}"
+
+    def _wql_url(self, path: str) -> str:
+        base = WQL_BASE_PATH.format(tenant=self.config.tenant)
+        # WQL versioning lives on the data-source path segment in some tenants;
+        # keep it simple and pin the version into the base like Prism does.
+        base = base.replace("/v1/", f"/{self.config.wql_api_version}/")
         return f"{self.base_url}{base}{path}"
 
     # -- Authentication -----------------------------------------------------
@@ -334,4 +350,38 @@ class WorkdayClient:
         items = list(self._iter_paged(url))
         return self._parse_models(
             PrismDataSource, items, f"GET {PRISM_DATA_SOURCES_PATH}"
+        )
+
+    def list_buckets(self) -> List[PrismBucket]:
+        url = self._prism_url(PRISM_BUCKETS_PATH)
+        items = list(self._iter_paged(url))
+        return self._parse_models(PrismBucket, items, f"GET {PRISM_BUCKETS_PATH}")
+
+    # -- WQL resources (business-object catalog + custom reports) -----------
+
+    def list_business_objects(self) -> List[WqlDataSource]:
+        url = self._wql_url(WQL_DATA_SOURCES_PATH)
+        items = list(self._iter_paged(url))
+        return self._parse_models(WqlDataSource, items, f"GET {WQL_DATA_SOURCES_PATH}")
+
+    def get_business_object_fields(self, data_source_id: str) -> List[PrismField]:
+        url = self._wql_url(WQL_DATA_SOURCE_FIELDS_PATH.format(id=data_source_id))
+        payload = self._get_json(url)
+        items = self._extract_items(payload)
+        return self._parse_models(
+            PrismField, items, f"GET {WQL_DATA_SOURCE_FIELDS_PATH}"
+        )
+
+    def list_custom_reports(self) -> List[CustomReport]:
+        """Enumerate custom reports by querying the allCustomReports WQL object.
+
+        ponytail: relies on the tenant exposing the standard allCustomReports
+        data source; tenants that restrict it yield an empty list rather than an
+        error (the query 4xx is swallowed per-boundary by the caller).
+        """
+        url = self._wql_url(WQL_DATA_SOURCES_PATH)
+        report_url = f"{url}/{WQL_CUSTOM_REPORTS_DATA_SOURCE}/data"
+        items = list(self._iter_paged(report_url))
+        return self._parse_models(
+            CustomReport, items, f"GET {WQL_CUSTOM_REPORTS_DATA_SOURCE}/data"
         )

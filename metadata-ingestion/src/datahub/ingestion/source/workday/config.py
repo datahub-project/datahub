@@ -16,6 +16,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.workday.constants import (
     PRISM_API_VERSION_DEFAULT,
     WORKDAY_PLATFORM,
+    WQL_API_VERSION_DEFAULT,
 )
 from datahub.utilities import config_clean
 
@@ -86,6 +87,11 @@ class WorkdayConfig(
         default=PRISM_API_VERSION_DEFAULT,
         description="Prism Analytics REST API version segment (for example `v3`).",
     )
+    wql_api_version: str = Field(
+        default=WQL_API_VERSION_DEFAULT,
+        description="Workday Query Language (WQL) REST API version segment. Used "
+        "when `extract_business_objects` or `extract_custom_reports` is enabled.",
+    )
 
     verify_ssl: bool = Field(
         default=True,
@@ -119,9 +125,21 @@ class WorkdayConfig(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns to filter Prism data sources by name.",
     )
+    bucket_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter Prism buckets by name.",
+    )
     report_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns to filter Workday-sourced reports by name.",
+    )
+    business_object_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter WQL business objects by name.",
+    )
+    custom_report_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter Workday custom reports by name.",
     )
 
     extract_tables: bool = Field(
@@ -137,12 +155,30 @@ class WorkdayConfig(
         default=True,
         description="Whether to extract Prism data sources as DataHub datasets.",
     )
+    extract_buckets: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract Prism buckets (upload staging areas) as datasets "
+            "and link each as an upstream of the table it publishes to. Off by "
+            "default as buckets are transient load-path detail."
+        ),
+    )
     extract_reports: bool = Field(
         default=True,
         description=(
             "Whether to extract Workday-sourced Prism data sources (RaaS custom "
             "reports and Workday business-object sources) as report datasets with "
             "the `Report` subtype."
+        ),
+    )
+    extract_schema_details: bool = Field(
+        default=True,
+        description=(
+            "Fetch each Prism table/dataset's full definition via a per-object "
+            "detail call. Prism list endpoints typically omit schema fields, "
+            "lineage relationships, timestamps, and transformation logic, so this "
+            "is required to populate them. Disable to save one API call per object "
+            "if your tenant's list responses already include full detail."
         ),
     )
     extract_lineage: bool = Field(
@@ -153,6 +189,57 @@ class WorkdayConfig(
             "warehouse datasets."
         ),
     )
+    extract_column_level_lineage: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit column-level lineage from a Prism dataset's per-field "
+            "mappings (requires `extract_schema_details` and `extract_lineage`)."
+        ),
+    )
+    extract_transformation_logic: bool = Field(
+        default=True,
+        description=(
+            "Whether to capture a Prism dataset's transformation pipeline (Data "
+            "Prep Language) as view properties (requires `extract_schema_details`)."
+        ),
+    )
+    include_row_counts: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit dataset profiles with Prism table row counts when the "
+            "table detail response includes them (requires `extract_schema_details`)."
+        ),
+    )
+    include_operational_stats: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit an operation aspect capturing a Prism table's last "
+            "refresh time when available (requires `extract_schema_details`)."
+        ),
+    )
+    extract_business_objects: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Workday business objects from the WQL metadata API "
+            "as datasets with schema (the tenant's queryable data-source catalog). "
+            "Beyond Prism; off by default."
+        ),
+    )
+    extract_business_object_relationships: bool = Field(
+        default=True,
+        description=(
+            "Whether to emit lineage between business objects from their declared "
+            "references (requires `extract_business_objects`)."
+        ),
+    )
+    extract_custom_reports: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Workday custom report (RaaS) definitions, "
+            "enumerated via WQL, as report datasets linked to the business object "
+            "they read from. Beyond Prism; off by default."
+        ),
+    )
     include_external_tables: bool = Field(
         default=True,
         description="Whether to include tables/data sources with `sourceType: "
@@ -161,7 +248,32 @@ class WorkdayConfig(
     ingest_owner: bool = Field(
         default=True,
         description="Whether to map Workday createdBy/owner fields to DataHub "
-        "ownership aspects.",
+        "ownership aspects. Owner security groups (when reported) are emitted as "
+        "corpGroup business owners alongside the individual technical owner.",
+    )
+    ingest_tags: bool = Field(
+        default=True,
+        description="Whether to map Workday catalog classifications to DataHub "
+        "tags at the dataset and field level.",
+    )
+    ingest_glossary_terms: bool = Field(
+        default=True,
+        description="Whether to map Workday business-glossary term links to "
+        "DataHub glossary terms.",
+    )
+    use_functional_area_containers: bool = Field(
+        default=True,
+        description="Whether to nest business objects and reports under a "
+        "functional-area (subject-area) sub-container when the API reports one, "
+        "instead of placing them directly under the tenant container.",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
+        description=(
+            "Map from a DataHub domain (urn or name) to the regex patterns of "
+            "object names that belong to it. The first matching domain is applied "
+            "to each emitted dataset."
+        ),
     )
 
     data_source_platform_mapping: Dict[str, DataSourcePlatformConfig] = Field(
