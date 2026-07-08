@@ -5,14 +5,17 @@ layer or metric store.
 
 ## Identity
 
-Metrics are identified by two fields:
+Metrics are identified by three fields:
 
 - **`platform`** — the DataPlatform URN that owns this metric
   (e.g. `urn:li:dataPlatform:dbt`, `urn:li:dataPlatform:snowflake`). Searchable as a URN field
   with autocomplete and a "Platform" filter pill.
-- **`id`** — the metric name within that platform (e.g. `total_revenue`, `daily_active_users`).
+- **`path`** — the namespace path that scopes this metric within its platform, preventing
+  name collisions when two teams define metrics with the same `id` on the same platform.
+- **`id`** — the metric name within that platform and path
+  (e.g. `total_revenue`, `daily_active_users`).
 
-An example URN: `urn:li:metric:(urn:li:dataPlatform:dbt,total_revenue)`.
+An example URN: `urn:li:metric:(urn:li:dataPlatform:dbt,analytics.orders_model,revenue)`.
 
 ## Important Capabilities
 

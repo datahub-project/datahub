@@ -17,4 +17,8 @@ enum Dialect {
   DATABRICKS
   /** GoodData MAQL (Metric Analysis and Query Language). */
   MAQL
+  /**
+   * A dialect not yet represented as a named symbol.
+   */
+  OTHER
 }

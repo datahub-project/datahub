@@ -28,7 +28,19 @@ record MetricKey {
   platform: Urn
 
   /**
-   * Unique identifier for the metric within its platform.
+   * Namespace path that scopes this metric within its platform. Ingestors must set this to
+   * the canonical container path for the metric so that two teams can define metrics with the
+   * same `id` on the same platform without colliding.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Path"
+  }
+  path: string
+
+  /**
+   * Unique identifier for the metric within its platform and path.
    */
   id: string
 }

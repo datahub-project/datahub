@@ -6,14 +6,30 @@ between raw datasets and the business metrics calculated over them.
 
 ## Identity
 
-Semantic models are identified by two fields:
+Semantic models are identified by three fields:
 
 - **`platform`** — the DataPlatform URN that owns this semantic model
   (e.g. `urn:li:dataPlatform:dbt`, `urn:li:dataPlatform:snowflake`). Searchable as a URN field
   with autocomplete and a "Platform" filter pill.
-- **`id`** — the model name within that platform (e.g. `orders_model`, `customer_360`).
+- **`path`** — the namespace path that scopes this semantic model within its platform, preventing
+  name collisions when two teams define models with the same `id` on the same platform.
+  Searchable as TEXT_PARTIAL with a "Path" filter pill.
+  Metric ingestors rely on this value to satisfy the compositional invariant: a child metric's
+  `path` is derived as `semanticModel.path + "." + semanticModel.id`.
+- **`id`** — the model name within that platform and path
+  (e.g. `orders_model`, `customer_360`).
 
-An example URN: `urn:li:semanticModel:(urn:li:dataPlatform:dbt,orders_model)`.
+An example URN: `urn:li:semanticModel:(urn:li:dataPlatform:dbt,analytics,orders_model)`.
+
+### Per-platform `path` conventions
+
+| Platform              | `path` value for a semantic model  |
+| --------------------- | ---------------------------------- |
+| Snowflake (SV)        | `<database>.<schema>`              |
+| dbt                   | `<package_name>`                   |
+| Cube                  | `""` (empty string, one per proj.) |
+| Looker                | `<model>`                          |
+| Native / SDK-authored | `""` (empty string)                |
 
 ## Important Capabilities
 
