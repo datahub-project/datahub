@@ -35,7 +35,9 @@ def test_rest_sink_emitter_carries_auth():
     # OAuth mode even though the sink config carries a resolved auth provider.
     auth = AuthConfig(type="static", config={"token": "t"})
     sink_config = DatahubRestSinkConfig(server="http://gms:8080", auth=auth)
-    emitter = DatahubRestSink._make_emitter(sink_config)
+    emitter = DatahubRestSink._make_emitter(
+        sink_config, auth=DatahubRestSink._resolve_auth(sink_config)
+    )
     session_auth = emitter._session.auth
     assert isinstance(session_auth, TokenProviderAuth)
     # Assert the token from *this* config reached the emitter, not merely that
