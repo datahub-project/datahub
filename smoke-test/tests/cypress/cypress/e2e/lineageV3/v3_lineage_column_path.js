@@ -20,7 +20,8 @@ const verifyColumnPathModal = (from, to) => {
     .should("be.visible");
 };
 
-describe("column-Level lineage and impact analysis path test", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
   });

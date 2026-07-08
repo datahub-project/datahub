@@ -1,6 +1,7 @@
 import { Heading, Text } from '@components';
 import { Image } from 'antd';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import styled from 'styled-components';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -39,33 +40,34 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     src={dataHubFlowDiagram}
                 />
                 <Heading type="h3" size="2xl" weight="bold">
-                    Welcome to DataHub Core! 👋
+                    <Trans i18nKey="onboarding:home.welcomeTitle" />
                 </Heading>
                 <Text type="div" size="md">
-                    <strong>DataHub</strong> helps you discover and organize the important data within your
-                    organization. You can:
+                    <Trans i18nKey="onboarding:home.welcomeIntro" components={{ bold: <strong /> }} />
                 </Text>
                 <Text type="div" size="md">
                     <ul>
                         <li>
-                            Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more
+                            <Trans i18nKey="onboarding:home.bulletSearch" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            View and understand the full <strong>end-to-end Lineage</strong> of how data is created,
-                            transformed, and consumed
+                            <Trans i18nKey="onboarding:home.bulletLineage" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Gain <strong>insights</strong> about how others within your organization are using data
+                            <Trans i18nKey="onboarding:home.bulletInsights" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
+                            <Trans i18nKey="onboarding:home.bulletOwnership" components={{ bold: <strong /> }} />
                         </li>
                     </ul>
-                    <p>Let&apos;s get started! 🚀</p>
+                    <p>
+                        <Trans i18nKey="onboarding:home.letsGetStarted" />
+                    </p>
                     <InfoBox>
+                        {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative emoji */}
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
-                            Press <strong> Cmd + Ctrl + T</strong> to open up this tutorial at any time.
+                            <Trans i18nKey="onboarding:home.tutorialHotkey" components={{ bold: <strong /> }} />
                         </span>
                     </InfoBox>
                 </Text>
@@ -76,55 +78,50 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: HOME_PAGE_INGESTION_ID,
         selector: `#${HOME_PAGE_INGESTION_ID}`,
-        title: 'Ingest Data',
+        title: <Trans i18nKey="onboarding:home.ingestionTitle" />,
         content: (
             <Text type="div" size="md">
-                Start integrating your data sources immediately by navigating to the <strong>Ingestion</strong> page.
+                <Trans i18nKey="onboarding:home.ingestionDescription" components={{ bold: <strong /> }} />
             </Text>
         ),
     },
     {
         id: HOME_PAGE_DOMAINS_ID,
         selector: `#${HOME_PAGE_DOMAINS_ID}`,
-        title: 'Explore by Domain',
+        title: <Trans i18nKey="onboarding:home.domainsTitle" />,
         content: (
             <Text type="div" size="md">
-                Here are your organization&apos;s <strong>Domains</strong>. Domains are collections of data assets -
-                such as Tables, Dashboards, and ML Models - that make it easy to discover information relevant to a
-                particular part of your organization.
+                <Trans i18nKey="onboarding:home.domainsDescription" components={{ bold: <strong /> }} />
             </Text>
         ),
     },
     {
         id: HOME_PAGE_PLATFORMS_ID,
         selector: `#${HOME_PAGE_PLATFORMS_ID}`,
-        title: 'Explore by Platform',
+        title: <Trans i18nKey="onboarding:home.platformsTitle" />,
         content: (
             <Text type="div" size="md">
-                Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
-                third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
-                Orchestrators like <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
+                <Trans i18nKey="onboarding:home.platformsDescription" components={{ bold: <strong /> }} />
             </Text>
         ),
     },
     {
         id: HOME_PAGE_MOST_POPULAR_ID,
         selector: `#${HOME_PAGE_MOST_POPULAR_ID}`,
-        title: 'Explore Most Popular',
-        content: "Here you'll find the assets that are viewed most frequently within your organization.",
+        title: <Trans i18nKey="onboarding:home.mostPopularTitle" />,
+        content: <Trans i18nKey="onboarding:home.mostPopularDescription" />,
     },
     {
         id: HOME_PAGE_SEARCH_BAR_ID,
         selector: `#${HOME_PAGE_SEARCH_BAR_ID}`,
-        title: 'Find your Data 🔍',
+        title: <Trans i18nKey="onboarding:home.searchBarTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
-                    collaborating around the data most important to you.
+                    <Trans i18nKey="onboarding:home.searchBarDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Not sure where to start? Click on <strong>Explore All</strong>!
+                    <Trans i18nKey="onboarding:home.exploreAll" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),

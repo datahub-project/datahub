@@ -9,6 +9,8 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
 
 :::
 
+> **Already running DataHub?** If you're upgrading an existing install, check [Managing Your Local Instance](#managing-your-local-instance) before running quickstart — some versions need upgrade steps first.
+
 ## Prerequisites
 
 - Install **Docker** and **Docker Compose** v2 for your platform.
@@ -25,7 +27,7 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
 :::note Docker Resource Allocation
 
 Make sure to allocate enough hardware resources for Docker engine. <br />
-Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 12GB disk space.
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 13GB disk space.
 
 :::
 
@@ -62,15 +64,6 @@ Note that DataHub CLI does not support Python 2.x.
 :::
 
 </TabItem>
-<TabItem value="poetry" label="poetry">
-
-```bash
-poetry add acryl-datahub
-poetry shell
-datahub version
-```
-
-</TabItem>
 </Tabs>
 
 ## Start DataHub
@@ -82,28 +75,7 @@ datahub docker quickstart
 ```
 
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
-If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
-
-Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](./authentication/introducing-metadata-service-authentication.md) is configured.
-
-Quickstart resolves the values in the following order:
-
-1. If the environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT` defined, their values are used.
-2. If the file `~/.datahub/quickstart/.local-secrets.env` exists and the variables mentioned above are defined in it their values are used.
-3. If both of the above are not available, new random values are generated and used. The values are written to the file mentioned above and used in subsequent invocations.
-
-It is recommended that users provide their own stable values for the environment values before running quickstart.
-
-```
-export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
-export DATAHUB_TOKEN_SERVICE_SALT=<value>
-```
-
-To generate values to use, you can use the output of the following
-
-```
-openssl rand -base64 32
-```
+If you are curious, the `docker-compose.yml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
 If things go well, you should see messages like the ones below:
 
@@ -132,33 +104,6 @@ or head to http://localhost:9002 (username: datahub, password: datahub) to play 
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
 
-:::note Breaking changes
-
-### Docker Compose File version change
-
-From version 1.2 onwards, the `datahub docker quickstart` command uses a version of docker-compose file that is incompatible with datahub that was installed using earlier versions of the CLI.
-
-If you have datahub already installed using an earlier version of CLI, additional steps are needed to upgrade.
-
-Required steps to upgrade:
-
-1. Backup your data (recommended): datahub docker quickstart --backup
-   Guide: https://docs.datahub.com/docs/quickstart#back-up-datahub
-   This step can be skipped if data does not need to be preserved.
-
-2. Remove old installation: datahub docker nuke
-
-3. Start fresh installation: datahub docker quickstart
-
-⚠️ Without backup, all existing data will be lost.
-
-### DataHub Authentication Changes in default signing key
-
-From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously if the user does not provide their own keys.
-
-⚠️ For users upgrading from previous versions of the cli, due to the change in the signing key, existing PAT tokens will be invalidated.
-:::
-
 ### Sign In
 
 Upon completion of this step, you should be able to navigate to the DataHub UI at [http://localhost:9002](http://localhost:9002) in your browser.
@@ -179,19 +124,68 @@ First, configure the CLI to talk to your local DataHub instance:
 datahub init --username datahub --password datahub
 ```
 
-Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, Tableau, dbt, and Spark with lineage, governance, glossary terms, domains, data products, and structured properties:
+Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, and Tableau with lineage, governance, glossary terms, domains, and data products:
 
 ```bash
 datahub datapack load showcase-ecommerce
 ```
 
+:::note
+
+The `datahub datapack` command is currently experimental — its command surface and behavior may change in future releases.
+
+:::
+
 That's it! Now feel free to play around with DataHub!
 
----
+## Next Steps
 
-## Common Operations
+- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
+- [Ingest metadata through the UI](./ui-ingestion.md)
+- [Ingest metadata through the CLI](../metadata-ingestion/README.md)
+- [Add Users to DataHub](authentication/guides/add-users.md)
+- [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
+- [Configure JaaS Authentication](authentication/guides/jaas.md)
+- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
+- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
 
-### Stop DataHub
+## Managing Your Local Instance
+
+Once DataHub is running, use the commands below to manage your local instance. These are for the local quickstart deployment only — for production operations, see [Deploying DataHub with Kubernetes](./deploy/kubernetes.md).
+
+:::note (Optional) Set a stable signing key
+
+By default, DataHub generates a random signing key and salt for authentication tokens on first run and reuses them on later runs (saved to `~/.datahub/quickstart/.local-secrets.env`). Most users don't need to change this.
+
+If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`:
+
+```bash
+export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
+export DATAHUB_TOKEN_SERVICE_SALT=<value>
+```
+
+Generate a value with `openssl rand -base64 32`.
+
+If upgrading from a CLI older than v1.5: the signing key is now generated randomly instead of using a hardcoded default, so any personal access tokens (PATs) created before upgrading are invalidated and must be regenerated.
+
+:::
+
+:::note Upgrading from a CLI older than v1.2
+
+From version 1.2 onwards, the `datahub docker quickstart` command uses a docker-compose file that is incompatible with DataHub installed using earlier versions of the CLI. If you already have DataHub installed with an older CLI, upgrade with these steps:
+
+1. Back up your data (recommended): `datahub docker quickstart --backup`. This can be skipped if the data does not need to be preserved.
+2. Remove the old installation: `datahub docker nuke`
+3. Start a fresh installation: `datahub docker quickstart`
+
+⚠️ Without a backup, all existing data will be lost.
+
+For the full list of breaking changes across versions, see [Updating DataHub](how/updating-datahub.md).
+
+:::
+
+<details>
+<summary><b>Stop DataHub</b></summary>
 
 To stop DataHub's quickstart, you can issue the following command.
 
@@ -199,7 +193,10 @@ To stop DataHub's quickstart, you can issue the following command.
 datahub docker quickstart --stop
 ```
 
-### Reset DataHub
+</details>
+
+<details>
+<summary><b>Reset DataHub</b></summary>
 
 To cleanse DataHub of all of its state (e.g. before ingesting your own), you can use the CLI `nuke` command.
 
@@ -207,7 +204,10 @@ To cleanse DataHub of all of its state (e.g. before ingesting your own), you can
 datahub docker nuke
 ```
 
-### Upgrade DataHub
+</details>
+
+<details>
+<summary><b>Upgrade DataHub</b></summary>
 
 If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can just issue the quickstart command again. It will pull down newer images and restart your instance without losing any data.
 
@@ -218,7 +218,7 @@ datahub docker quickstart
 By default, quickstart will install the latest released version of datahub. You can pick a specific version by specifying a release explicitly.
 
 ```bash
-datahub docker quickstart --version v1.2.0
+datahub docker quickstart --version v1.6.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
@@ -226,13 +226,20 @@ You can also specify `head` or `quickstart` as the version to get the latest coo
 
 If you pass an unrecognized `--version` that is not a release tag (for example a typo), the CLI prompts before falling back to the default quickstart configuration. Omitting `--version` uses the default without prompting. Release-like tags (`v1.2.0`) and `sha-*` tags are used as-is without prompting. For scripts, pass `--accept-version-default` to accept the suggested configuration without an interactive prompt.
 
-### Customize installation
+</details>
+
+<details>
+<summary><b>Customize installation</b></summary>
 
 If you would like to customize the DataHub installation further, please download the [docker-compose file](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml) used by the CLI tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
 ```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>
 ```
+
+</details>
+
+<!-- Back up DataHub and Restore DataHub are intentionally plain headings, not <details> collapsibles like the sections above, because other docs (how/restore-indices.md) and the CLI source (docker_cli.py) link directly to their #back-up-datahub and #restore-datahub anchors. Plain headings give stable auto-generated anchors that reliably resolve and scroll. Do not convert these two to <details>. -->
 
 ### Back up DataHub
 
@@ -293,20 +300,7 @@ Sometimes, you might want to just restore the state of your primary database (My
 datahub docker quickstart --restore --no-restore-indices
 ```
 
----
-
-## Next Steps
-
-- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
-- [Ingest metadata through the UI](./ui-ingestion.md)
-- [Ingest metadata through the CLI](../metadata-ingestion/README.md)
-- [Add Users to DataHub](authentication/guides/add-users.md)
-- [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
-- [Configure JaaS Authentication](authentication/guides/jaas.md)
-- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
-- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
-
-### Move To Production
+## Move To Production
 
 :::caution
 
@@ -319,18 +313,18 @@ Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-b
 The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer.
 It is not intended for a production environment. This recommendation is based on the following points.
 
-#### Default Credentials
+### Default Credentials
 
 `quickstart` uses docker compose configuration which includes default credentials for both DataHub, and it's underlying
 prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
 design choice to make development easier and is not best practice for a production environment.
 
-#### Exposed Ports
+### Exposed Ports
 
 DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
 This makes it useful for development but is not recommended in a production environment.
 
-#### Performance & Management
+### Performance & Management
 
 `quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.
 Rollout of new versions often requires downtime and the configuration is largely pre-determined and not easily managed.

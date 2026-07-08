@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.hooks;
 import static com.linkedin.metadata.Constants.DEFAULT_OWNERSHIP_TYPE_URN;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -32,7 +33,9 @@ public class OwnershipOwnerTypes extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
 
     List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 

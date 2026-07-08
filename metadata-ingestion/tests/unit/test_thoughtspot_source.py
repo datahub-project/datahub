@@ -76,6 +76,9 @@ from datahub.ingestion.source.thoughtspot.source import (
     ThoughtSpotSource,
     _resolve_author_login,
 )
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChartInfoClass,
@@ -4011,6 +4014,40 @@ class TestThoughtSpotClientMetadataDetailParsing:
                 assert len(results) == 1
                 assert results[0]["columns"] == []
 
+    def test_metadata_search_handles_string_error_detail(self):
+        """In rare cases TS returns a string error message in
+        ``metadata_detail`` instead of a dict. The object must still ingest
+        (with empty columns) and the failure must surface in the report
+        rather than crashing the run."""
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://test.thoughtspot.cloud",
+            auth=TrustedAuth(username="testuser", secret_key="test_token"),
+        )
+
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.ThoughtSpotClient._authenticate"
+        ):
+            client = ThoughtSpotClient(config)
+
+            with patch.object(client, "ts_client") as mock_ts_client:
+                mock_ts_client.metadata_search.return_value = [
+                    {
+                        "metadata_id": "table-789",
+                        "metadata_header": {"id": "table-789", "name": "broken_table"},
+                        "metadata_detail": "Error fetching details for table-789",
+                    }
+                ]
+
+                results = client.get_metadata_details(
+                    metadata_type="LOGICAL_TABLE",
+                    metadata_ids=["table-789"],
+                )
+
+                assert len(results) == 1
+                assert results[0]["columns"] == []
+                titles = [w.title for w in client.report.warnings]
+                assert "Metadata Detail Unavailable" in titles
+
     def test_metadata_search_batches_multiple_ids(self):
         """Multiple ids produce one metadata entry per id (API rejects list-valued identifier)."""
         config = ThoughtSpotConnectionConfig(
@@ -5370,20 +5407,24 @@ class TestStatefulStaleRemovalIntegration:
         source = ThoughtSpotSource(config, ctx)
 
         processors = source.get_workunit_processors()
-        # The handler comes through as functools.partial(auto_stale_entity_removal,
-        # <StaleEntityRemovalHandler>) — we check both partial.args and
-        # __self__ to stay robust against the SDK's wrapping style.
 
-        def _references_stale_handler(p: object) -> bool:
-            if isinstance(getattr(p, "__self__", None), StaleEntityRemovalHandler):
+        # The processor comes through as a bound method of AutoStaleEntityRemovalProcessor,
+        # which wraps the StaleEntityRemovalHandler internally.
+        def _references_stale_processor(p: object) -> bool:
+            self_obj = getattr(p, "__self__", None)
+            if isinstance(
+                self_obj, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
+            ):
                 return True
             for arg in getattr(p, "args", ()):
-                if isinstance(arg, StaleEntityRemovalHandler):
+                if isinstance(
+                    arg, (StaleEntityRemovalHandler, AutoStaleEntityRemovalProcessor)
+                ):
                     return True
             return False
 
-        assert any(_references_stale_handler(p) for p in processors if p), (
-            "No StaleEntityRemovalHandler workunit processor registered — "
+        assert any(_references_stale_processor(p) for p in processors if p), (
+            "No AutoStaleEntityRemovalProcessor workunit processor registered — "
             "entities that disappear between runs will not be soft-deleted."
         )
 
@@ -6059,6 +6100,8 @@ class TestExternalPlatformMapping:
             "DATABRICKS": "databricks",
             "SNOWFLAKE": "snowflake",
             "BIGQUERY": "bigquery",
+            "GOOGLE_BIGQUERY": "bigquery",
+            "GCP_BIGQUERY": "bigquery",
             "REDSHIFT": "redshift",
             "SYNAPSE": "mssql",
             "ORACLE": "oracle",
@@ -6348,6 +6391,72 @@ class TestResolveExternalUpstream:
         assert (
             ref.urn
             == "urn:li:dataset:(urn:li:dataPlatform:databricks,prod-dbx.warehouse.raw.events,PROD)"
+        )
+
+    def test_bigquery_vendor_aliases_resolve(self):
+        """TS labels BigQuery tables ``GCP_BIGQUERY`` but their connections
+        ``GOOGLE_BIGQUERY``. Both aliases must map to the ``bigquery``
+        platform so the physical upstream URN is emitted."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1",
+                name="Prod BQ",
+                data_source_type="GOOGLE_BIGQUERY",
+                default_database="my-project",
+                default_schema="analytics",
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="events",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="GCP_BIGQUERY",
+        )
+        table.physical_database_name = "my-project"
+        table.physical_schema_name = "raw"
+        table.physical_table_name = "events"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.platform == "bigquery"
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.raw.events,PROD)"
+        )
+
+    def test_rdbms_prefixed_table_type_resolves(self):
+        """TS prefixes a table's ``data_source_type`` with ``RDBMS_`` while
+        the connection reports the bare name. The prefix must be stripped so
+        the early platform filter passes and the upstream resolves."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1",
+                name="Prod SF",
+                data_source_type="SNOWFLAKE",
+                default_database="db",
+                default_schema="public",
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="events",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="RDBMS_SNOWFLAKE",
+        )
+        table.physical_database_name = "db"
+        table.physical_schema_name = "public"
+        table.physical_table_name = "events"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.platform == "snowflake"
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.events,PROD)"
         )
 
     def test_in_memory_table_returns_none(self):
@@ -7725,9 +7834,11 @@ class TestProcessDatasetSqlViewIntegration:
         monkeypatch.setattr(
             source,
             "_make_self_dataset_urn",
-            lambda name: upstream_urn
-            if name == "prod.public.upstream"
-            else original_make_self_urn(name),
+            lambda name: (
+                upstream_urn
+                if name == "prod.public.upstream"
+                else original_make_self_urn(name)
+            ),
         )
 
         wus = list(source.get_workunits_internal())

@@ -46,7 +46,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -56,9 +55,6 @@ from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
     DatasetSubTypes,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -70,6 +66,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    normalize_ts_table_type,
 )
 from datahub.ingestion.source.thoughtspot.config import (
     ExternalConnectionConfig,
@@ -435,15 +432,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return test_report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Return workunit processors including stale entity removal."""
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -2172,16 +2160,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Fallback: connection not in lookup. Read data_source_type
-        # off the table directly. Strip the ``RDBMS_`` / ``NOSQL_``
-        # prefix TS applies on the LogicalTableResponse so the map
-        # (keyed by bare warehouse names) resolves.
-        ts_type = (table.data_source_type or "").upper()
+        # off the table directly, normalizing the TS category prefix
+        # (``RDBMS_`` / ``NOSQL_`` / ``FILE_``) so the map (keyed by
+        # bare warehouse names) resolves.
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if not ts_type:
             return None
-        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
-            if ts_type.startswith(prefix):
-                ts_type = ts_type[len(prefix) :]
-                break
         platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
         if not platform:
             return None
@@ -2220,7 +2204,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # entry isn't a real failure to warn about. Without this guard,
         # every TS-internal table on a tenant triggers a false-positive
         # "External Lineage Resolution Failed" warning.
-        ts_type = (table.data_source_type or "").upper()
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if ts_type not in _TS_TO_DATAHUB_PLATFORM:
             return None
         conn = self._get_connection_lookup().get(table.data_source_id)

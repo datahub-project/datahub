@@ -1,30 +1,33 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
-import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
+import { pickTreeIcon } from '@app/document/utils/documentUtils';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
-import { Button, Tooltip } from '@src/alchemy-components';
+import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
-const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
+import { DataPlatform } from '@types';
+
+const TreeItemContainer = styled.div<{ $isSelected: boolean }>`
     position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
+    /* No vertical padding: the row's full height is a hit area so the ExpandZone
+       (which stretches edge-to-edge) catches clicks in the space above/below the
+       folder icon instead of the row's navigate handler. */
+    padding: 0 2px 0 0;
     min-height: 38px;
     height: 38px;
     cursor: pointer;
     border-radius: 6px;
     transition: background-color 0.15s ease;
     margin-bottom: 2px;
-    margin-left: 2px;
-    margin-right: 2px;
 
     ${(props) =>
         props.$isSelected &&
@@ -46,17 +49,31 @@ background: ${props.theme.colors.bgHover};
 const LeftContent = styled.div`
     display: flex;
     align-items: center;
+    align-self: stretch;
     flex: 1;
     min-width: 0;
     overflow: hidden;
+`;
+
+// The whole left region — the indentation plus the icon/arrow — is the
+// expand/collapse tap target for folders. It carries the level indentation (moved
+// off the row container) and stretches to full row height so the hit area is
+// generous, while the title beyond it stays a navigation target.
+const ExpandZone = styled.div<{ $level: number; $expandable: boolean }>`
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    padding-left: ${(props) => 8 + props.$level * 16}px;
+    flex-shrink: 0;
+    cursor: ${(props) => (props.$expandable ? 'pointer' : 'inherit')};
 `;
 
 const IconSlot = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+    align-self: stretch;
     width: 24px;
-    height: 20px;
     margin-right: 8px;
     flex-shrink: 0;
 `;
@@ -79,7 +96,10 @@ const ExpandButton = styled.button<{ $isVisible: boolean }>`
     }
 `;
 
-const IconWrapper = styled.div<{ $isSelected: boolean }>`
+// Dashed (draft/proposed) icons can't use the selected-state gradient: it paints the icon body
+// solid via `fill: url(...)`, which visually erases the dashed outline. They fall back to the
+// brand color so the dash pattern stays visible.
+const IconWrapper = styled.div<{ $isSelected: boolean; $useGradientFill: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -87,10 +107,12 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     flex-shrink: 0;
 
     && svg {
-        ${(props) =>
-            props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.icon};`}
+        ${(props) => {
+            if (!props.$isSelected) return `color: ${props.theme.colors.icon};`;
+            if (props.$useGradientFill)
+                return `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`;
+            return `color: ${props.theme.colors.iconBrand};`;
+        }}
     }
 `;
 
@@ -126,6 +148,13 @@ const ActionButton = styled(Button)`
     }
 `;
 
+const CheckboxSlot = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+`;
+
 interface DocumentTreeItemProps {
     urn: string;
     title: string;
@@ -134,6 +163,9 @@ interface DocumentTreeItemProps {
     isExpanded: boolean;
     isSelected: boolean;
     isLoading?: boolean;
+    isUnpublished?: boolean; // Any non-PUBLISHED state — renders the dashed Phosphor variant (native docs only)
+    isExternal?: boolean; // External-source doc — renders the platform logo (via DocumentSourceLogo) instead of the Phosphor folder/file
+    platform?: DataPlatform | null; // Source platform; only consumed when isExternal is true
     onToggleExpand: () => void;
     onClick: () => void;
     onCreateChild: (parentUrn: string) => void;
@@ -141,6 +173,14 @@ interface DocumentTreeItemProps {
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
     parentUrn?: string | null;
+    /**
+     * When true, renders a leading checkbox and treats the row as a multi-select
+     * target: `isSelected` drives the checkbox's checked state, and clicking anywhere
+     * on the row (or the checkbox itself) fires `onClick` so the parent can toggle
+     * the URN in its own selection set. Row actions (menu, create-child) are hidden
+     * in this mode to keep the picker focused on selection.
+     */
+    multiSelect?: boolean;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -151,6 +191,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     isExpanded,
     isSelected,
     isLoading,
+    isUnpublished = false,
+    isExternal = false,
+    platform = null,
     onToggleExpand,
     onClick,
     onCreateChild,
@@ -158,6 +201,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideActionsMenu = false,
     hideCreate = false,
     parentUrn,
+    multiSelect = false,
 }) => {
     const { t } = useTranslation('home.v2');
     const { t: tc } = useTranslation('common.actions');
@@ -183,6 +227,15 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         onClick();
     };
 
+    // The left zone (indent + icon/arrow) expands folders in place. Leaf rows have
+    // nothing to expand, so we let the click bubble up to the row and open the
+    // document instead.
+    const handleExpandZoneClick = (e: React.MouseEvent) => {
+        if (!hasChildren) return;
+        e.stopPropagation();
+        onToggleExpand();
+    };
+
     const showExpandButton = hasChildren && (isExpanded || isHovered);
 
     const renderIcon = () => {
@@ -196,23 +249,40 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     aria-label={isExpanded ? tc('collapse') : tc('expand')}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                    {!isLoading && isExpanded && (
-                        <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />
-                    )}
-                    {!isLoading && !isExpanded && (
-                        <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />
-                    )}
+                    {!isLoading && isExpanded && <CaretDown color={theme.colors.icon} size={16} weight="bold" />}
+                    {!isLoading && !isExpanded && <CaretRight color={theme.colors.icon} size={16} weight="bold" />}
                 </ExpandButton>
             );
         }
 
+        // External docs render the source platform's logo (transparent, no color extraction —
+        // see DocumentSourceLogo and the PluginLogo precedent). Hover-to-caret behavior above
+        // is preserved because `showExpandButton` evaluates before this branch — only the
+        // resting-state glyph changes.
+        if (isExternal && platform) {
+            // Fallback when no logoUrl can be resolved is the regular folder/file glyph —
+            // visually consistent with the rest of the tree if the platform is unknown.
+            const FallbackIcon = pickTreeIcon({ hasChildren, isUnpublished: false });
+            return (
+                <IconWrapper className="tree-item-icon" $isSelected={false} $useGradientFill={false}>
+                    <DocumentSourceLogo
+                        platform={platform}
+                        size={16}
+                        fallback={<FallbackIcon size={20} weight="regular" />}
+                    />
+                </IconWrapper>
+            );
+        }
+
+        // Unpublished docs render as dashed variants. The `fill` weight on a dashed icon
+        // collapses the dash pattern into a solid shape, so dashed icons stay `regular` even
+        // when selected (the selected color is applied through IconWrapper).
+        const Icon = pickTreeIcon({ hasChildren, isUnpublished });
+        const iconWeight = isSelected && !isUnpublished ? 'fill' : 'regular';
+
         return (
-            <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
-                {hasChildren ? (
-                    <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
-                ) : (
-                    <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
-                )}
+            <IconWrapper className="tree-item-icon" $isSelected={isSelected} $useGradientFill={!isUnpublished}>
+                <Icon size={20} weight={iconWeight} />
             </IconWrapper>
         );
     };
@@ -221,21 +291,32 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         <TreeItemContainer
             className="tree-item-container"
             data-testid={`document-tree-item-${urn}`}
-            $level={level}
             $isSelected={isSelected}
             onClick={handleItemClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             <LeftContent>
-                <IconSlot>{renderIcon()}</IconSlot>
+                <ExpandZone $level={level} $expandable={hasChildren} onClick={handleExpandZoneClick}>
+                    <IconSlot>{renderIcon()}</IconSlot>
+                </ExpandZone>
 
                 <Title $isSelected={isSelected} title={title}>
                     {title}
                 </Title>
             </LeftContent>
 
-            {!hideActions && (isHovered || forceShowActions) && (
+            {multiSelect && (
+                <CheckboxSlot>
+                    <Checkbox
+                        isChecked={isSelected}
+                        setIsChecked={() => onClick()}
+                        dataTestId={`document-tree-checkbox-${urn}`}
+                    />
+                </CheckboxSlot>
+            )}
+
+            {!multiSelect && !hideActions && (isHovered || forceShowActions) && (
                 <Actions className="tree-item-actions">
                     {!hideActionsMenu && (
                         <DocumentActionsMenu
@@ -248,7 +329,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     {!hideCreate && (
                         <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton
-                                icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
+                                icon={{ icon: Plus, color: 'icon' }}
                                 variant="text"
                                 onClick={handleAddChildClick}
                             />

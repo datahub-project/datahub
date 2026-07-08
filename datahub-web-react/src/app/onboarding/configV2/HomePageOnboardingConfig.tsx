@@ -1,6 +1,7 @@
 import { Heading, Text } from '@components';
 import { Image } from 'antd';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import styled from 'styled-components';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -43,41 +44,40 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                     <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
                 <Heading type="h3" size="2xl" weight="bold">
-                    Welcome to DataHub Core!{' '}
+                    <Trans i18nKey="onboarding:home.welcomeTitleV2" />
                 </Heading>
                 <Text type="div" size="md">
-                    <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
-                    within your organization. You can:
+                    <Trans i18nKey="onboarding:home.welcomeIntroV2" components={{ bold: <strong /> }} />
                 </Text>
                 <Text type="div" size="md">
                     <ul>
                         <li>
-                            Quickly <strong>search</strong> for Tables, Dashboards, Data Pipelines, and more
+                            <Trans i18nKey="onboarding:home.bulletSearchV2" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Understand <strong>quality</strong> and trustworthiness of data using operational and social
-                            signals
+                            <Trans i18nKey="onboarding:home.bulletQuality" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            View and understand the full <strong>end-to-end lineage</strong> of how data is created,
-                            transformed, and consumed
+                            <Trans i18nKey="onboarding:home.bulletLineageV2" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Gain <strong>insights</strong> about how others within your organization are using data
+                            <Trans i18nKey="onboarding:home.bulletInsights" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
+                            <Trans i18nKey="onboarding:home.bulletOwnership" components={{ bold: <strong /> }} />
                         </li>
                         <li>
-                            Create and manage <strong>central governance standards</strong> for data assets to drive
-                            accountability and trust
+                            <Trans i18nKey="onboarding:home.bulletGovernance" components={{ bold: <strong /> }} />
                         </li>
                     </ul>
-                    <p>Let&apos;s get started! 🚀</p>
+                    <p>
+                        <Trans i18nKey="onboarding:home.letsGetStarted" />
+                    </p>
                     <InfoBox>
+                        {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative emoji */}
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
-                            Press <strong>Cmd + Ctrl + T</strong> to open up this tutorial at any time.
+                            <Trans i18nKey="onboarding:home.tutorialHotkey" components={{ bold: <strong /> }} />
                         </span>
                     </InfoBox>
                 </Text>
@@ -88,12 +88,11 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: V2_SEARCH_BAR_ID,
         selector: `#${V2_SEARCH_BAR_ID}`,
-        title: 'Find your Data 🔍',
+        title: <Trans i18nKey="onboarding:home.searchBarTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
-                    collaborating around the data most important to you.
+                    <Trans i18nKey="onboarding:home.searchBarDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),
@@ -101,13 +100,11 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: V2_SEARCH_BAR_VIEWS,
         selector: `#${V2_SEARCH_BAR_VIEWS}`,
-        title: 'Only the stuff you need 📷',
+        title: <Trans i18nKey="onboarding:home.viewsTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Views help you focus on the assets that you care about. You can switch between views using the
-                    dropdown. Your admin will configure the views that make sense for your organization. You can
-                    customize and create your own views as well.
+                    <Trans i18nKey="onboarding:home.viewsDescription" />
                 </p>
             </Text>
         ),
@@ -115,18 +112,17 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: V2_HOME_PAGE_MOST_POPULAR_ID,
         selector: `#${V2_HOME_PAGE_MOST_POPULAR_ID}`,
-        title: 'Explore Most Popular',
-        content: "Here you'll find the assets that are viewed most frequently within your organization.",
+        title: <Trans i18nKey="onboarding:home.mostPopularTitle" />,
+        content: <Trans i18nKey="onboarding:home.mostPopularDescription" />,
     },
     {
         id: V2_HOME_PAGE_DISCOVER_ID,
         selector: `#${V2_HOME_PAGE_DISCOVER_ID}`,
-        title: 'Discover 🔍',
+        title: <Trans i18nKey="onboarding:home.discoverTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    The <strong> Discover</strong> section serves as your exploration center for discovering new areas
-                    of your data estate. You can explore Domains, Platforms, and more.
+                    <Trans i18nKey="onboarding:home.discoverDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),
@@ -134,12 +130,11 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: V2_HOME_PAGE_ANNOUNCEMENTS_ID,
         selector: `#${V2_HOME_PAGE_ANNOUNCEMENTS_ID}`,
-        title: 'Announcements 📣',
+        title: <Trans i18nKey="onboarding:home.announcementsTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    The <strong> Announcements</strong> tab contains important updates and information from your
-                    organization. Be sure to check it out frequently!
+                    <Trans i18nKey="onboarding:home.announcementsDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),
@@ -147,12 +142,11 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: V2_HOME_PAGE_PERSONAL_SIDEBAR_ID,
         selector: `#${V2_HOME_PAGE_PERSONAL_SIDEBAR_ID}`,
-        title: 'Your Personal Sidebar 📌',
+        title: <Trans i18nKey="onboarding:home.personalSidebarTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    This is your <strong> Personal Sidebar</strong>. It contains links to assets you own, groups you are
-                    in, your subscriptions and more.
+                    <Trans i18nKey="onboarding:home.personalSidebarDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),

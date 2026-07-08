@@ -32,6 +32,7 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.timeseries.TimeseriesIndexSizeResultArray;
 import com.linkedin.timeseries.TimeseriesIndicesSizesResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
@@ -136,7 +137,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
           final Authentication auth = AuthenticationContext.getAuthentication();
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
+                          ACTION_GET_ES_TASK_STATUS).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
           if (!isAPIOperationsAuthorized(
                   opContext,
@@ -171,7 +172,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
           String nodeIdToQuery = nodeAndTaskIdSpecified ? nodeId : task.split(":")[0];
           long taskIdToQuery = nodeAndTaskIdSpecified ? taskId : Long.parseLong(task.split(":")[1]);
           java.util.Optional<GetTaskResponse> res =
-              _systemMetadataService.getTaskStatus(nodeIdToQuery, taskIdToQuery);
+              _systemMetadataService.getTaskStatus(opContext, nodeIdToQuery, taskIdToQuery);
           JSONObject j = new JSONObject();
           if (res.isEmpty()) {
             j.put(
@@ -199,7 +200,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
             final Authentication auth = AuthenticationContext.getAuthentication();
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+                          ACTION_GET_INDEX_SIZES, List.of()).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
           if (!isAPIOperationsAuthorized(
                   opContext,
@@ -230,7 +231,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+                    "executeTruncateTimeseriesAspect", entityType).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
 
     if (!isAPIAuthorized(
             opContext,

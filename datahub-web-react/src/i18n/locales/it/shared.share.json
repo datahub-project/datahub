@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "Copia un link condivisibile a questa entità.",
+    "copyName.label": "Copia nome",
+    "copyName.tooltip": "Copia il nome completo di {{type}}",
+    "copyUrn.label": "Copia URN",
+    "copyUrn.tooltip": "Copia la URN per questo {{type}}. Una URN identifica in modo univoco un'entità su DataHub.",
+    "email.label": "Email",
+    "email.tooltip": "Condividi questo {{type}} tramite email"
+}

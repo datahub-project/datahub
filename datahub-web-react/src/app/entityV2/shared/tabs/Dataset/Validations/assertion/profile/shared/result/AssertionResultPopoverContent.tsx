@@ -1,6 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { Divider, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
@@ -18,6 +19,9 @@ import {
 import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent } from '@types';
+
+const EXPAND_SYMBOL = 'more';
+const UNKNOWN_PLATFORM_NAME = 'unknown';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -120,6 +124,8 @@ const PopoverHeader = ({
     showProfileButton,
     onClickProfileButton,
 }: PopoverHeaderProps) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     return (
         <HeaderRow>
             <TimestampContainer>
@@ -127,18 +133,21 @@ const PopoverHeader = ({
                 <LastResultsRow>
                     {(timestamp && (
                         <>
-                            <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(timestamp.getTime())}{' '}
+                            <StyledClockCircleOutlined />{' '}
+                            {t('resultPopover.ran', { date: toReadableLocalDateTimeString(timestamp.getTime()) })}
                         </>
-                    )) || <>No results yet</>}
+                    )) || <>{t('resultPopover.noResultsYet')}</>}
                 </LastResultsRow>
                 {reportedTimestamp && (
-                    <LastRunRow>Reported {toReadableLocalDateTimeString(reportedTimestamp)}</LastRunRow>
+                    <LastRunRow>
+                        {t('resultPopover.reported', { date: toReadableLocalDateTimeString(reportedTimestamp) })}
+                    </LastRunRow>
                 )}
             </TimestampContainer>
             <Actions>
                 <AssertionResultPill result={result} type={resultStatusType} />
                 {(showProfileButton && onClickProfileButton && (
-                    <PrimaryButton title="Details" onClick={onClickProfileButton} />
+                    <PrimaryButton title={tl('details')} onClick={onClickProfileButton} />
                 )) ||
                     undefined}
             </Actions>
@@ -147,12 +156,13 @@ const PopoverHeader = ({
 };
 
 const ReasonSection = ({ reasonText }: { reasonText?: string }) => {
+    const { t } = useTranslation('entity.profile.validations');
     if (!reasonText) return null;
     return (
         <>
             <ThinDivider />
             <ReasonRow>
-                <SecondaryHeader>Reason</SecondaryHeader>
+                <SecondaryHeader>{t('resultPopover.reason')}</SecondaryHeader>
                 <ReasonText>{reasonText}</ReasonText>
             </ReasonRow>
         </>
@@ -160,12 +170,13 @@ const ReasonSection = ({ reasonText }: { reasonText?: string }) => {
 };
 
 const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
+    const { t } = useTranslation('entity.profile.validations');
     if (!expectedText) return null;
     return (
         <>
             <ThinDivider />
             <ContextRow>
-                <SecondaryHeader>Expected</SecondaryHeader>
+                <SecondaryHeader>{t('resultPopover.expected')}</SecondaryHeader>
                 <ExpectedText>{expectedText}</ExpectedText>
             </ContextRow>
         </>
@@ -173,6 +184,7 @@ const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
 };
 
 const SeveritySection = ({ result }: { result?: AssertionResult }) => {
+    const { t } = useTranslation('entity.profile.validations');
     const severityDisplay = getAssertionResultSeverityDisplay(result);
     if (!severityDisplay) return null;
 
@@ -180,7 +192,7 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
         <>
             <ThinDivider />
             <ContextRow>
-                <SecondaryHeader>Severity</SecondaryHeader>
+                <SecondaryHeader>{t('resultPopover.severity')}</SecondaryHeader>
                 <ExpectedText>{severityDisplay.label}</ExpectedText>
             </ContextRow>
         </>
@@ -188,16 +200,17 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
 };
 
 const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: boolean }) => {
+    const { t } = useTranslation('entity.profile.validations');
     if (!show || !errorMessage) return null;
     return (
         <>
             <ThinDivider />
             <ContextRow>
-                <SecondaryHeader>Message</SecondaryHeader>
+                <SecondaryHeader>{t('resultPopover.message')}</SecondaryHeader>
                 <Typography.Paragraph
                     ellipsis={{
                         expandable: true,
-                        symbol: 'more',
+                        symbol: EXPAND_SYMBOL,
                         rows: 3,
                         onExpand: (e) => e.stopPropagation(),
                     }}
@@ -210,6 +223,7 @@ const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: b
 };
 
 const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; result?: AssertionResult }) => {
+    const { t } = useTranslation('entity.profile.validations');
     if (!isExternalAssertion(assertion)) return null;
 
     const externalResultsSections: React.ReactNode[] = [];
@@ -225,14 +239,17 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
             </PlatformRow>,
         );
         if (result.externalUrl) {
+            const platform =
+                assertion.platform?.name && assertion.platform?.name?.toLowerCase() !== UNKNOWN_PLATFORM_NAME
+                    ? assertion.platform.name
+                    : undefined;
             externalResultsSections.push(
                 <ThinDivider key="external-results-link-divider" />,
                 <PlatformRow key="external-results-link">
                     <a href={safeUrl(result.externalUrl)} target="_blank" rel="noopener noreferrer">
-                        View results in{' '}
-                        {assertion.platform?.name && assertion.platform?.name?.toLowerCase() !== 'unknown'
-                            ? assertion.platform?.name
-                            : 'source system.'}
+                        {platform
+                            ? t('resultPopover.viewExternal', { platform })
+                            : t('resultPopover.viewExternalFallback')}
                     </a>
                 </PlatformRow>,
             );

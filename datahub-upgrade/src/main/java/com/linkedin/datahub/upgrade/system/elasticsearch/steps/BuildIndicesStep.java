@@ -127,7 +127,8 @@ public class BuildIndicesStep implements UpgradeStep {
     Map<String, ReindexResult> results = new HashMap<>();
     for (ReindexConfig nonReindexConfig : nonReindexConfigs) {
       results.put(
-          nonReindexConfig.name(), services.get(0).getIndexBuilder().buildIndex(nonReindexConfig));
+          nonReindexConfig.name(),
+          services.get(0).getIndexBuilder().buildIndex(context.opContext(), nonReindexConfig));
     }
 
     // Only use parallel orchestrator for configs that actually need reindexing
@@ -152,6 +153,7 @@ public class BuildIndicesStep implements UpgradeStep {
             });
     HealthCheckPoller healthPoller =
         new HealthCheckPoller(
+            context.opContext(),
             services.get(0).getIndexBuilder(),
             circuitBreakerState,
             config.getClusterHeapThresholdPercent(),
@@ -167,7 +169,7 @@ public class BuildIndicesStep implements UpgradeStep {
     try {
       orchestrator =
           new ParallelReindexOrchestrator(
-              services.get(0).getIndexBuilder(), config, circuitBreakerState);
+              context.opContext(), services.get(0).getIndexBuilder(), config, circuitBreakerState);
       results.putAll(orchestrator.reindexAll(reindexConfigs));
       // Check results for any failures (explicit failure statuses only)
       Map<String, ReindexResult> failures =

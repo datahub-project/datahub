@@ -1,5 +1,6 @@
 import { Tooltip, zIndices } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -13,7 +14,7 @@ import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
-import { Deprecation, Health, Maybe } from '@types';
+import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -90,6 +91,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     connectionName,
     previewData,
 }) => {
+    const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
@@ -109,9 +111,10 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                        connectionName || 'the source entity'
-                    }`}
+                    title={t('degreeConnectionTooltip', {
+                        ordinalText: getNumberWithOrdinal(degree),
+                        connectionName: connectionName || t('sourceEntityFallback'),
+                    })}
                 >
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>
@@ -120,7 +123,10 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
+            <StructuredPropertyBadge
+                structuredProperties={previewData?.structuredProperties}
+                platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
+            />
             <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );

@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, List
 
 import requests
 
@@ -20,7 +20,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
@@ -42,9 +41,6 @@ from datahub.ingestion.source.grafana.models import (
 )
 from datahub.ingestion.source.grafana.report import (
     GrafanaSourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -125,15 +121,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GrafanaSource":
         config = GrafanaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        processors = super().get_workunit_processors()
-        processors.append(
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor
-        )
-        return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main extraction logic"""

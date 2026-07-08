@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -41,6 +42,8 @@ type Props = {
 };
 
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const isUpdating = initialState?.urn !== undefined;
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -71,7 +74,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.CreateQueryEvent,
                         });
                         message.success({
-                            content: `Created Query!`,
+                            content: t('queryBuilderModal.createSuccess'),
                             duration: 3,
                         });
                         onSubmit?.(data?.createQuery);
@@ -80,7 +83,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to create Query! An unexpected error occurred' });
+                    message.error({ content: t('queryBuilderModal.createError') });
                 });
         }
     };
@@ -108,7 +111,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.UpdateQueryEvent,
                         });
                         message.success({
-                            content: `Edited Query!`,
+                            content: t('queryBuilderModal.editSuccess'),
                             duration: 3,
                         });
                         onSubmit?.(data?.updateQuery);
@@ -117,7 +120,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to edit Query! An unexpected error occurred' });
+                    message.error({ content: t('queryBuilderModal.editError') });
                 });
         }
     };
@@ -135,19 +138,19 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
             <StyledModal
                 width={MODAL_WIDTH}
                 bodyStyle={MODAL_BODY_STYLE}
-                title={isUpdating ? 'Edit Query' : 'New Query'}
+                title={isUpdating ? t('queryBuilderModal.editTitle') : t('queryBuilderModal.newTitle')}
                 className="query-builder-modal"
                 open
                 onCancel={() => setShowConfirmationModal(true)}
                 buttons={[
                     {
-                        text: 'Cancel',
+                        text: tc('cancel'),
                         variant: 'text',
                         onClick: () => onClose?.(),
                         buttonDataTestId: 'query-builder-cancel-button',
                     },
                     {
-                        text: 'Save',
+                        text: tc('save'),
                         variant: 'filled',
                         id: 'createQueryButton',
                         buttonDataTestId: 'query-builder-save-button',
@@ -165,8 +168,8 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                     setBuilderState(DEFAULT_STATE);
                     onClose?.();
                 }}
-                modalTitle="Exit Query Editor"
-                modalText="Are you sure you want to exit the editor? Any unsaved changes will be lost."
+                modalTitle={t('queryBuilderModal.exitConfirmTitle')}
+                modalText={t('queryBuilderModal.exitConfirmBody')}
             />
         </ClickOutside>
     );

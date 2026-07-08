@@ -1,7 +1,9 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Text } from '@components';
 import { Button, Empty, Pagination, Typography, message } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -70,6 +72,8 @@ const searchBarInputStyle = {
 const DEFAULT_PAGE_SIZE = 10;
 
 export const BusinessAttributes = () => {
+    const { t } = useTranslation('misc');
+    const { t: tl } = useTranslation('common.labels');
     const [isCreatingBusinessAttribute, setIsCreatingBusinessAttribute] = useState(false);
     const entityRegistry = useEntityRegistry();
 
@@ -142,7 +146,7 @@ export const BusinessAttributes = () => {
     const tableColumns = [
         {
             width: '20%',
-            title: 'Name',
+            title: tl('name'),
             dataIndex: ['properties', 'name'],
             key: 'name',
             render: (name: string, record: any) => (
@@ -150,7 +154,7 @@ export const BusinessAttributes = () => {
             ),
         },
         {
-            title: 'Description',
+            title: tl('description'),
             dataIndex: ['properties', 'description'],
             key: 'description',
             width: '20%',
@@ -159,7 +163,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '20%',
-            title: 'Tags',
+            title: tl('tags'),
             dataIndex: ['properties', 'tags'],
             key: 'tags',
             render: tagRenderer,
@@ -167,7 +171,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '20%',
-            title: 'Glossary Terms',
+            title: t('businessAttribute.columnGlossaryTerms'),
             dataIndex: ['properties', 'glossaryTags'],
             key: 'glossaryTags',
             render: termRenderer,
@@ -175,7 +179,7 @@ export const BusinessAttributes = () => {
         },
         {
             width: '13%',
-            title: 'Data Type',
+            title: t('businessAttribute.dataType'),
             dataIndex: ['properties', 'businessAttributeDataType'],
             key: 'businessAttributeDataType',
             render: (dataType: string) => dataType || '',
@@ -198,13 +202,13 @@ export const BusinessAttributes = () => {
     return (
         <SourceContainer>
             {businessAttributeLoading && !businessAttributeData && (
-                <Message type="loading" content="Loading businessAttributes..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content={t('businessAttribute.loading')} style={{ marginTop: '10%' }} />
             )}
-            {businessAttributeError && message.error('Failed to load businessAttributes :(')}
+            {businessAttributeError && message.error(t('businessAttribute.loadError'))}
             <BusinessAttributesContainer>
                 <BusinessAttributeHeaderContainer>
-                    <BusinessAttributeTitle level={2}>Business Attribute</BusinessAttributeTitle>
-                    <Typography.Paragraph type="secondary">View your Business Attributes</Typography.Paragraph>
+                    <BusinessAttributeTitle level={2}>{t('businessAttribute.pageTitle')}</BusinessAttributeTitle>
+                    <Text color="textSecondary">{t('businessAttribute.pageSubtitle')}</Text>
                 </BusinessAttributeHeaderContainer>
             </BusinessAttributesContainer>
             <TabToolbar>
@@ -214,11 +218,11 @@ export const BusinessAttributes = () => {
                     data-testid="add-business-attribute-button"
                     disabled={!canCreateBusinessAttributes}
                 >
-                    <PlusOutlined /> Create Business Attribute
+                    <PlusOutlined /> {t('businessAttribute.createButton')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search Business Attributes..."
+                    placeholderText={t('businessAttribute.searchPlaceholder')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}
@@ -232,7 +236,9 @@ export const BusinessAttributes = () => {
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Business Attributes!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: (
+                        <Empty description={t('businessAttribute.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    ),
                 }}
                 pagination={false}
             />

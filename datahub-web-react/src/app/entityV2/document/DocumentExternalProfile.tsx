@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';
@@ -23,6 +24,7 @@ const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.S
  * Uses the traditional EntityProfile with tabs instead of the custom DocumentSimpleProfile
  */
 export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     return (
         <EntityProfile
             urn={urn}
@@ -32,7 +34,7 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: t('tab.summary'),
                     component: ExternalDocumentInlineSummaryTab,
                     display: {
                         visible: () => true,
@@ -40,7 +42,7 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: t('tab.properties'),
                     component: PropertiesTab,
                     display: {
                         visible: () => true,

@@ -1,6 +1,7 @@
 import { MoreOutlined } from '@ant-design/icons';
 import { Table } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SchemaMetadata } from '@types';
@@ -40,13 +41,14 @@ type Props = {
 };
 
 export const SchemaSummary = ({ schema }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const columns = [
         {
-            title: () => <ColumnHeader>NAME</ColumnHeader>,
+            title: () => <ColumnHeader>{t('schemaSummary.nameColumn')}</ColumnHeader>,
             render: (field) => <>{field.fieldPath}</>,
         },
         {
-            title: () => <ColumnHeader>TYPE</ColumnHeader>,
+            title: () => <ColumnHeader>{t('schemaSummary.typeColumn')}</ColumnHeader>,
             render: (field) => <>{field.nativeDataType}</>,
         },
         {
@@ -62,7 +64,7 @@ export const SchemaSummary = ({ schema }: Props) => {
 
     return (
         <Container>
-            <TitleText>SCHEMA</TitleText>
+            <TitleText>{t('schemaSummary.schemaTitle')}</TitleText>
             <SummaryContainer>
                 <StyledTable pagination={false} columns={columns} dataSource={data} />
             </SummaryContainer>

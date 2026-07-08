@@ -2,6 +2,7 @@ import { Input, spacing } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -39,6 +40,7 @@ export function NameAndOwnersSection({
     updateOwners,
     isEditing,
 }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const me = useUserContext();
 
     const form = useFormInstance<FormData>();
@@ -82,17 +84,20 @@ export function NameAndOwnersSection({
         <Form form={form} layout="vertical" onValuesChange={(_, values) => onValuesChange(values)}>
             <Container>
                 <CustomLabelFormItem
-                    label="Source Name"
+                    label={t('multiStep.connection.sourceName.label')}
                     name="source_name"
                     initialValue={sourceName}
-                    rules={[{ required: true, message: 'Source Name is required' }]}
+                    rules={[{ required: true, message: t('multiStep.connection.sourceName.required') }]}
                     required
                 >
-                    <Input placeholder="Give data source a name" inputTestId="data-source-name" />
+                    <Input
+                        placeholder={t('multiStep.connection.sourceName.placeholder')}
+                        inputTestId="data-source-name"
+                    />
                 </CustomLabelFormItem>
 
                 <ActorsField
-                    label="Add Owners"
+                    label={t('multiStep.connection.addOwners')}
                     ownerUrns={ownerUrns}
                     updateOwners={updateOwners}
                     isDisabled={!areOwnersReady}

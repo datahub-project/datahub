@@ -168,7 +168,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                         {t('usageSectionTitle')}
                     </Text>
                     <Text size="sm" color="gray">
-                        <Trans t={t} i18nKey="tokenUsageDescription" components={{ kbd: <Kbd /> }} />
+                        <Trans t={t} i18nKey="tokenUsageDescription" components={{ keyboard: <Kbd /> }} />
                     </Text>
                     <CodeBlock>
                         <CodeContent data-testid="access-token-curl">{accessTokenCurl}</CodeContent>
@@ -193,7 +193,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             t={t}
                             i18nKey="learnMoreDescription"
                             components={{
-                                link: (
+                                docsLink: (
                                     <Link
                                         href="https://www.datahubproject.io/docs/"
                                         target="_blank"

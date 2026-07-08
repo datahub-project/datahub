@@ -119,7 +119,8 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Search for documents (only when searching)
+    // Search for documents (only when searching). Bypass the active View so a document
+    // can be re-parented under any destination the user can access, even outside the View.
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
@@ -127,6 +128,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display
         sourceTypes: [DocumentSourceType.Native],
+        applyView: false,
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;

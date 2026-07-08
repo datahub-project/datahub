@@ -581,14 +581,14 @@ repos:
 
       - id: playwright-e2e-lint-fix
         name: Playwright E2E ESLint Fix
-        entry: ./gradlew :smoke-test:playwrightLintFix -x generateGitPropertiesGlobal
+        entry: ./gradlew :e2e-test:ui:playwright:lintFix -x generateGitPropertiesGlobal
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
         pass_filenames: false
 
       - id: playwright-e2e-prettier-write
         name: Playwright E2E Prettier Format
-        entry: ./gradlew :smoke-test:playwrightPrettierWrite -x generateGitPropertiesGlobal
+        entry: ./gradlew :e2e-test:ui:playwright:prettierWrite -x generateGitPropertiesGlobal
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
         pass_filenames: false
@@ -597,4 +597,11 @@ repos:
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
         language: python
+        pass_filenames: false
+      
+      - id: betterleaks
+        name: Detect hardcoded secrets
+        description: Detect hardcoded secrets using Betterleaks (system-installed binary)
+        entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
+        language: system
         pass_filenames: false

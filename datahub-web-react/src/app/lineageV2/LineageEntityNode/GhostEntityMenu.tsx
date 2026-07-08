@@ -1,6 +1,7 @@
 import { MoreOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LineageDisplayContext, onClickPreventSelect } from '@app/lineageV2/common';
@@ -45,8 +46,20 @@ interface Props {
 }
 
 export default function GhostEntityMenu({ urn }: Props) {
+    const { t } = useTranslation('lineage');
     const { displayedMenuNode, setDisplayedMenuNode } = useContext(LineageDisplayContext);
     const isMenuVisible = displayedMenuNode === urn;
+
+    const menuItems = useMemo(
+        () => [
+            {
+                key: 'copyUrn',
+                label: t('manualLineage.copyUrn'),
+                onClick: () => navigator.clipboard.writeText(urn),
+            },
+        ],
+        [t, urn],
+    );
 
     function handleMenuClick(e: React.MouseEvent<HTMLElement, MouseEvent>) {
         onClickPreventSelect(e);
@@ -63,15 +76,9 @@ export default function GhostEntityMenu({ urn }: Props) {
                 <Dropdown
                     open={isMenuVisible}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
-                    getPopupContainer={(t) => t.parentElement || t}
+                    getPopupContainer={(triggerNode) => triggerNode.parentElement || triggerNode}
                     menu={{
-                        items: [
-                            {
-                                key: 'copyUrn',
-                                label: 'Copy URN',
-                                onClick: () => navigator.clipboard.writeText(urn),
-                            },
-                        ],
+                        items: menuItems,
                     }}
                 >
                     <StyledIcon style={{ fontSize: 'inherit' }} />

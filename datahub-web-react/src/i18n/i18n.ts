@@ -3,22 +3,9 @@ import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend';
 import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
-export const NAMESPACES = [
-    'common.actions',
-    'entity.identity',
-    'entity.ownership',
-    'entity.views',
-    'home.v2',
-    'home.v3',
-    'modules',
-    'settings.features',
-    'settings.page',
-    'settings.permissions',
-    'settings.posts',
-    'settings.preferences',
-    'settings.tokens',
-    'shared.query-builder',
-] as const;
+import { NAMESPACES } from '@src/i18n/namespaces';
+
+export { NAMESPACES };
 
 if (import.meta.env.DEV) {
     const { HMRPlugin } = await import('i18next-hmr/plugin');
