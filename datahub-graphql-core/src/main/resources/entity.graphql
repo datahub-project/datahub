@@ -3162,6 +3162,11 @@ enum FabricType {
   Alternative spelling for sandbox
   """
   SBX
+
+  """
+  Designates certification fabrics
+  """
+  CERT
 }
 
 """
@@ -11935,6 +11940,11 @@ type DomainProperties {
   A Resolved Audit Stamp corresponding to the creation of this resource
   """
   createdOn: ResolvedAuditStamp
+
+  """
+  Custom properties of the Domain
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 """

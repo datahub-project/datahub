@@ -18,6 +18,7 @@ import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
@@ -74,7 +75,8 @@ public class TimeseriesController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "getAspects", entityName),
+                    authentication.getActor().toUrnStr(), request, "getAspects", entityName)
+                .withUsageOperation(UsageOperation.METADATA_QUERY),
             authorizationChain,
             authentication,
             true);

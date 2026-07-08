@@ -32,6 +32,16 @@ def get_gms_management_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_MANAGEMENT_URL")
 
 
+def get_mce_management_url() -> Optional[str]:
+    """Override base URL for MCE consumer Actuator / Micrometer.
+
+    When unset, smoke tests auto-detect: probe a standalone ``datahub-mce-consumer:4319``
+    container if present, otherwise fall back to the GMS management URL (embedded consumers).
+    Set explicitly when your deployment uses a non-default host or port.
+    """
+    return os.getenv("DATAHUB_MCE_MANAGEMENT_URL")
+
+
 def get_gms_token() -> Optional[str]:
     """GMS Bearer token for authenticated API calls."""
     return os.getenv("DATAHUB_GMS_TOKEN")

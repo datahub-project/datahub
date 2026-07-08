@@ -3,8 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { handleBatchError } from '@app/entity/shared/utils';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import DatePicker from '@utils/DayjsDatePicker';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
