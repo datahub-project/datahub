@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -13,6 +14,7 @@ from botocore.exceptions import (
 from moto import mock_aws
 
 from datahub.ingestion.source.aws.aws_common import (
+    DEFAULT_MAX_POOL_CONNECTIONS,
     AwsConnectionConfig,
     AwsEnvironment,
     aws_error_code,
@@ -687,3 +689,47 @@ class TestAwsErrorCode:
             aws_error_code(ConnectTimeoutError(endpoint_url="https://x"))
             == "ConnectTimeoutError"
         )
+
+
+class TestS3ClientCaching:
+    @mock_aws
+    def test_s3_client_cached_for_static_credentials(self, mock_aws_config):
+        first = mock_aws_config.get_s3_client()
+        assert mock_aws_config.get_s3_client() is first
+        # a different verify_ssl value is cached under its own key
+        assert mock_aws_config.get_s3_client(verify_ssl=False) is not first
+
+    def test_s3_client_cache_invalidated_on_role_refresh(self):
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        session = MagicMock()
+        session.client.side_effect = [MagicMock(), MagicMock()]
+        with patch.object(AwsConnectionConfig, "get_session", return_value=session):
+            # Valid (non-expiring) assumed-role creds -> client is reused.
+            config._credentials_expiration = datetime.now(timezone.utc) + timedelta(
+                hours=1
+            )
+            first = config.get_s3_client()
+            assert config.get_s3_client() is first
+            assert session.client.call_count == 1
+
+            # Creds now due for refresh -> cache dropped, a fresh client is built.
+            config._credentials_expiration = datetime.now(timezone.utc) - timedelta(
+                minutes=1
+            )
+            assert config.get_s3_client() is not first
+            assert session.client.call_count == 2
+
+    def test_aws_config_max_pool_connections_default_and_override(self):
+        default_config = AwsConnectionConfig(aws_region="us-east-1")._aws_config()
+        assert (
+            default_config.max_pool_connections == DEFAULT_MAX_POOL_CONNECTIONS  # type: ignore[attr-defined]
+        )
+
+        overridden = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_advanced_config={"max_pool_connections": 3},
+        )._aws_config()
+        assert overridden.max_pool_connections == 3  # type: ignore[attr-defined]
