@@ -21,8 +21,9 @@ test.describe('Homepage Basic Visibility', () => {
     expect(isVisible).toBe(true);
   });
 
-  // TEMP: intentional failure to verify PostHog test failure reporting
-  test('temp-posthog-verification: this test always fails', async () => {
-    expect(true).toBe(false);
+  // TEMP: fails on attempt 1, passes on attempt 2+ to verify PostHog flake detection
+  test('temp-posthog-verification: fails on first attempt only', async () => {
+    const attempt = parseInt(process.env.GITHUB_RUN_ATTEMPT ?? '1', 10);
+    expect(attempt).toBeGreaterThan(1);
   });
 });
