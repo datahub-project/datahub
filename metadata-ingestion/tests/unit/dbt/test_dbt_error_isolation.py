@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict
 
 from datahub.ingestion.api.common import PipelineContext
@@ -5,6 +6,7 @@ from datahub.ingestion.source.dbt import dbt_common
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_PLATFORM,
     DBTColumn,
+    DBTExposure,
     DBTNode,
     DBTSourceReport,
 )
@@ -13,7 +15,11 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     extract_dbt_entities,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessCriteria,
+    DBTFreshnessInfo,
+    DBTTest,
+)
 
 
 def _make_source(target_platform: str = "postgres") -> DBTCoreSource:
@@ -82,6 +88,47 @@ def _make_test_node(dbt_name: str, file_path: str, upstream_dbt_name: str) -> DB
         test_info=DBTTest(
             qualified_test_name="not_null", column_name="col_a", kw_args={}
         ),
+    )
+
+
+def _make_source_node_with_freshness(dbt_name: str, file_path: str) -> DBTNode:
+    return DBTNode(
+        database="mydb",
+        schema="myschema",
+        name=dbt_name.rsplit(".", 1)[-1],
+        alias=None,
+        comment="",
+        description="",
+        language=None,
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=file_path,
+        dbt_package_name="mypackage",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        freshness_info=DBTFreshnessInfo(
+            invocation_id="run-1",
+            status="pass",
+            max_loaded_at=datetime(2024, 1, 1),
+            snapshotted_at=datetime(2024, 1, 2),
+            max_loaded_at_time_ago_in_s=3600.0,
+            warn_after=DBTFreshnessCriteria(count=1, period="day"),
+            error_after=None,
+        ),
+    )
+
+
+def _make_exposure(unique_id: str, file_path: str) -> DBTExposure:
+    return DBTExposure(
+        name=unique_id.rsplit(".", 1)[-1],
+        unique_id=unique_id,
+        type="dashboard",
+        dbt_file_path=file_path,
     )
 
 
@@ -399,3 +446,69 @@ def test_create_test_entity_mcps_isolates_node_emission_failure(monkeypatch):
     [failure_entry] = source.report.node_emission_failures_list
     assert bad.dbt_name in failure_entry
     assert "tests/bad_test.sql" in failure_entry
+
+
+def test_create_freshness_assertion_mcps_isolates_node_emission_failure(monkeypatch):
+    """One source node's freshness-assertion emission crashes; the other
+    source node's MCPs are still produced and the failure is recorded."""
+    source = _make_source()
+    good = _make_source_node_with_freshness(
+        "source.pkg.good_source", "models/good_source.yml"
+    )
+    bad = _make_source_node_with_freshness(
+        "source.pkg.bad_source", "models/bad_source.yml"
+    )
+
+    original_make_assertion_from_freshness = dbt_common.make_assertion_from_freshness
+
+    def fake_make_assertion_from_freshness(
+        extra_custom_props, node, assertion_urn, upstream_urn
+    ):
+        if node.dbt_name == bad.dbt_name:
+            raise RuntimeError("simulated crash")
+        return original_make_assertion_from_freshness(
+            extra_custom_props, node, assertion_urn, upstream_urn
+        )
+
+    monkeypatch.setattr(
+        dbt_common,
+        "make_assertion_from_freshness",
+        fake_make_assertion_from_freshness,
+    )
+
+    mcps = list(
+        source.create_freshness_assertion_mcps([good, bad], extra_custom_props={})
+    )
+
+    assert mcps, "good source's freshness assertion MCPs should still be produced"
+    assert source.report.node_emission_failures == 1
+
+    [failure_entry] = source.report.node_emission_failures_list
+    assert bad.dbt_name in failure_entry
+    assert "models/bad_source.yml" in failure_entry
+
+
+def test_create_exposure_mcps_isolates_node_emission_failure(monkeypatch):
+    """One exposure's emission crashes; the other exposure's MCPs are still
+    produced and the failure is recorded with its unique_id and file path."""
+    source = _make_source()
+    good = _make_exposure("exposure.pkg.good_exposure", "models/good_exposure.yml")
+    bad = _make_exposure("exposure.pkg.bad_exposure", "models/bad_exposure.yml")
+
+    original_get_urn = DBTExposure.get_urn
+
+    def fake_get_urn(self, platform_instance=None):
+        if self.unique_id == bad.unique_id:
+            raise RuntimeError("simulated crash")
+        return original_get_urn(self, platform_instance=platform_instance)
+
+    monkeypatch.setattr(DBTExposure, "get_urn", fake_get_urn)
+
+    mcps = list(source.create_exposure_mcps([good, bad], all_nodes_map={}))
+
+    assert mcps, "good exposure's MCPs should still be produced"
+    assert source.report.node_emission_failures == 1
+
+    [failure_entry] = source.report.node_emission_failures_list
+    assert bad.unique_id in failure_entry
+    assert "models/bad_exposure.yml" in failure_entry

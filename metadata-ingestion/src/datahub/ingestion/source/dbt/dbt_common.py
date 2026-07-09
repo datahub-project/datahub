@@ -1710,64 +1710,73 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.node_type != "source" or not node.freshness_info:
                 continue
 
-            upstream_urn = node.get_urn(
-                target_platform=self.config.target_platform,
-                data_platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-
-            assertion_urn = mce_builder.make_assertion_urn(
-                mce_builder.datahub_guid(
-                    {
-                        k: v
-                        for k, v in {
-                            "platform": DBT_PLATFORM,
-                            "name": f"{node.dbt_name}_freshness",
-                            "instance": self.config.platform_instance,
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            **(
-                                {"env": self.config.env}
-                                if self.config.env != mce_builder.DEFAULT_ENV
-                                and self.config.include_env_in_assertion_guid
-                                else {}
-                            ),
-                        }.items()
-                        if v is not None
-                    }
+            try:
+                upstream_urn = node.get_urn(
+                    target_platform=self.config.target_platform,
+                    data_platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
-            )
 
-            custom_props = {
-                "dbt_unique_id": node.dbt_name,
-                **extra_custom_props,
-            }
+                assertion_urn = mce_builder.make_assertion_urn(
+                    mce_builder.datahub_guid(
+                        {
+                            k: v
+                            for k, v in {
+                                "platform": DBT_PLATFORM,
+                                "name": f"{node.dbt_name}_freshness",
+                                "instance": self.config.platform_instance,
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                **(
+                                    {"env": self.config.env}
+                                    if self.config.env != mce_builder.DEFAULT_ENV
+                                    and self.config.include_env_in_assertion_guid
+                                    else {}
+                                ),
+                            }.items()
+                            if v is not None
+                        }
+                    )
+                )
 
-            if self.config.entities_enabled.can_emit_test_definitions:
-                assertion_mcp = make_assertion_from_freshness(
-                    custom_props,
+                custom_props = {
+                    "dbt_unique_id": node.dbt_name,
+                    **extra_custom_props,
+                }
+
+                if self.config.entities_enabled.can_emit_test_definitions:
+                    assertion_mcp = make_assertion_from_freshness(
+                        custom_props,
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                    )
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=assertion_urn,
+                        aspect=self._make_data_platform_instance_aspect(),
+                    )
+                    yield assertion_mcp
+
+                if self.config.entities_enabled.can_emit_test_results:
+                    yield make_assertion_result_from_freshness(
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                        test_warnings_are_errors=self.config.test_warnings_are_errors,
+                    )
+                else:
+                    logger.debug(
+                        f"Skipping freshness result for {node.name} emission since it is turned off."
+                    )
+            except Exception as e:
+                self._record_node_failure(
                     node,
-                    assertion_urn,
-                    upstream_urn,
-                )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=assertion_urn,
-                    aspect=self._make_data_platform_instance_aspect(),
-                )
-                yield assertion_mcp
-
-            if self.config.entities_enabled.can_emit_test_results:
-                yield make_assertion_result_from_freshness(
-                    node,
-                    assertion_urn,
-                    upstream_urn,
-                    test_warnings_are_errors=self.config.test_warnings_are_errors,
-                )
-            else:
-                logger.debug(
-                    f"Skipping freshness result for {node.name} emission since it is turned off."
+                    e,
+                    title="Failed to emit freshness-assertion metadata",
+                    message="Failed to emit freshness assertion metadata for this node; some or all of its workunits may be missing.",
+                    kind="emission",
                 )
 
     def _create_test_assertion_ownership_mcp(
@@ -1810,130 +1819,144 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Generate MCPs for dbt exposures as Dashboard entities with upstream lineage."""
         for exposure in sorted(exposures, key=lambda e: e.unique_id):
-            exposure_urn = exposure.get_urn(
-                platform_instance=self.config.platform_instance,
-            )
+            try:
+                exposure_urn = exposure.get_urn(
+                    platform_instance=self.config.platform_instance,
+                )
 
-            # Platform instance aspect
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=self._make_data_platform_instance_aspect(),
-            )
-
-            # Build custom properties
-            custom_properties: Dict[str, str] = {
-                "dbt_unique_id": exposure.unique_id,
-                "exposure_type": exposure.type,
-            }
-            if exposure.maturity:
-                custom_properties["maturity"] = exposure.maturity
-            if exposure.dbt_package_name:
-                custom_properties["dbt_package_name"] = exposure.dbt_package_name
-            if exposure.dbt_file_path:
-                custom_properties["dbt_file_path"] = exposure.dbt_file_path
-            # Add meta properties
-            for key, value in exposure.meta.items():
-                custom_properties[str(key)] = str(value)
-
-            # Generate upstream lineage from depends_on
-            upstream_urns: List[str] = []
-            for upstream_dbt_name in exposure.depends_on:
-                upstream_node = all_nodes_map.get(upstream_dbt_name)
-                if upstream_node:
-                    upstream_urn = upstream_node.get_urn(
-                        target_platform=DBT_PLATFORM,
-                        env=self.config.env,
-                        data_platform_instance=self.config.platform_instance,
-                    )
-                    upstream_urns.append(upstream_urn)
-                else:
-                    logger.warning(
-                        f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
-                    )
-
-            # Dashboard info aspect
-            # Use current ingestion time for audit stamps since dbt exposures
-            # don't have created/modified timestamps
-            current_timestamp = int(datetime.now().timestamp() * 1000)
-            audit_stamp = AuditStampClass(
-                time=current_timestamp,
-                actor=mce_builder.make_user_urn("dbt_ingestion"),
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=DashboardInfoClass(
-                    title=exposure.name,
-                    description=exposure.description or "",
-                    customProperties=custom_properties,
-                    externalUrl=exposure.url,
-                    lastModified=ChangeAuditStampsClass(
-                        created=audit_stamp,
-                        lastModified=audit_stamp,
-                    ),
-                    datasets=upstream_urns if upstream_urns else None,
-                ),
-            )
-
-            # Status aspect
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=StatusClass(removed=False),
-            )
-
-            # SubTypes aspect - use exposure type as subtype
-            subtype_mapping = {
-                "dashboard": "Dashboard",
-                "notebook": "Notebook",
-                "analysis": "Analysis",
-                "ml": "ML Model",
-                "application": "Application",
-            }
-            subtype = subtype_mapping.get(exposure.type.lower(), exposure.type.title())
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=SubTypesClass(typeNames=[subtype]),
-            )
-
-            # Ownership aspect - respects enable_owner_extraction config like other dbt assets
-            if self.config.enable_owner_extraction and (
-                exposure.owner_email or exposure.owner_name
-            ):
-                owner_value = exposure.owner_email or exposure.owner_name
-                if owner_value:
-                    # Apply strip_user_ids_from_email consistently with other dbt assets
-                    if self.config.strip_user_ids_from_email and "@" in owner_value:
-                        owner_value = owner_value.split("@")[0]
-                        logger.debug(f"Owner (after stripping email): {owner_value}")
-                    elif not exposure.owner_email:
-                        # Fallback to name-based URN when email not available
-                        owner_value = owner_value.replace(" ", "_").lower()
-                        logger.debug(
-                            f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
-                            f"without email - URN may not match existing users"
-                        )
-
-                    owner_urn = mce_builder.make_user_urn(owner_value)
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=exposure_urn,
-                        aspect=OwnershipClass(
-                            owners=[
-                                OwnerClass(
-                                    owner=owner_urn,
-                                    type=OwnershipTypeClass.DATAOWNER,
-                                )
-                            ]
-                        ),
-                    )
-
-            # Tags aspect
-            if exposure.tags:
-                tag_associations = [
-                    TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
-                    for tag in exposure.tags
-                ]
+                # Platform instance aspect
                 yield MetadataChangeProposalWrapper(
                     entityUrn=exposure_urn,
-                    aspect=GlobalTagsClass(tags=tag_associations),
+                    aspect=self._make_data_platform_instance_aspect(),
+                )
+
+                # Build custom properties
+                custom_properties: Dict[str, str] = {
+                    "dbt_unique_id": exposure.unique_id,
+                    "exposure_type": exposure.type,
+                }
+                if exposure.maturity:
+                    custom_properties["maturity"] = exposure.maturity
+                if exposure.dbt_package_name:
+                    custom_properties["dbt_package_name"] = exposure.dbt_package_name
+                if exposure.dbt_file_path:
+                    custom_properties["dbt_file_path"] = exposure.dbt_file_path
+                # Add meta properties
+                for key, value in exposure.meta.items():
+                    custom_properties[str(key)] = str(value)
+
+                # Generate upstream lineage from depends_on
+                upstream_urns: List[str] = []
+                for upstream_dbt_name in exposure.depends_on:
+                    upstream_node = all_nodes_map.get(upstream_dbt_name)
+                    if upstream_node:
+                        upstream_urn = upstream_node.get_urn(
+                            target_platform=DBT_PLATFORM,
+                            env=self.config.env,
+                            data_platform_instance=self.config.platform_instance,
+                        )
+                        upstream_urns.append(upstream_urn)
+                    else:
+                        logger.warning(
+                            f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
+                        )
+
+                # Dashboard info aspect
+                # Use current ingestion time for audit stamps since dbt exposures
+                # don't have created/modified timestamps
+                current_timestamp = int(datetime.now().timestamp() * 1000)
+                audit_stamp = AuditStampClass(
+                    time=current_timestamp,
+                    actor=mce_builder.make_user_urn("dbt_ingestion"),
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=DashboardInfoClass(
+                        title=exposure.name,
+                        description=exposure.description or "",
+                        customProperties=custom_properties,
+                        externalUrl=exposure.url,
+                        lastModified=ChangeAuditStampsClass(
+                            created=audit_stamp,
+                            lastModified=audit_stamp,
+                        ),
+                        datasets=upstream_urns if upstream_urns else None,
+                    ),
+                )
+
+                # Status aspect
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=StatusClass(removed=False),
+                )
+
+                # SubTypes aspect - use exposure type as subtype
+                subtype_mapping = {
+                    "dashboard": "Dashboard",
+                    "notebook": "Notebook",
+                    "analysis": "Analysis",
+                    "ml": "ML Model",
+                    "application": "Application",
+                }
+                subtype = subtype_mapping.get(
+                    exposure.type.lower(), exposure.type.title()
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=SubTypesClass(typeNames=[subtype]),
+                )
+
+                # Ownership aspect - respects enable_owner_extraction config like other dbt assets
+                if self.config.enable_owner_extraction and (
+                    exposure.owner_email or exposure.owner_name
+                ):
+                    owner_value = exposure.owner_email or exposure.owner_name
+                    if owner_value:
+                        # Apply strip_user_ids_from_email consistently with other dbt assets
+                        if self.config.strip_user_ids_from_email and "@" in owner_value:
+                            owner_value = owner_value.split("@")[0]
+                            logger.debug(
+                                f"Owner (after stripping email): {owner_value}"
+                            )
+                        elif not exposure.owner_email:
+                            # Fallback to name-based URN when email not available
+                            owner_value = owner_value.replace(" ", "_").lower()
+                            logger.debug(
+                                f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
+                                f"without email - URN may not match existing users"
+                            )
+
+                        owner_urn = mce_builder.make_user_urn(owner_value)
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=exposure_urn,
+                            aspect=OwnershipClass(
+                                owners=[
+                                    OwnerClass(
+                                        owner=owner_urn,
+                                        type=OwnershipTypeClass.DATAOWNER,
+                                    )
+                                ]
+                            ),
+                        )
+
+                # Tags aspect
+                if exposure.tags:
+                    tag_associations = [
+                        TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
+                        for tag in exposure.tags
+                    ]
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=exposure_urn,
+                        aspect=GlobalTagsClass(tags=tag_associations),
+                    )
+            except Exception as e:
+                context = f"{exposure.unique_id} ({exposure.dbt_file_path})"
+                self.report.record_node_failure(
+                    context,
+                    e,
+                    title="Failed to emit exposure metadata",
+                    message="Failed to emit metadata for this exposure; some or all of its workunits may be missing.",
+                    kind="emission",
                 )
 
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
@@ -2342,10 +2365,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 title="Semantic View CLL Parsing Failed",
                                 message=f"Failed to parse column-level lineage: {str(e)}",
                                 context=node.dbt_name,
-                            )
-                            logger.debug(
-                                f"Semantic view CLL parsing traceback for {node.dbt_name}",
-                                exc_info=True,
+                                exc=e,
                             )
                     else:
                         self.report.warning(
