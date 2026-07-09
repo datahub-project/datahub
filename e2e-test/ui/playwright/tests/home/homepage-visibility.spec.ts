@@ -20,4 +20,9 @@ test.describe('Homepage Basic Visibility', () => {
     const isVisible = await homePage.isSearchBarVisible();
     expect(isVisible).toBe(true);
   });
+
+  // TEMP: intentional failure to verify PostHog test failure reporting
+  test('temp-posthog-verification: this test always fails', async () => {
+    expect(true).toBe(false);
+  });
 });
