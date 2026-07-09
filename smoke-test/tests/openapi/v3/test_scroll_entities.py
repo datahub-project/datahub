@@ -58,6 +58,66 @@ def test_scroll_entities_basic(graph_client: DataHubGraph) -> None:
     )
 
 
+def test_scroll_entities_aspects_none_returns_urns_only(
+    graph_client: DataHubGraph,
+) -> None:
+    """aspects=None fetches no aspects: every matching entity is returned as a
+    urn mapped to an empty aspect dict (rather than being dropped)."""
+    result = graph_client.scroll_entities(
+        entity_names=["dataset"],
+        filter=SCROLLTEST_FILTER,
+        aspects=None,
+        count=10,
+    )
+    assert set(result.entities.keys()) == ALL_DATASET_URNS
+    assert all(aspects == {} for aspects in result.entities.values()), (
+        f"aspects=None should return no aspects, got: {result.entities}"
+    )
+    logger.info(
+        f"scroll_entities aspects=None: {len(result.entities)} urn-only entities"
+    )
+
+
+def test_scroll_entities_aspects_empty_returns_all_aspects(
+    graph_client: DataHubGraph,
+) -> None:
+    """aspects=[] fetches all aspects: datasets come back with both their
+    auto-generated key aspect and the ingested datasetProperties."""
+    result = graph_client.scroll_entities(
+        entity_names=["dataset"],
+        filter=SCROLLTEST_FILTER,
+        aspects=[],
+        count=10,
+    )
+    assert set(result.entities.keys()) == ALL_DATASET_URNS
+    for urn, aspects in result.entities.items():
+        assert "datasetKey" in aspects, f"datasetKey missing for {urn}: {aspects}"
+        assert "datasetProperties" in aspects, (
+            f"datasetProperties missing for {urn}: {aspects}"
+        )
+    logger.info("scroll_entities aspects=[]: all aspects returned for each dataset")
+
+
+def test_scroll_entities_aspects_single_returns_only_that_aspect(
+    graph_client: DataHubGraph,
+) -> None:
+    """aspects=["datasetProperties"] fetches only that aspect."""
+    result = graph_client.scroll_entities(
+        entity_names=["dataset"],
+        filter=SCROLLTEST_FILTER,
+        aspects=["datasetProperties"],
+        count=10,
+    )
+    assert set(result.entities.keys()) == ALL_DATASET_URNS
+    for urn, aspects in result.entities.items():
+        assert set(aspects.keys()) == {"datasetProperties"}, (
+            f"Expected only datasetProperties for {urn}, got: {set(aspects.keys())}"
+        )
+    logger.info(
+        "scroll_entities aspects=['datasetProperties']: only that aspect returned"
+    )
+
+
 def test_scroll_entities_by_entity_type(graph_client: DataHubGraph) -> None:
     # Filter by "dataset" — should return only our 6 datasets, not the 2 ML models.
     datasets = graph_client.scroll_entities(
