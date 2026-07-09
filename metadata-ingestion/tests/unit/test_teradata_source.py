@@ -5355,7 +5355,6 @@ class TestFilterDropDebugLogging:
                 create_timestamp=datetime(2024, 1, 1),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
         ]
         process_table = MagicMock(return_value=iter([]))
