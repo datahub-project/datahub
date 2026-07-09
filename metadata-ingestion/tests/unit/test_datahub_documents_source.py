@@ -7,6 +7,7 @@ from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 # Skip entire module if unstructured is not installed (requires Python 3.10+)
 pytest.importorskip("unstructured")
@@ -3553,3 +3554,71 @@ class TestLockIntegrationWithSource:
             source = DataHubDocumentsSource(ctx, config)
             assert source.lock is not None
             assert str(source.lock.urn) == "urn:li:dataHubStepState:my-custom-lock"
+
+
+class TestPollEventsSessionAuth:
+    """The poll must go through the graph's session so session.auth applies."""
+
+    class _RecordingAdapter(requests.adapters.HTTPAdapter):
+        """Captures fully prepared requests and returns a canned poll response."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.sent: list[requests.PreparedRequest] = []
+
+        def send(  # type: ignore[override]
+            self, request: requests.PreparedRequest, **kwargs: Any
+        ) -> requests.Response:
+            self.sent.append(request)
+            response = requests.Response()
+            response.status_code = 200
+            response._content = json.dumps(
+                {"offsetId": "offset-after", "events": []}
+            ).encode()
+            response.request = request
+            return response
+
+    @staticmethod
+    def _oauth_style_auth(
+        request: requests.PreparedRequest,
+    ) -> requests.PreparedRequest:
+        # Mimics an OAuth token provider installed as session.auth: it attaches
+        # a fresh Authorization header to each request at send time, so auth
+        # that is not baked into session.headers is only present if the request
+        # actually goes through the session.
+        request.headers["Authorization"] = "Bearer fresh-oauth-token"
+        return request
+
+    def test_poll_events_carries_session_auth_to_the_wire(self) -> None:
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.source.unstructured.event_consumer import (
+            DocumentEventConsumer,
+        )
+
+        session = requests.Session()
+        session.auth = self._oauth_style_auth
+        adapter = self._RecordingAdapter()
+        session.mount("http://", adapter)
+
+        graph = Mock(spec=DataHubGraph)
+        graph.config = Mock()
+        graph.config.server = "http://gms.example"
+        graph.session = session
+
+        consumer = DocumentEventConsumer(
+            graph=graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+            reset_offsets=True,
+        )
+        events = consumer.poll_events("MetadataChangeLog_Versioned_v1")
+
+        assert len(adapter.sent) == 1
+        request = adapter.sent[0]
+        assert request.url is not None
+        assert request.url.startswith("http://gms.example/openapi/v1/events/poll?")
+        # The per-request credential from session.auth must reach the wire. A
+        # bare requests.get built from copied session.headers would drop it and
+        # poll unauthenticated.
+        assert request.headers["Authorization"] == "Bearer fresh-oauth-token"
+        assert events == []

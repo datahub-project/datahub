@@ -1,11 +1,13 @@
 # test_acryl_datahub_events_consumer.py
 
+import json
 import time
 from contextlib import contextmanager
-from typing import List, Optional, cast
+from typing import Any, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from requests.exceptions import (
     ChunkedEncodingError,
     ConnectionError,
@@ -672,3 +674,55 @@ def test_main_block_without_initial_offset(mock_graph: DataHubGraph) -> None:
         assert mock_poll_events.called
         assert mock_print.called
         assert mock_sleep.called
+
+
+class _RecordingAdapter(requests.adapters.HTTPAdapter):
+    """Captures fully prepared requests and returns a canned poll response."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: List[requests.PreparedRequest] = []
+
+    def send(self, request: requests.PreparedRequest, **kwargs: Any) -> Response:  # type: ignore[override]
+        self.sent.append(request)
+        response = Response()
+        response.status_code = 200
+        response._content = json.dumps(
+            {"offsetId": "offset-after", "count": 0, "events": []}
+        ).encode()
+        response.request = request
+        return response
+
+
+def _oauth_style_auth(request: requests.PreparedRequest) -> requests.PreparedRequest:
+    # Mimics an OAuth token provider installed as session.auth: it attaches a
+    # fresh Authorization header to each request at send time, so auth that is
+    # not baked into session.headers is only present if the request actually
+    # goes through the session.
+    request.headers["Authorization"] = "Bearer fresh-oauth-token"
+    return request
+
+
+def test_poll_events_carries_session_auth_to_the_wire() -> None:
+    session = requests.Session()
+    session.auth = _oauth_style_auth
+    adapter = _RecordingAdapter()
+    session.mount("http://", adapter)
+
+    graph = MagicMock(spec=DataHubGraph)
+    graph.config = MagicMock()
+    graph.config.server = "http://gms.example"
+    graph.session = session
+
+    consumer = DataHubEventsConsumer(graph=cast(DataHubGraph, graph))
+    response = consumer.poll_events(topic="PlatformEvent_v1", limit=10)
+
+    assert len(adapter.sent) == 1
+    request = adapter.sent[0]
+    assert request.url is not None
+    assert request.url.startswith("http://gms.example/openapi/v1/events/poll?")
+    # The per-request credential from session.auth must reach the wire. A bare
+    # requests.get built from copied session.headers would drop it and poll
+    # unauthenticated.
+    assert request.headers["Authorization"] == "Bearer fresh-oauth-token"
+    assert response.offsetId == "offset-after"
