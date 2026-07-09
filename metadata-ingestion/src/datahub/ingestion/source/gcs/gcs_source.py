@@ -347,6 +347,7 @@ class GCSSource(StatefulIngestionSourceBase):
                     default_extension=path_spec.default_extension,
                     table_name=path_spec.table_name,
                     enable_compression=path_spec.enable_compression,
+                    max_zip_entry_size=path_spec.max_zip_entry_size,
                     sample_files=path_spec.sample_files,
                     allow_double_stars=path_spec.allow_double_stars,
                     autodetect_partitions=path_spec.autodetect_partitions,
