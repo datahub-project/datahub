@@ -347,12 +347,17 @@ class MySQLSource(TwoTierSQLAlchemySource):
         if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
-            for row in conn.execute(
-                "SELECT table_schema, table_name, data_length from information_schema.tables"
+            # MySQL upper-cases information_schema labels; MariaDB keeps the
+            # selected case. Unpack positionally so access is case-independent.
+            for table_schema, table_name, data_length in conn.execute(
+                text(
+                    "SELECT table_schema, table_name, data_length "
+                    "FROM information_schema.tables"
+                )
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
-                    f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"
-                ] = row.DATA_LENGTH
+                    f"{table_schema}.{table_name}"
+                ] = data_length
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
