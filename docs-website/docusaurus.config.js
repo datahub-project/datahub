@@ -148,55 +148,55 @@ module.exports = {
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/1.5.0/features">1.5.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/1.5.0/features">1.5.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/1.3.0/features">1.3.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/1.3.0/features">1.3.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/1.1.0/features">1.1.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/1.1.0/features">1.1.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/1.0.0/features">1.0.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/1.0.0/features">1.0.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.15.0/features">0.15.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.15.0/features">0.15.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.14.1/features">0.14.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.14.1/features">0.14.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.14.0/features">0.14.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.14.0/features">0.14.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.13.1/">0.13.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.13.1/">0.13.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.13.0/features">0.13.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.13.0/features">0.13.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.12.1/features">0.12.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.12.1/features">0.12.1<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.12.0/features">0.12.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.12.0/features">0.12.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.11.0/features">0.11.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.11.0/features">0.11.0<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
             {
               type: "html",
-              value: `<a class="dropdown__link" href="https://archive.docs.datahub.com/docs/0.10.5/features">0.10.5<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="https://archive.docs.datahub.com/docs/0.10.5/features">0.10.5<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a>`,
             },
           ],
         },
