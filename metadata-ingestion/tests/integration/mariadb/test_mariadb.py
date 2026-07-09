@@ -1,30 +1,29 @@
 import subprocess
-from datetime import datetime, timezone
+from typing import List
 
 import pytest
 import time_machine
 
-from datahub.ingestion.source.sql.mysql import MySQLSource
+from datahub.ingestion.source.sql.mariadb import MariaDBSource
 from datahub.testing import mce_helpers
 from tests.test_helpers import mysql_usage_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
-FROZEN_TIME = "2020-04-14 07:00:00"
-FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
-MYSQL_PORT = 3306
-MYSQL_USAGE_PORT = 53308
+FROZEN_TIME = "2024-04-14 07:00:00"
+MARIADB_PORT = 3306
+MARIADB_USAGE_PORT = 53301
 
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/mysql"
+    return pytestconfig.rootpath / "tests/integration/mariadb"
 
 
-def is_mysql_up(container_name: str, port: int) -> bool:
-    """A cheap way to figure out if mysql is responsive on a container"""
+def is_mariadb_up(container_name: str, port: int) -> bool:
+    """A cheap way to figure out if mariadb is responsive on a container"""
 
-    cmd = f"docker logs {container_name} 2>&1 | grep '/usr/sbin/mysqld: ready for connections.' | grep {port}"
+    cmd = f"docker logs {container_name} 2>&1 | grep 'port: {port}  mariadb.org binary distribution'"
     ret = subprocess.run(
         cmd,
         shell=True,
@@ -33,16 +32,16 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "mysql"
+        test_resources_dir / "docker-compose.yml", "mariadb"
     ) as docker_services:
         wait_for_port(
             docker_services,
-            "testmysql",
-            MYSQL_PORT,
+            "testmariadb",
+            MARIADB_PORT,
             timeout=120,
-            checker=lambda: is_mysql_up("testmysql", MYSQL_PORT),
+            checker=lambda: is_mariadb_up("testmariadb", MARIADB_PORT),
         )
         yield docker_services
 
@@ -50,19 +49,13 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 @pytest.mark.parametrize(
     "config_file,golden_file",
     [
-        ("mysql_to_file_with_db.yml", "mysql_mces_with_db_golden.json"),
-        ("mysql_to_file_no_db.yml", "mysql_mces_no_db_golden.json"),
-        ("mysql_profile_table_level_only.yml", "mysql_table_level_only.json"),
-        (
-            "mysql_profile_table_row_count_estimate_only.yml",
-            "mysql_table_row_count_estimate_only.json",
-        ),
+        ("mariadb_to_file.yml", "mariadb_mces_golden.json"),
     ],
 )
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
-def test_mysql_ingest_no_db(
-    mysql_runner,
+def test_mariadb_ingest_no_db(
+    mariadb_runner,
     pytestconfig,
     test_resources_dir,
     tmp_path,
@@ -73,39 +66,48 @@ def test_mysql_ingest_no_db(
     config_file = (test_resources_dir / config_file).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
+    # These custom properties are set at ingest time and FROZEN_TIME does not apply to them.
+    ignore_paths: List[str] = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_altered'\]",
+    ]
+
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "mysql_mces.json",
+        ignore_paths=ignore_paths,
+        output_path=tmp_path / "mariadb_mces.json",
         golden_path=test_resources_dir / golden_file,
     )
 
 
 @pytest.fixture(scope="module")
-def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mariadb_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.usage.yml", "mysql-usage"
+        test_resources_dir / "docker-compose.usage.yml", "mariadb-usage"
     ) as docker_services:
         wait_for_port(
             docker_services,
-            "testmysqlusage",
-            MYSQL_PORT,
+            "testmariadbusage",
+            MARIADB_PORT,
             timeout=120,
-            checker=lambda: is_mysql_up("testmysqlusage", MYSQL_PORT),
+            # Match the real server's ready line (with port), not the temporary
+            # init server that logs the same banner without a port.
+            checker=lambda: is_mariadb_up("testmariadbusage", MARIADB_PORT),
         )
         mysql_usage_helpers.execute_usage_workload(
-            port=MYSQL_USAGE_PORT, password="example"
+            port=MARIADB_USAGE_PORT, password="password"
         )
         yield docker_services
 
 
 @pytest.mark.integration
-def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
+def test_mariadb_usage_performance_schema(mariadb_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
-        platform="mysql",
+        platform="mariadb",
         usage_source="performance_schema",
-        port=MYSQL_USAGE_PORT,
-        password="example",
+        port=MARIADB_USAGE_PORT,
+        password="password",
         output_path=tmp_path / "perf.json",
     )
 
@@ -121,12 +123,12 @@ def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
 
 
 @pytest.mark.integration
-def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
+def test_mariadb_usage_general_log(mariadb_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
-        platform="mysql",
+        platform="mariadb",
         usage_source="general_log",
-        port=MYSQL_USAGE_PORT,
-        password="example",
+        port=MARIADB_USAGE_PORT,
+        password="password",
         output_path=tmp_path / "glog.json",
     )
 
@@ -153,11 +155,10 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
     [
         (
             {
-                "host_port": "localhost:53307",
-                "database": "northwind",
+                "host_port": "localhost:53300",
+                "database": "test_db",
                 "username": "root",
-                "password": "example",
-                "stateful_ingestion": {"enabled": "true"},
+                "password": "password",
             },
             True,
         ),
@@ -172,10 +173,10 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
         ),
     ],
 )
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
-def test_mysql_test_connection(mysql_runner, config_dict, is_success):
-    report = test_connection_helpers.run_test_connection(MySQLSource, config_dict)
+def test_mariadb_test_connection(mariadb_runner, config_dict, is_success):
+    report = test_connection_helpers.run_test_connection(MariaDBSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)
     else:
