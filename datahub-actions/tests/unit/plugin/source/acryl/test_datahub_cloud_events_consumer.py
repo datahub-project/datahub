@@ -3,7 +3,7 @@
 import json
 import time
 from contextlib import contextmanager
-from typing import Any, List, Optional, cast
+from typing import List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -683,7 +683,9 @@ class _RecordingAdapter(requests.adapters.HTTPAdapter):
         super().__init__()
         self.sent: List[requests.PreparedRequest] = []
 
-    def send(self, request: requests.PreparedRequest, **kwargs: Any) -> Response:  # type: ignore[override]
+    def send(
+        self, request: requests.PreparedRequest, *args: object, **kwargs: object
+    ) -> Response:
         self.sent.append(request)
         response = Response()
         response.status_code = 200

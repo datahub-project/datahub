@@ -3566,8 +3566,8 @@ class TestPollEventsSessionAuth:
             super().__init__()
             self.sent: list[requests.PreparedRequest] = []
 
-        def send(  # type: ignore[override]
-            self, request: requests.PreparedRequest, **kwargs: Any
+        def send(
+            self, request: requests.PreparedRequest, *args: object, **kwargs: object
         ) -> requests.Response:
             self.sent.append(request)
             response = requests.Response()
