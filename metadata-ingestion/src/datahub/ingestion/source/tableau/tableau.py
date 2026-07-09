@@ -2361,15 +2361,7 @@ class TableauSiteSource:
                 and cll_info.downstream.column is not None
                 else []
             )
-            # column_ref.column can be an empty string when sqlglot's column-lineage
-            # resolution fails to match a column against the upstream table schema.
-            # Passing that through would build an invalid schemaField URN with an
-            # empty field path and get rejected by GMS.
-            upstreams = [
-                builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                for column_ref in cll_info.upstreams
-                if column_ref.column
-            ]
+            upstreams = cll_info.upstream_schema_field_urns()
             fine_grained_lineages.append(
                 FineGrainedLineage(
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
