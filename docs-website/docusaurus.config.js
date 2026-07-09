@@ -1,6 +1,31 @@
 require("dotenv").config();
 const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
+// Archived documentation for legacy versions is hosted separately at
+// archive.docs.datahub.com (see the version dropdown below). Cross-site links
+// open in a new tab; within-site version switching stays in the same tab.
+const ARCHIVE_BASE = "https://archive.docs.datahub.com/docs";
+const EXTERNAL_LINK_ICON =
+  '<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>';
+// [version label, path under /docs/<version>/]. Every version links to its
+// /features page EXCEPT 0.13.1, which has no features page in the archive and
+// so points to its version home instead.
+const ARCHIVED_VERSIONS = [
+  ["1.5.0", "1.5.0/features"],
+  ["1.3.0", "1.3.0/features"],
+  ["1.1.0", "1.1.0/features"],
+  ["1.0.0", "1.0.0/features"],
+  ["0.15.0", "0.15.0/features"],
+  ["0.14.1", "0.14.1/features"],
+  ["0.14.0", "0.14.0/features"],
+  ["0.13.1", "0.13.1/"],
+  ["0.13.0", "0.13.0/features"],
+  ["0.12.1", "0.12.1/features"],
+  ["0.12.0", "0.12.0/features"],
+  ["0.11.0", "0.11.0/features"],
+  ["0.10.5", "0.10.5/features"],
+];
+
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "The #1 Open Source Metadata Platform",
@@ -133,106 +158,26 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
-        // Static version label to replace the broken dropdown
-        {
-          type: 'html',
-          position: 'left',
-          value: '<div class="navbar__item" style="font-weight: 600; color: #1890FF; background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 12px; padding: 1px 10px; margin-left: 8px; font-size: 0.85rem; line-height: 1.5;">1.6.0</div>',
-        },
-        /* * TODO: Temporarily disabled the legacy version dropdown to prevent users 
-         * from navigating to expired preview deployment links (404s). 
-         * This will be re-enabled and updated once a decoupled static archive 
-         * for legacy versions is implemented and hosted.
-         */
-        /*
         {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
           dropdownItemsAfter: [
             {
-              type: 'html',
+              type: "html",
               value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
             },
             {
-              type: 'html',
+              type: "html",
               value: '<div class="dropdown__link"><b>Archived versions</b></div>',
             },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-t9sv4w3gr-acryldata.vercel.app/docs/features">1.0.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
+            // Cross-site links to the standalone archive open in a new tab.
+            ...ARCHIVED_VERSIONS.map(([label, path]) => ({
               type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-t9sv4w3gr-acryldata.vercel.app/docs/0.15.0/features">0.15.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features">0.14.1
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features">0.14.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="${ARCHIVE_BASE}/${path}">${label}${EXTERNAL_LINK_ICON}</a>`,
+            })),
           ],
         },
-        */
         {
           href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `

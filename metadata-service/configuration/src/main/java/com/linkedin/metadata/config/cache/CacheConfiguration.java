@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class CacheConfiguration {
   PrimaryCacheConfiguration primary;
   HomepageCacheConfiguration homepage;
+  EntityCountsCacheConfiguration entityCounts;
   SearchCacheConfiguration search;
   ClientCacheConfiguration client;
 }

@@ -15,7 +15,7 @@ public class Constants {
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
-  public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
+
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
   // Actor ID for unauthenticated requests
@@ -130,6 +130,14 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String APPLICATION_ENTITY_NAME = "application";
+  public static final String METRIC_ENTITY_NAME = "metric";
+  public static final String METRIC_KEY_ASPECT_NAME = "metricKey";
+  public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
+  public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
+  public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
+  public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
+  public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");

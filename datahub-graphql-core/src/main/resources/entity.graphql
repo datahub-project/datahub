@@ -5142,6 +5142,11 @@ type Tag implements Entity {
   ownership: Ownership
 
   """
+  The deprecation status of the Tag
+  """
+  deprecation: Deprecation
+
+  """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -11902,6 +11907,11 @@ type Domain implements Entity {
   displayProperties: DisplayProperties
 
   """
+  Deprecation status of the domain
+  """
+  deprecation: Deprecation
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
@@ -13514,6 +13524,11 @@ type DataProduct implements Entity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Deprecation status of the data product
+  """
+  deprecation: Deprecation
 
   """
   Privileges given to a user relevant to this entity

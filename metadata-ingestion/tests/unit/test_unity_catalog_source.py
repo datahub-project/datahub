@@ -1,11 +1,12 @@
 from unittest.mock import ANY, patch
 
 import pytest
+from databricks.sdk.service.catalog import TableType
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column
+from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
@@ -2715,3 +2716,141 @@ class TestUnityCatalogMetricViews:
         assert any("orders" in u for u in upstream_urns)
         assert any("customer" in u for u in upstream_urns)
         assert any("nation" in u for u in upstream_urns)
+
+
+class TestUnityCatalogViewFiltering:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        ctx = PipelineContext(run_id="test_run")
+        return UnityCatalogSource.create(config, ctx)
+
+    @staticmethod
+    def _build_table(name: str, table_type: TableType) -> tuple:
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+        )
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id=f"c.s.{name}",
+            name=name,
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=table_type,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition="SELECT 1" if "view" in name else None,
+            properties={},
+        )
+        return table, schema
+
+    def _run(self, source: UnityCatalogSource, table: Table, schema: Schema) -> list:
+        def _stub_tables(schema, _table=table):
+            return iter([_table])
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        return list(source.process_tables(schema))
+
+    def test_include_views_false_drops_view(self):
+        source = self._build_source(include_views=False)
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        assert self._run(source, view, schema) == []
+        assert view.id in list(source.report.tables.dropped_entities)
+        assert view.ref not in source.view_refs
+
+    def test_view_pattern_deny_drops_view(self):
+        source = self._build_source(view_pattern={"deny": [".*"]})
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        assert self._run(source, view, schema) == []
+        assert view.id in list(source.report.tables.dropped_entities)
+        assert view.ref not in source.view_refs
+
+    def test_view_ingested_by_default(self):
+        source = self._build_source()
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        with patch.object(
+            source, "process_table", return_value=iter([])
+        ) as process_table:
+            self._run(source, view, schema)
+        process_table.assert_called_once()
+        assert view.id not in list(source.report.tables.dropped_entities)
+        assert view.ref in source.view_refs
+
+    def test_table_not_affected_by_view_filters(self):
+        """Denying views must not drop ordinary tables."""
+        source = self._build_source(include_views=False, view_pattern={"deny": [".*"]})
+        table, schema = self._build_table("my_table", TableType.MANAGED)
+        with patch.object(
+            source, "process_table", return_value=iter([])
+        ) as process_table:
+            self._run(source, table, schema)
+        process_table.assert_called_once()
+        assert table.id not in list(source.report.tables.dropped_entities)
+        assert table.ref in source.table_refs
+
+    def test_include_tables_false_drops_only_regular_tables(self):
+        """include_tables gates regular tables only; views and metric views keep their own toggles."""
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+        source = self._build_source(include_tables=False, include_metric_views=True)
+        table, schema = self._build_table("my_table", TableType.MANAGED)
+        view, _ = self._build_table("my_view", TableType.VIEW)
+        metric_view, _ = self._build_table("my_metric", TableType.METRIC_VIEW)
+
+        def _stub_tables(schema, _objs=(table, view, metric_view)):
+            return iter(_objs)
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        with patch.object(source, "process_table", return_value=iter([])):
+            list(source.process_tables(schema))
+        dropped = list(source.report.tables.dropped_entities)
+        assert dropped == [table.id]
+        assert view.ref in source.view_refs
+        assert metric_view.ref in source.table_refs

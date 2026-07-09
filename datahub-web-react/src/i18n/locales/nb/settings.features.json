@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Propager ny dokumentasjon fra oppstrøms til nedstrøms Asset, basert på lineage-forhold.",
+    "docPropagation.assetLevelTitle": "Propagering på Asset-nivå",
+    "docPropagation.backfillButton": "Initialiser",
+    "docPropagation.backfillTitle": "Backfill eksisterende dokumentasjon fra oppstrøms til nedstrøms kolonner/Asset",
+    "docPropagation.columnLevelDescription": "Propager ny dokumentasjon fra oppstrøms til nedstrøms kolonner, basert på lineage-forhold på kolonnenivå.",
+    "docPropagation.columnLevelTitle": "Propagering på kolonnenivå",
+    "docPropagation.comingSoon": "Kommer snart!",
+    "docPropagation.description": "Propager dokumentasjon automatisk fra oppstrøms til nedstrøms kolonner og Asset.",
+    "docPropagation.rollbackButton": "Tilbakestill",
+    "docPropagation.rollbackTitle": "Tilbakestill propagerte endringer",
+    "docPropagation.title": "Dokumentasjonspropagering",
+    "docPropagation.updateError": "Kunne ikke oppdatere innstillinger for dokumentasjonspropagering",
+    "docPropagation.updateSuccess": "Innstillinger for dokumentasjonspropagering ble oppdatert",
+    "learnMore": "Les mer",
+    "newLabel": "Ny!",
+    "onlyOnCloud": "Bare tilgjengelig på DataHub Cloud",
+    "pageSubTitle": "Utforsk og konfigurer spesifikke funksjoner",
+    "pageTitle": "Funksjoner"
+}

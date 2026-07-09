@@ -218,4 +218,31 @@ def installPreCommitHooks() {
     }
 }
 
+def installPrePushHook() {
+    if (System.getenv("CI") == "true") {
+        println("Skipping pre-push hook in CI")
+        return
+    }
+    // In a git worktree, .git is a file. The hook installed from the main worktree
+    // lives in the shared hooks dir and is used by every worktree, so install once there.
+    if (new File(rootDir, ".git").isFile()) {
+        println("Skipping pre-push hook in git worktree")
+        return
+    }
+    def src = new File(rootDir, ".githooks/pre-push-oss")
+    def hooksDir = new File(rootDir, ".git/hooks/")
+    if (!src.exists() || !hooksDir.isDirectory()) {
+        return
+    }
+    try {
+        def dest = new File(hooksDir, "pre-push")
+        dest.bytes = src.bytes
+        dest.setExecutable(true, false)
+        println("Installed pre-push hook")
+    } catch (Exception e) {
+        println("Error installing pre-push hook: ${e.message}")
+    }
+}
+
 installPreCommitHooks()
+installPrePushHook()

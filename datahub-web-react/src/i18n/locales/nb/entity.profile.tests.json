@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Feiler",
+    "resultText.passing": "Består",
+    "summary.allFailing": "Alle testene feiler",
+    "summary.allPassing": "Alle testene består",
+    "summary.countsSubtitle": "{{passing}} beståtte tester, {{failing}} feilede tester",
+    "summary.noTestsRun": "Ingen tester har kjørt",
+    "summary.someFailing": "Noen tester feiler",
+    "summary.statusTooltip": "Denne statusen er basert på den siste kjøringen av hver test.",
+    "testResults.empty": "Ingen tester funnet :(",
+    "testResults.noEvaluations": "Ingen evalueringer",
+    "testResults.title": "Governance-testresultater"
+}

@@ -430,6 +430,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 
 - Follow Conventional Commits format for commit messages
 - Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
 
@@ -467,6 +468,7 @@ messages, or PRs:
   being tested, not the customer's actual identifiers.
 - Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
   but prefer generic names when in doubt.
+- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ## Starting / Operating DataHub
 
