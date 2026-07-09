@@ -86,12 +86,9 @@ class RedshiftAdapter(PlatformAdapter):
 
     def get_stdev_null_value(self) -> Optional[float]:
         """
-        Redshift returns 0.0 for STDDEV on all-NULL columns.
-
-        This matches Redshift's actual behavior and GE golden file expectations.
-
-        Returns:
-            0.0 for Redshift (not None)
+        Redshift returns 0.0 (not NULL) for STDDEV on all-NULL columns,
+        so we mirror that behavior when our profiler's NULL disambiguation
+        falls through to this hook.
         """
         return 0.0
 

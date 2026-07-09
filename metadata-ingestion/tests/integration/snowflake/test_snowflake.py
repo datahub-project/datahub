@@ -1,23 +1,11 @@
-import random
-import string
 from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import (
-    DataHubClassifierConfig,
-    InfoTypeConfig,
-    PredictionFactorsAndWeights,
-    ValuesFactorConfig,
-)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -35,80 +23,19 @@ from tests.integration.snowflake.common import (
 pytestmark = pytest.mark.integration_batch_1
 
 
-def random_email():
-    return (
-        "".join(
-            [
-                random.choice(string.ascii_lowercase)
-                for i in range(random.randint(10, 15))
-            ]
-        )
-        + "@xyz.com"
-    )
-
-
-def random_cloud_region():
-    return "".join(
-        [
-            random.choice(["af", "ap", "ca", "eu", "me", "sa", "us"]),
-            "-",
-            random.choice(["central", "north", "south", "east", "west"]),
-            "-",
-            str(random.randint(1, 2)),
-        ]
-    )
-
-
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
     output_file = tmp_path / "snowflake_test_events.json"
     golden_file = test_resources_dir / "snowflake_golden.json"
 
-    with (
-        mock.patch("snowflake.connector.connect") as mock_connect,
-        mock.patch(
-            "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
-        ) as mock_sample_values,
-    ):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
 
         sf_cursor.execute.side_effect = default_query_results
-
-        mock_sample_values.return_value = {
-            "col_1": [random.randint(1, 80) for i in range(20)],
-            "col_2": [random_email() for i in range(20)],
-            "col_3": [random_cloud_region() for i in range(20)],
-        }
-
-        datahub_classifier_config = DataHubClassifierConfig(
-            minimum_values_threshold=10,
-            confidence_level_threshold=0.58,
-            info_types_config={
-                "Age": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0, Values=1, Description=0, Datatype=0
-                    )
-                ),
-                "CloudRegion": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0,
-                        Description=0,
-                        Datatype=0,
-                        Values=1,
-                    ),
-                    Values=ValuesFactorConfig(
-                        prediction_type="regex",
-                        regex=[
-                            r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
-                        ],
-                    ),
-                ),
-            },
-        )
 
         pipeline = Pipeline(
             config=PipelineConfig(
@@ -133,18 +60,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
                             tzinfo=timezone.utc
-                        ),
-                        classification=ClassificationConfig(
-                            enabled=True,
-                            column_pattern=AllowDenyPattern(
-                                allow=[".*col_1$", ".*col_2$", ".*col_3$"]
-                            ),
-                            classifiers=[
-                                DynamicTypedClassifierConfig(
-                                    type="datahub", config=datahub_classifier_config
-                                )
-                            ],
-                            max_workers=1,
                         ),
                         profiling=GEProfilingConfig(
                             enabled=True,
@@ -189,7 +104,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_basic_disable_queries(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -326,7 +241,7 @@ def test_snowflake_tags_as_structured_properties(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_private_link_and_incremental_mcps(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

@@ -28,8 +28,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urns.urn import guess_platform_name
+from datahub.utilities.lossy_collections import LossyList, LossySentinel
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
@@ -106,8 +105,13 @@ class Report(SupportsAsObj):
             if value is not None and not str(key).startswith("_")
         }
 
-    def as_string(self) -> str:
+    def as_string(
+        self,
+        sample_caps: Optional[Dict[str, int]] = None,
+    ) -> str:
         self_obj = self.as_obj()
+        if sample_caps is not None:
+            self_obj = _cap_report_samples(self_obj, sample_caps)
         _aspects_by_subtypes = self_obj.pop("aspects_by_subtypes", None)
 
         # Format the main report data
@@ -358,25 +362,6 @@ class ExamplesReport(Report, Closeable):
         aspectName: str,
         mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
-        # Platform filtering: Most URNs encode their platform/source within the URN structure
-        # (e.g., urn:li:dataset:(urn:li:dataPlatform:snowflake,...) embeds "snowflake").
-        # However, some entity types like 'document' use a simpler URN format that doesn't
-        # include platform information (e.g., urn:li:document:<id>). These entity types are
-        # designed to be platform-agnostic since a single Document can aggregate content from
-        # multiple sources.
-        #
-        # IMPORTANT: For entity types that don't encode platform in their URN, we MUST skip
-        # the platform filter. Otherwise, guess_platform_name() returns None, the filter rejects
-        # all work units, and critical report statistics (aspects, aspects_by_subtypes_full_count)
-        # remain empty, breaking reporting for sources like Notion that emit Document entities.
-        #
-        # See: https://github.com/datahub-project/datahub/issues/XXXXX
-        platform_agnostic_entity_types = {"document"}
-
-        if entityType not in platform_agnostic_entity_types:
-            platform_name = guess_platform_name(urn)
-            if platform_name != self.get_platform():
-                return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
@@ -529,3 +514,25 @@ class EntityFilterReport(ReportAttribute):
         return dataclasses.field(
             default_factory=lambda: EntityFilterReport(type=type, severity=severity)
         )
+
+
+def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
+    """Truncate report lists to the configured cap.
+
+    Only counts non-string items as real entries so the LossyList
+    sentinel string (e.g. ``"... sampled of 30 total elements"``)
+    is not miscounted as an entry.
+    """
+    result = {}
+    for k, v in obj.items():
+        cap = caps.get(k)
+        if cap is not None and isinstance(v, list):
+            entries = [x for x in v if not isinstance(x, LossySentinel)]
+            tail = [x for x in v if isinstance(x, LossySentinel)]
+            if len(entries) > cap:
+                result[k] = entries[:cap] + tail
+            else:
+                result[k] = v
+        else:
+            result[k] = v
+    return result

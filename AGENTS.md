@@ -248,6 +248,7 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
+  - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
 ### Frontend Theming (Colors)
@@ -452,6 +453,21 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Docs added/updated (if applicable)
 - [ ] Breaking changes documented in `docs/how/updating-datahub.md`
 
+### Confidentiality in Committed Code
+
+DataHub is a **public repository**. Never put customer-identifiable or
+environment-specific details into committed code, tests, docs, comments, commit
+messages, or PRs:
+
+- No real database / schema / table / view / column names, and no usernames,
+  customer names, host names, account IDs, or URLs from customer environments.
+- No Linear/Jira ticket IDs or links.
+- When reproducing a customer issue in a test, use generic placeholder names
+  (e.g. `my_db.my_schema.events`, `col_a`) that preserve the structural pattern
+  being tested, not the customer's actual identifiers.
+- Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
+  but prefer generic names when in doubt.
+
 ## Starting / Operating DataHub
 
 Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
@@ -467,8 +483,9 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `setup`,
-`frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `stop`, `suspend`,
+`setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
+`sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
 
 ### End-to-End Workflow
 
@@ -505,6 +522,11 @@ scripts/dev/datahub-dev.sh env list           # show current vars and pending_re
 
 **Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
 
+**GMS primary storage read pool** (optional, entity aspect DAO only): `EBEAN_READ_POOL_ENABLED` /
+`CASSANDRA_READ_POOL_ENABLED` route non-locking reads to a second pool; writes and `forUpdate`
+reads stay on PRIMARY. See [docs/deploy/primary-storage-read-pool.md](docs/deploy/primary-storage-read-pool.md).
+`DATAHUB_READ_ONLY=true` is separate — it disables writes and does not register the read pool.
+
 ### Feature Flag Lifecycle
 
 **All flag changes require a container restart.** Use `env set` + `env restart`:
@@ -527,6 +549,95 @@ or after a fresh clone.
 
 When starting, `datahub-dev start` automatically detects and stops conflicting DataHub instances
 from other worktrees/compose projects that occupy the same ports.
+
+### Remote Runners
+
+`datahub-dev.sh` supports a **runner plugin** that proxies operations to a remote machine
+(EC2, Kubernetes pod, or any SSH-accessible host) instead of running Docker locally.
+
+**Configure a runner** in `~/.datahub/dev/config.json`:
+
+```json
+{
+  "max_local_instances": 2,
+  "max_remote_instances": 10,
+  "runner": "/path/to/your-runner.sh"
+}
+```
+
+Or export `DATAHUB_RUNNER=/path/to/runner.sh` in your shell for a one-off session.
+
+**Remote lifecycle** (all commands work identically to local once a runner is set):
+
+```bash
+# One-time bootstrap — provisions the remote environment
+scripts/dev/datahub-dev.sh setup --remote
+
+# Start — syncs changed local files, runs quickstartDebug on the remote,
+#          then sets up port tunnels so local ports reach the remote instance
+scripts/dev/datahub-dev.sh start
+
+# Stop containers only (remote compute keeps running)
+scripts/dev/datahub-dev.sh stop
+
+# Stop containers AND halt the remote compute (no billing while suspended).
+# 'start' will automatically resume the instance when needed.
+scripts/dev/datahub-dev.sh suspend
+
+# All other commands (status, wait, rebuild, test, flag, env, nuke, …)
+# proxy through the runner transparently — use them exactly as you would locally.
+scripts/dev/datahub-dev.sh status
+```
+
+**Multi-instance management** — each git worktree gets its own isolated instance
+(separate Docker project, volumes, and port assignment):
+
+```bash
+# List all registered instances (local and remote) with their ports and status
+scripts/dev/datahub-dev.sh instances list
+
+# Remove stale entries for worktrees that no longer exist
+scripts/dev/datahub-dev.sh instances clean
+
+# Print export statements for the current instance's CLI environment
+eval $(scripts/dev/datahub-dev.sh shell-env)
+# → sets DATAHUB_GMS_URL to the correct local port (tunnel or direct)
+```
+
+**Port assignment** — each instance gets a slot; ports = base + slot × 1000:
+
+| Slot | GMS   | Frontend | Notes                     |
+| ---- | ----- | -------- | ------------------------- |
+| 0    | 8080  | 9002     | First local instance      |
+| 1    | 9080  | 10002    | Second local instance     |
+| 2    | 10080 | 11002    | First remote instance     |
+| …    | …     | …        | Each worktree is isolated |
+
+**Backwards compatibility / opting out of isolation** — if the new per-worktree
+project names cause problems (lost data in old volumes, tooling that expects
+`datahub-*` container names, CI environments that don't need isolation), set
+`compose_project` in `~/.datahub/dev/config.json`:
+
+```json
+{ "compose_project": "datahub" }
+```
+
+This reverts to the old single-instance behaviour: one `datahub` Docker project,
+same container names, existing volumes fully accessible. The env var
+`COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
+
+**Runner interface** — a runner is any executable that speaks four verbs:
+
+```bash
+runner init                        # one-time environment bootstrap
+runner sync                        # push changed local files to the remote
+runner exec -- <cmd> [args...]     # execute a command in the remote workspace
+runner tunnel <local:remote> ...   # set up port forwarding
+runner resume                      # start compute if stopped (no-op if running)
+runner suspend                     # stop containers + halt compute
+```
+
+A reference Kubernetes runner is at `scripts/dev/runners/k8s.sh`.
 
 ### Recovery Escalation
 
@@ -608,6 +719,49 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
+## Cypress Tests (Deprecated)
+
+Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
+
+- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
+- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
+- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
+
+## Playwright UI E2E Tests
+
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
+
+### Seeding
+
+`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
+`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
+feature per run. Do **not** set `featureName` for suites that create their own data
+via `apiMock` or direct API calls.
+
+## Frontend CI Checklist
+
+This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
+commit, push, or hand off changes that are going into a PR. It is **not** required for
+every intermediate edit: work that is part of a larger task, a work-in-progress branch,
+or scratch experimentation that won't be committed yet can skip it. Run the relevant
+commands when the change is ready to ship:
+
+```bash
+# Full lint (eslint + prettier src + type-check) for datahub-web-react
+./gradlew :datahub-web-react:yarnLint
+
+# Targeted lint-fix on a single file
+./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Vitest unit tests (requires icon stubs — run once per clone)
+node datahub-web-react/scripts/generate-lazy-icon-stubs.js
+cd datahub-web-react && yarn test src/path/to/file.test.ts --run
+```
+
+`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
+unrelated files. Focus on errors in files **you touched** — in particular, optional
+prop calls (`prop?.(arg)`) and import aliases.
+
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
@@ -617,3 +771,25 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
+
+## Learned User Preferences
+
+- In `metadata-ingestion` connector code, avoid double-quoted string literals: hoist magic strings into module-level constants, and keep all regex in the constants file pre-compiled.
+- Use Pydantic models for structured/internal data; never pass data around as tuples (hard to track).
+- Split connector files by duty (`constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`/`mapper.py`/`usage.py` as needed) and match the quality/patterns of existing connectors (Power BI, Airbyte, Redshift, BigID, Grafana).
+- No "AI slop": no top-of-file docstrings, and keep docstrings/comments only where strictly needed.
+- Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
+- Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
+- For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
+- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
+- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
+- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
+- Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
+- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
+
+## Learned Workspace Facts
+
+- The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
+- A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
+- Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
+- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.

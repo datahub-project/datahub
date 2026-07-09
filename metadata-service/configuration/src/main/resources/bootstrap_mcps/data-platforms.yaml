@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:aerospike
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: aerospike
+    displayName: Aerospike
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/aerospike.png"
 - entityUrn: urn:li:dataPlatform:azure-data-factory
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -120,6 +130,26 @@
     displayName: Dataplex
     type: OTHERS
     logoUrl: "assets/platforms/dataplexlogo.svg"
+- entityUrn: urn:li:dataPlatform:dataproc-metastore
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataproc-metastore
+    displayName: Dataproc Metastore
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/dataprocmetastorelogo.svg"
+- entityUrn: urn:li:dataPlatform:documentdb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: documentdb
+    displayName: DocumentDB
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/documentdblogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -209,6 +239,26 @@
     displayName: Kafka Connect
     type: OTHERS
     logoUrl: "assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis
+    displayName: Amazon Kinesis Data Streams
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/kinesislogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis-firehose
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis-firehose
+    displayName: Amazon Data Firehose
+    type: OTHERS
+    logoUrl: "assets/platforms/kinesisfirehoselogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -269,6 +319,56 @@
     displayName: MariaDB
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mariadblogo.svg"
+- entityUrn: urn:li:dataPlatform:tidb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: tidb
+    displayName: TiDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/tidblogo.svg"
+- entityUrn: urn:li:dataPlatform:matillion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:bigid
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigid
+    displayName: BigID
+    type: OTHERS
+    logoUrl: "assets/platforms/bigidlogo.png"
+- entityUrn: urn:li:dataPlatform:cube
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cube
+    displayName: Cube
+    type: OTHERS
+    logoUrl: "assets/platforms/cubelogo.png"
+- entityUrn: urn:li:dataPlatform:odcs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: odcs
+    displayName: Open Data Contract Standard
+    type: OTHERS
+    logoUrl: "assets/platforms/odcslogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -349,6 +449,16 @@
     displayName: Tableau
     type: OTHERS
     logoUrl: "assets/platforms/tableaulogo.svg"
+- entityUrn: urn:li:dataPlatform:thoughtspot
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: thoughtspot
+    displayName: ThoughtSpot
+    type: OTHERS
+    logoUrl: "assets/platforms/thoughtspotlogo.svg"
 - entityUrn: urn:li:dataPlatform:teradata
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -598,6 +708,16 @@
     displayName: Metabase
     type: OTHERS
     logoUrl: "assets/platforms/metabaselogo.svg"
+- entityUrn: urn:li:dataPlatform:microstrategy
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: microstrategy
+    displayName: MicroStrategy
+    type: OTHERS
+    logoUrl: "assets/platforms/microstrategylogo.svg"
 - entityUrn: urn:li:dataPlatform:nifi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -747,6 +867,16 @@
     displayName: DynamoDB
     type: KEY_VALUE_STORE
     logoUrl: "assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:dlt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dlt
+    displayName: dlt
+    type: OTHERS
+    logoUrl: "assets/platforms/dltlogo.svg"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -887,6 +1017,16 @@
     displayName: Control-M
     type: OTHERS
     logoUrl: "assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:timescaledb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: timescaledb
+    displayName: TimescaleDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/timescaledblogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -957,6 +1097,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:github
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: github
+    displayName: GitHub
+    type: OTHERS
+    logoUrl: "assets/platforms/githublogo.png"
 - entityUrn: urn:li:dataPlatform:fabric
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -996,3 +1146,13 @@
     name: datahub
     displayName: DataHub
     type: OTHERS
+- entityUrn: urn:li:dataPlatform:airbyte
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: airbyte
+    displayName: Airbyte
+    type: OTHERS
+    logoUrl: "assets/platforms/airbytelogo.png"

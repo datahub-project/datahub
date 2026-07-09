@@ -1,0 +1,20 @@
+{
+    "logOut": "Log Out",
+    "nav.access": "Access",
+    "nav.accessTokens": "Access Tokens",
+    "nav.appearance": "Appearance",
+    "nav.developer": "Developer",
+    "nav.features": "Features",
+    "nav.homePage": "Home Page",
+    "nav.manage": "Manage",
+    "nav.myNotifications": "My Notifications",
+    "nav.mySubscriptions": "My Subscriptions",
+    "nav.ownershipTypes": "Ownership Types",
+    "nav.permissions": "Permissions",
+    "nav.personal": "Personal",
+    "nav.preferences": "Preferences",
+    "nav.usersGroups": "Users & Groups",
+    "nav.views": "Views",
+    "subTitle": "Manage your settings",
+    "title": "Settings"
+}

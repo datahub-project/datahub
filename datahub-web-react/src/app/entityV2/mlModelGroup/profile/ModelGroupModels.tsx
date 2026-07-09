@@ -1,5 +1,6 @@
 import { Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -23,7 +24,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 
 const InfoItemContent = styled.div`
     padding-top: 8px;
-    width: 100px;
+    min-width: 100px;
 `;
 
 const NameContainer = styled.div`
@@ -79,6 +80,9 @@ export default function MLGroupModels() {
     const entityRegistry = useEntityRegistry();
     const modelGroup = baseEntity?.mlModelGroup;
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
+    const { t: tc } = useTranslation('common.actions');
 
     const models =
         baseEntity?.mlModelGroup?.incoming?.relationships
@@ -89,7 +93,7 @@ export default function MLGroupModels() {
 
     const columns = [
         {
-            title: 'Name',
+            title: tl('name'),
             dataIndex: 'name',
             key: 'name',
             width: 300,
@@ -102,7 +106,7 @@ export default function MLGroupModels() {
             ),
         },
         {
-            title: 'Version',
+            title: t('shared.versionLabel'),
             key: 'version',
             width: 70,
             render: (_: any, record: any) => (
@@ -110,15 +114,15 @@ export default function MLGroupModels() {
             ),
         },
         {
-            title: 'Created At',
+            title: tl('createdAt'),
             key: 'createdAt',
             width: 150,
             render: (_: any, record: any) => (
-                <TimestampPopover timestamp={record.properties?.createdTS?.time} title="Created At" showPopover />
+                <TimestampPopover timestamp={record.properties?.createdTS?.time} title={tl('createdAt')} showPopover />
             ),
         },
         {
-            title: 'Aliases',
+            title: t('mlModel.aliases'),
             key: 'aliases',
             width: 200,
             render: (_: any, record: any) => {
@@ -134,7 +138,7 @@ export default function MLGroupModels() {
             },
         },
         {
-            title: 'Properties',
+            title: t('tab.properties'),
             key: 'properties',
             width: 200,
             render: (_: any, record: any) => {
@@ -150,7 +154,7 @@ export default function MLGroupModels() {
             },
         },
         {
-            title: 'Description',
+            title: tl('description'),
             dataIndex: 'description',
             key: 'description',
             width: 300,
@@ -180,7 +184,7 @@ export default function MLGroupModels() {
                                 setExpandedRows(newExpanded);
                             }}
                         >
-                            {isExpanded ? 'Show less' : 'Read more'}
+                            {isExpanded ? tc('showLess') : tc('readMore')}
                         </Typography.Link>
                     </>
                 );
@@ -190,21 +194,24 @@ export default function MLGroupModels() {
 
     return (
         <ModelsContainer>
-            <Typography.Title level={3}>Model Group Details</Typography.Title>
+            <Typography.Title level={3}>{t('mlModelGroup.modelGroupDetails')}</Typography.Title>
             <InfoItemContainer justifyContent="left">
-                <InfoItem title="Created At">
-                    <TimestampPopover timestamp={modelGroup?.properties?.created?.time} title="Created At" />
+                <InfoItem title={tl('createdAt')}>
+                    <TimestampPopover timestamp={modelGroup?.properties?.created?.time} title={tl('createdAt')} />
                 </InfoItem>
-                <InfoItem title="Last Modified At">
-                    <TimestampPopover timestamp={modelGroup?.properties?.lastModified?.time} title="Last Modified At" />
+                <InfoItem title={tl('lastModifiedAt')}>
+                    <TimestampPopover
+                        timestamp={modelGroup?.properties?.lastModified?.time}
+                        title={tl('lastModifiedAt')}
+                    />
                 </InfoItem>
                 {modelGroup?.properties?.created?.actor && (
-                    <InfoItem title="Created By">
+                    <InfoItem title={t('shared.createdBy')}>
                         <InfoItemContent>{modelGroup.properties.created?.actor}</InfoItemContent>
                     </InfoItem>
                 )}
             </InfoItemContainer>
-            <Typography.Title level={3}>Models</Typography.Title>
+            <Typography.Title level={3}>{t('mlModelGroup.modelsTab')}</Typography.Title>
             <StyledTable
                 columns={columns}
                 dataSource={models}

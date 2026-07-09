@@ -79,6 +79,11 @@ class FieldValuesAssertion(BaseEntityAssertion):
                     parameters=self.operator.generate_parameters(),
                     failThreshold=self.failure_threshold.to_field_values_failure_threshold(),
                     excludeNulls=self.exclude_nulls,
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                     transform=(
                         FieldTransformClass(type=FieldTransformTypeClass.LENGTH)
                         if self.field_transform == FieldTransform.LENGTH
@@ -97,9 +102,6 @@ class FieldValuesAssertion(BaseEntityAssertion):
             "id_raw": self.id_raw,
         }
         return self.id or datahub_guid(guid_dict)
-
-    def get_assertion_info_aspect(self) -> AssertionInfo:
-        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
         return self.trigger
@@ -130,6 +132,11 @@ class FieldMetricAssertion(BaseEntityAssertion):
                     metric=self.metric.name,
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                 ),
             ),
         )
@@ -143,9 +150,6 @@ class FieldMetricAssertion(BaseEntityAssertion):
             "id_raw": self.id_raw,
         }
         return self.id or datahub_guid(guid_dict)
-
-    def get_assertion_info_aspect(self) -> AssertionInfo:
-        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
         return self.trigger

@@ -364,8 +364,8 @@ class TestSemanticViewLineageGeneration:
 
         identifiers = MagicMock()
         identifiers.get_dataset_identifier.side_effect = lambda t, s, d: f"{d}.{s}.{t}"
-        identifiers.gen_dataset_urn.side_effect = (
-            lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+        identifiers.gen_dataset_urn.side_effect = lambda x: (
+            f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
         )
 
         aggregator = MagicMock()
@@ -504,8 +504,8 @@ class TestSemanticViewOrchestrationFlow:
 
         identifiers = MagicMock()
         identifiers.get_dataset_identifier.side_effect = lambda t, s, d: f"{d}.{s}.{t}"
-        identifiers.gen_dataset_urn.side_effect = (
-            lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+        identifiers.gen_dataset_urn.side_effect = lambda x: (
+            f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
         )
 
         aggregator = MagicMock()

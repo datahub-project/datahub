@@ -66,6 +66,7 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
+    'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
 
@@ -247,6 +248,237 @@ def test_oracle_regular_case():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:oracle,salesdb.hr.employees,PROD)"
     )
+
+
+# Bare TNS alias + Query= referencing four unqualified tables (joined).
+_ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY: str = (
+    "let\n"
+    '    Source = Oracle.Database("EDWPSFN", '
+    "[HierarchicalNavigation=true, "
+    'Query="SELECT A.SETID, A.CNTRCT_ID, B.VENDOR_ID, D.AMT_CNTRCT_MAX, E.NAME1#(lf)'
+    "FROM PS_COR_CNTRCT_PROJ A, PS_COR_CNTRCT_PRIM B, PS_cntrct_hdr D, PS_VENDOR E#(lf)"
+    'WHERE A.SETID = B.SETID AND A.CNTRCT_ID = D.CNTRCT_ID AND B.VENDOR_ID = E.VENDOR_ID"]),\n'
+    '    #"Removed Other Columns" = Table.SelectColumns(Source, {"SETID", "CNTRCT_ID"})\n'
+    "in\n"
+    '    #"Removed Other Columns"'
+)
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_with_inline_query():
+    """Bare TNS alias + Query= with unqualified tables should produce four 2-part
+    Oracle URNs when ``default_schema`` is configured."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = sorted(t.urn for t in data_platform_tables)
+    assert actual_urns == sorted(
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_proj,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_prim,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cntrct_hdr,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+        ]
+    ), f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_without_default_schema_warns():
+    """``Query="…"`` with unqualified tables and no ``default_schema`` must
+    emit a structured warning rather than producing zero lineage silently."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert any("default_schema" in (t or "") for t in warning_titles), (
+        f"Warning about missing default_schema should be present; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_inline_query_respects_advance_lineage_sql_construct_flag():
+    """When ``enable_advance_lineage_sql_construct=False`` the Oracle Query=
+    branch opts out of sqlglot parsing — matching MSSql and NativeQueryLineage."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": False,
+        }
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert upstreams == [], (
+        "Expected no upstreams when enable_advance_lineage_sql_construct is False; "
+        f"got {upstreams}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_full_tns_descriptor_with_inline_query():
+    """Full TNS descriptor form. ``SERVICE_NAME`` is extracted as the server,
+    and ``server_to_platform_instance`` keyed by that name applies the
+    default_schema."""
+    q: str = (
+        "let\n"
+        "    Source = Oracle.Database("
+        '"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=h)(PORT=1521))'
+        '(CONNECT_DATA=(SERVICE_NAME=mydb.example.com)))", '
+        '[Query="SELECT * FROM EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "mydb.example.com": {"default_schema": "hr"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = [t.urn for t in data_platform_tables]
+    assert actual_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ], f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_qualified_tables_no_schema_needed():
+    """Fully-qualified SQL (schema.table) with a bare TNS alias and no
+    ``default_schema`` configured should produce lineage without any warning."""
+    q: str = (
+        "let\n"
+        '    Source = Oracle.Database("EDWPSFN", '
+        '[Query="SELECT EMPLOYEE_ID, NAME FROM HR.EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert len(upstreams) == 1
+    assert (
+        upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ), f"Got URN: {upstreams[0].urn}"
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert not any("default_schema" in (t or "") for t in warning_titles), (
+        f"No default_schema warning expected for fully-qualified SQL; got: {warning_titles}"
+    )
+
+
+# Pure-unit tests for OracleLineage helpers and the case-insensitive
+# server_to_platform_instance lookup live in tests/unit/powerbi/test_pattern_handler.py
+# so they participate in the testQuick run that uploads coverage to codecov.
 
 
 @pytest.mark.integration
@@ -1202,6 +1434,40 @@ def test_mysql_odbc_regular_case():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_hive_odbc_regular_case():
+    # End-to-end Hive ODBC case exercising the full M-Query -> Odbc.DataSource dispatch ->
+    # driver->platform resolution -> expression_lineage path. Hive is a two-tier platform,
+    # so the pseudo-catalog "HIVE" Database node must be dropped and the upstream emitted
+    # under the `hive` platform (not `hadoop`) as `schema.table`, matching the Hive connector.
+    q: str = M_QUERIES[38]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="user_profile",
+        full_name="product_analytics.user_profile",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
     )
 
 

@@ -13,7 +13,7 @@ import time
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -144,7 +144,7 @@ def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession
 # ──────────────────────────────────────────────────────────────────────
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
     """Threaded execution (max_threads=2) produces the same MCEs as sequential."""
     with patch(
@@ -183,7 +183,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
     """Verify correctness even with more threads than reports."""
     with patch(
@@ -275,7 +275,7 @@ def test_max_threads_rejects_zero_and_negative():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_pool_size_scales_with_max_threads():
     """HTTPAdapter pool_connections/pool_maxsize = max_threads + 10."""
     from unittest.mock import MagicMock
@@ -430,8 +430,8 @@ def test_threading_speedup(tmp_path):
     Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms.
     With 4 threads, expect ~2-4x wall-clock speedup.
 
-    Note: No @freeze_time here -- freezegun patches time.monotonic() which
-    would make our wall-clock measurements return 0.
+    Note: No @time_machine.travel here -- time_machine patches time.monotonic()
+    which would make our wall-clock measurements return 0.
     """
     num_reports = 10
     num_queries_per_report = 2
@@ -621,12 +621,18 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
         ("space_c", "Space C", 4),
     ]
 
+    # Deterministic, guaranteed-unique integer IDs. `hash(token) % 10000` was
+    # used previously but Python's hash is salted per-process (PEP 456), so
+    # IDs were non-deterministic and the 0..9999 range gave a ~0.45% birthday-
+    # collision risk across 10 reports, occasionally collapsing two dashboard
+    # URNs into one and failing the `== 10` assertion.
     space_objects: List[dict] = []
+    next_id = iter(range(10_000, 10_000 + 1_000_000))
     for space_token, space_name, num_reports in spaces_config:
         space_objects.append(
             {
                 "token": space_token,
-                "id": hash(space_token) % 10000,
+                "id": next(next_id),
                 "name": space_name,
                 "restricted": False,
                 "default_access_level": "view",
@@ -642,7 +648,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
             reports.append(
                 {
                     "token": report_token,
-                    "id": hash(report_token) % 10000,
+                    "id": next(next_id),
                     "name": f"{space_name} Report {i}",
                     "description": f"Report {i} in {space_name}",
                     "created_at": PERF_TIMESTAMP,
@@ -663,7 +669,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
                 "_embedded": {
                     "queries": [
                         {
-                            "id": hash(query_token) % 10000,
+                            "id": next(next_id),
                             "token": query_token,
                             "raw_query": f"SELECT * FROM {space_token}_table_{i}",
                             "name": f"Query {i}",

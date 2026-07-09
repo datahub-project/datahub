@@ -4,6 +4,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.PrimaryStorageContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -98,7 +100,7 @@ public class TestOperationContexts {
       @Nonnull
       @Override
       public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
-          Set<Urn> urns, Set<String> aspectNames) {
+          @Nonnull OperationFingerprint context, Set<Urn> urns, Set<String> aspectNames) {
         if (urns.stream().allMatch(urn -> urn.toString().startsWith("urn:li:corpuser:"))
             && aspectNames.contains(Constants.CORP_USER_KEY_ASPECT_NAME)) {
           return urns.stream()
@@ -116,7 +118,7 @@ public class TestOperationContexts {
                                       .data()))))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
-        return super.getLatestAspectObjects(urns, aspectNames);
+        return super.getLatestAspectObjects(context, urns, aspectNames);
       }
 
       @Nonnull
@@ -320,6 +322,7 @@ public class TestOperationContexts {
             validationContext,
             objectMapperContext,
             systemTelemetryContext,
+            PrimaryStorageContext.EMPTY,
             true);
 
     if (postConstruct != null) {

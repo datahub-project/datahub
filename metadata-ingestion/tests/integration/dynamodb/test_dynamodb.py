@@ -3,17 +3,10 @@ from unittest.mock import patch
 
 import boto3
 import pytest
-from freezegun import freeze_time
+import time_machine
 from moto import mock_aws
 from mypy_boto3_dynamodb.type_defs import TagTypeDef
 
-from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
-from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
-from datahub.ingestion.glossary.datahub_classifier import (
-    DataHubClassifierConfig,
-    InfoTypeConfig,
-    PredictionFactorsAndWeights,
-)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.dynamodb.dynamodb import DynamoDBSource
 from datahub.testing import mce_helpers
@@ -22,7 +15,7 @@ test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock_aws
 @pytest.mark.integration
 def test_dynamodb(pytestconfig, tmp_path):
@@ -111,27 +104,6 @@ def test_dynamodb(pytestconfig, tmp_path):
                     "aws_secret_access_key": "test",
                     "aws_session_token": "test",
                     "aws_region": "us-west-2",
-                    "classification": ClassificationConfig(
-                        enabled=True,
-                        classifiers=[
-                            DynamicTypedClassifierConfig(
-                                type="datahub",
-                                config=DataHubClassifierConfig(
-                                    minimum_values_threshold=1,
-                                    info_types_config={
-                                        "Phone_Number": InfoTypeConfig(
-                                            Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                                                Name=0.7,
-                                                Description=0,
-                                                Datatype=0,
-                                                Values=0.3,
-                                            )
-                                        )
-                                    },
-                                ),
-                            )
-                        ],
-                    ),
                 },
             },
             "sink": {

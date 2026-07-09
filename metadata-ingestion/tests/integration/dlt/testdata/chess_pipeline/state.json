@@ -1,0 +1,11 @@
+{
+  "_state_engine_version": 2,
+  "destination_type": "dlt.destinations.postgres",
+  "destination_name": "postgres",
+  "dataset_name": "chess_data",
+  "staging_type": null,
+  "staging_name": null,
+  "pipeline_name": "chess_pipeline",
+  "default_schema_name": "chess_pipeline",
+  "schema_names": ["chess_pipeline"]
+}

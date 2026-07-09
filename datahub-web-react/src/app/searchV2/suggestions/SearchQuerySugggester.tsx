@@ -1,5 +1,5 @@
-import { colors } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -9,13 +9,13 @@ import { SearchSuggestion } from '@types';
 
 const TextWrapper = styled.div`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 8px 0px 0px 12px;
 `;
 
 export const SuggestedText = styled.span`
-    color: ${(props) => props.theme.styles['primary-color']};
-    text-decoration: underline ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
+    text-decoration: underline ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
 `;
 
@@ -24,6 +24,7 @@ interface Props {
 }
 
 export default function SearchQuerySuggester({ suggestions }: Props) {
+    const { t } = useTranslation('search');
     const history = useHistory();
 
     if (suggestions.length === 0) return null;
@@ -35,7 +36,12 @@ export default function SearchQuerySuggester({ suggestions }: Props) {
 
     return (
         <TextWrapper>
-            Did you mean <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>?
+            <Trans
+                t={t}
+                i18nKey="suggestions.didYouMean"
+                values={{ suggestText }}
+                components={{ suggestion: <SuggestedText onClick={searchForSuggestion} /> }}
+            />
         </TextWrapper>
     );
 }

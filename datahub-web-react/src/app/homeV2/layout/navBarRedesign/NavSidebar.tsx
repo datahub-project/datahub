@@ -6,13 +6,15 @@ import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -35,6 +37,12 @@ import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import {
+    NAV_SIDEBAR_COLLAPSE_TRANSITION_MS,
+    NAV_SIDEBAR_ID,
+    NAV_SIDEBAR_WIDTH_COLLAPSED,
+    NAV_SIDEBAR_WIDTH_EXPANDED,
+} from '@app/shared/constants';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -56,24 +64,26 @@ const Container = styled.div`
     align-items: center;
 `;
 
-const Content = styled.div<{ isCollapsed: boolean }>`
+const Content = styled.div<{ $isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
     height: 100%;
-    width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
-    transition: width 250ms ease-in-out;
+    width: ${(props) => (props.$isCollapsed ? `${NAV_SIDEBAR_WIDTH_COLLAPSED}px` : `${NAV_SIDEBAR_WIDTH_EXPANDED}px`)};
+    /* ease-out feels snappier than ease-in-out for toggle expand/collapse —
+       it starts fast and decelerates rather than easing in slowly. */
+    transition: width ${NAV_SIDEBAR_COLLAPSE_TRANSITION_MS}ms ease-out;
+    will-change: width;
     overflow-x: hidden;
 `;
 
 const Header = styled.div`
     padding: 17px 8px 8px 16px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ScrollableContent = styled.div`
     display: flex;
     flex-direction: column;
-    padding: 0px 8px 0px 16px;
+    padding: 0px 8px 17px 16px;
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
@@ -101,11 +111,6 @@ const ScrollableContent = styled.div`
     scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
 `;
 
-const Footer = styled.div`
-    padding: 8px 8px 17px 16px;
-    border-top: 1px solid ${(props) => props.theme.colors.border};
-`;
-
 const CustomLogo = styled.img`
     object-fit: contain;
     max-height: 26px;
@@ -116,26 +121,37 @@ const CustomLogo = styled.img`
 
 const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
-const MenuWrapper = styled.div`
-    margin-top: 14px;
+const MenuWrapper = styled.div<{ $noTopMargin?: boolean }>`
+    margin-top: ${(props) => (props.$noTopMargin ? '0' : '14px')};
     display: flex;
     flex-direction: column;
 `;
 
+/**
+ * Pushes the footer (Account) menu to the bottom of the sidebar when there's
+ * room. With `min-height: 0`, the spacer collapses entirely once main-content
+ * fills the available height, letting Account flow naturally below the other
+ * groups (and scroll with them) instead of forcing an artificial gap.
+ */
+const Spacer = styled.div`
+    flex: 1;
+    min-height: 0;
+`;
+
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
     const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
-    const userContext = useUserContext();
     const me = useUserContext();
     const isHomePage = useIsHomePage();
     const location = useLocation();
     const showHomepageRedesign = useShowHomePageRedesign();
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
-    const { isUserInitializing } = useContext(OnboardingContext);
+    const { isUserInitializing, isOnboardingAvailable } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
@@ -161,7 +177,7 @@ export const NavSidebar = () => {
 
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -182,7 +198,7 @@ export const NavSidebar = () => {
             mfeSection = [
                 {
                     type: NavBarMenuItemTypes.Dropdown,
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || t('navBar.mfeAppsDefault'),
                     icon: <AppWindow />,
                     key: 'mfe-dropdown',
                     items: getMfeMenuDropdownItems(mfeConfig),
@@ -193,7 +209,7 @@ export const NavSidebar = () => {
                 {
                     type: NavBarMenuItemTypes.Group,
                     key: 'mfe-group',
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || t('navBar.mfeAppsDefault'),
                     items: getMfeMenuItems(mfeConfig),
                 } as NavBarMenuGroup,
             ];
@@ -209,7 +225,7 @@ export const NavSidebar = () => {
         items: [
             {
                 type: NavBarMenuItemTypes.Item,
-                title: 'Home',
+                title: t('navLinks.home'),
                 icon: <SquaresFour />,
                 selectedIcon: <SquaresFour weight="fill" />,
                 key: 'home',
@@ -227,18 +243,19 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Group,
                 key: 'context',
-                title: 'Context',
+                title: t('navLinks.context.title'),
                 isHidden: !isContextDocumentsEnabled,
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Documents',
+                        title: t('navLinks.context.documents'),
                         key: 'contextDocuments',
                         icon: <FileText />,
                         selectedIcon: <FileText weight="fill" />,
                         link: PageRoutes.CONTEXT_DOCUMENTS,
                         additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Document)}/:urn`],
                         badge: {
+                            /* untranslated-text -- "BETA" is a product-status badge label, conventionally left untranslated across locales */
                             label: 'BETA',
                             show: true,
                             showDot: false,
@@ -249,11 +266,11 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Group,
                 key: 'govern',
-                title: 'Govern',
+                title: t('navLinks.govern.title'),
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Glossary',
+                        title: t('navLinks.govern.glossary'),
                         key: 'glossary',
                         icon: <BookBookmark />,
                         selectedIcon: <BookBookmark weight="fill" />,
@@ -264,7 +281,16 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Tags',
+                        title: t('navLinks.metrics'),
+                        key: 'metrics',
+                        icon: <Sigma />,
+                        selectedIcon: <Sigma weight="fill" />,
+                        link: PageRoutes.METRICS,
+                        isHidden: !config?.featureFlags?.metricsEnabled,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.govern.tags'),
                         key: 'tag',
                         icon: <Tag />,
                         selectedIcon: <Tag weight="fill" />,
@@ -273,7 +299,7 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Business Attributes',
+                        title: t('navLinks.govern.businessAttributes'),
                         key: 'businessAttributes',
                         icon: <HardDrives />,
                         selectedIcon: <HardDrives weight="fill" />,
@@ -282,7 +308,7 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Applications',
+                        title: t('navLinks.govern.applications'),
                         key: 'applications',
                         icon: <AppWindow />,
                         selectedIcon: <AppWindow weight="fill" />,
@@ -291,7 +317,7 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Domains',
+                        title: t('navLinks.govern.domains'),
                         key: 'domains',
                         icon: <Globe />,
                         selectedIcon: <Globe weight="fill" />,
@@ -300,7 +326,7 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Structured Properties',
+                        title: t('navLinks.govern.structuredProperties'),
                         key: 'structuredProperties',
                         isHidden: !showStructuredProperties,
                         icon: <TextColumns />,
@@ -312,11 +338,11 @@ export const NavSidebar = () => {
             {
                 type: NavBarMenuItemTypes.Group,
                 key: 'admin',
-                title: 'Admin',
+                title: t('navLinks.admin.title'),
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Data Sources',
+                        title: t('navLinks.admin.dataSources'),
                         key: 'dataSources',
                         isHidden: !showDataSources,
                         icon: <Plugs />,
@@ -325,7 +351,7 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'Analytics',
+                        title: t('navLinks.admin.analytics'),
                         icon: <TrendUp />,
                         selectedIcon: <TrendUp weight="fill" />,
                         key: 'analytics',
@@ -337,84 +363,103 @@ export const NavSidebar = () => {
         ],
     };
 
+    const isProductTourAvailable = useMemo(() => {
+        if (isHomePage) return true;
+        return isOnboardingAvailable;
+    }, [isOnboardingAvailable, isHomePage]);
+
+    const productTourMenuItems: NavBarMenuDropdownItemElement[] = isProductTourAvailable
+        ? [
+              {
+                  type: NavBarMenuItemTypes.DropdownElement,
+                  title: t('navLinks.help.productTour'),
+                  description: t('navLinks.help.productTourDescription'),
+                  disabled: !isProductTourAvailable,
+                  key: 'helpProductTour',
+                  onClick: () => {
+                      if (isHomePage) {
+                          triggerModalTour();
+                      } else {
+                          // Track Product Tour button click for non-home pages
+                          analytics.event({
+                              type: EventType.ProductTourButtonClickEvent,
+                              originPage: location.pathname,
+                          });
+                          showOnboardingTour();
+                      }
+                  },
+              },
+          ]
+        : [];
+
     const footerMenu: NavBarMenuItems = {
         items: [
             {
-                type: NavBarMenuItemTypes.Item,
-                title: 'Profile',
-                icon: <UserCircle />,
-                selectedIcon: <UserCircle weight="fill" />,
-                key: 'profile',
-                link: `/${entityRegistry.getPathName(EntityType.CorpUser)}/${userContext.urn}`,
-            },
-            {
-                type: NavBarMenuItemTypes.Item,
-                title: 'Settings',
-                icon: <Gear />,
-                selectedIcon: <Gear weight="fill" />,
-                key: 'settings',
-                link: '/settings',
-            },
-            {
-                type: NavBarMenuItemTypes.Dropdown,
-                title: 'Help',
-                icon: <Question />,
-                selectedIcon: <Question weight="fill" />,
-                key: 'help',
+                type: NavBarMenuItemTypes.Group,
+                key: 'account',
+                title: t('navLinks.account.title'),
                 items: [
                     {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: 'Product Tour',
-                        description: 'Take a quick tour of this page',
-                        key: 'helpProductTour',
-                        onClick: () => {
-                            if (isHomePage) {
-                                triggerModalTour();
-                            } else {
-                                // Track Product Tour button click for non-home pages
-                                analytics.event({
-                                    type: EventType.ProductTourButtonClickEvent,
-                                    originPage: location.pathname,
-                                });
-                                showOnboardingTour();
-                            }
-                        },
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.account.profile'),
+                        icon: <UserCircle />,
+                        selectedIcon: <UserCircle weight="fill" />,
+                        key: 'profile',
+                        link: `/${entityRegistry.getPathName(EntityType.CorpUser)}/${me.urn}`,
                     },
                     {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: 'GraphQL',
-                        description: 'Explore the GraphQL API',
-                        link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
-                        isExternalLink: true,
-                        key: 'helpGraphQL',
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.account.settings'),
+                        icon: <Gear />,
+                        selectedIcon: <Gear weight="fill" />,
+                        key: 'settings',
+                        link: '/settings',
                     },
                     {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: 'OpenAPI',
-                        description: 'Explore the OpenAPI endpoints',
-                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
-                        isExternalLink: true,
-                        key: 'helpOpenAPI',
+                        type: NavBarMenuItemTypes.Dropdown,
+                        title: t('navLinks.account.resources'),
+                        icon: <Question />,
+                        selectedIcon: <Question weight="fill" />,
+                        key: 'help',
+                        items: [
+                            ...productTourMenuItems,
+                            {
+                                type: NavBarMenuItemTypes.DropdownElement,
+                                title: t('navLinks.help.graphql'),
+                                description: t('navLinks.help.graphqlDescription'),
+                                link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
+                                isExternalLink: true,
+                                key: 'helpGraphQL',
+                            },
+                            {
+                                type: NavBarMenuItemTypes.DropdownElement,
+                                title: t('navLinks.help.openapi'),
+                                description: t('navLinks.help.openapiDescription'),
+                                link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
+                                isExternalLink: true,
+                                key: 'helpOpenAPI',
+                            },
+                            ...HelpContentMenuItems,
+                            {
+                                type: NavBarMenuItemTypes.DropdownElement,
+                                title: config?.appVersion || '',
+                                isHidden: !config?.appVersion,
+                                isExternalLink: true,
+                                key: 'helpAppVersion',
+                                disabled: true,
+                            },
+                        ],
                     },
-                    ...HelpContentMenuItems,
                     {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: config?.appVersion || '',
-                        isHidden: !config?.appVersion,
-                        isExternalLink: true,
-                        key: 'helpAppVersion',
-                        disabled: true,
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.account.signOut'),
+                        icon: <SignOut data-testid="log-out-menu-item" />,
+                        key: 'signOut',
+                        onClick: logout,
+                        href: resolveRuntimePath('/logOut'),
+                        dataTestId: 'nav-sidebar-sign-out',
                     },
                 ],
-            },
-            {
-                type: NavBarMenuItemTypes.Item,
-                title: 'Sign out',
-                icon: <SignOut data-testid="log-out-menu-item" />,
-                key: 'signOut',
-                onClick: logout,
-                href: resolveRuntimePath('/logOut'),
-                dataTestId: 'nav-sidebar-sign-out',
             },
         ],
     };
@@ -427,7 +472,7 @@ export const NavSidebar = () => {
 
     useEffect(() => setSelectedKey(sk), [sk, setSelectedKey]);
 
-    const showSkeleton = isUserInitializing || !appConfig.loaded || !userContext.loaded;
+    const showSkeleton = isUserInitializing || !appConfig.loaded || !me.loaded;
 
     const renderSvgSelectedGradientForReusingInIcons = () => {
         return (
@@ -447,7 +492,12 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content id="nav-sidebar" data-collapsed={isCollapsed} isCollapsed={isCollapsed}>
+            <Content
+                id={NAV_SIDEBAR_ID}
+                data-testid="nav-sidebar"
+                data-collapsed={isCollapsed}
+                $isCollapsed={isCollapsed}
+            >
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
@@ -466,10 +516,11 @@ export const NavSidebar = () => {
                                     menu={mainContentMenu}
                                 />
                             </MenuWrapper>
+                            <Spacer />
+                            <MenuWrapper $noTopMargin>
+                                <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
+                            </MenuWrapper>
                         </ScrollableContent>
-                        <Footer>
-                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
-                        </Footer>
                     </>
                 )}
             </Content>

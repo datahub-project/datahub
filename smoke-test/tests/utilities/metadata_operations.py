@@ -3,7 +3,18 @@
 
 from typing import Any, Dict, Optional
 
+import requests
+
 from tests.utils import execute_graphql, with_test_retry
+
+
+def get_prometheus_metrics(auth_session, gms_url: str) -> str:
+    """Fetch raw Prometheus text from the GMS management endpoint."""
+    prometheus_url = f"{gms_url}/actuator/prometheus"
+    headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+    response = requests.get(prometheus_url, headers=headers)
+    response.raise_for_status()
+    return response.text
 
 
 def add_tag(
@@ -298,6 +309,8 @@ def search_across_lineage(
     direction: str = "UPSTREAM",
     query: str = "*",
     count: int = 10,
+    degree: Optional[int] = None,
+    skip_cache: bool = False,
 ) -> Dict[str, Any]:
     """Search across lineage from a given entity."""
     graphql_query = """
@@ -328,6 +341,21 @@ def search_across_lineage(
             "count": count,
         }
     }
+    if degree is not None:
+        variables["input"]["orFilters"] = [
+            {
+                "and": [
+                    {
+                        "field": "degree",
+                        "condition": "EQUAL",
+                        "values": [str(degree)],
+                        "negated": False,
+                    }
+                ]
+            }
+        ]
+    if skip_cache:
+        variables["input"]["searchFlags"] = {"skipCache": True}
 
     res_data = execute_graphql(auth_session, graphql_query, variables)
     return res_data["data"]["searchAcrossLineage"]

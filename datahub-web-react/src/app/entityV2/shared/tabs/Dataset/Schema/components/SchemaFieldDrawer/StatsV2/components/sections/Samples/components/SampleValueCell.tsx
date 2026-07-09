@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { cleanSample } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/Samples/utils';
@@ -33,6 +34,7 @@ interface SampleValueCellProps {
 }
 
 export default function SampleValueCell({ sample, onViewSample }: SampleValueCellProps) {
+    const { t: tc } = useTranslation('common.actions');
     const [isSampleTruncated, setIsSampleTruncated] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +63,7 @@ export default function SampleValueCell({ sample, onViewSample }: SampleValueCel
             </Value>
             {shouldShowViewButton && (
                 <Button variant="text" onClick={() => onViewSample?.(sample)}>
-                    View
+                    {tc('view')}
                 </Button>
             )}
         </Container>

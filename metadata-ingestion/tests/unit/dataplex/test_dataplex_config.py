@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.ingestion.source.dataplex.dataplex_config import (
+    DEFAULT_LINEAGE_LOCATIONS,
     DataplexConfig,
     DataplexFilterConfig,
     EntriesFilterConfig,
@@ -105,11 +106,11 @@ class TestDataplexConfig:
         assert not config.filter_config.entries.pattern.allowed("dev_table")
 
     def test_config_validation_requires_project_ids(self):
-        """Test that configuration validation requires at least one project."""
+        """Test that configuration validation requires at least one project selector."""
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(project_ids=[])
 
-        assert "At least one project must be specified" in str(exc_info.value)
+        assert "At least one project selector must be specified" in str(exc_info.value)
 
     def test_config_project_id_backward_compatibility(self):
         """Test backward compatibility for project_id field."""
@@ -134,15 +135,13 @@ class TestDataplexConfig:
         assert config.include_schema is True
         assert config.include_lineage is True
 
-        # Performance defaults
-        assert config.batch_size == 1000
-
         # Lineage retry defaults
         assert config.lineage_max_retries == 3
         assert config.lineage_retry_backoff_multiplier == 1.0
 
         # Location defaults
         assert config.entries_locations == ["us", "eu", "asia", "global"]
+        assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
 
         # Filter defaults (should allow all)
         assert config.filter_config.entries.pattern.allowed("any-entry")
@@ -214,19 +213,14 @@ class TestDataplexConfig:
         config = DataplexConfig(
             project_ids=["test-project"],
             include_lineage=True,
-            batch_size=500,
         )
 
         assert config.include_lineage is True
-        assert config.batch_size == 500
 
         # Test disabling lineage
-        config2 = DataplexConfig(
-            project_ids=["test-project"], include_lineage=False, batch_size=None
-        )
+        config2 = DataplexConfig(project_ids=["test-project"], include_lineage=False)
 
         assert config2.include_lineage is False
-        assert config2.batch_size is None  # Disable batching
 
     def test_lineage_retry_configuration_defaults(self):
         """Test that lineage retry configuration has correct defaults."""
@@ -309,3 +303,51 @@ class TestDataplexConfig:
             "At least one entries location must be specified via entries_locations."
             in str(exc_info.value)
         )
+
+    def test_lineage_locations_default(self):
+        """Test that lineage locations defaults are set correctly."""
+        config = DataplexConfig(project_ids=["test-project"])
+        assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
+
+    def test_lineage_locations_must_not_be_empty(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(
+                project_ids=["test-project"],
+                lineage_locations=[],
+            )
+        assert (
+            "At least one lineage location must be specified via lineage_locations."
+            in str(exc_info.value)
+        )
+
+
+class TestDataplexProjectSelectors:
+    """Tests for project_id_pattern and project_labels — selectors that allow
+    auto-discovery of GCP projects via the Cloud Resource Manager API."""
+
+    def test_project_id_pattern_default_allows_all(self):
+        config = DataplexConfig(project_ids=["test-project"])
+        assert config.project_id_pattern.allowed("anything")
+        assert config.project_id_pattern.allowed("another-project")
+
+    def test_project_id_pattern_only_no_project_ids_valid(self):
+        config = DataplexConfig(project_id_pattern={"allow": ["^prod-.*"]})
+        assert config.project_ids == []
+        assert config.project_id_pattern.allowed("prod-app")
+        assert not config.project_id_pattern.allowed("dev-app")
+
+    def test_project_labels_only_no_project_ids_valid(self):
+        config = DataplexConfig(project_labels=["env:prod"])
+        assert config.project_ids == []
+        assert config.project_labels == ["env:prod"]
+
+    def test_no_project_ids_no_pattern_no_labels_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig()
+        assert "At least one project selector must be specified" in str(exc_info.value)
+
+    def test_project_labels_invalid_format_rejected(self):
+        # "prod" is missing the required `key:value` format.
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(project_labels=["prod"])
+        assert "project_labels" in str(exc_info.value)

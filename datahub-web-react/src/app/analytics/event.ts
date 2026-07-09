@@ -180,6 +180,7 @@ export enum EventType {
     IngestionEnterSyncScheduleEvent,
     IngestionExitConfigurationEvent,
     CloseCreateSourceEducationModalEvent,
+    ImportDocumentsEvent,
 }
 
 /**
@@ -1082,6 +1083,7 @@ export interface NavBarExpandCollapseEvent extends BaseEvent {
 export interface NavBarItemClickEvent extends BaseEvent {
     type: EventType.NavBarItemClick;
     label: string; // the label of the item that is clicks from the nav sidebar
+    subLabel?: string;
 }
 
 export interface FilterStatsPageEvent extends BaseEvent {
@@ -1357,6 +1359,17 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
+ * Logged when a user imports documents from a source (file upload or GitHub).
+ */
+export interface ImportDocumentsEvent extends BaseEvent {
+    type: EventType.ImportDocumentsEvent;
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    createdCount: number;
+    updatedCount: number;
+    failedCount: number;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1514,4 +1527,5 @@ export type Event =
     | IngestionEnterConfigurationEvent
     | IngestionEnterSyncScheduleEvent
     | IngestionExitConfigurationEvent
-    | CloseCreateSourceEducationModalEvent;
+    | CloseCreateSourceEducationModalEvent
+    | ImportDocumentsEvent;

@@ -120,7 +120,40 @@ class PipelineProcessor(EntityProcessor):
                 )
                 return
 
-            # Use first pipeline (most orgs have one pipeline)
+            # Filter pipelines by their Snowplow `label` field (if set).
+            # The label is free-form text set by the operator — not a structured
+            # env field — so we match case-insensitively. The config validator
+            # already uppercases pipeline_label.
+            if self.config.pipeline_label:
+                target_label = self.config.pipeline_label
+                matching_pipelines = []
+                for p in physical_pipelines:
+                    if not p.label:
+                        # Pipeline has no label — include by default
+                        logger.info(
+                            f"Pipeline '{p.name}' has no label, including it "
+                            f"(cannot determine if it matches pipeline_label='{target_label}')"
+                        )
+                        matching_pipelines.append(p)
+                    elif p.label.upper() != target_label:
+                        logger.info(
+                            f"Filtering out pipeline '{p.name}' "
+                            f"(label='{p.label}' does not match pipeline_label='{target_label}')"
+                        )
+                        self.report.report_pipeline_filtered_by_label(p.name)
+                    else:
+                        matching_pipelines.append(p)
+
+                if not matching_pipelines:
+                    logger.warning(
+                        f"No pipelines match pipeline_label={target_label} "
+                        f"(found {len(physical_pipelines)} pipelines with labels: "
+                        f"{[p.label for p in physical_pipelines]}). "
+                        "Skipping pipeline extraction."
+                    )
+                    return
+                physical_pipelines = matching_pipelines
+
             pipeline = physical_pipelines[0]
             self.state.physical_pipeline = pipeline
 
@@ -452,8 +485,11 @@ class PipelineProcessor(EntityProcessor):
             "enrichmentId": enrichment.id,
             "filename": enrichment.filename,
             "enabled": str(enrichment.enabled),
-            "lastUpdate": enrichment.last_update,
         }
+        # The pipelines/v1 enrichments endpoint does not return a last-update
+        # timestamp, so only emit it when the value is known.
+        if enrichment.last_update:
+            custom_properties["lastUpdate"] = enrichment.last_update
 
         if self.state.physical_pipeline:
             custom_properties["pipelineId"] = self.state.physical_pipeline.id

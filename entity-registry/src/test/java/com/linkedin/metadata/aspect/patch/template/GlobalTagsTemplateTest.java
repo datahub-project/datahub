@@ -74,41 +74,6 @@ public class GlobalTagsTemplateTest {
   }
 
   @Test
-  public void testUnattributedAddPreservesAttributedDuplicates() throws Exception {
-    // Start with (srcA, tagX) and (srcB, tagX) — two attributed entries for the same tag URN.
-    GlobalTags initial = new GlobalTags();
-    initial.setTags(
-        new TagAssociationArray(
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcB")));
-
-    // Plain patch: add tagY (no attribution).
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createArrayBuilder()
-                .add(
-                    Json.createObjectBuilder()
-                        .add("op", "add")
-                        .add("path", "/tags/urn:li:tag:tagY")
-                        .add(
-                            "value",
-                            Json.createArrayBuilder()
-                                .add(Json.createObjectBuilder().add("tag", "urn:li:tag:tagY"))))
-                .build());
-
-    GlobalTags result = TEMPLATE.applyPatch(initial, patch);
-
-    Assert.assertNotNull(result.getTags());
-    List<String> tagUrns = result.getTags().stream().map(t -> t.getTag().toString()).toList();
-    // Both attributed tagX entries should survive, plus the new tagY.
-    long tagXCount = tagUrns.stream().filter("urn:li:tag:tagX"::equals).count();
-    long tagYCount = tagUrns.stream().filter("urn:li:tag:tagY"::equals).count();
-    Assert.assertEquals(tagXCount, 2L, "both attributed tagX entries should be preserved");
-    Assert.assertEquals(tagYCount, 1L, "new tagY entry should be present");
-    Assert.assertEquals(result.getTags().size(), 3);
-  }
-
-  @Test
   public void testUnattributedRemoveDeletesAllEntriesForTag() throws Exception {
     // (srcA, tagX), (srcB, tagX), (srcC, tagY)
     GlobalTags initial = new GlobalTags();
@@ -202,6 +167,37 @@ public class GlobalTagsTemplateTest {
     List<String> tagUrns = result.getTags().stream().map(t -> t.getTag().toString()).toList();
     Assert.assertFalse(tagUrns.contains("urn:li:tag:tagA"), "tagA should be removed");
     Assert.assertTrue(tagUrns.contains("urn:li:tag:tagB"), "tagB should remain");
+  }
+
+  @Test
+  public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
+    // Regression: GlobalTagsPatchBuilder.addTag(urn) emits /tags/<urn>/ paired with APK
+    // [tag, attribution_source]; previously threw on an empty aspect.
+    GlobalTags initial = new GlobalTags();
+    initial.setTags(new TagAssociationArray());
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/tags/urn:li:tag:tagA/");
+    addOp.setValue(Json.createObjectBuilder().add("tag", "urn:li:tag:tagA").build());
+
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(addOp))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution␟source")))
+            .build();
+
+    GlobalTags result =
+        GenericPatchTemplate.<GlobalTags>builder()
+            .genericJsonPatch(patch)
+            .templateType(GlobalTags.class)
+            .templateDefault(new GlobalTagsTemplate().getDefault())
+            .build()
+            .applyPatch(initial);
+
+    Assert.assertNotNull(result.getTags());
+    Assert.assertEquals(result.getTags().size(), 1);
+    Assert.assertEquals(result.getTags().get(0).getTag().toString(), "urn:li:tag:tagA");
   }
 
   @Test

@@ -1,0 +1,11 @@
+{
+    "allDomains": "All Domains",
+    "dataLandscapeSummary": "Data Landscape Summary",
+    "domainLandscapeSummary": "Domain Landscape Summary",
+    "failedToLoadCharts": "Failed to load charts",
+    "failedToLoadDomains": "Failed to load domains",
+    "failedToLoadHighlights": "Failed to load highlights",
+    "noDomainData": "No analytics data for this domain",
+    "selectDomain": "Select domain",
+    "usageAnalytics": "Usage Analytics"
+}

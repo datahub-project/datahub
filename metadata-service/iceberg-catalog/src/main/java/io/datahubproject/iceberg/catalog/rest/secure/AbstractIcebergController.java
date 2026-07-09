@@ -20,14 +20,15 @@ import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.services.SecretService;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import javax.inject.Inject;
-import javax.inject.Named;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -182,12 +183,13 @@ public class AbstractIcebergController {
     }
   }
 
-  protected OperationContext opContext(HttpServletRequest request) {
+  protected OperationContext opContext(HttpServletRequest request, UsageOperation usageOperation) {
     Authentication auth = AuthenticationContext.getAuthentication();
     return OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder()
-            .buildOpenapi(auth.getActor().toUrnStr(), request, "icebergDataAction", "dataset"),
+            .buildOpenapi(auth.getActor().toUrnStr(), request, "icebergDataAction", "dataset")
+            .withUsageOperation(usageOperation),
         authorizer,
         auth,
         true);

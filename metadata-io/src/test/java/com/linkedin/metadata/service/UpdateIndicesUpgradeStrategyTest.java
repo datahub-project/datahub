@@ -131,7 +131,8 @@ public class UpdateIndicesUpgradeStrategyTest {
     strategy.processBatch(operationContext, events, false);
 
     verify(elasticSearchService, never())
-        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
   @Test
@@ -155,7 +156,8 @@ public class UpdateIndicesUpgradeStrategyTest {
     strategy.processBatch(operationContext, events, false);
 
     verify(elasticSearchService)
-        .upsertDocumentByIndexName(eq(nextIndex), eq(searchDoc.toString()), anyString());
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), anyString());
   }
 
   @Test
@@ -172,7 +174,8 @@ public class UpdateIndicesUpgradeStrategyTest {
     strategy.processBatch(operationContext, events, false);
 
     verify(elasticSearchService, never())
-        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            any(OperationContext.class), anyString(), anyString(), anyString());
     verify(searchDocumentTransformer, never())
         .transformAspect(any(), any(), any(), any(), anyBoolean(), any());
   }
@@ -193,7 +196,8 @@ public class UpdateIndicesUpgradeStrategyTest {
     strategy.processBatch(operationContext, events, false);
 
     verify(elasticSearchService, never())
-        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
   @Test
@@ -214,7 +218,8 @@ public class UpdateIndicesUpgradeStrategyTest {
 
     strategy.processBatch(operationContext, events, false);
 
-    verify(elasticSearchService).deleteDocumentByIndexName(eq(nextIndex), anyString());
+    verify(elasticSearchService)
+        .deleteDocumentByIndexName(eq(operationContext), eq(nextIndex), anyString());
   }
 
   @Test
@@ -293,7 +298,8 @@ public class UpdateIndicesUpgradeStrategyTest {
     strategy.processBatch(operationContext, events, false);
 
     verify(elasticSearchService, never())
-        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
   @Test
@@ -316,6 +322,8 @@ public class UpdateIndicesUpgradeStrategyTest {
             "datasetindex_v2_next_123",
             null,
             100L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
 

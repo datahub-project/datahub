@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -284,7 +284,9 @@ basicAuditStamp = models.AuditStampClass(
         ),
     ],
 )
-@freeze_time(datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc))
+@time_machine.travel(
+    datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc), tick=False
+)
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
@@ -339,6 +341,35 @@ def test_resolve_gms_emit_mode(sink_mode, configured_emit_mode, expected_emit_mo
     from datahub.ingestion.sink.datahub_rest import _resolve_gms_emit_mode
 
     assert _resolve_gms_emit_mode(sink_mode, configured_emit_mode) == expected_emit_mode
+
+
+class TestDatahubRestSinkTcpKeepalive:
+    """Regression tests covering end-to-end tcp_keepalive propagation through
+    the REST sink: from the recipe config, through the sink config, into the
+    per-thread DataHubRestEmitter, and finally into the underlying
+    requests.Session adapter. We verify the full chain here so a future
+    refactor can't silently regress it.
+    """
+
+    def test_sink_make_emitter_passes_tcp_keepalive(self):
+        """DatahubRestSink._make_emitter must hand tcp_keepalive to the emitter."""
+        from requests.adapters import HTTPAdapter
+
+        from datahub.emitter.rest_emitter import _KeepAliveHTTPAdapter
+        from datahub.ingestion.sink.datahub_rest import (
+            DatahubRestSink,
+            DatahubRestSinkConfig,
+        )
+
+        cfg = DatahubRestSinkConfig(server="http://localhost:8080", tcp_keepalive=True)
+        emitter = DatahubRestSink._make_emitter(cfg)
+        assert isinstance(
+            emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+        cfg = DatahubRestSinkConfig(server="http://localhost:8080", tcp_keepalive=False)
+        emitter = DatahubRestSink._make_emitter(cfg)
+        assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
 
 
 def test_emit_batch_wrapper_uses_resolved_emit_mode():
@@ -424,3 +455,23 @@ class TestDataHubRestSinkBatchEmission:
 
             # Verify log message
             assert "payload was split into 2 batches" in caplog.text
+
+
+def test_sync_origin_opt_in_passed_through_in_all_modes():
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSinkConfig,
+        RestSinkMode,
+    )
+
+    # Marker-aware sync routing only ever upgrades a batch to sync, never
+    # downgrades it, so it is a no-op in SYNC mode (already synchronous) and the
+    # opt-in is passed through unconditionally regardless of sink mode.
+    for mode in (RestSinkMode.SYNC, RestSinkMode.ASYNC, RestSinkMode.ASYNC_BATCH):
+        emitter = DatahubRestSink._make_emitter(
+            DatahubRestSinkConfig(
+                server="http://localhost:8080",
+                mode=mode,
+                respect_mcp_sync_marker=True,
+            )
+        )
+        assert emitter.respect_mcp_sync_marker is True

@@ -1,6 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { SearchBar } from '@components';
+import { Loader, SearchBar } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
@@ -14,7 +14,6 @@ import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
@@ -60,6 +59,7 @@ const IconWrapper = styled.span`
 `;
 
 function GlossarySearch() {
+    const { t: tc } = useTranslation('common.actions');
     const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
@@ -84,7 +84,7 @@ function GlossarySearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <InputWrapper>
                     <SearchBar
-                        placeholder="Search"
+                        placeholder={tc('search')}
                         value={searchInput}
                         onChange={setSearchInput}
                         onFocus={() => setIsSearchBarFocused(true)}
@@ -94,7 +94,7 @@ function GlossarySearch() {
                     <ResultsWrapper>
                         {loading && (
                             <LoadingWrapper>
-                                <LoadingOutlined />
+                                <Loader size="md" />
                             </LoadingWrapper>
                         )}
                         {!loading &&

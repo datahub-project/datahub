@@ -65,6 +65,67 @@ def get_gms_base_path() -> str:
 
 
 # ============================================================================
+# Env-configured OAuth (DATAHUB_AUTH_TYPE)
+# Parsed into an AuthConfig by datahub.ingestion.auth.env.
+# ============================================================================
+
+
+def get_auth_type() -> Optional[str]:
+    """Env-configured OAuth provider type (k8s_oidc / azure_entra / oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TYPE")
+
+
+def get_auth_token_file() -> Optional[str]:
+    """Path to the projected service-account token file (k8s_oidc)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_FILE")
+
+
+def get_auth_audience() -> Optional[str]:
+    """Expected token audience (k8s_oidc, oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_AUDIENCE")
+
+
+def get_auth_scope() -> Optional[str]:
+    """OAuth scope (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_SCOPE")
+
+
+def get_auth_token_endpoint() -> Optional[str]:
+    """IdP token endpoint URL (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_ENDPOINT")
+
+
+def get_auth_client_id() -> Optional[str]:
+    """OAuth client id (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_ID")
+
+
+def get_auth_client_secret() -> Optional[str]:
+    """OAuth client secret (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_SECRET")
+
+
+def get_auth_azure_tenant_id() -> Optional[str]:
+    """Azure Entra tenant id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_TENANT_ID")
+
+
+def get_auth_azure_client_id() -> Optional[str]:
+    """Azure Entra client id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_ID")
+
+
+def get_auth_azure_scope() -> Optional[str]:
+    """Azure Entra token scope (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_SCOPE")
+
+
+def get_auth_azure_client_secret() -> Optional[str]:
+    """Azure Entra client secret; omit for workload identity (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_SECRET")
+
+
+# ============================================================================
 # REST Emitter Configuration
 # ============================================================================
 
@@ -80,6 +141,16 @@ def get_rest_emitter_429_retry_multiplier() -> int:
     Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
     """
     return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
+
+
+def get_rest_emitter_default_pool_connections() -> int:
+    """Max number of different hosts to cache connection pools for."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
+
+
+def get_rest_emitter_default_pool_maxsize() -> int:
+    """Max connections per host in each connection pool."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
 
 
 def get_rest_emitter_batch_max_payload_bytes() -> int:
@@ -124,6 +195,11 @@ def get_rest_sink_default_mode() -> Optional[str]:
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
 
 
+def get_rest_sink_default_tcp_keepalive() -> bool:
+    """Default value for tcp_keepalive on the REST sink / DataHub client"""
+    return os.getenv("DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE", "").lower() == "true"
+
+
 # ============================================================================
 # Telemetry & Monitoring
 # ============================================================================
@@ -157,6 +233,26 @@ def get_report_failure_sample_size() -> int:
 def get_report_warning_sample_size() -> int:
     """Maximum number of warning entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+def get_report_info_sample_size() -> int:
+    """Maximum number of info entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
+
+
+def get_progress_report_max_failures() -> int:
+    """Maximum number of failure entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))
+
+
+def get_progress_report_max_warnings() -> int:
+    """Maximum number of warning entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_WARNINGS", "10"))
+
+
+def get_progress_report_max_infos() -> int:
+    """Maximum number of info entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_INFOS", "10"))
 
 
 # ============================================================================

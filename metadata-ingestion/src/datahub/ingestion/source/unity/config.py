@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Union
 
@@ -19,6 +20,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -83,7 +90,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None, description="Delta-lake platform instance name"
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -157,6 +164,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
@@ -219,6 +228,31 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    # view_pattern and include_views are inherited from SQLCommonConfig and applied
+    # in process_tables; not redeclared here to avoid drift from the base defaults.
+
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
@@ -263,6 +297,26 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_table_constraints: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, fetches primary key and foreign key constraints for each table "
+            "via an additional tables.get() API call per table (one call per table). "
+            "Disabled by default to avoid unexpected API load on large catalogs. "
+            "Enables PK/FK visualisation in the DataHub schema view when set to true."
+        ),
+    )
+
+    include_partition_keys: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, the `isPartitioningKey` field is populated on schema fields "
+            "for columns that are part of the table's partition key. "
+            "Partition key information is already present in the tables.list() response "
+            "so no additional API calls are made."
+        ),
     )
 
     lineage_data_source: LineageDataSource = pydantic.Field(
@@ -317,13 +371,81 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    include_queries: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit DataHub Query entities for the SQL statements seen in query "
+            "history (the statement text and the datasets it reads/writes). Only effective "
+            "on the system-tables usage path; identical statements are de-duplicated by "
+            "fingerprint."
+        ),
+    )
+    include_query_usage_statistics: bool = pydantic.Field(
+        default=True,
+        description=(
+            "If enabled, emit per-query usage/popularity statistics (queryUsageStatistics) "
+            "for the emitted Query entities. Only effective when include_queries is enabled."
+        ),
+    )
+
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description=(
+            "If enabled, pushes down catalog pattern filtering to system.access.table_lineage "
+            "for improved performance during usage extraction. This filters on source and target "
+            "catalogs in table_lineage. Maps to Snowflake's database_pattern semantics via "
+            "catalog_pattern (Unity catalog = Snowflake database). Only applies when usage is "
+            "fetched via system tables (usage_data_source AUTO with warehouse or SYSTEM_TABLES). "
+            "Also adds a statement_id semi-join against table_lineage, so only queries that "
+            "have at least one lineage row in the configured time window are fetched; queries "
+            "without system.access.table_lineage rows are omitted entirely (not sqlglot-fallbacked)."
+        ),
+    )
+
+    skip_sqlglot_when_system_table_lineage_missing: bool = Field(
+        default=False,
+        description=(
+            "If enabled on the system-tables usage path, queries with no matching rows "
+            "in system.access.table_lineage (for their statement_id within the configured "
+            "time window) are skipped instead of parsed with sqlglot. Only applies when "
+            "usage is fetched via system.query.history joined with system.access.table_lineage. "
+            "Queries that have lineage but unresolvable dataset URNs still fall back to sqlglot."
+        ),
+    )
+
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description=(
+            "If enabled, force full sqlglot parsing of usage queries so column-level "
+            "usage statistics (fieldCounts) are produced. This bypasses the faster "
+            "system-table preparsed lineage path, so usage extraction is slower. Only "
+            "changes behavior on the system-tables usage path (the REST API path already "
+            "parses every query). Takes precedence over "
+            "push_down_database_pattern_access_history and "
+            "skip_sqlglot_when_system_table_lineage_missing, which are ignored when set."
+        ),
+    )
+
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
+        default=None,
+        description=(
+            "Advanced/dev only. Local directory in which to persist the drained "
+            "query-history audit log (SQLite). When set, the audit log is kept across "
+            "runs so the next run over the same time window reloads it and skips "
+            "re-fetching (including after a crash). The file name is keyed by the usage "
+            "source and time window so it never serves a stale window; files for other "
+            "windows are not pruned automatically. When unset, an ephemeral, "
+            "self-cleaning buffer is used and no caching occurs."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig,
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
-        default=UnityCatalogGEProfilerConfig(),
+        default=UnityCatalogSQLAlchemyProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
     )
@@ -402,6 +524,15 @@ class UnityCatalogSourceConfig(
             forced_disable_hive_metastore_extraction
         )
 
+    def usage_uses_system_tables(self, warehouse_id: Optional[str]) -> bool:
+        """Return True when usage data should come from the system-tables join path."""
+        src = self.usage_data_source
+        if src == UsageDataSource.SYSTEM_TABLES:
+            return True
+        if src == UsageDataSource.AUTO:
+            return bool(warehouse_id)
+        return False
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -410,16 +541,33 @@ class UnityCatalogSourceConfig(
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
 
+    def is_sqlalchemy_profiling(self) -> bool:
+        return self.profiling.method == "sqlalchemy"
+
+    def uses_table_level_profiler(self) -> bool:
+        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("start_time", mode="after")
-    @classmethod
-    def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
-            raise ValueError("Query history is only maintained for 30 days.")
-        return v
+    def _validate_start_time_window(self) -> None:
+        # Called at the end of set_warehouse_id_from_profiling so self.warehouse_id is
+        # already resolved from profiling before this check runs.
+        # Intentionally checks BOTH usage and lineage data sources: either path using
+        # system tables extends the allowed history window from 30 to 365 days.
+        uses_system_tables = bool(self.warehouse_id) and (
+            self.usage_data_source != UsageDataSource.API
+            or self.lineage_data_source != LineageDataSource.API
+        )
+        # system.query.history / system.access.* retain ~365 days; the REST API is limited to 30.
+        max_days = 365 if uses_system_tables else 30
+        age_days = (datetime.now(timezone.utc) - self.start_time).days
+        if age_days > max_days:
+            raise ValueError(
+                f"start_time is {age_days} days old; the configured source retains at "
+                f"most {max_days} days of history."
+            )
 
     @field_validator("workspace_url", mode="after")
     @classmethod
@@ -429,6 +577,17 @@ class UnityCatalogSourceConfig(
                 "Workspace URL must start with http scheme. e.g. https://my-workspace.cloud.databricks.com"
             )
         return workspace_url
+
+    @field_validator("local_temp_path", mode="after")
+    @classmethod
+    def local_temp_path_must_be_dir(
+        cls, v: Optional[pathlib.Path]
+    ) -> Optional[pathlib.Path]:
+        # Fail fast with a clear message instead of a confusing extraction error when
+        # the audit-log cache directory doesn't exist (matches Snowflake/BigQuery).
+        if v is not None and not v.is_dir():
+            raise ValueError(f"local_temp_path must be an existing directory, got: {v}")
+        return v
 
     @field_validator("include_metastore", mode="after")
     @classmethod
@@ -465,6 +624,9 @@ class UnityCatalogSourceConfig(
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
 
+        # Run after warehouse_id is resolved so the 30 vs 365-day cap is correct.
+        self._validate_start_time_window()
+
         return self
 
     @model_validator(mode="after")
@@ -492,10 +654,81 @@ class UnityCatalogSourceConfig(
 
         return self
 
+    @model_validator(mode="after")
+    def warn_system_table_usage_flags_without_system_tables(self):
+        # These flags only affect the system.query.history + table_lineage path.
+        # warehouse_id is already resolved here (set_warehouse_id_from_profiling runs
+        # first), so we can tell whether usage will actually use system tables and
+        # warn — rather than fail — when the flags would be silent no-ops.
+        if self.usage_uses_system_tables(self.warehouse_id):
+            return self
+
+        set_flags = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if set_flags:
+            msg = (
+                f"{', '.join(set_flags)} only affect the system-tables usage path "
+                "but usage is not configured to use system tables "
+                f"(usage_data_source={self.usage_data_source.value}, "
+                f"warehouse_id={'set' if self.warehouse_id else 'unset'}). "
+                "These options will have no effect."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return self
+
+    @model_validator(mode="after")
+    def warn_column_usage_stats_overrides_system_table_flags(self):
+        if not self.include_column_usage_stats:
+            return self
+
+        overridden = [
+            name
+            for name, enabled in (
+                (
+                    "push_down_database_pattern_access_history",
+                    self.push_down_database_pattern_access_history,
+                ),
+                (
+                    "skip_sqlglot_when_system_table_lineage_missing",
+                    self.skip_sqlglot_when_system_table_lineage_missing,
+                ),
+            )
+            if enabled
+        ]
+        if overridden:
+            msg = (
+                f"{', '.join(overridden)} are ignored because include_column_usage_stats "
+                "is enabled: usage queries are fully sqlglot-parsed for column-level "
+                "statistics."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+        return self
+
     @field_validator("schema_pattern", mode="after")
     @classmethod
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

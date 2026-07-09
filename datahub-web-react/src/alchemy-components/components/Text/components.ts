@@ -25,7 +25,7 @@ const propStyles = (props: ThemedTextProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
     if (props.color) {
-        const semantic = props.theme.colors[props.color];
+        const semantic = props.color ? props.theme.colors?.[props.color as keyof typeof props.theme.colors] : undefined;
         styles.color =
             typeof semantic === 'string'
                 ? semantic
@@ -36,16 +36,21 @@ const propStyles = (props: ThemedTextProps, isText = false) => {
     return styles;
 };
 
-const themeAwareOverrides = (props: ThemedTextProps) => ({
-    '& a': {
-        color: props.theme.colors.hyperlinks,
-        textDecoration: 'none',
-        transition: 'color 0.15s ease',
-        '&:hover': {
-            color: props.theme.colors.textBrand,
+const themeAwareOverrides = (props: ThemedTextProps) => {
+    // Defensive: tests sometimes render alchemy Text without a ThemeProvider.
+    // Skip link overrides instead of crashing when colors are unavailable.
+    if (!props.theme?.colors) return {};
+    return {
+        '& a': {
+            color: props.theme.colors.hyperlinks,
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+            '&:hover': {
+                color: props.theme.colors.textBrand,
+            },
         },
-    },
-});
+    };
+};
 
 export const P = styled.p({ ...baseStyles, ...textStyles }, (props: ThemedTextProps) => ({
     ...propStyles(props, true),

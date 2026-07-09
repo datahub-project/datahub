@@ -214,17 +214,29 @@ class SnowflakeSinkConnector(BaseConnector):
         # Get topics the connector subscribes to from its configuration
         subscribed_topics = set(self.get_topics_from_config())
 
-        # Filter available topics to only those the connector subscribes to
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
-            logger.debug(
-                f"Filtered to {len(topic_list)} subscribed topics for {connector_manifest.name}: {topic_list}"
-            )
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
-            # If no subscription config, use all available topics (OSS behavior)
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
             logger.debug(
-                f"No subscription filter found, using all {len(topic_list)} available topics"
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
             )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
@@ -307,10 +319,8 @@ class SnowflakeSinkConnector(BaseConnector):
         for topic, table in parser.topics_to_tables.items():
             target_dataset: str = f"{parser.database_name}.{parser.schema_name}.{table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=topic,
                 target_dataset=target_dataset,
                 target_platform="snowflake",
             )
@@ -374,12 +384,31 @@ class ClickHouseSinkConnector(BaseConnector):
             self.all_cluster_topics or connector_manifest.topic_names
         )
 
-        # Filter to subscribed topics
         subscribed_topics = set(self.get_topics_from_config())
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
 
         # Apply transforms
         transform_result = get_transform_pipeline().apply_forward(
@@ -437,9 +466,8 @@ class ClickHouseSinkConnector(BaseConnector):
             for topic, table in parser.topics_to_tables.items():
                 target_dataset: str = f"{parser.database}.{table}"
 
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=topic,
-                    source_platform=KAFKA,
+                fine_grained = self._extract_sink_fine_grained_lineage(
+                    source_topic=topic,
                     target_dataset=target_dataset,
                     target_platform="clickhouse",
                 )
@@ -472,6 +500,86 @@ class ClickHouseSinkConnector(BaseConnector):
 
     def get_platform(self) -> str:
         return "clickhouse"
+
+
+@dataclass
+class IcebergSinkConnector(BaseConnector):
+    @dataclass
+    class IcebergParser:
+        topics_to_tables: Dict[str, List[str]]
+
+    def get_parser(self, connector_manifest: ConnectorManifest) -> IcebergParser:
+        # Parse configured tables
+        tables_config = connector_manifest.config.get(
+            ConnectorConfigKeys.ICEBERG_TABLES, ""
+        )
+        tables = parse_comma_separated_list(tables_config)
+
+        # Resolve topics using shared helper
+        subscribed_topics = self._get_topics_from_sink_config()
+        topic_list = self._resolve_subscribed_topics(
+            connector_manifest, subscribed_topics
+        )
+
+        # All-to-all mapping: each topic → all configured tables
+        topics_to_tables: Dict[str, List[str]] = {topic: tables for topic in topic_list}
+
+        # Warn if no tables are configured for topics (valid only with dynamic routing)
+        if topic_list and not tables:
+            is_dynamic_enabled = connector_manifest.config.get(
+                ConnectorConfigKeys.ICEBERG_TABLES_DYNAMIC_ENABLED, ""
+            ).lower() in ("true", "yes")
+            if not is_dynamic_enabled:
+                self.report.warning(
+                    "No 'iceberg.tables' configured but topics are subscribed; no lineage will be emitted. "
+                    "This is expected only if iceberg.tables.dynamic-enabled=true (routing determined at record time).",
+                    context=connector_manifest.name,
+                )
+
+        return self.IcebergParser(topics_to_tables=topics_to_tables)
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        sensitive_markers = ("secret", "token", "credential", "password", ".key")
+        return {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if not any(marker in k.lower() for marker in sensitive_markers)
+        }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        try:
+            lineages: List[KafkaConnectLineage] = []
+            parser = self.get_parser(self.connector_manifest)
+
+            for topic, target_tables in parser.topics_to_tables.items():
+                for target_dataset in target_tables:
+                    fine_grained = self._extract_sink_fine_grained_lineage(
+                        source_topic=topic,
+                        target_dataset=target_dataset,
+                        target_platform="iceberg",
+                    )
+
+                    lineages.append(
+                        KafkaConnectLineage(
+                            source_dataset=topic,
+                            source_platform=KAFKA,
+                            target_dataset=target_dataset,
+                            target_platform="iceberg",
+                            fine_grained_lineages=fine_grained,
+                        )
+                    )
+
+            return lineages
+        except Exception as e:
+            self.report.warning(
+                f"Unexpected error resolving lineage for Iceberg sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+        return []
+
+    def get_platform(self) -> str:
+        return "iceberg"
 
 
 @dataclass
@@ -720,10 +828,8 @@ class BigQuerySinkConnector(BaseConnector):
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=original_topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=original_topic,
                 target_dataset=target_dataset,
                 target_platform=target_platform,
             )
@@ -1039,26 +1145,46 @@ class JdbcSinkConnector(BaseConnector):
             self.connector_manifest, self.platform
         )
 
-    def get_table_name_from_topic(self, topic: str, table_format: str) -> str:
+    def get_table_name_from_topic(
+        self,
+        topic: str,
+        table_format: str,
+        schema_name: Optional[str] = None,
+    ) -> str:
         """
         Extract table name from topic using connector configuration.
 
         Uses the table.name.format config or defaults to topic name.
         Common format: "${topic}" means table name = topic name
 
+        If `schema_name` is provided and the derived table name already starts
+        with `{schema_name}.`, that prefix is stripped — otherwise the caller's
+        downstream `f"{schema_name}.{table_name}"` concatenation would duplicate
+        the schema segment in the lineage URN (e.g. `mydb.public.public.clm`
+        for topic `public.clm` with `schema_name="public"`).
+
         Args:
             topic: The Kafka topic name
             table_format: Table name format from configuration
+            schema_name: Optional schema name to strip from the prefix if the
+                topic-derived table name already encodes it
 
         Returns:
-            Table name derived from topic
+            Table name derived from topic, without any duplicated schema prefix
         """
         # Replace ${topic} placeholder with actual topic name
         if "${topic}" in table_format:
-            return table_format.replace("${topic}", topic)
+            table_name = table_format.replace("${topic}", topic)
+        else:
+            # If no ${topic} placeholder, assume format IS the table name
+            table_name = table_format
 
-        # If no ${topic} placeholder, assume format IS the table name
-        return table_format
+        if schema_name:
+            schema_prefix = f"{schema_name}."
+            if table_name.startswith(schema_prefix):
+                table_name = table_name[len(schema_prefix) :]
+
+        return table_name
 
     def get_topics_from_config(self) -> List[str]:
         """
@@ -1207,9 +1333,13 @@ class JdbcSinkConnector(BaseConnector):
             for original_topic, transformed_topic in zip(
                 topic_list, transformed_topics, strict=False
             ):
-                # Get table name using format from config
+                # Get table name using format from config — passing schema_name
+                # so any pre-existing schema prefix in the topic-derived name is
+                # stripped, preventing a duplicated schema segment in the URN.
                 table_name = self.get_table_name_from_topic(
-                    transformed_topic, parser.table_name_format
+                    transformed_topic,
+                    parser.table_name_format,
+                    parser.schema_name,
                 )
 
                 # Build fully qualified dataset name using helper function
@@ -1225,10 +1355,8 @@ class JdbcSinkConnector(BaseConnector):
                     # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
-                # Extract column-level lineage if enabled (uses base class method)
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=original_topic,
-                    source_platform=KAFKA,
+                fine_grained = self._extract_sink_fine_grained_lineage(
+                    source_topic=original_topic,
                     target_dataset=target_dataset,
                     target_platform=parser.target_platform,
                 )
@@ -1276,6 +1404,13 @@ S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
 )
+# Snowflake's high-performance (v4) connector built on Snowpipe Streaming. It is
+# config-compatible with the classic sink connector — only the class name differs —
+# so it reuses SnowflakeSinkConnector for lineage extraction.
+# https://docs.snowflake.com/en/connectors/kafkahp/setup-kafka
+SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector"
+)
 DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
     "io.debezium.connector.jdbc.JdbcSinkConnector"
 )
@@ -1284,4 +1419,7 @@ CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
 )
 CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
+)
+ICEBERG_SINK_CONNECTOR_CLASS: Final[str] = (
+    "org.apache.iceberg.connect.IcebergSinkConnector"
 )

@@ -32,7 +32,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.abs.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.abs.report import DataLakeSourceReport
@@ -57,9 +56,6 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
     SUPPORTED_FILE_TYPES,
 )
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -191,6 +187,10 @@ class TableData:
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default as UPDATE operations from blob timestamps",
+)
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
 @capability(
     SourceCapability.CONTAINERS,
@@ -761,14 +761,6 @@ class ABSSource(StatefulIngestionSourceBase):
 
                 for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def is_abs_platform(self):
         return self.source_config.platform == "abs"

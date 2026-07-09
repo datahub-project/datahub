@@ -63,6 +63,9 @@ query listServiceAccounts($input: ListServiceAccountsInput!) {
             createdBy
             createdAt
             updatedAt
+            defaultView {
+                ...view
+            }
             roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: 1 }) {
                 start
                 count
@@ -108,4 +111,8 @@ mutation createServiceAccount($input: CreateServiceAccountInput!) {
 
 mutation deleteServiceAccount($urn: String!) {
     deleteServiceAccount(urn: $urn)
+}
+
+mutation updateServiceAccountDefaultView($input: UpdateServiceAccountDefaultViewInput!) {
+    updateServiceAccountDefaultView(input: $input)
 }

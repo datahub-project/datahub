@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +32,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,8 +74,10 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig reindexConfig = mockReindexConfig(INDEX_NAME, true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
-    when(indexBuilder.getBackingIndices(anyString())).thenReturn(Set.of("datasetindex_v2_old"));
-    when(indexBuilder.validateAndSwapAlias(anyString(), anyString())).thenReturn(true);
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), anyString()))
+        .thenReturn(Set.of("datasetindex_v2_old"));
+    when(indexBuilder.validateAndSwapAlias(any(OperationContext.class), anyString(), anyString()))
+        .thenReturn(true);
 
     step =
         new BuildIndicesIncrementalStep(
@@ -93,60 +97,131 @@ public class BuildIndicesIncrementalStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
   }
 
   @Test
   public void testFreshStartSuccessful() throws Throwable {
     IncrementalReindexResult incrementalResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, Map.of());
-    when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION)))
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
     PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
     when(indexBuilder.pollReindexCompletion(
-            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), eq(2), anyMap(), eq("task1")))
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("task1")))
         .thenReturn(pollResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder).buildIndexIncremental(any(), eq(UPGRADE_VERSION));
-    verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
-    verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
-    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
+    verify(indexBuilder)
+        .buildIndexIncremental(any(OperationContext.class), any(), eq(UPGRADE_VERSION));
+    verify(indexBuilder)
+        .pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder)
+        .undoReindexOptimalSettings(
+            any(OperationContext.class), eq(NEXT_INDEX_NAME), any(ReindexConfig.class), anyMap());
+    verify(indexBuilder)
+        .validateAndSwapAlias(any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
 
   @Test
   public void testSkippedEmptyIndex() throws Throwable {
     IncrementalReindexResult emptyResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, Map.of());
-    when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION))).thenReturn(emptyResult);
+        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(emptyResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should not poll or undo settings for empty index
     verify(indexBuilder, never())
-        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
-    verify(indexBuilder, never()).undoReindexOptimalSettings(any(), any(), anyMap());
+        .pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder, never())
+        .undoReindexOptimalSettings(
+            any(OperationContext.class), any(String.class), any(ReindexConfig.class), anyMap());
+  }
+
+  @Test
+  public void testNonExistingIndexIsCreated() throws Throwable {
+    // Fresh-install scenario: the index has never been created. The broadened
+    // getIndicesNeedingReindexOrBuild filter picks it up, and BuildIndicesIncrementalStep
+    // must delegate to buildIndex (which calls createIndex under the canonical name) rather
+    // than the incremental path — getSourceDocCount / getBackingIndices / validateAndSwapAlias
+    // all throw on a missing alias.
+    ReindexConfig newIndexConfig = mockReindexConfig(INDEX_NAME, false);
+    when(newIndexConfig.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(newIndexConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // Critical: the non-existing index must be created via buildIndex
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(newIndexConfig));
+    // None of the incremental-path operations should run — they all assume a pre-existing source
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder, never()).getBackingIndices(any(OperationContext.class), anyString());
+    verify(indexBuilder, never())
+        .pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder, never())
+        .validateAndSwapAlias(any(OperationContext.class), anyString(), anyString());
+  }
+
+  @Test
+  public void testNonExistingIndexBuildThrowsReturnsFailed() throws Throwable {
+    // If the fresh-create path fails (e.g. ES is down), the step must propagate FAILED
+    // rather than continue past and pretend the index is ready.
+    ReindexConfig newIndexConfig = mockReindexConfig(INDEX_NAME, false);
+    when(newIndexConfig.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(newIndexConfig));
+    doThrow(new IOException("ES unavailable"))
+        .when(indexBuilder)
+        .buildIndex(any(OperationContext.class), eq(newIndexConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(newIndexConfig));
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
   }
 
   @Test
   public void testPollTimeoutReturnsFailed() throws Throwable {
     IncrementalReindexResult incrementalResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, Map.of());
-    when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION)))
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
     PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L));
-    when(indexBuilder.pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString()))
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString()))
         .thenReturn(timedOut);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
-    verify(indexBuilder, never()).undoReindexOptimalSettings(any(), any(), anyMap());
+    verify(indexBuilder, never())
+        .undoReindexOptimalSettings(
+            any(OperationContext.class), any(String.class), any(ReindexConfig.class), anyMap());
   }
 
   @Test
@@ -159,6 +234,8 @@ public class BuildIndicesIncrementalStepTest {
             NEXT_INDEX_NAME,
             null,
             1679000000000L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);
 
@@ -168,17 +245,29 @@ public class BuildIndicesIncrementalStepTest {
 
     PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
     when(indexBuilder.pollReindexCompletion(
-            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), anyInt(), anyMap(), eq("")))
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("")))
         .thenReturn(pollResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should NOT call buildIndexIncremental — just resume polling
-    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
-    verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
-    verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
-    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder)
+        .pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder)
+        .undoReindexOptimalSettings(
+            any(OperationContext.class), eq(NEXT_INDEX_NAME), any(ReindexConfig.class), anyMap());
+    verify(indexBuilder)
+        .validateAndSwapAlias(any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
 
   @Test
@@ -191,6 +280,8 @@ public class BuildIndicesIncrementalStepTest {
             NEXT_INDEX_NAME,
             null,
             1679000000000L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.COMPLETED);
 
@@ -202,9 +293,11 @@ public class BuildIndicesIncrementalStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should not build or poll — index was already done
-    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
     verify(indexBuilder, never())
-        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder, never())
+        .pollReindexCompletion(
+            any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
   }
 
   @Test
@@ -220,7 +313,7 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testExceptionReturnsFailed() throws Throwable {
-    when(indexBuilder.buildIndexIncremental(any(), anyString()))
+    when(indexBuilder.buildIndexIncremental(any(OperationContext.class), any(), anyString()))
         .thenThrow(new RuntimeException("ES connection error"));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -232,6 +325,9 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig config = mock(ReindexConfig.class);
     when(config.name()).thenReturn(name);
     when(config.requiresReindex()).thenReturn(requiresReindex);
+    // Default to an existing index — the incremental path is the common case. Fresh-create
+    // tests override this to false.
+    when(config.exists()).thenReturn(true);
     when(config.isSettingsReindex()).thenReturn(false);
     when(config.isPureMappingsAddition()).thenReturn(false);
     when(config.requiresApplyMappings()).thenReturn(false);

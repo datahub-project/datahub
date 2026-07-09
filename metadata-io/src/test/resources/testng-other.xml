@@ -22,6 +22,10 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <class name="com.linkedin.metadata.search.embedding.LocalEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
         </classes>
     </test>
 

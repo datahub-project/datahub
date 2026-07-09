@@ -1,9 +1,9 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Divider, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
@@ -44,13 +44,10 @@ const StyledEntitySidebarContainer = styled.div<{
         max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
 
 const StyledSidebar = styled.div`
@@ -78,7 +75,7 @@ const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
         font-size: 14px;
         line-height: 20px;
         font-weight: bold;
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -105,6 +102,7 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible }: Props) => {
+    const { t } = useTranslation('search');
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
@@ -127,11 +125,12 @@ const BrowseSidebar = ({ visible }: Props) => {
                 $width={sidebarWidth}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
                 id="browse-v2"
+                data-testid="browse-v2-results"
             >
                 <Controls isCollapsed={isClosed}>
                     {!isClosed ? (
                         <NavigateTitle level={5} isClosed={isClosed}>
-                            Navigate
+                            {t('sidebar.navigate')}
                         </NavigateTitle>
                     ) : null}
                     <Button

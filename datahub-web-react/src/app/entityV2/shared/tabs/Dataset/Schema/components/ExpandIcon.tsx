@@ -2,6 +2,7 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import RowIcon from '@images/row-icon.svg?react';
@@ -78,7 +79,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font-size: 10px;
     font-weight: 400;
 `;
@@ -105,6 +106,7 @@ type Props = {
 };
 
 export default function ExpandIcon(props: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const { expanded, onExpand, expandable, record, isCompact = false } = props;
 
     function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
@@ -123,7 +125,7 @@ export default function ExpandIcon(props: Props) {
                         <Padding padding={DEPTH_PADDING * (record.depth + 1)} />
                         <StyledTooltip
                             placement="bottom"
-                            title={`${record.depth + 1} level${record.depth === 0 ? '' : 's'} nested`}
+                            title={t('expandIcon.levelsNested', { count: record.depth + 1 })}
                             getPopupContainer={(triggerNode) => triggerNode}
                             showArrow={false}
                             className="row-icon-tooltip"
