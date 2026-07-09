@@ -47,18 +47,28 @@ class SnowflakeAdapter(PlatformAdapter):
         Returns:
             Updated context ready for profiling
         """
-        logger.debug(f"Snowflake setup for {context.pretty_name}")
+        logger.debug(f"Snowflake setup_profiling called for {context.pretty_name}")
+        logger.debug(
+            f"Config: use_sampling={self.config.use_sampling}, sample_size={self.config.sample_size}"
+        )
+        logger.debug(
+            f"Context: table={context.table}, schema={context.schema}, row_count={context.row_count}"
+        )
 
         # Setup sampling for large tables
-        if self._should_sample_table(context, conn):
+        should_sample = self._should_sample_table(context, conn)
+        logger.debug(f"Should sample table: {should_sample}")
+        if should_sample:
             context = self._setup_sampling(context, conn)
 
         # Create SQLAlchemy table object
         if context.temp_table:
-            # Use temp table
+            # Use temp table - CRITICAL: must use same connection that created it
+            # since temp tables are session-scoped in Snowflake
             context.sql_table = self._create_sqlalchemy_table(
                 schema=context.temp_schema,
                 table=context.temp_table,
+                autoload_with=conn,
             )
         else:
             # Use original table
@@ -77,34 +87,17 @@ class SnowflakeAdapter(PlatformAdapter):
         """
         Cleanup Snowflake temp resources.
 
-        Drops temporary tables created during profiling.
+        Snowflake temporary tables are session-scoped and automatically dropped when
+        the connection closes. Since cleanup() is called after the profiling connection
+        has closed (in the finally block), the temp tables are already gone.
+
+        No explicit DROP is needed.
 
         Args:
             context: Profiling context
         """
-        if context.temp_table:
-            try:
-                # Drop temp table using raw connection
-                raw_conn = self.base_engine.raw_connection()
-                cursor = raw_conn.cursor()
-
-                # Build fully qualified temp table name
-                temp_table_fqn = (
-                    f"{context.temp_schema}.{context.temp_table}"
-                    if context.temp_schema
-                    else context.temp_table
-                )
-
-                drop_sql = f"DROP TABLE IF EXISTS {temp_table_fqn}"
-                logger.debug(f"Dropping Snowflake temp table: {drop_sql}")
-                cursor.execute(drop_sql)  # type: ignore[call-arg]
-                cursor.close()
-                raw_conn.close()
-            except Exception as e:
-                logger.warning(
-                    f"Failed to drop Snowflake temp table {context.temp_table}: "
-                    f"{type(e).__name__}: {str(e)}"
-                )
+        # Snowflake temp tables are automatically dropped when connection closes
+        # No explicit cleanup needed
         pass
 
     # =========================================================================
@@ -122,33 +115,43 @@ class SnowflakeAdapter(PlatformAdapter):
         Returns:
             True if table should be sampled
         """
+        logger.debug(f"Checking if sampling needed for {context.pretty_name}")
+
         if not self.config.use_sampling:
+            logger.debug("use_sampling=False, skipping sampling")
             return False
 
         if context.custom_sql:
+            logger.debug("custom_sql provided, skipping sampling")
             # Don't sample custom SQL
             return False
 
         if not context.table:
+            logger.debug("No table name, skipping sampling")
             # Can't sample without a table
             return False
 
         # Check if table is large enough to warrant sampling
         # Get row count (only if not already cached in context)
         if context.row_count is None:
+            logger.debug("row_count is None, calling _get_quick_row_count")
             context.row_count = self._get_quick_row_count(context, conn)
+            logger.debug(f"_get_quick_row_count returned: {context.row_count}")
 
         if context.row_count is None:
             # Failed to get row count - default to sampling (conservative approach)
             # This prevents profiling failures on large tables where metadata is unavailable
             logger.info(
-                f"Row count unavailable for {context.pretty_name}, "
-                f"defaulting to sampling"
+                f"Row count unavailable for {context.pretty_name}, defaulting to sampling"
             )
             return True
 
         # Only skip sampling if we successfully determined the table is small
-        return context.row_count > self.config.sample_size
+        should_sample = context.row_count > self.config.sample_size
+        logger.debug(
+            f"row_count={context.row_count}, sample_size={self.config.sample_size}, should_sample={should_sample}"
+        )
+        return should_sample
 
     def _get_quick_row_count(
         self, context: ProfilingContext, conn: Connection
@@ -215,9 +218,13 @@ class SnowflakeAdapter(PlatformAdapter):
         Returns:
             Updated context with sampled temp table
         """
+        logger.debug(f"Setting up sampling for {context.pretty_name}")
+
         # Get row count for calculating sample percentage
         row_count = context.row_count or self._get_quick_row_count(context, conn)
+        logger.debug(f"row_count={row_count}, sample_size={self.config.sample_size}")
         if not row_count or row_count <= self.config.sample_size:
+            logger.debug("Table too small or no row count, skipping sampling")
             return context
 
         # Table must be present for sampling
@@ -233,11 +240,15 @@ class SnowflakeAdapter(PlatformAdapter):
             else f'"{context.table}"'
         )
 
-        # Generate unique temp table name
+        # Generate unique temp table name with quotes to preserve case
+        # CRITICAL: Snowflake stores unquoted identifiers as UPPERCASE, but we need
+        # lowercase for SQLAlchemy reflection to work correctly. Using quotes in the
+        # CREATE statement tells Snowflake to preserve the exact case.
         random_suffix = "".join(
             random.choices(string.ascii_lowercase + string.digits, k=8)
         )
-        temp_table_name = f"datahub_profiling_sample_{random_suffix}"
+        temp_table_name_unquoted = f"datahub_profiling_sample_{random_suffix}"
+        temp_table_name_quoted = f'"{temp_table_name_unquoted}"'
 
         # GE's sampling strategy: use BLOCK + BERNOULLI for very large tables
         # to improve performance, otherwise use BERNOULLI only
@@ -260,7 +271,7 @@ class SnowflakeAdapter(PlatformAdapter):
             bernoulli_sample_pc = 100 / overgeneration_factor
 
             create_sql = (
-                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name} AS "
+                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name_quoted} AS "
                 f"SELECT * FROM ("
                 f"  SELECT * FROM {table_fqn} "
                 f"  TABLESAMPLE BLOCK ({block_sample_pc:.8f})"
@@ -272,33 +283,32 @@ class SnowflakeAdapter(PlatformAdapter):
             bernoulli_sample_pc = 100 * sample_pc
 
             create_sql = (
-                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name} AS "
+                f"CREATE OR REPLACE TEMPORARY TABLE {temp_table_name_quoted} AS "
                 f"SELECT * FROM {table_fqn} "
                 f"TABLESAMPLE BERNOULLI ({bernoulli_sample_pc:.8f})"
             )
             sampling_strategy = f"BERNOULLI ({bernoulli_sample_pc:.2f}%)"
 
         logger.info(
-            f"Creating Snowflake temp table for {context.pretty_name} "
-            f"({row_count:,} rows, target sample: {self.config.sample_size:,}, "
-            f"strategy: {sampling_strategy})"
+            f"Creating temp table for {context.pretty_name} "
+            f"({row_count:,} rows -> {self.config.sample_size:,} sample)"
         )
-        logger.debug(f"Snowflake sampling SQL: {create_sql}")
+        logger.debug(f"Sampling strategy: {sampling_strategy}")
+        logger.debug(f"Sampling SQL: {create_sql}")
 
         try:
-            # Execute using raw connection
-            raw_conn = self.base_engine.raw_connection()
-            cursor = raw_conn.cursor()
-            cursor.execute(create_sql)  # type: ignore[call-arg]
-            cursor.close()
-            raw_conn.close()
+            # Execute using the same connection that will be used for profiling
+            # CRITICAL: Temp tables in Snowflake are session-scoped and must be created
+            # on the same connection that will query them. Creating on a separate
+            # raw_connection() and closing it would drop the temp table immediately.
+            conn.execute(sa.text(create_sql))
 
-            # Update context to use temp table
-            context.temp_table = temp_table_name
+            # Update context to use temp table (store unquoted name - SQLAlchemy adds quotes)
+            context.temp_table = temp_table_name_unquoted
             context.temp_schema = context.schema  # Temp table inherits schema
             context.is_sampled = True
             context.sample_percentage = sample_pc * 100  # Store as percentage
-            context.add_temp_resource("snowflake_temp_table", temp_table_name)
+            context.add_temp_resource("snowflake_temp_table", temp_table_name_unquoted)
 
             logger.debug(
                 f"Created Snowflake temp table: "
