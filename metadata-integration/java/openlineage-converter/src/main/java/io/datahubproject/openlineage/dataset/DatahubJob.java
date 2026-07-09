@@ -208,12 +208,18 @@ public class DatahubJob {
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
 
-    // Skip emitting empty dataJobInputOutput to avoid clobbering later emissions that have data.
-    // When coalesced emission fires on early events (e.g., START), all sets are empty and the
-    // UPSERT path would create the aspect with empty arrays. Later PATCH emissions then fail to
-    // override the empty UPSERT, causing output edges to be lost.
-    if (inputEdges.isEmpty() && outputEdges.isEmpty() && parentJobs.isEmpty()) {
-      log.info("Skipping dataJobInputOutput emission for {} - no edges to emit yet", jobUrn);
+    // Skip an empty dataJobInputOutput only in PATCH mode. When coalesced emission fires on early
+    // events (e.g., START), all sets are empty; without this skip the all-empty case falls through
+    // to the UPSERT branch below (the PATCH branch requires a non-empty set), creating the aspect
+    // with empty arrays that a later PATCH cannot override, losing edges. In UPSERT mode the
+    // reverse
+    // holds: emitting the empty aspect is the only way to clear edges a job legitimately no longer
+    // has, so it must not be skipped.
+    if (config.isUsePatch()
+        && inputEdges.isEmpty()
+        && outputEdges.isEmpty()
+        && parentJobs.isEmpty()) {
+      log.info("Skipping empty dataJobInputOutput PATCH for {} - no edges to emit yet", jobUrn);
       return;
     }
 

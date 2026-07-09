@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkContext$;
@@ -62,6 +63,9 @@ public class DatahubSparkListener extends SparkListener {
   private static final Logger log = LoggerFactory.getLogger(DatahubSparkListener.class);
   private final Map<String, Instant> batchLastUpdated = new HashMap<String, Instant>();
   private OpenLineageSparkListener listener;
+  // Ensures the "lineage disabled for this application" warning is logged at most once per app,
+  // rather than repeating the per-event DEBUG line every time an inert listener is skipped.
+  private final AtomicBoolean inertListenerWarned = new AtomicBoolean(false);
   private DatahubEventEmitter emitter;
   private Config datahubConf = ConfigFactory.empty();
   private SparkAppContext appContext;
@@ -395,6 +399,18 @@ public class DatahubSparkListener extends SparkListener {
    */
   private boolean listenerNotReady(SparkListenerEvent event) {
     if (listener == null) {
+      // A persistently-null listener means the agent emits nothing for the whole application, but
+      // the individual init failure paths only log at DEBUG (or, for the no-active-context path,
+      // not
+      // at all). Surface the app-level consequence once at WARN so an inert agent isn't invisible
+      // at
+      // the default log level; keep the per-event noise at DEBUG.
+      if (inertListenerWarned.compareAndSet(false, true)) {
+        log.warn(
+            "DataHub Spark lineage is disabled for this application; no lineage events will be "
+                + "emitted. The OpenLineage listener could not be initialized (check earlier logs "
+                + "for a configuration or endpoint parse error, or a missing active SparkContext).");
+      }
       log.debug(
           "OpenLineage listener is not initialized; skipping {}", event.getClass().getSimpleName());
       return true;
@@ -443,15 +459,35 @@ public class DatahubSparkListener extends SparkListener {
    * Deeper integration of the two mechanisms is tracked in ING-2959.
    */
   static void configureDatasetTrimmers(SparkConf sparkConf) {
+    // This decision silently changes how dataset URNs are named, so log the chosen branch at INFO:
+    // a mis-detection is otherwise only discoverable by spotting broken/orphaned URNs after a run.
     // A directly-pinned OpenLineage key always wins.
     if (sparkConf.contains(OL_DISABLED_TRIMMERS_KEY)) {
+      log.info(
+          "OpenLineage dataset-name trimmers: honoring explicitly-set {} (leaving it untouched).",
+          OL_DISABLED_TRIMMERS_KEY);
       return;
     }
     boolean disableTrimmers;
     if (sparkConf.contains(DATAHUB_ENABLE_TRIMMERS_KEY)) {
-      disableTrimmers = !sparkConf.getBoolean(DATAHUB_ENABLE_TRIMMERS_KEY, true);
+      boolean enabled = sparkConf.getBoolean(DATAHUB_ENABLE_TRIMMERS_KEY, true);
+      disableTrimmers = !enabled;
+      log.info(
+          "OpenLineage dataset-name trimmers: {} by explicit {}={}.",
+          enabled ? "kept enabled" : "disabled",
+          DATAHUB_ENABLE_TRIMMERS_KEY,
+          enabled);
+    } else if (isDatahubPathTrimmingConfigured(sparkConf)) {
+      disableTrimmers = true;
+      log.info(
+          "OpenLineage dataset-name trimmers: auto-disabled because DataHub path trimming "
+              + "(path_spec_list or file_partition_regexp) is configured. Set {}=true to force them on.",
+          DATAHUB_ENABLE_TRIMMERS_KEY);
     } else {
-      disableTrimmers = isDatahubPathTrimmingConfigured(sparkConf);
+      disableTrimmers = false;
+      log.info(
+          "OpenLineage dataset-name trimmers: left enabled (OpenLineage default) — no DataHub "
+              + "path trimming configured.");
     }
     if (disableTrimmers) {
       sparkConf.set(OL_DISABLED_TRIMMERS_KEY, OL_DEFAULT_DISABLED_TRIMMERS);

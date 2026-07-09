@@ -171,12 +171,14 @@ public class RddDatasetInfoExtractor {
           .map(
               f -> {
                 if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
-                  // filePath returns SparkPath for Spark 3.4
+                  // Spark 3.4+: filePath() returns a SparkPath whose toPath() yields a Hadoop Path.
+                  // Stay null-safe (like the branch below): a reflective miss on an unexpected
+                  // point-release must drop this one file, not throw NoSuchElementException out of
+                  // the listener (which listenerNotReady cannot catch) and abort the whole event.
                   return tryExecuteMethod(f, "filePath")
-                      .map(o -> tryExecuteMethod(o, "toPath"))
-                      .map(o -> (Path) o.get())
-                      .get()
-                      .getParent();
+                      .flatMap(o -> tryExecuteMethod(o, "toPath"))
+                      .map(o -> ((Path) o).getParent())
+                      .orElse(null);
                 } else {
                   // Spark < 3.4: filePath() returns a String. Access reflectively so this branch
                   // still compiles against Spark 3.4+ where filePath() returns SparkPath.

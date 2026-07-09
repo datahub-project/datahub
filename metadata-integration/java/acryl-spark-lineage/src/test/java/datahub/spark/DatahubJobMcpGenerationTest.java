@@ -76,11 +76,33 @@ class DatahubJobMcpGenerationTest {
   }
 
   /**
-   * Simulates the START event scenario: empty inSet and outSet. The dataJobInputOutput aspect
-   * should NOT be emitted, preventing it from clobbering later emissions with actual data.
+   * The customer clobbering scenario (PATCH mode): a coalesced early event (e.g., START) has empty
+   * inSet/outSet. Because the PATCH branch requires a non-empty set, an empty emission would fall
+   * through to the UPSERT branch and write an empty aspect that a later PATCH cannot override —
+   * losing edges. So in PATCH mode an empty emission must be skipped entirely.
    */
   @Test
-  void testEmptyEdgesSkipsDataJobInputOutputMcp() throws URISyntaxException, IOException {
+  void testEmptyEdgesSkipsDataJobInputOutputMcpInPatchMode()
+      throws URISyntaxException, IOException {
+    DatahubJob job = createMinimalJob();
+
+    assertTrue(job.getInSet().isEmpty());
+    assertTrue(job.getOutSet().isEmpty());
+
+    List<MetadataChangeProposal> mcps = job.toMcps(createConfig(true));
+
+    assertFalse(
+        hasDataJobInputOutputMcp(mcps),
+        "Empty inSet/outSet in PATCH mode should NOT produce a dataJobInputOutput MCP");
+  }
+
+  /**
+   * In UPSERT mode there is no follow-up PATCH, so emitting the empty aspect is the only way to
+   * clear edges a job legitimately no longer has. An empty emission must therefore be emitted (not
+   * skipped), otherwise stale edges from a previous run would stick permanently.
+   */
+  @Test
+  void testEmptyEdgesInUpsertModeEmitsToClearEdges() throws URISyntaxException, IOException {
     DatahubJob job = createMinimalJob();
 
     assertTrue(job.getInSet().isEmpty());
@@ -88,9 +110,9 @@ class DatahubJobMcpGenerationTest {
 
     List<MetadataChangeProposal> mcps = job.toMcps(createConfig(false));
 
-    assertFalse(
+    assertTrue(
         hasDataJobInputOutputMcp(mcps),
-        "Empty inSet/outSet should NOT produce a dataJobInputOutput MCP");
+        "Empty inSet/outSet in UPSERT mode SHOULD produce a dataJobInputOutput MCP to clear edges");
   }
 
   /**
