@@ -933,7 +933,8 @@ public class ESIndexBuilder {
     Pair<Long, Long> documentCounts =
         getDocumentCounts(opContext, expectedCountSupplier, destIndex);
     long documentCountsLastUpdated = System.currentTimeMillis();
-    long previousDocCount = documentCounts.getSecond();
+    final long pollStartTimeMillis = documentCountsLastUpdated;
+    final long pollStartDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
 
     while (System.currentTimeMillis() < timeoutAt) {
@@ -942,22 +943,19 @@ public class ESIndexBuilder {
 
       Pair<Long, Long> latestCounts =
           getDocumentCounts(opContext, expectedCountSupplier, destIndex);
+      long currentTime = System.currentTimeMillis();
 
       if (!latestCounts.equals(documentCounts)) {
-        long currentTime = System.currentTimeMillis();
-        long timeElapsed = currentTime - documentCountsLastUpdated;
-        long docsIndexed = latestCounts.getSecond() - previousDocCount;
-
-        double indexingRate = timeElapsed > 0 ? (double) docsIndexed / timeElapsed : 0;
-        long remainingDocs = latestCounts.getFirst() - latestCounts.getSecond();
-        long estimatedMillisRemaining =
-            indexingRate > 0 ? (long) (remainingDocs / indexingRate) : 0;
-        estimatedMinutesRemaining = estimatedMillisRemaining / (1000 * 60);
-
+        // Stall-detection bookkeeping only; the ETA below is computed unconditionally.
         documentCountsLastUpdated = currentTime;
         documentCounts = latestCounts;
-        previousDocCount = documentCounts.getSecond();
       }
+
+      estimatedMinutesRemaining =
+          estimateMinutesRemaining(
+              latestCounts.getSecond() - pollStartDocCount,
+              currentTime - pollStartTimeMillis,
+              latestCounts.getFirst() - latestCounts.getSecond());
 
       if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
         log.info(
@@ -1081,6 +1079,20 @@ public class ESIndexBuilder {
     return indexConfig.getMaxReindexHours() > 0
         ? System.currentTimeMillis() + (1000L * 60 * 60 * indexConfig.getMaxReindexHours())
         : Long.MAX_VALUE;
+  }
+
+  /**
+   * Computes estimated minutes remaining for a reindex based on the cumulative average indexing
+   * rate since the start of the current polling loop (not the most recent poll-to-poll delta). A
+   * cumulative average smooths out bursty ES bulk-indexing throughput and the polling loop's own
+   * growing sleep interval, both of which make a single-sample rate estimate very noisy.
+   */
+  public static long estimateMinutesRemaining(
+      long docsIndexedSinceStart, long elapsedMillisSinceStart, long remainingDocs) {
+    double indexingRate =
+        elapsedMillisSinceStart > 0 ? (double) docsIndexedSinceStart / elapsedMillisSinceStart : 0;
+    long estimatedMillisRemaining = indexingRate > 0 ? (long) (remainingDocs / indexingRate) : 0;
+    return estimatedMillisRemaining / (1000 * 60);
   }
 
   private ReindexResult reindex(@Nonnull OperationContext opContext, ReindexConfig indexState)

@@ -54,6 +54,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     EditableSchemaMetadata,
+    SchemaMetadata,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import (
     PartitionTypeClass,
@@ -66,6 +67,7 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
@@ -105,43 +107,56 @@ def _get_columns_to_ignore_sampling(
     """
     logger.debug("Collecting columns to ignore for sampling")
 
-    ignore_table: bool = False
-    columns_to_ignore: List[str] = []
-
     if not tags_to_ignore:
-        return ignore_table, columns_to_ignore
+        return False, []
 
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
-
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
-    # Check dataset-level tags
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags:
-        ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-            for tag_association in dataset_tags.tags
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
+        return True, []
+
+    # Collect from both aspects; use a set to deduplicate across them.
+    # SchemaMetadata holds ingestion-sourced column tags (e.g. from Snowflake).
+    # EditableSchemaMetadata holds tags applied via the DataHub UI.
+    columns_to_ignore: set[str] = set()
+
+    schema_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=SchemaMetadata
+    )
+    if schema_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in schema_metadata.fields
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-    # If table-level tag found, ignore entire table
-    if not ignore_table:
-        # Check column-level tags
-        metadata = datahub_graph.get_aspect(
-            entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    editable_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    )
+    if editable_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in editable_metadata.editableSchemaFieldInfo
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-        if metadata:
-            for schemaField in metadata.editableSchemaFieldInfo:
-                if schemaField.globalTags:
-                    columns_to_ignore.extend(
-                        schemaField.fieldPath
-                        for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-                    )
-
-    return ignore_table, columns_to_ignore
+    return False, list(columns_to_ignore)
 
 
 def _is_single_row_query_method(query: Any) -> bool:

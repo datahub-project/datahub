@@ -55,7 +55,11 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -161,6 +165,7 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
@@ -288,7 +293,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -310,6 +315,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 default_emit_mode=emitter._default_emit_mode,
             ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            #
+            # Known edge: the derived graph's config.auth stays None, so anything
+            # that re-derives a client from this graph's CONFIG (rather than its
+            # session) — e.g. emit_all()/make_rest_sink() via
+            # _make_rest_sink_config() — only picks up env-based OAuth
+            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+            # TODO(oauth): retain the declarative AuthConfig alongside the
+            # resolved auth so derived configs keep it.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
