@@ -24,6 +24,7 @@ from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
 )
 from datahub.ingestion.workunit_processors.auto_status_aspect import (
     AutoStatusAspectProcessor,
+    _gms_supports_status_patch,
 )
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -161,6 +162,90 @@ def test_auto_status_aspect_upsert_fallback():
         assert mcp.aspect.removed is False
 
     assert processor.report.status_patch_mode is False
+
+
+class TestGmsSupportsStatusPatch:
+    """Tests for the _gms_supports_status_patch version-gating logic."""
+
+    def test_no_config_returns_false(self) -> None:
+        """When GMS config is unavailable (e.g. file sink), returns False."""
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value={},
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_cloud_below_threshold_returns_false(self) -> None:
+        """Cloud server below v2.1.0 should not support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v2.0.5"}},
+            "datahub": {"serverEnv": "cloud"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_cloud_at_threshold_returns_true(self) -> None:
+        """Cloud server at exactly v2.1.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v2.1.0"}},
+            "datahub": {"serverEnv": "cloud"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_core_below_threshold_returns_false(self) -> None:
+        """Core server below v1.7.0 should not support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.6.9"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_core_at_threshold_returns_true(self) -> None:
+        """Core server at exactly v1.7.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.7.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_core_above_threshold_returns_true(self) -> None:
+        """Core server above v1.7.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.8.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_raw_dict_config_is_wrapped(self) -> None:
+        """When get_gms_config returns a plain dict, it should be wrapped in RestServiceConfig."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.7.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
 
 
 def test_auto_lowercase_aspects():

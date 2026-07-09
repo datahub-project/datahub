@@ -4,7 +4,6 @@ from typing import Iterable, Optional, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
@@ -15,6 +14,8 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     StatusClass,
 )
+from datahub.specific.status import StatusPatchBuilder
+from datahub.utilities.server_config_util import RestServiceConfig, get_gms_config
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
@@ -27,11 +28,6 @@ def _gms_supports_status_patch() -> bool:
     versions without it reject PATCH MCPs for status with a 500 error.
     Returns False when the server config is unavailable (e.g. file sink).
     """
-    from datahub.utilities.server_config_util import (
-        RestServiceConfig,
-        get_gms_config,
-    )
-
     raw_config = get_gms_config()
     if not raw_config:
         return False
@@ -110,13 +106,7 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
             if use_patch:
                 # PATCH only sets removed=false without overwriting other
                 # fields (lifecycleStage, lifecycleState, lifecycleLastUpdated).
-                patch_builder = MetadataPatchProposal(urn)
-                patch_builder._add_patch(
-                    aspect_name=StatusClass.ASPECT_NAME,
-                    op="add",
-                    path=("removed",),
-                    value=False,
-                )
+                patch_builder = StatusPatchBuilder(urn).set_removed(False)
                 for mcp in patch_builder.build():
                     yield MetadataWorkUnit(
                         id=f"{urn}-auto-status",
