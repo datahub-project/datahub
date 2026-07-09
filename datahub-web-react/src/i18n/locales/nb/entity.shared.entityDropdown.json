@@ -41,6 +41,8 @@
     "deprecation.replacementSearchTitle": "Velg én entitet som skal erstatte den utdaterte entiteten.",
     "deprecation.selectReplacement": "Velg erstatning",
     "deprecation.setReplacement": "Angi erstatning",
+    "deprecation.markedDeprecatedSuccess": "Merket som utdatert",
+    "deprecation.markedUnDeprecatedSuccess": "Merket som ikke utdatert",
     "deprecation.updateError": "Kunne ikke oppdatere utdatering: \n {{errorMessage}}",
     "deprecation.updated": "Utdatering oppdatert",
     "domainSelect.notFound": "Ingen domener funnet",

@@ -10,6 +10,7 @@
     "deprecation.markedUnDeprecatedSuccess": "Merket Asset som ikke utdatert!",
     "deprecation.noAdditionalDetails": "Ingen flere detaljer",
     "deprecation.replacementLabel": "Erstatning:",
+    "deprecation.reasonLabel": "Årsak:",
     "deprecation.scheduledDecommission": "Planlagt avviklet {{date}}",
     "download.creating": "Oppretter CSV for nedlasting",
     "download.failed": "Nedlasting mislyktes",
