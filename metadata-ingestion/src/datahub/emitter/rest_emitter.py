@@ -616,6 +616,17 @@ class DataHubRestEmitter(Closeable, Emitter):
             self._session.auth = auth
 
     @property
+    def session(self) -> requests.Session:
+        """The authenticated requests session used by this client.
+
+        Custom REST calls (e.g. polling an endpoint the SDK does not wrap) must
+        go through this session so per-request authentication applies — an OAuth
+        token provider lives in ``session.auth`` and is bypassed by requests
+        built from copied headers.
+        """
+        return self._session
+
+    @property
     def server_config(self) -> RestServiceConfig:
         return self.fetch_server_config()
 
