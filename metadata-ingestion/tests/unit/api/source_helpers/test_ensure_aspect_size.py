@@ -1151,11 +1151,9 @@ def test_ensure_size_of_too_big_query_properties(processor):
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
-    # Regression for the unit-mismatch bug: a statement made of characters that
-    # inflate under JSON encoding (newlines, each 1 raw char -> 2 JSON bytes)
-    # used to defeat the guard, because it compared a raw character count against
-    # a JSON-byte reduction target. The guard would give up and emit an oversized
-    # aspect, which GMS then rejected with a 400.
+    # Regression for the unit-mismatch bug: chars that inflate under JSON encoding
+    # (\n -> 2 bytes) used to defeat the guard, which compared raw chars against
+    # a byte target; the guard then emitted an oversized aspect and GMS 400'd.
     statement = "\n" * (6 * 1024 * 1024)
     query_properties = QueryPropertiesClass(
         statement=QueryStatementClass(value=statement, language=QueryLanguageClass.SQL),
@@ -1430,10 +1428,8 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
 
 
 def test_ensure_view_properties_truncates_heavily_escaped_logic(processor):
-    # Same regression class as the queryProperties escape test: a viewLogic made
-    # of characters that inflate under JSON encoding (each newline is 2 bytes)
-    # would previously slip past the raw-vs-byte size math and leave an oversized
-    # aspect. Verify the serialized size stays under the payload constraint.
+    # Same regression class as the queryProperties escape test: raw-vs-byte
+    # size math used to leave viewLogic aspects oversized.
     view_properties = ViewPropertiesClass(
         materialized=False,
         viewLogic="\n" * (INGEST_MAX_PAYLOAD_BYTES),

@@ -35,12 +35,10 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# queryProperties gets its own (tighter) cap than the generic 16MB aspect
-# limit because these MCPs are also emitted over Kafka on the async path,
-# where Kafka's producer `max.request.size` is 5MB by default. Sizing this
-# under that bound keeps the guard useful for both REST and Kafka emit
-# paths. GMS's server-side AspectSizePayloadValidator (16MB) is not the
-# binding limit here, so we don't align with it.
+# Cap queryProperties tighter than the generic 16MB aspect limit because
+# these MCPs are also emitted over Kafka on the async path, where the producer
+# `max.request.size` defaults to 5MB. GMS's 16MB AspectSizePayloadValidator
+# is not the binding limit here.
 DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB
 QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     os.environ.get(
@@ -490,12 +488,11 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         full_statement = query_properties.statement.value
         original_statement_size = len(full_statement)
 
-        # Trim the statement in raw characters but bound it by the serialized JSON
-        # size: escaping (\n, \", control chars, non-ASCII) inflates the wire size
-        # past the raw length, so a raw-vs-byte comparison undercounts and lets
-        # oversized aspects through (GMS then rejects them with a 400).
-        # Measure the non-statement overhead once so each search step only has to
-        # encode the candidate string, not re-serialize the whole aspect.
+        # Trim by serialized-byte budget, not raw char count: JSON escaping
+        # (\n, \", non-ASCII) inflates wire size past raw length, so a raw-vs-byte
+        # compare undercounts and lets oversized aspects through (GMS then 400s).
+        # Measure the non-statement overhead once so each search step only encodes
+        # the candidate, not the whole aspect.
         query_properties.statement.value = ""
         empty_overhead = self._query_properties_serialized_size(query_properties)
         overhead_without_value = empty_overhead - len(json.dumps(""))
@@ -566,16 +563,13 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         view_properties: ViewPropertiesClass,
         field_name: str,
     ) -> Optional[_TruncationResult]:
-        # Measure serialized size (not raw chars) when trimming: escaping (\n, \",
-        # non-ASCII) inflates the wire size past the raw length, so a raw-vs-byte
-        # comparison undercounts and lets oversized aspects through.
+        # Serialized-byte budget + overhead-measured-once pattern; see
+        # ensure_query_properties_size for the rationale.
         original_value: Optional[str] = getattr(view_properties, field_name)
         if not original_value:
             return None
         original_size = len(original_value)
 
-        # Overhead of the aspect with this field emptied, so each search step only
-        # has to re-encode the candidate string, not re-serialize the whole aspect.
         setattr(view_properties, field_name, "")
         empty_overhead = self._view_properties_serialized_size(view_properties)
         overhead_without_value = empty_overhead - len(json.dumps(""))
