@@ -7,7 +7,7 @@ import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
-import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { decommissionTimeToSeconds, toLocalDateString } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import dayjs from '@utils/dayjs';
@@ -101,15 +101,9 @@ export const DeprecationIcon = ({
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     const [showUndeprecateModal, setShowUndeprecateModal] = useState(false);
 
-    let decommissionTimeSeconds;
-    if (deprecation.decommissionTime) {
-        if (deprecation.decommissionTime < 943920000000) {
-            // Time is set in way past if it was milli-second so considering this as set in seconds
-            decommissionTimeSeconds = deprecation.decommissionTime;
-        } else {
-            decommissionTimeSeconds = deprecation.decommissionTime / 1000;
-        }
-    }
+    const decommissionTimeSeconds = deprecation.decommissionTime
+        ? decommissionTimeToSeconds(deprecation.decommissionTime)
+        : undefined;
     const decommissionTimeLocal =
         (decommissionTimeSeconds &&
             t('deprecation.scheduledDecommission', {
