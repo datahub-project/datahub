@@ -90,7 +90,6 @@ The defaults are conservative and safe to leave alone. Tighten `view_processing_
 - `column_extraction_watermark` must be managed manually — set it to the start time of the previous successful run. Use `column_extraction_days_back` instead if you want a self-maintaining schedule-relative window.
 - `column_extraction_watermark` and `column_extraction_days_back` are mutually exclusive. Setting both raises a validation error at startup.
 - Profiling capped by `profiling.limit` does not prioritise tables — they are profiled in the order they are returned by `dbc.TablesV`. Use `profile_pattern` to target specific schemas if order matters.
-- `convert_urns_to_lowercase` is part of each dataset's URN identity, so its value must stay fixed for the life of a deployment. Changing it after data has been ingested re-keys every table (e.g. `MyDb.MyTable` becomes `mydb.mytable`); with stateful ingestion enabled the old-cased URNs are then soft-deleted as stale while the new-cased ones are created, producing duplicate or orphaned entities. Pick one value before the first run and leave it unchanged — the connector logs a warning when the flag is enabled as a reminder.
 
 ### Troubleshooting
 

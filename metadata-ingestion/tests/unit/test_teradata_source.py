@@ -49,10 +49,6 @@ from datahub.ingestion.source.sql.teradata import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
-from datahub.utilities.global_warning_util import (
-    clear_global_warnings,
-    get_global_warnings,
-)
 
 
 @pytest.fixture(autouse=True)
@@ -238,25 +234,6 @@ class TestTeradataConfig:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
-
-    @pytest.fixture(autouse=True)
-    def _clear_global_warnings(self):
-        """Isolate the process-global warning list from and for other tests."""
-        clear_global_warnings()
-        yield
-        clear_global_warnings()
-
-    def test_convert_urns_to_lowercase_default_does_not_warn(self) -> None:
-        """The default (disabled) should not emit the immutability warning."""
-        TeradataConfig.model_validate(_base_config())
-        assert not any("convert_urns_to_lowercase" in w for w in get_global_warnings())
-
-    def test_convert_urns_to_lowercase_enabled_warns(self) -> None:
-        """Enabling lowercasing warns that the setting must stay stable."""
-        TeradataConfig.model_validate(
-            {**_base_config(), "convert_urns_to_lowercase": True}
-        )
-        assert any("convert_urns_to_lowercase" in w for w in get_global_warnings())
 
 
 class TestTeradataSource:

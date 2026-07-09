@@ -90,7 +90,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
@@ -1335,23 +1334,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         """
         if v is not None and v.tzinfo is not None:
             v = v.astimezone(timezone.utc).replace(tzinfo=None)
-        return v
-
-    @field_validator("convert_urns_to_lowercase", mode="after")
-    @classmethod
-    def _warn_convert_urns_to_lowercase_is_immutable(cls, v: bool) -> bool:
-        # The flag is baked into every dataset URN, so flipping it between runs
-        # re-keys every table. With stateful ingestion the old-cased URNs then
-        # look stale (soft-deleted) while the new-cased ones look new, producing
-        # duplicate/orphaned entities. The default is False, so only the enabled
-        # case signals a deployment that has opted into lowercasing and needs the
-        # reminder; warning unconditionally would fire on every default run.
-        if v:
-            add_global_warning(
-                "`convert_urns_to_lowercase` is enabled. This setting is baked into every "
-                "dataset URN, so keep it stable for the life of the deployment — changing it "
-                "later re-keys every table and can create duplicate or orphaned entities."
-            )
         return v
 
     @model_validator(mode="after")
