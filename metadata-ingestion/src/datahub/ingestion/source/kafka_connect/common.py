@@ -1164,9 +1164,9 @@ class BaseConnector:
         # `{platform_instance}.` segment. Strip it so callers see the logical
         # db.schema.table name; otherwise table discovery and pattern matching
         # break for sources ingested with a platform_instance.
-        # platform_instance is not part of SchemaResolverInterface, so read it
-        # defensively for interface-only implementations that omit it.
-        platform_instance = getattr(self.schema_resolver, "platform_instance", None)
+        platform_instance = (
+            self.schema_resolver.platform_instance if self.schema_resolver else None
+        )
         if platform_instance:
             prefix = f"{platform_instance}."
             if name.lower().startswith(prefix.lower()):
