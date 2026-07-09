@@ -1,13 +1,16 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { message } from 'antd';
+import { Tooltip, toast } from '@components';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -22,7 +25,7 @@ export default function UpdateDeprecationMenuAction() {
     const [updateDeprecation] = useUpdateDeprecationMutation();
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: tcf('updating') });
+        toast.loading(tcf('updating'));
         try {
             await updateDeprecation({
                 variables: {
@@ -34,45 +37,49 @@ export default function UpdateDeprecationMenuAction() {
                     },
                 },
             });
-            message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            toast.destroy();
+            toast.success(
+                deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                { duration: 2 },
+            );
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
                 deprecated: deprecatedStatus,
             });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({
-                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
             }
         }
         refetchForEntity?.();
     };
 
     return (
-        <Tooltip
-            placement="bottom"
-            title={
-                !entityData?.deprecation?.deprecated
-                    ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-                    : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-            }
-        >
-            <ActionMenuItem
-                key="deprecation"
-                onClick={() =>
+        <>
+            <Tooltip
+                placement="bottom"
+                title={
                     !entityData?.deprecation?.deprecated
-                        ? setIsDeprecationModalVisible(true)
-                        : handleUpdateDeprecation(false)
+                        ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
+                        : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
                 }
-                data-testid="entity-menu-deprecate-button"
             >
-                <ExclamationCircleOutlined style={{ display: 'flex' }} />
-            </ActionMenuItem>
+                <ActionMenuItem
+                    key="deprecation"
+                    onClick={() =>
+                        !entityData?.deprecation?.deprecated
+                            ? setIsDeprecationModalVisible(true)
+                            : handleUpdateDeprecation(false)
+                    }
+                    data-testid="entity-menu-deprecate-button"
+                >
+                    <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                </ActionMenuItem>
+            </Tooltip>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
@@ -80,6 +87,6 @@ export default function UpdateDeprecationMenuAction() {
                     refetch={refetchForEntity}
                 />
             )}
-        </Tooltip>
+        </>
     );
 }

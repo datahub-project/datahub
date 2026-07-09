@@ -65,6 +65,67 @@ def get_gms_base_path() -> str:
 
 
 # ============================================================================
+# Env-configured OAuth (DATAHUB_AUTH_TYPE)
+# Parsed into an AuthConfig by datahub.ingestion.auth.env.
+# ============================================================================
+
+
+def get_auth_type() -> Optional[str]:
+    """Env-configured OAuth provider type (k8s_oidc / azure_entra / oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TYPE")
+
+
+def get_auth_token_file() -> Optional[str]:
+    """Path to the projected service-account token file (k8s_oidc)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_FILE")
+
+
+def get_auth_audience() -> Optional[str]:
+    """Expected token audience (k8s_oidc, oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_AUDIENCE")
+
+
+def get_auth_scope() -> Optional[str]:
+    """OAuth scope (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_SCOPE")
+
+
+def get_auth_token_endpoint() -> Optional[str]:
+    """IdP token endpoint URL (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_ENDPOINT")
+
+
+def get_auth_client_id() -> Optional[str]:
+    """OAuth client id (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_ID")
+
+
+def get_auth_client_secret() -> Optional[str]:
+    """OAuth client secret (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_SECRET")
+
+
+def get_auth_azure_tenant_id() -> Optional[str]:
+    """Azure Entra tenant id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_TENANT_ID")
+
+
+def get_auth_azure_client_id() -> Optional[str]:
+    """Azure Entra client id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_ID")
+
+
+def get_auth_azure_scope() -> Optional[str]:
+    """Azure Entra token scope (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_SCOPE")
+
+
+def get_auth_azure_client_secret() -> Optional[str]:
+    """Azure Entra client secret; omit for workload identity (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_SECRET")
+
+
+# ============================================================================
 # REST Emitter Configuration
 # ============================================================================
 

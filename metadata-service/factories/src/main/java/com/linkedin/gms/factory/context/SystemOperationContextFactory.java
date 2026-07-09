@@ -25,6 +25,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
+import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -209,9 +210,11 @@ public class SystemOperationContextFactory {
   @Bean
   @Nonnull
   protected OperationContextConfig operationContextConfig(
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      @Autowired(required = false) SessionContextEnricher sessionContextEnricher) {
     return OperationContextConfig.builder()
         .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
+        .sessionContextEnricher(sessionContextEnricher)
         .build();
   }
 }

@@ -32,6 +32,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_column_lineage_skipped_column_count: int = 0
     num_external_upstreams_lacking_permissions: int = 0
     num_external_upstreams_unsupported: int = 0
+    num_external_upstreams_partition_stripped: int = 0
 
     num_queries: int = 0
     num_queries_dropped: int = 0
@@ -69,6 +70,16 @@ class UnityCatalogReport(SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_federation_connections_list_failed: int = 0
+    num_foreign_catalogs: int = 0
+    num_federation_links_emitted: int = 0
+    num_federation_links_failed: int = 0
+    num_federation_targets_unresolved: int = 0
+    num_federation_columns_backfilled: int = 0
+    num_federation_columns_backfill_failed: int = 0
+    num_federation_cll_skipped: int = 0
+    num_federation_external_schema_fetch_failed: int = 0
+    num_federation_property_defs_failed: int = 0
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0

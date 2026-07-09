@@ -151,7 +151,12 @@ function EntityDropdown(props: Props) {
                 },
             });
             message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            message.success({
+                content: deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                duration: 2,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

@@ -10,6 +10,7 @@ import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsC
 import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
@@ -101,6 +102,15 @@ const Text = styled.div`
     align-items: center;
     font-size: 14px;
     width: 80%;
+`;
+
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const LoadingWrapper = styled.div`
@@ -218,6 +228,15 @@ const SidebarTitle = styled.span<{ $isSelected: boolean }>`
     `}
 `;
 
+const SidebarTitleContent = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+`;
+
 const SidebarRightContent = styled.div`
     display: flex;
     align-items: center;
@@ -291,6 +310,14 @@ export default function DomainNode({
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
+    // Prefer the profile page's live (post-mutation) deprecation state over the sidebar's own
+    // fetch when this row is the currently-open entity, mirroring glossary `TermItem`.
+    const deprecation = isOnEntityPage ? entityData?.deprecation : domain.deprecation;
+    const deprecationBadge = !isCollapsed && deprecation?.deprecated && (
+        <DeprecationSlot>
+            <DeprecationIcon urn={domain.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+        </DeprecationSlot>
+    );
     const shouldAutoOpen = useMemo(
         () => !isInSelectMode && entityData?.parentDomains?.domains?.some((parent) => parent.urn === domain.urn),
         [isInSelectMode, entityData, domain.urn],
@@ -375,14 +402,22 @@ export default function DomainNode({
                     <SidebarLeftContent $isCollapsed={!!isCollapsed}>
                         <SidebarIconSlot $isCollapsed={!!isCollapsed}>{renderLeadingGlyph()}</SidebarIconSlot>
                         {!isCollapsed && (
-                            <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
-                                <SidebarTitle
-                                    $isSelected={isDomainNodeSelected && !isCollapsed}
-                                    data-testid={`domain-option-${displayName}`}
+                            <SidebarTitleContent>
+                                <Tooltip
+                                    placement="right"
+                                    title={displayName}
+                                    mouseEnterDelay={0.7}
+                                    mouseLeaveDelay={0}
                                 >
-                                    {displayName}
-                                </SidebarTitle>
-                            </Tooltip>
+                                    <SidebarTitle
+                                        $isSelected={isDomainNodeSelected && !isCollapsed}
+                                        data-testid={`domain-option-${displayName}`}
+                                    >
+                                        {displayName}
+                                    </SidebarTitle>
+                                </Tooltip>
+                                {deprecationBadge}
+                            </SidebarTitleContent>
                         )}
                     </SidebarLeftContent>
                     {hasDomainChildren && !isExpanded && !isCollapsed && (
@@ -458,6 +493,7 @@ export default function DomainNode({
                             <DisplayName $isSelected={isDomainNodeSelected && !isCollapsed}>
                                 {!isCollapsed && displayName}
                             </DisplayName>
+                            {deprecationBadge}
                         </Text>
                         {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>

@@ -1,10 +1,11 @@
-import { NetworkStatus } from '@apollo/client';
+import { NetworkStatus, useApolloClient } from '@apollo/client';
 import { Modal, Table } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
 import { ManageTag } from '@app/tags/ManageTag';
 import {
     TagActionsColumn,
@@ -19,7 +20,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
 
-import { useDeleteTagMutation } from '@graphql/tag.generated';
+import { GetTagDocument, useDeleteTagMutation } from '@graphql/tag.generated';
 
 interface Props {
     searchQuery: string;
@@ -35,6 +36,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
     const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
+    const client = useApolloClient();
     const [deleteTagMutation] = useDeleteTagMutation();
 
     // Check if user has permission to manage or delete tags
@@ -47,6 +49,14 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const [showEdit, setShowEdit] = useState(false);
     const [editingTag, setEditingTag] = useState('');
+
+    const [showDeprecationModal, setShowDeprecationModal] = useState(false);
+    const [deprecationTagUrn, setDeprecationTagUrn] = useState('');
+
+    const handleDeprecationComplete = useCallback(() => {
+        refetch();
+        client.refetchQueries({ include: [GetTagDocument] });
+    }, [client, refetch]);
 
     // Simplified state for delete confirmation modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -182,6 +192,10 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                     message.error(t('tags.noDeletePermissionError'));
                                 }
                             }}
+                            onDeprecate={() => {
+                                setDeprecationTagUrn(record.entity.urn);
+                                setShowDeprecationModal(true);
+                            }}
                             canManageTags={canManageTags}
                         />
                     );
@@ -216,6 +230,14 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                     onClose={() => setShowEdit(false)}
                     onSave={refetch}
                     isModalOpen={showEdit}
+                />
+            )}
+
+            {showDeprecationModal && (
+                <UpdateDeprecationModal
+                    urns={[deprecationTagUrn]}
+                    onClose={() => setShowDeprecationModal(false)}
+                    refetch={handleDeprecationComplete}
                 />
             )}
 

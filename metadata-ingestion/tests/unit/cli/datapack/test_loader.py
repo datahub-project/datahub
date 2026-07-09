@@ -18,6 +18,7 @@ from datahub.cli.datapack.loader import (
     _cache_key,
     _cached_path,
     _datapack_emit_mode,
+    _DatapackSinkConfig,
     _run_pipeline_for_file,
     _sha256_file,
     check_trust,
@@ -89,7 +90,7 @@ class TestDatapackSinkConfig:
         mock_pipeline = MagicMock()
         mock_pipeline_cls.create.return_value = mock_pipeline
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -117,7 +118,7 @@ class TestDatapackSinkConfig:
         data_file.write_text("[]")
         mock_pipeline_cls.create.return_value = MagicMock()
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -141,7 +142,7 @@ class TestDatapackSinkConfig:
         data_file.write_text("[]")
         mock_pipeline_cls.create.return_value = MagicMock()
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
