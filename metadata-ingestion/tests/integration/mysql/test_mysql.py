@@ -117,6 +117,7 @@ def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
     assert all(not m["aspect"]["json"].get("userCounts") for m in usage)
 
     mysql_usage_helpers.assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_top_sql_queries(mcps, usage_source="performance_schema")
 
 
 @pytest.mark.integration
@@ -144,6 +145,7 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
     )
 
     mysql_usage_helpers.assert_query_lineage_present(mcps)
+    mysql_usage_helpers.assert_top_sql_queries(mcps, usage_source="general_log")
 
 
 @pytest.mark.parametrize(
