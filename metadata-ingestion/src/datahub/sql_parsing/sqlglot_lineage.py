@@ -328,6 +328,13 @@ class _ColumnLineageInfo(_ParserBaseModel):
     logic: Optional[ColumnTransformation] = None
 
 
+def column_refs_to_schema_field_urns(refs: Iterable[ColumnRef]) -> List[str]:
+    # A ColumnRef can carry an empty column when upstream resolution couldn't
+    # cleanly identify a column (see _translate_internal_column_lineage), so we
+    # filter those out here rather than build an invalid schemaField URN.
+    return [make_schema_field_urn(ref.table, ref.column) for ref in refs if ref.column]
+
+
 class ColumnLineageInfo(_ParserBaseModel):
     """
     TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
@@ -350,14 +357,7 @@ class ColumnLineageInfo(_ParserBaseModel):
         return make_schema_field_urn(self.downstream.table, self.downstream.column)
 
     def upstream_schema_field_urns(self) -> List[str]:
-        # A ColumnRef can carry an empty column when upstream resolution couldn't
-        # cleanly identify a column (see _translate_internal_column_lineage), so we
-        # filter those out here rather than build an invalid schemaField URN.
-        return [
-            make_schema_field_urn(ref.table, ref.column)
-            for ref in self.upstreams
-            if ref.column
-        ]
+        return column_refs_to_schema_field_urns(self.upstreams)
 
 
 class _JoinInfo(_ParserBaseModel):

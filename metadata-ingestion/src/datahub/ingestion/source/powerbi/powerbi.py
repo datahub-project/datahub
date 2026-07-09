@@ -198,8 +198,7 @@ class Mapper:
         for cll_info in cll:
             downstream = (
                 [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream is not None and cll_info.downstream.column
                 else []
             )
 
@@ -211,6 +210,7 @@ class Mapper:
                     else column_ref.column,
                 )
                 for column_ref in cll_info.upstreams
+                if column_ref.column
             ]
 
             fine_grained_lineages.append(
