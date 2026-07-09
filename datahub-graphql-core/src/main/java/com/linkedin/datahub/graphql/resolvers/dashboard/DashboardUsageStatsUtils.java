@@ -34,6 +34,7 @@ import com.linkedin.timeseries.TimeWindowSize;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -303,7 +304,10 @@ public class DashboardUsageStatsUtils {
     }
 
     // Sort in descending order
-    userUsageCounts.sort((a, b) -> (b.getUsageCount() - a.getUsageCount()));
+    userUsageCounts.sort(
+        (a, b) ->
+            (Objects.requireNonNullElse(b.getUsageCount(), 0)
+                - Objects.requireNonNullElse(a.getUsageCount(), 0)));
     return userUsageCounts;
   }
 
