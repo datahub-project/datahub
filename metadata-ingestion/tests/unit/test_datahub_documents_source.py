@@ -9,6 +9,11 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.unstructured.event_consumer import (
+    DocumentEventConsumer,
+)
+
 # Skip entire module if unstructured is not installed (requires Python 3.10+)
 pytest.importorskip("unstructured")
 
@@ -3590,11 +3595,6 @@ class TestPollEventsSessionAuth:
         return request
 
     def test_poll_events_carries_session_auth_to_the_wire(self) -> None:
-        from datahub.ingestion.graph.client import DataHubGraph
-        from datahub.ingestion.source.unstructured.event_consumer import (
-            DocumentEventConsumer,
-        )
-
         session = requests.Session()
         session.auth = self._oauth_style_auth
         adapter = self._RecordingAdapter()

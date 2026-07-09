@@ -167,9 +167,6 @@ class DocumentEventConsumer:
         params = {k: v for k, v in params.items() if v is not None and v != ""}
 
         try:
-            # Poll through the graph's authenticated session: per-request auth
-            # (e.g. an OAuth token provider in session.auth) only applies to
-            # requests made through it.
             response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
@@ -223,9 +220,6 @@ class DocumentEventConsumer:
         }
 
         try:
-            # Poll through the graph's authenticated session: per-request auth
-            # (e.g. an OAuth token provider in session.auth) only applies to
-            # requests made through it.
             response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
