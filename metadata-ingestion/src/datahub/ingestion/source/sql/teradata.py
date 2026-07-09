@@ -2150,13 +2150,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
-        # NOTE: returns the database name in its *source* case on purpose. It is
-        # reused verbatim as a SQL identifier elsewhere (e.g. the quoted
-        # `DATABASE "{schema}"` context set before view HELP commands), which in
-        # a CASESPECIFIC installation must match the stored case. URN/container
-        # casing normalization for convert_urns_to_lowercase is applied only in
-        # the URN-generating paths (get_identifier / _maybe_lower_urn_name), not
-        # here, so SQL resolution is never affected.
+        # Returns the database name in its source case on purpose: the result is
+        # reused verbatim as a quoted SQL identifier, which must match the stored
+        # case in CASESPECIFIC installations. URN casing is normalized separately
+        # via _maybe_lower_urn_name.
         if hasattr(inspector, "_datahub_database"):
             return inspector._datahub_database
 
@@ -2168,19 +2165,13 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
     def _maybe_lower_urn_name(self, name: str) -> str:
-        """Apply convert_urns_to_lowercase to a name used to build a URN/key.
-
-        Mirrors how get_identifier() lower-cases the dataset name. Kept separate
-        from get_db_name() so only URN identity is normalized while the SQL
-        identifier keeps its source case (safe for CASESPECIFIC installations)."""
+        # Lower-case a name used to build a URN/key when convert_urns_to_lowercase
+        # is set, mirroring get_identifier() for datasets. Keeps get_db_name()
+        # source-case for SQL resolution while normalizing URN identity.
         return name.lower() if self.config.convert_urns_to_lowercase else name
 
     def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
-        # Lower-case the container key when convert_urns_to_lowercase is set so
-        # the database container URN stays consistent with the (lower-cased)
-        # dataset URNs produced by get_identifier(). Without this, datasets get a
-        # lower-cased URN while their parent container keeps source case,
-        # producing mismatched / duplicate lowercase containers.
+        # Normalize the name so the container URN matches the dataset URNs.
         return super().get_database_container_key(
             self._maybe_lower_urn_name(db_name), self._maybe_lower_urn_name(schema)
         )
@@ -2190,9 +2181,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        # The container *entity* is created here (via gen_database_key), a path
-        # separate from get_database_container_key() used for dataset parenting;
-        # both must agree, so apply the same normalization to the name.
+        # Normalize the name so the container URN matches the dataset URNs.
         yield from super().gen_database_containers(
             database=self._maybe_lower_urn_name(database),
             extra_properties=extra_properties,
