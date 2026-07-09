@@ -70,9 +70,26 @@ class RelationshipScrollResult:
     relationships: List[Relationship]
 
 
+@dataclass
+class LineageRelationship(Relationship):
+    upstream_urn: str
+    downstream_urn: str
+
+
+@dataclass
+class LineageRelationshipScrollResult:
+    scroll_id: Optional[str]
+    relationships: List[LineageRelationship]
+
+
 class RelationshipDirection(StrEnum):
     INCOMING = "INCOMING"
     OUTGOING = "OUTGOING"
+
+
+class LineageDirection(StrEnum):
+    UPSTREAM = "UPSTREAM"
+    DOWNSTREAM = "DOWNSTREAM"
 
 
 def _raw_filter_to_v3_body(raw: RawSearchFilter) -> Dict[str, Any]:
@@ -386,47 +403,96 @@ class OpenApiAPI(OpenAPIGraphProtocol):
     def scroll_lineage(
         self,
         *,
+        urns: Optional[List[str]] = None,
         relationship_types: Optional[List[str]] = None,
-        source_types: Optional[List[str]] = None,
-        destination_types: Optional[List[str]] = None,
-        direction: Optional[RelationshipDirection] = None,
-        source_urns: Optional[List[str]] = None,
-        destination_urns: Optional[List[str]] = None,
-        source_filter: Optional[RawSearchFilter] = None,
-        destination_filter: Optional[RawSearchFilter] = None,
-        edge_filter: Optional[RawSearchFilter] = None,
+        direction: Optional[LineageDirection] = None,
         count: Optional[int] = None,
         scroll_id: Optional[str] = None,
         include_soft_delete: Optional[bool] = None,
         slice_id: Optional[int] = None,
         slice_max: Optional[int] = None,
         pit_keep_alive: Optional[str] = None,
-    ) -> RelationshipScrollResult:
-        """Scroll through lineage relationships using the scrollLineage endpoint.
+    ) -> LineageRelationshipScrollResult:
+        """Scroll through lineage relationship edges connected to a set of URNs, using
+        the scrollLineage endpoint.
 
-        Behaves identically to scroll_relationships but additionally applies a
-        triplet-based lineage filter from the entity registry so that only edges
-        annotated as lineage are returned.
+        URNs are matched against either endpoint of an edge (source or destination) —
+        the graph is always queried undirected. A triplet-based lineage filter from the
+        entity registry is applied so that only edges annotated as lineage are
+        returned. Each returned edge exposes its endpoints as upstream/downstream
+        (resolved via the relationship's ``isUpstream`` semantics) rather than as the
+        raw graph source/destination.
 
-        See scroll_relationships for parameter documentation.
+        Args:
+            urns: URNs to anchor the lineage search on; edges are returned if either
+                endpoint is in this list. If None or empty, no URN filter is applied
+                and all lineage edges are scrolled.
+            relationship_types: Relationship types to include (e.g. ["DownstreamOf"]).
+                If None or empty, all lineage relationship types are returned.
+            direction: UPSTREAM or DOWNSTREAM, applied relative to `urns` as a
+                post-query filter — edges running the opposite way are dropped. Has no
+                effect when `urns` is empty, since there is no anchor to orient from.
+                Because filtering happens after the page is fetched, a given page may
+                return fewer than `count` results; keep scrolling until scroll_id is
+                None.
+            count: Number of results per page.
+            scroll_id: Pagination cursor from a previous scroll response.
+            include_soft_delete: If True, include soft-deleted entities.
+            slice_id: Slice index for parallel scrolling.
+            slice_max: Total number of slices for parallel scrolling.
+            pit_keep_alive: Point-in-time keep-alive duration (e.g. "5m").
+
+        Returns:
+            A LineageRelationshipScrollResult with:
+            - scroll_id: cursor to pass in the next call (None when exhausted)
+            - relationships: list of LineageRelationship objects. Each carries the raw
+              source/destination endpoints (inherited from Relationship) plus the
+              resolved upstream and downstream URN of the edge.
         """
-        return self._scroll_relationships_impl(
+        params: Dict[str, Any] = {}
+        if relationship_types is not None:
+            params["relationshipTypes"] = relationship_types
+        if direction is not None:
+            params["direction"] = direction.value
+        if count is not None:
+            params["count"] = count
+        if scroll_id is not None:
+            params["scrollId"] = scroll_id
+        if include_soft_delete is not None:
+            params["includeSoftDelete"] = str(include_soft_delete).lower()
+        if slice_id is not None:
+            params["sliceId"] = slice_id
+        if slice_max is not None:
+            params["sliceMax"] = slice_max
+        if pit_keep_alive is not None:
+            params["pitKeepAlive"] = pit_keep_alive
+
+        body: Dict[str, Any] = {}
+        if urns is not None:
+            body["urns"] = urns
+
+        response = self._post_generic(
             url=f"{self._gms_server}/openapi/v3/lineage/scroll",
-            relationship_types=relationship_types,
-            source_types=source_types,
-            destination_types=destination_types,
-            direction=direction,
-            source_urns=source_urns,
-            destination_urns=destination_urns,
-            source_filter=source_filter,
-            destination_filter=destination_filter,
-            edge_filter=edge_filter,
-            count=count,
-            scroll_id=scroll_id,
-            include_soft_delete=include_soft_delete,
-            slice_id=slice_id,
-            slice_max=slice_max,
-            pit_keep_alive=pit_keep_alive,
+            payload_dict=body,
+            params=params,
+        )
+
+        relationships = [
+            LineageRelationship(
+                relationship_type=r["relationshipType"],
+                source_urn=r["source"]["urn"],
+                source_entity_type=r["source"]["entityType"],
+                destination_urn=r["destination"]["urn"],
+                destination_entity_type=r["destination"]["entityType"],
+                upstream_urn=r["upstream"],
+                downstream_urn=r["downstream"],
+            )
+            for r in response.get("results", [])
+        ]
+
+        return LineageRelationshipScrollResult(
+            scroll_id=response.get("scrollId"),
+            relationships=relationships,
         )
 
     def _scroll_relationships_impl(

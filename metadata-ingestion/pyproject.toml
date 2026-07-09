@@ -572,6 +572,7 @@ glue = [
     "cachetools<6.0.0",
     "patchy==2.8.0",
     "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -720,6 +721,12 @@ matillion-dpc = [
 ]
 
 metabase = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
+]
+
+microstrategy = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot[c]==30.8.0",
@@ -1925,6 +1932,7 @@ preset = "datahub.ingestion.source.preset:PresetSource"
 tableau = "datahub.ingestion.source.tableau.tableau:TableauSource"
 openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
+microstrategy = "datahub.ingestion.source.microstrategy.source:MicroStrategySource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
 starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
 thoughtspot = "datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource"

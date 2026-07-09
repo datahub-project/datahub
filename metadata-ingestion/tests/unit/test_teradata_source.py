@@ -19,12 +19,14 @@ from sqlalchemy.exc import (
     TimeoutError as PoolTimeoutError,
 )
 
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
     MetadataChangeProposalWrapper,
     MetadataWorkUnit,
 )
 from datahub.ingestion.source.sql.teradata import (
+    MAX_QUERY_PARTS,
     LineageQuery,
     LineageQueryLabel,
     TeradataConfig,
@@ -40,11 +42,11 @@ from datahub.ingestion.source.sql.teradata import (
     _jittered_backoff,
     _should_retry,
     _should_retry_connect,
+    _view_definition_key,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
-    optimized_get_view_definition,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -233,6 +235,85 @@ class TestTeradataConfig:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
+
+
+def _create_source_with_lowercase(convert_urns_to_lowercase: bool) -> TeradataSource:
+    """Build a TeradataSource with a chosen convert_urns_to_lowercase value."""
+    config = TeradataConfig.model_validate(
+        {**_base_config(), "convert_urns_to_lowercase": convert_urns_to_lowercase}
+    )
+    with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
+class TestConvertUrnsToLowercaseContainerConsistency:
+    """convert_urns_to_lowercase must keep the container key and the dataset
+    identifier on the same casing, otherwise datasets are emitted under a
+    container URN that does not match their own (lower-cased) name — the
+    duplicate/orphan 'invalid lowercase container' failure mode.
+
+    Casing is normalized only in the URN paths; get_db_name() (reused as a SQL
+    identifier) keeps source case so CASESPECIFIC installations are unaffected.
+    """
+
+    def _db_name_for(self, source: TeradataSource, raw_db: str) -> str:
+        inspector = MagicMock()
+        inspector._datahub_database = raw_db
+        return source.get_db_name(inspector)
+
+    def test_lowercase_enabled_container_matches_dataset_db_segment(self):
+        source = _create_source_with_lowercase(True)
+
+        db_name = self._db_name_for(source, "MyDb")
+        # get_db_name keeps source case (it is reused as a SQL identifier).
+        assert db_name == "MyDb"
+
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+        dataset_db_segment = dataset_identifier.split(".", 1)[0]
+
+        # The database segment of the (lower-cased) dataset name must equal the
+        # database the container key is built from.
+        assert dataset_db_segment == "mydb"
+        assert container_key.database == dataset_db_segment
+
+    def test_lowercase_disabled_preserves_source_case(self):
+        source = _create_source_with_lowercase(False)
+
+        db_name = self._db_name_for(source, "MyDb")
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+
+        assert db_name == "MyDb"
+        assert dataset_identifier.split(".", 1)[0] == "MyDb"
+        assert container_key.database == "MyDb"
+
+    def test_creation_and_parenting_container_urns_agree(self):
+        """The container *entity* (gen_database_containers) and the key used to
+        parent datasets (get_database_container_key) must resolve to the same
+        URN under lower-casing — otherwise the dataset points at a container
+        that was never created."""
+        source = _create_source_with_lowercase(True)
+        db_name = self._db_name_for(source, "MyDb")
+
+        parenting_urn = source.get_database_container_key(db_name, db_name).as_urn()
+
+        created_urns = {
+            wu.get_urn()
+            for wu in source.gen_database_containers(database=db_name)
+            if wu.get_urn().startswith("urn:li:container:")
+        }
+
+        assert parenting_urn in created_urns
 
 
 class TestTeradataSource:
@@ -490,10 +571,14 @@ class TestTeradataSource:
                     create_timestamp=datetime(2024, 1, 1),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
             source._table_creator_cache[("db1", "t1")] = "owner"
+
+            # Spy on the disk-backed view-definition store's close() so we can
+            # assert the temporary SQLite file is torn down promptly on close.
+            mock_view_definitions_close = MagicMock()
+            source._view_definitions.close = mock_view_definitions_close  # type: ignore[method-assign]
 
             with patch(
                 "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
@@ -507,6 +592,10 @@ class TestTeradataSource:
                 # sequential recipe runs in the same process (OOM fix for #7602).
                 assert len(source._tables_cache) == 0
                 assert len(source._table_creator_cache) == 0
+
+                # The disk-backed view-definition store must be closed so its
+                # temporary SQLite file is removed rather than leaking until GC.
+                mock_view_definitions_close.assert_called_once()
 
                 # Module-level LRU caches must also be cleared between recipe runs.
                 assert get_schema_columns.cache_info().currsize == 0
@@ -787,7 +876,6 @@ class TestConcurrencySupport:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
             source._tables_cache["test_schema"] = [test_table]
 
@@ -886,7 +974,103 @@ class TestErrorHandling:
             ):
                 mock_aggregator.gen_metadata.return_value = []
                 source._populate_aggregator_from_audit_logs()
-                # Method doesn't return a value, just populates the aggregator
+
+            # A 0-row fetch must surface as a report warning (it often signals a
+            # mis-scoped filter, wrong time range, or missing DBC.QryLogV grants),
+            # not silently pass at info level.
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            # No raw rows were fetched, so the message must point at scope/grants,
+            # not at reconstruction.
+            assert "returned 0 rows" in empty_warnings[0].message
+            assert mock_aggregator.add.call_count == 0
+
+    def test_non_empty_lineage_entries_emit_no_empty_warning(self):
+        """A normal fetch that yields entries must NOT emit the empty-result warning."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                mock_entry = MagicMock()
+                mock_entry.query_id = "q1"
+                mock_entry.query_text = "SELECT 1"
+                mock_entry.session_id = "s1"
+                mock_entry.timestamp = "2024-01-01 10:00:00"
+                mock_entry.user = "test_user"
+                mock_entry.default_database = "test_db"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            warning_titles = [w.title for w in source.report.warnings]
+            assert "No lineage entries found" not in warning_titles
+            assert mock_aggregator.add.call_count == 1
+
+    def test_rows_fetched_but_zero_reconstructed_warns_with_row_count(self):
+        """Rows that arrive but reconstruct to 0 queries must NOT blame scope/grants.
+
+        Entries without a usable query_id are counted in
+        num_audit_query_entries_processed but never yielded by reconstruction, so
+        queries_processed stays 0. The warning must reflect "fetched N rows but
+        reconstructed 0" rather than the misleading "returned 0 rows".
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+            source.aggregator = mock_aggregator
+
+            def mock_generator():
+                # query_id=None means reconstruction can never yield this row, but it
+                # is still counted as a fetched audit-log row.
+                mock_entry = MagicMock()
+                mock_entry.query_id = None
+                mock_entry.query_text = "SELECT 1"
+                yield mock_entry
+
+            with patch.object(
+                source, "_fetch_lineage_entries_chunked", return_value=mock_generator()
+            ):
+                mock_aggregator.gen_metadata.return_value = []
+                source._populate_aggregator_from_audit_logs()
+
+            empty_warnings = [
+                w
+                for w in source.report.warnings
+                if w.title == "No lineage entries found"
+            ]
+            assert len(empty_warnings) == 1
+            assert "reconstructed 0" in empty_warnings[0].message
+            assert "returned 0 rows" not in empty_warnings[0].message
+            assert source.report.num_audit_query_entries_processed == 1
+            assert mock_aggregator.add.call_count == 0
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
@@ -1604,6 +1788,87 @@ class TestStreamingQueryReconstruction:
             # Verify metadata preservation (should use metadata from first row of each query)
             assert reconstructed_queries[0].timestamp == "2024-01-01 10:00:00"
             assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+
+    def test_reconstruct_queries_streaming_truncates_oversized_query(self):
+        """A single query_id spanning more than MAX_QUERY_PARTS rows is truncated
+        rather than buffered without bound."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            # One malformed query_id with more rows than the cap allows.
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            # Only the first MAX_QUERY_PARTS single-char parts are kept.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 1
+
+    def test_reconstruct_queries_streaming_at_limit_not_truncated(self):
+        """A query with exactly MAX_QUERY_PARTS rows is kept whole (no false positive)."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + 1)
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 1
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert source.report.num_queries_truncated == 0
+
+    def test_reconstruct_queries_streaming_truncation_does_not_leak_into_next_query(
+        self,
+    ):
+        """A truncated query must not corrupt the query that follows it: the per-query
+        buffer and the truncated flag are reset on the next query_id, so a normal query
+        after an oversized one reconstructs fully and is not counted as truncated."""
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            over_by = 50
+            entries = [
+                self._create_mock_entry("Q1", "x", row_no, "2024-01-01 10:00:00")
+                for row_no in range(1, MAX_QUERY_PARTS + over_by + 1)
+            ]
+            # A normal multi-row query following the oversized one.
+            entries += [
+                self._create_mock_entry("Q2", "SELECT a ", 1, "2024-01-01 10:01:00"),
+                self._create_mock_entry("Q2", "FROM t", 2, "2024-01-01 10:01:00"),
+            ]
+
+            reconstructed_queries = list(source._reconstruct_queries_streaming(entries))
+
+            assert len(reconstructed_queries) == 2
+            # Q1 truncated to the cap; Q2 reconstructed whole with its own metadata.
+            assert len(reconstructed_queries[0].query) == MAX_QUERY_PARTS
+            assert reconstructed_queries[1].query == "SELECT a FROM t"
+            assert reconstructed_queries[1].timestamp == "2024-01-01 10:01:00"
+            # Only Q1 counts as truncated - the flag reset for Q2.
+            assert source.report.num_queries_truncated == 1
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
@@ -2348,7 +2613,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2383,7 +2647,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2417,7 +2680,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2541,7 +2803,6 @@ class TestDbcColumnsForViews:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
     def test_uses_dbc_columns_when_all_types_present(self) -> None:
@@ -2805,8 +3066,14 @@ class TestCacheCaseInsensitivity:
             create_timestamp=datetime(2024, 1, 1),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text="SELECT 1" if object_type == "View" else None,
         )
+
+    def test_view_definition_key_lowercases_view_name(self) -> None:
+        """Guards the documented invariant: both schema AND view name are folded to
+        lower case so writes (keyed from Teradata's stored case) and reads (keyed from
+        config/query case) always match. Varying only the view name here catches a
+        regression that stopped lowercasing it — the other tests keep the name fixed."""
+        assert _view_definition_key("MY_DB", "My_View") == "my_db.my_view"
 
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
@@ -2822,6 +3089,94 @@ class TestCacheCaseInsensitivity:
 
         assert "my_db" in source._tables_cache
         assert "MY_DB" not in source._tables_cache
+
+    def test_view_definition_offloaded_to_file_backed_dict(self) -> None:
+        """View SQL text is spilled to the disk-backed dict (keyed by lowercased
+        schema), not held on the in-memory TeradataTable."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        # The view SQL text lives only in the disk-backed store now, not on the
+        # in-memory TeradataTable.
+        assert (
+            source._view_definitions[_view_definition_key("MY_DB", "MY_VIEW")]
+            == "SELECT * FROM MY_DB.MY_TABLE"
+        )
+
+    def test_table_does_not_populate_view_definitions(self) -> None:
+        """Only views contribute SQL text; tables must not create entries."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", object_type="Table")]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert _view_definition_key("MY_DB", "MY_TABLE") not in source._view_definitions
+
+    def test_view_definition_write_failure_reports_warning(self) -> None:
+        """A disk-backed store write failure must surface as a report warning and
+        not abort the (single-threaded) caching phase for the remaining objects."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        failing_store = MagicMock()
+        failing_store.__setitem__.side_effect = RuntimeError("disk full")
+        source._view_definitions = failing_store
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to store view definition" in warning_titles
+
+    def test_view_definition_read_failure_reports_warning(self) -> None:
+        """A disk-backed store read failure must surface as a report warning and
+        omit the view definition rather than crash the view-processing thread."""
+        source = _create_source_patched()
+        entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
+        source._tables_cache["my_db"] = [entry]
+
+        failing_store = MagicMock()
+        failing_store.get.side_effect = RuntimeError("sqlite locked")
+        source._view_definitions = failing_store
+
+        _, properties, _ = source.cached_get_table_properties(
+            MagicMock(), "my_db", "MY_TABLE"
+        )
+
+        assert "view_definition" not in properties
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to read view definition" in warning_titles
 
     def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
         self,
@@ -2867,6 +3222,9 @@ class TestCacheCaseInsensitivity:
         entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
         entry.description = "promo mart"
         source._tables_cache["my_db"] = [entry]
+        # View SQL text now lives in the disk-backed dict, keyed with a lowercased
+        # schema; the lookup must hit it even when the query uses a different case.
+        source._view_definitions[_view_definition_key("MY_DB", "MY_TABLE")] = "SELECT 1"
 
         description, properties, _ = source.cached_get_table_properties(
             MagicMock(), "my_db", "MY_TABLE"
@@ -2894,25 +3252,6 @@ class TestCacheCaseInsensitivity:
 
         # Reaches column extraction only if the cache lookup hits.
         mock_dialect.get_schema_columns.assert_called_once()
-
-    def test_optimized_get_view_definition_lowercases_schema_lookup(self) -> None:
-        mock_dialect = MagicMock()
-        mock_dialect.default_schema_name = "MY_DB"
-        mock_dialect.normalize_name = lambda s: s
-
-        tables_cache: Dict[str, List[TeradataTable]] = {
-            "my_db": [self._make_table("MY_DB", "MY_VIEW", object_type="View")]
-        }
-
-        view_def = optimized_get_view_definition(
-            mock_dialect,
-            MagicMock(),
-            "MY_VIEW",
-            "MY_DB",
-            tables_cache=tables_cache,
-        )
-
-        assert view_def == "SELECT 1"
 
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""
@@ -3007,7 +3346,6 @@ class TestConfiguredDatabasesValidation:
                 create_timestamp=datetime(2024, 1, 1),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
         ]
 
@@ -5601,7 +5939,6 @@ class TestCharPaddingFixes:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
