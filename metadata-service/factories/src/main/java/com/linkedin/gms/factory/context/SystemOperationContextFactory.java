@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SystemGraphRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
@@ -24,6 +25,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
+import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +34,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 @Configuration
 public class SystemOperationContextFactory {
@@ -60,7 +63,8 @@ public class SystemOperationContextFactory {
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
-      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
+      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -100,6 +104,7 @@ public class SystemOperationContextFactory {
                 .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .entityGraphCache(entityGraphCache)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
@@ -141,7 +146,8 @@ public class SystemOperationContextFactory {
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
-      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver) {
+      @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -174,6 +180,7 @@ public class SystemOperationContextFactory {
                 .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .entityGraphCache(entityGraphCache)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
@@ -203,9 +210,11 @@ public class SystemOperationContextFactory {
   @Bean
   @Nonnull
   protected OperationContextConfig operationContextConfig(
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      @Autowired(required = false) SessionContextEnricher sessionContextEnricher) {
     return OperationContextConfig.builder()
         .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
+        .sessionContextEnricher(sessionContextEnricher)
         .build();
   }
 }

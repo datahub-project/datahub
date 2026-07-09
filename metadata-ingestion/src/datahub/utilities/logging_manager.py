@@ -32,7 +32,6 @@ BASE_LOGGING_FORMAT = (
 DATAHUB_PACKAGES = [
     "datahub",
     "datahub_provider",
-    "datahub_classify",
     "datahub_actions",
     "acryl_datahub_cloud",
 ]

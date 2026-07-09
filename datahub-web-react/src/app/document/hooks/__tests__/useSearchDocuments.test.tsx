@@ -4,10 +4,34 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
 import { SearchDocumentsInput, useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
 import { DocumentSourceType, DocumentState } from '@types';
+
+const TEST_VIEW_URN = 'urn:li:dataHubView:test';
+
+/** Wrapper that provides a selected View in user context, wrapped around Apollo mocks. */
+function withSelectedView(viewUrn: string | undefined, mocks: any[]) {
+    return ({ children }: { children: React.ReactNode }) => (
+        <UserContext.Provider
+            value={{
+                loaded: true,
+                urn: 'urn:li:corpuser:test',
+                localState: { selectedViewUrn: viewUrn },
+                state: DEFAULT_STATE,
+                updateLocalState: () => null,
+                updateState: () => null,
+                refetchUser: () => null,
+            }}
+        >
+            <MockedProvider mocks={mocks} addTypename={false}>
+                {children}
+            </MockedProvider>
+        </UserContext.Provider>
+    );
+}
 
 describe('useSearchDocuments', () => {
     const mockDocuments = [
@@ -46,6 +70,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -100,6 +125,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -151,6 +177,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -201,6 +228,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: true,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -251,6 +279,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: ['guide', 'tutorial'],
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -301,6 +330,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -350,6 +380,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: undefined,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -401,6 +432,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -452,6 +484,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: true,
                     },
@@ -501,6 +534,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -551,6 +585,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -601,6 +636,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -644,6 +680,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -694,6 +731,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'EXTERNAL',
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -723,5 +761,84 @@ describe('useSearchDocuments', () => {
 
         expect(result.current.documents).toEqual(mockDocuments);
         expect(result.current.total).toBe(2);
+    });
+
+    it('should scope search to the active View by default', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'NATIVE',
+                            viewUrn: TEST_VIEW_URN,
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: { data: { searchDocuments: { documents: mockDocuments, total: 2 } } },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: withSelectedView(TEST_VIEW_URN, mocks),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
+    });
+
+    it('should bypass the active View when applyView is false', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
+            applyView: false,
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'NATIVE',
+                            viewUrn: undefined,
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: { data: { searchDocuments: { documents: mockDocuments, total: 2 } } },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: withSelectedView(TEST_VIEW_URN, mocks),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
     });
 });

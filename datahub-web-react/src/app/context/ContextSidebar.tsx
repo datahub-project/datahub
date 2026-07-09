@@ -6,17 +6,20 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
+import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
+import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentFilters } from '@app/document/DocumentFiltersContext';
 import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import {
     DEFAULT_STATUS_FILTER,
@@ -24,6 +27,7 @@ import {
     getAvailablePlatforms,
     getDistinctCreators,
 } from '@app/document/utils/documentTreeFilters';
+import { decodeUrn } from '@app/entityV2/shared/utils';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -177,7 +181,11 @@ const TreeContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px;
+    /* Trimmed right padding: scrollbar-gutter already reserves space on the right,
+       so the rows/labels can sit closer to the edge without shifting. */
+    padding: 8px 2px 8px 8px;
+    /* Reserve the scrollbar's space so rows don't shift left when it appears. */
+    scrollbar-gutter: stable;
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -185,20 +193,20 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: transparent;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} ${(props) => props.theme.colors.scrollbarTrack};
 `;
 
 type Props = {
@@ -230,8 +238,22 @@ export default function ContextSidebar({
     } = useDocumentFilters();
     const { createDocument } = useCreateDocumentTreeMutation();
     const { expandNode, getNode, nodes } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
+
+    const importParentDocumentUrn = useMemo(() => {
+        if (!isEntityProfile) {
+            return undefined;
+        }
+        const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
+        const match = matchPath<{ urn: string }>(location.pathname, { path: documentPath });
+        if (!match?.params.urn) {
+            return undefined;
+        }
+        return decodeUrn(match.params.urn);
+    }, [entityRegistry, isEntityProfile, location.pathname]);
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
 
@@ -358,6 +380,8 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
+    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
+
     return (
         <SidebarContainer
             $width={width}
@@ -369,6 +393,12 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
                 <HeaderButtons>
+                    {!isCollapsed && canCreateDocuments && (
+                        <ImportDocumentsButton
+                            onSuccess={handleImportSuccess}
+                            parentDocumentUrn={importParentDocumentUrn}
+                        />
+                    )}
                     {!isCollapsed && (
                         <Tooltip
                             title={

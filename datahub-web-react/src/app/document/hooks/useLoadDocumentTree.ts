@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { documentToTreeNode, sortDocumentsByCreationTime } from '@app/document/utils/documentUtils';
 
@@ -20,6 +21,13 @@ export const DOCUMENT_PAGE_SIZE = 25;
 export function useLoadDocumentTree() {
     const { initializeTree, appendRootNodes, setNodeChildren, appendNodeChildren, getRootNodes } = useDocumentTree();
     const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
+
+    // Scope the document tree (overview page + sidebar) to the active View, mirroring
+    // how the rest of search respects the selected View. The picker popovers rely on
+    // useSearchDocuments' applyView opt-out for their search box, but the shared tree
+    // itself is always View-scoped.
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn ?? undefined;
 
     // True until the first page of root documents finishes loading.
     // ContextDocumentsPage depends on this to show a spinner before redirecting.
@@ -53,6 +61,7 @@ export function useLoadDocumentTree() {
                             parentDocuments: urns,
                             start: 0,
                             count: urns.length * 100,
+                            viewUrn,
                         },
                     },
                     fetchPolicy: 'network-only',
@@ -78,7 +87,7 @@ export function useLoadDocumentTree() {
                 return {};
             }
         },
-        [searchDocumentsQuery],
+        [searchDocumentsQuery, viewUrn],
     );
 
     // fetchData for useInfiniteScroll — fetches root documents and pushes into tree context
@@ -94,6 +103,7 @@ export function useLoadDocumentTree() {
                             // Source filtering is applied client-side per platform via the sidebar filters.
                             start,
                             count: DOCUMENT_PAGE_SIZE,
+                            viewUrn,
                         },
                     },
                     fetchPolicy: start === 0 ? 'cache-and-network' : 'network-only',
@@ -123,7 +133,7 @@ export function useLoadDocumentTree() {
                 if (start === 0) setIsInitializing(false);
             }
         },
-        [searchDocumentsQuery, checkForChildren, initializeTree, appendRootNodes, getRootNodes],
+        [searchDocumentsQuery, checkForChildren, initializeTree, appendRootNodes, getRootNodes, viewUrn],
     );
 
     const {
@@ -144,9 +154,12 @@ export function useLoadDocumentTree() {
                     variables: {
                         input: {
                             query: '*',
+                            // rootOnly avoids returning every document when loading the tree root.
                             parentDocuments: parentUrn ? [parentUrn] : undefined,
+                            rootOnly: parentUrn === null ? true : undefined,
                             start: 0,
                             count: DOCUMENT_PAGE_SIZE,
+                            viewUrn,
                         },
                     },
                     fetchPolicy: 'network-only',
@@ -179,7 +192,7 @@ export function useLoadDocumentTree() {
                 return [];
             }
         },
-        [searchDocumentsQuery, checkForChildren, setNodeChildren],
+        [searchDocumentsQuery, checkForChildren, setNodeChildren, viewUrn],
     );
 
     // Load more children for a parent (subsequent pages)
@@ -196,6 +209,7 @@ export function useLoadDocumentTree() {
                             parentDocuments: [parentUrn],
                             start: state.offset,
                             count: DOCUMENT_PAGE_SIZE,
+                            viewUrn,
                         },
                     },
                     fetchPolicy: 'network-only',
@@ -218,7 +232,7 @@ export function useLoadDocumentTree() {
                 console.error('Failed to load more children:', error);
             }
         },
-        [searchDocumentsQuery, checkForChildren, appendNodeChildren],
+        [searchDocumentsQuery, checkForChildren, appendNodeChildren, viewUrn],
     );
 
     return {

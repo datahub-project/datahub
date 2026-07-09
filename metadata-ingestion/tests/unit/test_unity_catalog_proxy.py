@@ -1754,7 +1754,11 @@ class TestUnityCatalogProxyUsageSystemTables:
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 1, 31)
 
-        list(mock_proxy.get_query_history_via_system_tables(start_time, end_time))
+        list(
+            mock_proxy.get_query_history_via_system_tables(
+                start_time, end_time, include_operational_stats=True
+            )
+        )
 
         call_args = mock_execute.call_args
         query = call_args[0][0]
@@ -1766,6 +1770,28 @@ class TestUnityCatalogProxyUsageSystemTables:
         assert "'MERGE'" in query
         assert "'CREATE'" in query
         assert "'OTHER'" in query
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
+    )
+    def test_get_query_history_via_system_tables_select_only_when_ops_disabled(
+        self, mock_execute, mock_proxy
+    ):
+        """When operational stats are off, only SELECT statements are fetched."""
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [])  # type: ignore[var-annotated]
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+
+        list(
+            mock_proxy.get_query_history_via_system_tables(
+                start_time, end_time, include_operational_stats=False
+            )
+        )
+
+        query = mock_execute.call_args[0][0]
+        assert "'SELECT'" in query
+        assert "'INSERT'" not in query
+        assert "'UPDATE'" not in query
 
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
@@ -1838,7 +1864,7 @@ class TestUnityCatalogProxyUsageSystemTables:
     ):
         """Test error handling when individual row parsing fails.
 
-        A bad row must record a "Failed to parse query from system tables" warning but must NOT abort
+        A bad row must record a "Failed to parse queries from system tables" warning but must NOT abort
         iteration — good rows that follow must still be yielded.
         """
         from types import SimpleNamespace
@@ -1868,6 +1894,8 @@ class TestUnityCatalogProxyUsageSystemTables:
             executed_as="user@example.com",
             executed_by_user_id=123,
             executed_as_user_id=123,
+            source_table_full_name=None,
+            target_table_full_name=None,
         )
         mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row, good_row])
 
@@ -1880,9 +1908,9 @@ class TestUnityCatalogProxyUsageSystemTables:
         # The bad row must be skipped and a warning recorded.
         warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
         assert any(
-            "Failed to parse query from system tables" in t for t in warning_titles
+            "Failed to parse queries from system tables" in t for t in warning_titles
         ), (
-            f"expected 'Failed to parse query from system tables' warning, got: {warning_titles}"
+            f"expected 'Failed to parse queries from system tables' warning, got: {warning_titles}"
         )
         # The good row must still be yielded — iteration must continue past the bad row.
         assert len(result) == 1, f"expected 1 good query, got {len(result)}: {result}"
@@ -1903,7 +1931,7 @@ class TestUnityCatalogProxyUsageSystemTables:
 
         call_args = mock_execute.call_args
         params = call_args[0][1]
-        assert params == (start_time, end_time)
+        assert params == (start_time, end_time, start_time, end_time)
 
 
 class TestQueryFilterWithStatementTypesSerialisation:

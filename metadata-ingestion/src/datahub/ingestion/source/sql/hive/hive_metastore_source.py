@@ -61,7 +61,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
-@capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",

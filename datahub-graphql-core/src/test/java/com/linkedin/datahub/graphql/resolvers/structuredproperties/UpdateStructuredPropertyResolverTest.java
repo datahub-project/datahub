@@ -43,6 +43,7 @@ public class UpdateStructuredPropertyResolverTest {
           null,
           null,
           null,
+          null,
           null);
 
   @Test
@@ -125,6 +126,7 @@ public class UpdateStructuredPropertyResolverTest {
             null,
             null,
             null,
+            null,
             settingsInput);
 
     // Execute resolver
@@ -156,6 +158,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,
@@ -194,6 +197,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,
@@ -243,6 +247,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,

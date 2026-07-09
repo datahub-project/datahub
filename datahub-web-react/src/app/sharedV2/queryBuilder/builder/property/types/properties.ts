@@ -63,12 +63,42 @@ const commonProps: Property[] = [
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
             options: [
-                { id: 'dataset', displayName: 'Dataset' },
-                { id: 'dashboard', displayName: 'Dashboard' },
-                { id: 'chart', displayName: 'Chart' },
-                { id: 'dataJob', displayName: 'Data Job (Task)' },
-                { id: 'dataFlow', displayName: 'Data Flow (Pipeline)' },
-                { id: 'container', displayName: 'Container' },
+                {
+                    id: 'dataset',
+                    get displayName() {
+                        return i18next.t('entity.types:dataset.name');
+                    },
+                },
+                {
+                    id: 'dashboard',
+                    get displayName() {
+                        return i18next.t('entity.types:dashboard.name');
+                    },
+                },
+                {
+                    id: 'chart',
+                    get displayName() {
+                        return i18next.t('entity.types:chart.name');
+                    },
+                },
+                {
+                    id: 'dataJob',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.dataJob');
+                    },
+                },
+                {
+                    id: 'dataFlow',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.dataFlow');
+                    },
+                },
+                {
+                    id: 'container',
+                    get displayName() {
+                        return i18next.t('entity.types:container.name');
+                    },
+                },
             ],
         },
     },

@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import sqlglot
 import sqlglot.expressions
@@ -45,7 +45,10 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SNOWFLAKE_MAX_QUERY_BYTES,
+    SnowflakeQuery,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SCHEMA_PARALLELISM,
@@ -151,7 +154,7 @@ logger = logging.getLogger(__name__)
 
 # https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
 # TODO: Move to the standardized types in sql_types.py
-SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
+SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
     "DATE": DateType,
     "BIGINT": NumberType,
     "BINARY": BytesType,
@@ -1017,16 +1020,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 self.report.report_entity_scanned(table_identifier)
 
+                # Always apply the canonical pattern filter client-side. With
+                # pushdown the server has already narrowed by allow + best-effort
+                # deny, so this is the mandatory backstop that catches any deny
+                # pattern the server query couldn't fit (allow is then a no-op).
+                # Without pushdown it is the only filter.
                 if self.config.push_down_metadata_patterns:
+                    allowed = self._is_table_allowed(db_name, schema_name, table.name)
+                else:
+                    allowed = self.filters.filter_config.table_pattern.allowed(
+                        table_identifier
+                    )
+
+                if allowed:
                     tables.append(table)
                 else:
-                    # Filter in Python when pushdown is disabled
-                    if not self.filters.filter_config.table_pattern.allowed(
-                        table_identifier
-                    ):
-                        self.report.report_dropped(table_identifier)
-                    else:
-                        tables.append(table)
+                    self.report.report_dropped(table_identifier)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -2609,6 +2618,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             table_filter = SnowflakeQuery.build_table_filter(
                 self.filters.filter_config.table_pattern
             )
+            # The composed filter must fit in a single query (we don't page it —
+            # paging would re-scan the whole schema's metadata per page). If the
+            # pattern list is so large the filter alone exceeds the per-query byte
+            # limit, drop the server-side filter and fall back to fetching every
+            # table and filtering client-side (the mandatory client-side pass in
+            # fetch_tables_for_schema already does this). Correct, just slower —
+            # and at that scale (a pattern list large enough to blow the query
+            # limit) client-side is typically faster than pushdown anyway, since
+            # information_schema cost is dominated by the metadata scan, not by how
+            # many rows the filter returns.
+            if len(table_filter.encode()) > SNOWFLAKE_MAX_QUERY_BYTES:
+                logger.warning(
+                    "Composed table_pattern filter for %s is %d bytes, over "
+                    "Snowflake's ~%d-byte query limit; falling back to fetching all "
+                    "tables and filtering client-side (slower). Narrow the "
+                    "schema_pattern or table_pattern to keep pushdown server-side.",
+                    db_name,
+                    len(table_filter.encode()),
+                    SNOWFLAKE_MAX_QUERY_BYTES,
+                )
+                table_filter = ""
 
         tables = self.data_dictionary.get_tables_for_database(
             db_name,

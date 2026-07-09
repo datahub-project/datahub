@@ -662,3 +662,64 @@ def test_window_allows_365_days_when_warehouse_only_in_profiling():
     )
     assert cfg.start_time == start
     assert cfg.warehouse_id == "wh1"
+
+
+def test_system_table_flags_warn_when_usage_not_system_tables(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    # API usage path → the system-table-only flags are no-ops and must warn.
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="API",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected a no-op flag warning"
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_system_table_flags_no_warning_on_system_tables_path(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings == []
+
+
+def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            include_column_usage_stats=True,
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected override warning when column usage stats is enabled"
+    assert "include_column_usage_stats" in warnings[0]
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]

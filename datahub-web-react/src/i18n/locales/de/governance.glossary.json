@@ -13,5 +13,9 @@
     "page.subtitle": "Klassifiziere deine Daten-Assets und Spalten mithilfe von Datenwörterbüchern",
     "page.title": "Glossar",
     "section.glossaryTerms": "Begriffe",
-    "section.termGroups": "Begriffsgruppen"
+    "section.termGroups": "Begriffsgruppen",
+    "sidebar.collapse": "Glossar einklappen",
+    "sidebar.expand": "Glossar ausklappen",
+    "sidebar.home": "Glossar-Startseite",
+    "sidebar.section.allTerms": "Alle Begriffe"
 }

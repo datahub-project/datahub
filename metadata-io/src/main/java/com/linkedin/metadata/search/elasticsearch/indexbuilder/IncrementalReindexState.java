@@ -1,11 +1,15 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -19,6 +23,7 @@ import javax.annotation.Nullable;
 public final class IncrementalReindexState {
 
   public static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
+  public static final String CATCH_UP_UPGRADE_ID_PREFIX = "IncrementalReindexCatchUp";
 
   private IncrementalReindexState() {}
 
@@ -54,12 +59,26 @@ public final class IncrementalReindexState {
   /** ES task ID for the _reindex task submitted during Phase 1. */
   public static final String TASK_ID = "taskId";
 
+  /** Per-index Phase 2 catch-up completion status, stored on the catch-up upgrade result. */
+  public static final String CATCH_UP_STATUS = "catchUpStatus";
+
   public enum Status {
     PENDING,
     IN_PROGRESS,
     COMPLETED,
     FAILED,
     DUAL_WRITE_DISABLED
+  }
+
+  public enum CatchUpStatus {
+    PENDING,
+    COMPLETED,
+    SKIPPED,
+    FAILED;
+
+    public boolean isTerminal() {
+      return this == COMPLETED || this == SKIPPED;
+    }
   }
 
   /** Build a prefixed key for a given index. */
@@ -82,6 +101,119 @@ public final class IncrementalReindexState {
   public static Optional<Status> getStatus(
       @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
     return get(resultMap, indexName, STATUS).map(Status::valueOf);
+  }
+
+  /** Read the Phase 2 catch-up status for a given index. */
+  public static Optional<CatchUpStatus> getCatchUpStatus(
+      @Nullable Map<String, String> resultMap, @Nonnull String indexName) {
+    return get(resultMap, indexName, CATCH_UP_STATUS).map(CatchUpStatus::valueOf);
+  }
+
+  /** Write Phase 2 catch-up status for an index into the result map. */
+  public static Map<String, String> setCatchUpStatus(
+      @Nullable Map<String, String> existing,
+      @Nonnull String indexName,
+      @Nonnull CatchUpStatus status) {
+    Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
+    result.put(key(indexName, CATCH_UP_STATUS), status.name());
+    return result;
+  }
+
+  /**
+   * Returns physical index names that must not be deleted by orphan cleanup while incremental
+   * reindex catch-up or rollback dual-write still depends on them.
+   *
+   * <p>Timeseries indices are released once catch-up reaches a terminal status. Entity search
+   * indices with {@code rollbackDualWriteEnabled=true} stay protected until Phase 1 status is
+   * {@link Status#DUAL_WRITE_DISABLED}, because the MAE consumer may still dual-write to the old
+   * backing index for rollback safety after catch-up completes.
+   */
+  @Nonnull
+  public static Set<String> getProtectedPhysicalIndicesForCleanup(
+      @Nullable Map<String, String> phase1State,
+      @Nullable Map<String, String> catchUpState,
+      @Nullable IndexConvention indexConvention,
+      boolean rollbackDualWriteEnabled) {
+    if (phase1State == null || phase1State.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    Set<String> protectedIndices = new HashSet<>();
+    for (Map.Entry<String, Map<String, String>> entry : getAllIndexStates(phase1State).entrySet()) {
+      String indexName = entry.getKey();
+      Map<String, String> indexState = entry.getValue();
+
+      String oldBackingIndexName = indexState.get(OLD_BACKING_INDEX_NAME);
+      if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+        continue;
+      }
+
+      Optional<Status> phase1Status = getStatus(phase1State, indexName);
+      if (phase1Status.isEmpty()) {
+        continue;
+      }
+      if (phase1Status.get() == Status.DUAL_WRITE_DISABLED) {
+        continue;
+      }
+      if (phase1Status.get() != Status.COMPLETED && phase1Status.get() != Status.IN_PROGRESS) {
+        continue;
+      }
+
+      if (hasEmptyCatchUpWindow(indexState)) {
+        continue;
+      }
+
+      Optional<CatchUpStatus> catchUpStatus = getCatchUpStatus(catchUpState, indexName);
+      if (catchUpStatus.isPresent() && catchUpStatus.get().isTerminal()) {
+        if (!requiresRollbackDualWriteProtection(
+            indexName, indexConvention, rollbackDualWriteEnabled)) {
+          continue;
+        }
+      }
+
+      protectedIndices.add(oldBackingIndexName);
+    }
+
+    return protectedIndices;
+  }
+
+  /** Returns true when every index with a T0 gap has terminal catch-up status. */
+  public static boolean isCatchUpCompleteForAllIndices(
+      @Nullable Map<String, String> phase1State, @Nullable Map<String, String> catchUpState) {
+    if (phase1State == null || phase1State.isEmpty()) {
+      return true;
+    }
+    for (Map.Entry<String, Map<String, String>> entry : getAllIndexStates(phase1State).entrySet()) {
+      if (hasEmptyCatchUpWindow(entry.getValue())) {
+        continue;
+      }
+      Optional<CatchUpStatus> catchUpStatus = getCatchUpStatus(catchUpState, entry.getKey());
+      if (catchUpStatus.isEmpty() || !catchUpStatus.get().isTerminal()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean requiresRollbackDualWriteProtection(
+      @Nonnull String indexName,
+      @Nullable IndexConvention indexConvention,
+      boolean rollbackDualWriteEnabled) {
+    return rollbackDualWriteEnabled
+        && indexConvention != null
+        && indexConvention.getEntityName(indexName).isPresent();
+  }
+
+  private static boolean hasEmptyCatchUpWindow(@Nonnull Map<String, String> indexState) {
+    String reindexStartTimeStr = indexState.get(REINDEX_START_TIME);
+    if (reindexStartTimeStr == null) {
+      return true;
+    }
+    long reindexStartTime = Long.parseLong(reindexStartTimeStr);
+    String dualWriteStartTimeStr = indexState.get(DUAL_WRITE_START_TIME);
+    long dualWriteStartTime =
+        dualWriteStartTimeStr != null ? Long.parseLong(dualWriteStartTimeStr) : Long.MAX_VALUE;
+    return reindexStartTime >= dualWriteStartTime;
   }
 
   /** Write Phase 1 state for an index into the result map. */

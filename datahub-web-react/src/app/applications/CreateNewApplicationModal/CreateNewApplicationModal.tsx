@@ -114,6 +114,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
         {
             text: tc('create'),
             id: 'createNewApplicationButton',
+            buttonDataTestId: 'create-button-modal',
             color: 'primary',
             variant: 'filled',
             onClick: onOk,
